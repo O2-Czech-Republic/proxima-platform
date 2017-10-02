@@ -1,0 +1,46 @@
+
+syntax = "proto3";
+package cz.o2.proxima.example.event;
+option java_outer_classname = "Event";
+
+/* This is the main event describing users interactions with products. */
+message BaseEvent {
+
+  /* Type of interactions user can do with a product. */
+  enum Type {
+
+    UNKNOWN = 0;
+
+    VIEW = 1;
+
+    ADD_TO_CART = 2;
+
+    REMOVE_FROM_CART = 3;
+
+    BUY = 4;
+
+    COMMENT = 5;
+
+    LIKE = 6;
+
+    // and so on
+
+  }
+
+  /* username of user */
+  string userName = 1;
+
+  /* ID of product. */
+  uint32 productId = 2;
+
+  /* Type of action. */
+  Type type = 3;
+
+  /* Timestamp of the event. */
+  uint64 stamp = 5;
+
+  // additional type dependent payloads would come here 
+
+  
+}
+

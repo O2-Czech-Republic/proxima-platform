@@ -1,0 +1,30 @@
+/* Dummy scheme messages to validate in test cases. */
+syntax = "proto3";
+option java_package = "cz.o2.proxima.test";
+
+message Event {
+  string gatewayId = 1;
+  bytes payload = 2;
+}
+
+message Users {
+  repeated string user = 1;
+}
+
+message Armed {
+  bool armed = 1;
+}
+
+message Status {
+  bool connected = 1;
+  uint64 lastContact = 2;
+}
+
+message Device {
+  string type = 1;
+  bytes payload = 2;
+}
+
+message RuleConfig {
+  bytes payload = 1;
+}

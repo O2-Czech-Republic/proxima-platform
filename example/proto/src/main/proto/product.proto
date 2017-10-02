@@ -1,0 +1,38 @@
+
+syntax = "proto3";
+package cz.o2.proxima.example.product;
+option java_outer_classname = "Product";
+
+/* Price data for product. */
+message Price {
+
+  /* Price not including VAT */
+  float price = 1;
+
+  /* Price including VAT */
+  float priceVat = 2;
+
+}
+
+message Details {
+
+  /* Numerical ID of the product. */
+  uint32 id = 1;
+
+  /* Name of the product. */
+  string name = 2;
+
+  /* Description of the product. */
+  string description  = 3;
+
+}
+
+/* Link to associated category for product. */
+message Category {
+
+  /* This might probably be stored in some relational storage. This is not covered by this example. */
+  uint32 categoryId = 1;
+
+  // might include additional (denormalized) data
+  
+}

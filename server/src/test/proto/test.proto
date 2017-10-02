@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package cz.o2.proxima.server.test;
+
+/* This is message with just a single field. */
+message SimpleMessage {
+
+  uint32 first = 1;
+
+}
+
+/* This is message with two fields, wire compatible with SimpleMessage */
+message ExtendedMessage {
+
+  uint32 first = 1;
+  uint32 second = 2;
+
+}
+

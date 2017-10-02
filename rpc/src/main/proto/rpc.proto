@@ -1,0 +1,221 @@
+/* service definition */
+
+syntax = "proto3";
+option java_package = "cz.o2.proxima.proto.service";
+option go_package = "ingest";
+
+/** Ingest of a attribute update (or delete) */
+message Ingest {
+
+  /**
+   * UUID of the ingest. This UUID is returned in status to match
+   * the request with the response
+   **/
+  string uuid = 1;
+  /** Name of the entity */
+  string entity = 2;
+  /** Name of the attribute.
+    * Might be a wildcard specified (e.g. "prefix.*" if `delete` is true, meaning to delete the whole prefix.
+    */
+  string attribute = 3;
+  /** Key of the entity. */
+  string key = 4;
+  /** Value to update. */
+  bytes value = 5;
+  /** Timestamp of the ingest. If not provided, it will be replaced with actual ingest timestamp. */
+  uint64 stamp = 7;
+
+  /** 
+   * Whether to delete the attribute. You must explicitly set this
+   * if you want to delete an attribute.
+   **/
+  bool delete = 6;
+
+}
+
+/** Response to a message ingest */
+message Status {
+
+  /** The UUID of the original ingest request */
+  string uuid = 1;
+
+  /** Status code:
+   *   200 - OK - the request was processed and is ingested
+   *   400 - Bad request - the requset was missing some key parts
+   *   404 - Not found - the entity or attribute not found in the settings
+   *   412 - Not acceptable - the message has unknown format (unable to validate the scheme)
+   *   502 - Bad gateway - cannot connect to the target storage
+   *   504 - Gateway timeout - the request timeouted
+   **/
+  uint32 status = 2;
+
+  /**
+   * Textual information for the event. Might be missing for 200 OK.
+   * Contains error message if any error occurs
+   **/
+  string statusMessage = 3;
+
+}
+
+/** Bulk  of ingest requests. */
+message IngestBulk {
+
+  repeated Ingest ingest = 1;
+
+}
+
+/**
+ * Bulk of status responses for the client.
+ * The server is free to buffer the responses and send them by single
+ * ack message to lower the network pressure.
+ */
+message StatusBulk {
+
+  repeated Status status = 1;
+
+}
+
+/**
+ * Ingest service serves as data entry point. All data
+ * is sent to the system via this endpoint.
+ */
+service IngestService {
+
+  /**
+   * The main ingest method. Use this for high performance ingest requests.
+   * Note that the returned StatusBulk will not be necesarilly corresponding
+   * the the input bulk. So each IngestBulk can result in any number of
+   * StatusBulk messages. It is up to the application to handle the
+   * StatusBulk as a stream of individual Statuses.
+   */
+  rpc ingestBulk (stream IngestBulk) returns (stream StatusBulk);
+
+  /**
+   * Stream ingestion with single ingest requests. Use this method when
+   * sending small isolated and infrequent ingest requests.
+   */
+  rpc ingestSingle (stream Ingest) returns (stream Status);
+
+
+  /**
+   * Synchronous ingest request.
+   */
+  rpc ingest (Ingest) returns (Status);
+
+}
+
+/**
+ * Request to read data from the system.
+ */
+message GetRequest {
+
+  /** Name of the entity. */
+  string entity = 1;
+
+  /** Key of the entity. */
+  string key = 2;
+
+  /** Name of the attribute. */
+  string attribute = 3;
+
+}
+
+/**
+ * Response to the GetRequest.
+ */
+message GetResponse {
+
+  /**
+   * Status code. Can be
+   *  200 - OK
+   *  400 - Bad request - if missing some required field(s) in request
+   *  404 - Entity or attribute not found
+   *  500 - Internal server error
+   **/
+  uint32 status = 1;
+
+  /**
+   * The status message. Might be omitted if status is 200.
+   **/
+  string statusMessage = 2;
+
+  /**
+   * Value of the requested attribute.
+   **/
+  bytes value = 3;
+  
+}
+
+/**
+ * Request to list attributes of given enitty by known wildcard prefix.
+ */
+message ListRequest {
+
+  /** Name of the entity. */
+  string entity = 1;
+
+  /** Key of the entity. */
+  string key = 2;
+
+  /** Prefix of the wildcard attribute (i.e. the name without tha last `.*') */
+  string wildcardPrefix = 3;
+
+  /** Offset. If present, return attribute that follows the given one. */
+  string offset = 4;
+
+  /** Maximal number of items to return. If less or equal to zero than unlimited.*/
+  uint32 limit = 5;
+
+}
+
+/**
+ * Response to the ListRequest.
+ **/
+message ListResponse {
+
+  /** The attribute-value returned from the storage. */
+  message AttrValue {
+
+    /** The fully qualified attribute. */
+    string attribute = 1;
+
+    /** The value of the attribute. */
+    bytes value = 2;
+
+  }
+
+  /**
+   * Status code. Can be
+   *  200 - OK
+   *  400 - Bad request - if missing some required field(s) in the request
+   *  404 - The entity or the attribute prefix is not found
+   *  500 - Internal server error
+   **/
+  uint32 status = 1;
+
+  /**
+   * The status message. Might be omitted if status is 200.
+   **/
+  string statusMessage = 2;
+
+  /**
+   * All scanned values.
+   **/
+  repeated AttrValue value = 3;
+
+}
+
+/**
+ * Service that serves for retrieving data from the system
+ * (via stream or random access calls).
+ */
+service RetrieveService {
+
+  /** Synchronous request to fetch a value of a specified attribute. */
+  rpc get (GetRequest) returns (GetResponse);
+
+  /** Synchronous request to list attributes of a specified entitity by prefix. */
+  rpc listAttributes (ListRequest) returns (ListResponse);
+
+}
+

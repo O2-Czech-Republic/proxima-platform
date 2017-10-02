@@ -1,0 +1,290 @@
+<!--
+
+    Copyright 2017 O2 Czech Republic, a.s.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+     
+  <groupId>cz.o2.proxima</groupId>
+  <artifactId>platform-parent</artifactId>
+  <version>0.1-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <inceptionYear>2017</inceptionYear>
+     
+  <name>Proxima platform parent</name>
+
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <connection>scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git</connection>
+    <developerConnection>scm:git:git@github.com:O2-Czech-Republic/proxima-platform.git</developerConnection>
+    <url>https://github.com/O2-Czech-Republic/proxima-platform.git</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <properties>
+    <kafka.version>0.11.0.1</kafka.version>
+    <proto.version>3.0.2</proto.version>
+    <grpc.version>1.0.3</grpc.version>
+    <license-maven-plugin.version>3.0</license-maven-plugin.version>
+    <docker.registry>dev.proxima.o2.cz:5000</docker.registry>
+    <docker.nocache>false</docker.nocache>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <profiles>
+    <profile>
+      <id>release</id>
+      <properties>
+        <docker.nocache>true</docker.nocache>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <version>1.4.1</version>
+            <executions>
+              <execution>
+                <id>enforce-no-snapshots</id>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <configuration>
+                  <rules>
+                    <requireReleaseDeps>
+                      <message>No Snapshots Allowed!</message>
+                    </requireReleaseDeps>
+                  </rules>
+                  <fail>true</fail>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.6.0</version>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
+          <compilerArgs>
+            <arg>-Xlint:all</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.19.1</version>
+        <configuration>
+          <forkCount>4</forkCount>
+          <reuseForks>false</reuseForks>
+          <threadCount>1</threadCount>
+          <parallel>classes</parallel>
+          <useSystemClassLoader>true</useSystemClassLoader>
+          <useManifestOnlyJar>false</useManifestOnlyJar>
+          <argLine>-Xmx500m -XX:OnOutOfMemoryError="../kill.sh %p" -XX:+HeapDumpOnOutOfMemoryError</argLine>
+        </configuration>
+      </plugin>
+
+      <!-- static analysis of the code using FindBugs -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>findbugs-maven-plugin</artifactId>
+        <version>3.0.4</version>
+        <configuration>
+          <effort>max</effort>
+          <!-- check only for 'troubling' bugs and worse -->
+          <maxRank>14</maxRank>
+          <xmlOutput>false</xmlOutput>
+          <includeTests>true</includeTests>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>compile</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- help managing license headers -->
+      <plugin>
+        <groupId>com.mycila</groupId>
+        <artifactId>license-maven-plugin</artifactId>
+        <version>${license-maven-plugin.version}</version>
+        <configuration>
+          <header>license-header.txt</header>
+          <properties>
+            <owner>O2 Czech Republic, a.s.</owner>
+          </properties>
+          <excludes>
+            <exclude>**/.idea/**</exclude>
+            <exclude>**/README</exclude>
+            <exclude>**/LICENSE</exclude>
+            <exclude>src/test/resources/**</exclude>
+            <exclude>src/main/resources/**</exclude>
+          </excludes>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>com.mycila</groupId>
+            <artifactId>license-maven-plugin-git</artifactId>
+            <version>${license-maven-plugin.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+
+    </plugins>
+  </build>
+
+  <dependencyManagement> 
+    <dependencies>
+
+      <dependency>
+        <groupId>org.apache.kafka</groupId>
+        <artifactId>kafka_2.12</artifactId>
+        <version>${kafka.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.kafka</groupId>
+        <artifactId>kafka-streams</artifactId>
+        <version>${kafka.version}</version>
+      </dependency>    
+
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>1.16.16</version>
+        <scope>provided</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>${proto.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-all</artifactId>
+        <version>${grpc.version}</version>
+        <exclusions>
+          <!-- do not use protobuf-lite, use protobuf-java -->
+          <exclusion>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-lite</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>19.0</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>1.7.25</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.typesafe</groupId>
+        <artifactId>config</artifactId>
+        <version>1.3.1</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.reflections</groupId>
+        <artifactId>reflections</artifactId>
+        <version>0.9.10</version>
+      </dependency>
+
+      <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>4.12</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-all</artifactId>
+        <version>1.10.19</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>com.google.code.findbugs</groupId>
+        <artifactId>jsr305</artifactId>
+        <version>3.0.1</version>
+      </dependency>
+
+      <dependency>      
+        <groupId>com.google.code.findbugs</groupId>
+        <artifactId>annotations</artifactId>
+        <version>3.0.1u2</version>
+        <scope>provided</scope>
+      </dependency>
+
+    </dependencies>
+
+  </dependencyManagement>
+
+  <modules>
+    <module>cassandra</module>
+    <module>client</module>
+    <module>core</module>
+    <module>hdfs</module>
+    <module>http</module>
+    <module>kafka</module>
+    <module>maven</module>
+    <module>rpc</module>
+    <module>server</module>
+    <module>tools</module>
+    <module>example</module>
+  </modules>
+
+</project>
+

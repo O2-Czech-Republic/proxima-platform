@@ -1,0 +1,38 @@
+
+syntax = "proto3";
+
+package cz.o2.proxima.example.user;
+
+option java_outer_classname = "User";
+
+/* details of user */
+message Details {
+
+  /* Name of user */
+  string name = 1;
+
+  /* User's username */
+  string userName = 2;
+
+  /* User's email */
+  string email = 3;
+
+}
+
+/*
+ * Preferences of user.
+ * This is heavily dependent on the actual preference extraction algorithm used
+ * and is not covered by this example, so let's just suppose, that
+ * user's preferences can be expressed as a vector in some
+ * latent vector space.
+ */
+message Preferences {
+
+  /* Identifier of algorithm used for the latent vector extraction. */
+  string algorithm = 1;
+
+  /* The latent vector. */
+  repeated float vector = 2;
+
+}
+

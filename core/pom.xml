@@ -118,13 +118,13 @@
     <dependency>
       <groupId>cz.seznam.euphoria</groupId>
       <artifactId>euphoria-core</artifactId>
-      <version>0.7.0-SNAPSHOT</version>
+      <version>${euphoria.version}</version>
     </dependency>
    
     <dependency>
       <groupId>cz.seznam.euphoria</groupId>
       <artifactId>euphoria-inmem</artifactId>
-      <version>0.7.0-SNAPSHOT</version>
+      <version>${euphoria.version}</version>
       <scope>test</scope>
     </dependency>
    

@@ -22,7 +22,7 @@ import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.Window;
 import cz.seznam.euphoria.core.client.dataset.windowing.WindowedElement;
 import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
-import cz.seznam.euphoria.core.client.io.Context;
+import cz.seznam.euphoria.core.client.io.Collector;
 import cz.seznam.euphoria.core.client.operator.Distinct;
 import cz.seznam.euphoria.core.client.operator.Join;
 import cz.seznam.euphoria.core.client.operator.MapElements;
@@ -228,7 +228,7 @@ public class WindowedStream<T> extends Stream<T> {
     return descendant(() -> {
         return ReduceByKey.of(dataset.build())
           .keyBy(keyDehydrated::call)
-          .reduceBy((Iterable<T> in, Context<V> ctx) -> {
+          .reduceBy((Iterable<T> in, Collector<V> ctx) -> {
             List<V> ret = (List<V>) reducerDehydrated.call(
                 ctx.getWindow(), Lists.newArrayList(in));
             ret.forEach(elem -> ctx.collect(elem));
@@ -287,7 +287,7 @@ public class WindowedStream<T> extends Stream<T> {
     return descendant(() -> {
       Dataset<Pair<Object, Pair<T, RIGHT>>> joined = Join.of(dataset.build(), right.dataset.build())
           .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
-          .using((T l, RIGHT r, Context<Pair<T, RIGHT>> ctx) -> {
+          .using((T l, RIGHT r, Collector<Pair<T, RIGHT>> ctx) -> {
             ctx.collect(Pair.of(l, r));
           })
           .windowBy(new JoinedWindowing<>(this, right))
@@ -309,7 +309,7 @@ public class WindowedStream<T> extends Stream<T> {
     return descendant(() -> {
       Dataset<Pair<Object, Pair<T, RIGHT>>> joined = Join.of(dataset.build(), right.dataset.build())
           .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
-          .using((T l, RIGHT r, Context<Pair<T, RIGHT>> ctx) -> {
+          .using((T l, RIGHT r, Collector<Pair<T, RIGHT>> ctx) -> {
             ctx.collect(Pair.of(l, r));
           })
           .outer()

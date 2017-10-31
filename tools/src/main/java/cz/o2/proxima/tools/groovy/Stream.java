@@ -23,7 +23,7 @@ import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
 import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
 import cz.seznam.euphoria.core.client.flow.Flow;
-import cz.seznam.euphoria.core.client.io.Context;
+import cz.seznam.euphoria.core.client.io.Collector;
 import cz.seznam.euphoria.core.client.io.DataSink;
 import cz.seznam.euphoria.core.client.io.Writer;
 import cz.seznam.euphoria.core.client.operator.Filter;
@@ -86,7 +86,7 @@ public class Stream<T> {
   public Stream<Pair<Object, T>> withWindow() {
     return descendant(() ->
         FlatMap.of(dataset.build())
-            .using((T in, Context<Pair<Object, T>> ctx) -> {
+            .using((T in, Collector<Pair<Object, T>> ctx) -> {
               ctx.collect(Pair.of(ctx.getWindow(), in));
             })
             .output());

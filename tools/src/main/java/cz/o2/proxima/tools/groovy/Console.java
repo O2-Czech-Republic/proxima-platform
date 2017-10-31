@@ -42,7 +42,7 @@ import cz.o2.proxima.tools.io.TypedIngest;
 import cz.o2.proxima.util.Classpath;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
-import cz.seznam.euphoria.core.client.io.Context;
+import cz.seznam.euphoria.core.client.io.Collector;
 import cz.seznam.euphoria.core.client.operator.AssignEventTime;
 import cz.seznam.euphoria.core.client.operator.Filter;
 import cz.seznam.euphoria.core.client.operator.FlatMap;
@@ -272,7 +272,7 @@ public class Console {
             .output();
 
         input = FlatMap.of(reduced)
-            .using((Pair<Pair<String, String>, TypedIngest<Object>> e, Context<TypedIngest<Object>> ctx) -> {
+            .using((Pair<Pair<String, String>, TypedIngest<Object>> e, Collector<TypedIngest<Object>> ctx) -> {
               if (e.getSecond().getValue() != null) {
                 ctx.collect(e.getSecond());
               }

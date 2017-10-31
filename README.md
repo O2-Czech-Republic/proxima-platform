@@ -1,4 +1,7 @@
 # The Proxima platform
+[![Build Status](https://travis-ci.org/O2-Czech-Republic/proxima-platform.svg?branch=master)](https://travis-ci.org/O2-Czech-Republic/proxima-platform)
+
+
 The platform is a generic data ingestion, manipulation and retrieval framework.
 High level can be described by following scheme:
 

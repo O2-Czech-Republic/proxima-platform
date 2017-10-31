@@ -19,10 +19,10 @@ package cz.o2.proxima.server;
 /**
  * Various (mostly config related) constants.
  */
-class Constants {
+public class Constants {
 
   public static final String CFG_IGNORE_ERRORS = "ingest.ignore-errors";
   public static final String CFG_PORT = "ingest.server.port";
   public static final int DEFALT_PORT = 4001;
-  
+
 }

@@ -66,6 +66,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -93,7 +94,7 @@ public class IngestServer {
   /**
    * The ingestion service.
    **/
-  class IngestService extends IngestServiceImplBase {
+  public class IngestService extends IngestServiceImplBase {
 
     @Override
     public void ingest(
@@ -290,7 +291,7 @@ public class IngestServer {
 
   }
 
-  class RetrieveService extends RetrieveServiceImplBase {
+  public class RetrieveService extends RetrieveServiceImplBase {
 
     private class Status extends Exception {
       final int status;
@@ -420,22 +421,29 @@ public class IngestServer {
 
   }
 
+  @Getter
   final int minCores = 2;
+  @Getter
   final Executor executor = new ThreadPoolExecutor(
             minCores,
             10 * minCores,
             10, TimeUnit.SECONDS,
             new SynchronousQueue<>());
 
+  @Getter
   final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(5);
 
+  @Getter
   final Repository repo;
+  @Getter
   final Config cfg;
+  @Getter
   final boolean ignoreErrors;
 
+  @Getter
   RetryPolicy retryPolicy = new BackoffRetryPolicy(scheduler, 3, 1000L);
 
-  IngestServer(Config cfg) {
+  protected IngestServer(Config cfg) {
     this.cfg = cfg;
     repo = Repository.of(cfg);
     if (repo.isEmpty()) {
@@ -638,7 +646,7 @@ public class IngestServer {
   /**
    * Start all threads that will be consuming the commit log and write to the output.
    **/
-  void startConsumerThreads() throws InterruptedException {
+  protected void startConsumerThreads() throws InterruptedException {
 
     // index the repository
     Map<AttributeFamilyDescriptor<?>, Set<AttributeFamilyDescriptor<?>>> familyToCommitLog;

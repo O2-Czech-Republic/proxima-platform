@@ -1,12 +1,15 @@
 **/nbproject/
 **/target/
 *.swp
+*.iml
 dependency-reduced-pom.xml
 /ingest-core/target/
 /cassandra/nbproject/
 .project
 .settings
 .classpath
+.idea/
+server/log/
 /client/nbproject/
 /messaging/nbproject/
 pom.xml.versionsBackup

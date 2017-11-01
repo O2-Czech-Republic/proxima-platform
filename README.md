@@ -175,7 +175,7 @@ First, let's introduce some glossary:
        <plugin>
         <groupId>cz.o2.proxima</groupId>
         <artifactId>platform-compiler-maven-plugin</artifactId>
-        <version>2.0-SNAPSHOT</version>
+        <version>0.1-SNAPSHOT</version>
         <configuration>
          <outputDir>generated-sources/model</outputDir>
          <javaPackage>cz.o2.proxima.example.datamodel</javaPackage>

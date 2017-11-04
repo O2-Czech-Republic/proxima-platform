@@ -1,6 +1,9 @@
 **/nbproject/
 **/target/
+*.iml
 *.swp
+.idea/
+server/log/
 dependency-reduced-pom.xml
 /ingest-core/target/
 /cassandra/nbproject/

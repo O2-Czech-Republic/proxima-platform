@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -517,10 +518,8 @@ public class Repository {
         allAttributes.forEach(family::addAttribute);
         final AttributeFamilyDescriptor familyBuilt = family.build();
         allAttributes.forEach(a -> {
-          Set<AttributeFamilyDescriptor<?>> families = attributeToFamily.get(a);
-          if (families == null) {
-            attributeToFamily.put(a, families = new HashSet<>());
-          }
+          Set<AttributeFamilyDescriptor<?>> families = attributeToFamily
+              .computeIfAbsent(a, k -> new HashSet<>());
           if (!families.add(familyBuilt)) {
             throw new IllegalArgumentException(
                 "Attribute family named "
@@ -546,7 +545,8 @@ public class Repository {
             .filter(af -> !af.getAccess().isReadonly())
             .filter(af -> af.getWriter().isPresent())
             .findAny()
-            .map(af -> af.getWriter().orElseThrow(IllegalArgumentException::new));
+            .map(af -> af.getWriter()
+                .orElseThrow(() -> new NoSuchElementException("Writer can not be empty")));
 
         if (writer.isPresent()) {
           key.setWriter(writer.get().online());
@@ -674,6 +674,5 @@ public class Repository {
 
     };
   }
-
 
 }

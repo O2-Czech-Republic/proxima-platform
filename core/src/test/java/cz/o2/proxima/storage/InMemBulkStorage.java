@@ -19,6 +19,7 @@ package cz.o2.proxima.storage;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
@@ -78,7 +79,7 @@ public class InMemBulkStorage extends StorageDescriptor<BulkAttributeWriter> {
   private final NavigableMap<String, byte[]> data = new TreeMap<>();
 
   public InMemBulkStorage() {
-    super(Arrays.asList("inmem-bulk"));
+    super(Collections.singletonList("inmem-bulk"));
   }
 
   @Override

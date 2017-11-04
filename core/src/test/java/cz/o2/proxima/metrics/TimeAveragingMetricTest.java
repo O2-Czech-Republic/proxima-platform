@@ -25,7 +25,7 @@ import static org.junit.Assert.*;
  */
 public class TimeAveragingMetricTest {
 
-  TimeAveragingMetric metric;
+  private TimeAveragingMetric metric;
 
   @Before
   public void setUp() {
@@ -38,7 +38,9 @@ public class TimeAveragingMetricTest {
 
     // increment 2 times a second for 4 seconds
     for (int i = 0; i < 8; i++) {
-      while (System.nanoTime() - now < 500_000_000L * (i + 1)) { }
+      while (System.nanoTime() - now < 500_000_000L * (i + 1)) {
+        // no-op
+      }
       if (i < 1) {
         assertEquals("Error on round " + i, 0.0, metric.getValue(), 0.0001);
       }
@@ -50,7 +52,9 @@ public class TimeAveragingMetricTest {
     now = System.nanoTime();
 
     for (int i = 0; i < 4; i++) {
-      while (System.nanoTime() - now < 500_000_000L * (i + 1)) { }
+      while (System.nanoTime() - now < 500_000_000L * (i + 1)) {
+        // no-op
+      }
       if (i > 2) {
         // after one second, we should have zero again
         assertEquals(0.0, metric.getValue(), 1);

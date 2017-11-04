@@ -23,14 +23,14 @@ import cz.o2.proxima.storage.Partition;
  */
 public class BoundedPartition implements Partition {
 
-  final int id;
-  final long size;
+  private final int id;
+  private final long size;
 
   public BoundedPartition(int id) {
     this(id, -1L);
   }
 
-  public  BoundedPartition(int id, long size) {
+  public BoundedPartition(int id, long size) {
     this.size = size;
     this.id = id;
   }

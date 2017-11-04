@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 public interface RandomAccessReader extends Closeable {
 
   /** Type of listing (either listing entities of entity attributes). */
-  public static enum Listing {
+  enum Listing {
     ENTITY,
     ATTRIBUTE
   }
@@ -48,10 +48,9 @@ public interface RandomAccessReader extends Closeable {
    * based on the key stored in the map.
    * This is just a labeling interface.
    */
-  public interface Offset {
+  interface Offset {
     
   }
-
 
   /**
    * Construct {@code Offset} from string

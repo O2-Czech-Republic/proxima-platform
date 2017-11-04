@@ -29,9 +29,9 @@ import org.apache.hadoop.fs.Path;
 public class HdfsPartition extends BoundedPartition {
 
   @Getter
-  List<Path> files = new ArrayList<>();
+  private List<Path> files = new ArrayList<>();
 
-  long size = 0L;
+  private long size = 0L;
 
   public HdfsPartition(int id) {
     super(id);

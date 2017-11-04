@@ -35,7 +35,7 @@ package cz.o2.proxima.storage;
 public interface BulkAttributeWriter extends AttributeWriterBase {
 
   @Override
-  public default Type getType() {
+  default Type getType() {
     return Type.BULK;
   }
 

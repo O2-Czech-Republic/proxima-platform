@@ -40,7 +40,7 @@ public interface OnlineAttributeWriter extends AttributeWriterBase {
   }
 
   @Override
-  public default void rollback() {
+  default void rollback() {
     // each element is committed online, so there is no need for rollback
   }
 

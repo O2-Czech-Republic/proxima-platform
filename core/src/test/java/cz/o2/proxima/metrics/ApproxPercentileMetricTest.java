@@ -17,7 +17,6 @@
  */
 package cz.o2.proxima.metrics;
 
-import cz.o2.proxima.metrics.ApproxPercentileMetric;
 import java.util.Random;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -27,7 +26,7 @@ import static org.junit.Assert.*;
  */
 public class ApproxPercentileMetricTest {
 
-  Random random = new Random();
+  private Random random = new Random();
 
   @Test
   public void testMetric() {

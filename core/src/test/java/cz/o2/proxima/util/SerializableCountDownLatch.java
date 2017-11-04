@@ -26,7 +26,7 @@ import java.util.concurrent.CountDownLatch;
 public class SerializableCountDownLatch implements Serializable {
 
   // we don't actually serialize this
-  transient CountDownLatch latch;
+  private transient CountDownLatch latch;
 
   public SerializableCountDownLatch(int value) {
     this.latch = new CountDownLatch(value);

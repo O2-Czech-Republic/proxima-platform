@@ -185,7 +185,7 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
    */
   public Optional<W> getWriter() {
     if (!access.isReadonly()) {
-      return Optional.ofNullable(writer);
+      return Optional.of(Objects.requireNonNull(writer));
     }
     return Optional.empty();
   }
@@ -196,7 +196,7 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
    */
   public Optional<CommitLogReader> getCommitLogReader() {
     if (access.canReadCommitLog()) {
-      return Optional.of(commitLogReader);
+      return Optional.of(Objects.requireNonNull(commitLogReader));
     }
     return Optional.empty();
   }
@@ -206,7 +206,7 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
    */
   public Optional<BatchLogObservable> getBatchObservable() {
     if (access.canReadBatchSnapshot() || access.canReadBatchUpdates()) {
-      return Optional.of(batchObservable);
+      return Optional.of(Objects.requireNonNull(batchObservable));
     }
     return Optional.empty();
   }
@@ -218,7 +218,7 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
    */
   public Optional<RandomAccessReader> getRandomAccessReader() {
     if (access.canRandomRead()) {
-      return Optional.of(randomAccess);
+      return Optional.of(Objects.requireNonNull(randomAccess));
     }
     return Optional.empty();
   }
@@ -229,7 +229,7 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
    */
   public Optional<PartitionedView> getPartitionedView() {
     if (access.canCreatePartitionedView()) {
-      return Optional.of(partitionedView);
+      return Optional.of(Objects.requireNonNull(partitionedView));
     }
     return Optional.empty();
   }

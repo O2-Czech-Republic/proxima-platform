@@ -63,7 +63,6 @@ public class InMemStorage extends StorageDescriptor<InMemStorage.Writer> {
 
   }
 
-
   @FunctionalInterface
   private interface InMemIngestWriter extends Serializable {
     void write(StreamElement data);
@@ -111,7 +110,7 @@ public class InMemStorage extends StorageDescriptor<InMemStorage.Writer> {
 
     @Override
     public List<Partition> getPartitions() {
-      return Arrays.asList(() -> 0);
+      return Collections.singletonList(() -> 0);
     }
 
     @Override

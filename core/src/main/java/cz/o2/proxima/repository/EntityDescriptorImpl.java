@@ -45,7 +45,7 @@ public class EntityDescriptorImpl implements EntityDescriptor {
   /** Map of attributes by pattern. */
   private final Map<NamePattern, AttributeDescriptor> attributesByPattern;
 
-  protected EntityDescriptorImpl(String name, List<AttributeDescriptor> attrs) {
+  EntityDescriptorImpl(String name, List<AttributeDescriptor> attrs) {
     this.name = Objects.requireNonNull(name);
     this.attributes = Collections.unmodifiableList(Objects.requireNonNull(attrs));
 
@@ -54,7 +54,7 @@ public class EntityDescriptorImpl implements EntityDescriptor {
         .collect(Collectors.toList());
 
     attributesByPattern = attrs.stream()
-        .filter(a -> a.isWildcard())
+        .filter(AttributeDescriptor::isWildcard)
         .map(p -> Maps.immutableEntry(new NamePattern(p.getName()), p))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -103,6 +103,5 @@ public class EntityDescriptorImpl implements EntityDescriptor {
   public int hashCode() {
     return name.hashCode();
   }
-
 
 }

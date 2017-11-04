@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 public interface BulkLogObserver extends LogObserverBase {
 
   @FunctionalInterface
-  public interface BulkCommitter {
+  interface BulkCommitter {
 
     /**
      * Commit bulk processing of all currently uncommitted messages.

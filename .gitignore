@@ -20,3 +20,6 @@ pom.xml.versionsBackup
 /messaging/server/target/
 /messaging/server/nbproject/
 /smartbox/performance-test/target/
+*.iml
+.idea
+server/log

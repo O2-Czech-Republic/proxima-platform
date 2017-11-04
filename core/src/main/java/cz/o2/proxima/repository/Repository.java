@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -200,9 +201,9 @@ public class Repository {
    * @param shouldValidate set to false to skip some sanity checks (not recommended)
    * @param loadFamilies should we load attribute families? This is needed
    *                     only during runtime, for maven plugin it is set to false
-   * @param loadAccesors should we load accessors to column families? When not loaded
-   *                     the repository will not be usable neither for reading
-   *                     nor for writing (this is usable merely for code generation)
+   * @param loadAccessors should we load accessors to column families? When not loaded
+   *                      the repository will not be usable neither for reading
+   *                      nor for writing (this is usable merely for code generation)
    */
   private Repository(
       Config cfg,
@@ -283,7 +284,7 @@ public class Repository {
       }
       return null;
     })
-    .filter(c -> c != null)
+    .filter(Objects::nonNull)
     .collect(Collectors.toList());
     LOG.info("Found {} classes implementing {}", ret.size(), superCls.getName());
     return ret;
@@ -299,10 +300,10 @@ public class Repository {
   }
 
   private void readStorages(Collection<StorageDescriptor<?>> storages) {
-    storages.forEach(store -> store.getAcceptableSchemes()
-        .stream().forEach(s -> {
+    storages.forEach(store ->
+        store.getAcceptableSchemes().forEach(s -> {
           LOG.info("Adding storage descriptor {} for scheme {}://",
-              store.getClass().getName(), s)  ;
+              store.getClass().getName(), s);
           schemeToStorage.put(s, store);
         }));
   }
@@ -348,7 +349,6 @@ public class Repository {
           schemeStr += ":///";
         }
         URI schemeURI = new URI(schemeStr);
-        StorageDescriptor storageDesc = schemeToStorage.get(schemeURI.getScheme());
         // validate that the scheme serializer doesn't throw exceptions
         // ignore the return value
         try {
@@ -518,10 +518,8 @@ public class Repository {
         allAttributes.forEach(family::addAttribute);
         final AttributeFamilyDescriptor familyBuilt = family.build();
         allAttributes.forEach(a -> {
-          Set<AttributeFamilyDescriptor<?>> families = attributeToFamily.get(a);
-          if (families == null) {
-            attributeToFamily.put(a, families = new HashSet<>());
-          }
+          Set<AttributeFamilyDescriptor<?>> families = attributeToFamily
+              .computeIfAbsent(a, k -> new HashSet<>());
           if (!families.add(familyBuilt)) {
             throw new IllegalArgumentException(
                 "Attribute family named "
@@ -540,22 +538,23 @@ public class Repository {
     if (shouldLoadAccessors) {
       // iterate over all attribute families and setup appropriate (commit) writers
       // for all attributes
-      attributeToFamily.entrySet().stream().forEach(e -> {
-        Optional<AttributeWriterBase> writer = e.getValue()
+      attributeToFamily.forEach((key, value) -> {
+        Optional<AttributeWriterBase> writer = value
             .stream()
             .filter(af -> af.getType() == StorageType.PRIMARY)
             .filter(af -> !af.getAccess().isReadonly())
             .filter(af -> af.getWriter().isPresent())
             .findAny()
-            .map(af -> af.getWriter().get());
+            .map(af -> af.getWriter()
+                .orElseThrow(() -> new NoSuchElementException("Writer can not be empty")));
 
         if (writer.isPresent()) {
-          e.getKey().setWriter(writer.get().online());
+          key.setWriter(writer.get().online());
         } else {
           LOG.info(
               "No writer found for attribute {}, continuing, but assuming"
                   + "the attribute is read-only. Any attempt to write it will fail.",
-              e.getKey());
+              key);
         }
       });
     }
@@ -570,7 +569,7 @@ public class Repository {
     return Collections.singletonList(in.toString());
   }
 
-  String toString(Object what) {
+  private static String toString(Object what) {
     return what == null ? "" : what.toString();
   }
 
@@ -607,7 +606,7 @@ public class Repository {
   /** List all unique atttribute families. */
   public Stream<AttributeFamilyDescriptor<?>> getAllFamilies() {
     return attributeToFamily.values().stream()
-        .flatMap(l -> l.stream()).distinct();
+        .flatMap(Collection::stream).distinct();
   }
 
   /** Retrieve list of attribute families for attribute. */
@@ -632,14 +631,12 @@ public class Repository {
   @SuppressWarnings("unchecked")
   private Map<String, Object> flatten(Map<String, Object> map) {
     Map<String, Object> ret = new HashMap<>();
-    map.entrySet().forEach(entry -> {
-      if (entry.getValue() instanceof Map) {
-        Map<String, Object> flattened = flatten((Map) entry.getValue());
-        flattened.entrySet().forEach(e -> {
-          ret.put(entry.getKey() + "." + e.getKey(), e.getValue());
-        });
+    map.forEach((key, value) -> {
+      if (value instanceof Map) {
+        final Map<String, Object> flattened = flatten((Map) value);
+        flattened.forEach((key1, value1) -> ret.put(key + "." + key1, value1));
       } else {
-        ret.put(entry.getKey(), entry.getValue());
+        ret.put(key, value);
       }
     });
     return ret;
@@ -677,6 +674,5 @@ public class Repository {
 
     };
   }
-
 
 }

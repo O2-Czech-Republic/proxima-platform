@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 public interface LogObserver extends LogObserverBase {
 
   @FunctionalInterface
-  public interface ConfirmCallback extends Serializable {
+  interface ConfirmCallback extends Serializable {
 
     /**
      * Confirm processing of element.

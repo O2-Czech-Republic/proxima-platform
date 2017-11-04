@@ -30,10 +30,10 @@ public interface AccessType {
    * @param spec the specification in `access` field of attribute family
    * @return the {@code AccessType}
    */
-  public static AccessType from(String spec) {
+  static AccessType from(String spec) {
 
-    Set<String> specifiers = Arrays.asList(spec.split(","))
-        .stream().map(s -> s.trim())
+    Set<String> specifiers = Arrays.stream(spec.split(","))
+        .map(String::trim)
         .collect(Collectors.toSet());
 
     boolean isReadOnly = specifiers.remove("read-only");

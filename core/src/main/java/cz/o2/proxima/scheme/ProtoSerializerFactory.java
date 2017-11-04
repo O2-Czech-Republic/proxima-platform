@@ -92,11 +92,7 @@ public class ProtoSerializerFactory<M extends AbstractMessage>
   // this method is synchronized because of the cache
   @Override
   public synchronized ValueSerializer<M> getValueSerializer(URI scheme) {
-    ValueSerializer<M> parser = parsers.get(scheme);
-    if (parser == null) {
-      parsers.put(scheme, parser = createSerializer(scheme));
-    }
-    return parser;
+    return parsers.computeIfAbsent(scheme, this::createSerializer);
   }
 
   @SuppressWarnings("unchecked")

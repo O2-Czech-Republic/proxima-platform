@@ -20,6 +20,7 @@ import cz.o2.proxima.storage.OnlineAttributeWriter;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Objects;
+
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import cz.o2.proxima.scheme.ValueSerializer;
@@ -30,7 +31,7 @@ import cz.o2.proxima.scheme.ValueSerializer;
 public interface AttributeDescriptor<T> extends Serializable {
 
 
-  public static class Builder {
+  class Builder {
 
     private final Repository repo;
 
@@ -61,7 +62,7 @@ public interface AttributeDescriptor<T> extends Serializable {
     }
   }
 
-  public static Builder newBuilder(Repository repo) {
+  static Builder newBuilder(Repository repo) {
     return new Builder(repo);
   }
 

@@ -30,7 +30,8 @@ import lombok.experimental.Accessors;
 public interface EntityDescriptor extends Serializable {
 
   /** Builder of the descriptor. */
-  public static class Builder {
+  class Builder {
+
     @Setter
     @Accessors(chain = true)
     private String name;
@@ -47,7 +48,7 @@ public interface EntityDescriptor extends Serializable {
     }
   }
 
-  public static Builder newBuilder() {
+  static Builder newBuilder() {
     return new Builder();
   }
 

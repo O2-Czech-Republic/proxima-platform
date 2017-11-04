@@ -24,6 +24,6 @@ import java.io.Serializable;
 @FunctionalInterface
 public interface Cancellable extends Serializable {
 
-  public void cancel();
+  void cancel();
 
 }

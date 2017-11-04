@@ -38,15 +38,15 @@ import org.junit.Test;
  */
 public class PartitionedViewTest implements Serializable {
 
-  transient Repository repo = Repository.Builder.of(
+  private transient Repository repo = Repository.Builder.of(
       ConfigFactory.load().resolve()).build();
 
-  transient InMemExecutor executor;
-  transient EntityDescriptor entity = repo.findEntity("event").get();
-  transient AttributeDescriptor<?> attr = entity.findAttribute("data").get();
+  private transient InMemExecutor executor;
+  private transient EntityDescriptor entity = repo.findEntity("event").get();
+  private transient AttributeDescriptor<?> attr = entity.findAttribute("data").get();
 
-  transient PartitionedView view;
-  transient AttributeWriterBase writer;
+  private transient PartitionedView view;
+  private transient AttributeWriterBase writer;
 
   @Before
   public void setUp() {
@@ -106,7 +106,7 @@ public class PartitionedViewTest implements Serializable {
     writer.online().write(
         StreamElement.update(entity, attr, "uuid", "key", "data",
             System.currentTimeMillis(), new byte[] { }),
-        (succ, exc) -> { latch.countDown(); });
+        (succ, exc) -> latch.countDown());
 
     latch.await();
   }

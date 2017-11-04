@@ -74,21 +74,21 @@ public class HdfsDataAccessor
 
   private static final Pattern PART_FILE_PARSER = Pattern.compile("part-([0-9]+)_([0-9]+)-.+");
 
-  final Configuration conf;
-  final FileSystem fs;
-  final int minElementsToFlush;
-  final long rollInterval;
-  final long batchProcessSize;
+  private final Configuration conf;
+  private final FileSystem fs;
+  private final int minElementsToFlush;
+  private final long rollInterval;
+  private final long batchProcessSize;
 
   private final DateFormat DIR_FORMAT = new SimpleDateFormat("/YYYY/MM");
 
-  SequenceFile.Writer writer = null;
-  Path writerTmpPath = null;
-  long lastRoll = 0;
-  long elementsSinceFlush = 0;
-  long minElementStamp = Long.MAX_VALUE;
-  long maxElementStamp = Long.MIN_VALUE;
-  long monothonicTime = 0L;
+  private SequenceFile.Writer writer = null;
+  private Path writerTmpPath = null;
+  private long lastRoll = 0;
+  private long elementsSinceFlush = 0;
+  private long minElementStamp = Long.MAX_VALUE;
+  private long maxElementStamp = Long.MIN_VALUE;
+  private long monothonicTime = 0L;
 
   public HdfsDataAccessor(EntityDescriptor entityDesc,
       URI uri, Map<String, Object> cfg) throws IOException {
@@ -391,9 +391,5 @@ public class HdfsDataAccessor
   public Optional<BatchLogObservable> getBatchLogObservable() {
     return Optional.of(this);
   }
-
-
-
-
 
 }

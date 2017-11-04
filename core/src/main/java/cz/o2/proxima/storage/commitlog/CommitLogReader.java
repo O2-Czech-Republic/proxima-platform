@@ -33,7 +33,7 @@ public interface CommitLogReader extends Closeable {
   /**
    * An enum specifying the position in the commit log to start reading from.
    */
-  public enum Position {
+  enum Position {
 
     /** Read the commit log from the current data actually pushed to the log. */
     NEWEST,

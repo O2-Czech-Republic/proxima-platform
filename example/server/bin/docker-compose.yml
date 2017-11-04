@@ -1,0 +1,24 @@
+version: '3'
+services:
+  hadoop:
+    image: sequenceiq/hadoop-docker:2.7.1
+    ports:
+      - 9000:9000
+      - 50070:50070
+  casandra:
+    image: cassandra:3
+    ports:
+      - 9042:9042
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - 12181:2181
+  kafka:
+    image: wurstmeister/kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: localhost
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    ports:
+      - 9092:9092

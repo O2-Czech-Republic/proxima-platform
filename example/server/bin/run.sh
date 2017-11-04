@@ -18,12 +18,12 @@
 # Run the ingest/retrieve server
 
 export CASSANDRA_SEED=localhost:9042
-export HDFS_AUTHORITY=127.0.1.1:9000
+export HDFS_AUTHORITY=localhost:9000
 export KAFKA_BROKERS=localhost:9092
 
 BIN_DIR=$(dirname $0)
 LOG_LEVEL=INFO
-JAR=target/proxima-example-ingest-server.jar
+JAR="${BIN_DIR}/../target/proxima-example-ingest-server.jar"
 CLASS=cz.o2.proxima.server.IngestServer
 
 

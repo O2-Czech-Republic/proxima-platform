@@ -16,5 +16,5 @@
 #
 
 
-docker exec $(docker ps | grep kafka | cut -c1-15) /opt/kafka_2.11-0.10.1.0/bin/kafka-topics.sh --zookeeper localhost:2181 $*
+docker exec $(docker ps | grep kafka | cut -c1-15) /opt/kafka/bin/kafka-topics.sh --zookeeper zookeeper:2181 $*
 

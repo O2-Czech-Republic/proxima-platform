@@ -210,7 +210,7 @@ First, let's introduce some glossary:
  ```
  
  ## Platform's unified data processing API
- This is esentially just a wrapper around [Euphoria API](https://github.com/seznam/euphoria), currently outlined
+ This is essentially just a wrapper around [Euphoria API](https://github.com/seznam/euphoria), currently outlined
  in `platform-tools` package in groovy language, containing a console being able to execute data transformation _flows_.
  These flows might be executed on different _executors_, based on actual requirements of the calculation. Currently,
  [Apache Spark](https://spark.apache.org/), [Apache Flink](https://flink.apache.org/) and a special executor called

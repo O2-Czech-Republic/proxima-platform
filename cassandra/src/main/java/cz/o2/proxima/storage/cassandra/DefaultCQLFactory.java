@@ -204,7 +204,8 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
       // use the first part of the attribute name
       String colName = toColName(element.getAttributeDescriptor());
       return String.format("INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?) USING TIMESTAMP ?%s",
-          tableName, primaryField, toUnderScore(colName), payloadCol,
+          tableName, primaryField, toUnderScore(colName),
+          toPayloadCol(element.getAttributeDescriptor()),
           ttl > 0 ? (" AND TTL " + ttl) : "");
     } else {
       return String.format("INSERT INTO %s (%s, %s) VALUES (?, ?) USING TIMESTAMP ?%s",
@@ -221,7 +222,7 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
       // use the first part of the attribute name
       String colName = toColName(element.getAttributeDescriptor());
       return String.format("DELETE %s FROM %s USING TIMESTAMP ? WHERE %s=? AND %s=?",
-          payloadCol, tableName, toUnderScore(colName), primaryField);
+          toPayloadCol(element.getAttributeDescriptor()), tableName, toUnderScore(colName), primaryField);
     } else {
       return String.format("DELETE %s FROM %s USING TIMESTAMP ? WHERE %s=?",
           toUnderScore(element.getAttribute()), tableName, primaryField);
@@ -243,7 +244,7 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
     if (desc.isWildcard()) {
       String colName = toColName(desc);
       return String.format("SELECT %s FROM %s WHERE %s=? AND %s=?",
-          payloadCol, tableName, primaryField, toUnderScore(colName));
+          toPayloadCol(desc), tableName, primaryField, toUnderScore(colName));
     }
 
     return String.format("SELECT %s FROM %s WHERE %s=?",
@@ -258,7 +259,7 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
     String colName = toColName(attr);
     String dataCol = toUnderScore(colName);
     return String.format("SELECT %s, %s FROM %s WHERE %s=? AND %s%s? LIMIT ?",
-        dataCol, payloadCol, tableName, primaryField, dataCol,
+        dataCol, toPayloadCol(attr), tableName, primaryField, dataCol,
         reversed ? "<" : ">");
   }
 
@@ -306,7 +307,7 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
       comma = ", ";
       if (a.isWildcard()) {
         columns.append(comma);
-        columns.append(payloadCol);
+        columns.append(toPayloadCol(a));
       }
       comma = ", ";
     }

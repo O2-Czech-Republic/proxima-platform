@@ -43,7 +43,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -62,12 +61,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.Cancellable;
+import cz.o2.proxima.view.PartitionedLogObserver;
+import cz.o2.proxima.view.PartitionedView;
+import cz.o2.proxima.view.input.DataSourceUtils;
+import cz.seznam.euphoria.core.client.dataset.Dataset;
+import cz.seznam.euphoria.core.client.flow.Flow;
+import cz.seznam.euphoria.core.client.operator.MapElements;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.SynchronousQueue;
+import java.util.function.Consumer;
 
 /**
  * Kafka writer and commit log using {@code KafkaProducer}.
  */
 public class KafkaCommitLog extends AbstractOnlineAttributeWriter
-    implements CommitLogReader, DataAccessor<KafkaCommitLog> {
+    implements CommitLogReader, DataAccessor<KafkaCommitLog>, PartitionedView {
 
   /**
    * Data read from a kafka partition.
@@ -302,7 +311,7 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
       Position position,
       LogObserver observer) {
 
-    return observePartitions(name, null, position, false, observer);
+    return observePartitions(name, null, position, false, observer, null);
   }
 
 
@@ -313,7 +322,8 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
       boolean stopAtCurrent,
       LogObserver observer) {
 
-    return observePartitions(null, partitions, position, stopAtCurrent, observer);
+    return observePartitions(
+        null, partitions, position, stopAtCurrent, observer, null);
   }
 
   @Override
@@ -325,13 +335,54 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
     return observePartitionsBulk(name, position, observer);
   }
 
+  @Override
+  public <T> Dataset<T> observePartitions(
+      Flow flow, Collection<Partition> partitions,
+      PartitionedLogObserver<T> observer) {
+
+    BlockingQueue<T> queue = new ArrayBlockingQueue<>(100);
+
+    DataSourceUtils.Producer producer = () -> {
+        observePartitions(null, partitions, Position.NEWEST, false,
+            Utils.forwardingTo(queue, observer),
+            Utils.rebalanceListener(observer));
+    };
+
+    // we need to remap the input here to be able to directly persist it again
+    return MapElements.of(
+        flow.createInput(DataSourceUtils.fromPartitions(
+            DataSourceUtils.fromBlockingQueue(queue, producer))))
+        .using(e -> e)
+        .output();
+  }
+
+  @Override
+  public <T> Dataset<T> observe(
+      Flow flow, String name, PartitionedLogObserver<T> observer) {
+
+    BlockingQueue<T> queue = new SynchronousQueue<>();
+
+    DataSourceUtils.Producer producer = () -> {
+      observePartitions(name, null, Position.NEWEST, false,
+          Utils.forwardingTo(queue, observer),
+          Utils.rebalanceListener(observer));
+    };
+
+    // we need to remap the input here to be able to directly persist it again
+    return MapElements.of(
+        flow.createInput(DataSourceUtils.fromPartitions(
+            DataSourceUtils.fromBlockingQueue(queue, producer))))
+        .using(e -> e)
+        .output();
+  }
 
   protected Cancellable observePartitions(
       @Nullable String name,
       @Nullable Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      LogObserver observer,
+      @Nullable ConsumerRebalanceListener listener) {
 
     // wait until the consumer is really created
     CountDownLatch latch = new CountDownLatch(1);
@@ -340,7 +391,7 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
     Thread consumer = new Thread(() -> {
       try {
         try (KafkaConsumer<String, byte[]> kafkaConsumer = createConsumer(
-            name, partitions, null, position)) {
+            name, partitions, listener, position)) {
           if (partitions != null) {
             List<TopicPartition> assignment = partitions.stream()
                 .map(p -> new TopicPartition(topic, p.getId()))
@@ -704,6 +755,11 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
 
   @Override
   public Optional<CommitLogReader> getCommitLogReader() {
+    return Optional.of(this);
+  }
+
+  @Override
+  public Optional<PartitionedView> getPartitionedView() {
     return Optional.of(this);
   }
 

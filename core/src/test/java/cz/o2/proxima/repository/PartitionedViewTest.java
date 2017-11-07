@@ -28,6 +28,7 @@ import cz.seznam.euphoria.core.client.io.StdoutSink;
 import cz.seznam.euphoria.core.client.operator.MapElements;
 import cz.seznam.euphoria.inmem.InMemExecutor;
 import java.io.Serializable;
+import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import static org.junit.Assert.*;
 import org.junit.Before;
@@ -38,12 +39,12 @@ import org.junit.Test;
  */
 public class PartitionedViewTest implements Serializable {
 
-  private transient Repository repo = Repository.Builder.of(
+  private final transient Repository repo = Repository.Builder.of(
       ConfigFactory.load().resolve()).build();
 
   private transient InMemExecutor executor;
-  private transient EntityDescriptor entity = repo.findEntity("event").get();
-  private transient AttributeDescriptor<?> attr = entity.findAttribute("data").get();
+  private final transient EntityDescriptor entity = repo.findEntity("event").get();
+  private final transient AttributeDescriptor<?> attr = entity.findAttribute("data").get();
 
   private transient PartitionedView view;
   private transient AttributeWriterBase writer;
@@ -101,6 +102,10 @@ public class PartitionedViewTest implements Serializable {
         .persist(new StdoutSink<>());
 
     executor.submit(result.getFlow());
+
+
+    // wait for 1 second to enable starting of the execution pipeline
+    TimeUnit.SECONDS.sleep(1);
 
     // write data to event
     writer.online().write(

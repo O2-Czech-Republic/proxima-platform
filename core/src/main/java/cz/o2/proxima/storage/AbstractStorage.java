@@ -17,6 +17,7 @@
 package cz.o2.proxima.storage;
 
 import cz.o2.proxima.repository.EntityDescriptor;
+import java.io.Serializable;
 import java.net.URI;
 import lombok.Getter;
 
@@ -24,7 +25,7 @@ import lombok.Getter;
  * A class that is super type of all data accessors.
  *
  */
-public class AbstractStorage {
+public class AbstractStorage implements Serializable {
 
   /** The entity this writer is created for. */
   @Getter

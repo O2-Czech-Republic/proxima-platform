@@ -16,13 +16,14 @@
 
 package cz.o2.proxima.storage.kafka;
 
+import java.io.Serializable;
 import java.util.Map;
 
 /**
  * An interface that each class configured in {@code KafkaCommitLog.PARTITIONER_CLASS}
  * must implement. The class also has to have a default (empty) constructor.
  */
-public interface Partitioner {
+public interface Partitioner extends Serializable {
 
   /**
    * Retrieve partition ID for the specified ingest.
@@ -30,12 +31,12 @@ public interface Partitioner {
    * be written to the same Kafka partition.
    */
   int getPartitionId(String key, String attribute, byte[] value);
-  
+
   /**
    * Setup the partitioner (if needed).
    */
   default void setup(Map<String, ?> map) {
-    
+
   }
 
   /**

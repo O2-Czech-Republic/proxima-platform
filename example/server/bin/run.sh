@@ -34,6 +34,11 @@ echo "Clean command: docker-compose rm"
 echo -e "\nPres enter to continue..."
 read
 
+if [ -z `which docker-compose` ]; then
+  echo "Need to install docker compose (i.e apt-get install docker-compose)"
+  exit 1
+fi
+
 docker-compose up -d
 
 java -cp ${JAR} -DLOG_LEVEL=${LOG_LEVEL} -Djava.library.path=${BIN_DIR}/hadoop-native/ ${CLASS}

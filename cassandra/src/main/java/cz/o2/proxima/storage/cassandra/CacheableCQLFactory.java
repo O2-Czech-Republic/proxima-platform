@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +44,8 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   private static final Logger LOG = LoggerFactory.getLogger(CacheableCQLFactory.class);
 
   protected String tableName;
-  protected String payloadCol;
+  @Nullable
+  private String payloadCol;
 
   /**
    * A TTL value in seconds associated with each update or insert.
@@ -280,7 +282,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
 
 
   @VisibleForTesting
-  protected String toUnderScore(String what) {
+  String toUnderScore(String what) {
     StringBuilder sb = new StringBuilder();
     for (char c : what.toCharArray()) {
       if (c == '.') {
@@ -292,6 +294,17 @@ public abstract class CacheableCQLFactory implements CQLFactory {
       }
     }
     return sb.toString();
+  }
+
+  /**
+   * Use configured payload column to read value bytes from cassandra table,
+   * or use attribute name as column name.
+   **/
+  String toPayloadCol(AttributeDescriptor<?> attr) {
+    if (payloadCol != null) {
+      return payloadCol;
+    }
+    return attr.toAttributePrefix(false);
   }
 
 

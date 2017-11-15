@@ -18,6 +18,7 @@ package cz.o2.proxima.storage.commitlog;
 
 import cz.o2.proxima.storage.Partition;
 import java.io.Closeable;
+import java.io.Serializable;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
@@ -28,7 +29,7 @@ import java.util.List;
  * observer on the stream. If the observer is named then if multiple registration
  * exist with the same name, it is automatically load balanced.
  */
-public interface CommitLogReader extends Closeable {
+public interface CommitLogReader extends Closeable, Serializable {
 
   /**
    * An enum specifying the position in the commit log to start reading from.

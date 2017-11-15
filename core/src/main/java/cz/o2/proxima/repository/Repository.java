@@ -552,7 +552,7 @@ public class Repository {
           key.setWriter(writer.get().online());
         } else {
           LOG.info(
-              "No writer found for attribute {}, continuing, but assuming"
+              "No writer found for attribute {}, continuing, but assuming "
                   + "the attribute is read-only. Any attempt to write it will fail.",
               key);
         }

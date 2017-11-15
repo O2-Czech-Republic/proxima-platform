@@ -368,7 +368,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor<KafkaCommit
         LogObserver observer) {
 
       Cancellable ret = super.observePartitions(
-          null, partitions, position, stopAtCurrent, observer);
+          null, partitions, position, stopAtCurrent, observer, null);
       LOG.debug(
           "Started to observe partitions {} of LocalKafkaCommitLog URI {}",
           partitions, getURI());

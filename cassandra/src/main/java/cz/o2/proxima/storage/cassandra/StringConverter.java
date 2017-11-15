@@ -16,13 +16,14 @@
 
 package cz.o2.proxima.storage.cassandra;
 
+import java.io.Serializable;
 import java.nio.charset.Charset;
 import javax.annotation.Nullable;
 
 /**
  * A converter between a specified java type and {@code String}.
  */
-public interface StringConverter<T> {
+public interface StringConverter<T> extends Serializable {
 
   public static final StringConverter<String> DEFAULT = new StringConverter<String>() {
 
@@ -30,7 +31,7 @@ public interface StringConverter<T> {
     final String MAX = new String(new byte[] { (byte) 0xFF }, 0, 1, Charset.forName("ascii"));
     /** String value that all strings should be greater or equal to. */
     final String MIN = "";
-    
+
     @Override
     public String toString(String what) {
       return (String) what;

@@ -16,6 +16,7 @@
 
 package cz.o2.proxima.util;
 
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -24,11 +25,11 @@ import java.util.regex.Pattern;
  * Accepted patterns can contain wildcards (*) which are then translated
  * into {@code java.util.regex.Pattern}s.
  */
-public class NamePattern {
-  
+public class NamePattern implements Serializable {
+
   private final String pattern;
   private final Pattern compiled;
-  
+
   /**
    * Constructor.
    * Convert ingest config pattern into java {@code java.util.regex.Pattern}.
@@ -42,7 +43,7 @@ public class NamePattern {
     String textPattern = pattern.replace(".", "\\.").replace("*", ".+");
     return Pattern.compile("^" + textPattern + "$");
   }
-  
+
   /** Match input string against the pattern. */
   public boolean matches(String what) {
     return compiled.matcher(what).find();
@@ -60,6 +61,6 @@ public class NamePattern {
   @Override
   public int hashCode() {
     return pattern.hashCode();
-  }    
+  }
 
 }

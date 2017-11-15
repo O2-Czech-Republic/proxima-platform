@@ -21,6 +21,7 @@ import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import java.io.Serializable;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
@@ -29,7 +30,7 @@ import javax.annotation.Nullable;
 /**
  * A factory CQL queries for ingesting.
  */
-public interface CQLFactory {
+public interface CQLFactory extends Serializable {
 
   /** Setup the factory from URI and given string converter. */
   public void setup(

@@ -19,6 +19,7 @@ package cz.o2.proxima.storage.randomaccess;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.util.Pair;
 import java.io.Closeable;
+import java.io.Serializable;
 import java.util.Optional;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -31,7 +32,7 @@ import javax.annotation.Nullable;
  * pair (key, attribute) or scanned through by a mask (key, attributePrefix)
  * for attributes that are wildcard attributes.
  */
-public interface RandomAccessReader extends Closeable {
+public interface RandomAccessReader extends Closeable, Serializable {
 
   /** Type of listing (either listing entities of entity attributes). */
   enum Listing {
@@ -49,7 +50,7 @@ public interface RandomAccessReader extends Closeable {
    * This is just a labeling interface.
    */
   interface Offset {
-    
+
   }
 
   /**

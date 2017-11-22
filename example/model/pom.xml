@@ -123,6 +123,18 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
+      <artifactId>platform-hbase</artifactId>
+      <version>${project.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-all</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
       <artifactId>platform-hdfs</artifactId>
       <version>${project.version}</version>
       <exclusions>

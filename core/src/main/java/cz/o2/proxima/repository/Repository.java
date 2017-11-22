@@ -228,7 +228,7 @@ public class Repository {
       reflections = new Reflections(reflectionConf);
 
       /* First read all storage implementations available to the repository. */
-      Collection<StorageDescriptor<?>> storages = findStorageDescriptors(reflections);
+      Collection<StorageDescriptor> storages = findStorageDescriptors(reflections);
       readStorages(storages);
 
       /* Next read all scheme serializers. */
@@ -255,7 +255,7 @@ public class Repository {
   }
 
   @SuppressWarnings("unchecked")
-  private Collection<StorageDescriptor<?>> findStorageDescriptors(
+  private Collection<StorageDescriptor> findStorageDescriptors(
       Reflections reflections) {
 
     return (Collection) findImplementingClasses(
@@ -299,7 +299,7 @@ public class Repository {
     }
   }
 
-  private void readStorages(Collection<StorageDescriptor<?>> storages) {
+  private void readStorages(Collection<StorageDescriptor> storages) {
     storages.forEach(store ->
         store.getAcceptableSchemes().forEach(s -> {
           LOG.info("Adding storage descriptor {} for scheme {}://",
@@ -450,7 +450,7 @@ public class Repository {
 
         List<String> attributes = toList(Objects.requireNonNull(storage.get("attributes")));
         URI storageURI = new URI(Objects.requireNonNull(storage.get("storage")).toString());
-        final StorageDescriptor<?> storageDesc = isReadonly
+        final StorageDescriptor storageDesc = isReadonly
             ? asReadOnly(schemeToStorage.get(storageURI.getScheme()))
             : schemeToStorage.get(storageURI.getScheme());
         EntityDescriptor entDesc = findEntity(entity)
@@ -468,7 +468,7 @@ public class Repository {
             .setAccess(access);
 
         if (shouldLoadAccessors) {
-          DataAccessor<? extends AttributeWriterBase> accessor = storageDesc.getAccessor(
+          DataAccessor accessor = storageDesc.getAccessor(
               entDesc, storageURI, storage);
 
           if (!isReadonly && !access.isReadonly()) {
@@ -643,17 +643,18 @@ public class Repository {
   }
 
   /* Wrap given storage descriptor to read-only version. */
-  private <T extends AttributeWriterBase> StorageDescriptor<T> asReadOnly(
-      StorageDescriptor<T> wrap) {
+  private <T extends AttributeWriterBase> StorageDescriptor asReadOnly(
+      StorageDescriptor wrap) {
 
-    return new StorageDescriptor<T>(wrap.getAcceptableSchemes()) {
+    return new StorageDescriptor(wrap.getAcceptableSchemes()) {
 
       @Override
-      public DataAccessor<T> getAccessor(
+      public DataAccessor getAccessor(
           EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-        DataAccessor<T> wrapped = wrap.getAccessor(entityDesc, uri, cfg);
 
-        return new DataAccessor<T>() {
+        DataAccessor wrapped = wrap.getAccessor(entityDesc, uri, cfg);
+
+        return new DataAccessor() {
           @Override
           public Optional<CommitLogReader> getCommitLogReader() {
             return wrapped.getCommitLogReader();

@@ -17,6 +17,7 @@
 package cz.o2.proxima.storage.http;
 
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
@@ -30,7 +31,7 @@ import java.util.Optional;
 /**
  * Writer via HTTP(S) requests.
  */
-public class HttpWriter implements OnlineAttributeWriter, DataAccessor<HttpWriter> {
+public class HttpWriter implements OnlineAttributeWriter, DataAccessor {
 
   final URI uri;
   final ConnFactory connFactory;
@@ -91,7 +92,7 @@ public class HttpWriter implements OnlineAttributeWriter, DataAccessor<HttpWrite
   }
 
   @Override
-  public Optional<HttpWriter> getWriter() {
+  public Optional<AttributeWriterBase> getWriter() {
     return Optional.of(this);
   }
 

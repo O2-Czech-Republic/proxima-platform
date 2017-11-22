@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractBulkAttributeWriter;
+import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.Partition;
@@ -60,7 +61,7 @@ import org.slf4j.LoggerFactory;
  */
 public class HdfsDataAccessor
     extends AbstractBulkAttributeWriter
-    implements BatchLogObservable, DataAccessor<HdfsDataAccessor> {
+    implements BatchLogObservable, DataAccessor {
 
   private static final Logger LOG = LoggerFactory.getLogger(HdfsDataAccessor.class);
 
@@ -383,7 +384,7 @@ public class HdfsDataAccessor
   }
 
   @Override
-  public Optional<HdfsDataAccessor> getWriter() {
+  public Optional<AttributeWriterBase> getWriter() {
     return Optional.of(this);
   }
 

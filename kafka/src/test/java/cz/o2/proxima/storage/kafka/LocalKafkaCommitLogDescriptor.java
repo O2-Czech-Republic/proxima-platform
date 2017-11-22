@@ -57,7 +57,7 @@ import org.slf4j.LoggerFactory;
  * A class that can be used as {@code KafkaCommitLog} in various test scenarios.
  * The commit log is associated with URIs `kafka-test`.
  */
-public class LocalKafkaCommitLogDescriptor extends StorageDescriptor<KafkaCommitLog> {
+public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalKafkaCommitLogDescriptor.class);
 

@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Writer to HDFS.
  */
-public class HdfsStorage extends StorageDescriptor<HdfsDataAccessor> {
+public class HdfsStorage extends StorageDescriptor {
 
   private static final Logger LOG = LoggerFactory.getLogger(HdfsStorage.class);
 
@@ -38,7 +38,7 @@ public class HdfsStorage extends StorageDescriptor<HdfsDataAccessor> {
   }
 
   @Override
-  public DataAccessor<HdfsDataAccessor> getAccessor(
+  public DataAccessor getAccessor(
       EntityDescriptor entityDesc,
       URI uri, Map<String, Object> cfg) {
 

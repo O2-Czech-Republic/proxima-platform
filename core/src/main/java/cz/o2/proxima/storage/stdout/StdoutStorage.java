@@ -18,9 +18,9 @@ package cz.o2.proxima.storage.stdout;
 
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
+import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.DataAccessor;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.StorageDescriptor;
 import java.net.URI;
@@ -31,21 +31,21 @@ import java.util.Optional;
 /**
  * Dummy storage printing data to stdout.
  */
-public class StdoutStorage extends StorageDescriptor<OnlineAttributeWriter> {
+public class StdoutStorage extends StorageDescriptor {
 
   public StdoutStorage() {
     super(Arrays.asList("stdout"));
   }
 
   @Override
-  public DataAccessor<OnlineAttributeWriter> getAccessor(
+  public DataAccessor getAccessor(
       EntityDescriptor entityDesc,
       URI dummy, Map<String, Object> cfg) {
 
-    return new DataAccessor<OnlineAttributeWriter>() {
+    return new DataAccessor() {
 
       @Override
-      public Optional<OnlineAttributeWriter> getWriter() {
+      public Optional<AttributeWriterBase> getWriter() {
         return Optional.of(new AbstractOnlineAttributeWriter(entityDesc, dummy) {
           @Override
           public void write(StreamElement data, CommitCallback callback) {

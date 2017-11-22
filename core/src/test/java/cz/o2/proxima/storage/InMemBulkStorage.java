@@ -18,7 +18,6 @@ package cz.o2.proxima.storage;
 
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -29,7 +28,7 @@ import lombok.Getter;
 /**
  * Storage acting as a bulk in memory storage.
  */
-public class InMemBulkStorage extends StorageDescriptor<BulkAttributeWriter> {
+public class InMemBulkStorage extends StorageDescriptor {
 
   private class Writer extends AbstractBulkAttributeWriter {
 
@@ -58,7 +57,7 @@ public class InMemBulkStorage extends StorageDescriptor<BulkAttributeWriter> {
 
   }
 
-  private class InMemBulkAccessor implements DataAccessor<BulkAttributeWriter> {
+  private class InMemBulkAccessor implements DataAccessor {
 
     private final EntityDescriptor entityDesc;
     private final URI uri;
@@ -69,10 +68,10 @@ public class InMemBulkStorage extends StorageDescriptor<BulkAttributeWriter> {
     }
 
     @Override
-    public Optional<BulkAttributeWriter> getWriter() {
+    public Optional<AttributeWriterBase> getWriter() {
       return Optional.of(new Writer(entityDesc, uri));
     }
-    
+
   }
 
   @Getter
@@ -83,7 +82,7 @@ public class InMemBulkStorage extends StorageDescriptor<BulkAttributeWriter> {
   }
 
   @Override
-  public DataAccessor<BulkAttributeWriter> getAccessor(
+  public DataAccessor getAccessor(
       EntityDescriptor entityDesc, URI uri,
       Map<String, Object> cfg) {
 

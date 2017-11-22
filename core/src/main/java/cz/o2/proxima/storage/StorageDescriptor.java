@@ -26,7 +26,7 @@ import lombok.Getter;
 /**
  * Descriptor of storage for attribute family.
  */
-public abstract class StorageDescriptor<W extends AttributeWriterBase> implements Serializable {
+public abstract class StorageDescriptor implements Serializable {
 
   /** Schemes of acceptable URIs. */
   @Getter
@@ -43,13 +43,13 @@ public abstract class StorageDescriptor<W extends AttributeWriterBase> implement
    * @param cfg additional key-value configuration parameters that might have
    * been passed to the writer
    */
-  public DataAccessor<W> getAccessor(
+  public DataAccessor getAccessor(
       EntityDescriptor entityDesc,
       URI uri,
       Map<String, Object> cfg) {
 
     // by default return dummy accessor with no capabilities.
-    return new DataAccessor<W>() { };
+    return new DataAccessor() { };
 
   }
 

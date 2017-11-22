@@ -17,7 +17,6 @@
 package cz.o2.proxima.storage.cassandra;
 
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StorageDescriptor;
 import java.net.URI;
 import java.util.Arrays;
@@ -26,7 +25,7 @@ import java.util.Map;
 /**
  * Storage descriptor for Apache Cassandra.
  */
-public class CassandraStorageDescriptor extends StorageDescriptor<OnlineAttributeWriter> {
+public class CassandraStorageDescriptor extends StorageDescriptor {
 
   public CassandraStorageDescriptor() {
     super(Arrays.asList("cassandra"));

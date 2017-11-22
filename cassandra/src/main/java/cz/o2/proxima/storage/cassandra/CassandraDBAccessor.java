@@ -28,9 +28,9 @@ import com.google.common.base.Strings;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
+import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.DataAccessor;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
@@ -61,7 +61,7 @@ import cz.o2.proxima.storage.batch.BatchLogObserver;
  * measurements to do better
  */
 public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
-    implements RandomAccessReader, BatchLogObservable, DataAccessor<OnlineAttributeWriter> {
+    implements RandomAccessReader, BatchLogObservable, DataAccessor {
 
   private static final Logger LOG = LoggerFactory.getLogger(CassandraDBAccessor.class);
 
@@ -422,7 +422,7 @@ public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
   }
 
   @Override
-  public Optional<OnlineAttributeWriter> getWriter() {
+  public Optional<AttributeWriterBase> getWriter() {
     return Optional.of(this);
   }
 

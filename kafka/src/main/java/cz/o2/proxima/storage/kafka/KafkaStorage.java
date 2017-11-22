@@ -25,7 +25,7 @@ import java.util.Map;
 /**
  * Storage using {@code KafkaProducer}.
  */
-public class KafkaStorage extends StorageDescriptor<KafkaCommitLog> {
+public class KafkaStorage extends StorageDescriptor {
 
   public KafkaStorage() {
     super(Arrays.asList("kafka"));

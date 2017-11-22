@@ -49,7 +49,7 @@ import java.util.concurrent.SynchronousQueue;
 /**
  * InMemStorage for testing purposes.
  */
-public class InMemStorage extends StorageDescriptor<InMemStorage.Writer> {
+public class InMemStorage extends StorageDescriptor {
 
   private static class RawOffset implements Offset {
 
@@ -332,10 +332,10 @@ public class InMemStorage extends StorageDescriptor<InMemStorage.Writer> {
   }
 
   @Override
-  public DataAccessor<Writer> getAccessor(
+  public DataAccessor getAccessor(
       EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
-    return new DataAccessor<Writer>() {
+    return new DataAccessor() {
 
       Writer writer = new Writer(entityDesc, uri);
       InMemCommitLogReader commitLogReader = new InMemCommitLogReader(
@@ -343,7 +343,7 @@ public class InMemStorage extends StorageDescriptor<InMemStorage.Writer> {
       Reader reader = new Reader(entityDesc, uri, data);
 
       @Override
-      public Optional<Writer> getWriter() {
+      public Optional<AttributeWriterBase> getWriter() {
         return Optional.of(writer);
       }
 

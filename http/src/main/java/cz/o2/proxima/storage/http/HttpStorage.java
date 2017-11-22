@@ -25,7 +25,7 @@ import java.util.Map;
 /**
  * Storage via HTTP(S) requests.
  */
-public class HttpStorage extends StorageDescriptor<HttpWriter> {
+public class HttpStorage extends StorageDescriptor {
 
   public HttpStorage() {
     super(Arrays.asList("http", "https"));

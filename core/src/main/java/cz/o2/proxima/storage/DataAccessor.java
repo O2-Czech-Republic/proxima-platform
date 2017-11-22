@@ -26,12 +26,12 @@ import java.util.Optional;
 /**
  * Interface providing various types of data access patterns to storage.
  */
-public interface DataAccessor<W extends AttributeWriterBase> extends Serializable {
+public interface DataAccessor extends Serializable {
 
   /**
    * Retrieve writer (if applicable).
    */
-  default Optional<W> getWriter() {
+  default Optional<AttributeWriterBase> getWriter() {
     return Optional.empty();
   }
 

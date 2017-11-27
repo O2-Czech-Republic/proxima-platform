@@ -29,7 +29,7 @@
   <artifactId>platform-hbase-bigtable</artifactId>
   <packaging>jar</packaging>
      
-  <name>Proxima platform HBase module</name>
+  <name>Proxima platform BigTable module</name>
 
   <build>
     <plugins>
@@ -43,10 +43,28 @@
              <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
             </transformer>
           </transformers>
+          <artifactSet>
+            <excludes>
+              <!-- exclude proxima and core dependencies -->
+              <exclude>cz.o2.proxima:platform-core</exclude>
+            </excludes>
+          </artifactSet>
           <relocations>
             <relocation>
-              <pattern>com.google</pattern>
-              <shadedPattern>cz.o2.proxima.hbase-bigtable.shaded.com.google</shadedPattern>
+              <pattern>org.apache.hadoop.hbase.</pattern>
+              <shadedPattern>bigtable-shaded.org.apache.hadoop.hbase.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.</pattern>
+              <shadedPattern>bigtable-shaded.com.google.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.netty.</pattern>
+              <shadedPattern>bigtable-shaded.io.netty.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.</pattern>
+              <shadedPattern>bigtable-shaded.io.grpc.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -73,6 +91,12 @@
       <groupId>com.google.cloud.bigtable</groupId>
       <artifactId>bigtable-hbase-1.x</artifactId>
       <version>1.0.0</version>
+      <exclusions>
+        <exclusion>
+          <groupId>log4j</groupId>
+          <artifactId>log4j</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
   </dependencies>

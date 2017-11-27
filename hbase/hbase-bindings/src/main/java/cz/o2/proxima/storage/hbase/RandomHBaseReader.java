@@ -94,7 +94,9 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
       get.setFilter(new ColumnPrefixFilter(wildcard.toAttributePrefix().getBytes()));
       Scan scan = new Scan(get);
       scan.setBatch(limit);
-      scan.setFilter(new ColumnPaginationFilter(limit, stroff.off.getBytes()));
+      if (stroff != null) {
+        scan.setFilter(new ColumnPaginationFilter(limit, stroff.off.getBytes()));
+      }
 
       int accepted = 0;
       try (ResultScanner scanner = client.getScanner(scan)) {
@@ -126,7 +128,10 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
 
   @Override
   public void close() throws IOException {
-    client.close();
+    if (client != null) {
+      client.close();
+      client = null;
+    }
   }
 
   private KeyValue kv(AttributeDescriptor<?> desc, Cell cell) {

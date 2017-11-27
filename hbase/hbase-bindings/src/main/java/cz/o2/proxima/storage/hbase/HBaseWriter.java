@@ -77,10 +77,12 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
         put.addColumn(family, column.getBytes(), data.getValue());
         action = put;
       }
+      LOG.info("Updating hbase with {}", action);
       this.client.batchCallback(Arrays.asList(action), new Object[1], new Batch.Callback<Object>() {
         @Override
         public void update(byte[] region, byte[] row, Object result) {
           if (result != null) {
+            LOG.info("Successfully updated hbase with {}", action);
             statusCallback.commit(true, null);
           } else {
             LOG.error("Failed to write {} to hbase", data);

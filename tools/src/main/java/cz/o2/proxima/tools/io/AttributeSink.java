@@ -16,12 +16,12 @@
 
 package cz.o2.proxima.tools.io;
 
-import com.google.protobuf.ByteString;
-import com.google.protobuf.TextFormat;
 import cz.o2.proxima.client.IngestClient;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.thirdparty.protobuf.ByteString;
+import cz.o2.proxima.thirdparty.protobuf.TextFormat;
 import cz.seznam.euphoria.core.client.io.DataSink;
 import cz.seznam.euphoria.core.client.io.Writer;
 import cz.seznam.euphoria.core.client.util.Triple;

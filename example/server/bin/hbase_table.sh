@@ -1,3 +1,4 @@
+#!/bin/bash
 #
 # Copyright 2017 O2 Czech Republic, a.s.
 #
@@ -14,30 +15,7 @@
 # limitations under the License.
 #
 
-version: '2'
-services:
-  hadoop:
-    image: sequenceiq/hadoop-docker:2.7.1
-    ports:
-      - 9000:9000
-      - 50070:50070
-  casandra:
-    image: cassandra:3
-    ports:
-      - 9042:9042
-  zookeeper:
-    image: wurstmeister/zookeeper
-    ports:
-      - 12181:2181
-  hbase:
-    image: dajobe/hbase
-    network_mode: host
-  kafka:
-    image: wurstmeister/kafka
-    depends_on:
-      - zookeeper
-    environment:
-      KAFKA_ADVERTISED_HOST_NAME: localhost
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-    ports:
-      - 9092:9092
+
+echo "create 'user_events', {NAME=>'u', VERSIONS=>1}" | docker exec -i $(docker ps | grep hbase | cut -c1-15) /opt/hbase/bin/hbase shell
+
+

@@ -18,27 +18,13 @@
 # Run the ingest/retrieve server
 set -eu
 
-export CASSANDRA_SEED=localhost:9042
-export HDFS_AUTHORITY=localhost:9000
-export KAFKA_BROKERS=localhost:9092
+export BIN_DIR=$(dirname $0)
+export HADOOP_HOME=$(pwd)
 
-BIN_DIR=$(dirname $0)
+source ${BIN_DIR}/config.sh
+
 LOG_LEVEL=INFO
 JAR="${BIN_DIR}/../target/proxima-example-ingest-server.jar"
 CLASS=cz.o2.proxima.server.IngestServer
-
-echo "Starting required services in docker."
-echo "===================================="
-echo "Stop command: docker-compose stop"
-echo "Clean command: docker-compose rm"
-echo -e "\nPres enter to continue..."
-read
-
-if [ -z `which docker-compose` ]; then
-  echo "Need to install docker compose (i.e apt-get install docker-compose)"
-  exit 1
-fi
-
-#docker-compose up -d
 
 java -cp ${JAR} -DLOG_LEVEL=${LOG_LEVEL} -Djava.library.path=${BIN_DIR}/hadoop-native/ ${CLASS}

@@ -76,7 +76,7 @@ class Utils {
    * via given {@code PartitionedLogObserver}.
    */
   static <T> LogObserver forwardingTo(
-      BlockingQueue<T> queue, PartitionedLogObserver observer) {
+      BlockingQueue<T> queue, PartitionedLogObserver<T> observer) {
 
     Consumer<T> consumer = e -> {
       try {

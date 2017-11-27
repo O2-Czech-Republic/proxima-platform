@@ -48,6 +48,52 @@
           </execution>
         </executions>
       </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.4.3</version>
+        <configuration>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+             <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
+            </transformer>
+          </transformers>
+          <artifactSet>
+            <excludes>
+              <!-- exclude proxima and core dependencies -->
+              <exclude>cz.o2.proxima:platform-core</exclude>
+              <exclude>cz.seznam.euphoria:*</exclude>
+              <exclude>org.slf4j:slf4j-api</exclude>
+              <exclude>com.typesafe:config</exclude>
+              <exclude>org.reflections:reflections</exclude>
+            </excludes>
+          </artifactSet>
+          <relocations>
+            <relocation>
+              <pattern>org.apache.**</pattern>
+              <shadedPattern>tools-shaded.org.apache.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.netty.**</pattern>
+              <shadedPattern>tools-shaded.io.netty.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.common.**</pattern>
+              <shadedPattern>tools-shaded.com.google.common.</shadedPattern>
+            </relocation>
+          </relocations>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
     </plugins>
   </build>
 
@@ -57,12 +103,6 @@
       <groupId>cz.o2.proxima</groupId>
       <artifactId>platform-core</artifactId>
       <version>${project.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>com.google.code.findbugs</groupId>
-          <artifactId>jsr305</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
@@ -80,6 +120,11 @@
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-all</artifactId>
     </dependency>
 
     <dependency>

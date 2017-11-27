@@ -69,15 +69,15 @@
   <dependencies>
 
     <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>platform-server-grpc</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>cz.o2.proxima.example</groupId>
       <artifactId>example-model</artifactId>
       <version>${project.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>com.google.code.findbugs</groupId>
-          <artifactId>jsr305</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>

@@ -277,6 +277,7 @@
     <module>cassandra</module>
     <module>client</module>
     <module>core</module>
+    <module>hbase</module>
     <module>hdfs</module>
     <module>http</module>
     <module>kafka</module>

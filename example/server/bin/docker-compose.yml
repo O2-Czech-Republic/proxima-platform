@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-version: '3'
+version: '2'
 services:
   hadoop:
     image: sequenceiq/hadoop-docker:2.7.1
@@ -29,6 +29,9 @@ services:
     image: wurstmeister/zookeeper
     ports:
       - 12181:2181
+  hbase:
+    image: dajobe/hbase
+    network_mode: host
   kafka:
     image: wurstmeister/kafka
     depends_on:

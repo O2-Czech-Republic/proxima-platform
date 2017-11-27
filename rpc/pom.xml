@@ -32,6 +32,7 @@
   <name>Proxima platform gRPC proto specification</name>
 
   <build>
+
     <extensions>
       <extension>
         <groupId>kr.motd.maven</groupId>
@@ -39,6 +40,7 @@
         <version>1.4.1.Final</version>
       </extension>
     </extensions>
+
     <plugins>
       <plugin>
         <groupId>org.xolstice.maven.plugins</groupId>
@@ -59,6 +61,7 @@
           </execution>
         </executions>
       </plugin>
+
     </plugins>
   </build>
 
@@ -67,12 +70,21 @@
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
+      <version>${proto.version}</version>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-all</artifactId>
-      <scope>provided</scope>
+      <version>${grpc.version}</version>
+      <exclusions>
+        <!-- do not use protobuf-lite, use protobuf-java -->
+        <exclusion>
+          <groupId>com.google.protobuf</groupId>
+          <artifactId>protobuf-lite</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
   </dependencies>

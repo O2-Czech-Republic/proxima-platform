@@ -1,5 +1,6 @@
 **/nbproject/
 **/target/
+**/build/
 *.iml
 *.swp
 .idea/
@@ -26,3 +27,5 @@ pom.xml.versionsBackup
 *.iml
 .idea
 server/log
+**/*_pb2.py
+**/*_pb2_grpc.py

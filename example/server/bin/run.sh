@@ -39,6 +39,6 @@ if [ -z `which docker-compose` ]; then
   exit 1
 fi
 
-docker-compose up -d
+#docker-compose up -d
 
 java -cp ${JAR} -DLOG_LEVEL=${LOG_LEVEL} -Djava.library.path=${BIN_DIR}/hadoop-native/ ${CLASS}

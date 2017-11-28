@@ -47,6 +47,67 @@
         </executions>
       </plugin>
 
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.4.3</version>
+        <configuration>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+             <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
+            </transformer>
+          </transformers>
+          <artifactSet>
+            <excludes>
+              <!-- exclude proxima and core dependencies -->
+              <exclude>cz.o2.proxima:platform-core</exclude>
+              <exclude>cz.seznam.euphoria:*</exclude>
+              <exclude>org.slf4j:slf4j-api</exclude>
+              <exclude>com.typesafe:config</exclude>
+              <exclude>org.reflections:reflections</exclude>
+            </excludes>
+          </artifactSet>
+          <relocations>
+            <relocation>
+              <pattern>org.apache.kafka.**</pattern>
+              <shadedPattern>kafka-shaded.org.apache.kafka.</shadedPattern>
+           </relocation>
+           <relocation>
+             <pattern>net.sf.**</pattern>
+             <shadedPattern>kafka-shaded.net.sf.</shadedPattern>
+           </relocation>
+           <relocation>
+             <pattern>com.yammer.**</pattern>
+             <shadedPattern>kafka-shaded.com.yammer.</shadedPattern>
+           </relocation> 
+           <relocation>
+             <pattern>scala.**</pattern>
+             <shadedPattern>kafka-shaded.scala.</shadedPattern>
+           </relocation>
+           <relocation>
+             <pattern>com.101tec.**</pattern>
+             <shadedPattern>kafka-shaded.com.101tec.</shadedPattern>
+           </relocation>
+           <relocation>
+             <pattern>org.apache.zookeeper.**</pattern>
+             <shadedPattern>kafka-shaded.org.apache.zookeeper.</shadedPattern>
+           </relocation>
+           <relocation>
+             <pattern>com.google.common.**</pattern>
+             <shadedPattern>kafka-shaded.com.google.common.</shadedPattern>
+           </relocation>
+          </relocations>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 

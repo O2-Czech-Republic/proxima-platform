@@ -31,6 +31,63 @@
      
   <name>Proxima platform HDFS module</name>
 
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.4.3</version>
+        <configuration>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+             <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
+            </transformer>
+          </transformers>
+          <artifactSet>
+            <excludes>
+              <!-- exclude proxima and core dependencies -->
+              <exclude>cz.o2.proxima:platform-core</exclude>
+              <exclude>cz.seznam.euphoria:*</exclude>
+              <exclude>org.slf4j:slf4j-api</exclude>
+              <exclude>com.typesafe:config</exclude>
+              <exclude>org.reflections:reflections</exclude>
+            </excludes>
+          </artifactSet>
+          <relocations>
+            <relocation>
+              <pattern>org.apache.**</pattern>
+              <shadedPattern>hdfs-shaded.org.apache.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.netty.**</pattern>
+              <shadedPattern>hdfs-shaded.io.netty.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>org.mortbay.jetty.**</pattern>
+              <shadedPattern>hdfs-shaded.org.mortbay.jetty.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.common.**</pattern>
+              <shadedPattern>hdfs-shaded.com.google.common.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>org.codehaus.jackson.**</pattern>
+              <shadedPattern>hdfs-shaded.org.codehaus.jackson.</shadedPattern>
+            </relocation>
+          </relocations>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
   <dependencies>
 
     <dependency>
@@ -48,6 +105,16 @@
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
       <version>2.7.4</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-log4j12</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>log4j</groupId>
+          <artifactId>log4j</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>

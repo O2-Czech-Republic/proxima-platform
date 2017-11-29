@@ -20,19 +20,18 @@ import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellScanner;
 import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.client.coprocessor.Batch;
 import org.apache.hadoop.hbase.filter.ColumnPrefixFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,9 +42,20 @@ import org.slf4j.LoggerFactory;
 class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
 
   private static final Logger LOG = LoggerFactory.getLogger(HBaseWriter.class);
+  private static final String DEL_BATCH_SIZE_CONF = "del-batch-size";
+  private static final String FLUSH_COMMITS_CFG = "flush-commits";
+
+  private final int batchSize;
+  private final boolean flushCommits;
 
   HBaseWriter(URI uri, Configuration conf, Map<String, Object> cfg) {
     super(uri, conf, cfg);
+    batchSize = Optional.ofNullable(cfg.get(DEL_BATCH_SIZE_CONF))
+        .map(o -> Integer.valueOf(o.toString()))
+        .orElse(1000);
+    flushCommits = Optional.ofNullable(cfg.get(FLUSH_COMMITS_CFG))
+        .map(o -> Boolean.valueOf(o.toString()))
+        .orElse(true);
   }
 
   @Override
@@ -54,42 +64,31 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
     ensureClient();
     byte[] key = data.getKey().getBytes();
     long stamp = data.getStamp();
-    final Mutation action;
 
     try {
       if (data.isDelete()) {
-        Delete del = new Delete(key, stamp);
         if (data.isDeleteWildcard()) {
           // due to HBASE-5268 we have to first scan for all columns by prefix
           // and then delete them one by one
           deletePrefix(
               key, family,
               data.getAttributeDescriptor().toAttributePrefix(),
-              stamp,
-              del);
+              stamp);
         } else {
+          Delete del = new Delete(key, stamp);
           del.addColumns(family, data.getAttribute().getBytes(), stamp);
+          this.client.delete(del);
         }
-        action = del;
       } else {
         String column = data.getAttribute();
         Put put = new Put(key, stamp);
         put.addColumn(family, column.getBytes(), data.getValue());
-        action = put;
+        this.client.put(put);
       }
-      LOG.info("Updating hbase with {}", action);
-      this.client.batchCallback(Arrays.asList(action), new Object[1], new Batch.Callback<Object>() {
-        @Override
-        public void update(byte[] region, byte[] row, Object result) {
-          if (result != null) {
-            LOG.info("Successfully updated hbase with {}", action);
-            statusCallback.commit(true, null);
-          } else {
-            LOG.error("Failed to write {} to hbase", data);
-            statusCallback.commit(false, new RuntimeException("Error writing data to hbase"));
-          }
-        }
-      });
+      if (flushCommits) {
+        ((HTable) this.client).flushCommits();
+      }
+      statusCallback.commit(true, null);
     } catch (Exception ex) {
       LOG.error("Failed to write {}", data, ex);
       statusCallback.commit(false, ex);
@@ -97,9 +96,10 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
   }
 
   private void deletePrefix(
-      byte[] key, byte[] family, String prefix, long stamp, Delete del)
+      byte[] key, byte[] family, String prefix, long stamp)
       throws IOException {
 
+    Delete del = new Delete(key);
     Get get = new Get(key);
     get.addFamily(family);
     get.setFilter(new ColumnPrefixFilter(prefix.getBytes()));
@@ -113,8 +113,15 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
         while (cellScanner.advance()) {
           Cell c = cellScanner.current();
           del.addColumns(family, c.getQualifier(), stamp);
+          if (del.size() >= batchSize) {
+            client.delete(del);
+            del = new Delete(key);
+          }
         }
       }
+    }
+    if (del.size() > 0) {
+      client.delete(del);
     }
   }
 

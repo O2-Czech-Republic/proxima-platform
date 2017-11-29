@@ -17,5 +17,3 @@
 
 
 echo "create 'user_events', {NAME=>'u', VERSIONS=>1}" | docker exec -i $(docker ps | grep hbase | cut -c1-15) /opt/hbase/bin/hbase shell
-
-

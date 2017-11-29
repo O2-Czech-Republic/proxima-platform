@@ -22,7 +22,7 @@
 
   <parent>
     <groupId>cz.o2.proxima</groupId>
-    <artifactId>platform-parent-shade</artifactId>
+    <artifactId>platform-parent</artifactId>
     <version>0.1-SNAPSHOT</version>
   </parent>
      

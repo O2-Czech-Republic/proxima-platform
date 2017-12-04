@@ -68,7 +68,6 @@ public class Repository {
     return Repository.Builder.of(config).build();
   }
 
-
   /**
    * Builder for repository.
    */
@@ -123,11 +122,13 @@ public class Repository {
     }
   }
 
+
   /**
    * Application configuration.
    */
   @Getter
   private final Config config;
+
 
   /**
    * Classpath reflections scanner.
@@ -135,12 +136,14 @@ public class Repository {
   @Getter
   private final Reflections reflections;
 
+
   /**
    * When read-only flag is specified, some checks are not performed in construction.
    * This enables to use the repository inside reader applications that
    * don't have to have all the server jars on classpath.
    */
   private final boolean isReadonly;
+
 
   /**
    * Flag to indicate if we should validate the scheme with serializer.
@@ -150,11 +153,13 @@ public class Repository {
    */
   private final boolean shouldValidate;
 
+
   /**
    * Flag to indicate we should or should not load accessor to column families.
    * The accessor is not needed mostly in the compiler.
    */
   private final boolean shouldLoadAccessors;
+
 
   /**
    * Map of all storage descriptors available.
@@ -163,6 +168,7 @@ public class Repository {
    * and then it is read-only.
    **/
   private final Map<String, StorageDescriptor> schemeToStorage = new HashMap<>();
+
 
   /**
    * Map of all scheme serializers.
@@ -179,18 +185,28 @@ public class Repository {
    * and then it is read-only.
    **/
   private final Map<String, EntityDescriptor> entitiesByName = new HashMap<>();
+
+
   /**
    * Map of entities by pattern.
    * This need not be synchronized because it is only written in constructor
    * and then it is read-only.
    **/
   private final Map<NamePattern, EntityDescriptor> entitiesByPattern;
+
+
   /**
-   * Map of attribute family to list of attributes.
+   * Map of attribute descriptor to list of families.
    * This need not be synchronized because it is only written in constructor
    * and then it is read-only.
    */
   private final Map<AttributeDescriptorImpl<?>, Set<AttributeFamilyDescriptor<?>>> attributeToFamily;
+
+
+  /**
+   * Map of transformation name to transformation descriptor.
+   */
+  private final Map<String, TransformationDescriptor> transformations = new HashMap<>();
 
 
   /**
@@ -241,6 +257,8 @@ public class Repository {
       if (loadFamilies) {
         /* Read attribute families and map them to storages by attribute. */
         readAttributeFamilies(cfg);
+        /* Read transformations from one entity to another. */
+        readTransformations(cfg);
       }
 
       if (shouldValidate) {
@@ -380,8 +398,8 @@ public class Repository {
   @SuppressWarnings("unchecked")
   private Map<String, Object> toMap(String key, Object value) {
     if (!(value instanceof Map)) {
-      throw new IllegalArgumentException("Key " + key + " must "
-          + "be object got "
+      throw new IllegalArgumentException(
+          "Key " + key + " must be object got "
           + (value != null
               ? value.getClass().getName()
               : "(null)"));
@@ -560,6 +578,84 @@ public class Repository {
     }
   }
 
+  private void readTransformations(Config cfg) {
+
+    if (entitiesByName.isEmpty() && entitiesByPattern.isEmpty()) {
+      // no loaded entities, no more stuff to read
+      return;
+    }
+    Map<String, Object> transformations = Optional.ofNullable(
+        cfg.root().get("transformations"))
+        .map(v -> toMap("transformations", v.unwrapped()))
+        .orElse(null);
+
+    if (transformations == null) {
+      LOG.info("Skipping empty transformations configuration.");
+      return;
+    }
+
+    transformations.forEach((k, v) -> {
+      try {
+        Map<String, Object> transformation = toMap(k, v);
+        EntityDescriptor entity = findEntity(readStr("entity", transformation, k))
+            .orElseThrow(() -> new IllegalArgumentException(
+                String.format("Entity `%s` doesn't exist",
+                    transformation.get("entity"))));
+
+        Class<? extends Transformation> cls = Classpath.findClass(
+            readStr("using", transformation, k), Transformation.class);
+
+        List<AttributeDescriptor<?>> attrs = readList("attributes", transformation, k)
+            .stream()
+            .map(a -> entity.findAttribute(a).orElseThrow(
+                () -> new IllegalArgumentException(
+                    String.format("Missing attribute `%s` in `%s`",
+                        a, entity))))
+            .collect(Collectors.toList());
+
+        TransformationDescriptor desc = TransformationDescriptor.newBuilder()
+            .addAttributes(attrs)
+            .setEntity(entity)
+            .setTransformationClass(cls)
+            .build();
+
+        this.transformations.put(k, desc);
+
+      } catch (ClassNotFoundException ex) {
+        throw new RuntimeException(ex);
+      }
+    });
+
+    this.transformations.forEach((k, v) -> v.getTransformation().setup(this));
+
+  }
+
+  private static String readStr(String key, Map<String, Object> map, String name) {
+    return Optional.ofNullable(map.get(key))
+          .map(Object::toString)
+          .orElseThrow(
+              () -> new IllegalArgumentException(
+                  String.format("Missing required field `%s` in `%s`", key, name)));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<String> readList(
+      String key, Map<String, Object> map, String name) {
+
+    return Optional.ofNullable(map.get(key))
+        .map(v -> {
+          if (v instanceof List) return (List<Object>) v;
+          throw new IllegalArgumentException(
+              String.format("Key `%s` in `%s` must be list", key, name));
+        })
+        .map(l -> l.stream().map(Object::toString).collect(Collectors.toList()))
+        .orElseThrow(() -> new IllegalArgumentException(
+            String.format("Missing required field `%s` in `%s", key, name)));
+  }
+
+
+
+
   @SuppressWarnings("unchecked")
   private List<String> toList(Object in) {
     if (in instanceof List) {
@@ -622,6 +718,11 @@ public class Repository {
     return Stream.concat(
             entitiesByName.values().stream(),
             entitiesByPattern.values().stream());
+  }
+
+  /** Retrieve all transformers. */
+  public Map<String, TransformationDescriptor> getTransformations() {
+    return Collections.unmodifiableMap(transformations);
   }
 
   public boolean isEmpty() {

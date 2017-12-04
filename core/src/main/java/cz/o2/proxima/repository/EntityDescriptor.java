@@ -55,9 +55,9 @@ public interface EntityDescriptor extends Serializable {
 
   /** Name of the entity. */
   String getName();
-  
+
   /** Find attribute based by name. */
-  Optional<AttributeDescriptor> findAttribute(String name);
+  Optional<AttributeDescriptor<?>> findAttribute(String name);
 
   /** List all attribute descriptors of given entity. */
   List<AttributeDescriptor> getAllAttributes();

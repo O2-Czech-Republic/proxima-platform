@@ -44,6 +44,7 @@ public class RetrieveServiceTest {
   public void setup() throws InterruptedException {
     server = new IngestServer(ConfigFactory.load().resolve());
     retrieve = server.new RetrieveService();
+    server.startConsumerThreads();
   }
 
 

@@ -44,6 +44,7 @@ import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.SynchronousQueue;
 
 /**
@@ -66,17 +67,26 @@ public class InMemStorage extends StorageDescriptor {
     void write(StreamElement data);
   }
 
-  public final class Writer
+  public static final class Writer
       extends AbstractOnlineAttributeWriter {
 
-    private Writer(EntityDescriptor entityDesc, URI uri) {
+    private final Map<String, byte[]> data;
+    private final Map<Integer, InMemIngestWriter> observers;
+
+    private Writer(
+        EntityDescriptor entityDesc, URI uri,
+        Map<String, byte[]> data,
+        Map<Integer, InMemIngestWriter> observers) {
+
       super(entityDesc, uri);
+      this.data = data;
+      this.observers = observers;
     }
 
 
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
-      InMemStorage.this.data.put(
+      this.data.put(
           getURI().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
           data.getValue());
 
@@ -123,7 +133,7 @@ public class InMemStorage extends StorageDescriptor {
       }
       final int id;
       synchronized (observers) {
-        id = observers.isEmpty() ? 0 : observers.lastKey();
+        id = observers.isEmpty() ? 0 : observers.lastKey() + 1;
         observers.put(id, elem -> observer.onNext(elem, () -> 0, (succ, exc) -> { }));
       }
       return () -> {
@@ -323,25 +333,28 @@ public class InMemStorage extends StorageDescriptor {
 
   @Getter
   private final NavigableMap<String, byte[]> data;
-  private final NavigableMap<Integer, InMemIngestWriter> observers;
+
+  private final Map<URI, NavigableMap<Integer, InMemIngestWriter>> observers;
 
   public InMemStorage() {
     super(Arrays.asList("inmem"));
     this.data = Collections.synchronizedNavigableMap(new TreeMap<>());
-    this.observers = Collections.synchronizedNavigableMap(new TreeMap<>());
+    this.observers = new ConcurrentHashMap<>();
   }
 
   @Override
   public DataAccessor getAccessor(
       EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
+    observers.computeIfAbsent(uri, k -> Collections.synchronizedNavigableMap(
+        new TreeMap<>()));
+    NavigableMap<Integer, InMemIngestWriter> uriObservers = observers.get(uri);
+    Writer writer = new Writer(entityDesc, uri, data, uriObservers);
+    InMemCommitLogReader commitLogReader = new InMemCommitLogReader(
+        entityDesc, uri, uriObservers);
+    Reader reader = new Reader(entityDesc, uri, data);
+
     return new DataAccessor() {
-
-      Writer writer = new Writer(entityDesc, uri);
-      InMemCommitLogReader commitLogReader = new InMemCommitLogReader(
-          entityDesc, uri, observers);
-      Reader reader = new Reader(entityDesc, uri, data);
-
       @Override
       public Optional<AttributeWriterBase> getWriter() {
         return Optional.of(writer);

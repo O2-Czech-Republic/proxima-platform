@@ -23,8 +23,6 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.Token;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
@@ -54,6 +52,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
+import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
+import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
 
 /**
  * {@code AttributeWriter} for Apache Cassandra.

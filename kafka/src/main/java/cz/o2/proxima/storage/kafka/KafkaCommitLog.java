@@ -16,7 +16,6 @@
 
 package cz.o2.proxima.storage.kafka;
 
-import com.google.common.base.Strings;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
@@ -68,6 +67,7 @@ import cz.o2.proxima.view.input.DataSourceUtils;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import cz.seznam.euphoria.core.client.operator.MapElements;
+import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.SynchronousQueue;
@@ -626,7 +626,7 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
         } else {
           String entityKey = key.substring(0, hashPos);
           String attribute = key.substring(hashPos + 1);
-          Optional<AttributeDescriptor> attr = getEntityDescriptor().findAttribute(attribute);
+          Optional<AttributeDescriptor<?>> attr = getEntityDescriptor().findAttribute(attribute);
           if (!attr.isPresent()) {
             LOG.error("Invalid attribute in kafka key {}", key);
           } else {

@@ -38,37 +38,32 @@
         <artifactId>maven-shade-plugin</artifactId>
         <version>2.4.3</version>
         <configuration>
-          <transformers>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-             <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
-            </transformer>
-          </transformers>
           <artifactSet>
             <excludes>
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:platform-core</exclude>
-              <exclude>cz.seznam.euphoria:*</exclude>
-              <exclude>org.slf4j:slf4j-api</exclude>
-              <exclude>com.typesafe:config</exclude>
-              <exclude>org.reflections:reflections</exclude>
             </excludes>
           </artifactSet>
           <relocations>
             <relocation>
-              <pattern>io.netty.**</pattern>
+              <pattern>io.netty.</pattern>
               <shadedPattern>cassandra-shaded.io.netty.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>io.dropwizard.**</pattern>
+              <pattern>io.dropwizard.</pattern>
               <shadedPattern>cassandra-shaded.io.dropwizard.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>com.github.jnr.**</pattern>
+              <pattern>com.github.jnr.</pattern>
               <shadedPattern>cassandra-shaded.com.github.jnr.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>com.google.common.**</pattern>
+              <pattern>com.google.common.</pattern>
               <shadedPattern>cassandra-shaded.com.google.common.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.protobuf.</pattern>
+              <shadedPattern>cassandra-shaded.com.google.protobuf.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -105,11 +100,6 @@
     </dependency>
 
     <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-    </dependency>
-
-    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
     </dependency>
@@ -124,6 +114,11 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>jsr305</artifactId>
     </dependency>
 
     <dependency>

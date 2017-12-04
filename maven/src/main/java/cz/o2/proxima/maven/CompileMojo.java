@@ -16,10 +16,10 @@
 
 package cz.o2.proxima.maven;
 
-import com.google.common.base.Joiner;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.seznam.euphoria.shaded.guava.com.google.common.base.Joiner;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateExceptionHandler;

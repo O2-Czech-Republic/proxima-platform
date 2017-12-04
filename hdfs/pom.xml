@@ -47,32 +47,28 @@
             <excludes>
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:platform-core</exclude>
-              <exclude>cz.seznam.euphoria:*</exclude>
-              <exclude>org.slf4j:slf4j-api</exclude>
-              <exclude>com.typesafe:config</exclude>
-              <exclude>org.reflections:reflections</exclude>
             </excludes>
           </artifactSet>
           <relocations>
             <relocation>
-              <pattern>org.apache.**</pattern>
-              <shadedPattern>hdfs-shaded.org.apache.</shadedPattern>
+              <pattern>io.netty.</pattern>
+              <shadedPattern>cz.o2.proxima.hadoop.shaded.io.netty.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>io.netty.**</pattern>
-              <shadedPattern>hdfs-shaded.io.netty.</shadedPattern>
+              <pattern>org.mortbay.jetty.</pattern>
+              <shadedPattern>cz.o2.proxima.hadoop.shaded.org.mortbay.jetty.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>org.mortbay.jetty.**</pattern>
-              <shadedPattern>hdfs-shaded.org.mortbay.jetty.</shadedPattern>
+              <pattern>com.google.common.</pattern>
+              <shadedPattern>cz.o2.proxima.hadoop.shaded.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>com.google.common.**</pattern>
-              <shadedPattern>hdfs-shaded.com.google.common.</shadedPattern>
+              <pattern>com.google.protobuf.</pattern>
+              <shadedPattern>cz.o2.proxima.hadoop.shaded.com.google.protobuf.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>org.codehaus.jackson.**</pattern>
-              <shadedPattern>hdfs-shaded.org.codehaus.jackson.</shadedPattern>
+              <pattern>org.codehaus.jackson.</pattern>
+              <shadedPattern>cz.o2.proxima.hadoop.shaded.org.codehaus.jackson.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -121,11 +117,12 @@
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-hdfs</artifactId>
       <version>2.7.4</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>log4j</groupId>
+          <artifactId>log4j</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>

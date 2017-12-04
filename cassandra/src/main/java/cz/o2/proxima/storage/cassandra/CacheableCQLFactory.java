@@ -19,18 +19,15 @@ package cz.o2.proxima.storage.cassandra;
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
-import java.io.UnsupportedEncodingException;
+import cz.o2.proxima.storage.URIUtil;
+import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
+import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
 import java.net.URI;
-import java.net.URLDecoder;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,7 +104,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
     this.tableName = tableName.substring(1);
     final Map<String, String> parsed;
     if (!Strings.isNullOrEmpty(uri.getQuery())) {
-      parsed = parseQuery(uri.getQuery());
+      parsed = URIUtil.parseQuery(uri);
       payloadCol = parsed.get("data");
     } else {
       parsed = Collections.emptyMap();
@@ -120,22 +117,6 @@ public abstract class CacheableCQLFactory implements CQLFactory {
       setup(parsed, converter);
     } catch (RuntimeException ex) {
       throw new IllegalStateException("Cannot setup URI " + uri, ex);
-    }
-  }
-
-
-  private Map<String, String> parseQuery(String query) {
-    return Arrays.asList(query.split("&")).stream()
-        .map(s -> Arrays.copyOf(s.split("="), 2))
-        .collect(Collectors.toMap(s -> decode(s[0]), s -> decode(s[1])));
-  }
-
-
-  private static String decode(final String encoded) {
-    try {
-      return encoded == null ? null : URLDecoder.decode(encoded, "UTF-8");
-    } catch(final UnsupportedEncodingException e) {
-      throw new IllegalStateException("UTF-8 is a required encoding", e);
     }
   }
 

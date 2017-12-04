@@ -57,6 +57,11 @@
             <artifactId>example-proto</artifactId>
             <version>${project.version}</version>
           </dependency>
+          <dependency>
+            <groupId>cz.o2.proxima</groupId>
+            <artifactId>platform-scheme</artifactId>
+            <version>${project.version}</version>
+          </dependency>
         </dependencies>
       </plugin>
     </plugins>
@@ -73,7 +78,13 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-core</artifactId>
+      <artifactId>platform-scheme</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>platform-scheme</artifactId>
       <version>${project.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
@@ -105,6 +116,12 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
+      <artifactId>platform-hbase-hbase</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
       <artifactId>platform-hdfs</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -112,11 +129,6 @@
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.protobuf</groupId>
-      <artifactId>protobuf-java</artifactId>
     </dependency>
 
     <dependency>
@@ -138,7 +150,7 @@
 
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
-      <artifactId>annotations</artifactId>
+      <artifactId>jsr305</artifactId>
     </dependency>
 
   </dependencies>

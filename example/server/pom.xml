@@ -33,6 +33,7 @@
 
   <build>
     <plugins>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
@@ -40,7 +41,7 @@
         <configuration>
           <finalName>proxima-example-ingest-server</finalName>
         </configuration>
-      </plugin>             
+      </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -52,6 +53,16 @@
              <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
             </transformer>
           </transformers>
+          <relocations>
+            <relocation>
+              <pattern>org.reflections.</pattern>
+              <shadedPattern>cz.o2.proxima.internal.org.reflections.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.common.</pattern>
+              <shadedPattern>cz.seznam.euphoria.shaded.guava.com.google.common.</shadedPattern>
+            </relocation>
+          </relocations>
         </configuration>
         <executions>
           <execution>

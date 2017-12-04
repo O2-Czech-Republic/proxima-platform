@@ -75,7 +75,6 @@ public class IngestServiceTest {
         latch.countDown();
       }
     };
-
   }
 
 
@@ -359,26 +358,7 @@ public class IngestServiceTest {
         .setValue(ByteString.EMPTY)
         .build();
 
-    ingest.ingest(request, new StreamObserver<Rpc.Status>() {
-
-      @Override
-      public void onNext(Rpc.Status status) {
-        responses.add(status);
-      }
-
-      @Override
-      public void onError(Throwable thrwbl) {
-        // nop
-      }
-
-      @Override
-      public void onCompleted() {
-        latch.countDown();
-      }
-
-    });
-
-    latch.await();
+    flushToIngest(request);
 
     assertEquals(1, responses.size());
     Rpc.Status status = responses.poll();
@@ -402,26 +382,7 @@ public class IngestServiceTest {
         .setValue(ByteString.EMPTY)
         .build();
 
-    ingest.ingest(request, new StreamObserver<Rpc.Status>() {
-
-      @Override
-      public void onNext(Rpc.Status status) {
-        responses.add(status);
-      }
-
-      @Override
-      public void onError(Throwable thrwbl) {
-        // nop
-      }
-
-      @Override
-      public void onCompleted() {
-        latch.countDown();
-      }
-
-    });
-
-    latch.await();
+    flushToIngest(request);
 
     assertEquals(1, responses.size());
     Rpc.Status status = responses.poll();
@@ -432,7 +393,6 @@ public class IngestServiceTest {
     assertEquals(1, data.size());
     assertTrue(data.containsKey("/proxima_events/bulk/my-dummy-entity#data"));
   }
-
 
   @Test(timeout = 2000)
   public void testIngestValidExtendedScheme()
@@ -450,6 +410,53 @@ public class IngestServiceTest {
         .setValue(payload.toByteString())
         .build();
 
+    flushToIngest(request);
+
+    assertEquals(1, responses.size());
+    Rpc.Status status = responses.poll();
+    assertEquals(200, status.getStatus());
+
+    InMemStorage storage = (InMemStorage) server.repo.getStorageDescriptor("inmem");
+    Map<String, byte[]> data = storage.getData();
+    assertEquals(2, data.size());
+    byte[] value = data.get("/test_inmem/my-dummy-entity#data");
+    assertTrue(value != null);
+    assertEquals(payload, ExtendedMessage.parseFrom(value));
+    value = data.get("/test_inmem/random/my-dummy-entity#data");
+    assertTrue(value != null);
+    assertEquals(payload, ExtendedMessage.parseFrom(value));
+  }
+
+  @Test(timeout = 2000)
+  public void testTransform() throws InterruptedException {
+    // write event.data and check that we receive write to dummy.wildcard.<stamp>
+    long now = System.currentTimeMillis();
+    Rpc.Ingest request = Rpc.Ingest.newBuilder()
+        .setEntity("event")
+        .setAttribute("data")
+        .setUuid(UUID.randomUUID().toString())
+        .setKey("my-dummy-entity")
+        .setValue(ByteString.EMPTY)
+        .setStamp(now)
+        .build();
+
+    flushToIngest(request);
+
+    assertEquals(1, responses.size());
+    Rpc.Status status = responses.poll();
+    assertEquals(200, status.getStatus());
+
+    InMemStorage storage = (InMemStorage) server.repo.getStorageDescriptor("inmem");
+    Map<String, byte[]> data = storage.getData();
+    assertEquals(2, data.size());
+    byte[] value = data.get("/proxima_events/my-dummy-entity#data");
+    assertTrue(value != null);
+    value = data.get("/proxima/dummy/my-dummy-entity#wildcard." + now);
+    assertTrue(value != null);
+  }
+
+  private void flushToIngest(Rpc.Ingest request) throws InterruptedException {
+
     ingest.ingest(request, new StreamObserver<Rpc.Status>() {
 
       @Override
@@ -470,17 +477,6 @@ public class IngestServiceTest {
     });
 
     latch.await();
-
-    assertEquals(1, responses.size());
-    Rpc.Status status = responses.poll();
-    assertEquals(200, status.getStatus());
-
-    InMemStorage storage = (InMemStorage) server.repo.getStorageDescriptor("inmem");
-    Map<String, byte[]> data = storage.getData();
-    assertEquals(1, data.size());
-    byte[] value = data.get("/test_inmem/my-dummy-entity#data");
-    assertTrue(value != null);
-    assertEquals(payload, ExtendedMessage.parseFrom(value));
   }
 
 }

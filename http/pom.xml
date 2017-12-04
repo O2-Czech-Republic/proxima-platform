@@ -38,24 +38,15 @@
         <artifactId>maven-shade-plugin</artifactId>
         <version>2.4.3</version>
         <configuration>
-          <transformers>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-             <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
-            </transformer>
-          </transformers>
           <artifactSet>
             <excludes>
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:platform-core</exclude>
-              <exclude>cz.seznam.euphoria:*</exclude>
-              <exclude>org.slf4j:slf4j-api</exclude>
-              <exclude>com.typesafe:config</exclude>
-              <exclude>org.reflections:reflections</exclude>
             </excludes>
           </artifactSet>
           <relocations>
             <relocation>
-              <pattern>com.google.common.**</pattern>
+              <pattern>com.google.common.</pattern>
               <shadedPattern>http-shaded.com.google.common.</shadedPattern>
             </relocation>
           </relocations>
@@ -84,11 +75,6 @@
     <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
     </dependency>
 
     <dependency>

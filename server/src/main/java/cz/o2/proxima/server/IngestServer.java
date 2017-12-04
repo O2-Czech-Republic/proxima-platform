@@ -16,7 +16,6 @@
 
 package cz.o2.proxima.server;
 
-import com.google.common.base.Strings;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.TextFormat;
 import com.typesafe.config.Config;
@@ -28,6 +27,8 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.Transformation;
+import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.BulkAttributeWriter;
@@ -44,6 +45,8 @@ import cz.o2.proxima.storage.commitlog.RetryableLogObserver;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Pair;
+import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
+import cz.seznam.euphoria.shaded.guava.com.google.common.collect.Sets;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
@@ -89,7 +92,6 @@ public class IngestServer {
     }
     server.run();
   }
-
 
   /**
    * The ingestion service.
@@ -495,7 +497,7 @@ public class IngestServer {
           "Entity " + request.getEntity() + " not found"));
       return false;
     }
-    Optional<AttributeDescriptor> attr = entity.get().findAttribute(
+    Optional<AttributeDescriptor<?>> attr = entity.get().findAttribute(
         request.getAttribute());
     if (!attr.isPresent()) {
       consumer.accept(notFound(request.getUuid(),
@@ -679,6 +681,85 @@ public class IngestServer {
         }
       }
     });
+
+    // execute transformer threads
+    repo.getTransformations().forEach((k, v) -> {
+      runTransformer(k, v);
+    });
+  }
+
+  private void runTransformer(String name, TransformationDescriptor transform) {
+    AttributeFamilyDescriptor<?> family = transform.getAttributes()
+        .stream()
+        .map(a -> this.repo.getFamiliesForAttribute(a)
+            .stream().filter(af -> af.getAccess().canReadCommitLog())
+            .collect(Collectors.toSet()))
+        .reduce(Sets::intersection)
+        .filter(s -> !s.isEmpty())
+        .map(s -> s.stream().filter(f -> f.getCommitLogReader().isPresent())
+            .findAny().orElse(null))
+        .filter(af -> af != null)
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Cannot obtain attribute family for " + transform.getAttributes()));
+
+    Transformation f = transform.getTransformation();
+    final String consumer = "transformer-" + name;
+    CommitLogReader reader = family.getCommitLogReader().get();
+
+    new RetryableLogObserver(3, consumer, reader) {
+
+      @Override
+      protected void failure() {
+        LOG.error("Failed to transform using {}. Bailing out.", f);
+        System.exit(1);
+      }
+
+      @Override
+      public boolean onNextInternal(
+          StreamElement ingest, LogObserver.ConfirmCallback confirm) {
+
+        // add one to prevent confirmation before all elements
+        // are processed
+        AtomicInteger toConfirm = new AtomicInteger(1);
+        try {
+          Transformation.Collector<StreamElement> collector = elem -> {
+            toConfirm.incrementAndGet();
+            try {
+              LOG.info("Writing transformed element {}", elem);
+              ingestRequest(
+                  elem, elem.getUuid(), rpc -> {
+                    if (rpc.getStatus() == 200) {
+                      if (toConfirm.decrementAndGet() == 0) {
+                        confirm.confirm();
+                      }
+                    } else {
+                      toConfirm.set(-1);
+                      confirm.fail(new RuntimeException(
+                          String.format("Received invalid status %d:%s",
+                              rpc.getStatus(), rpc.getStatusMessage())));
+                    }
+                  });
+            } catch (Exception ex) {
+              toConfirm.set(-1);
+              confirm.fail(ex);
+            }
+          };
+          f.apply(ingest, collector);
+          if (toConfirm.decrementAndGet() == 0) {
+            confirm.confirm();
+          }
+        } catch (Exception ex) {
+          toConfirm.set(-1);
+          confirm.fail(ex);
+        }
+        return true;
+      }
+
+
+    }.start();
+    LOG.info(
+        "Started transformer {} reading from {} using {}",
+        consumer, reader.getURI(), f.getClass());
   }
 
   /**

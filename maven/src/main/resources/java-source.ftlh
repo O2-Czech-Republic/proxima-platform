@@ -85,10 +85,10 @@ public class ${java_classname} {
   <#list entity.attributes as attribute>
     <#if attribute.wildcard>
     @SuppressWarnings("unchecked")
-    private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor = descriptor.findAttribute("${attribute.name}.*").get();
+    private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor = (AttributeDescriptor) descriptor.findAttribute("${attribute.name}.*").get();
     <#else>
     @SuppressWarnings("unchecked")
-    private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor = descriptor.findAttribute("${attribute.name}").get();
+    private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor = (AttributeDescriptor) descriptor.findAttribute("${attribute.name}").get();
     </#if> <#-- attribute.wildcard -->
 
     public AttributeDescriptor<${attribute.type}> get${attribute.nameCamel}Descriptor() {

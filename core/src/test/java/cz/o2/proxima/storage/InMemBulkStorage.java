@@ -44,6 +44,7 @@ public class InMemBulkStorage extends StorageDescriptor {
       InMemBulkStorage.this.data.put(
           getURI().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
           data.getValue());
+      System.err.println(" *** written " + data);
       if (++writtenSinceLastCommit >= 10) {
         statusCallback.commit(true, null);
         writtenSinceLastCommit = 0;

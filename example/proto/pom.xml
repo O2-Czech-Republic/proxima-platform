@@ -21,8 +21,8 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>cz.o2.proxima.example</groupId>
-    <artifactId>example-parent</artifactId>
+    <groupId>cz.o2.proxima</groupId>
+    <artifactId>platform-parent</artifactId>
     <version>0.1-SNAPSHOT</version>
   </parent>
      
@@ -62,7 +62,7 @@
           </execution>
         </executions>
       </plugin>
-     
+
     </plugins>
   </build>
 
@@ -72,6 +72,8 @@
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
+      <version>${proto.version}</version>
+      <scope>compile</scope>
     </dependency>
 
   </dependencies>

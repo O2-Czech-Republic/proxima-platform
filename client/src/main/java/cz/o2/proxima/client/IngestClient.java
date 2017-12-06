@@ -16,12 +16,12 @@
 
 package cz.o2.proxima.client;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import cz.o2.proxima.proto.service.IngestServiceGrpc;
 import cz.o2.proxima.proto.service.IngestServiceGrpc.IngestServiceStub;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.Rpc;
+import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
+import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;

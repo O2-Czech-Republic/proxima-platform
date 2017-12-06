@@ -48,21 +48,13 @@ public class RepositoryTest {
     EntityDescriptor event = repo.findEntity("event").get();
     assertEquals("event", event.getName());
     assertEquals("data", event.findAttribute("data").get().getName());
-    assertEquals("proto", event.findAttribute("data").get().getSchemeURI().getScheme());
+    assertEquals("bytes", event.findAttribute("data").get().getSchemeURI().getScheme());
     assertNotNull(event.findAttribute("data").get().getValueSerializer());
 
     EntityDescriptor gateway = repo.findEntity("gateway").get();
     assertEquals("gateway", gateway.getName());
-    assertEquals("proto:cz.o2.proxima.test.Scheme.Armed",
+    assertEquals("bytes:///",
         gateway.findAttribute("armed").get().getSchemeURI().toString());
-    assertEquals("proto:cz.o2.proxima.test.Scheme.Users",
-        gateway.findAttribute("users").get().getSchemeURI().toString());
-    assertEquals("proto:cz.o2.proxima.test.Scheme.Status",
-        gateway.findAttribute("status").get().getSchemeURI().toString());
-    assertEquals("proto:cz.o2.proxima.test.Scheme.Device",
-        gateway.findAttribute("device.abc-xyz").get().getSchemeURI().toString());
-    assertEquals("proto:cz.o2.proxima.test.Scheme.RuleConfig",
-        gateway.findAttribute("rule.ArmRule").get().getSchemeURI().toString());
     assertEquals("fail:whenever",
         gateway.findAttribute("fail").get().getSchemeURI().toString());
     assertEquals("bytes:///",

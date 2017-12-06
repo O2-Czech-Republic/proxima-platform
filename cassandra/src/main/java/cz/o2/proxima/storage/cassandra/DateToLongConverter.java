@@ -16,7 +16,7 @@
 
 package cz.o2.proxima.storage.cassandra;
 
-import com.google.common.base.Strings;
+import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
 import java.util.Date;
 import javax.annotation.Nullable;
 

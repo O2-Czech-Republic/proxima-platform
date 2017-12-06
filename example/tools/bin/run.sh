@@ -20,6 +20,7 @@
 export CASSANDRA_SEED=127.0.0.1:9042
 export HDFS_AUTHORITY=127.0.1.1:9000
 export KAFKA_BROKERS=localhost:9092
+export HADOOP_HOME=$(pwd)
 
 BIN_DIR=$(dirname $0)
 LOG_LEVEL=INFO

@@ -16,13 +16,13 @@
 
 package cz.o2.proxima.storage.kafka;
 
-import com.google.common.collect.Iterators;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.seznam.euphoria.shaded.guava.com.google.common.collect.Iterators;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.HashMap;

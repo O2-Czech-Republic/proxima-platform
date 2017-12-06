@@ -16,7 +16,7 @@
 
 package cz.o2.proxima.metrics;
 
-import com.google.common.util.concurrent.AtomicDouble;
+import cz.seznam.euphoria.shaded.guava.com.google.common.util.concurrent.AtomicDouble;
 import java.beans.ConstructorProperties;
 
 /**
@@ -53,5 +53,5 @@ public class AbsoluteMetric extends ScalarMetric {
   public void reset() {
     setValue(0.0);
   }
-   
+
 }

@@ -16,8 +16,8 @@
 
 package cz.o2.proxima.repository;
 
-import com.google.common.collect.Maps;
 import cz.o2.proxima.util.NamePattern;
+import cz.seznam.euphoria.shaded.guava.com.google.common.collect.Maps;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;

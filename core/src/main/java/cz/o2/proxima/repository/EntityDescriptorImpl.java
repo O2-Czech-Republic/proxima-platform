@@ -65,7 +65,7 @@ public class EntityDescriptorImpl implements EntityDescriptor {
 
   /** Find attribute based by name. */
   @Override
-  public Optional<AttributeDescriptor> findAttribute(String name) {
+  public Optional<AttributeDescriptor<?>> findAttribute(String name) {
     AttributeDescriptor byName = attributesByName.get(name);
     if (byName != null) {
       return Optional.of(byName);

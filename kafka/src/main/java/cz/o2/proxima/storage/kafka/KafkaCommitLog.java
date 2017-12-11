@@ -626,7 +626,7 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
         } else {
           String entityKey = key.substring(0, hashPos);
           String attribute = key.substring(hashPos + 1);
-          Optional<AttributeDescriptor> attr = getEntityDescriptor().findAttribute(attribute);
+          Optional<AttributeDescriptor<?>> attr = getEntityDescriptor().findAttribute(attribute);
           if (!attr.isPresent()) {
             LOG.error("Invalid attribute in kafka key {}", key);
           } else {

@@ -20,6 +20,7 @@ import cz.o2.proxima.metrics.ApproxPercentileMetric;
 import cz.o2.proxima.metrics.Metric;
 import cz.o2.proxima.metrics.TimeAveragingMetric;
 import java.lang.management.ManagementFactory;
+import java.time.Duration;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
@@ -37,7 +38,8 @@ public class Metrics {
       GROUP, "ingest-bulk", 1_000);
 
   public static final ApproxPercentileMetric BULK_SIZE = ApproxPercentileMetric.of(
-      GROUP, "bulk-size");
+      GROUP, "bulk-size", Duration.ofHours(1).toMillis(),
+      Duration.ofMinutes(5).toMillis());
 
   public static final Metric<Double> INGESTS = TimeAveragingMetric.of(
       GROUP, "ingests", 1_000);

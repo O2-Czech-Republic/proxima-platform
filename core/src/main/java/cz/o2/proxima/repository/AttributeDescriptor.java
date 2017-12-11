@@ -30,7 +30,6 @@ import cz.o2.proxima.scheme.ValueSerializer;
  */
 public interface AttributeDescriptor<T> extends Serializable {
 
-
   class Builder {
 
     private final Repository repo;
@@ -52,7 +51,7 @@ public interface AttributeDescriptor<T> extends Serializable {
     private URI schemeURI;
 
     @SuppressWarnings("unchecked")
-    public <T> AttributeDescriptor<T> build() {
+    public <T> AttributeDescriptorImpl<T> build() {
       Objects.requireNonNull(name, "Please specify name");
       Objects.requireNonNull(entity, "Please specify entity");
       Objects.requireNonNull(schemeURI, "Please specify scheme URI");
@@ -64,6 +63,14 @@ public interface AttributeDescriptor<T> extends Serializable {
 
   static Builder newBuilder(Repository repo) {
     return new Builder(repo);
+  }
+
+  static <T> AttributeDescriptorBase<T> newProxy(
+      String name,
+      AttributeDescriptorBase<T> target,
+      ProxyTransform transform) {
+
+    return new AttributeProxyDescriptorImpl<>(name, target, transform);
   }
 
   /** Retrieve name of the attribute. */
@@ -100,5 +107,11 @@ public interface AttributeDescriptor<T> extends Serializable {
    * Retrieve serializer for value type.
    */
   ValueSerializer<T> getValueSerializer();
+
+  /**
+   * Marker if this is a public attribute.
+   * @return {@code true} it this is public attribute
+   */
+  boolean isPublic();
 
 }

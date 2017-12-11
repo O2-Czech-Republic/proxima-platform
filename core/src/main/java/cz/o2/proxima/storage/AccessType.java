@@ -115,6 +115,56 @@ public interface AccessType {
 
   }
 
+  static AccessType or(AccessType left, AccessType right) {
+    return new AccessType() {
+      @Override
+      public boolean canReadBatchUpdates() {
+        return left.canReadBatchUpdates() || right.canReadBatchUpdates();
+      }
+
+      @Override
+      public boolean canReadBatchSnapshot() {
+        return left.canReadBatchSnapshot() || right.canReadBatchSnapshot();
+      }
+
+      @Override
+      public boolean canRandomRead() {
+        return left.canRandomRead() || right.canRandomRead();
+      }
+
+      @Override
+      public boolean canReadCommitLog() {
+        return left.canReadCommitLog() || right.canReadCommitLog();
+      }
+
+      @Override
+      public boolean isStateCommitLog() {
+        return left.isStateCommitLog() || right.isStateCommitLog();
+      }
+
+      @Override
+      public boolean isReadonly() {
+        return left.isReadonly() || right.isReadonly();
+      }
+
+      @Override
+      public boolean isListPrimaryKey() {
+        return left.isListPrimaryKey() || right.isListPrimaryKey();
+      }
+
+      @Override
+      public boolean isWriteOnly() {
+        return left.isWriteOnly() || right.isWriteOnly();
+      }
+
+      @Override
+      public boolean canCreatePartitionedView() {
+        return left.canCreatePartitionedView() || right.canCreatePartitionedView();
+      }
+
+    };
+  }
+
   /**
    * @return {@code true} if this family can be used to access data by batch
    * observing of updates.

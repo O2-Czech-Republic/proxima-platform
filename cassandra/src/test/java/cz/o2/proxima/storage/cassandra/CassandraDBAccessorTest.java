@@ -24,6 +24,7 @@ import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
@@ -201,8 +202,8 @@ public class CassandraDBAccessorTest {
 
 
   Repository repo = Repository.Builder.ofTest(ConfigFactory.defaultApplication()).build();
-  AttributeDescriptor attr;
-  AttributeDescriptor attrWildcard;
+  AttributeDescriptorBase<?> attr;
+  AttributeDescriptorBase<?> attrWildcard;
   EntityDescriptor entity;
 
   public CassandraDBAccessorTest() throws URISyntaxException {

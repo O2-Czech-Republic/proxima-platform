@@ -13,30 +13,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.repository;
 
-import java.net.URI;
-import cz.o2.proxima.scheme.ValueSerializer;
+import lombok.Getter;
 
 /**
- * Descriptor of attribute of entity.
+ * Proxy to another attribute.
  */
-public class AttributeDescriptorImpl<T>
+class AttributeProxyDescriptorImpl<T>
     extends AttributeDescriptorBase<T> {
 
-  AttributeDescriptorImpl(
-      String name, String entity,
-      URI schemeURI, ValueSerializer<T> serializer) {
+  @Getter
+  private final AttributeDescriptorBase<T> target;
 
-    super(name, entity, schemeURI, serializer);
+  @Getter
+  private final ProxyTransform transform;
+
+  AttributeProxyDescriptorImpl(
+      String name,
+      AttributeDescriptorBase<T> target,
+      ProxyTransform transform) {
+
+    super(name, target);
+    this.target = target;
+    this.transform = transform;
   }
-
 
   @Override
   public String toString() {
-    return "AttributeDescriptor(entity=" + entity + ", name=" + name + ")";
+    return "AttributeProxyDescriptorImpl("
+        + "target=" + target
+        + ", name=" + name
+        + ")";
   }
-
 
 }

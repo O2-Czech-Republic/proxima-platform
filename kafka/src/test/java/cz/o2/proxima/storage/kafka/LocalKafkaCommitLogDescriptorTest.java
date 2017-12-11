@@ -18,6 +18,7 @@ package cz.o2.proxima.storage.kafka;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
@@ -45,7 +46,7 @@ import org.junit.Test;
 public class LocalKafkaCommitLogDescriptorTest {
 
   final Repository repo = Repository.Builder.ofTest(ConfigFactory.empty()).build();
-  final AttributeDescriptor attr;
+  final AttributeDescriptorBase<?> attr;
   final EntityDescriptor entity;
   final URI storageURI;
 

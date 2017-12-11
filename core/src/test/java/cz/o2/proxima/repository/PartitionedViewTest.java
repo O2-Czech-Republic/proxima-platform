@@ -52,7 +52,7 @@ public class PartitionedViewTest implements Serializable {
   @Before
   public void setUp() {
     executor = new InMemExecutor();
-    AttributeFamilyDescriptor<? extends AttributeWriterBase> family = repo.getAllFamilies()
+    AttributeFamilyDescriptor family = repo.getAllFamilies()
         .filter(af -> af.getName().equals("event-storage-stream"))
         .findAny()
         .get();

@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
 /**
  * A family of attributes with the same storage.
  */
-public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
+public class AttributeFamilyDescriptor {
 
   public static final class Builder {
 
@@ -82,13 +82,13 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
 
     private Builder() { }
 
-    public Builder addAttribute(AttributeDescriptor desc) {
+    public Builder addAttribute(AttributeDescriptor<?> desc) {
       attributes.add(desc);
       return this;
     }
 
-    public AttributeFamilyDescriptor<AttributeWriterBase> build() {
-      return new AttributeFamilyDescriptor<>(
+    public AttributeFamilyDescriptor build() {
+      return new AttributeFamilyDescriptor(
           name, type, attributes, writer, commitLog, batchObservable,
           randomAccess, partitionedView, access, filter);
     }
@@ -119,7 +119,7 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
    * Writer associated with this attribute family.
    */
   @Nullable
-  private final W writer;
+  private final AttributeWriterBase writer;
 
   @Nullable
   private final CommitLogReader commitLogReader;
@@ -133,10 +133,10 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
   @Nullable
   private final PartitionedView partitionedView;
 
-  private AttributeFamilyDescriptor(String name,
+  AttributeFamilyDescriptor(String name,
       StorageType type,
       List<AttributeDescriptor<?>> attributes,
-      @Nullable W writer,
+      @Nullable AttributeWriterBase writer,
       @Nullable CommitLogReader commitLogReader,
       @Nullable BatchLogObservable batchObservable,
       @Nullable RandomAccessReader randomAccess,
@@ -183,9 +183,10 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
    * Retrieve writer for this family.
    * Empty if this family is not writable
    */
-  public Optional<W> getWriter() {
+  public Optional<AttributeWriterBase> getWriter() {
     if (!access.isReadonly()) {
-      return Optional.of(Objects.requireNonNull(writer));
+      return Optional.of(Objects.requireNonNull(
+          writer, "Family " + name + " is not readonly, but has no writer"));
     }
     return Optional.empty();
   }
@@ -196,7 +197,8 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
    */
   public Optional<CommitLogReader> getCommitLogReader() {
     if (access.canReadCommitLog()) {
-      return Optional.of(Objects.requireNonNull(commitLogReader));
+      return Optional.of(Objects.requireNonNull(
+          commitLogReader, "Family " + name + " doesn't have commit-log reader"));
     }
     return Optional.empty();
   }
@@ -206,7 +208,8 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
    */
   public Optional<BatchLogObservable> getBatchObservable() {
     if (access.canReadBatchSnapshot() || access.canReadBatchUpdates()) {
-      return Optional.of(Objects.requireNonNull(batchObservable));
+      return Optional.of(Objects.requireNonNull(
+          batchObservable, "Family " + name + " doesn't have batch observable"));
     }
     return Optional.empty();
   }
@@ -218,7 +221,8 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
    */
   public Optional<RandomAccessReader> getRandomAccessReader() {
     if (access.canRandomRead()) {
-      return Optional.of(Objects.requireNonNull(randomAccess));
+      return Optional.of(Objects.requireNonNull(
+          randomAccess, "Family " + name + " doesn't have random access reader"));
     }
     return Optional.empty();
   }
@@ -229,7 +233,8 @@ public class AttributeFamilyDescriptor<W extends AttributeWriterBase> {
    */
   public Optional<PartitionedView> getPartitionedView() {
     if (access.canCreatePartitionedView()) {
-      return Optional.of(Objects.requireNonNull(partitionedView));
+      return Optional.of(Objects.requireNonNull(
+          partitionedView, "Family " + name + " doesn't have partitioned view"));
     }
     return Optional.empty();
   }

@@ -16,8 +16,10 @@
 
 package cz.o2.proxima.metrics;
 
+import com.google.common.base.Preconditions;
+import com.tdunning.math.stats.TDigest;
+import cz.o2.proxima.util.Pair;
 import java.util.Arrays;
-import java.util.Random;
 
 /**
  * An approximation of 1st, 10th, 30th, 50th, 70th, 90th and 99th percentile.
@@ -26,103 +28,92 @@ public class ApproxPercentileMetric
     extends Metric<Stats>
     implements ApproxPercentileMetricMXBean {
 
-  static final int SUBSAMPLE_SIZE = 500;
 
-  public static ApproxPercentileMetric of(String group, String name) {
-    return new ApproxPercentileMetric(group, name);
+
+  /**
+   * Construct the metric.
+   * @param group group name
+   * @param name metric name
+   * @param duration total duration of the statistic in ms
+   * @param window windowNs size in ms
+   * @return
+   */
+  public static ApproxPercentileMetric of(
+      String group, String name, long duration, long window) {
+
+    return new ApproxPercentileMetric(group, name, duration, window);
   }
 
-  final Random random = new Random();
-  final double[] capture = new double[SUBSAMPLE_SIZE];
-  final int[] generations = new int[SUBSAMPLE_SIZE];
-  int subsamples = 0;
+  Pair<TDigest, Long>[] digests;
+  final long windowNs;
+  final int maxDigests;
+  int current = 0;
 
-  ApproxPercentileMetric(String group, String name) {
+  /**
+   * Construct the metric.
+   * @param group group name
+   * @param name metric name
+   * @param duration total duration of the statistic in ms
+   * @param window window size in ms
+   */
+  ApproxPercentileMetric(String group, String name, long duration, long window) {
     super(group, name);
+    Preconditions.checkArgument(window > 0, "Window must be non-zero length");
+    this.maxDigests = (int) (duration / window);
+    Preconditions.checkArgument(maxDigests > 0, "Duration must be at least of length of the window");
+    this.windowNs = window * 1_000_000L;
+    _reset();
+  }
+
+  private TDigest createDigest() {
+    return TDigest.createMergingDigest(100.0);
   }
 
 
   @Override
-  public void increment(double d) {
-    if (subsamples < SUBSAMPLE_SIZE) {
-      // capture all data elements, until the array is full
-      synchronized (this) {
-        generations[subsamples] = 1;
-        capture[subsamples++] = d;
-        if (subsamples == SUBSAMPLE_SIZE) {
-          Arrays.sort(capture);
-        }
-      }
-    } else {
-      synchronized (this) {
-        int remove = random.nextInt(capture.length);
-        double removed = capture[remove];
-        double w = 1.0 / generations[remove];
-        d = (d + removed * w) / (1 + w);
-        int search = Arrays.binarySearch(capture, d);
-        int insert = search;
-        if (search < 0) {
-          insert = - (search + 1);
-        }
-        if (insert < remove) {
-          System.arraycopy(capture, insert, capture, insert + 1, remove - insert);
-        } else if (insert != remove) {
-          insert--;
-          int toMove = insert - remove;
-          if (toMove > 0) {
-            System.arraycopy(capture, remove + 1, capture, remove, toMove);
-          }
-        }
-        capture[insert] = d;
-        generations[insert] = 0;
-      }
-      for (int i = 0; i < SUBSAMPLE_SIZE; i++) {
-        generations[i]++;
-      }
+  public synchronized void increment(double d) {
+    if (System.nanoTime() - digests[current].getSecond() > windowNs) {
+      addDigest();
     }
+    digests[current].getFirst().add(d);
   }
 
 
   @Override
   public synchronized Stats getValue() {
-    // calculate the stastics from the capture array
-    if (subsamples >= SUBSAMPLE_SIZE) {
-      return new Stats(new double[] {
-        capture[5],
-        capture[50],
-        capture[150],
-        capture[250],
-        capture[350],
-        capture[450],
-        capture[495]
-      });
-    }
-    // not yet properly sampled
-    // we need to copy the array and sort it
-    if (subsamples > 50) {
-      double[] sorted = Arrays.copyOf(capture, subsamples);
-      Arrays.sort(sorted);
-      int ratio = sorted.length / 10;
-      return new Stats(new double[] {
-          sorted[ratio / 10],
-          sorted[ratio],
-          sorted[3 * ratio],
-          sorted[5 * ratio],
-          sorted[7 * ratio],
-          sorted[9 * ratio],
-          sorted[99 * ratio / 10]
-      });
-    }
-    // zeros, don't mess the stats with too fuzzy data
-    return new Stats(new double[7]);
+    TDigest result = createDigest();
+    Arrays.stream(digests).forEach(p -> result.add(p.getFirst()));
+    return new Stats(new double[] {
+      result.quantile(0.01),
+      result.quantile(0.1),
+      result.quantile(0.3),
+      result.quantile(0.5),
+      result.quantile(0.7),
+      result.quantile(0.9),
+      result.quantile(0.99),
+    });
   }
 
   @Override
   public synchronized void reset() {
-    subsamples = 0;
-    for (int i = 0; i < capture.length; i++) {
-      capture[i] = 0;
+    _reset();
+  }
+
+  private void addDigest() {
+    if (current + 1 < maxDigests) {
+      digests[++current] = Pair.of(createDigest(), System.nanoTime());
+    } else {
+      // move the array
+      System.arraycopy(digests, 1, digests, 0, maxDigests - 1);
+      digests[current] = Pair.of(createDigest(), System.nanoTime());
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  private synchronized void _reset() {
+    this.digests = new Pair[maxDigests];
+    this.digests[0] = Pair.of(createDigest(), System.nanoTime());
+    this.current = 0;
   }
 
 }

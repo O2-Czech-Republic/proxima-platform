@@ -116,7 +116,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-hbase-hbase</artifactId>
+      <artifactId>platform-hbase</artifactId>
       <version>${project.version}</version>
     </dependency>
 

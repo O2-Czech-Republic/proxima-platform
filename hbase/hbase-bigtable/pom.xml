@@ -47,7 +47,6 @@
         <configuration>
           <artifactSet>
             <excludes>
-              <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:platform-core</exclude>
             </excludes>
           </artifactSet>
@@ -85,6 +84,12 @@
           <artifactId>netty-tcnative-boringssl-static</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.cloud.bigtable</groupId>
+      <artifactId>bigtable-client-core</artifactId>
+      <version>1.0.0</version>
     </dependency>
 
     <dependency>

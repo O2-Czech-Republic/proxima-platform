@@ -200,7 +200,7 @@ public class Repository {
    * This need not be synchronized because it is only written in constructor
    * and then it is read-only.
    */
-  private final Map<AttributeDescriptorImpl<?>, Set<AttributeFamilyDescriptor<?>>> attributeToFamily;
+  private final Map<AttributeDescriptor<?>, Set<AttributeFamilyDescriptor>> attributeToFamily;
 
 
   /**
@@ -255,10 +255,20 @@ public class Repository {
       readEntityDescriptors(cfg);
 
       if (loadFamilies) {
+
         /* Read attribute families and map them to storages by attribute. */
         readAttributeFamilies(cfg);
-        /* Read transformations from one entity to another. */
-        readTransformations(cfg);
+
+        if (shouldLoadAccessors) {
+          /* Link attribute families for proxied attribute. */
+          loadProxiedFamilies(cfg);
+
+          /* Read transformations from one entity to another. */
+          readTransformations(cfg);
+
+          linkAttributesToWriters();
+        }
+
       }
 
       if (shouldValidate) {
@@ -266,7 +276,7 @@ public class Repository {
         validate();
       }
 
-    } catch (URISyntaxException ex) {
+    } catch (Exception ex) {
       throw new IllegalArgumentException("Cannot read config settings", ex);
     }
 
@@ -336,7 +346,7 @@ public class Repository {
   }
 
   /** Read descriptors of entites from config */
-  private void readEntityDescriptors(Config cfg) throws URISyntaxException {
+  private void readEntityDescriptors(Config cfg) throws Exception {
     ConfigValue entities = cfg.root().get("entities");
     if (entities == null) {
       LOG.warn("Empty configuration of entities, skipping initialization");
@@ -350,40 +360,25 @@ public class Repository {
           toMap("entities." + entityName, e.getValue()).get("attributes"));
       EntityDescriptor.Builder entity = EntityDescriptor.newBuilder()
           .setName(entityName);
-      for (Map.Entry<String, Object> attr : entityAttrs.entrySet()) {
 
+      // first regular attributes
+      entityAttrs.forEach((key, value) -> {
         Map<String, Object> settings = toMap(
-            "entities." + entityName + ".attributes." + attr.getKey(), attr .getValue());
-
-        Object scheme = Objects.requireNonNull(
-            settings.get("scheme"),
-            "Missing key entities." + entityName + ".attributes."
-                + attr.getKey() + ".scheme");
-
-        String schemeStr = scheme.toString();
-        if (schemeStr.indexOf(':') == -1) {
-          // if the scheme does not contain `:' the java.net.URI cannot parse it
-          // we will fix this by adding `:///'
-          schemeStr += ":///";
+            "entities." + entityName + ".attributes." + key, value);
+        if (settings.get("proxy") == null) {
+          loadRegular(entityName, key, settings, entity);
         }
-        URI schemeURI = new URI(schemeStr);
-        // validate that the scheme serializer doesn't throw exceptions
-        // ignore the return value
-        try {
-          if (shouldValidate) {
-            getValueSerializerFactory(schemeURI.getScheme())
-                .getValueSerializer(schemeURI)
-                .isValid(new byte[] { });
-          }
-        } catch (Exception ex) {
-          throw new IllegalStateException("Cannot use serializer for URI " + schemeURI, ex);
+      });
+
+      // next proxies
+      entityAttrs.forEach((key, value) -> {
+        Map<String, Object> settings = toMap(
+            "entities." + entityName + ".attributes." + key, value);
+        if (settings.get("proxy") != null) {
+          loadProxy(key, settings, entity);
         }
-        entity.addAttribute(AttributeDescriptor.newBuilder(this)
-            .setEntity(entityName)
-            .setName(attr.getKey())
-            .setSchemeURI(schemeURI)
-            .build());
-      }
+      });
+
       if (!entityName.contains("*")) {
         LOG.info("Adding entity by fully qualified name {}", entityName);
         entitiesByName.put(entityName, entity.build());
@@ -392,6 +387,81 @@ public class Repository {
         entitiesByPattern.put(new NamePattern(entityName), entity.build());
       }
 
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private void loadProxy(
+      String attrName,
+      Map<String, Object> settings,
+      EntityDescriptor.Builder entityBuilder) {
+
+    AttributeDescriptorBase target = Optional.ofNullable(settings.get("proxy"))
+        .map(Object::toString)
+        .map(proxy -> entityBuilder.findAttribute(proxy))
+        .orElseThrow(() -> new IllegalStateException(
+            "Invalid state: `proxy` should not be null"));
+
+    final ProxyTransform transform;
+    if (this.shouldLoadAccessors) {
+      transform = Optional.ofNullable(settings.get("apply"))
+          .map(Object::toString)
+          .map(s -> {
+            try {
+              Class<ProxyTransform> c = Classpath.findClass(s, ProxyTransform.class);
+              return c.newInstance();
+            } catch (Exception ex) {
+              throw new RuntimeException(ex);
+            }
+          })
+          .orElseThrow(() -> new IllegalArgumentException("Missing required field `apply'"));
+    } else {
+      transform = null;
+    }
+
+    entityBuilder.addAttribute(
+        AttributeDescriptor.newProxy(attrName, target, transform));
+  }
+
+
+  private void loadRegular(
+      String entityName,
+      String attrName,
+      Map<String, Object> settings,
+      EntityDescriptor.Builder entityBuilder) {
+
+    try {
+
+      Object scheme = Objects.requireNonNull(
+          settings.get("scheme"),
+          "Missing key entities." + entityName + ".attributes."
+              + attrName + ".scheme");
+
+      String schemeStr = scheme.toString();
+      if (schemeStr.indexOf(':') == -1) {
+        // if the scheme does not contain `:' the java.net.URI cannot parse it
+        // we will fix this by adding `:///'
+        schemeStr += ":///";
+      }
+      URI schemeURI = new URI(schemeStr);
+      // validate that the scheme serializer doesn't throw exceptions
+      // ignore the return value
+      try {
+        if (shouldValidate) {
+          getValueSerializerFactory(schemeURI.getScheme())
+              .getValueSerializer(schemeURI)
+              .isValid(new byte[] { });
+        }
+      } catch (Exception ex) {
+        throw new IllegalStateException("Cannot use serializer for URI " + schemeURI, ex);
+      }
+      entityBuilder.addAttribute(AttributeDescriptor.newBuilder(this)
+          .setEntity(entityName)
+          .setName(attrName)
+          .setSchemeURI(schemeURI)
+          .build());
+    } catch (URISyntaxException ex) {
+      throw new RuntimeException(ex);
     }
   }
 
@@ -518,17 +588,18 @@ public class Repository {
           family.setFilter(newInstance(filter, StorageFilter.class));
         }
 
-        Collection<AttributeDescriptorImpl<?>> allAttributes = new HashSet<>();
+        Collection<AttributeDescriptor<?>> allAttributes = new HashSet<>();
 
         for (String attr : attributes) {
           // attribute descriptors affected by this settings
-          final List<AttributeDescriptorImpl<?>> attrDescs;
+          final List<AttributeDescriptor<?>> attrDescs;
           if (attr.equals("*")) {
             // this means all attributes of entity
-            attrDescs = (List) entDesc.getAllAttributes();
+            attrDescs = (List) entDesc.getAllAttributes(true);
           } else {
-            attrDescs = (List) Arrays.asList(entDesc.findAttribute(attr).orElseThrow(
-                () -> new IllegalArgumentException("Cannot find attribute " + attr)));
+            attrDescs = (List) Arrays.asList(entDesc.findAttribute(attr, true)
+                .orElseThrow(
+                    () -> new IllegalArgumentException("Cannot find attribute " + attr)));
           }
           allAttributes.addAll(attrDescs);
         }
@@ -536,7 +607,7 @@ public class Repository {
         allAttributes.forEach(family::addAttribute);
         final AttributeFamilyDescriptor familyBuilt = family.build();
         allAttributes.forEach(a -> {
-          Set<AttributeFamilyDescriptor<?>> families = attributeToFamily
+          Set<AttributeFamilyDescriptor> families = attributeToFamily
               .computeIfAbsent(a, k -> new HashSet<>());
           if (!families.add(familyBuilt)) {
             throw new IllegalArgumentException(
@@ -553,29 +624,44 @@ public class Repository {
 
     }
 
-    if (shouldLoadAccessors) {
-      // iterate over all attribute families and setup appropriate (commit) writers
-      // for all attributes
-      attributeToFamily.forEach((key, value) -> {
-        Optional<AttributeWriterBase> writer = value
-            .stream()
-            .filter(af -> af.getType() == StorageType.PRIMARY)
-            .filter(af -> !af.getAccess().isReadonly())
-            .filter(af -> af.getWriter().isPresent())
-            .findAny()
-            .map(af -> af.getWriter()
-                .orElseThrow(() -> new NoSuchElementException("Writer can not be empty")));
+  }
 
-        if (writer.isPresent()) {
-          key.setWriter(writer.get().online());
-        } else {
-          LOG.info(
-              "No writer found for attribute {}, continuing, but assuming "
-                  + "the attribute is read-only. Any attempt to write it will fail.",
-              key);
-        }
-      });
-    }
+  private void linkAttributesToWriters() {
+    // iterate over all attribute families and setup appropriate (commit) writers
+    // for all attributes
+    attributeToFamily.forEach((key, value) -> {
+      Optional<AttributeWriterBase> writer = value
+          .stream()
+          .filter(af -> af.getType() == StorageType.PRIMARY)
+          .filter(af -> !af.getAccess().isReadonly())
+          .filter(af -> af.getWriter().isPresent())
+          .findAny()
+          .map(af -> af.getWriter()
+              .orElseThrow(() -> new NoSuchElementException("Writer can not be empty")));
+
+      if (writer.isPresent()) {
+        ((AttributeDescriptorBase<?>) key).setWriter(writer.get().online());
+      } else {
+        LOG.info(
+            "No writer found for attribute {}, continuing, but assuming "
+                + "the attribute is read-only. Any attempt to write it will fail.",
+            key);
+      }
+    });
+  }
+
+  private void loadProxiedFamilies(Config cfg) {
+    getAllEntities()
+        .flatMap(e -> e.getAllAttributes(true).stream())
+        .filter(a -> ((AttributeDescriptorBase<?>) a).isProxy())
+        .forEach(a -> {
+          AttributeProxyDescriptorImpl<?> p = (AttributeProxyDescriptorImpl<?>) a;
+          AttributeDescriptorBase<?> target = p.getTarget();
+          attributeToFamily.put(p, getFamiliesForAttribute(target)
+              .stream()
+              .map(af -> new AttributeFamilyProxyDescriptor(p, af))
+              .collect(Collectors.toSet()));
+        });
   }
 
   private void readTransformations(Config cfg) {
@@ -607,7 +693,7 @@ public class Repository {
 
         List<AttributeDescriptor<?>> attrs = readList("attributes", transformation, k)
             .stream()
-            .map(a -> entity.findAttribute(a).orElseThrow(
+            .map(a -> entity.findAttribute(a, true).orElseThrow(
                 () -> new IllegalArgumentException(
                     String.format("Missing attribute `%s` in `%s`",
                         a, entity))))
@@ -676,9 +762,10 @@ public class Repository {
     Stream.concat(
             entitiesByName.values().stream(),
             entitiesByPattern.values().stream())
-        .flatMap(d -> d.getAllAttributes().stream())
+        .flatMap(d -> d.getAllAttributes(true).stream())
+        .filter(a -> !((AttributeDescriptorBase<?>) a).isProxy())
         .filter(a -> {
-          Set<AttributeFamilyDescriptor<?>> families = attributeToFamily.get(a);
+          Set<AttributeFamilyDescriptor> families = attributeToFamily.get(a);
           return families == null || families.isEmpty();
         })
         .findAny()
@@ -700,16 +787,17 @@ public class Repository {
 
 
   /** List all unique atttribute families. */
-  public Stream<AttributeFamilyDescriptor<?>> getAllFamilies() {
+  public Stream<AttributeFamilyDescriptor> getAllFamilies() {
     return attributeToFamily.values().stream()
         .flatMap(Collection::stream).distinct();
   }
 
   /** Retrieve list of attribute families for attribute. */
-  public Set<AttributeFamilyDescriptor<?>> getFamiliesForAttribute(
+  public Set<AttributeFamilyDescriptor> getFamiliesForAttribute(
       AttributeDescriptor<?> attr) {
 
-    return Objects.requireNonNull(attributeToFamily.get(attr),
+    return Objects.requireNonNull(
+        attributeToFamily.get(attr),
         "Cannot find any family for attribute " + attr);
   }
 

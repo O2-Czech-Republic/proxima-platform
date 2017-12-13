@@ -53,11 +53,10 @@ public class ConsoleRandomReader implements Closeable {
     this.listEntityOffsets = new HashMap<>();
 
     desc.getAllAttributes().forEach(f -> {
-      Optional<AttributeFamilyDescriptor<?>> randomFamily;
+      Optional<AttributeFamilyDescriptor> randomFamily;
       randomFamily = repo.getFamiliesForAttribute(f)
           .stream()
-          .filter(af -> af.getAccess().isListPrimaryKey()
-              && af.getAccess().canRandomRead())
+          .filter(af -> af.getAccess().canRandomRead())
           .findAny();
       if (randomFamily.isPresent()) {
         attrToReader.put(f, randomFamily.get().getRandomAccessReader().get());

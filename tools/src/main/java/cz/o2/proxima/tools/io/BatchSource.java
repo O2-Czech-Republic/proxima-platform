@@ -46,7 +46,7 @@ public class BatchSource<T> implements DataSource<TypedIngest<T>> {
 
   public static <T> BatchSource<T> of(
       BatchLogObservable observable,
-      AttributeFamilyDescriptor<?> family,
+      AttributeFamilyDescriptor family,
       long startStamp,
       long endStamp) {
 

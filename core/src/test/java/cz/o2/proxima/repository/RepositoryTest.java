@@ -17,9 +17,17 @@
 package cz.o2.proxima.repository;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.LogObserver;
+import cz.o2.proxima.storage.randomaccess.KeyValue;
 import java.io.IOException;
-import org.junit.After;
-import org.junit.Before;
+import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -27,15 +35,6 @@ import static org.junit.Assert.*;
  * Test repository config parsing.
  */
 public class RepositoryTest {
-
-
-  @Before
-  public void setup() {
-  }
-
-  @After
-  public void teardown() {
-  }
 
   @Test
   public void testConfigParsing() throws IOException {
@@ -60,5 +59,146 @@ public class RepositoryTest {
     assertEquals("bytes:///",
         gateway.findAttribute("bytes").get().getSchemeURI().toString());
   }
+
+  @Test(timeout = 2000)
+  public void testProxyWrite() throws UnsupportedEncodingException, InterruptedException {
+    Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
+    EntityDescriptor proxied = repo.findEntity("proxied").get();
+    AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
+    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    Set<AttributeFamilyDescriptor> families = repo
+        .getFamiliesForAttribute(target);
+    Set<AttributeFamilyDescriptor> proxiedFamilies = repo
+        .getFamiliesForAttribute(source);
+    assertEquals(
+        families.stream()
+          .map(a -> "proxy::event.*::" + a.getName())
+          .collect(Collectors.toList()),
+        proxiedFamilies.stream()
+          .map(a -> a.getName())
+          .collect(Collectors.toList()));
+
+    // verify that writing to attribute event.abc ends up as _e.abc
+    CountDownLatch latch = new CountDownLatch(2);
+    proxiedFamilies.iterator().next().getCommitLogReader().get().observe("dummy", new LogObserver() {
+
+      @Override
+      public boolean onNext(StreamElement ingest, LogObserver.ConfirmCallback confirm) {
+        assertEquals("test", new String(ingest.getValue()));
+        assertEquals("event.abc", ingest.getAttribute());
+        assertEquals(source, ingest.getAttributeDescriptor());
+        latch.countDown();
+        return false;
+      }
+
+      @Override
+      public void onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+      @Override
+      public void close() throws Exception {
+        // nop
+      }
+
+    });
+
+    source.getWriter().write(StreamElement.update(
+        proxied,
+        source, UUID.randomUUID().toString(),
+        "key", "event.abc", System.currentTimeMillis(), "test".getBytes("UTF-8")),
+        (s, exc) -> {
+          latch.countDown();
+        });
+
+    latch.await();
+
+    KeyValue<?> kv = families.iterator().next()
+        .getRandomAccessReader().get().get("key", "_e.abc", target)
+        .orElseGet(() -> {
+          fail("Missing _e.abc stored");
+          return null;
+        });
+
+    assertEquals("test", new String((byte[]) kv.getValue()));
+
+  }
+
+  @Test
+  public void testProxyRandomGet() throws UnsupportedEncodingException, InterruptedException {
+    Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
+    EntityDescriptor proxied = repo.findEntity("proxied").get();
+    AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
+    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    Set<AttributeFamilyDescriptor> proxiedFamilies = repo
+        .getFamiliesForAttribute(source);
+
+    // verify that writing to attribute event.abc ends up as _e.abc
+    source.getWriter().write(StreamElement.update(
+        proxied,
+        source, UUID.randomUUID().toString(),
+        "key", "event.abc", System.currentTimeMillis(), "test".getBytes("UTF-8")),
+        (s, exc) -> {
+          assertTrue(s);
+        });
+
+    KeyValue<?> kv = proxiedFamilies.iterator().next()
+        .getRandomAccessReader().get().get("key", "event.abc", target)
+        .orElseGet(() -> {
+          fail("Missing event.abc stored");
+          return null;
+        });
+
+    assertEquals("test", new String((byte[]) kv.getValue()));
+    assertEquals(source, kv.getAttrDescriptor());
+    assertEquals("event.abc", kv.getAttribute());
+    assertEquals("key", kv.getKey());
+
+  }
+
+  @Test
+  public void testProxyScan() throws UnsupportedEncodingException, InterruptedException {
+    Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
+    EntityDescriptor proxied = repo.findEntity("proxied").get();
+    AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
+    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    Set<AttributeFamilyDescriptor> proxiedFamilies = repo
+        .getFamiliesForAttribute(source);
+
+    // verify that writing to attribute event.abc ends up as _e.abc
+    source.getWriter().write(StreamElement.update(
+        proxied,
+        source, UUID.randomUUID().toString(),
+        "key", "event.abc", System.currentTimeMillis(), "test".getBytes("UTF-8")),
+        (s, exc) -> {
+          assertTrue(s);
+        });
+
+    source.getWriter().write(StreamElement.update(
+        proxied,
+        source, UUID.randomUUID().toString(),
+        "key", "event.def", System.currentTimeMillis(), "test2".getBytes("UTF-8")),
+        (s, exc) -> {
+          assertTrue(s);
+        });
+
+
+    List<KeyValue<?>> kvs = new ArrayList<>();
+    proxiedFamilies.iterator().next()
+        .getRandomAccessReader().get().scanWildcard("key", source, kvs::add);
+
+    assertEquals("test", new String((byte[]) kvs.get(0).getValue()));
+    assertEquals(source, kvs.get(0).getAttrDescriptor());
+    assertEquals("event.abc", kvs.get(0).getAttribute());
+    assertEquals("key", kvs.get(0).getKey());
+
+    assertEquals("test2", new String((byte[]) kvs.get(1).getValue()));
+    assertEquals(source, kvs.get(1).getAttrDescriptor());
+    assertEquals("event.def", kvs.get(1).getAttribute());
+    assertEquals("key", kvs.get(1).getKey());
+
+  }
+
+
 
 }

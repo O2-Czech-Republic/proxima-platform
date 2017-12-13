@@ -20,7 +20,6 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.proto.service.Rpc;
-import cz.o2.proxima.server.IngestServer;
 import cz.o2.proxima.server.test.Test.ExtendedMessage;
 import cz.o2.proxima.storage.InMemBulkStorage;
 import cz.o2.proxima.storage.InMemStorage;

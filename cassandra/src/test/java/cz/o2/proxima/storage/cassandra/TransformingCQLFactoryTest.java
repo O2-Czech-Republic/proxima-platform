@@ -21,6 +21,7 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -44,7 +45,7 @@ import static org.mockito.Mockito.when;
 public class TransformingCQLFactoryTest {
 
   Repository repo = Repository.Builder.ofTest(ConfigFactory.defaultApplication()).build();
-  AttributeDescriptor attr;
+  AttributeDescriptorBase<?> attr;
   EntityDescriptor entity;
 
   final List<String> statements = new ArrayList<>();

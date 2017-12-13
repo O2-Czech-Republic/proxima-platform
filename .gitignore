@@ -25,6 +25,7 @@ pom.xml.versionsBackup
 /messaging/server/nbproject/
 /smartbox/performance-test/target/
 *.iml
+*.log
 .idea
 server/log
 **/*_pb2.py

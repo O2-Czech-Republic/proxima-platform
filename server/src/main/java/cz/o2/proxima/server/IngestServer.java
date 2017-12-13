@@ -651,14 +651,13 @@ public class IngestServer {
   protected void startConsumerThreads() throws InterruptedException {
 
     // index the repository
-    Map<AttributeFamilyDescriptor<?>, Set<AttributeFamilyDescriptor<?>>> familyToCommitLog;
+    Map<AttributeFamilyDescriptor, Set<AttributeFamilyDescriptor>> familyToCommitLog;
     familyToCommitLog = indexFamilyToCommitLogs();
 
     LOG.info("Starting consumer threads for familyToCommitLog {}", familyToCommitLog);
     // execute threads to consume the commit log
-    familyToCommitLog.entrySet().stream().forEach(entry -> {
-      AttributeFamilyDescriptor<?> family = entry.getKey();
-      for (AttributeFamilyDescriptor<?> commitLogFamily : entry.getValue()) {
+    familyToCommitLog.forEach((family, logs) -> {
+      for (AttributeFamilyDescriptor commitLogFamily : logs) {
         CommitLogReader commitLog = commitLogFamily.getCommitLogReader()
             .orElseThrow(() -> new IllegalStateException(
                 "Failed validation on consistency of attribute families. Fix code!"));
@@ -689,7 +688,7 @@ public class IngestServer {
   }
 
   private void runTransformer(String name, TransformationDescriptor transform) {
-    AttributeFamilyDescriptor<?> family = transform.getAttributes()
+    AttributeFamilyDescriptor family = transform.getAttributes()
         .stream()
         .map(a -> this.repo.getFamiliesForAttribute(a)
             .stream().filter(af -> af.getAccess().canReadCommitLog())
@@ -768,7 +767,7 @@ public class IngestServer {
    * themselves.
    */
   @SuppressWarnings("unchecked")
-  private Map<AttributeFamilyDescriptor<?>, Set<AttributeFamilyDescriptor<?>>>
+  private Map<AttributeFamilyDescriptor, Set<AttributeFamilyDescriptor>>
   indexFamilyToCommitLogs() {
 
     // each attribute and its associated primary family

@@ -13,30 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.repository;
 
-import java.net.URI;
-import cz.o2.proxima.scheme.ValueSerializer;
+import java.io.Serializable;
 
 /**
- * Descriptor of attribute of entity.
+ * A transformation of attribute name applied both on reading and writing attribute.
  */
-public class AttributeDescriptorImpl<T>
-    extends AttributeDescriptorBase<T> {
+public interface ProxyTransform extends Serializable {
 
-  AttributeDescriptorImpl(
-      String name, String entity,
-      URI schemeURI, ValueSerializer<T> serializer) {
+  /**
+   * Apply transformation to attribute name from proxy naming.
+   * @param proxy name of the attribute in proxy namespace
+   * @return the raw attribute
+   */
+  String fromProxy(String proxy);
 
-    super(name, entity, schemeURI, serializer);
-  }
-
-
-  @Override
-  public String toString() {
-    return "AttributeDescriptor(entity=" + entity + ", name=" + name + ")";
-  }
-
+  /**
+   * Apply transformation to attribute name to proxy naming.
+   * @param raw the raw attribute name
+   * @return the proxy attribute name
+   */
+  String toProxy(String raw);
 
 }

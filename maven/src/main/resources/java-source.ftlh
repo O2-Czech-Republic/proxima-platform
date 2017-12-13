@@ -97,9 +97,9 @@ public class ${java_classname} {
   </#list> <#-- entity.attributes as attribute -->
 
     public Optional<CommitLogReader> getCommitLog(AttributeDescriptor<?>... attributes) {
-      Set<AttributeFamilyDescriptor<?>> descriptors = new HashSet<>();
+      Set<AttributeFamilyDescriptor> descriptors = new HashSet<>();
       for (AttributeDescriptor<?> attr : attributes) {
-        Set<AttributeFamilyDescriptor<?>> commitLogs = repo.getFamiliesForAttribute(attr)
+        Set<AttributeFamilyDescriptor> commitLogs = repo.getFamiliesForAttribute(attr)
             .stream()
             .filter(af -> af.getCommitLogReader().isPresent())
             .collect(Collectors.toSet());
@@ -118,9 +118,9 @@ public class ${java_classname} {
 
     public Optional<PartitionedView> getPartitionedView(AttributeDescriptor<?>... attributes) {
 
-      Set<AttributeFamilyDescriptor<?>> descriptors = new HashSet<>();
+      Set<AttributeFamilyDescriptor> descriptors = new HashSet<>();
       for (AttributeDescriptor<?> attr : attributes) {
-        Set<AttributeFamilyDescriptor<?>> views = repo.getFamiliesForAttribute(attr)
+        Set<AttributeFamilyDescriptor> views = repo.getFamiliesForAttribute(attr)
             .stream()
             .filter(af -> af.getAccess().canCreatePartitionedView())
             .collect(Collectors.toSet());

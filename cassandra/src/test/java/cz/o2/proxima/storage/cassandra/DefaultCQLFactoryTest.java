@@ -22,6 +22,7 @@ import com.datastax.driver.core.Session;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -47,8 +48,8 @@ public class DefaultCQLFactoryTest {
 
   final Config cfg = ConfigFactory.defaultApplication();
   final Repository repo = Repository.Builder.ofTest(cfg).build();
-  final AttributeDescriptor attr;
-  final AttributeDescriptor attrWildcard;
+  final AttributeDescriptorBase<?> attr;
+  final AttributeDescriptorBase<?> attrWildcard;
   final EntityDescriptor entity;
   final PreparedStatement statement = mock(PreparedStatement.class);
   final Session session = mock(Session.class);

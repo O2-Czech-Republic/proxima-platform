@@ -36,9 +36,9 @@ public interface EntityDescriptor extends Serializable {
     @Accessors(chain = true)
     private String name;
 
-    List<AttributeDescriptor> attributes = new ArrayList<>();
+    private final List<AttributeDescriptorBase<?>> attributes = new ArrayList<>();
 
-    public Builder addAttribute(AttributeDescriptor attr) {
+    public Builder addAttribute(AttributeDescriptorBase<?> attr) {
       attributes.add(attr);
       return this;
     }
@@ -46,6 +46,14 @@ public interface EntityDescriptor extends Serializable {
     public EntityDescriptor build() {
       return new EntityDescriptorImpl(name, Collections.unmodifiableList(attributes));
     }
+
+    AttributeDescriptorBase<?> findAttribute(String attr) {
+      return attributes.stream().filter(a -> a.getName()
+          .equals(attr)).findAny()
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Cannot find attribute " + attr + " of entity " + this.name));
+    }
+
   }
 
   static Builder newBuilder() {
@@ -56,10 +64,37 @@ public interface EntityDescriptor extends Serializable {
   /** Name of the entity. */
   String getName();
 
-  /** Find attribute based by name. */
-  Optional<AttributeDescriptor<?>> findAttribute(String name);
+  /**
+   * Find attribute by name.
+   * @param name name of the attribute to search for
+   * @param includeProtected {@code true} to allow search for protected fields (prefixed by _).
+   * @return optional found attribute descriptor
+   */
+  Optional<AttributeDescriptor<?>> findAttribute(String name, boolean includeProtected);
 
-  /** List all attribute descriptors of given entity. */
-  List<AttributeDescriptor> getAllAttributes();
+  /**
+   * Find attribute by name.
+   * Do not search protected fields (prefixed by _).
+   * @param name name of the attribute to search for
+   * @return optional found attribute descriptor
+   */
+  default Optional<AttributeDescriptor<?>> findAttribute(String name) {
+    return findAttribute(name, false);
+  }
+
+  /**
+   * Find all attributes of this entity.
+   * @param includeProtected when {@code true} then protected attributes are
+   * also included (prefixed by _).
+   * @return
+   */
+  List<AttributeDescriptor<?>> getAllAttributes(boolean includeProtected);
+
+  /**
+   * List all attribute descriptors of given entity.
+   */
+  default List<AttributeDescriptor<?>> getAllAttributes() {
+    return getAllAttributes(false);
+  }
 
 }

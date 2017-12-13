@@ -29,7 +29,6 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
@@ -127,11 +126,6 @@ public class Console {
     return GroovyEnv.of(conf,
         (GroovyClassLoader) Thread.currentThread().getContextClassLoader(),
         repo);
-  }
-
-  private static void usage() {
-    System.err.println(String.format("Usage %s <config> [<config>]", Console.class.getName()));
-    System.exit(1);
   }
 
   private Repository getRepo(String[] paths) {
@@ -234,7 +228,7 @@ public class Console {
 
     DatasetBuilder<TypedIngest<Object>> builder = () -> {
       final Dataset<TypedIngest<Object>> input;
-      AttributeFamilyDescriptor<? extends AttributeWriterBase> family = repo.getFamiliesForAttribute(attrDesc)
+      AttributeFamilyDescriptor family = repo.getFamiliesForAttribute(attrDesc)
           .stream()
           .filter(af -> af.getAccess().canReadBatchSnapshot())
           .filter(af -> af.getBatchObservable().isPresent())
@@ -315,7 +309,7 @@ public class Console {
       long startStamp,
       long endStamp) {
 
-    AttributeFamilyDescriptor<? extends AttributeWriterBase> family = repo.getFamiliesForAttribute(attrDesc)
+    AttributeFamilyDescriptor family = repo.getFamiliesForAttribute(attrDesc)
         .stream()
         .filter(af -> af.getAccess().canReadBatchUpdates())
         .filter(af -> af.getBatchObservable().isPresent())
@@ -382,7 +376,7 @@ public class Console {
         TextFormat.merge(textFormat, builder);
         payload = builder.build().toByteArray();
       }
-      Set<AttributeFamilyDescriptor<?>> families = repo.getFamiliesForAttribute(attrDesc);
+      Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(attrDesc);
       OnlineAttributeWriter writer = families.stream()
           .filter(af -> af.getType() == StorageType.PRIMARY)
           .findAny()
@@ -416,7 +410,7 @@ public class Console {
       EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc,
       String key, String attribute) throws InterruptedException {
 
-      Set<AttributeFamilyDescriptor<?>> families = repo.getFamiliesForAttribute(attrDesc);
+      Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(attrDesc);
       OnlineAttributeWriter writer = families.stream()
           .filter(af -> af.getType() == StorageType.PRIMARY)
           .findAny()

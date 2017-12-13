@@ -37,19 +37,19 @@ public class EntityDescriptorImpl implements EntityDescriptor {
   private final String name;
 
   /** List of all attribute descriptors. */
-  private final List<AttributeDescriptor> attributes;
+  private final List<AttributeDescriptor<?>> attributes;
 
   /** Map of attributes by name. */
-  private final Map<String, AttributeDescriptor> attributesByName;
+  private final Map<String, AttributeDescriptor<?>> attributesByName;
 
   /** Map of attributes by pattern. */
-  private final Map<NamePattern, AttributeDescriptor> attributesByPattern;
+  private final Map<NamePattern, AttributeDescriptor<?>> attributesByPattern;
 
-  EntityDescriptorImpl(String name, List<AttributeDescriptor> attrs) {
+  EntityDescriptorImpl(String name, List<AttributeDescriptor<?>> attrs) {
     this.name = Objects.requireNonNull(name);
     this.attributes = Collections.unmodifiableList(Objects.requireNonNull(attrs));
 
-    List<AttributeDescriptor> fullyQualified = attrs.stream()
+    List<AttributeDescriptor<?>> fullyQualified = attrs.stream()
         .filter(a -> !a.isWildcard())
         .collect(Collectors.toList());
 
@@ -65,15 +65,20 @@ public class EntityDescriptorImpl implements EntityDescriptor {
 
   /** Find attribute based by name. */
   @Override
-  public Optional<AttributeDescriptor<?>> findAttribute(String name) {
-    AttributeDescriptor byName = attributesByName.get(name);
-    if (byName != null) {
-      return Optional.of(byName);
-    }
-    for (Map.Entry<NamePattern, AttributeDescriptor> e : attributesByPattern.entrySet()) {
-      if (e.getKey().matches(name)) {
-        return Optional.of(e.getValue());
+  public Optional<AttributeDescriptor<?>> findAttribute(
+      String name, boolean includeProtected) {
+
+    AttributeDescriptor found = attributesByName.get(name);
+    if (found == null) {
+      for (Map.Entry<NamePattern, AttributeDescriptor<?>> e : attributesByPattern.entrySet()) {
+        if (e.getKey().matches(name)) {
+          found = e.getValue();
+          break;
+        }
       }
+    }
+    if (found != null && (includeProtected || found.isPublic())) {
+      return Optional.of(found);
     }
     return Optional.empty();
   }
@@ -81,8 +86,13 @@ public class EntityDescriptorImpl implements EntityDescriptor {
 
   /** List all attribute descriptors of given entity. */
   @Override
-  public List<AttributeDescriptor> getAllAttributes() {
-    return attributes;
+  public List<AttributeDescriptor<?>> getAllAttributes(boolean includeProtected) {
+    if (includeProtected) {
+      return Collections.unmodifiableList(attributes);
+    }
+    return attributes.stream()
+        .filter(a -> a.isPublic())
+        .collect(Collectors.toList());
   }
 
   @Override

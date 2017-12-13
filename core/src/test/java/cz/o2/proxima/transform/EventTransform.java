@@ -13,30 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package cz.o2.proxima.transform;
 
-package cz.o2.proxima.repository;
-
-import java.net.URI;
-import cz.o2.proxima.scheme.ValueSerializer;
+import cz.o2.proxima.repository.ProxyTransform;
 
 /**
- * Descriptor of attribute of entity.
+ * Transformation from proxy space (event.*) to raw space (_e.*).
  */
-public class AttributeDescriptorImpl<T>
-    extends AttributeDescriptorBase<T> {
-
-  AttributeDescriptorImpl(
-      String name, String entity,
-      URI schemeURI, ValueSerializer<T> serializer) {
-
-    super(name, entity, schemeURI, serializer);
-  }
-
+public class EventTransform implements ProxyTransform {
 
   @Override
-  public String toString() {
-    return "AttributeDescriptor(entity=" + entity + ", name=" + name + ")";
+  public String fromProxy(String proxy) {
+    int pos = proxy.indexOf('.');
+    return "_e." + proxy.substring(pos + 1);
   }
 
+  @Override
+  public String toProxy(String raw) {
+    int pos = raw.indexOf('.');
+    return "event." + raw.substring(pos + 1);
+  }
 
 }

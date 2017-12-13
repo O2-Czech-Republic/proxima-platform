@@ -124,7 +124,7 @@ public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
     try {
       cqlFactory = Classpath.findClass(cqlFactoryName, CQLFactory.class).newInstance();
       cqlFactory.setup(uri, converter);
-    } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ex) {
+    } catch (InstantiationException | IllegalAccessException ex) {
       throw new IllegalArgumentException("Cannot instantiate class " + cqlFactoryName,
           ex);
     }

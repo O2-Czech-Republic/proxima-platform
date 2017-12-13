@@ -17,12 +17,15 @@
 package cz.o2.proxima.repository;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
+import cz.o2.proxima.transform.EventDataToDummy;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -58,6 +61,15 @@ public class RepositoryTest {
         gateway.findAttribute("fail").get().getSchemeURI().toString());
     assertEquals("bytes:///",
         gateway.findAttribute("bytes").get().getSchemeURI().toString());
+
+    assertEquals(1, repo.getTransformations().size());
+    TransformationDescriptor transform = repo.getTransformations().values().iterator().next();
+    assertEquals(PassthroughFilter.class, transform.getFilter().getClass());
+    assertEquals(event, transform.getEntity());
+    assertEquals(
+        Arrays.asList(event.findAttribute("data").get()),
+        transform.getAttributes());
+    assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
   }
 
   @Test(timeout = 2000)

@@ -322,7 +322,7 @@ public class Repository {
     try {
       Class<T> forName = Classpath.findClass(name, cls);
       return forName.newInstance();
-    } catch (InstantiationException | IllegalAccessException | ClassNotFoundException ex) {
+    } catch (InstantiationException | IllegalAccessException ex) {
       throw new IllegalArgumentException("Cannot instantiate class " + name, ex);
     }
   }
@@ -406,14 +406,7 @@ public class Repository {
     if (this.shouldLoadAccessors) {
       transform = Optional.ofNullable(settings.get("apply"))
           .map(Object::toString)
-          .map(s -> {
-            try {
-              Class<ProxyTransform> c = Classpath.findClass(s, ProxyTransform.class);
-              return c.newInstance();
-            } catch (Exception ex) {
-              throw new RuntimeException(ex);
-            }
-          })
+          .map(s -> newInstance(s, ProxyTransform.class))
           .orElseThrow(() -> new IllegalArgumentException("Missing required field `apply'"));
     } else {
       transform = null;
@@ -681,35 +674,36 @@ public class Repository {
     }
 
     transformations.forEach((k, v) -> {
-      try {
-        Map<String, Object> transformation = toMap(k, v);
-        EntityDescriptor entity = findEntity(readStr("entity", transformation, k))
-            .orElseThrow(() -> new IllegalArgumentException(
-                String.format("Entity `%s` doesn't exist",
-                    transformation.get("entity"))));
+      Map<String, Object> transformation = toMap(k, v);
+      EntityDescriptor entity = findEntity(readStr("entity", transformation, k))
+          .orElseThrow(() -> new IllegalArgumentException(
+              String.format("Entity `%s` doesn't exist",
+                  transformation.get("entity"))));
 
-        Class<? extends Transformation> cls = Classpath.findClass(
-            readStr("using", transformation, k), Transformation.class);
+      Transformation t = newInstance(
+          readStr("using", transformation, k), Transformation.class);
 
-        List<AttributeDescriptor<?>> attrs = readList("attributes", transformation, k)
-            .stream()
-            .map(a -> entity.findAttribute(a, true).orElseThrow(
-                () -> new IllegalArgumentException(
-                    String.format("Missing attribute `%s` in `%s`",
-                        a, entity))))
-            .collect(Collectors.toList());
+      List<AttributeDescriptor<?>> attrs = readList("attributes", transformation, k)
+          .stream()
+          .map(a -> entity.findAttribute(a, true).orElseThrow(
+              () -> new IllegalArgumentException(
+                  String.format("Missing attribute `%s` in `%s`",
+                      a, entity))))
+          .collect(Collectors.toList());
 
-        TransformationDescriptor desc = TransformationDescriptor.newBuilder()
-            .addAttributes(attrs)
-            .setEntity(entity)
-            .setTransformationClass(cls)
-            .build();
+      TransformationDescriptor.Builder desc = TransformationDescriptor.newBuilder()
+          .addAttributes(attrs)
+          .setEntity(entity)
+          .setTransformation(t);
 
-        this.transformations.put(k, desc);
+      Optional
+          .ofNullable(transformation.get("filter"))
+          .map(Object::toString)
+          .map(s -> newInstance(s, StorageFilter.class))
+          .ifPresent(desc::setFilter);
 
-      } catch (ClassNotFoundException ex) {
-        throw new RuntimeException(ex);
-      }
+      this.transformations.put(k, desc.build());
+
     });
 
     this.transformations.forEach((k, v) -> v.getTransformation().setup(this));

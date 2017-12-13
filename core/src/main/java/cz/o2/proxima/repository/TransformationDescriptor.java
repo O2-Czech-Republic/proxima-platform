@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.storage.PassthroughFilter;
+import cz.o2.proxima.storage.StorageFilter;
 import cz.seznam.euphoria.shaded.guava.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -22,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import lombok.Getter;
 
 /**
@@ -37,15 +40,21 @@ public class TransformationDescriptor implements Serializable {
 
     EntityDescriptor entity;
     final List<AttributeDescriptor<?>> attrs = new ArrayList<>();
-    Class<? extends Transformation> transformation;
+    Transformation transformation;
+    StorageFilter filter;
 
     Builder setEntity(EntityDescriptor entity) {
       this.entity = entity;
       return this;
     }
 
-    Builder setTransformationClass(Class<? extends Transformation> transformation) {
+    Builder setTransformation(Transformation transformation) {
       this.transformation = transformation;
+      return this;
+    }
+
+    Builder setFilter(StorageFilter filter) {
+      this.filter = filter;
       return this;
     }
 
@@ -68,11 +77,7 @@ public class TransformationDescriptor implements Serializable {
       Preconditions.checkArgument(entity != null,
           "Please specify source entity");
 
-      try {
-        return new TransformationDescriptor(entity, attrs, transformation.newInstance());
-      } catch (Exception ex) {
-        throw new RuntimeException(ex);
-      }
+      return new TransformationDescriptor(entity, attrs, transformation, filter);
     }
   }
 
@@ -82,14 +87,18 @@ public class TransformationDescriptor implements Serializable {
   private final List<AttributeDescriptor<?>> attributes;
   @Getter
   private final Transformation transformation;
+  @Getter
+  private final StorageFilter filter;
 
   private TransformationDescriptor(
       EntityDescriptor entity,
       List<AttributeDescriptor<?>> attributes,
-      Transformation transformation) {
+      Transformation transformation,
+      @Nullable StorageFilter filter) {
 
     this.entity = Objects.requireNonNull(entity);
     this.attributes = Collections.unmodifiableList(attributes);
     this.transformation = Objects.requireNonNull(transformation);
+    this.filter = filter == null ? new PassthroughFilter() : filter;
   }
 }

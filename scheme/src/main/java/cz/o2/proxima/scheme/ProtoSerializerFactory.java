@@ -85,7 +85,7 @@ public class ProtoSerializerFactory<M extends AbstractMessage>
       Class<?> protoClass = Classpath.findClass(protoClassName, GeneratedMessage.class);
       Method parser = protoClass.getMethod("parser");
       return (Parser) parser.invoke(null);
-    } catch (ClassNotFoundException | IllegalAccessException | IllegalArgumentException
+    } catch (IllegalAccessException | IllegalArgumentException
         | NoSuchMethodException | SecurityException | InvocationTargetException ex) {
 
       throw new IllegalArgumentException(
@@ -106,8 +106,7 @@ public class ProtoSerializerFactory<M extends AbstractMessage>
           protoClass, GeneratedMessage.class);
       Method method = cls.getMethod("getDefaultInstance");
       return (M) method.invoke(null);
-    } catch (ClassNotFoundException | NoSuchMethodException | SecurityException
-        | IllegalAccessException | InvocationTargetException ex) {
+    } catch (Exception ex) {
       throw new IllegalArgumentException(
           "Cannot retrieve default instance for type "
           + protoClass);

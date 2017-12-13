@@ -23,17 +23,16 @@ import org.slf4j.LoggerFactory;
  * Classpath related utilities.
  */
 public class Classpath {
-  
+
   private static final Logger LOG = LoggerFactory.getLogger(Classpath.class);
-  
+
   /** Find given class.
    * Try hard to find it replacing `.' by `$' if
    * appropriate.
    */
   @SuppressWarnings({ "unchecked", "rawtypes" })
-  public static <T> Class<T> findClass(String name, Class<T> superClass)
-      throws ClassNotFoundException {
-   
+  public static <T> Class<T> findClass(String name, Class<T> superClass) {
+
     Class clz;
     if ((clz = instantiateClass(name)) != null) {
       return clz;
@@ -53,9 +52,9 @@ public class Classpath {
         return clz;
       }
     }
-    throw new ClassNotFoundException("Cannot find class " + name);
+    throw new RuntimeException("Cannot find class " + name);
   }
-    
+
   @SuppressWarnings({ "unchecked", "rawtypes" })
   private static Class instantiateClass(String name) {
     try {

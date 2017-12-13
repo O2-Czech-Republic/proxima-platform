@@ -701,7 +701,8 @@ public class IngestServer {
         .orElseThrow(() -> new IllegalArgumentException(
             "Cannot obtain attribute family for " + transform.getAttributes()));
 
-    Transformation f = transform.getTransformation();
+    Transformation t = transform.getTransformation();
+    StorageFilter f = transform.getFilter();
     final String consumer = "transformer-" + name;
     CommitLogReader reader = family.getCommitLogReader().get();
 
@@ -709,7 +710,7 @@ public class IngestServer {
 
       @Override
       protected void failure() {
-        LOG.error("Failed to transform using {}. Bailing out.", f);
+        LOG.error("Failed to transform using {}. Bailing out.", t);
         System.exit(1);
       }
 
@@ -719,6 +720,10 @@ public class IngestServer {
 
         // add one to prevent confirmation before all elements
         // are processed
+        if (!f.apply(ingest)) {
+          LOG.debug("Skipping transformation of {} by filter", ingest);
+          return true;
+        }
         AtomicInteger toConfirm = new AtomicInteger(1);
         try {
           Transformation.Collector<StreamElement> collector = elem -> {
@@ -743,7 +748,7 @@ public class IngestServer {
               confirm.fail(ex);
             }
           };
-          f.apply(ingest, collector);
+          t.apply(ingest, collector);
           if (toConfirm.decrementAndGet() == 0) {
             confirm.confirm();
           }
@@ -758,7 +763,7 @@ public class IngestServer {
     }.start();
     LOG.info(
         "Started transformer {} reading from {} using {}",
-        consumer, reader.getURI(), f.getClass());
+        consumer, reader.getURI(), t.getClass());
   }
 
   /**

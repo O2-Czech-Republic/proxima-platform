@@ -51,12 +51,6 @@
               <exclude>cz.o2.proxima:platform-core</exclude>
             </excludes>
           </artifactSet>
-          <relocations>
-            <relocation>
-              <pattern>com.google.</pattern>
-              <shadedPattern>cz.o2.proxima.bigtable.shaded.com.google.</shadedPattern>
-            </relocation>
-          </relocations>
         </configuration>
         <executions>
           <execution>

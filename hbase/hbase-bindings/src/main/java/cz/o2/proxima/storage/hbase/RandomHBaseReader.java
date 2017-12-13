@@ -112,13 +112,12 @@ public class RandomHBaseReader extends HBaseClientWrapper
       get.setFilter(new ColumnPrefixFilter(
           wildcard.toAttributePrefix().getBytes(UTF8)));
       Scan scan = new Scan(get);
+      if (limit <= 0) {
+        limit = Integer.MAX_VALUE;
+      }
       scan.setBatch(limit);
       if (stroff != null) {
         scan.setFilter(new ColumnPaginationFilter(limit, stroff.off));
-      }
-
-      if (limit <= 0) {
-        limit = Integer.MAX_VALUE;
       }
 
       int accepted = 0;

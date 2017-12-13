@@ -233,13 +233,7 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
         .orElse(consumerPollInterval);
 
     this.partitioner = Optional.ofNullable((String) cfg.get(PARTITIONER_CLASS))
-        .map(cls -> {
-          try {
-            return Classpath.findClass(cls, Partitioner.class);
-          } catch (ClassNotFoundException ex) {
-            throw new RuntimeException(ex);
-          }
-        })
+        .map(cls -> Classpath.findClass(cls, Partitioner.class))
         .map(cls -> {
           try {
             return cls.newInstance();

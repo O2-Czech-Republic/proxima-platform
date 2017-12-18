@@ -46,10 +46,6 @@
           </artifactSet>
           <relocations>
             <relocation>
-              <pattern>io.netty.</pattern>
-              <shadedPattern>cz.o2.proxima.cassandra.shaded.io.netty.</shadedPattern>
-            </relocation>
-            <relocation>
               <pattern>io.dropwizard.</pattern>
               <shadedPattern>cz.o2.proxima.cassandra.shaded.io.dropwizard.</shadedPattern>
             </relocation>
@@ -119,6 +115,12 @@
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
       <artifactId>jsr305</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-handler</artifactId>
+      <version>4.1.6.Final</version>
     </dependency>
 
     <dependency>

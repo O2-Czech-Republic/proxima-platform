@@ -17,9 +17,9 @@ package cz.o2.proxima.storage.hbase;
 
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.storage.URIUtil;
+import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
 import java.net.URI;
 import java.util.Optional;
-import org.apache.directory.api.util.Strings;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
@@ -40,7 +40,7 @@ class Util {
   static String getTable(URI uri) {
     String table = uri.getPath().substring(1);
     Preconditions.checkArgument(
-        !Strings.isEmpty(table), "Table cannot be empty in " + uri + "!");
+        !Strings.isNullOrEmpty(table), "Table cannot be empty in " + uri + "!");
     while (table.endsWith("/")) {
       table = table.substring(0, table.length() - 1);
     }

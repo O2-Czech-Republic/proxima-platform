@@ -69,7 +69,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.Getter;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -443,7 +446,9 @@ public class IngestServer {
   final boolean ignoreErrors;
 
   @Getter
-  RetryPolicy retryPolicy = new BackoffRetryPolicy(scheduler, 3, 1000L);
+  RetryPolicy retryPolicy = new RetryPolicy()
+      .withMaxRetries(3)
+      .withBackoff(3000, 20000, TimeUnit.MILLISECONDS, 2.0);
 
   protected IngestServer(Config cfg) {
     this.cfg = cfg;
@@ -639,8 +644,7 @@ public class IngestServer {
       server.awaitTermination();
       LOG.info("Server shutdown.");
     } catch (Exception ex) {
-      LOG.error("Failed to start the server", ex);
-      System.exit(1);
+      die("Failed to start the server", ex);
     }
   }
 
@@ -710,8 +714,7 @@ public class IngestServer {
 
       @Override
       protected void failure() {
-        LOG.error("Failed to transform using {}. Bailing out.", t);
-        System.exit(1);
+        die(String.format("Failed to transform using %s. Bailing out.", t));
       }
 
       @Override
@@ -819,162 +822,184 @@ public class IngestServer {
 
     if (writerBase.getType() == AttributeWriterBase.Type.ONLINE) {
       OnlineAttributeWriter writer = writerBase.online();
-      observer = new RetryableLogObserver(3, consumerName, commitLog) {
+      observer = getOnlineWriter(
+          consumerName, commitLog, allowedAttributes, filter, writer, retry);
+    } else {
+      BulkAttributeWriter writer = writerBase.bulk();
+      observer = getBulkWriter(
+          consumerName, commitLog, allowedAttributes, filter, writer, retry);
+    }
 
-        @Override
-        public boolean onNextInternal(
-            StreamElement ingest,
-            LogObserver.ConfirmCallback confirm) {
+    observer.start();
 
-          final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
-          LOG.debug("Received new ingest element {}", ingest);
-          if (allowed && filter.apply(ingest)) {
-            RetryPolicy.AsyncRunnable command = callback -> {
-              LOG.debug("Writing element {} into {}", ingest, writer);
-              writer.write(ingest, (success, exc) -> {
-                if (!success) {
-                  LOG.error(
-                      "Failed to write ingest {} to {}", ingest, writer.getURI(),
-                      exc);
-                  Metrics.NON_COMMIT_WRITES_RETRIES.increment();
-                  callback.accept(new RuntimeException(exc));
-                } else {
-                  if (ingest.isDelete()) {
-                    Metrics.NON_COMMIT_LOG_DELETES.increment();
-                  } else {
-                    Metrics.NON_COMMIT_LOG_UPDATES.increment();
-                  }
-                  callback.accept(null);
-                }
-              });
-            };
-            retry.retry(command, success -> {
+  }
+
+  private AbstractRetryableLogObserver getBulkWriter(
+      String consumerName,
+      CommitLogReader commitLog,
+      Set<AttributeDescriptor<?>> allowedAttributes,
+      StorageFilter filter,
+      BulkAttributeWriter writer,
+      RetryPolicy retry) {
+
+    return new RetryableBulkObserver(3, consumerName, commitLog) {
+
+      @Override
+      public boolean onNextInternal(
+          StreamElement ingest,
+          BulkLogObserver.BulkCommitter confirm) {
+
+        return writeInternal(ingest, confirm);
+      }
+
+      private boolean writeInternal(
+          StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
+
+        final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
+        LOG.debug("Received new ingest element {}", ingest);
+        if (allowed && filter.apply(ingest)) {
+          Failsafe.with(retryPolicy).run(() -> {
+            LOG.debug("Writing element {} into {}", ingest, writer);
+            writer.write(ingest, (success, exc) -> {
               if (!success) {
+                LOG.error(
+                    "Failed to write ingest {} to {}", ingest, writer.getURI(),
+                    exc);
+                Metrics.NON_COMMIT_WRITES_RETRIES.increment();
+                if (ignoreErrors) {
+                  LOG.error(
+                      "Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
+                      ingest, writer.getURI());
+                  confirm.commit();
+                } else {
+                  onError(exc);
+                }
+              } else {
+                if (ingest.isDelete()) {
+                  Metrics.NON_COMMIT_LOG_DELETES.increment();
+                } else {
+                  Metrics.NON_COMMIT_LOG_UPDATES.increment();
+                }
+                confirm.commit();
+              }
+            });
+          });
+        } else {
+          Metrics.COMMIT_UPDATE_DISCARDED.increment();
+          LOG.debug(
+              "Discarding write of {} to {} because of {}, "
+                  + "with allowedAttributes {} and filter class {}",
+              ingest, writer.getURI(),
+              allowed ? "applied filter" : "invalid attribute",
+              allowedAttributes,
+              filter.getClass());
+        }
+        return true;
+      }
+
+      @Override
+      protected void failure() {
+        die(String.format(
+            "Too many errors retrying the consumption of commit log %s. Killing self.",
+            commitLog.getURI()));
+      }
+
+      @Override
+      public void onRestart() {
+        LOG.info(
+            "Restarting bulk processing of {}, rollbacking the writer",
+            writer.getURI());
+        writer.rollback();
+      }
+
+    };
+  }
+
+  private AbstractRetryableLogObserver getOnlineWriter(
+      String consumerName,
+      CommitLogReader commitLog,
+      Set<AttributeDescriptor<?>> allowedAttributes,
+      StorageFilter filter,
+      OnlineAttributeWriter writer,
+      RetryPolicy retry) {
+
+    return new RetryableLogObserver(3, consumerName, commitLog) {
+
+      @Override
+      public boolean onNextInternal(
+          StreamElement ingest,
+          LogObserver.ConfirmCallback confirm) {
+
+        final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
+        LOG.debug("Received new ingest element {}", ingest);
+        if (allowed && filter.apply(ingest)) {
+          Failsafe.with(retryPolicy).run(() -> {
+            LOG.debug("Writing element {} into {}", ingest, writer);
+            writer.write(ingest, (success, exc) -> {
+              if (!success) {
+                LOG.error(
+                    "Failed to write ingest {} to {}", ingest, writer.getURI(),
+                    exc);
+                Metrics.NON_COMMIT_WRITES_RETRIES.increment();
                 if (ignoreErrors) {
                   LOG.error(
                       "Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
                       ingest, writer.getURI());
                   confirm.confirm();
                 } else {
-                  try {
-                    // sleep random time between zero to 10 seconds to break ties
-                    Thread.sleep((long) (Math.random() * 10000));
-                  } catch (InterruptedException ex) {
-                    // nop
-                  }
-                  LOG.error(
-                      "Retries exhausted trying to ingest {} to {}. Fatal. Exitting.",
-                      ingest, writer.getURI());
-                  System.exit(1);
+                  onError(exc);
                 }
               } else {
+                if (ingest.isDelete()) {
+                  Metrics.NON_COMMIT_LOG_DELETES.increment();
+                } else {
+                  Metrics.NON_COMMIT_LOG_UPDATES.increment();
+                }
                 confirm.confirm();
               }
             });
-          } else {
-            Metrics.COMMIT_UPDATE_DISCARDED.increment();
-            LOG.debug(
-                "Discarding write of {} to {} because of {}, "
-                    + "with allowedAttributes {} and filter class {}",
-                ingest, writer.getURI(),
-                allowed ? "applied filter" : "invalid attribute",
-                allowedAttributes,
-                filter.getClass());
-            confirm.confirm();
-          }
-          return true;
+          });
+        } else {
+          Metrics.COMMIT_UPDATE_DISCARDED.increment();
+          LOG.debug(
+              "Discarding write of {} to {} because of {}, "
+                  + "with allowedAttributes {} and filter class {}",
+              ingest, writer.getURI(),
+              allowed ? "applied filter" : "invalid attribute",
+              allowedAttributes,
+              filter.getClass());
+          confirm.confirm();
         }
+        return true;
+      }
 
-        @Override
-        protected void failure() {
-          LOG.error(
-              "Too many errors retrying the consumption of commit log {}. Killing self.",
-              commitLog.getURI());
-          System.exit(1);
-        }
+      @Override
+      protected void failure() {
+        die(String.format(
+            "Too many errors retrying the consumption of commit log %s. Killing self.",
+            commitLog.getURI()));
+      }
 
-      };
-    } else {
-      BulkAttributeWriter writer = writerBase.bulk();
-      observer = new RetryableBulkObserver(3, consumerName, commitLog) {
+    };
+  }
 
-        @Override
-        public boolean onNextInternal(
-            StreamElement ingest,
-            BulkLogObserver.BulkCommitter confirm) {
+  private void die(String message) {
+    die(message, null);
+  }
 
-          return writeInternal(ingest, confirm);
-        }
-
-        private boolean writeInternal(StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
-          final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
-          LOG.debug("Received new ingest element {}", ingest);
-          if (allowed && filter.apply(ingest)) {
-            RetryPolicy.AsyncRunnable command = callback -> {
-              LOG.debug("Writing element {} into {}", ingest, writer);
-              writer.write(ingest, (success, exc) -> {
-                if (!success) {
-                  LOG.error(
-                      "Failed to write ingest {} to {}", ingest, writer.getURI(),
-                      exc);
-                  Metrics.NON_COMMIT_WRITES_RETRIES.increment();
-                  callback.accept(new RuntimeException(exc));
-                } else {
-                  if (ingest.isDelete()) {
-                    Metrics.NON_COMMIT_LOG_DELETES.increment();
-                  } else {
-                    Metrics.NON_COMMIT_LOG_UPDATES.increment();
-                  }
-                  callback.accept(null);
-                  confirm.commit();
-                }
-              });
-            };
-            retry.retry(command, success -> {
-              if (!success) {
-                if (ignoreErrors) {
-                  LOG.error(
-                      "Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
-                      ingest, writer.getURI());
-                } else {
-                  LOG.error(
-                      "Retries exhausted trying to ingest {} to {}. Fatal. Exitting.",
-                      ingest, writer.getURI());
-                  System.exit(1);
-                }
-              }
-            });
-          } else {
-            Metrics.COMMIT_UPDATE_DISCARDED.increment();
-            LOG.debug(
-                "Discarding write of {} to {} because of {}, "
-                    + "with allowedAttributes {} and filter class {}",
-                ingest, writer.getURI(),
-                allowed ? "applied filter" : "invalid attribute",
-                allowedAttributes,
-                filter.getClass());
-          }
-          return true;
-        }
-
-        @Override
-        protected void failure() {
-          LOG.error("Too many errors retrying the consumption of commit log {}. Killing self.",
-              commitLog.getURI());
-          System.exit(1);
-        }
-
-        @Override
-        public void onRestart() {
-          LOG.info("Restarting bulk processing, rollbacking the writer");
-          writerBase.rollback();
-        }
-
-      };
+  private void die(String message, @Nullable Throwable error) {
+    try {
+      // sleep random time between zero to 10 seconds to break ties
+      Thread.sleep((long) (Math.random() * 10000));
+    } catch (InterruptedException ex) {
+      // nop, already going to die
     }
-
-    observer.start();
-
+    if (error == null) {
+      LOG.error(message);
+    } else {
+      LOG.error(message, error);
+    }
+    System.exit(1);
   }
 
 }

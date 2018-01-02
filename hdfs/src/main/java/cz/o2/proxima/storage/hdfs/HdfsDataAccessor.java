@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.hdfs;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -33,10 +32,12 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -81,7 +82,7 @@ public class HdfsDataAccessor
   private final long rollInterval;
   private final long batchProcessSize;
 
-  private final DateFormat DIR_FORMAT = new SimpleDateFormat("/YYYY/MM");
+  private final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern("/yyyy/MM/");
 
   private SequenceFile.Writer writer = null;
   private Path writerTmpPath = null;
@@ -220,10 +221,11 @@ public class HdfsDataAccessor
   Path toFinalLocation(long part, long minStamp, long maxStamp)
       throws URISyntaxException, UnknownHostException {
 
-    Date d = new Date(part);
+    Instant d = Instant.ofEpochMilli(part);
     // place the final file in directory of (YYYY/MM)
     return new Path(
-        new URI(getURI().toString() + DIR_FORMAT.format(d)
+        new URI(getURI().toString() + DIR_FORMAT.format(LocalDateTime.ofInstant(
+            d, ZoneId.ofOffset("UTC", ZoneOffset.ofHours(0))))
             + "/" + toFinalName(minStamp, maxStamp)));
   }
 

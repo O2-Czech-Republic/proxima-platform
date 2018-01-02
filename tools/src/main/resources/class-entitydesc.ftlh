@@ -1,7 +1,6 @@
 
 /*
- * This is a groovy class template used to generate
- * entity descriptor
+ * AUTO GENERATED! DO NOT EDIT!
  */
 
 import cz.o2.proxima.storage.commitlog.CommitLogReader.Position

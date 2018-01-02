@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.hdfs;
 
 import com.google.common.collect.Maps;
@@ -61,6 +60,15 @@ public class HdfsAttributeWriterTest {
     Path tmp = writer.toFinalLocation(1500000000000L, 1499999999000L, 1500000001000L);
     assertEquals(
         "file://dummy/dir/2017/07/part-1499999999000_1500000001000-"
+            + InetAddress.getLocalHost().getCanonicalHostName(),
+        tmp.toUri().toString());
+  }
+
+  @Test
+  public void testFinalPathGeneration2017_12_31() throws UnknownHostException, URISyntaxException {
+    Path tmp = writer.toFinalLocation(1514761200000L, 1514761200000L, 1514761200000L + 1000L);
+    assertEquals(
+        "file://dummy/dir/2017/12/part-1514761200000_1514761201000-"
             + InetAddress.getLocalHost().getCanonicalHostName(),
         tmp.toUri().toString());
   }

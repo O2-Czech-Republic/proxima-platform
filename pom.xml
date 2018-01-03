@@ -145,6 +145,9 @@
           <properties>
             <owner>O2 Czech Republic, a.s.</owner>
           </properties>
+          <mapping>
+            <proto>JAVADOC_STYLE</proto>
+          </mapping>
           <excludes>
             <exclude>**/.idea/**</exclude>
             <exclude>**/README</exclude>

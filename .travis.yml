@@ -10,8 +10,9 @@ addons:
     packages:
       - oracle-java8-installer
 
-install: mvn install -DskipTests=true -Dmaven.javadoc.skip=true -B -V
-script: mvn test -B
+install: true
+script: mvn install -B -V
+before_cache: rm -rf ~/.m2/repository/cz/o2/proxima || /bin/true
 
 cache:
   directories:

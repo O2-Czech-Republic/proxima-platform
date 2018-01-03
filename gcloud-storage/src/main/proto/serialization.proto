@@ -1,0 +1,30 @@
+/*
+ * Serialization of binary blobs.
+ */
+
+syntax = "proto3";
+
+package cz.o2.proxima.gcloud.storage.proto;
+
+/* Header message */
+message Header {
+
+  string magic = 1;
+  uint32 version = 2;
+  bool gzip = 3;
+
+}
+
+/* Single record (StreamElement) serialied */
+message Element {
+
+  string key = 1;
+  string attribute = 2;
+  uint64 stamp = 3;
+  bytes value = 4;
+  bool delete = 5;
+  bool deleteWildcard = 6;
+  string uuid = 7;
+
+}
+

@@ -1,6 +1,6 @@
 <!--
 
-    Copyright 2017 O2 Czech Republic, a.s.
+    Copyright 2017-2018 O2 Czech Republic, a.s.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -38,6 +38,35 @@
         <artifactId>maven-plugin-plugin</artifactId>
         <version>3.3</version>
       </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.4.3</version>
+        <configuration>
+          <artifactSet>
+            <excludes>
+              <!-- exclude proxima and core dependencies -->
+              <exclude>cz.o2.proxima:platform-core</exclude>
+            </excludes>
+          </artifactSet>
+          <relocations>
+            <relocation>
+              <pattern>com.google.common.</pattern>
+              <shadedPattern>cz.seznam.euphoria.shaded.guava.com.google.common.</shadedPattern>
+            </relocation>
+          </relocations>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
     </plugins>
   </build>
 
@@ -46,6 +75,12 @@
     <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>platform-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>platform-scheme</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -86,6 +121,13 @@
       <groupId>org.freemarker</groupId>
       <artifactId>freemarker</artifactId>
       <version>2.3.23</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>21.0</version>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>

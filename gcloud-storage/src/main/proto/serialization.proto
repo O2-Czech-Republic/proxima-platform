@@ -13,22 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+/*
+ * Serialization of binary blobs.
+ */
+
 syntax = "proto3";
 
-package cz.o2.proxima.server.test;
+package cz.o2.proxima.gcloud.storage.proto;
 
-/* This is message with just a single field. */
-message SimpleMessage {
+/* Header message */
+message Header {
 
-  uint32 first = 1;
+  string magic = 1;
+  uint32 version = 2;
+  bool gzip = 3;
 
 }
 
-/* This is message with two fields, wire compatible with SimpleMessage */
-message ExtendedMessage {
+/* Single record (StreamElement) serialied */
+message Element {
 
-  uint32 first = 1;
-  uint32 second = 2;
+  string key = 1;
+  string attribute = 2;
+  uint64 stamp = 3;
+  bytes value = 4;
+  bool delete = 5;
+  bool deleteWildcard = 6;
+  string uuid = 7;
 
 }
 

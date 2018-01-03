@@ -1,6 +1,6 @@
 <!--
 
-    Copyright 2017 O2 Czech Republic, a.s.
+    Copyright 2017-2018 O2 Czech Republic, a.s.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -49,17 +49,12 @@
     <grpc.version>1.7.0</grpc.version>
     <euphoria.version>0.7.0</euphoria.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
-    <docker.registry>dev.proxima.o2.cz:5000</docker.registry>
-    <docker.nocache>false</docker.nocache>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
   <profiles>
     <profile>
       <id>release</id>
-      <properties>
-        <docker.nocache>true</docker.nocache>
-      </properties>
       <build>
         <plugins>
           <plugin>
@@ -150,6 +145,9 @@
           <properties>
             <owner>O2 Czech Republic, a.s.</owner>
           </properties>
+          <mapping>
+            <proto>JAVADOC_STYLE</proto>
+          </mapping>
           <excludes>
             <exclude>**/.idea/**</exclude>
             <exclude>**/README</exclude>
@@ -242,6 +240,7 @@
     <module>client</module>
     <module>core</module>
     <module>example</module>
+    <module>gcloud-storage</module>
     <module>hbase</module>
     <module>hdfs</module>
     <module>http</module>

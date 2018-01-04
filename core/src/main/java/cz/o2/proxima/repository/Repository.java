@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.repository;
 
 import com.typesafe.config.Config;
@@ -529,8 +528,14 @@ public class Repository {
                 .map(Object::toString)
                 .orElse("read-only"));
 
-        List<String> attributes = toList(Objects.requireNonNull(storage.get("attributes")));
-        URI storageURI = new URI(Objects.requireNonNull(storage.get("storage")).toString());
+        List<String> attributes = toList(
+            Objects.requireNonNull(storage.get("attributes"),
+                "Missing required field `attributes' in attributeFamily "
+                + name));
+        URI storageURI = new URI(Objects.requireNonNull(
+            storage.get("storage"),
+            "Missing required field `storage' in attribute family " + name)
+            .toString());
         final StorageDescriptor storageDesc = isReadonly
             ? asReadOnly(schemeToStorage.get(storageURI.getScheme()))
             : schemeToStorage.get(storageURI.getScheme());
@@ -571,6 +576,11 @@ public class Repository {
             family.setPartitionedView(accessor.getPartitionedView().orElseThrow(
                 () -> new IllegalArgumentException(
                     "Storage " + storageDesc + " has no valid partitioned view.")));
+          }
+          if (access.canReadBatchSnapshot() || access.canReadBatchUpdates()) {
+            family.setBatchObservable(accessor.getBatchLogObservable().orElseThrow(
+                () -> new IllegalArgumentException(
+                    "Storage " + storageDesc + " has no batch log observable.")));
           }
         }
 

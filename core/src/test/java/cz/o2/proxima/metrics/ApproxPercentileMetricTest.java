@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,6 +84,13 @@ public class ApproxPercentileMetricTest {
         150.0,
         m.getValue().get50(),
         1.0);
+  }
+
+  @Test
+  public void testSingleValue() {
+    ApproxPercentileMetric m = new ApproxPercentileMetric("test", "test", 1000, 100);
+    m.increment(1.0);
+    assertEquals(1.0, m.getValue().get50(), 0.001);
   }
 
 }

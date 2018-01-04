@@ -38,6 +38,7 @@
         <artifactId>maven-shade-plugin</artifactId>
         <version>2.4.3</version>
         <configuration>
+          <shadeTestJar>true</shadeTestJar>
           <relocations>
             <relocation>
               <pattern>org.reflections.</pattern>
@@ -51,7 +52,7 @@
         </configuration>
         <executions>
           <execution>
-            <phase>package</phase>
+            <phase>install</phase>
             <goals>
               <goal>shade</goal>
             </goals>

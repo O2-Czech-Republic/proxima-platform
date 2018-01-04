@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.kafka;
 
 import cz.o2.proxima.storage.Partition;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
+import org.apache.kafka.common.TopicPartition;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -26,19 +30,13 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import lombok.Getter;
-import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
-import org.apache.kafka.common.TopicPartition;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A consumer group with name.
  * The consumer group balances assignment of partitions for consumers.
  */
+@Slf4j
 public class ConsumerGroup {
-
-  private static final Logger LOG = LoggerFactory.getLogger(ConsumerGroup.class);
 
   /** Assignment of partitions of single consumer. */
   class Assignment {
@@ -88,8 +86,8 @@ public class ConsumerGroup {
       listener.onPartitionsAssigned(partitions.stream()
           .map(p -> new TopicPartition(topic, p.getId()))
           .collect(Collectors.toList()));
-      if (LOG.isDebugEnabled()) {
-        LOG.debug("Assigned partitions {} to consumer ID {} of group {}",
+      if (log.isDebugEnabled()) {
+        log.debug("Assigned partitions {} to consumer ID {} of group {}",
             partitions.stream().map(Partition::getId).collect(Collectors.toList()),
             id, name);
       }
@@ -144,8 +142,8 @@ public class ConsumerGroup {
     Assignment assignment = new Assignment(id, listener);
     assignments.put(id, assignment);
     assign(assignments);
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Added new consumer to group {} with assignments {}",
+    if (log.isDebugEnabled()) {
+      log.debug("Added new consumer to group {} with assignments {}",
           name, assignment.getPartitions().stream()
               .map(Partition::getId).collect(Collectors.toList()));
     }

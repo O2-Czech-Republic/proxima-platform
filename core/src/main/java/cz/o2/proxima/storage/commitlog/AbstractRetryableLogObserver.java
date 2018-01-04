@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,15 +22,15 @@
 package cz.o2.proxima.storage.commitlog;
 
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * A parent class for retryable online and bulk log observers.
  */
+@Slf4j
 public abstract class AbstractRetryableLogObserver {
-
-  private static final Logger LOG = LoggerFactory.getLogger(AbstractRetryableLogObserver.class);
 
   /** Maximal number of retries. */
   @Getter
@@ -59,7 +59,7 @@ public abstract class AbstractRetryableLogObserver {
 
 
   public void onError(Throwable error) {
-    LOG.error(
+    log.error(
         "Error in observing commit log {} by {}",
         commitLog.getURI(), name, error);
     if (numFailures++ < maxRetries) {

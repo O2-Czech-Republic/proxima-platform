@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.kafka;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -24,28 +23,22 @@ import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.BulkLogObserver;
+import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.commitlog.LogObserverBase;
 import cz.o2.proxima.storage.kafka.partitioner.KeyPartitioner;
 import cz.o2.proxima.util.Classpath;
-import java.net.URI;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
-import java.util.stream.Collectors;
-import javax.annotation.Nullable;
+import cz.o2.proxima.view.PartitionedLogObserver;
+import cz.o2.proxima.view.PartitionedView;
+import cz.o2.proxima.view.input.DataSourceUtils;
+import cz.seznam.euphoria.core.client.dataset.Dataset;
+import cz.seznam.euphoria.core.client.flow.Flow;
+import cz.seznam.euphoria.core.client.operator.MapElements;
+import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -57,25 +50,32 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.Serdes;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import cz.o2.proxima.storage.commitlog.BulkLogObserver;
-import cz.o2.proxima.storage.commitlog.Cancellable;
-import cz.o2.proxima.view.PartitionedLogObserver;
-import cz.o2.proxima.view.PartitionedView;
-import cz.o2.proxima.view.input.DataSourceUtils;
-import cz.seznam.euphoria.core.client.dataset.Dataset;
-import cz.seznam.euphoria.core.client.flow.Flow;
-import cz.seznam.euphoria.core.client.operator.MapElements;
-import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
+
+import javax.annotation.Nullable;
+import java.net.URI;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * Kafka writer and commit log using {@code KafkaProducer}.
  */
+@Slf4j
 public class KafkaCommitLog extends AbstractOnlineAttributeWriter
     implements CommitLogReader, DataAccessor, PartitionedView {
 
@@ -186,8 +186,6 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
     }
   }
 
-  private static final Logger LOG = LoggerFactory.getLogger(KafkaCommitLog.class);
-
   /** A poll interval in milliseconds. */
   public static final String POLL_INTERVAL_CFG = "poll.interval";
   /** Partitioner class for entity key-attribute pair. */
@@ -243,7 +241,7 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
         })
         .orElse(this.partitioner);
 
-    LOG.info(
+    log.info(
         "Using consumerPollInterval {} and partitionerClass {} for URI {}",
         consumerPollInterval, partitioner.getClass(), getURI());
   }
@@ -285,7 +283,7 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
               + "#" + data.getAttribute(), data.getValue()),
               (metadata, exception) -> callback.commit(exception == null, exception));
     } catch (Exception ex) {
-      LOG.warn("Failed to write ingest {}", data, ex);
+      log.warn("Failed to write ingest {}", data, ex);
       callback.commit(false, ex);
     }
   }
@@ -401,7 +399,7 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
               observer);
         }
       } catch (Throwable thwbl) {
-        LOG.error("Error in running the observer {}", name, thwbl);
+        log.error("Error in running the observer {}", name, thwbl);
         observer.onError(thwbl);
       }
     });
@@ -410,10 +408,10 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
     consumer.start();
 
     try {
-      LOG.debug("Waiting for the consumer {} to be created and run", name);
+      log.debug("Waiting for the consumer {} to be created and run", name);
       latch.await();
     } catch (InterruptedException ex) {
-      LOG.warn("Interrupted while waiting for the creation of the consumer.", ex);
+      log.warn("Interrupted while waiting for the creation of the consumer.", ex);
       Thread.currentThread().interrupt();
     }
 
@@ -445,19 +443,19 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
             for (TopicPartition tp : partitions) {
               OffsetAndMetadata off = consumerRef.get().committed(tp);
               if (off != null) {
-                LOG.info(
+                log.info(
                     "Seeking to offset {} for consumer name {} on partition {}",
                     off.offset(), name, tp);
                 consumerRef.get().seek(tp, off.offset());
               } else {
-                LOG.debug(
+                log.debug(
                     "Partition {} for consumer name {} has no committed offset",
                     tp, name);
               }
             }
           }
         } catch (Exception | Error err) {
-          LOG.error(
+          log.error(
               "Failed to seek to committed offsets for {}",
               partitions, err);
           throw new RuntimeException(err);
@@ -477,10 +475,10 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
         latch.countDown();
         processConsumer(consumerRef.get(), true, false, observer);
       } catch (Exception exc) {
-        LOG.error("Exception in running the observer {}", name, exc);
+        log.error("Exception in running the observer {}", name, exc);
         observer.onError(exc);
       } catch (Error err) {
-        LOG.error("Error in running the observer {}", name, err);
+        log.error("Error in running the observer {}", name, err);
         observer.onError(err);
       } finally {
         consumerRef.get().close();
@@ -491,10 +489,10 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
     consumer.start();
 
     try {
-      LOG.debug("Waiting for the consumer {} to be created and run", name);
+      log.debug("Waiting for the consumer {} to be created and run", name);
       latch.await();
     } catch (InterruptedException ex) {
-      LOG.warn("Interrupted while waiting for the creation of the consumer.", ex);
+      log.warn("Interrupted while waiting for the creation of the consumer.", ex);
       Thread.currentThread().interrupt();
     }
     return () -> {
@@ -616,13 +614,13 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
         int hashPos = key.lastIndexOf("#");
         KafkaStreamElement ingest = null;
         if (hashPos < 0 || hashPos >= key.length()) {
-          LOG.error("Invalid key in kafka topic: {}", key);
+          log.error("Invalid key in kafka topic: {}", key);
         } else {
           String entityKey = key.substring(0, hashPos);
           String attribute = key.substring(hashPos + 1);
           Optional<AttributeDescriptor<?>> attr = getEntityDescriptor().findAttribute(attribute);
           if (!attr.isPresent()) {
-            LOG.error("Invalid attribute in kafka key {}", key);
+            log.error("Invalid attribute in kafka key {}", key);
           } else {
             ingest = new KafkaStreamElement(
                 getEntityDescriptor(), attr.get(),
@@ -650,7 +648,7 @@ public class KafkaCommitLog extends AbstractOnlineAttributeWriter
         kafkaConsumer.commitSync(commitMapClone);
       }
       if (stopAtCurrent && endOffsets.isEmpty()) {
-        LOG.info("Reached end of current data. Terminating consumption.");
+        log.info("Reached end of current data. Terminating consumption.");
         completed = true;
       }
       Throwable errorThrown = error.getAndSet(null);

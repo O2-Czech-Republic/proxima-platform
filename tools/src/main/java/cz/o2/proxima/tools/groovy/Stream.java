@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.tools.groovy;
 
-import cz.o2.proxima.tools.io.AttributeSink;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.tools.io.AttributeSink;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
 import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
@@ -34,16 +33,15 @@ import cz.seznam.euphoria.core.client.util.Pair;
 import cz.seznam.euphoria.core.client.util.Triple;
 import cz.seznam.euphoria.core.executor.Executor;
 import groovy.lang.Closure;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A stream abstraction with fluent style methods.
  */
+@Slf4j
 public class Stream<T> {
-
-  private static final Logger LOG = LoggerFactory.getLogger(Stream.class);
 
   public static <T> Stream<T> wrap(
       Executor executor, DatasetBuilder<T> dataset,
@@ -138,7 +136,7 @@ public class Stream<T> {
     try {
       executor.submit(flow).get();
     } catch (Exception ex) {
-      LOG.error("Error in executing the flow", ex);
+      log.error("Error in executing the flow", ex);
       throw new RuntimeException(ex);
     } finally {
       terminatingOperationCall.run();

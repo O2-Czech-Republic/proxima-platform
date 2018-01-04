@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,24 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.commitlog;
 
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * {@code LogObserver} which is able to retry the observation on error.
  * The number of retries is configurable.
  */
+@Slf4j
 public abstract class RetryableLogObserver
     extends AbstractRetryableLogObserver implements LogObserver {
-
-  private static final Logger LOG = LoggerFactory.getLogger(RetryableLogObserver.class);
-
 
   public RetryableLogObserver(
       int maxRetries,
@@ -52,7 +49,7 @@ public abstract class RetryableLogObserver
 
   @Override
   protected final void startInternal(CommitLogReader.Position position) {
-    LOG.info(
+    log.info(
         "Starting to process commitlog {} as {} from {}",
         getCommitLog().getURI(), getName(), getPosition());
     getCommitLog().observe(getName(), getPosition(), this);
@@ -63,7 +60,7 @@ public abstract class RetryableLogObserver
     try {
       getCommitLog().close();
     } catch (IOException ex) {
-      LOG.error("Error while closing log observer {}", getName(), ex);
+      log.error("Error while closing log observer {}", getName(), ex);
     }
   }
 

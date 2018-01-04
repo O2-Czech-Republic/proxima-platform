@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.kafka;
+
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,18 +26,14 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A committer of kafka offsets. This committer is used for asynchronous
  * operations to enforce that the offset is not committed earlier then all
  * associated actions are performed.
  */
+@Slf4j
 public class OffsetCommitter<ID> {
-
-  private static final Logger LOG = LoggerFactory.getLogger(OffsetCommitter.class);
 
   /**
    * Callback to be called for performing the commit.
@@ -66,7 +64,7 @@ public class OffsetCommitter<ID> {
 
     synchronized void decrement() {
       if (actions.decrementAndGet() < 0) {
-        LOG.error("Decremented too many, actions now {}", actions);
+        log.error("Decremented too many, actions now {}", actions);
       }
     }
 
@@ -89,7 +87,7 @@ public class OffsetCommitter<ID> {
    */
   public void register(ID id, long offset, int numActions, Callback commit) {
     NavigableMap<Long, OffsetMeta> current = waitingOffsets.get(id);
-    LOG.debug(
+    log.debug(
         "Registering offset {} for ID {} with {} actions",
         offset, id, numActions);
     if (current == null) {
@@ -107,7 +105,7 @@ public class OffsetCommitter<ID> {
    */
   public void confirm(ID id, long offset) {
     NavigableMap<Long, OffsetMeta> current = waitingOffsets.get(id);
-    LOG.debug("Confirming processing of offset {} with ID {}", offset, id);
+    log.debug("Confirming processing of offset {} with ID {}", offset, id);
     if (current != null) {
       OffsetMeta meta = current.get(offset);
       if (meta != null) {
@@ -122,12 +120,12 @@ public class OffsetCommitter<ID> {
       List<Map.Entry<Long, OffsetMeta>> commitable = new ArrayList<>();
       for (Map.Entry<Long, OffsetMeta> e : current.entrySet()) {
         if (e.getValue().getActions() <= 0) {
-          LOG.debug(
+          log.debug(
               "Adding offset {} of ID {} to committable map.",
               e.getKey(), id);
           commitable.add(e);
         } else {
-          LOG.debug(
+          log.debug(
               "Waiting for still non-committed offset {}, {} actions missing",
               e.getKey(), e.getValue().getActions());
           break;

@@ -24,6 +24,9 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
 import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -45,18 +48,14 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * {@link BatchLogObservable} for gcloud storage.
  */
+@Slf4j
 public class GCloudLogObservable
     extends GCloudClient
     implements BatchLogObservable {
-
-  private static final Logger LOG = LoggerFactory.getLogger(GCloudLogObservable.class);
 
   private static final Pattern BLOB_NAME_PATTERN = Pattern.compile("[^-]+-([0-9]+)_([0-9]+)\\.blob.*");
 
@@ -153,7 +152,7 @@ public class GCloudLogObservable
       long max = Long.valueOf(matcher.group(2));
       return max >= startStamp && min <= endStamp;
     }
-    LOG.debug("Skipping unparseable name {}", name);
+    log.debug("Skipping unparseable name {}", name);
     return false;
   }
 
@@ -177,7 +176,7 @@ public class GCloudLogObservable
                 }
               });
             } catch (IOException ex) {
-              LOG.warn("Exception while consuming blob {}", blob);
+              log.warn("Exception while consuming blob {}", blob);
               throw new RuntimeException(ex);
             }
           });

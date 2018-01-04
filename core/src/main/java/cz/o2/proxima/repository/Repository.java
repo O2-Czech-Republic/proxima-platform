@@ -29,6 +29,13 @@ import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.NamePattern;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.reflections.Configuration;
+import org.reflections.Reflections;
+import org.reflections.util.ClasspathHelper;
+import org.reflections.util.ConfigurationBuilder;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -44,20 +51,12 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import lombok.Getter;
-import org.reflections.Configuration;
-import org.reflections.Reflections;
-import org.reflections.util.ClasspathHelper;
-import org.reflections.util.ConfigurationBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Repository of all entities configured in the system.
  */
+@Slf4j
 public class Repository {
-
-  private static final Logger LOG = LoggerFactory.getLogger(Repository.class);
 
   /**
    * Construct default repository from the config.
@@ -306,14 +305,14 @@ public class Repository {
         try {
           return c.newInstance();
         } catch (IllegalAccessException | InstantiationException ex) {
-          LOG.warn("Failed to instantiate class {}", c.getName(), ex);
+          log.warn("Failed to instantiate class {}", c.getName(), ex);
         }
       }
       return null;
     })
     .filter(Objects::nonNull)
     .collect(Collectors.toList());
-    LOG.info("Found {} classes implementing {}", ret.size(), superCls.getName());
+    log.info("Found {} classes implementing {}", ret.size(), superCls.getName());
     return ret;
   }
 
@@ -329,7 +328,7 @@ public class Repository {
   private void readStorages(Collection<StorageDescriptor> storages) {
     storages.forEach(store ->
         store.getAcceptableSchemes().forEach(s -> {
-          LOG.info("Adding storage descriptor {} for scheme {}://",
+          log.info("Adding storage descriptor {} for scheme {}://",
               store.getClass().getName(), s);
           schemeToStorage.put(s, store);
         }));
@@ -338,7 +337,7 @@ public class Repository {
   private void readSchemeSerializers(
       Collection<ValueSerializerFactory> serializers) {
     serializers.forEach(v -> {
-      LOG.info("Added scheme serializer {} for scheme {}",
+      log.info("Added scheme serializer {} for scheme {}",
           v.getClass().getName(), v.getAcceptableScheme());
       serializersMap.put(v.getAcceptableScheme(), v);
     });
@@ -348,7 +347,7 @@ public class Repository {
   private void readEntityDescriptors(Config cfg) throws Exception {
     ConfigValue entities = cfg.root().get("entities");
     if (entities == null) {
-      LOG.warn("Empty configuration of entities, skipping initialization");
+      log.warn("Empty configuration of entities, skipping initialization");
       return;
     }
     Map<String, Object> entitiesCfg = toMap("entities", entities.unwrapped());
@@ -379,10 +378,10 @@ public class Repository {
       });
 
       if (!entityName.contains("*")) {
-        LOG.info("Adding entity by fully qualified name {}", entityName);
+        log.info("Adding entity by fully qualified name {}", entityName);
         entitiesByName.put(entityName, entity.build());
       } else {
-        LOG.info("Adding entity by pattern {}", entityName);
+        log.info("Adding entity by pattern {}", entityName);
         entitiesByPattern.put(new NamePattern(entityName), entity.build());
       }
 
@@ -617,7 +616,7 @@ public class Repository {
                 "Attribute family named "
                 + a.getName() + " already exists");
           }
-          LOG.debug(
+          log.debug(
               "Added family {} for entity {} of type {} and access {}",
               familyBuilt, entDesc, familyBuilt.getType(), familyBuilt.getAccess());
         });
@@ -645,7 +644,7 @@ public class Repository {
       if (writer.isPresent()) {
         ((AttributeDescriptorBase<?>) key).setWriter(writer.get().online());
       } else {
-        LOG.info(
+        log.info(
             "No writer found for attribute {}, continuing, but assuming "
                 + "the attribute is read-only. Any attempt to write it will fail.",
             key);
@@ -679,7 +678,7 @@ public class Repository {
         .orElse(null);
 
     if (transformations == null) {
-      LOG.info("Skipping empty transformations configuration.");
+      log.info("Skipping empty transformations configuration.");
       return;
     }
 

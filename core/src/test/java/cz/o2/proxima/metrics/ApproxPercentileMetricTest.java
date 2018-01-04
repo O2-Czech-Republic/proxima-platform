@@ -86,4 +86,11 @@ public class ApproxPercentileMetricTest {
         1.0);
   }
 
+  @Test
+  public void testSingleValue() {
+    ApproxPercentileMetric m = new ApproxPercentileMetric("test", "test", 1000, 100);
+    m.increment(1.0);
+    assertEquals(1.0, m.getValue().get50(), 0.001);
+  }
+
 }

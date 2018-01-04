@@ -79,7 +79,7 @@ public class ApproxPercentileMetric
   @Override
   public synchronized Stats getValue() {
     TDigest result = createDigest();
-    Arrays.stream(digests).forEach(p -> result.add(p.getFirst()));
+    Arrays.stream(digests, 0, current + 1).forEach(p -> result.add(p.getFirst()));
     return new Stats(new double[] {
       result.quantile(0.01),
       result.quantile(0.1),

@@ -59,6 +59,7 @@
               <exclude>cz.o2.proxima:platform-core</exclude>
             </excludes>
           </artifactSet>
+          <shadeTestJar>true</shadeTestJar>
           <relocations>
             <relocation>
               <pattern>org.apache.kafka.</pattern>
@@ -96,7 +97,7 @@
         </configuration>
         <executions>
           <execution>
-            <phase>package</phase>
+            <phase>install</phase>
             <goals>
               <goal>shade</goal>
             </goals>

@@ -64,35 +64,35 @@
             <relocation>
               <pattern>org.apache.kafka.</pattern>
               <shadedPattern>cz.o2.proxima.kafka.shaded.org.apache.kafka.</shadedPattern>
-           </relocation>
-           <relocation>
-             <pattern>net.sf.</pattern>
-             <shadedPattern>cz.o2.proxima.kafka.shaded.net.sf.</shadedPattern>
-           </relocation>
-           <relocation>
-             <pattern>com.yammer.</pattern>
-             <shadedPattern>cz.o2.proxima.kafka.shaded.com.yammer.</shadedPattern>
-           </relocation> 
-           <relocation>
-             <pattern>scala.</pattern>
-             <shadedPattern>cz.o2.proxima.kafka.shaded.scala.</shadedPattern>
-           </relocation>
-           <relocation>
-             <pattern>com.101tec.</pattern>
-             <shadedPattern>cz.o2.proxima.kafka.shaded.com.101tec.</shadedPattern>
-           </relocation>
-           <relocation>
-             <pattern>org.apache.zookeeper.</pattern>
-             <shadedPattern>cz.o2.proxima.kafka.shaded.org.apache.zookeeper.</shadedPattern>
-           </relocation>
-           <relocation>
-             <pattern>com.google.common.</pattern>
-             <shadedPattern>cz.o2.proxima.kafka.shaded.com.google.common.</shadedPattern>
-           </relocation>
-           <relocation>
-             <pattern>com.google.protobuf.</pattern>
-             <shadedPattern>cz.o2.proxima.kafka.shaded.com.google.protobuf.</shadedPattern>
-           </relocation>
+            </relocation>
+            <relocation>
+              <pattern>net.sf.</pattern>
+              <shadedPattern>cz.o2.proxima.kafka.shaded.net.sf.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.yammer.</pattern>
+              <shadedPattern>cz.o2.proxima.kafka.shaded.com.yammer.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>scala.</pattern>
+              <shadedPattern>cz.o2.proxima.kafka.shaded.scala.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.101tec.</pattern>
+              <shadedPattern>cz.o2.proxima.kafka.shaded.com.101tec.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>org.apache.zookeeper.</pattern>
+              <shadedPattern>cz.o2.proxima.kafka.shaded.org.apache.zookeeper.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.common.</pattern>
+              <shadedPattern>cz.o2.proxima.kafka.shaded.com.google.common.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.protobuf.</pattern>
+              <shadedPattern>cz.o2.proxima.kafka.shaded.com.google.protobuf.</shadedPattern>
+            </relocation>
           </relocations>
         </configuration>
         <executions>

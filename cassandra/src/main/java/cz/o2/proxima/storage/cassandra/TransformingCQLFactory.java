@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.cassandra;
 
 import com.datastax.driver.core.BoundStatement;
@@ -24,13 +23,13 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import cz.seznam.euphoria.shaded.guava.com.google.common.base.Joiner;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A CQL factory that stores data in other fields than what would
@@ -38,9 +37,8 @@ import org.slf4j.LoggerFactory;
  * The factory extracts column names and values from ingest by
  * provided extractors. The ingest is first modified by provided parser.
  */
+@Slf4j
 public class TransformingCQLFactory<T> extends CacheableCQLFactory {
-
-  private static final Logger LOG = LoggerFactory.getLogger(TransformingCQLFactory.class);
 
   /** Parser of ingest to any intermediate type. */
   private final Function<StreamElement, T> parser;
@@ -113,7 +111,7 @@ public class TransformingCQLFactory<T> extends CacheableCQLFactory {
       StreamElement element, Session session) {
 
     if (element.getValue() == null) {
-      LOG.warn("Throwing away delete ingest specified for {}", getClass());
+      log.warn("Throwing away delete ingest specified for {}", getClass());
       return Optional.empty();
     }
     PreparedStatement statement = getPreparedStatement(session, element);
@@ -126,7 +124,7 @@ public class TransformingCQLFactory<T> extends CacheableCQLFactory {
       bound.setLong(values.size(), element.getStamp() * 1000L);
       return Optional.of(bound);
     } else {
-      LOG.debug("Ingest {} was filtered out.", element);
+      log.debug("Ingest {} was filtered out.", element);
     }
     return Optional.empty();
   }

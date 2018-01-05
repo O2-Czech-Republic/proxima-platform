@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,16 +21,15 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.Transformation;
 import cz.o2.proxima.storage.StreamElement;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Transformation function from {@code event.data} to {@code user.event.<stamp>}.
  */
+@Slf4j
 public class EventDataToUserHistory implements Transformation {
-
-  private static final Logger LOG = LoggerFactory.getLogger(EventDataToUserHistory.class);
 
   EntityDescriptor user;
   AttributeDescriptor<Event.BaseEvent> event;
@@ -58,7 +57,7 @@ public class EventDataToUserHistory implements Transformation {
             input.getStamp(), input.getValue()));
       }
     } else {
-      LOG.warn("Ignored delete in transformed event {}", input);
+      log.warn("Ignored delete in transformed event {}", input);
     }
   }
 

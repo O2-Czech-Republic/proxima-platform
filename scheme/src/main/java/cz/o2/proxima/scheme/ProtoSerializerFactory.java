@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,29 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.scheme;
 
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.GeneratedMessage;
 import com.google.protobuf.Parser;
 import cz.o2.proxima.util.Classpath;
+import lombok.extern.slf4j.Slf4j;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Serializer from protobuffers.
  */
+@Slf4j
 public class ProtoSerializerFactory<M extends AbstractMessage>
     implements ValueSerializerFactory<M> {
-
-  private static final Logger LOG = LoggerFactory.getLogger(ProtoSerializerFactory.class);
 
   private final Map<URI, ValueSerializer<M>> parsers = new HashMap<>();
 
@@ -60,7 +58,7 @@ public class ProtoSerializerFactory<M extends AbstractMessage>
         try {
           return Optional.of((M) parser.parseFrom(input));
         } catch (Exception ex) {
-          LOG.debug("Failed to parse input bytes", ex);
+          log.debug("Failed to parse input bytes", ex);
         }
         return Optional.empty();
       }

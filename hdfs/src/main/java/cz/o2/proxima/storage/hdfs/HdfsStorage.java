@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,25 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.hdfs;
 
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.StorageDescriptor;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Writer to HDFS.
  */
+@Slf4j
 public class HdfsStorage extends StorageDescriptor {
-
-  private static final Logger LOG = LoggerFactory.getLogger(HdfsStorage.class);
 
   public HdfsStorage() {
     super(Arrays.asList("hdfs"));
@@ -45,7 +43,7 @@ public class HdfsStorage extends StorageDescriptor {
     try {
       return new HdfsDataAccessor(entityDesc, uri, cfg);
     } catch (IOException ex) {
-      LOG.error(
+      log.error(
           "Failed to instantiate {}", HdfsDataAccessor.class.getName(), ex);
       throw new RuntimeException(ex);
     }

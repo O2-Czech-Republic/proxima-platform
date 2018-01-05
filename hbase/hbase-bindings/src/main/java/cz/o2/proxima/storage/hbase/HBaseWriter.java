@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,7 @@ package cz.o2.proxima.storage.hbase;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
-import java.io.IOException;
-import java.net.URI;
-import java.nio.charset.Charset;
-import java.util.Map;
-import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellScanner;
@@ -34,15 +30,19 @@ import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.ColumnPrefixFilter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.Charset;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * Writer to HBase.
  */
+@Slf4j
 class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
 
-  private static final Logger LOG = LoggerFactory.getLogger(HBaseWriter.class);
   private static final Charset UTF8 = Charset.forName("UTF-8");
   private static final String DEL_BATCH_SIZE_CONF = "del-batch-size";
   private static final String FLUSH_COMMITS_CFG = "flush-commits";
@@ -97,7 +97,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
       }
       statusCallback.commit(true, null);
     } catch (Exception ex) {
-      LOG.error("Failed to write {}", data, ex);
+      log.error("Failed to write {}", data, ex);
       statusCallback.commit(false, ex);
     }
   }

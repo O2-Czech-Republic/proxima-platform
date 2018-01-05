@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.repository.Repository;
@@ -21,21 +20,20 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyObject;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Dynamic groovy descriptor of entity.
  */
+@Slf4j
 public class GroovyEnv {
-
-  private static final Logger LOG = LoggerFactory.getLogger(GroovyEnv.class);
 
   public static GroovyObject of(Configuration conf,
       GroovyClassLoader loader, Repository repo) throws Exception {
@@ -79,7 +77,7 @@ public class GroovyEnv {
     template.process(root, writer);
     writer.flush();
     String ret = writer.toString();
-    LOG.debug("Generated groovy source {}", ret);
+    log.debug("Generated groovy source {}", ret);
     return ret;
   }
 

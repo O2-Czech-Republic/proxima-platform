@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,24 +15,23 @@
  */
 package cz.o2.proxima.storage.hbase;
 
-import java.io.IOException;
-import java.net.URI;
-import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Table;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URI;
+import java.util.Map;
 
 /**
  * Class containing embedded HBase client.
  */
+@Slf4j
 class HBaseClientWrapper {
-
-  private static final Logger LOG = LoggerFactory.getLogger(HBaseClientWrapper.class);
 
   final URI uri;
   final TableName table;
@@ -58,7 +57,7 @@ class HBaseClientWrapper {
         this.conn = ConnectionFactory.createConnection(conf);
         this.client = conn.getTable(table);
       } catch (IOException ex) {
-        LOG.error("Error connecting to cluster", ex);
+        log.error("Error connecting to cluster", ex);
         throw new RuntimeException(ex);
       }
     }

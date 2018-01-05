@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.tools.io;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -24,6 +23,9 @@ import cz.o2.proxima.storage.batch.BatchLogObserver;
 import cz.seznam.euphoria.core.client.io.DataSource;
 import cz.seznam.euphoria.core.client.io.Partition;
 import cz.seznam.euphoria.core.client.io.Reader;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -33,16 +35,12 @@ import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.stream.Collectors;
-import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Source reading from {@code BatchLogObservable}.
  */
+@Slf4j
 public class BatchSource<T> implements DataSource<TypedIngest<T>> {
-
-  private static final Logger LOG = LoggerFactory.getLogger(BatchSource.class);
 
   public static <T> BatchSource<T> of(
       BatchLogObservable observable,
@@ -66,7 +64,7 @@ public class BatchSource<T> implements DataSource<TypedIngest<T>> {
         queue.put(Optional.of(element));
       } catch (InterruptedException ex) {
         Thread.currentThread().interrupt();
-        LOG.warn("Interrupted while forwarding element to queue.");
+        log.warn("Interrupted while forwarding element to queue.");
       }
       return !stop;
     }
@@ -80,7 +78,7 @@ public class BatchSource<T> implements DataSource<TypedIngest<T>> {
       try {
         queue.put(Optional.empty());
       } catch (InterruptedException ex) {
-        LOG.warn("Interrupted while forwarding EOS.");
+        log.warn("Interrupted while forwarding EOS.");
         Thread.currentThread().interrupt();
       }
     }
@@ -140,7 +138,7 @@ public class BatchSource<T> implements DataSource<TypedIngest<T>> {
                         .map(TypedIngest::of)
                         .orElse((TypedIngest) null);
                   } catch (InterruptedException ex) {
-                    LOG.warn("Interrupted while trying to retrieve next element.");
+                    log.warn("Interrupted while trying to retrieve next element.");
                     Thread.currentThread().interrupt();
                   }
                   return current != null;

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.server;
 
 import com.google.protobuf.ByteString;
@@ -50,6 +49,12 @@ import cz.seznam.euphoria.shaded.guava.com.google.common.collect.Sets;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
+
+import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
@@ -69,19 +74,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-import lombok.Getter;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * The ingestion server.
  */
+@Slf4j
 public class IngestServer {
-
-  private static final Logger LOG = LoggerFactory.getLogger(IngestServer.class);
 
   /** Run the server. */
   public static void main(String[] args) throws Exception {
@@ -139,7 +137,7 @@ public class IngestServer {
 
         @Override
         public void onError(Throwable thrwbl) {
-          LOG.error("Error on channel", thrwbl);
+          log.error("Error on channel", thrwbl);
           synchronized (responseObserver) {
             responseObserver.onError(thrwbl);
           }
@@ -208,7 +206,7 @@ public class IngestServer {
               }
             }
           } catch (Exception ex) {
-            LOG.error("Failed to send bulk status", ex);
+            log.error("Failed to send bulk status", ex);
           }
         };
 
@@ -260,7 +258,7 @@ public class IngestServer {
 
         @Override
         public void onError(Throwable error) {
-          LOG.error("Error from client", error);
+          log.error("Error from client", error);
           // close the connection
           responseObserver.onError(error);
           flushFuture.cancel(true);
@@ -280,7 +278,7 @@ public class IngestServer {
               try {
                 inflightRequests.wait(100);
               } catch (InterruptedException ex) {
-                LOG.warn("Interrupted while waiting to send responses to client");
+                log.warn("Interrupted while waiting to send responses to client");
               }
             }
           }
@@ -314,7 +312,7 @@ public class IngestServer {
 
       try {
         Metrics.LIST_REQUESTS.increment();
-        LOG.info("Processing listAttributes {}", TextFormat.shortDebugString(request));
+        log.info("Processing listAttributes {}", TextFormat.shortDebugString(request));
         if (request.getEntity().isEmpty() || request.getKey().isEmpty()
             || request.getWildcardPrefix().isEmpty()) {
           throw new Status(400, "Missing some required fields");
@@ -358,7 +356,7 @@ public class IngestServer {
               .build());
         responseObserver.onCompleted();
       } catch (Exception ex) {
-        LOG.error("Failed to process request {}", request, ex);
+        log.error("Failed to process request {}", request, ex);
         responseObserver.onNext(Rpc.ListResponse.newBuilder()
             .setStatus(500)
             .setStatusMessage(ex.getMessage())
@@ -373,7 +371,7 @@ public class IngestServer {
         StreamObserver<Rpc.GetResponse> responseObserver) {
 
       Metrics.GET_REQUESTS.increment();
-      LOG.info("Processing get {}", TextFormat.shortDebugString(request));
+      log.info("Processing get {}", TextFormat.shortDebugString(request));
       try {
         if (request.getEntity().isEmpty() || request.getKey().isEmpty()
             || request.getAttribute().isEmpty()) {
@@ -414,7 +412,7 @@ public class IngestServer {
               .build());
         responseObserver.onCompleted();
       } catch (Exception ex) {
-        LOG.error("Failed to process request {}", request, ex);
+        log.error("Failed to process request {}", request, ex);
         responseObserver.onNext(Rpc.GetResponse.newBuilder()
             .setStatus(500)
             .setStatusMessage(ex.getMessage())
@@ -468,14 +466,14 @@ public class IngestServer {
       Rpc.Ingest request,
       Consumer<Rpc.Status> consumer) {
 
-    LOG.info("Processing input ingest {}", TextFormat.shortDebugString(request));
+    log.info("Processing input ingest {}", TextFormat.shortDebugString(request));
     Metrics.INGESTS.increment();
     try {
       if (!writeRequest(request, consumer)) {
         Metrics.INVALID_REQUEST.increment();
       }
     } catch (Exception err) {
-      LOG.error("Error processing user request {}", request, err);
+      log.error("Error processing user request {}", request, err);
       consumer.accept(status(request.getUuid(), 500, err.getMessage()));
     }
   }
@@ -554,7 +552,7 @@ public class IngestServer {
     OnlineAttributeWriter writer = writerBase == null ? null : writerBase.online();
 
     if (writer == null) {
-      LOG.warn("Missing writer for request {}", ingest);
+      log.warn("Missing writer for request {}", ingest);
       responseConsumer.accept(
           status(uuid, 503, "No writer for attribute "
               + attributeDesc.getName()));
@@ -565,7 +563,7 @@ public class IngestServer {
         || attributeDesc.getValueSerializer().isValid(ingest.getValue());
 
     if (!valid) {
-      LOG.info("Request {} is not valid", ingest);
+      log.info("Request {} is not valid", ingest);
       responseConsumer.accept(status(uuid, 412, "Invalid scheme for "
           + entityDesc.getName() + "." + attributeDesc.getName()));
       return false;
@@ -583,7 +581,7 @@ public class IngestServer {
 
     Metrics.COMMIT_LOG_APPEND.increment();
     // write the ingest into the commit log and confirm to the client
-    LOG.debug("Writing request {} to commit log {}", ingest, writerBase.getURI());
+    log.debug("Writing request {} to commit log {}", ingest, writerBase.getURI());
     writerBase.write(ingest, (s, exc) -> {
       if (s) {
         responseConsumer.accept(ok(uuid));
@@ -632,7 +630,7 @@ public class IngestServer {
     Runtime.getRuntime().addShutdownHook(new Thread() {
       @Override
       public void run() {
-        LOG.info("Gracefully shuting down server.");
+        log.info("Gracefully shuting down server.");
         server.shutdown();
       }
     });
@@ -640,9 +638,9 @@ public class IngestServer {
     startConsumerThreads();
     try {
       server.start();
-      LOG.info("Successfully started server 0.0.0.0:{}", server.getPort());
+      log.info("Successfully started server 0.0.0.0:{}", server.getPort());
       server.awaitTermination();
-      LOG.info("Server shutdown.");
+      log.info("Server shutdown.");
     } catch (Exception ex) {
       die("Failed to start the server", ex);
     }
@@ -658,7 +656,7 @@ public class IngestServer {
     Map<AttributeFamilyDescriptor, Set<AttributeFamilyDescriptor>> familyToCommitLog;
     familyToCommitLog = indexFamilyToCommitLogs();
 
-    LOG.info("Starting consumer threads for familyToCommitLog {}", familyToCommitLog);
+    log.info("Starting consumer threads for familyToCommitLog {}", familyToCommitLog);
     // execute threads to consume the commit log
     familyToCommitLog.forEach((family, logs) -> {
       for (AttributeFamilyDescriptor commitLogFamily : logs) {
@@ -675,12 +673,12 @@ public class IngestServer {
           Thread.currentThread().setName(name);
           registerWriterTo(name, commitLog, allowedAttributes, filter,
               writer, retryPolicy);
-          LOG.info(
+          log.info(
               "Started consumer thread {} consuming from log {} with URI {} into {} "
                   + "attributes {}",
               name, commitLog, commitLog.getURI(), writer.getURI(), allowedAttributes);
         } else {
-          LOG.debug("Not starting thread for read-only family {}", family);
+          log.debug("Not starting thread for read-only family {}", family);
         }
       }
     });
@@ -724,7 +722,7 @@ public class IngestServer {
         // add one to prevent confirmation before all elements
         // are processed
         if (!f.apply(ingest)) {
-          LOG.debug("Skipping transformation of {} by filter", ingest);
+          log.debug("Skipping transformation of {} by filter", ingest);
           return true;
         }
         AtomicInteger toConfirm = new AtomicInteger(1);
@@ -732,7 +730,7 @@ public class IngestServer {
           Transformation.Collector<StreamElement> collector = elem -> {
             toConfirm.incrementAndGet();
             try {
-              LOG.info("Writing transformed element {}", elem);
+              log.info("Writing transformed element {}", elem);
               ingestRequest(
                   elem, elem.getUuid(), rpc -> {
                     if (rpc.getStatus() == 200) {
@@ -764,7 +762,7 @@ public class IngestServer {
 
 
     }.start();
-    LOG.info(
+    log.info(
         "Started transformer {} reading from {} using {}",
         consumer, reader.getURI(), t.getClass());
   }
@@ -816,7 +814,7 @@ public class IngestServer {
       RetryPolicy retry) {
 
     AbstractRetryableLogObserver observer;
-    LOG.info(
+    log.info(
         "Registering {} writer to {} from commit log {}",
         writerBase.getType(), writerBase.getURI(), commitLog.getURI());
 
@@ -856,18 +854,18 @@ public class IngestServer {
           StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
 
         final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
-        LOG.debug("Received new ingest element {}", ingest);
+        log.debug("Received new ingest element {}", ingest);
         if (allowed && filter.apply(ingest)) {
           Failsafe.with(retryPolicy).run(() -> {
-            LOG.debug("Writing element {} into {}", ingest, writer);
+            log.debug("Writing element {} into {}", ingest, writer);
             writer.write(ingest, (success, exc) -> {
               if (!success) {
-                LOG.error(
+                log.error(
                     "Failed to write ingest {} to {}", ingest, writer.getURI(),
                     exc);
                 Metrics.NON_COMMIT_WRITES_RETRIES.increment();
                 if (ignoreErrors) {
-                  LOG.error(
+                  log.error(
                       "Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
                       ingest, writer.getURI());
                   confirm.commit();
@@ -886,7 +884,7 @@ public class IngestServer {
           });
         } else {
           Metrics.COMMIT_UPDATE_DISCARDED.increment();
-          LOG.debug(
+          log.debug(
               "Discarding write of {} to {} because of {}, "
                   + "with allowedAttributes {} and filter class {}",
               ingest, writer.getURI(),
@@ -906,7 +904,7 @@ public class IngestServer {
 
       @Override
       public void onRestart() {
-        LOG.info(
+        log.info(
             "Restarting bulk processing of {}, rollbacking the writer",
             writer.getURI());
         writer.rollback();
@@ -931,18 +929,18 @@ public class IngestServer {
           LogObserver.ConfirmCallback confirm) {
 
         final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
-        LOG.debug("Received new ingest element {}", ingest);
+        log.debug("Received new ingest element {}", ingest);
         if (allowed && filter.apply(ingest)) {
           Failsafe.with(retryPolicy).run(() -> {
-            LOG.debug("Writing element {} into {}", ingest, writer);
+            log.debug("Writing element {} into {}", ingest, writer);
             writer.write(ingest, (success, exc) -> {
               if (!success) {
-                LOG.error(
+                log.error(
                     "Failed to write ingest {} to {}", ingest, writer.getURI(),
                     exc);
                 Metrics.NON_COMMIT_WRITES_RETRIES.increment();
                 if (ignoreErrors) {
-                  LOG.error(
+                  log.error(
                       "Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
                       ingest, writer.getURI());
                   confirm.confirm();
@@ -961,7 +959,7 @@ public class IngestServer {
           });
         } else {
           Metrics.COMMIT_UPDATE_DISCARDED.increment();
-          LOG.debug(
+          log.debug(
               "Discarding write of {} to {} because of {}, "
                   + "with allowedAttributes {} and filter class {}",
               ingest, writer.getURI(),
@@ -995,9 +993,9 @@ public class IngestServer {
       // nop, already going to die
     }
     if (error == null) {
-      LOG.error(message);
+      log.error(message);
     } else {
-      LOG.error(message, error);
+      log.error(message, error);
     }
     System.exit(1);
   }

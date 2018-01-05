@@ -22,6 +22,9 @@ import cz.o2.proxima.storage.BulkAttributeWriter;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.StreamElement;
 import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.binary.Hex;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -40,18 +43,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import org.apache.commons.codec.binary.Hex;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * {@link BulkAttributeWriter} for gcloud storage.
  */
+@Slf4j
 public class BulkGCloudStorageWriter
     extends GCloudClient
     implements BulkAttributeWriter {
-
-  private static final Logger LOG = LoggerFactory.getLogger(BulkGCloudStorageWriter.class);
 
   private final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/");
 
@@ -65,7 +64,7 @@ public class BulkGCloudStorageWriter
           .getBytes(Charset.defaultCharset()));
       PREFIX = new String(Hex.encodeHex(digest.digest())).substring(0, 6);
     } catch (Exception ex) {
-      LOG.error("Failed to generate bucket prefix", ex);
+      log.error("Failed to generate bucket prefix", ex);
       throw new RuntimeException(ex);
     }
   }
@@ -141,7 +140,7 @@ public class BulkGCloudStorageWriter
         maxTimestamp = Long.MIN_VALUE;
       }
     } catch (Exception ex) {
-      LOG.warn("Exception writing data {}", data, ex);
+      log.warn("Exception writing data {}", data, ex);
       statusCallback.commit(false, ex);
     }
   }
@@ -236,7 +235,7 @@ public class BulkGCloudStorageWriter
         writer.write(ByteBuffer.wrap(buffer, 0, read));
       }
     }
-    LOG.info(
+    log.info(
         "Flushed blob {} with size {}", blob.getBlobId().getName(),
         written);
   }

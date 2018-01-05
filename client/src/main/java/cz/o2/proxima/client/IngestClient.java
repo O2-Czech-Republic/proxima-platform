@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.client;
 
 import cz.o2.proxima.proto.service.IngestServiceGrpc;
@@ -25,6 +24,9 @@ import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,16 +35,12 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A client being able to connect and write requests to the ingest gateway.
  */
+@Slf4j
 public class IngestClient implements AutoCloseable {
-
-  private static final Logger LOG = LoggerFactory.getLogger(IngestClient.class);
 
   // request sent through the channel
   private class Request {
@@ -106,7 +104,7 @@ public class IngestClient implements AutoCloseable {
         final String uuid = status.getUuid();
         final Request request = inflightRequests.remove(uuid);
         if (request == null) {
-          LOG.warn("Received response for unknown message " + status);
+          log.warn("Received response for unknown message " + status);
         } else {
           synchronized (inflightRequests) {
             inflightRequests.notifyAll();
@@ -118,7 +116,7 @@ public class IngestClient implements AutoCloseable {
 
     @Override
     public void onError(Throwable thrwbl) {
-      LOG.warn("Error on channel, closing stub", thrwbl);
+      log.warn("Error on channel, closing stub", thrwbl);
       synchronized (IngestClient.this) {
         stub = null;
         createChannelAndStub();

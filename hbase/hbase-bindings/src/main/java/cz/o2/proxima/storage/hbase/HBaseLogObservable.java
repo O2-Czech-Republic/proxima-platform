@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,7 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
-import java.io.IOException;
-import java.net.URI;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellScanner;
@@ -39,15 +34,20 @@ import org.apache.hadoop.hbase.filter.CompareFilter;
 import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.QualifierFilter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 /**
  * A {@code BatchLogObservable} for HBase.
  */
+@Slf4j
 class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservable {
 
-  private static final Logger LOG = LoggerFactory.getLogger(HBaseLogObservable.class);
   private static Charset UTF8 = Charset.forName("UTF-8");
 
   private final EntityDescriptor entity;
@@ -110,7 +110,7 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
         }
         observer.onCompleted();
       } catch (Throwable ex) {
-        LOG.warn("Failed to observe partitions {}", partitions, ex);
+        log.warn("Failed to observe partitions {}", partitions, ex);
         observer.onError(ex);
       }
     });

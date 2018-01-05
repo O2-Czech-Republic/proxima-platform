@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package cz.o2.proxima.view.input;
 import cz.seznam.euphoria.core.client.io.DataSource;
 import cz.seznam.euphoria.core.client.io.Partition;
 import cz.seznam.euphoria.core.client.io.Reader;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
@@ -25,15 +27,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Utils for creating and managing {@code DataSource}s.
  */
+@Slf4j
 public class DataSourceUtils {
-
-  private static final Logger LOG = LoggerFactory.getLogger(DataSourceUtils.class);
 
   @FunctionalInterface
   public static interface Producer extends Serializable {
@@ -76,7 +75,7 @@ public class DataSourceUtils {
               next = queue.take();
               return true;
             } catch (InterruptedException ex) {
-              LOG.warn("Interrupted while waiting for next queue element.");
+              log.warn("Interrupted while waiting for next queue element.");
               return false;
             }
           }

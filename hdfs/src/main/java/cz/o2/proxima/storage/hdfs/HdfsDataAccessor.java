@@ -27,6 +27,16 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.SequenceFile;
+import org.apache.hadoop.io.compress.GzipCodec;
+
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
@@ -46,25 +56,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.io.BytesWritable;
-import org.apache.hadoop.io.SequenceFile;
-import org.apache.hadoop.io.compress.GzipCodec;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Attribute writer to HDFS as {@code SequenceFiles}.
  */
+@Slf4j
 public class HdfsDataAccessor
     extends AbstractBulkAttributeWriter
     implements BatchLogObservable, DataAccessor {
-
-  private static final Logger LOG = LoggerFactory.getLogger(HdfsDataAccessor.class);
 
   public static final String HDFS_MIN_ELEMENTS_TO_FLUSH = "hdfs.min-elements-to-flush";
   public static final String HDFS_ROLL_INTERVAL = "hdfs.log-roll-interval";
@@ -156,7 +155,7 @@ public class HdfsDataAccessor
       if (++elementsSinceFlush > minElementsToFlush) {
         writer.hflush();
         writer.hsync();
-        LOG.debug("Hflushed chunk {}", writerTmpPath);
+        log.debug("Hflushed chunk {}", writerTmpPath);
         elementsSinceFlush = 0;
       }
       if (monothonicTime - lastRoll >= rollInterval) {
@@ -169,11 +168,11 @@ public class HdfsDataAccessor
           try {
             fs.mkdirs(target.getParent());
           } catch (IOException ex) {
-            LOG.warn("Failed to mkdir {}, proceeding for now", target.getParent(), ex);
+            log.warn("Failed to mkdir {}, proceeding for now", target.getParent(), ex);
           }
         }
         fs.rename(tmpLocation, target);
-        LOG.info("Completed chunk {}", target);
+        log.info("Completed chunk {}", target);
         writer = null;
         commitCallback.commit(true, null);
       }
@@ -190,7 +189,7 @@ public class HdfsDataAccessor
     long part = eventTime / rollInterval * rollInterval;
     try {
       Path tmp = toTmpLocation(part);
-      LOG.debug("Opening writer at {}", tmp);
+      log.debug("Opening writer at {}", tmp);
       lastRoll = part;
       elementsSinceFlush = 0;
       writerTmpPath = tmp;
@@ -259,7 +258,7 @@ public class HdfsDataAccessor
         }
       }
     } catch (IOException ex) {
-      LOG.warn("Failed to clean tmp dir", ex);
+      log.warn("Failed to clean tmp dir", ex);
     }
   }
 

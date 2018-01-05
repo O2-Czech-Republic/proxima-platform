@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,39 +13,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.example;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 import cz.o2.proxima.example.event.Event.BaseEvent;
 import cz.o2.proxima.storage.kafka.Partitioner;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Partitioner for the events.
  */
+@Slf4j
 public class EventPartitioner implements Partitioner {
-
-  private static final Logger LOG = LoggerFactory.getLogger(EventPartitioner.class);
 
   @Override
   public int getPartitionId(String key, String attribute, byte[] value) {
     if (value == null) {
-      LOG.warn("Received event with null value!");
+      log.warn("Received event with null value!");
     } else {
       try {
         BaseEvent event = BaseEvent.parseFrom(value);
         int partition = event.getUserName().hashCode();
-        if (LOG.isDebugEnabled()) {
-          LOG.debug(
+        if (log.isDebugEnabled()) {
+          log.debug(
               "Partitioned event {} to partition ID {}",
               TextFormat.shortDebugString(event), partition);
         }
         return partition;
       } catch (InvalidProtocolBufferException ex) {
-        LOG.warn("Failed to parse event", ex);
+        log.warn("Failed to parse event", ex);
       }
     }
     return 0;

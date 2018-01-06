@@ -28,7 +28,6 @@ import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Classpath;
-import cz.o2.proxima.util.NamePattern;
 import cz.seznam.euphoria.core.client.functional.VoidFunction;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -39,7 +38,6 @@ import org.reflections.util.ConfigurationBuilder;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -64,20 +62,21 @@ public class Repository {
   /**
    * Construct default repository from the config.
    * @param config configuration to use
-   * @return loaded {@link Repository}
+   * @return constructed repository
    */
   public static Repository of(Config config) {
     return Repository.Builder.of(config).build();
   }
 
   /**
-   * Builder for repository.
+   * Builder for the repository.
    */
   public static class Builder {
 
     public static Builder of(Config config) {
       return new Builder(config, false);
     }
+
     public static Builder ofTest(Config config) {
       return new Builder(config, true);
     }
@@ -141,13 +140,11 @@ public class Repository {
     }
   }
 
-
   /**
    * Application configuration.
    */
   @Getter
   private final Config config;
-
 
   /**
    * Classpath reflections scanner.
@@ -155,14 +152,12 @@ public class Repository {
   @Getter
   private final Reflections reflections;
 
-
   /**
    * When read-only flag is specified, some checks are not performed in construction.
    * This enables to use the repository inside reader applications that
    * don't have to have all the server jars on classpath.
    */
   private final boolean isReadonly;
-
 
   /**
    * Flag to indicate if we should validate the scheme with serializer.
@@ -172,13 +167,11 @@ public class Repository {
    */
   private final boolean shouldValidate;
 
-
   /**
    * Flag to indicate we should or should not load accessor to column families.
    * The accessor is not needed mostly in the compiler.
    */
   private final boolean shouldLoadAccessors;
-
 
   /**
    * Map of all storage descriptors available.
@@ -188,7 +181,6 @@ public class Repository {
    **/
   private final Map<String, StorageDescriptor> schemeToStorage = new HashMap<>();
 
-
   /**
    * Map of all scheme serializers.
    * Key is acceptable scheme of the serializer.
@@ -197,7 +189,6 @@ public class Repository {
    */
   private final Map<String, ValueSerializerFactory> serializersMap = new HashMap<>();
 
-
   /**
    * Map of all entities specified by name.
    * This need not be synchronized because it is only written in constructor
@@ -205,28 +196,18 @@ public class Repository {
    **/
   private final Map<String, EntityDescriptor> entitiesByName = new HashMap<>();
 
-
-  /**
-   * Map of entities by pattern.
-   * This need not be synchronized because it is only written in constructor
-   * and then it is read-only.
-   **/
-  private final Map<NamePattern, EntityDescriptor> entitiesByPattern;
-
-
   /**
    * Map of attribute descriptor to list of families.
    * This need not be synchronized because it is only written in constructor
    * and then it is read-only.
    */
-  private final Map<AttributeDescriptor<?>, Set<AttributeFamilyDescriptor>> attributeToFamily;
-
+  private final Map<AttributeDescriptor<?>, Set<AttributeFamilyDescriptor>> attributeToFamily =
+      new HashMap<>();
 
   /**
    * Map of transformation name to transformation descriptor.
    */
   private final Map<String, TransformationDescriptor> transformations = new HashMap<>();
-
 
   /**
    * Executor to be used for any asynchronous operations.
@@ -260,52 +241,44 @@ public class Repository {
 
     this.config = cfg;
     this.executorFactory = executorFactory;
+    this.isReadonly = isReadonly;
+    this.shouldValidate = shouldValidate;
+    this.shouldLoadAccessors = loadAccessors;
     this.context = new Context(executorFactory);
 
-    this.entitiesByPattern = new HashMap<>();
-    this.attributeToFamily = new HashMap<>();
     try {
-      Configuration reflectionConf = ConfigurationBuilder
+      final Configuration reflectionConf = ConfigurationBuilder
           .build(
               ClasspathHelper.forManifest(),
               ClasspathHelper.forClassLoader());
 
-      this.isReadonly = isReadonly;
-      this.shouldValidate = shouldValidate;
-      this.shouldLoadAccessors = loadAccessors;
-
       reflections = new Reflections(reflectionConf);
 
-      /* First read all storage implementations available to the repository. */
+      // First read all storage implementations available to the repository.
       Collection<StorageDescriptor> storages = findStorageDescriptors(reflections);
       readStorages(storages);
 
-      /* Next read all scheme serializers. */
+      // Next read all scheme serializers.
       Collection<ValueSerializerFactory> serializers = findSchemeSerializers(reflections);
       readSchemeSerializers(serializers);
 
-      /* Read the config and store entitiy descriptors */
+      // Read the config and store entity descriptors
       readEntityDescriptors(cfg);
 
       if (loadFamilies) {
-
-        /* Read attribute families and map them to storages by attribute. */
-        readAttributeFamilies(cfg);
-
+        // Read attribute families and map them to storages by attribute. */
+        readAttributeFamilies(config);
         if (shouldLoadAccessors) {
-          /* Link attribute families for proxied attribute. */
-          loadProxiedFamilies(cfg);
-
-          /* Read transformations from one entity to another. */
-          readTransformations(cfg);
-
+          // Link attribute families for proxied attribute.
+          loadProxiedFamilies(config);
+          // Read transformations from one entity to another.
+          readTransformations(config);
           linkAttributesToWriters();
         }
-
       }
 
       if (shouldValidate) {
-        /* And validate all postconditions. */
+        // Sanity checks.
         validate();
       }
 
@@ -323,39 +296,35 @@ public class Repository {
     return context;
   }
 
-  @SuppressWarnings("unchecked")
   private Collection<StorageDescriptor> findStorageDescriptors(
       Reflections reflections) {
-
-    return (Collection) findImplementingClasses(
-        StorageDescriptor.class, reflections);
+    return findImplementingClasses(StorageDescriptor.class, reflections);
   }
 
-  @SuppressWarnings("unchecked")
-  private Collection<ValueSerializerFactory> findSchemeSerializers(
-      Reflections reflections) {
-
+  private Collection<ValueSerializerFactory> findSchemeSerializers(Reflections reflections) {
     return findImplementingClasses(ValueSerializerFactory.class, reflections);
   }
 
-  @SuppressWarnings("unchecked")
   private <T> Collection<T> findImplementingClasses(
       Class<T> superCls, Reflections reflections) {
 
-    Set<Class<? extends T>> types = reflections.getSubTypesOf(superCls);
-    Collection ret = (Collection) types.stream().map(c -> {
-      if (!c.isAnonymousClass()) {
-        try {
-          return c.newInstance();
-        } catch (IllegalAccessException | InstantiationException ex) {
-          log.warn("Failed to instantiate class {}", c.getName(), ex);
-        }
-      }
-      return null;
-    })
-    .filter(Objects::nonNull)
-    .collect(Collectors.toList());
+    final Collection<T> ret = reflections.getSubTypesOf(superCls)
+        .stream()
+        .map(c -> {
+          if (!c.isAnonymousClass()) {
+            try {
+              return c.newInstance();
+            } catch (IllegalAccessException | InstantiationException ex) {
+              log.warn("Failed to instantiate class {}", c.getName(), ex);
+            }
+          }
+          return null;
+        })
+        .filter(Objects::nonNull)
+        .collect(Collectors.toList());
+
     log.info("Found {} classes implementing {}", ret.size(), superCls.getName());
+
     return ret;
   }
 
@@ -377,8 +346,7 @@ public class Repository {
         }));
   }
 
-  private void readSchemeSerializers(
-      Collection<ValueSerializerFactory> serializers) {
+  private void readSchemeSerializers(Collection<ValueSerializerFactory> serializers) {
     serializers.forEach(v -> {
       log.info("Added scheme serializer {} for scheme {}",
           v.getClass().getName(), v.getAcceptableScheme());
@@ -420,14 +388,8 @@ public class Repository {
         }
       });
 
-      if (!entityName.contains("*")) {
-        log.info("Adding entity by fully qualified name {}", entityName);
-        entitiesByName.put(entityName, entity.build());
-      } else {
-        log.info("Adding entity by pattern {}", entityName);
-        entitiesByPattern.put(new NamePattern(entityName), entity.build());
-      }
-
+      log.info("Adding entity {}", entityName);
+      entitiesByName.put(entityName, entity.build());
     }
   }
 
@@ -439,12 +401,12 @@ public class Repository {
 
     AttributeDescriptorBase target = Optional.ofNullable(settings.get("proxy"))
         .map(Object::toString)
-        .map(proxy -> entityBuilder.findAttribute(proxy))
+        .map(entityBuilder::findAttribute)
         .orElseThrow(() -> new IllegalStateException(
             "Invalid state: `proxy` should not be null"));
 
     final ProxyTransform transform;
-    if (this.shouldLoadAccessors) {
+    if (shouldLoadAccessors) {
       transform = Optional.ofNullable(settings.get("apply"))
           .map(Object::toString)
           .map(s -> newInstance(s, ProxyTransform.class))
@@ -466,10 +428,9 @@ public class Repository {
 
     try {
 
-      Object scheme = Objects.requireNonNull(
+      final Object scheme = Objects.requireNonNull(
           settings.get("scheme"),
-          "Missing key entities." + entityName + ".attributes."
-              + attrName + ".scheme");
+          "Missing key entities." + entityName + ".attributes." + attrName + ".scheme");
 
       String schemeStr = scheme.toString();
       if (schemeStr.indexOf(':') == -1) {
@@ -522,11 +483,7 @@ public class Repository {
     if (byName != null) {
       return Optional.of(byName);
     }
-    // we don't have exact match based on name, so match patterns
-    return entitiesByPattern.entrySet().stream()
-        .filter(e -> e.getKey().matches(name))
-        .findFirst()
-        .map(Map.Entry::getValue);
+    return Optional.empty();
   }
 
   /**
@@ -542,10 +499,9 @@ public class Repository {
     return serializer;
   }
 
-  @SuppressWarnings("unchecked")
   private void readAttributeFamilies(Config cfg) {
 
-    if (entitiesByName.isEmpty() && entitiesByPattern.isEmpty()) {
+    if (entitiesByName.isEmpty()) {
       // no loaded entities, no more stuff to read
       return;
     }
@@ -651,9 +607,9 @@ public class Repository {
           final List<AttributeDescriptor<?>> attrDescs;
           if (attr.equals("*")) {
             // this means all attributes of entity
-            attrDescs = (List) entDesc.getAllAttributes(true);
+            attrDescs = entDesc.getAllAttributes(true);
           } else {
-            attrDescs = (List) Arrays.asList(entDesc.findAttribute(attr, true)
+            attrDescs = Collections.singletonList(entDesc.findAttribute(attr, true)
                 .orElseThrow(
                     () -> new IllegalArgumentException("Cannot find attribute " + attr)));
           }
@@ -722,7 +678,7 @@ public class Repository {
 
   private void readTransformations(Config cfg) {
 
-    if (entitiesByName.isEmpty() && entitiesByPattern.isEmpty()) {
+    if (entitiesByName.isEmpty()) {
       // no loaded entities, no more stuff to read
       return;
     }
@@ -812,13 +768,12 @@ public class Repository {
     return what == null ? "" : what.toString();
   }
 
-  // check validity of the settings
+  /**
+   * check validity of the settings
+   */
   private void validate() {
     // validate that each attribute belongs to at least one attribute family
-
-    Stream.concat(
-            entitiesByName.values().stream(),
-            entitiesByPattern.values().stream())
+    entitiesByName.values().stream()
         .flatMap(d -> d.getAllAttributes(true).stream())
         .filter(a -> !((AttributeDescriptorBase<?>) a).isProxy())
         .filter(a -> {
@@ -852,8 +807,10 @@ public class Repository {
    * @return all families specified in this repository
    */
   public Stream<AttributeFamilyDescriptor> getAllFamilies() {
-    return attributeToFamily.values().stream()
-        .flatMap(Collection::stream).distinct();
+    return attributeToFamily.values()
+        .stream()
+        .flatMap(Collection::stream)
+        .distinct();
   }
 
   /**
@@ -874,9 +831,7 @@ public class Repository {
    * @return {@link Stream} of all entities specified in this repository
    */
   public Stream<EntityDescriptor> getAllEntities() {
-    return Stream.concat(
-            entitiesByName.values().stream(),
-            entitiesByPattern.values().stream());
+    return entitiesByName.values().stream();
   }
 
   /**
@@ -892,7 +847,7 @@ public class Repository {
    * @return {@code true} if this repository is empty
    */
   public boolean isEmpty() {
-    return this.entitiesByName.isEmpty() && entitiesByPattern.isEmpty();
+    return entitiesByName.isEmpty();
   }
 
   @SuppressWarnings("unchecked")
@@ -909,9 +864,10 @@ public class Repository {
     return ret;
   }
 
-  /* Wrap given storage descriptor to read-only version. */
-  private <T extends AttributeWriterBase> StorageDescriptor asReadOnly(
-      StorageDescriptor wrap) {
+  /**
+   * Wrap given storage descriptor to read-only version.
+   */
+  private StorageDescriptor asReadOnly(StorageDescriptor wrap) {
 
     return new StorageDescriptor(wrap.getAcceptableSchemes()) {
 

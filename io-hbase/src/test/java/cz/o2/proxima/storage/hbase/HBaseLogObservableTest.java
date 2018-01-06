@@ -38,7 +38,11 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Table;
 import static org.junit.Assert.*;
+
+import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
@@ -46,32 +50,50 @@ import org.junit.Test;
  */
 public class HBaseLogObservableTest {
 
+  private static final TableName tableName = TableName.valueOf("test");
+  private static final HBaseTestingUtility util = HBaseTestingUtility.createLocalHTU();
+
+  private static MiniHBaseCluster cluster;
+
   private final Repository repo = Repository.Builder.ofTest(ConfigFactory.load()).build();
   private final EntityDescriptor entity = repo.findEntity("test").get();
   private final AttributeDescriptor<?> attr = entity.findAttribute("dummy").get();
   private final AttributeDescriptor<?> wildcard = entity.findAttribute("wildcard.*").get();
-  private final TableName tableName = TableName.valueOf("test");
 
-  private HBaseTestingUtility util;
-  private MiniHBaseCluster cluster;
   private HBaseLogObservable reader;
   private Connection conn;
   private Table client;
 
+  @BeforeClass
+  public static void beforeClass() throws Exception {
+    cluster = util.startMiniCluster();
+    cluster.waitForActiveAndReadyMaster(10_0000);
+  }
+
+  @AfterClass
+  public static void afterClass() throws IOException {
+    cluster.shutdown();
+    cluster.waitUntilShutDown();
+  }
+
   @Before
   public void setUp() throws Exception {
-    util = HBaseTestingUtility.createLocalHTU();
-    cluster = util.startMiniCluster();
+    util.deleteTableIfAny(tableName);
     util.createTable(tableName, b("u"), new byte[][] { b("first"), b("second") });
     conn = ConnectionFactory.createConnection(util.getConfiguration());
     client = conn.getTable(tableName);
-
     reader = new HBaseLogObservable(
         new URI("hbase://localhost:2181/test?family=u"),
         cluster.getConfiguration(),
         Collections.emptyMap(),
         entity,
         Executors.newCachedThreadPool());
+  }
+
+  @After
+  public void tearDown() throws IOException {
+    client.close();
+    conn.close();
   }
 
   @SuppressWarnings("unchecked")

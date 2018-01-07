@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.tools.groovy;
 
 import com.google.common.collect.Lists;
@@ -180,6 +179,33 @@ public class WindowedStream<T> extends Stream<T> {
   @SuppressWarnings("unchecked")
   public <K, V> WindowedStream<Pair<K, V>> reduce(
       Closure<K> keyExtractor,
+      Closure<V> valueExtractor,
+      V initialValue,
+      Closure<V> reducer) {
+
+    Closure<K> keyDehydrated = keyExtractor.dehydrate();
+    Closure<V> valueDehydrated = valueExtractor.dehydrate();
+    Closure<V> reducerDehydrated = reducer.dehydrate();
+    return (WindowedStream) descendant(() -> {
+      return ReduceByKey.of(dataset.build())
+          .keyBy(keyDehydrated::call)
+          .valueBy(valueDehydrated::call)
+          .reduceBy((Iterable<V> in) -> {
+            V current = initialValue;
+            for (V v : in) {
+              current = reducerDehydrated.call(current, v);
+            }
+            return current;
+          })
+          .windowBy(windowing)
+          .output();
+    });
+  }
+
+
+  @SuppressWarnings("unchecked")
+  public <K, V> WindowedStream<Pair<K, V>> reduce(
+      Closure<K> keyExtractor,
       V initialValue,
       Closure<V> reducer) {
 
@@ -187,13 +213,13 @@ public class WindowedStream<T> extends Stream<T> {
     Closure<V> reducerDehydrated = reducer.dehydrate();
     return (WindowedStream) descendant(() -> {
       return ReduceByKey.of(dataset.build())
-          .keyBy(e -> (Object) keyDehydrated.call(e))
+          .keyBy(keyDehydrated::call)
           .reduceBy((Iterable<T> in) -> {
-            Object current = initialValue;
+            V current = initialValue;
             for (T v : in) {
               current = reducerDehydrated.call(current, v);
             }
-            return (V) current;
+            return current;
           })
           .windowBy(windowing)
           .output();
@@ -255,6 +281,29 @@ public class WindowedStream<T> extends Stream<T> {
           .combineBy((Iterable<V> iter) -> {
             V ret = initial;
             for (V v : iter) {
+              ret = combineDehydrated.call(ret, v);
+            }
+            return ret;
+          })
+          .windowBy(windowing)
+          .output();
+    });
+  }
+
+  @SuppressWarnings("unchecked")
+  public <K> WindowedStream<Pair<K, T>> combine(
+      Closure<K> keyExtractor,
+      T initial,
+      Closure<T> combine) {
+
+    Closure<K> keyDehydrated = keyExtractor.dehydrate();
+    Closure<T> combineDehydrated = combine.dehydrate();
+    return descendant(() -> {
+      return ReduceByKey.of(dataset.build())
+          .keyBy(keyDehydrated::call)
+          .combineBy((Iterable<T> iter) -> {
+            T ret = initial;
+            for (T v : iter) {
               ret = combineDehydrated.call(ret, v);
             }
             return ret;

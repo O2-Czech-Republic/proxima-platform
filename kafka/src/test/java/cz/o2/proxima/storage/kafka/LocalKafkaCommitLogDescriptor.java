@@ -23,7 +23,10 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.util.Pair;
-import lombok.Getter;
+import cz.seznam.euphoria.shaded.guava.com.google.common.base.Preconditions;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -60,31 +63,31 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
   public static final String CFG_NUM_PARTITIONS = "local-kafka-num-partitions";
 
-  @Getter
-  Map<URI, Accessor> createdWriters = new HashMap<>();
+  // we need this to be able to survive serialization
+  private static final Map<Integer, Map<URI, Accessor>> ACCESSORS =
+      Collections.synchronizedMap(new HashMap<>());
 
-  public class Accessor extends KafkaCommitLog {
+  public static class Accessor extends KafkaCommitLog {
 
+    final int descriptorId;
     final int numPartitions;
 
     // list of consumers by name with assigned partitions
-    final Map<String, ConsumerGroup> consumerGroups;
-
+    transient Map<String, ConsumerGroup> consumerGroups;
     // ingests in different partitions
-    final List<List<StreamElement>> written;
-
+    transient List<List<StreamElement>> written;
     // (consumer name, consumer id) -> list(partition id, offset) (sparse)
-    final Map<Pair<String, Integer>, List<Pair<Integer, AtomicInteger>>> consumerOffsets;
-
+    transient Map<Pair<String, Integer>, List<Pair<Integer, AtomicInteger>>> consumerOffsets;
     // (consumer name, partition id) -> committed offset
-    final Map<Pair<String, Integer>, AtomicInteger> committedOffsets;
+    transient Map<Pair<String, Integer>, AtomicInteger> committedOffsets;
 
-    public Accessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
-      super(
-          entity,
-          uri,
-          cfg);
+    public Accessor(
+        EntityDescriptor entity, URI uri,
+        Map<String, Object> cfg, int descriptorId) {
 
+      super(entity, uri, cfg);
+
+      this.descriptorId = descriptorId;
       this.consumerOffsets = Collections.synchronizedMap(new HashMap<>());
       this.written = Collections.synchronizedList(new ArrayList<>());
       this.consumerGroups = Collections.synchronizedMap(new HashMap<>());
@@ -100,12 +103,9 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       }
 
       log.info(
-          "Created LocalKafkaCommitLog with URI {}, partitioner {} and {} partitions",
-          uri, partitioner.getClass().getName(), numPartitions);
-    }
+          "Created accessor with URI {} and {} partitions",
+          uri, numPartitions);
 
-    public LocalKafkaCommitLogDescriptor getDescriptor() {
-      return LocalKafkaCommitLogDescriptor.this;
     }
 
     @Override
@@ -139,7 +139,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
             String name,
             @Nullable ConsumerRebalanceListener listener) {
 
-          synchronized (LocalKafkaCommitLogDescriptor.this) {
+          synchronized (LocalKafkaCommitLogDescriptor.class) {
             ConsumerGroup group = consumerGroups.get(name);
             if (group == null) {
               group = new ConsumerGroup(name, getTopic(), numPartitions);
@@ -303,8 +303,8 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
       if (log.isDebugEnabled()) {
         log.debug(
-            "Polling consumerId {} with assignment {}",
-            consumerId,
+            "Polling consumerId {}.{} with assignment {}",
+            descriptorId, consumerId,
             assignment.stream().map(Partition::getId).collect(Collectors.toList()));
       }
       for (Partition part : assignment) {
@@ -388,8 +388,8 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
           data.getKey(), data.getAttribute(), data.getValue());
       int partition = (partitionId & Integer.MAX_VALUE) % numPartitions;
       log.debug(
-          "Written data {} to LocalKafkaCommitLog URI {}, partition {}",
-          data, getURI(), partition);
+          "Written data {} to LocalKafkaCommitLog descriptorId {} URI {}, partition {}",
+          data, descriptorId, getURI(), partition);
       written.get(partition).add(data);
       callback.commit(true, null);
     }
@@ -433,10 +433,30 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       }).reduce(true, (a, b) -> a && b);
     }
 
+    // serialization
+    // this is magic, don't waste your time to tackle it :-)
+    private void writeObject(ObjectOutputStream oos) throws IOException {
+      // default serialization
+      oos.defaultWriteObject();
+    }
+
+    private void readObject(ObjectInputStream ois) throws ClassNotFoundException, IOException {
+      // default deserialization
+      ois.defaultReadObject();
+      Accessor original = ACCESSORS.get(this.descriptorId).get(getURI());
+      this.committedOffsets = original.committedOffsets;
+      this.consumerGroups = original.consumerGroups;
+      this.consumerOffsets = original.consumerOffsets;
+      this.written = original.written;
+    }
+
   }
+
+  private final int id = System.identityHashCode(this);
 
   public LocalKafkaCommitLogDescriptor() {
     super(Arrays.asList("kafka-test"));
+    ACCESSORS.put(id, Collections.synchronizedMap(new HashMap<>()));
   }
 
   @Override
@@ -445,11 +465,11 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       URI uri,
       Map<String, Object> cfg) {
 
-    Accessor writer = createdWriters.get(uri);
-    if (writer == null) {
-      createdWriters.put(uri, writer = new Accessor(entityDesc, uri, cfg));
-    }
-    return writer;
+    Map<URI, Accessor> accesssorsForId = ACCESSORS.get(id);
+    final Accessor ret = new Accessor(entityDesc, uri, cfg, id);
+    Accessor old = accesssorsForId.putIfAbsent(uri, ret);
+    Preconditions.checkArgument(old == null, "URI " + uri + " is already registered!");
+    return ret;
   }
 
 }

@@ -16,6 +16,7 @@
 package cz.o2.proxima.storage.kafka;
 
 import cz.o2.proxima.storage.Partition;
+import java.io.Serializable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
@@ -36,10 +37,10 @@ import java.util.stream.Collectors;
  * The consumer group balances assignment of partitions for consumers.
  */
 @Slf4j
-public class ConsumerGroup {
+public class ConsumerGroup implements Serializable {
 
   /** Assignment of partitions of single consumer. */
-  class Assignment {
+  class Assignment implements Serializable {
 
     @Getter
     final int id;

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
@@ -44,6 +44,7 @@ import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import java.io.Serializable;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.SynchronousQueue;
 
@@ -356,22 +357,26 @@ public class InMemStorage extends StorageDescriptor {
 
     return new DataAccessor() {
       @Override
-      public Optional<AttributeWriterBase> getWriter() {
+      public Optional<AttributeWriterBase> getWriter(Context context) {
+        Objects.requireNonNull(context);
         return Optional.of(writer);
       }
 
       @Override
-      public Optional<CommitLogReader> getCommitLogReader() {
+      public Optional<CommitLogReader> getCommitLogReader(Context context) {
+        Objects.requireNonNull(context);
         return Optional.of(commitLogReader);
       }
 
       @Override
-      public Optional<RandomAccessReader> getRandomAccessReader() {
+      public Optional<RandomAccessReader> getRandomAccessReader(Context context) {
+        Objects.requireNonNull(context);
         return Optional.of(reader);
       }
 
       @Override
-      public Optional<PartitionedView> getPartitionedView() {
+      public Optional<PartitionedView> getPartitionedView(Context context) {
+        Objects.requireNonNull(context);
         return Optional.of(commitLogReader);
       }
 

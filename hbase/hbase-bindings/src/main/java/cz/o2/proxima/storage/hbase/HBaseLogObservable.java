@@ -41,6 +41,7 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 /**
  * A {@code BatchLogObservable} for HBase.
@@ -51,13 +52,15 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
   private static Charset UTF8 = Charset.forName("UTF-8");
 
   private final EntityDescriptor entity;
+  private final Executor executor;
 
   public HBaseLogObservable(
       URI uri, Configuration conf, Map<String, Object> cfg,
-      EntityDescriptor entity) {
+      EntityDescriptor entity, Executor executor) {
 
     super(uri, conf, cfg);
     this.entity = entity;
+    this.executor = executor;
   }
 
   @Override
@@ -86,7 +89,7 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    Thread consumer = new Thread(() -> {
+    executor.execute(() -> {
       ensureClient();
       try {
         outer:
@@ -114,8 +117,6 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
         observer.onError(ex);
       }
     });
-    consumer.setDaemon(true);
-    consumer.start();
   }
 
   private boolean consume(Result r,

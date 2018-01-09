@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.MiniHBaseCluster;
 import org.apache.hadoop.hbase.TableName;
@@ -69,7 +70,8 @@ public class HBaseLogObservableTest {
         new URI("hbase://localhost:2181/test?family=u"),
         cluster.getConfiguration(),
         Collections.emptyMap(),
-        entity);
+        entity,
+        Executors.newCachedThreadPool());
   }
 
   @SuppressWarnings("unchecked")

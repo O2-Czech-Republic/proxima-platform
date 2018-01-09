@@ -18,41 +18,28 @@ package cz.o2.proxima.storage.cassandra;
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.Token;
-import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
+import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.AttributeWriterBase;
-import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.DataAccessor;
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
-import cz.o2.proxima.storage.batch.BatchLogObserver;
-import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Classpath;
-import cz.o2.proxima.util.Pair;
 import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
 
-import javax.annotation.Nullable;
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import lombok.AccessLevel;
+import lombok.Getter;
 
 /**
  * {@code AttributeWriter} for Apache Cassandra.
@@ -60,13 +47,13 @@ import java.util.stream.Collectors;
  * measurements to do better
  */
 @Slf4j
-public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
-    implements RandomAccessReader, BatchLogObservable, DataAccessor {
+public class CassandraDBAccessor extends AbstractStorage implements DataAccessor {
 
   static final String CQL_FACTORY_CFG = "cqlFactory";
   static final String CQL_STRING_CONVERTER = "converter";
   static final String CQL_PARALLEL_SCANS = "scanParallelism";
 
+  @Getter(AccessLevel.PACKAGE)
   private final CQLFactory cqlFactory;
 
   /** Config map. */
@@ -74,8 +61,10 @@ public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
   /** Our connection URI. */
   private final URI uri;
   /** Converter between string and native cassandra type used for wildcard types. */
+  @Getter(AccessLevel.PACKAGE)
   private final StringConverter<Object> converter;
   /** Parallel scans. */
+  @Getter(AccessLevel.PACKAGE)
   private final int batchParallelism;
   /** Our cassandra cluster. */
   private Cluster cluster;
@@ -130,34 +119,6 @@ public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
 
   }
 
-
-  @Override
-  public synchronized void write(
-      StreamElement data,
-      CommitCallback statusCallback) {
-
-    try {
-      ensureSession();
-      Optional<BoundStatement> cql = cqlFactory.getWriteStatement(data, session);
-      if (cql.isPresent()) {
-        execute(cql.get());
-      }
-      statusCallback.commit(true, null);
-    } catch (Exception ex) {
-      log.error("Failed to ingest record {} into cassandra", data, ex);
-      // reset the session and cluster connection
-      if (session != null) {
-        session.close();
-        session = null;
-      }
-      if (cluster != null) {
-        cluster.close();
-        cluster = null;
-      }
-      statusCallback.commit(false, ex);
-    }
-  }
-
   @VisibleForTesting
   ResultSet execute(Statement statement) {
     if (log.isDebugEnabled()) {
@@ -197,127 +158,15 @@ public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
         .build();
   }
 
-  private void ensureSession() {
+  Session ensureSession() {
     if (session == null) {
       this.cluster = getCluster(uri);
       this.session = this.cluster.connect();
     }
+    return session;
   }
 
-  @Override
-  public synchronized Optional<KeyValue<?>> get(
-      String key,
-      String attribute,
-      AttributeDescriptor<?> desc) {
-
-    ensureSession();
-    BoundStatement statement = cqlFactory.getReadStatement(key, attribute, desc, session);
-    ResultSet result;
-    try {
-      result = execute(statement);
-    } catch (Exception ex) {
-      throw new RuntimeException(ex);
-    }
-    // the row has to have format (value)
-    for (Row row : result) {
-      ByteBuffer val = row.getBytes(0);
-      if (val != null) {
-        byte[] rowValue = val.array();
-
-        try {
-          return Optional.of(KeyValue.of(
-              getEntityDescriptor(),
-              desc,
-              key,
-              attribute,
-              new Offsets.Raw(attribute),
-              rowValue));
-        } catch (Exception ex) {
-          log.warn("Failed to read data from {}.{}", key, attribute, ex);
-        }
-      }
-    }
-
-    return Optional.empty();
-  }
-
-
-  @Override
-  @SuppressWarnings("unchecked")
-  public synchronized void scanWildcard(
-      String key,
-      AttributeDescriptor<?> wildcard,
-      @Nullable Offset offset,
-      int limit,
-      Consumer<KeyValue<?>> consumer) {
-
-    try {
-      ensureSession();
-      BoundStatement statement = cqlFactory.getListStatement(
-          key, wildcard,
-          (Offsets.Raw) offset, limit, session);
-
-      ResultSet result = execute(statement);
-      // the row has to have format (attribute, value)
-      for (Row row : result) {
-        Object attribute = row.getObject(0);
-        ByteBuffer val = row.getBytes(1);
-        if (val != null) {
-          byte[] rowValue = val.array();
-          // by convention
-          String name = wildcard.toAttributePrefix() + converter.toString(attribute);
-
-
-          Optional parsed = wildcard.getValueSerializer().deserialize(rowValue);
-
-          if (parsed.isPresent()) {
-            consumer.accept(KeyValue.of(
-                getEntityDescriptor(),
-                (AttributeDescriptor) wildcard,
-                key,
-                name,
-                new Offsets.Raw(name),
-                parsed.get(),
-                rowValue));
-          } else {
-            log.error("Failed to parse value for key {} attribute {}.{}",
-                key, wildcard, attribute);
-          }
-        }
-      }
-    } catch (Exception ex) {
-      log.error("Failed to scan wildcard attribute {}", wildcard, ex);
-      throw new RuntimeException(ex);
-    }
-
-  }
-
-  @Override
-  public synchronized void listEntities(
-      Offset offset,
-      int limit,
-      Consumer<Pair<Offset, String>> consumer) {
-
-    ensureSession();
-    BoundStatement statement = cqlFactory.getListEntitiesStatement(
-        (Offsets.Token) offset, limit, session);
-
-    try {
-      ResultSet result = execute(statement);
-      for (Row row : result) {
-        String key = row.getString(0);
-        Token token = row.getToken(1);
-        consumer.accept(Pair.of(
-            new Offsets.Token((long) token.getValue()),
-            key));
-      }
-    } catch (Exception ex) {
-      throw new RuntimeException(ex);
-    }
-  }
-
-  @Override
-  public synchronized void close() {
+  synchronized void close() {
     if (cluster != null) {
       cluster.close();
       cluster = null;
@@ -325,115 +174,33 @@ public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
   }
 
   @Override
-  public synchronized Offset fetchOffset(Listing type, String key) {
-    try {
-      switch (type) {
-        case ATTRIBUTE:
-          return new Offsets.Raw(key);
-
-        case ENTITY:
-          ensureSession();
-          ResultSet res = execute(cqlFactory.getFetchTokenStatement(key, session));
-          if (res.isExhausted()) {
-            return new Offsets.Token(Long.MIN_VALUE);
-          }
-          return new Offsets.Token(res.one().getLong(0));
-      }
-    } catch (Exception ex) {
-      throw new RuntimeException(ex);
-    }
-    throw new IllegalArgumentException("Unknown type of listing: " + type);
+  public Optional<AttributeWriterBase> getWriter(Context context) {
+    return Optional.of(newWriter());
   }
 
   @Override
-  public List<Partition> getPartitions(long startStamp, long endStamp) {
-    List<Partition> ret = new ArrayList<>();
-    double step = (((double) Long.MAX_VALUE) * 2 + 1) / batchParallelism;
-    double tokenStart = Long.MIN_VALUE;
-    double tokenEnd = tokenStart + step;
-    for (int i = 0; i < batchParallelism; i++) {
-      // FIXME: we ignore the start stamp for now
-      ret.add(new CassandraPartition(i, startStamp, endStamp,
-          (long) tokenStart, (long) tokenEnd, i == batchParallelism - 1));
-      tokenStart = tokenEnd;
-      tokenEnd += step;
-      if (i == batchParallelism - 2) {
-        tokenEnd = Long.MAX_VALUE;
-      }
-    }
-    return ret;
+  public Optional<RandomAccessReader> getRandomAccessReader(Context context) {
+    return Optional.of(newRandomReader());
   }
 
   @Override
-  public void observe(
-      List<Partition> partitions,
-      List<AttributeDescriptor<?>> attributes,
-      BatchLogObserver observer) {
-
-    Thread thread = new Thread(() -> {
-      boolean cont = true;
-      Iterator<Partition> it = partitions.iterator();
-      try {
-        while (cont && it.hasNext()) {
-          CassandraPartition p = (CassandraPartition) it.next();
-          ResultSet result;
-          ensureSession();
-          result = execute(this.cqlFactory.scanPartition(attributes, p, session));
-          AtomicLong position = new AtomicLong();
-          Iterator<Row> rowIter = result.iterator();
-          while (rowIter.hasNext() && cont) {
-            Row row = rowIter.next();
-            String key = row.getString(0);
-            int field = 1;
-            for (AttributeDescriptor<?> attribute : attributes) {
-              String attributeName = attribute.getName();
-              if (attribute.isWildcard()) {
-                String suffix = row.getString(field++);
-                attributeName = attribute.toAttributePrefix() + suffix;
-              }
-              ByteBuffer bytes = row.getBytes(field++);
-              if (bytes != null) {
-                byte[] array = bytes.slice().array();
-                if (!observer.onNext(StreamElement.update(
-                    getEntityDescriptor(), attribute,
-                    "cql-" + getEntityDescriptor().getName() + "-part"
-                        + p.getId() + position.incrementAndGet(),
-                    key, attributeName,
-                    System.currentTimeMillis(), array), p)) {
-
-                  cont = false;
-                  break;
-                }
-              }
-            }
-          };
-        }
-        observer.onCompleted();
-      } catch (Throwable err) {
-        observer.onError(err);
-      }
-    });
-    thread.setName("cassandra-batch-observable-"
-        + "-" + getEntityDescriptor().getName()
-        + ":" + attributes);
-    thread.start();
+  public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
+    return Optional.of(newLogObservable(context));
   }
 
-  @Override
-  public Optional<AttributeWriterBase> getWriter() {
-    return Optional.of(this);
+  @VisibleForTesting
+  CassandraRandomReader newRandomReader() {
+    return new CassandraRandomReader(this);
   }
 
-  @Override
-  public Optional<RandomAccessReader> getRandomAccessReader() {
-    return Optional.of(this);
+  @VisibleForTesting
+  CassandraLogObservable newLogObservable(Context context) {
+    return new CassandraLogObservable(this, context.getExecutorService());
   }
 
-  @Override
-  public Optional<BatchLogObservable> getBatchLogObservable() {
-    return Optional.of(this);
+  @VisibleForTesting
+  CassandraWriter newWriter() {
+    return new CassandraWriter(this);
   }
-
-
 
 }

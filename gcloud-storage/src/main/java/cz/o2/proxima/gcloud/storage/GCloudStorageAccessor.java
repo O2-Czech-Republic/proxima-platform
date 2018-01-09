@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.gcloud.storage;
 
+import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.AttributeWriterBase;
@@ -39,15 +40,15 @@ class GCloudStorageAccessor extends AbstractStorage implements DataAccessor {
   }
 
   @Override
-  public Optional<AttributeWriterBase> getWriter() {
+  public Optional<AttributeWriterBase> getWriter(Context context) {
     return Optional.of(new BulkGCloudStorageWriter(
         getEntityDescriptor(), getURI(), cfg));
   }
 
   @Override
-  public Optional<BatchLogObservable> getBatchLogObservable() {
+  public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
     return Optional.of(new GCloudLogObservable(
-        getEntityDescriptor(), getURI(), cfg));
+        getEntityDescriptor(), getURI(), cfg, context.getExecutorService()));
   }
 
 }

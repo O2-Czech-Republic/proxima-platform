@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.kafka;
 
 import com.typesafe.config.ConfigFactory;
@@ -23,6 +22,8 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.Accessor;
+import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.LocalKafkaWriter;
 import cz.seznam.euphoria.shaded.guava.com.google.common.collect.Iterators;
 import java.net.URI;
 import java.util.Arrays;
@@ -77,10 +78,11 @@ public class LocalKafkaCommitLogDescriptorTest {
   public void testSinglePartitionWriteAndConsumeBySingleConsumerRunAfterWrite()
       throws InterruptedException {
 
-    LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(1));
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(1));
+    LocalKafkaWriter writer = accessor.newWriter();
+
     CountDownLatch latch = new CountDownLatch(1);
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(),
         emptyValue()), (succ, exc) -> {
@@ -110,10 +112,10 @@ public class LocalKafkaCommitLogDescriptorTest {
   public void testTwoPartitionsTwoWritesAndConsumeBySingleConsumerRunAfterWrite()
       throws InterruptedException {
 
-    LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    LocalKafkaWriter writer = accessor.newWriter();
     CountDownLatch latch = new CountDownLatch(2);
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -121,7 +123,7 @@ public class LocalKafkaCommitLogDescriptorTest {
       assertNull(exc);
       latch.countDown();
     });
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -164,17 +166,17 @@ public class LocalKafkaCommitLogDescriptorTest {
   public void testTwoPartitionsTwoWritesAndConsumeBySingleConsumerRunBeforeWrite()
       throws InterruptedException {
 
-    LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
       assertTrue(succ);
       assertNull(exc);
     });
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -207,10 +209,10 @@ public class LocalKafkaCommitLogDescriptorTest {
   public void testTwoPartitionsTwoWritesAndTwoReads()
       throws InterruptedException {
 
-    LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -222,7 +224,7 @@ public class LocalKafkaCommitLogDescriptorTest {
     assertEquals(1, polled.count());
     assertEquals(1, polled.partitions().size());
 
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -238,10 +240,10 @@ public class LocalKafkaCommitLogDescriptorTest {
   @Test(timeout = 4000)
   @SuppressWarnings("unchecked")
   public void testTwoIdependentConsumers() throws InterruptedException {
-    LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(1));
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(1));
+    LocalKafkaWriter writer = accessor.newWriter();
     CountDownLatch latch = new CountDownLatch(1);
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -274,10 +276,10 @@ public class LocalKafkaCommitLogDescriptorTest {
 
   @Test(timeout = 2000)
   public void testManualPartitionAssignment() throws InterruptedException {
-    LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    LocalKafkaWriter writer = accessor.newWriter();
     CountDownLatch latch = new CountDownLatch(2);
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -285,7 +287,7 @@ public class LocalKafkaCommitLogDescriptorTest {
       assertNull(exc);
       latch.countDown();
     });
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -320,10 +322,10 @@ public class LocalKafkaCommitLogDescriptorTest {
   @Test
   public void testTwoPartitionsTwoConsumersRebalance() {
     String name = "consumer";
-    LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<String, byte[]> c1 = accessor.createConsumerFactory().create(name);
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -333,7 +335,7 @@ public class LocalKafkaCommitLogDescriptorTest {
     ConsumerRecords<String, byte[]> poll = c1.poll(1000);
     assertEquals(1, poll.count());
 
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -355,7 +357,7 @@ public class LocalKafkaCommitLogDescriptorTest {
     assertEquals(1, c1.assignment().size());
     assertEquals(1, c2.assignment().size());
 
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -373,10 +375,10 @@ public class LocalKafkaCommitLogDescriptorTest {
   @Test
   public void testSinglePartitionTwoConsumersRebalance() {
     String name = "consumer";
-    LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(1));
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(1));
+    LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<String, byte[]> c1 = accessor.createConsumerFactory().create(name);
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -386,7 +388,7 @@ public class LocalKafkaCommitLogDescriptorTest {
     ConsumerRecords<String, byte[]> poll = c1.poll(1000);
     assertEquals(1, poll.count());
 
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -407,7 +409,7 @@ public class LocalKafkaCommitLogDescriptorTest {
     assertEquals(0, c1.assignment().size());
     assertEquals(1, c2.assignment().size());
 
-    accessor.write(StreamElement.update(
+    writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
@@ -417,10 +419,7 @@ public class LocalKafkaCommitLogDescriptorTest {
     assertTrue(poll.isEmpty());
     poll = c2.poll(1000);
     assertEquals(1, poll.count());
-
   }
-
-
 
   private Map<String, Object> partitionsCfg(int partitions) {
     Map<String, Object> ret = new HashMap<>();

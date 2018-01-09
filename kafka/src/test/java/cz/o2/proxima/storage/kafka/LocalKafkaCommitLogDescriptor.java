@@ -347,11 +347,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
           map.put(new TopicPartition(getTopic(), partition), records);
         }
       }
-      log.debug(
-          "Consumer {} id {} polled records {}",
-          name,
-          consumerId,
-          map);
+      log.debug("Consumer {} id {} polled records {}", name, consumerId, map);
 
       return new ConsumerRecords<>(map);
     }

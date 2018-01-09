@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,19 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.tools.groovy;
 
-import cz.o2.proxima.tools.io.AttributeSink;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.tools.io.AttributeSink;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
+import cz.seznam.euphoria.core.client.dataset.windowing.Session;
 import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import cz.seznam.euphoria.core.client.io.Collector;
 import cz.seznam.euphoria.core.client.io.DataSink;
 import cz.seznam.euphoria.core.client.io.Writer;
+import cz.seznam.euphoria.core.client.operator.AssignEventTime;
 import cz.seznam.euphoria.core.client.operator.Filter;
 import cz.seznam.euphoria.core.client.operator.FlatMap;
 import cz.seznam.euphoria.core.client.operator.MapElements;
@@ -34,16 +35,16 @@ import cz.seznam.euphoria.core.client.util.Pair;
 import cz.seznam.euphoria.core.client.util.Triple;
 import cz.seznam.euphoria.core.executor.Executor;
 import groovy.lang.Closure;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.time.Duration;
 
 /**
  * A stream abstraction with fluent style methods.
  */
+@Slf4j
 public class Stream<T> {
-
-  private static final Logger LOG = LoggerFactory.getLogger(Stream.class);
 
   public static <T> Stream<T> wrap(
       Executor executor, DatasetBuilder<T> dataset,
@@ -67,19 +68,27 @@ public class Stream<T> {
   }
 
   @SuppressWarnings("unchecked")
-  public <X> Stream<X> map(Closure<?> mapper) {
-    Closure<?> dehydrated = mapper.dehydrate();
+  public <X> Stream<X> map(Closure<X> mapper) {
+    Closure<X> dehydrated = mapper.dehydrate();
     return descendant(() ->
         MapElements.of(dataset.build())
-            .using(e -> (X) dehydrated.call(e))
+            .using(e -> dehydrated.call(e))
             .output());
   }
 
-  public Stream<T> filter(Closure<?> predicate) {
-    Closure<?> dehydrated = predicate.dehydrate();
+  public Stream<T> filter(Closure<Boolean> predicate) {
+    Closure<Boolean> dehydrated = predicate.dehydrate();
     return descendant(() ->
         Filter.of(dataset.build())
-            .by(e -> (Boolean) dehydrated.call(e))
+            .by(e -> dehydrated.call(e))
+            .output());
+  }
+
+  public Stream<T> assignEventTime(Closure<Long> assigner) {
+    Closure<Long> dehydrated = assigner.dehydrate();
+    return descendant(() ->
+        AssignEventTime.of(dataset.build())
+            .using(e -> dehydrated.call(e))
             .output());
   }
 
@@ -138,7 +147,7 @@ public class Stream<T> {
     try {
       executor.submit(flow).get();
     } catch (Exception ex) {
-      LOG.error("Error in executing the flow", ex);
+      log.error("Error in executing the flow", ex);
       throw new RuntimeException(ex);
     } finally {
       terminatingOperationCall.run();
@@ -174,6 +183,13 @@ public class Stream<T> {
   public WindowedStream<T> timeSlidingWindow(long millis, long slide) {
     return new TimeWindowedStream<>(
         executor, dataset, millis, slide, terminatingOperationCall);
+  }
+
+  @SuppressWarnings("unchecked")
+  public WindowedStream<T> sessionWindow(long gapDuration) {
+    return new WindowedStream<>(
+        executor, dataset, (Windowing) Session.of(Duration.ofMillis(gapDuration)),
+        terminatingOperationCall);
   }
 
   @SuppressWarnings("unchecked")

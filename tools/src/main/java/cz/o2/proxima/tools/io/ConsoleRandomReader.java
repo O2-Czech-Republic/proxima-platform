@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.tools.io;
 
 import com.google.common.io.Closeables;
@@ -80,11 +79,16 @@ public class ConsoleRandomReader implements Closeable {
 
 
   public List<KeyValue<?>> list(String key, String prefix) {
+    return list(key, prefix, null);
+  }
+
+  public List<KeyValue<?>> list(
+      String key, String prefix, @Nullable String offset) {
+
     List<KeyValue<?>> ret = new ArrayList<>();
     list(key, prefix, null, -1, ret::add);
     return ret;
   }
-
 
   public List<KeyValue<?>> list(
       String key,
@@ -114,7 +118,8 @@ public class ConsoleRandomReader implements Closeable {
       throw new IllegalArgumentException(
           "Attribute " + prefix + " has no random access reader");
     }
-    Offset off = offset == null ? null : listAttrOffsets.get(offset);
+    Offset off = offset == null ? null : reader.fetchOffset(
+        RandomAccessReader.Listing.ATTRIBUTE, offset);
     reader.scanWildcard(key, desc,
         off,
         limit, kv -> {

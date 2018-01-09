@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Classpath related utilities.
  */
+@Slf4j
 public class Classpath {
-
-  private static final Logger LOG = LoggerFactory.getLogger(Classpath.class);
 
   /** Find given class.
    * Try hard to find it replacing `.' by `$' if
@@ -60,7 +57,7 @@ public class Classpath {
     try {
       return Thread.currentThread().getContextClassLoader().loadClass(name);
     } catch (ClassNotFoundException t) {
-      LOG.debug("Cannot instantiate class {}", name, t);
+      log.debug("Cannot instantiate class {}", name, t);
       return null;
     }
   }

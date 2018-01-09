@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.tools.io;
 
 import com.google.protobuf.ByteString;
@@ -25,18 +24,17 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.seznam.euphoria.core.client.io.DataSink;
 import cz.seznam.euphoria.core.client.io.Writer;
 import cz.seznam.euphoria.core.client.util.Triple;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Class for sinking data into specified attribute of entity.
  */
+@Slf4j
 public class AttributeSink implements DataSink<Triple<String, byte[], Long>> {
-
-  private static final Logger LOG = LoggerFactory.getLogger(AttributeSink.class);
 
   private final IngestClient client;
   private final EntityDescriptor entityDesc;
@@ -71,7 +69,7 @@ public class AttributeSink implements DataSink<Triple<String, byte[], Long>> {
             .build();
         client.send(ingest, status -> {
               if (status.getStatus() != 200) {
-                LOG.warn(
+                log.warn(
                     "Failed to send ingest {}: {} {}",
                     TextFormat.shortDebugString(ingest),
                     status.getStatus(), status.getStatusMessage());

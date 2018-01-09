@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.randomaccess;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -49,7 +48,7 @@ public interface RandomAccessReader extends Closeable, Serializable {
    * based on the key stored in the map.
    * This is just a labeling interface.
    */
-  interface Offset {
+  interface Offset extends Serializable {
 
   }
 

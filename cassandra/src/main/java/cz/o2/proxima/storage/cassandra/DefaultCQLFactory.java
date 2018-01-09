@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.cassandra;
 
 import com.datastax.driver.core.BoundStatement;
@@ -23,13 +22,13 @@ import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import javax.annotation.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A {@code CQLFactory} used by default. The default behavior is to
@@ -44,11 +43,8 @@ import org.slf4j.LoggerFactory;
  *  * dataField is the name of data field for wildcard attributes (optional)
  *  * reversed might by {@code true} if the composite key is sorted in descending order
  */
+@Slf4j
 public class DefaultCQLFactory extends CacheableCQLFactory {
-
-
-  private static final Logger LOG = LoggerFactory.getLogger(DefaultCQLFactory.class);
-
 
   /**
    * The name of the field used as primary key or first part of composite
@@ -318,7 +314,7 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
         partition.isEndInclusive() ? "<=" : "<",
         partition.getTokenEnd());
 
-    LOG.info("Scanning partition with query {}", query);
+    log.info("Scanning partition with query {}", query);
     return new SimpleStatement(query);
   }
 

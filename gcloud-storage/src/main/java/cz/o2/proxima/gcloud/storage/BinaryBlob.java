@@ -22,6 +22,9 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.seznam.euphoria.shaded.guava.com.google.common.collect.AbstractIterator;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -35,16 +38,12 @@ import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Class wrapping serialized elements to a single file with read/write capabilities.
  */
+@Slf4j
 public class BinaryBlob {
-
-  private static final Logger LOG = LoggerFactory.getLogger(BinaryBlob.class);
 
   private static final String MAGIC = "gs::proxima";
 
@@ -175,7 +174,7 @@ public class BinaryBlob {
         }
         return parsed;
       } catch (EOFException eof) {
-        LOG.warn("EOF while reading input. Probably corrupt input?", eof);
+        log.warn("EOF while reading input. Probably corrupt input?", eof);
         return Serialization.Header.getDefaultInstance();
       }
     }

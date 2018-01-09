@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.cassandra;
 
 import com.datastax.driver.core.BoundStatement;
@@ -24,21 +23,20 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.URIUtil;
 import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
 import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
  * A cache for prepared CQL statements.
  */
+@Slf4j
 public abstract class CacheableCQLFactory implements CQLFactory {
-
-  private static final Logger LOG = LoggerFactory.getLogger(CacheableCQLFactory.class);
 
   protected String tableName;
   @Nullable
@@ -172,7 +170,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
     PreparedStatement cached = getCache.get(desc);
     if (cached == null) {
       cached = prepare(session, createGetStatement(attribute, desc));
-      LOG.info("Prepared statement {}", cached);
+      log.info("Prepared statement {}", cached);
       getCache.put(desc, cached);
     }
     return cached;
@@ -326,7 +324,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
 
   static PreparedStatement prepare(Session session, String statement) {
     PreparedStatement ret = session.prepare(statement);
-    LOG.info("Prepared statement {} as {}", statement, ret);
+    log.info("Prepared statement {} as {}", statement, ret);
     return ret;
   }
 

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.cassandra;
 
 import com.datastax.driver.core.BoundStatement;
@@ -31,10 +30,17 @@ import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.batch.BatchLogObservable;
+import cz.o2.proxima.storage.batch.BatchLogObserver;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.Pair;
+import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
+import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nullable;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.ByteBuffer;
@@ -47,23 +53,15 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import cz.o2.proxima.storage.batch.BatchLogObservable;
-import cz.o2.proxima.storage.batch.BatchLogObserver;
-import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
-import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
 
 /**
  * {@code AttributeWriter} for Apache Cassandra.
  * This class is completely synchronized for now, need to do performance
  * measurements to do better
  */
+@Slf4j
 public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
     implements RandomAccessReader, BatchLogObservable, DataAccessor {
-
-  private static final Logger LOG = LoggerFactory.getLogger(CassandraDBAccessor.class);
 
   static final String CQL_FACTORY_CFG = "cqlFactory";
   static final String CQL_STRING_CONVERTER = "converter";
@@ -115,7 +113,7 @@ public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
       try {
         c = (StringConverter) Class.forName(tmp.toString()).newInstance();
       } catch (Exception ex) {
-        LOG.warn("Failed to instantiate type converter {}", tmp, ex);
+        log.warn("Failed to instantiate type converter {}", tmp, ex);
       }
     }
     this.converter = c;
@@ -146,7 +144,7 @@ public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
       }
       statusCallback.commit(true, null);
     } catch (Exception ex) {
-      LOG.error("Failed to ingest record {} into cassandra", data, ex);
+      log.error("Failed to ingest record {} into cassandra", data, ex);
       // reset the session and cluster connection
       if (session != null) {
         session.close();
@@ -162,14 +160,14 @@ public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
 
   @VisibleForTesting
   ResultSet execute(Statement statement) {
-    if (LOG.isDebugEnabled()) {
+    if (log.isDebugEnabled()) {
       if (statement instanceof BoundStatement) {
         BoundStatement s = (BoundStatement) statement;
-        LOG.debug(
+        log.debug(
             "Executing BoundStatement {} prepared from PreparedStatement {} with payload {}",
             s, s.preparedStatement(), s.getOutgoingPayload());
       } else {
-        LOG.debug(
+        log.debug(
             "Executing {} {} with payload {}",
             statement.getClass().getSimpleName(),
             statement, statement.getOutgoingPayload());
@@ -235,7 +233,7 @@ public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
               new Offsets.Raw(attribute),
               rowValue));
         } catch (Exception ex) {
-          LOG.warn("Failed to read data from {}.{}", key, attribute, ex);
+          log.warn("Failed to read data from {}.{}", key, attribute, ex);
         }
       }
     }
@@ -282,13 +280,13 @@ public class CassandraDBAccessor extends AbstractOnlineAttributeWriter
                 parsed.get(),
                 rowValue));
           } else {
-            LOG.error("Failed to parse value for key {} attribute {}.{}",
+            log.error("Failed to parse value for key {} attribute {}.{}",
                 key, wildcard, attribute);
           }
         }
       }
     } catch (Exception ex) {
-      LOG.error("Failed to scan wildcard attribute {}", wildcard, ex);
+      log.error("Failed to scan wildcard attribute {}", wildcard, ex);
       throw new RuntimeException(ex);
     }
 

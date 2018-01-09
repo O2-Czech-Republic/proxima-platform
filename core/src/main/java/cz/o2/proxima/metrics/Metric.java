@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.metrics;
 
 import java.beans.ConstructorProperties;
+import java.io.Serializable;
 import lombok.Getter;
 
 /**
@@ -24,7 +24,7 @@ import lombok.Getter;
  * A single metric might be a single number or a vector of numbers
  * (e.g. say percentile statistics).
  */
-public abstract class Metric<T> {
+public abstract class Metric<T> implements Serializable {
 
   @Getter
   final String group;
@@ -47,7 +47,7 @@ public abstract class Metric<T> {
   public void decrement() {
     increment(-1.0);
   }
-  
+
   /** Increment the metric by given double value. */
   public abstract void increment(double d);
 

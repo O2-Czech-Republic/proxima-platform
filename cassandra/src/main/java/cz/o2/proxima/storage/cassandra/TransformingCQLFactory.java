@@ -23,6 +23,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import cz.seznam.euphoria.shaded.guava.com.google.common.base.Joiner;
+import java.io.Serializable;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -38,7 +39,7 @@ import java.util.stream.Collectors;
  * provided extractors. The ingest is first modified by provided parser.
  */
 @Slf4j
-public class TransformingCQLFactory<T> extends CacheableCQLFactory {
+public class TransformingCQLFactory<T extends Serializable> extends CacheableCQLFactory {
 
   /** Parser of ingest to any intermediate type. */
   private final Function<StreamElement, T> parser;

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.repository;
 
 import cz.o2.proxima.storage.AccessType;
@@ -33,12 +32,13 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.view.PartitionedView;
+import java.io.Serializable;
 import javax.annotation.Nullable;
 
 /**
  * A family of attributes with the same storage.
  */
-public class AttributeFamilyDescriptor {
+public class AttributeFamilyDescriptor implements Serializable {
 
   public static final class Builder {
 

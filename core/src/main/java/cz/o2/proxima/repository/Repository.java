@@ -29,6 +29,7 @@ import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.NamePattern;
+import cz.seznam.euphoria.core.client.functional.VoidFunction;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Configuration;
@@ -49,6 +50,8 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -79,6 +82,7 @@ public class Repository {
     }
 
     private final Config config;
+    private VoidFunction<ScheduledExecutorService> executorFactory;
     private boolean readOnly = false;
     private boolean validate = true;
     private boolean loadFamilies = true;
@@ -86,11 +90,28 @@ public class Repository {
 
     private Builder(Config config, boolean test) {
       this.config = Objects.requireNonNull(config);
+      this.executorFactory = () -> Executors.newScheduledThreadPool(
+          getInt(config, Constants.EXECUTOR_POOL_SIZE_CFG, Constants.EXECUTOR_POOL_SIZE_DEFAULT),
+          r -> {
+            Thread t = new Thread(r);
+            t.setName("ProximaRepositoryPool");
+            return t;
+          });
+
       if (test) {
         this.readOnly = true;
         this.validate = false;
         this.loadFamilies = false;
         this.loadAccessors = false;
+      }
+    }
+
+    private static int getInt(Config config, String path, int defVal) {
+      try {
+        return config.getInt(Constants.EXECUTOR_POOL_SIZE_CFG);
+      } catch (Exception ex) {
+        log.warn("Failed to retrieve config path {}, defaulting to {}", path, defVal);
+        return defVal;
       }
     }
 
@@ -116,7 +137,8 @@ public class Repository {
 
     public Repository build() {
       return new Repository(
-          config, readOnly, validate, loadFamilies, loadAccessors);
+          config, readOnly, validate, loadFamilies,
+          loadAccessors, executorFactory);
     }
   }
 
@@ -208,6 +230,16 @@ public class Repository {
 
 
   /**
+   * Executor to be used for any asynchronous operations.
+   */
+  private final VoidFunction<ScheduledExecutorService> executorFactory;
+
+  /**
+   * Context passed to serializable data accessors.
+   */
+  private final Context context;
+
+  /**
    * Construct the repository from the config with the specified read-only and
    * validation flag.
    * @param isReadonly true in client applications where you want
@@ -224,9 +256,13 @@ public class Repository {
       boolean isReadonly,
       boolean shouldValidate,
       boolean loadFamilies,
-      boolean loadAccessors) {
+      boolean loadAccessors,
+      VoidFunction<ScheduledExecutorService> executorFactory) {
 
     this.config = cfg;
+    this.executorFactory = executorFactory;
+    this.context = new Context(executorFactory);
+
     this.entitiesByPattern = new HashMap<>();
     this.attributeToFamily = new HashMap<>();
     try {
@@ -278,6 +314,14 @@ public class Repository {
       throw new IllegalArgumentException("Cannot read config settings", ex);
     }
 
+  }
+
+  /**
+   * Retrieve {@link Context} that is used in all distributed operations.
+   * @return the serializable context
+   */
+  public Context getContext() {
+    return context;
   }
 
   @SuppressWarnings("unchecked")
@@ -557,28 +601,31 @@ public class Repository {
               entDesc, storageURI, storage);
 
           if (!isReadonly && !access.isReadonly()) {
-            family.setWriter(accessor.getWriter().orElseThrow(() -> new IllegalArgumentException(
-                "Storage " + storageDesc + " has no valid writer for family " + name
-                    + " or specify the family as read-only.")));
+            family.setWriter(accessor.getWriter(context)
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Storage " + storageDesc + " has no valid writer for family " + name
+                        + " or specify the family as read-only.")));
           }
           if (access.canRandomRead()) {
-            family.setRandomAccess(accessor.getRandomAccessReader().orElseThrow(
-                () -> new IllegalArgumentException(
-                    "Storage " + storageDesc + " has no valid random access storage for family " + name)));
+            family.setRandomAccess(accessor.getRandomAccessReader(context)
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Storage " + storageDesc + " has no valid random access storage for family "
+                        + name)));
           }
           if (access.canReadCommitLog()) {
-            family.setCommitLog(accessor.getCommitLogReader().orElseThrow(
+            family.setCommitLog(accessor.getCommitLogReader(context).orElseThrow(
                 () -> new IllegalArgumentException(
-                    "Storage " + storageDesc + " has no valid commit-log storage for family " + name)));
+                    "Storage " + storageDesc
+                        + " has no valid commit-log storage for family " + name)));
           }
           if (access.canCreatePartitionedView()) {
-            family.setPartitionedView(accessor.getPartitionedView().orElseThrow(
-                () -> new IllegalArgumentException(
+            family.setPartitionedView(accessor.getPartitionedView(context)
+                .orElseThrow(() -> new IllegalArgumentException(
                     "Storage " + storageDesc + " has no valid partitioned view.")));
           }
           if (access.canReadBatchSnapshot() || access.canReadBatchUpdates()) {
-            family.setBatchObservable(accessor.getBatchLogObservable().orElseThrow(
-                () -> new IllegalArgumentException(
+            family.setBatchObservable(accessor.getBatchLogObservable(context)
+                .orElseThrow(() -> new IllegalArgumentException(
                     "Storage " + storageDesc + " has no batch log observable.")));
           }
         }
@@ -847,19 +894,20 @@ public class Repository {
         DataAccessor wrapped = wrap.getAccessor(entityDesc, uri, cfg);
 
         return new DataAccessor() {
+
           @Override
-          public Optional<CommitLogReader> getCommitLogReader() {
-            return wrapped.getCommitLogReader();
+          public Optional<CommitLogReader> getCommitLogReader(Context context) {
+            return wrapped.getCommitLogReader(context);
           }
 
           @Override
-          public Optional<RandomAccessReader> getRandomAccessReader() {
-            return wrapped.getRandomAccessReader();
+          public Optional<RandomAccessReader> getRandomAccessReader(Context context) {
+            return wrapped.getRandomAccessReader(context);
           }
 
           @Override
-          public Optional<BatchLogObservable> getBatchLogObservable() {
-            return wrapped.getBatchLogObservable();
+          public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
+            return wrapped.getBatchLogObservable(context);
           }
 
         };

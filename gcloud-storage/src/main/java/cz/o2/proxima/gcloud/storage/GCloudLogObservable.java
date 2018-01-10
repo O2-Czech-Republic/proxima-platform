@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
@@ -94,15 +94,18 @@ public class GCloudLogObservable
   }
 
   private final long partitionMinSize;
+  private final Executor executor;
 
   public GCloudLogObservable(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg,
+      Executor executor) {
 
     super(entityDesc, uri, cfg);
     this.partitionMinSize = Optional.ofNullable(cfg.get("partition.size"))
         .map(Object::toString)
         .map(Long::valueOf)
         .orElse(100 * 1024 * 1024L);
+    this.executor = executor;
   }
 
   @Override
@@ -162,7 +165,7 @@ public class GCloudLogObservable
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    Thread thread = new Thread(() -> {
+    executor.execute(() -> {
       try {
         Set<AttributeDescriptor<?>> attrs = attributes.stream().collect(Collectors.toSet());
         partitions.forEach(p -> {
@@ -186,8 +189,6 @@ public class GCloudLogObservable
         observer.onError(ex);
       }
     });
-    thread.setName("gcloud-observer-" + UUID.randomUUID().toString());
-    thread.start();
   }
 
 }

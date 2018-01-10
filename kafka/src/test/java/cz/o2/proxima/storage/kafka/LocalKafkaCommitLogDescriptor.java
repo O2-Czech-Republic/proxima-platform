@@ -15,14 +15,18 @@
  */
 package cz.o2.proxima.storage.kafka;
 
+import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StorageDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Cancellable;
+import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.shaded.guava.com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -67,7 +71,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
   private static final Map<Integer, Map<URI, Accessor>> ACCESSORS =
       Collections.synchronizedMap(new HashMap<>());
 
-  public static class Accessor extends KafkaCommitLog {
+  public static class Accessor extends KafkaAccessor {
 
     final int descriptorId;
     final int numPartitions;
@@ -347,51 +351,9 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
           map.put(new TopicPartition(getTopic(), partition), records);
         }
       }
-      log.debug(
-          "Consumer {} id {} polled records {}",
-          name,
-          consumerId,
-          map);
+      log.debug("Consumer {} id {} polled records {}", name, consumerId, map);
 
       return new ConsumerRecords<>(map);
-    }
-
-
-    @Override
-    public Cancellable observePartitions(
-        Collection<Partition> partitions,
-        Position position,
-        boolean stopAtCurrent,
-        LogObserver observer) {
-
-      Cancellable ret = super.observePartitions(
-          null, partitions, position, stopAtCurrent, observer, null);
-      log.debug(
-          "Started to observe partitions {} of LocalKafkaCommitLog URI {}",
-          partitions, getURI());
-      return ret;
-    }
-
-    @Override
-    public Cancellable observe(String name, Position position, LogObserver observer) {
-      Cancellable ret = super.observe(name, position, observer);
-      log.debug(
-          "Started to observe LocalKafkaCommitLog with URI {} by consumer {}",
-          getURI(), name);
-      return ret;
-    }
-
-
-    @Override
-    public void write(StreamElement data, CommitCallback callback) {
-      int partitionId = partitioner.getPartitionId(
-          data.getKey(), data.getAttribute(), data.getValue());
-      int partition = (partitionId & Integer.MAX_VALUE) % numPartitions;
-      log.debug(
-          "Written data {} to LocalKafkaCommitLog descriptorId {} URI {}, partition {}",
-          data, descriptorId, getURI(), partition);
-      written.get(partition).add(data);
-      callback.commit(true, null);
     }
 
     private ConsumerRecord<String, byte[]> toConsumerRecord(
@@ -433,6 +395,29 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       }).reduce(true, (a, b) -> a && b);
     }
 
+    @Override
+    public Optional<PartitionedView> getPartitionedView(Context context) {
+      return Optional.of(newReader(context));
+    }
+
+    @Override
+    public Optional<CommitLogReader> getCommitLogReader(Context context) {
+      return Optional.of(newReader(context));
+    }
+
+    @Override
+    public Optional<AttributeWriterBase> getWriter(Context context) {
+      return Optional.of(newWriter());
+    }
+
+    LocalKafkaWriter newWriter() {
+      return new LocalKafkaWriter(this, numPartitions, descriptorId);
+    }
+
+    LocalKafkaLogReader newReader(Context context) {
+      return new LocalKafkaLogReader(this, context);
+    }
+
     // serialization
     // this is magic, don't waste your time to tackle it :-)
     private void writeObject(ObjectOutputStream oos) throws IOException {
@@ -448,6 +433,75 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       this.consumerGroups = original.consumerGroups;
       this.consumerOffsets = original.consumerOffsets;
       this.written = original.written;
+    }
+
+  }
+
+  @Slf4j
+  public static class LocalKafkaLogReader extends KafkaLogReader {
+
+    public LocalKafkaLogReader(KafkaAccessor accessor, Context context) {
+      super(accessor, context);
+    }
+
+    @Override
+    public Cancellable observePartitions(
+        Collection<Partition> partitions,
+        Position position,
+        boolean stopAtCurrent,
+        LogObserver observer) {
+
+      Cancellable ret = super.observePartitions(
+          null, partitions, position, stopAtCurrent, observer, null);
+      log.debug(
+          "Started to observe partitions {} of LocalKafkaCommitLog URI {}",
+          partitions, getURI());
+      return ret;
+    }
+
+    @Override
+    public Cancellable observe(String name, Position position, LogObserver observer) {
+      Cancellable ret = super.observe(name, position, observer);
+      log.debug(
+          "Started to observe LocalKafkaCommitLog with URI {} by consumer {}",
+          getURI(), name);
+      return ret;
+    }
+
+    public Accessor getAccessor() {
+      return (Accessor) accessor;
+    }
+
+  }
+
+  public static class LocalKafkaWriter extends KafkaWriter {
+
+    private final int numPartitions;
+    private final int descriptorId;
+
+    public LocalKafkaWriter(
+        LocalKafkaCommitLogDescriptor.Accessor accessor,
+        int numPartitions, int descriptorId) {
+
+      super(accessor);
+      this.numPartitions = numPartitions;
+      this.descriptorId = descriptorId;
+    }
+
+    @Override
+    public void write(StreamElement data, CommitCallback callback) {
+      int partitionId = accessor.getPartitioner().getPartitionId(
+          data.getKey(), data.getAttribute(), data.getValue());
+      int partition = (partitionId & Integer.MAX_VALUE) % numPartitions;
+      log.debug(
+          "Written data {} to LocalKafkaCommitLog descriptorId {} URI {}, partition {}",
+          data, descriptorId, getURI(), partition);
+      ((LocalKafkaCommitLogDescriptor.Accessor) accessor).written.get(partition).add(data);
+      callback.commit(true, null);
+    }
+
+    public Accessor getAccessor() {
+      return (Accessor) accessor;
     }
 
   }

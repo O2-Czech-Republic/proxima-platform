@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.hbase;
 
+import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.AttributeWriterBase;
@@ -66,20 +67,20 @@ public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
   }
 
   @Override
-  public Optional<AttributeWriterBase> getWriter() {
+  public Optional<AttributeWriterBase> getWriter(Context context) {
     return Optional.of(new HBaseWriter(getURI(), getConf(), cfg));
   }
 
   @Override
-  public Optional<RandomAccessReader> getRandomAccessReader() {
+  public Optional<RandomAccessReader> getRandomAccessReader(Context context) {
     return Optional.of(new RandomHBaseReader(
         getURI(), getConf(), cfg, getEntityDescriptor()));
   }
 
   @Override
-  public Optional<BatchLogObservable> getBatchLogObservable() {
+  public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
     return Optional.of(new HBaseLogObservable(
-        getURI(), getConf(), cfg, getEntityDescriptor()));
+        getURI(), getConf(), cfg, getEntityDescriptor(), context.getExecutorService()));
   }
 
   private Configuration getConf() {

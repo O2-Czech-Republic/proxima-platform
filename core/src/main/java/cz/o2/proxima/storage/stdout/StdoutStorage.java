@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.stdout;
 
+import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.storage.AttributeWriterBase;
@@ -45,7 +45,7 @@ public class StdoutStorage extends StorageDescriptor {
     return new DataAccessor() {
 
       @Override
-      public Optional<AttributeWriterBase> getWriter() {
+      public Optional<AttributeWriterBase> getWriter(Context context) {
         return Optional.of(new AbstractOnlineAttributeWriter(entityDesc, dummy) {
           @Override
           public void write(StreamElement data, CommitCallback callback) {

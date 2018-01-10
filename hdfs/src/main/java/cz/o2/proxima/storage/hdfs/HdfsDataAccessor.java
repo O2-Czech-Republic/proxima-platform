@@ -18,6 +18,7 @@ package cz.o2.proxima.storage.hdfs;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Maps;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractBulkAttributeWriter;
 import cz.o2.proxima.storage.AttributeWriterBase;
@@ -52,6 +53,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -90,6 +92,8 @@ public class HdfsDataAccessor
   private long minElementStamp = Long.MAX_VALUE;
   private long maxElementStamp = Long.MIN_VALUE;
   private long monothonicTime = 0L;
+
+  private Executor executor;
 
   public HdfsDataAccessor(EntityDescriptor entityDesc,
       URI uri, Map<String, Object> cfg) throws IOException {
@@ -311,7 +315,7 @@ public class HdfsDataAccessor
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    Thread thread = new Thread(() -> {
+    executor.execute(() -> {
       boolean run = true;
       try {
         for (Iterator<Partition> it = partitions.iterator(); run && it.hasNext();) {
@@ -339,12 +343,6 @@ public class HdfsDataAccessor
         observer.onError(err);
       }
     });
-    thread.setDaemon(true);
-    thread.setName(
-        "hdfs-observer-"
-            + getEntityDescriptor().getName()
-            + "-" + attributes + "-" + partitions);
-    thread.start();
   }
 
   private StreamElement toStreamElement(
@@ -385,12 +383,14 @@ public class HdfsDataAccessor
   }
 
   @Override
-  public Optional<AttributeWriterBase> getWriter() {
+  public Optional<AttributeWriterBase> getWriter(Context context) {
+    executor = context.getExecutorService();
     return Optional.of(this);
   }
 
   @Override
-  public Optional<BatchLogObservable> getBatchLogObservable() {
+  public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
+    executor = context.getExecutorService();
     return Optional.of(this);
   }
 

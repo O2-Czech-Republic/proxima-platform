@@ -13,28 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.storage.kafka;
-
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StorageDescriptor;
-import java.net.URI;
-import java.util.Arrays;
-import java.util.Map;
+package cz.o2.proxima.repository;
 
 /**
- * Storage using {@code KafkaProducer}.
+ * Various (mostly config related) constants.
  */
-public class KafkaStorage extends StorageDescriptor {
+public class Constants {
 
-  public KafkaStorage() {
-    super(Arrays.asList("kafka"));
-  }
+  public static final String EXECUTOR_POOL_SIZE_CFG = "proxima.executor.size";
+  public static final int EXECUTOR_POOL_SIZE_DEFAULT = 10 * Runtime.getRuntime().availableProcessors();
+  public static final String EXECUTOR_POOL_SIZE_CFG_DESC =
+      "Default size of ScheduledExecutorService used for executing tasks";
 
-  @Override
-  public KafkaAccessor getAccessor(EntityDescriptor entityDesc, URI uri,
-      Map<String, Object> cfg) {
-
-    return new KafkaAccessor(entityDesc, uri, cfg);
-  }
+  private Constants() { }
 
 }

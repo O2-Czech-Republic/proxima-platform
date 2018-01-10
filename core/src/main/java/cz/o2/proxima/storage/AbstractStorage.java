@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage;
 
 import cz.o2.proxima.repository.EntityDescriptor;
-import java.io.Serializable;
 import java.net.URI;
 import lombok.Getter;
 
@@ -25,7 +23,7 @@ import lombok.Getter;
  * A class that is super type of all data accessors.
  *
  */
-public class AbstractStorage implements Serializable {
+public class AbstractStorage {
 
   /** The entity this writer is created for. */
   @Getter

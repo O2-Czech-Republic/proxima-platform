@@ -30,14 +30,21 @@ public class ${java_classname} {
    * Create instance of {@code Model} for production usage.
    **/
   public static ${java_classname} of(Config cfg) {
-    return new ${java_classname}(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM)));
+    return new ${java_classname}(Repository.Builder.of(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+  }
+
+  /**
+   * Create instance of {@code Model} with specified {@code Repository.Builder}.
+   **/
+  public static ${java_classname} of(Repository.Builder builder) {
+    return new ${java_classname}(builder);
   }
 
   /**
    * Create instance of {@code Model} for testing purposes.
    **/
   public static ${java_classname} ofTest(Config cfg) {
-    return new ${java_classname}(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM)), true);
+    return new ${java_classname}(Repository.Builder.ofTest(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
 
 <#list entities as entity>
@@ -183,17 +190,9 @@ public class ${java_classname} {
 </#list>
 
 
-  private ${java_classname}(Config cfg) {
-    this(cfg, false);
-  }
-
-  private ${java_classname}(Config cfg, boolean isTest) {
-    this.cfg = Objects.requireNonNull(cfg);
-    if (!isTest) {
-      this.repo = Repository.of(cfg);
-    } else {
-      this.repo = Repository.Builder.ofTest(cfg).build();
-    }
+  private ${java_classname}(Repository.Builder builder) {
+    this.repo = Objects.requireNonNull(builder).build();
+    this.cfg = repo.getConfig();
 <#list entities as entity>
     ${entity.name} = new ${entity.classname}();
 </#list>

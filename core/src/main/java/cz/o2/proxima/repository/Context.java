@@ -17,7 +17,7 @@ package cz.o2.proxima.repository;
 
 import cz.seznam.euphoria.core.client.functional.VoidFunction;
 import java.io.Serializable;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ExecutorService;
 
 /**
  * Context created in local instance that can be distributed over wire.
@@ -27,7 +27,7 @@ public class Context implements Serializable {
   /**
    * Executor associated with all asynchronous operations.
    */
-  private final VoidFunction<ScheduledExecutorService> executorFactory;
+  private final VoidFunction<ExecutorService> executorFactory;
 
   /**
    * Initialization marker. After deserialization this will be `false`.
@@ -37,16 +37,16 @@ public class Context implements Serializable {
   /**
    * Materialized executor.
    */
-  private transient ScheduledExecutorService service;
+  private transient ExecutorService service;
 
-  protected Context(VoidFunction<ScheduledExecutorService> executorFactory) {
+  protected Context(VoidFunction<ExecutorService> executorFactory) {
     this.executorFactory = executorFactory;
   }
 
   /**
    * Get executor for asynchronous tasks.
    */
-  public ScheduledExecutorService getExecutorService() {
+  public ExecutorService getExecutorService() {
     initialize();
     return service;
   }

@@ -50,8 +50,8 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -82,7 +82,7 @@ public class Repository {
     }
 
     private final Config config;
-    private VoidFunction<ScheduledExecutorService> executorFactory;
+    private VoidFunction<ExecutorService> executorFactory;
     private boolean readOnly = false;
     private boolean validate = true;
     private boolean loadFamilies = true;
@@ -90,28 +90,17 @@ public class Repository {
 
     private Builder(Config config, boolean test) {
       this.config = Objects.requireNonNull(config);
-      this.executorFactory = () -> Executors.newScheduledThreadPool(
-          getInt(config, Constants.EXECUTOR_POOL_SIZE_CFG, Constants.EXECUTOR_POOL_SIZE_DEFAULT),
-          r -> {
-            Thread t = new Thread(r);
-            t.setName("ProximaRepositoryPool");
-            return t;
-          });
+      this.executorFactory = () -> Executors.newCachedThreadPool(r -> {
+          Thread t = new Thread(r);
+          t.setName("ProximaRepositoryPool");
+          return t;
+        });
 
       if (test) {
         this.readOnly = true;
         this.validate = false;
         this.loadFamilies = false;
         this.loadAccessors = false;
-      }
-    }
-
-    private static int getInt(Config config, String path, int defVal) {
-      try {
-        return config.getInt(Constants.EXECUTOR_POOL_SIZE_CFG);
-      } catch (Exception ex) {
-        log.warn("Failed to retrieve config path {}, defaulting to {}", path, defVal);
-        return defVal;
       }
     }
 
@@ -132,6 +121,12 @@ public class Repository {
 
     public Builder withLoadAccessors(boolean flag) {
       this.loadAccessors = flag;
+      return this;
+    }
+
+    public Builder withExecutorFactory(
+        VoidFunction<ExecutorService> executorFactory) {
+      this.executorFactory = executorFactory;
       return this;
     }
 
@@ -232,7 +227,7 @@ public class Repository {
   /**
    * Executor to be used for any asynchronous operations.
    */
-  private final VoidFunction<ScheduledExecutorService> executorFactory;
+  private final VoidFunction<ExecutorService> executorFactory;
 
   /**
    * Context passed to serializable data accessors.
@@ -257,7 +252,7 @@ public class Repository {
       boolean shouldValidate,
       boolean loadFamilies,
       boolean loadAccessors,
-      VoidFunction<ScheduledExecutorService> executorFactory) {
+      VoidFunction<ExecutorService> executorFactory) {
 
     this.config = cfg;
     this.executorFactory = executorFactory;

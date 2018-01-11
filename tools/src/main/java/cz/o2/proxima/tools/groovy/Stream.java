@@ -21,7 +21,6 @@ import cz.o2.proxima.tools.io.AttributeSink;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
 import cz.seznam.euphoria.core.client.dataset.windowing.Session;
-import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import cz.seznam.euphoria.core.client.io.Collector;
 import cz.seznam.euphoria.core.client.io.DataSink;
@@ -175,27 +174,33 @@ public class Stream<T> {
   }
 
 
-  public WindowedStream<T> timeWindow(long millis) {
+  public TimeWindowedStream<T> timeWindow(long millis) {
     return new TimeWindowedStream<>(
         executor, dataset, millis, terminatingOperationCall);
   }
 
-  public WindowedStream<T> timeSlidingWindow(long millis, long slide) {
+  public TimeWindowedStream<T> timeSlidingWindow(long millis, long slide) {
     return new TimeWindowedStream<>(
         executor, dataset, millis, slide, terminatingOperationCall);
   }
 
   @SuppressWarnings("unchecked")
-  public WindowedStream<T> sessionWindow(long gapDuration) {
+  public WindowedStream<T, Session> sessionWindow(long gapDuration) {
     return new WindowedStream<>(
-        executor, dataset, (Windowing) Session.of(Duration.ofMillis(gapDuration)),
-        terminatingOperationCall);
+        executor, dataset,
+        Session.of(Duration.ofMillis(gapDuration)),
+        terminatingOperationCall,
+        (w, d) -> w.earlyTriggering(d));
   }
 
   @SuppressWarnings("unchecked")
-  public WindowedStream<T> windowAll() {
+  public WindowedStream<T, GlobalWindowing> windowAll() {
     return new WindowedStream<>(
-        executor, dataset, (Windowing) GlobalWindowing.get(), terminatingOperationCall);
+        executor, dataset, GlobalWindowing.get(),
+        terminatingOperationCall,
+        (w, d) -> {
+          throw new UnsupportedOperationException("Euphoria issue #246");
+        });
   }
 
   <X> Stream<X> descendant(DatasetBuilder<X> dataset) {

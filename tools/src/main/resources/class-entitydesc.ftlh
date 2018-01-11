@@ -8,6 +8,7 @@ import cz.o2.proxima.tools.groovy.Console
 import cz.o2.proxima.tools.groovy.Stream
 import cz.o2.proxima.tools.groovy.WindowedStream
 import cz.o2.proxima.tools.io.ConsoleRandomReader
+import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing
 
 class Environment {
 
@@ -62,30 +63,30 @@ class Environment {
                 Position.NEWEST,
                 false);
           }
-          def WindowedStream<${attribute.type}> streamFromOldest() {
+          def WindowedStream<${attribute.type}, GlobalWindowing> streamFromOldest() {
             return console.getStream(
                 ${entity.classname}Descriptor.this.desc, desc,
                 Position.OLDEST,
                 true,
                 true).windowAll();
           }
-          def WindowedStream<${attribute.type}> batchSnapshot() {
+          def WindowedStream<${attribute.type}, GlobalWindowing> batchSnapshot() {
             return console.getBatchSnapshot(
                 ${entity.classname}Descriptor.this.desc, desc);
           }
-          def WindowedStream<${attribute.type}> batchSnapshot(long start, long end) {
+          def WindowedStream<${attribute.type}, GlobalWindowing> batchSnapshot(long start, long end) {
             return console.getBatchSnapshot(
                 ${entity.classname}Descriptor.this.desc, desc, start, end);
           }
-          def WindowedStream<${attribute.type}> batchUpdates() {
+          def WindowedStream<${attribute.type}, GlobalWindowing> batchUpdates() {
             return console.getBatchUpdates(
                 ${entity.classname}Descriptor.this.desc, desc, Long.MIN_VALUE, Long.MAX_VALUE);
           }
-          def WindowedStream<${attribute.type}> batchUpdates(long startStamp) {
+          def WindowedStream<${attribute.type}, GlobalWindowing> batchUpdates(long startStamp) {
             return console.getBatchUpdates(
                 ${entity.classname}Descriptor.this.desc, desc, startStamp, Long.MAX_VALUE);
           }
-          def WindowedStream<${attribute.type}> batchUpdates(long startStamp, long endStamp) {
+          def WindowedStream<${attribute.type}, GlobalWindowing> batchUpdates(long startStamp, long endStamp) {
             return console.getBatchUpdates(
                 ${entity.classname}Descriptor.this.desc, desc, startStamp, endStamp);
           }

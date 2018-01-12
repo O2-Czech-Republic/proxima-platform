@@ -20,9 +20,9 @@ import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
-import cz.seznam.euphoria.core.client.io.DataSource;
-import cz.seznam.euphoria.core.client.io.Partition;
-import cz.seznam.euphoria.core.client.io.Reader;
+import cz.seznam.euphoria.core.client.io.BoundedDataSource;
+import cz.seznam.euphoria.core.client.io.BoundedReader;
+import cz.seznam.euphoria.core.client.io.UnsplittableBoundedSource;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
  * Source reading from {@code BatchLogObservable}.
  */
 @Slf4j
-public class BatchSource<T> implements DataSource<TypedIngest<T>> {
+public class BatchSource<T> implements BoundedDataSource<TypedIngest<T>> {
 
   public static <T> BatchSource<T> of(
       BatchLogObservable observable,
@@ -108,23 +108,34 @@ public class BatchSource<T> implements DataSource<TypedIngest<T>> {
   }
 
   @Override
+  public Set<String> getLocations() {
+    return Collections.singleton("unknown");
+  }
+
+  @Override
+  public BoundedReader<TypedIngest<T>> openReader() throws IOException {
+    throw new UnsupportedOperationException("Not supported. Call `split` first.");
+  }
+
+
+  @Override
   @SuppressWarnings("unchecked")
-  public List<Partition<TypedIngest<T>>> getPartitions() {
+  public List<BoundedDataSource<TypedIngest<T>>> split(long desiredSplitBytes) {
     return observable.getPartitions(startStamp, endStamp)
         .stream()
         .map(p -> {
 
-          return new Partition<TypedIngest<T>>() {
+          return new UnsplittableBoundedSource<TypedIngest<T>>() {
             @Override
             public Set<String> getLocations() {
               return Collections.singleton("unknown");
             }
 
             @Override
-            public Reader<TypedIngest<T>> openReader() throws IOException {
+            public BoundedReader<TypedIngest<T>> openReader() throws IOException {
               Observer observer = new Observer();
               observable.observe(Arrays.asList(p), attributes, observer);
-              return new Reader<TypedIngest<T>>() {
+              return new BoundedReader<TypedIngest<T>>() {
                 TypedIngest<T> current = null;
                 @Override
                 public void close() throws IOException {
@@ -150,14 +161,10 @@ public class BatchSource<T> implements DataSource<TypedIngest<T>> {
                 }
               };
             }
+
           };
         })
         .collect(Collectors.toList());
-  }
-
-  @Override
-  public boolean isBounded() {
-    return true;
   }
 
 }

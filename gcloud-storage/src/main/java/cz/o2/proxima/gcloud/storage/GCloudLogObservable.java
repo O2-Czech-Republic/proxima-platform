@@ -23,7 +23,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
-import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
+import cz.seznam.euphoria.shadow.com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 

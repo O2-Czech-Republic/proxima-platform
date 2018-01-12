@@ -27,7 +27,7 @@ import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.kafka.partitioner.KeyPartitioner;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.view.PartitionedView;
-import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
+import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.TopicPartition;

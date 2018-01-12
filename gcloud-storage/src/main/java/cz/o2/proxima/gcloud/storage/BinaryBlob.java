@@ -21,7 +21,7 @@ import cz.o2.proxima.gcloud.storage.proto.Serialization;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
-import cz.seznam.euphoria.shaded.guava.com.google.common.collect.AbstractIterator;
+import cz.seznam.euphoria.shadow.com.google.common.collect.AbstractIterator;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 

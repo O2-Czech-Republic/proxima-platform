@@ -133,6 +133,20 @@
     </dependency>
 
     <dependency>
+      <groupId>cz.seznam.euphoria</groupId>
+      <artifactId>euphoria-local</artifactId>
+      <version>${euphoria.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>1.7.25</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
     </dependency>
@@ -150,7 +164,7 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>21.0</version>
+      <version>23.0</version>
       <scope>provided</scope>
     </dependency>
 

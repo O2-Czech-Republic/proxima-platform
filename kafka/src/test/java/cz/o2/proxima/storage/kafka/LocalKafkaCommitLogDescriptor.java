@@ -22,12 +22,16 @@ import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StorageDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
-import cz.seznam.euphoria.shaded.guava.com.google.common.base.Preconditions;
+import cz.seznam.euphoria.core.client.dataset.Dataset;
+import cz.seznam.euphoria.core.client.flow.Flow;
+import cz.seznam.euphoria.shadow.com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -53,6 +57,8 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import org.apache.kafka.common.PartitionInfo;
 
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
@@ -240,6 +246,12 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
             .map(p -> new TopicPartition(getTopic(), p.getId()))
             .collect(Collectors.toSet());
       }).when(mock).assignment();
+
+      when(mock.partitionsFor(eq(group.getTopic())))
+          .thenReturn(
+              IntStream.range(0, group.getNumPartitions())
+                  .mapToObj(i -> new PartitionInfo(group.getTopic(), i, null, null, null))
+                  .collect(Collectors.toList()));
 
       return mock;
     }
@@ -464,6 +476,54 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       Cancellable ret = super.observe(name, position, observer);
       log.debug(
           "Started to observe LocalKafkaCommitLog with URI {} by consumer {}",
+          getURI(), name);
+      return ret;
+    }
+
+    @Override
+    protected Cancellable observePartitions(
+        String name, Collection<Partition> partitions,
+        Position position, boolean stopAtCurrent,
+        LogObserver observer, ConsumerRebalanceListener listener) {
+
+      Cancellable ret = super.observePartitions(
+          name, partitions, position, stopAtCurrent, observer, listener);
+      log.debug(
+          "Started to observe partitions {} of LocalKafkaCommitLog with URI {} by consumer {}",
+          partitions, getURI(), name);
+      return ret;
+    }
+
+    @Override
+    public <T> Dataset<T> observe(
+        Flow flow, String name, PartitionedLogObserver<T> observer) {
+
+      Dataset<T> ret = super.observe(flow, name, observer);
+      log.debug(
+          "Started to observe view of LocalKafkaCommitLog with URI {} by consumer name {}",
+          getURI(), name);
+      return ret;
+    }
+
+    @Override
+    public <T> Dataset<T> observePartitions(
+        Flow flow, Collection<Partition> partitions,
+        PartitionedLogObserver<T> observer) {
+
+      Dataset<T> ret = super.observePartitions(flow, partitions, observer);
+      log.debug(
+          "Started to observe partitions {} of view of LocalKafkaCommitLog with URI {}",
+          partitions.stream().map(Partition::getId).collect(Collectors.toList()),
+          getURI());
+      return ret;
+    }
+
+    @Override
+    public Cancellable observeBulk(
+        String name, Position position, BulkLogObserver observer) {
+
+      Cancellable ret = super.observeBulk(name, position, observer);
+      log.debug("Started to bulk observe LocalKafkaCommitLog with URI {} by {}",
           getURI(), name);
       return ret;
     }

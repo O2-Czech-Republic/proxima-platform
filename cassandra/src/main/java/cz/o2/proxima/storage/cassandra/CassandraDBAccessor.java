@@ -28,8 +28,8 @@ import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Classpath;
-import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
-import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
+import cz.seznam.euphoria.shadow.com.google.common.annotations.VisibleForTesting;
+import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.InetSocketAddress;

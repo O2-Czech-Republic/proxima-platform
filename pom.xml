@@ -47,7 +47,7 @@
     <kafka.version>0.11.0.1</kafka.version>
     <proto.version>3.5.0</proto.version>
     <grpc.version>1.7.0</grpc.version>
-    <euphoria.version>0.7.0</euphoria.version>
+    <euphoria.version>0.8.0-rc1</euphoria.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -75,6 +75,44 @@
                   </rules>
                   <fail>true</fail>
                 </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.sonatype.plugins</groupId>
+            <artifactId>nexus-staging-maven-plugin</artifactId>
+            <version>1.6.7</version>
+            <extensions>true</extensions>
+            <configuration>
+              <serverId>ossrh</serverId>
+              <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+              <autoReleaseAfterClose>false</autoReleaseAfterClose>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>3.0.1</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals>
+                  <goal>jar-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>1.5</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>install</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
               </execution>
             </executions>
           </plugin>
@@ -109,7 +147,7 @@
           <parallel>classes</parallel>
           <useSystemClassLoader>true</useSystemClassLoader>
           <useManifestOnlyJar>false</useManifestOnlyJar>
-          <argLine>-Xmx500m -XX:OnOutOfMemoryError="../kill.sh %p" -XX:+HeapDumpOnOutOfMemoryError</argLine>
+          <argLine>-Xmx500m -XX:+HeapDumpOnOutOfMemoryError -Dsun.io.serialization.extendedDebugInfo=true</argLine>
         </configuration>
       </plugin>
 
@@ -127,7 +165,7 @@
         </configuration>
         <executions>
           <execution>
-            <phase>compile</phase>
+            <phase>verify</phase>
             <goals>
               <goal>check</goal>
             </goals>

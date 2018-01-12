@@ -17,7 +17,7 @@ package cz.o2.proxima.metrics;
 
 import com.tdunning.math.stats.TDigest;
 import cz.o2.proxima.util.Pair;
-import cz.seznam.euphoria.shaded.guava.com.google.common.base.Preconditions;
+import cz.seznam.euphoria.shadow.com.google.common.base.Preconditions;
 import java.util.Arrays;
 
 /**

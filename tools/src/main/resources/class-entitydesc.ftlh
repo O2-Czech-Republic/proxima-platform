@@ -98,10 +98,10 @@ class Environment {
               return ${entity.classname}Descriptor.this.reader.list(key, name)
             }
             def List<cz.o2.proxima.storage.randomaccess.KeyValue<${attribute.type}>> list(String key, String start, int limit) {
-              return ${entity.classname}Descriptor.this.reader.list(key, name, name + "." + start, limit)
+              return ${entity.classname}Descriptor.this.reader.list(key, name, start, limit)
             }
             def List<cz.o2.proxima.storage.randomaccess.KeyValue<${attribute.type}>> list(String key, String start) {
-              return ${entity.classname}Descriptor.this.reader.list(key, name, name + "." + start)
+              return ${entity.classname}Descriptor.this.reader.list(key, name, start)
             }
             def void put(String key, String attribute, String textFormat) {
               console.put(${entity.classname}Descriptor.this.desc, desc, key, name + "." + attribute, textFormat)

@@ -1,6 +1,6 @@
 <!--
 
-    Copyright 2017 O2 Czech Republic, a.s.
+    Copyright 2017-2018 O2 Czech Republic, a.s.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -88,12 +88,12 @@
       <groupId>com.datastax.cassandra</groupId>
       <artifactId>cassandra-driver-core</artifactId>
       <version>3.3.2</version>
-      <exclusions>
-        <exclusion>
-          <groupId>io.netty</groupId>
-          <artifactId>netty-handler</artifactId>
-        </exclusion>
-      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-handler</artifactId>
+      <version>4.1.16.Final</version>
     </dependency>
 
     <dependency>

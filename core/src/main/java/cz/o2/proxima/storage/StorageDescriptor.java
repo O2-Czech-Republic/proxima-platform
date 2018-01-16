@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage;
 
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -42,6 +41,7 @@ public abstract class StorageDescriptor implements Serializable {
    * @param uri the URI to write to
    * @param cfg additional key-value configuration parameters that might have
    * been passed to the writer
+   * @return {@link DataAccessor} for this storage by URI
    */
   public DataAccessor getAccessor(
       EntityDescriptor entityDesc,

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.repository;
 
 import cz.o2.proxima.storage.OnlineAttributeWriter;
@@ -73,24 +72,40 @@ public interface AttributeDescriptor<T> extends Serializable {
     return new AttributeProxyDescriptorImpl<>(name, target, transform);
   }
 
-  /** Retrieve name of the attribute. */
+  /**
+   * Retrieve name of the attribute.
+   * @return name of the attribute
+   */
   String getName();
 
-  /** Is this wildcard attribute? */
+  /**
+   * Check if this is a wildcard attribute.
+   * @return {@code true} when this is wildcard attribute
+   */
   boolean isWildcard();
 
-  /** Retrieve URI of the scheme of this attribute. */
+  /**
+   * Retrieve URI of the scheme of this attribute.
+   * @return scheme URI of this attribute
+   */
   URI getSchemeURI();
 
-  /** Retrieve name of the associated entity. */
+  /**
+   * Retrieve name of the associated entity.
+   * @return name of the associated entity
+   */
   String getEntity();
 
-  /** Retrieve writer for the data. */
+  /**
+   * Retrieve writer for the data.
+   * @return {@link OnlineAttributeWriter} of this attribute
+   */
   OnlineAttributeWriter getWriter();
 
   /**
    * Retrieve name of the attribute if not wildcard, otherwise
    * retrieve the prefix without the last asterisk.
+   * @return attribute prefix of this attribute
    */
   default String toAttributePrefix() {
     return toAttributePrefix(true);
@@ -99,12 +114,15 @@ public interface AttributeDescriptor<T> extends Serializable {
   /**
    * Retrieve name of the attribute if not wildcard, otherwise
    * retrieve the prefix without the last asterisk.
+   * @param includeLastDot {@code true} to include dot suffix of the prefix
+   * @return attribute prefix with or without dot
    */
   String toAttributePrefix(boolean includeLastDot);
 
 
   /**
    * Retrieve serializer for value type.
+   * @return {@link ValueSerializer} of this attribute's value
    */
   ValueSerializer<T> getValueSerializer();
 

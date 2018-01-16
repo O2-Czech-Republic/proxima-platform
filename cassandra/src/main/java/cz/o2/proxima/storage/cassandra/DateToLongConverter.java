@@ -20,7 +20,7 @@ import java.util.Date;
 import javax.annotation.Nullable;
 
 /**
- * Represent a {@line java.util.Date} with {@code String} representation
+ * Represent a {@link java.util.Date} with {@code String} representation
  * of epoch millis.
  */
 public class DateToLongConverter implements StringConverter<Date> {

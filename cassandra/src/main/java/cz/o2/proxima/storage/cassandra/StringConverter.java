@@ -55,22 +55,28 @@ public interface StringConverter<T> extends Serializable {
 
   /**
    * Convert type to string.
+   * @param what input type
+   * @return string representation of what
    */
   String asString(T what);
 
 
   /**
    * Convert type from string.
+   * @param what string representation
+   * @return the original object
    */
   T fromString(String what);
 
   /**
    * Retrieve maximal element.
+   * @return instance of maximal object
    */
   T max();
 
   /**
-   * Retrieve minimal element.
+   * Retrieve minimal element
+   * @return instance of minimal object
    */
   T min();
 

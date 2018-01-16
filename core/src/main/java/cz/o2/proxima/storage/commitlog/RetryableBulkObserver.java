@@ -64,7 +64,9 @@ public abstract class RetryableBulkObserver extends AbstractRetryableLogObserver
 
   /**
    * Called to observe the ingest data.
-   * @returns true to continue processing, false otherwise
+   * @param ingest the input data
+   * @param confirm the callback to use to confirm processing
+   * @return {@code true} to continue processing, {@code false} otherwise
    */
   protected boolean onNextInternal(
       StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
@@ -76,7 +78,10 @@ public abstract class RetryableBulkObserver extends AbstractRetryableLogObserver
 
   /**
    * Called to observe the ingest data.
-   * @returns true to continue processing, false otherwise
+   * @param ingest input data
+   * @param partition source partition
+   * @param confirm callback to use to confirm processing
+   * @return {@code true} to continue processing, {@code false} otherwise
    */
   protected boolean onNextInternal(
       StreamElement ingest, Partition partition,

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.metrics;
 
 /**
@@ -21,25 +20,25 @@ package cz.o2.proxima.metrics;
  */
 public interface StatsMBean {
 
-  /** 1st percentile. */
+  /** @return 1st percentile. */
   double get1();
 
-  /** 10th percentile. */
+  /** @return 10th percentile. */
   double get10();
 
-  /** 30th percentile. */
+  /** @return 30th percentile. */
   double get30();
 
-  /** 50th percentile. */
+  /** @return 50th percentile. */
   double get50();
 
-  /** 70th percentile. */
+  /** @return 70th percentile. */
   double get70();
 
-  /** 90th percentile. */
+  /** @return 90th percentile. */
   double get90();
 
-  /** 99th percentile. */
+  /** @return 99th percentile. */
   double get99();
 
 }

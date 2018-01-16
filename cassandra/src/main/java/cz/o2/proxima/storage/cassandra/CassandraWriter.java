@@ -19,6 +19,7 @@ import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Session;
 import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.storage.CommitCallback;
+import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
  * A {@link OnlineAttributeWriter} implementation for Cassandra.
  */
 @Slf4j
-class CassandraWriter extends AbstractOnlineAttributeWriter {
+class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAttributeWriter {
 
   private final CassandraDBAccessor accessor;
 

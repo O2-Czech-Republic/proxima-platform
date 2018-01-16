@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.batch;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -27,6 +26,7 @@ public interface BatchLogObservable {
 
   /**
    * Retrieve list of partitions of this batch observer.
+   * @return list of partitions of this observable
    */
   default List<Partition> getPartitions() {
     return getPartitions(Long.MIN_VALUE);
@@ -34,6 +34,8 @@ public interface BatchLogObservable {
 
   /**
    * Retrieve list of partitions covering data at least from given starting stamp.
+   * @param startStamp timestamp to start reading from
+   * @return list of partitions covering the time range
    */
   default List<Partition> getPartitions(long startStamp) {
     return getPartitions(startStamp, Long.MAX_VALUE);
@@ -41,11 +43,17 @@ public interface BatchLogObservable {
 
   /**
    * Retrieve list of partitions covering data from the given range.
+   * @param startStamp starting timestamp (inclusive)
+   * @param endStamp ending timestamp (exclusive)
+   * @return list of partitions covering the time range
    */
   List<Partition> getPartitions(long startStamp, long endStamp);
 
   /**
    * Observe data stored in given partitions.
+   * @param partitions partitions to observe
+   * @param attributes attribute descriptors to filter out
+   * @param observer the observer by which to consume the data
    */
   void observe(
       List<Partition> partitions,

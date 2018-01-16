@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.cassandra;
 
 import com.datastax.driver.core.BoundStatement;
@@ -32,7 +31,11 @@ import javax.annotation.Nullable;
  */
 public interface CQLFactory extends Serializable {
 
-  /** Setup the factory from URI and given string converter. */
+  /**
+   * Setup the factory from URI and given string converter.
+   * @param uri URI of the source
+   * @param converter payload to string converter
+   */
   public void setup(
       URI uri,
       StringConverter<?> converter);
@@ -40,7 +43,9 @@ public interface CQLFactory extends Serializable {
 
   /**
    * Retrieve a CQL query to execute in order to ingest the request.
-   * @returns the statement to execute. When empty, the ingest is silently discarded.
+   * @param element input data
+   * @param session current session
+   * @return the statement to execute. When empty, the ingest is silently discarded.
    */
   Optional<BoundStatement> getWriteStatement(
       StreamElement element,
@@ -53,6 +58,7 @@ public interface CQLFactory extends Serializable {
    * @param attribute the attribute to fetch
    * @param desc descriptor of the attribute
    * @param session the connection session
+   * @return the statement to execute
    */
   BoundStatement getReadStatement(
       String key,
@@ -71,6 +77,7 @@ public interface CQLFactory extends Serializable {
    *                 this might be null (start from beginning)
    * @param limit maximal number of elements to list (-1 for all)
    * @param session the connection session
+   * @return the statement to execute
    */
   BoundStatement getListStatement(
       String key,
@@ -82,6 +89,10 @@ public interface CQLFactory extends Serializable {
 
   /**
    * Get statement for listing entities.
+   * @param offset offset of the query
+   * @param limit maximal number of elements to list (-1 for all)
+   * @param session connection session
+   * @return the statement to execute
    */
   BoundStatement getListEntitiesStatement(
       @Nullable Offsets.Token offset,
@@ -91,6 +102,9 @@ public interface CQLFactory extends Serializable {
 
   /**
    * Retrieve a bound statement to fetch a token for given entity.
+   * @param key key to fetch token for
+   * @param session connection session
+   * @return the statement to execute
    */
   BoundStatement getFetchTokenStatement(
       String key,
@@ -100,6 +114,10 @@ public interface CQLFactory extends Serializable {
   /**
    * Retrieve a bound statement to scan data for given attribute
    * and partition.
+   * @param attributes list of attributes to scan
+   * @param partition the partition to scan
+   * @param session connection session
+   * @return the statement to execute
    */
   Statement scanPartition(
       List<AttributeDescriptor<?>> attributes,

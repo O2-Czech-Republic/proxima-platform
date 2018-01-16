@@ -30,6 +30,8 @@ public interface DataAccessor extends Serializable {
 
   /**
    * Retrieve writer (if applicable).
+   * @param context the serializable context provided by repository
+   * @return optional {@link AttributeWriterBase} of this accessor
    */
   default Optional<AttributeWriterBase> getWriter(Context context) {
     return Optional.empty();
@@ -37,6 +39,8 @@ public interface DataAccessor extends Serializable {
 
   /**
    * Retrieve commit log reader (if applicable).
+   * @param context serializable context provided by repository
+   * @return optional @{link CommitLogReader} of this accessor
    */
   default Optional<CommitLogReader> getCommitLogReader(Context context) {
     return Optional.empty();
@@ -44,6 +48,8 @@ public interface DataAccessor extends Serializable {
 
   /**
    * Retrieve random access reader.
+   * @param context serializable context provided by repository
+   * @return optional {@link RandomAccessReader} of this accessor
    */
   default Optional<RandomAccessReader> getRandomAccessReader(Context context) {
     return Optional.empty();
@@ -51,6 +57,8 @@ public interface DataAccessor extends Serializable {
 
   /**
    * Retrieve batch log observable.
+   * @param context serializable context provided by repository
+   * @return optional {@link BatchLogObservable} of this accessor
    */
   default Optional<BatchLogObservable> getBatchLogObservable(Context context) {
     return Optional.empty();
@@ -58,6 +66,8 @@ public interface DataAccessor extends Serializable {
 
   /**
    * Retrieve partitioned view of the data.
+   * @param context serializable context provided by repository
+   * @return optional {@link PartitionedView} of this accessor
    */
   default Optional<PartitionedView> getPartitionedView(Context context) {
     return Optional.empty();

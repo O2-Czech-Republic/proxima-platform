@@ -157,9 +157,8 @@ public abstract class CacheableCQLFactory implements CQLFactory {
 
   /**
    * Retrieve cached prepared statement for getting data from cassandra
-   * for given key and attribute.
+   * for given attribute.
    * @param session the connection session
-   * @param key key of the entity
    * @param attribute the attribute to fetch
    * @param desc descriptor of the attribute
    * @return the statement to use in order to read the data
@@ -201,25 +200,34 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   /**
    * Create statement to be prepared for given ingest.
    * This will be then stored in cache after call to {@code prepare}.
+   * @param element the input element to create statement for
+   * @return string representation of the CQL
    */
   protected abstract String createInsertStatement(StreamElement element);
 
 
   /**
    * Create statement to be prepared for given ingest when deleting attribute.
+   * @param element the input element to create statement for
+   * @return string representation of the CQL
    */
   protected abstract String createDeleteStatement(StreamElement element);
 
 
   /**
    * Create statement to delete wildcard attribute.
+   * @param element the input element to create statement for
+   * @return string representation of the CQL
    */
-  protected abstract String createDeleteWildcardStatement(StreamElement what);
+  protected abstract String createDeleteWildcardStatement(StreamElement element);
 
 
   /**
    * Create get statement for key-attribute pair.
    * The statement must return only single field with value.
+   * @param attribute the input attribute to create get for
+   * @param desc the descriptor of the attribute
+   * @return string representation of the CQL
    */
   protected abstract String createGetStatement(
       String attribute,
@@ -229,6 +237,8 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   /**
    * Create list statement for key-wildcardAttribute pair.
    * The statement must return two fields - attribute, value.
+   * @param desc the descriptor of the attribute
+   * @return string representation of the CQL
    */
   protected abstract String createListStatement(AttributeDescriptor desc);
 
@@ -236,6 +246,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   /**
    * Create list statement for entity keys.
    * The statement must return single field - the entity key.
+   * @return string representation of the CQL
    */
   protected abstract String createListEntititiesStatement();
 
@@ -243,6 +254,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   /**
    * Create statement to fetch token for primary key.
    * The statement must return only the token as single field in single row.
+   * @return string representation of the CQL
    */
   protected abstract String createFetchTokenStatement();
 
@@ -278,6 +290,8 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   /**
    * Use configured payload column to read value bytes from cassandra table,
    * or use attribute name as column name.
+   * @param attr descriptor of attribute
+   * @return string name of the payload column
    **/
   String toPayloadCol(AttributeDescriptor<?> attr) {
     if (payloadCol != null) {
@@ -290,7 +304,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   /**
    * Setup the factory from URI parameters passed in.
    * @param query the parsed URI query parameters
-   * @param cfg the parsed parameters from configuration
+   * @param converter converter of payload to string
    */
   protected void setup(
       Map<String, String> query,

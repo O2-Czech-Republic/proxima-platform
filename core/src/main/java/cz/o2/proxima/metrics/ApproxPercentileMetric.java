@@ -33,7 +33,7 @@ public class ApproxPercentileMetric
    * @param name metric name
    * @param duration total duration of the statistic in ms
    * @param window windowNs size in ms
-   * @return
+   * @return the metric
    */
   public static ApproxPercentileMetric of(
       String group, String name, long duration, long window) {

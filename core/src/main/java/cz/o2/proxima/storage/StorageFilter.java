@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage;
 
 /**
@@ -23,8 +22,11 @@ package cz.o2.proxima.storage;
 @FunctionalInterface
 public interface StorageFilter {
 
-  /** When returns {@code false} the input element is not stored in the
+  /**
+   * When returns {@code false} the input element is not stored in the
    * storage and is throws away.
+   * @param ingest the input data
+   * @return {@code false} to throw the element away
    */
   boolean apply(StreamElement ingest);
 

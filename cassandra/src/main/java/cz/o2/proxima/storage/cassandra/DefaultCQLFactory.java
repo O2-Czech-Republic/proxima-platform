@@ -34,9 +34,9 @@ import java.util.Optional;
  * A {@code CQLFactory} used by default. The default behavior is to
  * take name of the attribute and change it from camelCase to underscore_case.
  * The cassandra URI looks like this:
- * <pre>
+ * <pre>{@code
  *  cassandra://<authority>/<table>/?primary=<primaryField>&secondary=<secondaryKeyField>&data=<dataField>&reversed=true*
- * </pre>
+ * }</pre>
  * where:
  *  * primaryField is the column where primary key (or first part of composite key) is stored
  *  * secondaryField is the second part of composite key (optional)

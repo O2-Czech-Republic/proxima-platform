@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.commitlog;
 
 import cz.o2.proxima.storage.Partition;
@@ -52,7 +51,7 @@ public interface LogObserver extends LogObserverBase {
 
     /**
      * Confirm failure of processing.
-     * @param error
+     * @param error error caught during processing
      */
     default void fail(Throwable error) {
       confirm(false, error);
@@ -65,7 +64,7 @@ public interface LogObserver extends LogObserverBase {
    * @param ingest the ingested data written to the commit log
    * @param confirm a callback that the application must use to confirm processing
    * of the ingest. If the application fails to do so, the result is undefined
-   * @returns {@code true} if the processing should continue, {@code false} otherwise
+   * @return {@code true} if the processing should continue, {@code false} otherwise
    **/
   default boolean onNext(StreamElement ingest, ConfirmCallback confirm) {
     throw new UnsupportedOperationException(
@@ -75,10 +74,10 @@ public interface LogObserver extends LogObserverBase {
   /**
    * Process next record in the commit log.
    * @param ingest the ingested data written to the commit log
-    * @param partition identifier of source partition
+   * @param partition identifier of source partition
    * @param confirm a callback that the application must use to confirm processing
    * of the ingest. If the application fails to do so, the result is undefined
-   * @returns {@code true} if the processing should continue, {@code false} otherwise
+   * @return {@code true} if the processing should continue, {@code false} otherwise
    */
   default boolean onNext(
       StreamElement ingest,

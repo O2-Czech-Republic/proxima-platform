@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage;
 
 /**
@@ -44,7 +43,11 @@ public interface OnlineAttributeWriter extends AttributeWriterBase {
     // each element is committed online, so there is no need for rollback
   }
 
-  /** Write given serialized attribute value to given entity. */
+  /**
+   * Write given serialized attribute value to given entity.
+   * @param data the data to write
+   * @param statusCallback callback used to commit data processing
+   */
   void write(StreamElement data, CommitCallback statusCallback);
 
 }

@@ -21,7 +21,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 
 /**
- * A factory for connections based on input element.
+ * A factory for connections based on input elements.
  */
 @FunctionalInterface
 public interface ConnFactory {

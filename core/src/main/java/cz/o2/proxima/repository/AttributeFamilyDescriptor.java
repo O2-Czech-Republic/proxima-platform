@@ -181,7 +181,8 @@ public class AttributeFamilyDescriptor implements Serializable {
 
   /**
    * Retrieve writer for this family.
-   * Empty if this family is not writable
+   * Empty if this family is not writable.
+   * @return optional {@link AttributeWriterBase} of this family
    */
   public Optional<AttributeWriterBase> getWriter() {
     if (!access.isReadonly()) {
@@ -194,6 +195,7 @@ public class AttributeFamilyDescriptor implements Serializable {
   /**
    * Retrieve a commit log reader of this family.
    * Empty if this attribute family is not a commit log.
+   * @return optional {@link CommitLogReader} of this family
    */
   public Optional<CommitLogReader> getCommitLogReader() {
     if (access.canReadCommitLog()) {
@@ -205,6 +207,7 @@ public class AttributeFamilyDescriptor implements Serializable {
 
   /**
    * Retrieve batch reader of this family.
+   * @return optional {@link BatchLogObservable} of this family
    */
   public Optional<BatchLogObservable> getBatchObservable() {
     if (access.canReadBatchSnapshot() || access.canReadBatchUpdates()) {
@@ -218,6 +221,7 @@ public class AttributeFamilyDescriptor implements Serializable {
   /**
    * Retrieve a random access reader.
    * Empty if this attribute family is not a random access.
+   * @return optional {@link RandomAccessReader} of this family
    */
   public Optional<RandomAccessReader> getRandomAccessReader() {
     if (access.canRandomRead()) {
@@ -230,6 +234,7 @@ public class AttributeFamilyDescriptor implements Serializable {
   /**
    * Retrieve a partitioned view.
    * Empty if the attribute family cannot create partitioned view.
+   * @return optional {@link PartitionedView} of this family
    */
   public Optional<PartitionedView> getPartitionedView() {
     if (access.canCreatePartitionedView()) {

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage;
 
 import java.io.Serializable;
@@ -26,11 +25,15 @@ import java.io.Serializable;
 @FunctionalInterface
 public interface Partition extends Serializable {
 
-  /** Retrieve id of the partition. */
+  /**
+   * Retrieve id of the partition.
+   * @return if od the partition
+   */
   int getId();
 
   /**
-   * Is this bounded or unbounded partition.
+   * Check if this is bounded or unbounded partition.
+   * @return {@code true} if this is bounded partition
    */
   default boolean isBounded() {
     return false;
@@ -38,6 +41,7 @@ public interface Partition extends Serializable {
 
   /**
    * Estimate size of this partition.
+   * @return estimated size of this partition or -1 if unknown
    */
   default long size() {
     return -1L;

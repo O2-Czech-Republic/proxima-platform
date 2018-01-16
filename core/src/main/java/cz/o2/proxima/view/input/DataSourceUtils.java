@@ -34,17 +34,29 @@ import java.util.concurrent.BlockingQueue;
 @Slf4j
 public class DataSourceUtils {
 
+  /**
+   * Function to be called to start the producer of data.
+   */
   @FunctionalInterface
   public static interface Producer extends Serializable {
 
+    /**
+     * Run the producer.
+     */
     void run();
 
   }
 
   /**
    * Create unbounded {@code DataSource} from {@code BlockingQueue}.
+   * @param <T> data type to read
+   * @param <OFF> type of the offset
    * @param queue the blocking queue to read
-   * @return the single partitioned {@code DataSource}.
+   * @param producer producer to run to start producing data
+   * @param offsetProducer function that returns current offset
+   * @param offsetReset function to reset offset and start reading from given offset
+   * @param commitOffset function by which to commit offset
+   * @return the single {@code UnboundedPartition}.
    *
    */
   public static <T, OFF extends Serializable> UnboundedPartition<T, OFF> fromBlockingQueue(
@@ -100,6 +112,10 @@ public class DataSourceUtils {
 
   /**
    * Create {@code Dataset} with given partitions.
+   * @param <T> datatype of the source
+   * @param <OFF> type of offset
+   * @param partitions array of partitions
+   * @return {@link DataSource} consisting of given partitions
    */
   @SafeVarargs
   public static <T, OFF extends Serializable> DataSource<T> fromPartitions(
@@ -111,6 +127,10 @@ public class DataSourceUtils {
 
   /**
    * Create {@code Dataset} with given partitions.
+   * @param <T> datatype of the source
+   * @param <OFF> type of offset
+   * @param partitions list of partitions
+   * @return {@link DataSource} consisting of given partitions
    */
   public static <T, OFF extends Serializable> DataSource<T> fromPartitions(
       List<UnboundedPartition<T, OFF>> partitions) {

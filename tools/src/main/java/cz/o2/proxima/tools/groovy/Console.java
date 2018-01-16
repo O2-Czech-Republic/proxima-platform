@@ -79,6 +79,7 @@ public class Console {
   /**
    * This is supposed to be called only from the groovysh initialized in this
    * main method.
+   * @return the singleton instance
    */
   public static final Console get() { return INSTANCE; }
 

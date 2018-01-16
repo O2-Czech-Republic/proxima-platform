@@ -28,6 +28,22 @@
      
   <name>Proxima platform parent</name>
 
+  <description>Proxima platform is batch and realtime storage and dataprocessing abstraction</description>
+  <url>https://github.com/O2-Czech-Republic/proxima-platform</url>
+
+  <developers>
+    <developer>
+      <id>je-ik</id>
+      <name>Jan Lukavsky</name>
+      <email>je.ik@seznam.cz</email>
+      <roles>
+        <role>architect</role>
+        <role>developer</role>
+      </roles>
+      <timezone>Europe/Prague</timezone>
+    </developer>
+  </developers>
+
   <licenses>
     <license>
       <name>The Apache Software License, Version 2.0</name>
@@ -158,7 +174,7 @@
             <executions>
               <execution>
                 <id>sign-artifacts</id>
-                <phase>verify</phase>
+                <phase>install</phase>
                 <goals>
                   <goal>sign</goal>
                 </goals>

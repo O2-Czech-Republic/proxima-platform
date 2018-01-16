@@ -32,6 +32,11 @@
      
   <name>Proxima platform example module parent</name>
 
+  <properties>
+    <gpg.skip>true</gpg.skip>
+    <skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo>
+  </properties>
+
   <modules>
     <module>proto</module>
     <module>model</module>

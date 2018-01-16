@@ -180,8 +180,14 @@ public class HdfsDataAccessor
         writer = null;
         commitCallback.commit(true, null);
       }
-    } catch (IOException | URISyntaxException ex) {
-      throw new RuntimeException(ex);
+    } catch (Exception ex) {
+      try {
+        writer.close();
+      } catch (Exception ex1) {
+        log.error("Failed to close writer. Skipping.", ex1);
+      }
+      writer = null;
+      commitCallback.commit(false, ex);
     }
   }
 

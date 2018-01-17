@@ -81,7 +81,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-server-grpc</artifactId>
+      <artifactId>ingest-server-grpc</artifactId>
       <version>${project.version}</version>
     </dependency>
 

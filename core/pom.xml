@@ -26,7 +26,7 @@
     <version>0.1.0</version>
   </parent>
      
-  <artifactId>platform-core</artifactId>
+  <artifactId>core</artifactId>
   <packaging>jar</packaging>
      
   <name>Proxima platform core</name>

@@ -121,31 +121,31 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-core</artifactId>
+      <artifactId>core</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-tools</artifactId>
+      <artifactId>tools</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-cassandra</artifactId>
+      <artifactId>io-cassandra</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-kafka</artifactId>
+      <artifactId>io-kafka</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-hdfs</artifactId>
+      <artifactId>io-hdfs</artifactId>
       <version>${project.version}</version>
     </dependency>
 

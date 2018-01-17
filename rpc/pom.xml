@@ -26,7 +26,7 @@
     <version>0.1.0</version>
   </parent>
      
-  <artifactId>platform-rpc-proto</artifactId>
+  <artifactId>server-rpc-proto</artifactId>
   <packaging>jar</packaging>
      
   <name>Proxima platform gRPC proto specification</name>

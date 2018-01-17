@@ -230,7 +230,7 @@ public class BinaryBlob {
    * @param gzip {@code true} if the output be gzipped
    * @param out the {@link OutputStream}
    * @return writer
-   * @throws IOException
+   * @throws IOException on IO errors
    */
   public static Writer writer(boolean gzip, OutputStream out) throws IOException {
     return new Writer(gzip, out);
@@ -241,7 +241,7 @@ public class BinaryBlob {
    * @param entity the entity to read attributes for
    * @param in the {@link InputStream}
    * @return reader
-   * @throws IOException
+   * @throws IOException on IO errors
    */
   public static Reader reader(EntityDescriptor entity, InputStream in)
       throws IOException {

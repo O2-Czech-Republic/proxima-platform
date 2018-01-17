@@ -81,7 +81,11 @@ import java.util.stream.Collectors;
 @Slf4j
 public class IngestServer {
 
-  /** Run the server. */
+  /**
+   * Run the server.
+   * @param args command line arguments
+   * @throws Exception on error
+   */
   public static void main(String[] args) throws Exception {
     final IngestServer server;
 
@@ -649,6 +653,7 @@ public class IngestServer {
 
   /**
    * Start all threads that will be consuming the commit log and write to the output.
+   * @throws InterruptedException when interrupted
    **/
   protected void startConsumerThreads() throws InterruptedException {
 

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.kafka;
 
 import cz.o2.proxima.storage.Partition;
@@ -49,7 +48,10 @@ public class KafkaConsumerFactory {
     this.topic = Utils.topic(uri);
   }
 
-  public KafkaConsumer<String, byte[]> create(String name, ConsumerRebalanceListener listener) {
+  public KafkaConsumer<String, byte[]> create(
+      String name,
+      @Nullable ConsumerRebalanceListener listener) {
+
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
     props.put(ConsumerConfig.GROUP_ID_CONFIG, name);
     props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 0);
@@ -67,7 +69,11 @@ public class KafkaConsumerFactory {
     return ret;
   }
 
-  /** Create kafka consumer based on given parameters. */
+  /**
+   * Create kafka consumer based on given parameters.
+   * @param name name of the consumer
+   * @return {@link KafkaConsumer} of given name
+   */
   public KafkaConsumer<String, byte[]> create(String name) {
     return create(name, null);
   }
@@ -89,7 +95,10 @@ public class KafkaConsumerFactory {
   }
 
 
-  /** Create an unnamed consumer consuming all partitions. */
+  /**
+   * Create an unnamed consumer consuming all partitions.
+   * @return unnamed {@link KafkaConsumer} for all partitions
+   */
   public KafkaConsumer<String, byte[]> create() {
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);

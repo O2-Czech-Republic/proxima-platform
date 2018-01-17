@@ -189,7 +189,10 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
     return props;
   }
 
-  /** Create kafka consumer with specific rebalance listener. */
+  /**
+   * Create kafka consumer with specific rebalance listener.
+   * @return {@link KafkaConsumerFactory} for creating consumers
+   */
   public KafkaConsumerFactory createConsumerFactory() {
     return new KafkaConsumerFactory(getURI(), createProps());
   }

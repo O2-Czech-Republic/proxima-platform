@@ -84,6 +84,10 @@ public class OffsetCommitter<ID> {
 
   /**
    * Register number of actions to be performed before offset can be committed.
+   * @param id id of the consumer
+   * @param offset the registered offset
+   * @param numActions how many times {@link confirm} should be called to consider the action as done
+   * @param commit {@link Callback} to call to commit
    */
   public void register(ID id, long offset, int numActions, Callback commit) {
     NavigableMap<Long, OffsetMeta> current = waitingOffsets.get(id);
@@ -102,6 +106,8 @@ public class OffsetCommitter<ID> {
 
   /**
    * Confirm that action associated with given offset has been performed.
+   * @param id id of the consumer
+   * @param offset the offset to confirm
    */
   public void confirm(ID id, long offset) {
     NavigableMap<Long, OffsetMeta> current = waitingOffsets.get(id);
@@ -141,6 +147,8 @@ public class OffsetCommitter<ID> {
 
   /**
    * Clear all records for given topic partition and offset.
+   * @param id id of the consumer
+   * @param offset offset to clear
    */
   public void clear(ID id, long offset) {
     NavigableMap<Long, OffsetMeta> current = waitingOffsets.get(id);

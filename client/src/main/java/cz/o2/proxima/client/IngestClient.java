@@ -172,12 +172,22 @@ public class IngestClient implements AutoCloseable {
     this.flushThread.setName(getClass().getSimpleName() + "-flushThread");
   }
 
-  /** Send the request. */
+  /**
+   * Send the request.
+   * @param ingest the data
+   * @param statusConsumer callback for receiving status
+   */
   public void send(Rpc.Ingest ingest, Consumer<Rpc.Status> statusConsumer) {
     send(ingest, -1, TimeUnit.SECONDS, statusConsumer);
   }
 
-  /** Send the request with timeout. */
+  /**
+   * Send the request with timeout.
+   * @param ingest the data
+   * @param timeout timeout
+   * @param unit timeunit of timeout
+   * @param statusConsumer callback for receiving status
+   */
   public void send(Rpc.Ingest ingest, long timeout,
       TimeUnit unit, Consumer<Rpc.Status> statusConsumer) {
     sendTry(ingest, timeout, unit, statusConsumer, false);

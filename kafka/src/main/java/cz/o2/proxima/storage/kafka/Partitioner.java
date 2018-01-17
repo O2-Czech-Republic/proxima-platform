@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.kafka;
 
 import java.io.Serializable;
@@ -29,11 +28,16 @@ public interface Partitioner extends Serializable {
    * Retrieve partition ID for the specified ingest.
    * All ingests that have the same partition ID are guaranteed to
    * be written to the same Kafka partition.
+   * @param key key of entity
+   * @param attribute name of attribute
+   * @param value serialized bytes of value
+   * @return ID of partition (can be negative)
    */
   int getPartitionId(String key, String attribute, byte[] value);
 
   /**
    * Setup the partitioner (if needed).
+   * @param map a configuration map
    */
   default void setup(Map<String, ?> map) {
 

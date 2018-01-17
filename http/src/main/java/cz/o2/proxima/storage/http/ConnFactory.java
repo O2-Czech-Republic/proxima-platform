@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.http;
 
 import cz.o2.proxima.storage.StreamElement;
@@ -31,6 +30,10 @@ public interface ConnFactory {
    * Open and return HTTP(S) connection to given base URI with given
    * input stream element.
    * The returned connection must be open and ready to retrieve status.
+   * @param base URI
+   * @param elem input element
+   * @return new connection
+   * @throws IOException on IO errors
    */
   HttpURLConnection openConnection(URI base, StreamElement elem) throws IOException;
 

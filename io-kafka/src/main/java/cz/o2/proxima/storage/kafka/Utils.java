@@ -97,8 +97,9 @@ class Utils {
       }
 
       @Override
-      public void onError(Throwable error) {
+      public boolean onError(Throwable error) {
         observer.onError(error);
+        return false;
       }
 
       @Override

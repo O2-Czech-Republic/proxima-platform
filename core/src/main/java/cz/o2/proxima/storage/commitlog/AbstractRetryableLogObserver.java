@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
  * A parent class for retryable online and bulk log observers.
  */
 @Slf4j
-public abstract class AbstractRetryableLogObserver {
+public abstract class AbstractRetryableLogObserver implements LogObserverBase {
 
   /** Maximal number of retries. */
   @Getter
@@ -56,14 +56,18 @@ public abstract class AbstractRetryableLogObserver {
   }
 
 
-  public void onError(Throwable error) {
+  @Override
+  public boolean onError(Throwable error) {
+    numFailures++;
     log.error(
-        "Error in observing commit log {} by {}",
-        commitLog.getURI(), name, error);
-    if (numFailures++ < maxRetries) {
+        "Error in observing commit log {} by {}, retries so far {}, maxRetries {}",
+        commitLog.getURI(), name, numFailures, maxRetries, error);
+    if (numFailures < maxRetries) {
       startInternal(position);
+      return true;
     } else {
       failure();
+      return false;
     }
   }
 

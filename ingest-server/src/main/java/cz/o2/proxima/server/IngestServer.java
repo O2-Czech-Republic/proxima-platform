@@ -875,7 +875,7 @@ public class IngestServer {
                       ingest, writer.getURI());
                   confirm.commit();
                 } else {
-                  onError(exc);
+                  confirm.fail(exc);
                 }
               } else {
                 if (ingest.isDelete()) {
@@ -950,7 +950,7 @@ public class IngestServer {
                       ingest, writer.getURI());
                   confirm.confirm();
                 } else {
-                  onError(exc);
+                  confirm.fail(exc);
                 }
               } else {
                 if (ingest.isDelete()) {

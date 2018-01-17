@@ -24,6 +24,9 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.BulkLogObserver;
+import cz.o2.proxima.storage.commitlog.CommitLogReader;
+import cz.o2.proxima.storage.commitlog.RetryableBulkObserver;
 import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.Accessor;
 import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.LocalKafkaWriter;
 import cz.o2.proxima.storage.kafka.partitioner.FirstPartitionPartitioner;
@@ -46,6 +49,9 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -573,6 +579,157 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertArrayEquals(update.getValue(), element.getValue());
     assertEquals(3, observed.size());
 
+  }
+
+  @Test(timeout = 2000)
+  public void testBulkObserveWithException() throws InterruptedException {
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+
+    AtomicInteger restarts = new AtomicInteger();
+    AtomicReference<Throwable> exc = new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(2);
+    StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
+
+    reader.observeBulk("test", CommitLogReader.Position.NEWEST, new BulkLogObserver() {
+
+      @Override
+      public boolean onNext(
+          StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
+        restarts.incrementAndGet();
+        throw new RuntimeException("FAIL!");
+      }
+
+      @Override
+      public void onCompleted() {
+        fail("This should not be called");
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        latch.countDown();
+        exc.set(error);
+        throw new RuntimeException(error);
+      }
+
+      @Override
+      public void close() throws Exception {
+
+      }
+
+    });
+
+    writer.write(update, (succ, e) -> {
+      assertTrue(succ);
+      latch.countDown();
+    });
+    latch.await();
+    assertEquals("FAIL!", exc.get().getMessage());
+    assertEquals(1, restarts.get());
+  }
+
+  @Test(timeout = 2000)
+  public void testBulkObserveWithExceptionAndRetry() throws InterruptedException {
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicInteger restarts = new AtomicInteger();
+    StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
+
+    RetryableBulkObserver observer = new RetryableBulkObserver(3, "test", reader) {
+
+      @Override
+      protected void failure() {
+        latch.countDown();
+      }
+
+      @Override
+      protected boolean onNextInternal(
+          StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
+        restarts.incrementAndGet();
+        throw new RuntimeException("FAIL!");
+      }
+
+    };
+    observer.start();
+    Executors.newCachedThreadPool().execute(() -> {
+      while (true) {
+        try {
+          TimeUnit.MILLISECONDS.sleep(100);
+        } catch (InterruptedException ex) {
+          break;
+        }
+        writer.write(update, (succ, e) -> {
+          assertTrue(succ);
+        });
+      }
+    });
+    latch.await();
+    assertEquals(3, restarts.get());
+  }
+
+
+  @Test(timeout = 2000)
+  public void testBulkObserveSuccess() throws InterruptedException {
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+
+    AtomicInteger restarts = new AtomicInteger();
+    AtomicReference<Throwable> exc = new AtomicReference<>();
+    AtomicReference<StreamElement> input = new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(2);
+    StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
+
+    reader.observeBulk("test", CommitLogReader.Position.NEWEST, new BulkLogObserver() {
+
+      @Override
+      public boolean onNext(
+          StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
+        restarts.incrementAndGet();
+        input.set(ingest);
+        confirm.commit();
+        latch.countDown();
+        return true;
+      }
+
+      @Override
+      public void onCompleted() {
+        fail("This should not be called");
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        exc.set(error);
+        throw new RuntimeException(error);
+      }
+
+      @Override
+      public void close() throws Exception {
+
+      }
+
+    });
+
+    writer.write(update, (succ, e) -> {
+      assertTrue(succ);
+      latch.countDown();
+    });
+    latch.await();
+    assertNull(exc.get());
+    assertEquals(1, restarts.get());
+    assertArrayEquals(update.getValue(), input.get().getValue());
   }
 
   private static Map<String, Object> partitionsCfg(int partitions) {

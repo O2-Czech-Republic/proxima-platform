@@ -37,7 +37,7 @@
       <!-- compile the reference.conf to access classes. -->
       <plugin>
         <groupId>cz.o2.proxima</groupId>
-        <artifactId>platform-compiler-maven-plugin</artifactId>
+        <artifactId>compiler-maven-plugin</artifactId>
         <version>0.1.0</version>
         <configuration>
          <outputDir>generated-sources/model</outputDir>
@@ -67,19 +67,19 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-core</artifactId>
+      <artifactId>core</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-scheme</artifactId>
+      <artifactId>scheme</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-scheme</artifactId>
+      <artifactId>scheme</artifactId>
       <version>${project.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
@@ -87,7 +87,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-rpc-proto</artifactId>
+      <artifactId>server-rpc-proto</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -99,25 +99,25 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-kafka</artifactId>
+      <artifactId>io-kafka</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-cassandra</artifactId>
+      <artifactId>io-cassandra</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-hbase</artifactId>
+      <artifactId>io-hbase</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-hdfs</artifactId>
+      <artifactId>io-hdfs</artifactId>
       <version>${project.version}</version>
     </dependency>
 

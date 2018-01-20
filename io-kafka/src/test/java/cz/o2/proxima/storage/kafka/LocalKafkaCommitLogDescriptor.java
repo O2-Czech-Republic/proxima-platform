@@ -253,6 +253,11 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
                   .mapToObj(i -> new PartitionInfo(group.getTopic(), i, null, null, null))
                   .collect(Collectors.toList()));
 
+      doAnswer(invocation -> {
+        group.remove(consumerId.getSecond());
+        return null;
+      }).when(mock).close();
+
       return mock;
     }
 

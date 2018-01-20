@@ -199,28 +199,10 @@ public class KafkaLogReader extends AbstractStorage
     ExecutorService executor = context.getExecutorService();
 
     // start new thread that will fill our observer
-    Future<?> submit = executor.submit(() -> {
-      try {
-        try (KafkaConsumer<String, byte[]> kafkaConsumer = createConsumer(
-            name, partitions, listener, position)) {
-          if (partitions != null) {
-            List<TopicPartition> assignment = partitions.stream()
-                .map(p -> new TopicPartition(topic, p.getId()))
-                .collect(Collectors.toList());
-            kafkaConsumer.assign(assignment);
-          }
-          latch.countDown();
-          processConsumer(
-              kafkaConsumer,
-              name != null,
-              name != null ? false : stopAtCurrent,
-              observer);
-        }
-      } catch (Throwable thwbl) {
-        log.error("Error in running the observer {}", name, thwbl);
-        observer.onError(thwbl);
-      }
-    });
+    AtomicReference<Future<?>> submit = new AtomicReference<>();
+    runConsumption(
+        name, partitions, position, stopAtCurrent,
+        listener, submit, executor, latch, observer);
 
     try {
       log.debug("Waiting for the consumer {} to be created and run", name);
@@ -231,8 +213,46 @@ public class KafkaLogReader extends AbstractStorage
     }
 
     return () -> {
-      submit.cancel(true);
+      submit.get().cancel(true);
     };
+  }
+
+  private void runConsumption(
+      String name, Collection<Partition> partitions,
+      Position position, boolean stopAtCurrent,
+      ConsumerRebalanceListener listener,
+      AtomicReference<Future<?>> submit, ExecutorService executor,
+      @Nullable CountDownLatch latch, LogObserver observer) {
+
+    submit.set(executor.submit(() -> {
+      try {
+        try (KafkaConsumer<String, byte[]> kafkaConsumer = createConsumer(
+            name, partitions, listener, position)) {
+          if (partitions != null) {
+            List<TopicPartition> assignment = partitions.stream()
+                .map(p -> new TopicPartition(topic, p.getId()))
+                .collect(Collectors.toList());
+            kafkaConsumer.assign(assignment);
+          }
+          if (latch != null) {
+            latch.countDown();
+          }
+          processConsumer(
+              kafkaConsumer,
+              name != null,
+              name != null ? false : stopAtCurrent,
+              observer);
+        }
+      } catch (Throwable thwbl) {
+        log.error("Error in running the observer {}", name, thwbl);
+        if (observer.onError(thwbl)) {
+          log.info("Restarting consumption as requested");
+          runConsumption(
+              name, partitions, position, stopAtCurrent,
+              listener, submit, executor, null, observer);
+        }
+      }
+    }));
   }
 
   private Cancellable observePartitionsBulk(
@@ -281,24 +301,11 @@ public class KafkaLogReader extends AbstractStorage
 
     // wait until the consumer is really created
     CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Future<?>> submit = new AtomicReference<>();
 
-    // start new thread that will fill our observer
-    Future<?> submit = context.getExecutorService().submit(() -> {
-
-      consumerRef.set(createConsumer(name, null, listener, position));
-      try {
-        latch.countDown();
-        processConsumer(consumerRef.get(), true, false, observer);
-      } catch (Exception exc) {
-        log.error("Exception in running the observer {}", name, exc);
-        observer.onError(exc);
-      } catch (Error err) {
-        log.error("Error in running the observer {}", name, err);
-        observer.onError(err);
-      } finally {
-        consumerRef.get().close();
-      }
-    });
+    runBulkConsumption(
+        name, position, listener,
+        submit, consumerRef, latch, observer);
 
     try {
       log.debug("Waiting for the consumer {} to be created and run", name);
@@ -307,7 +314,38 @@ public class KafkaLogReader extends AbstractStorage
       log.warn("Interrupted while waiting for the creation of the consumer.", ex);
       Thread.currentThread().interrupt();
     }
-    return () -> submit.cancel(true);
+    return () -> submit.get().cancel(true);
+  }
+
+  private void runBulkConsumption(
+      String name, Position position, ConsumerRebalanceListener listener,
+      AtomicReference<Future<?>> submit,
+      AtomicReference<KafkaConsumer<String, byte[]>> consumerRef,
+      @Nullable CountDownLatch latch, BulkLogObserver observer) {
+
+    // start new thread that will fill our observer
+    submit.set(context.getExecutorService().submit(() -> {
+
+      consumerRef.set(createConsumer(name, null, listener, position));
+      try {
+        if (latch != null) {
+          latch.countDown();
+        }
+        processConsumer(consumerRef.get(), true, false, observer);
+        consumerRef.get().close();
+      } catch (Exception | Error exc) {
+        log.error("Exception in running the observer {}", name, exc);
+        consumerRef.get().close();
+        if (observer.onError(exc)) {
+          log.info("Restarting consumption as requested");
+          runBulkConsumption(
+              name, position, listener, submit,
+              consumerRef, null, observer);
+        } else {
+          log.info("Terminating consumption as requested.");
+        }
+      }
+    }));
   }
 
 

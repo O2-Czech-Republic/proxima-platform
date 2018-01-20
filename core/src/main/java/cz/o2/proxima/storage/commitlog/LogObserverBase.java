@@ -39,7 +39,8 @@ public interface LogObserverBase extends AutoCloseable, Serializable {
   /**
    * Called to notify there was an error in the commit reader.
    * @param error error caught during processing
+   * @return {@code true} to restart processing from last committed position, {@code false} to stop processing
    */
-  void onError(Throwable error);
+  boolean onError(Throwable error);
 
 }

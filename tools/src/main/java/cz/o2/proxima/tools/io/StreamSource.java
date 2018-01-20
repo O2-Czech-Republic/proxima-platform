@@ -149,7 +149,7 @@ public class StreamSource<T> implements UnboundedDataSource<T, Serializable> {
       }
 
       @Override
-      public void onError(Throwable error) {
+      public boolean onError(Throwable error) {
         onCompleted();
         throw new RuntimeException(error);
       }

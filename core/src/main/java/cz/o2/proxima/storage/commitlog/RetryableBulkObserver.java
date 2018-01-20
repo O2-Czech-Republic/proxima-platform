@@ -26,7 +26,9 @@ import java.io.IOException;
  * The number of retries is configurable.
  */
 @Slf4j
-public abstract class RetryableBulkObserver extends AbstractRetryableLogObserver implements BulkLogObserver {
+public abstract class RetryableBulkObserver
+    extends AbstractRetryableLogObserver
+    implements BulkLogObserver {
 
   public RetryableBulkObserver(
       int maxRetries,
@@ -38,10 +40,12 @@ public abstract class RetryableBulkObserver extends AbstractRetryableLogObserver
 
   @Override
   public final boolean onNext(
-      StreamElement ingest, Partition partition, BulkLogObserver.BulkCommitter confirm) {
+      StreamElement ingest, Partition partition,
+      BulkLogObserver.BulkCommitter confirm) {
 
+    boolean ret = onNextInternal(ingest, partition, confirm);
     success();
-    return onNextInternal(ingest, partition, confirm);
+    return ret;
   }
 
   @Override
@@ -61,7 +65,6 @@ public abstract class RetryableBulkObserver extends AbstractRetryableLogObserver
     }
   }
 
-
   /**
    * Called to observe the ingest data.
    * @param ingest the input data
@@ -74,7 +77,6 @@ public abstract class RetryableBulkObserver extends AbstractRetryableLogObserver
     throw new UnsupportedOperationException(
         "Please override either of `onNextInternal` methods");
   }
-
 
   /**
    * Called to observe the ingest data.

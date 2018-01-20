@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * A consumer group with name.
@@ -132,12 +133,11 @@ public class ConsumerGroup implements Serializable {
     return add((ConsumerRebalanceListener) null);
   }
 
-
   /**
    * Add new consumer to the group.
    * @returns the ID of the newly created consumer.
    */
-  public synchronized int add(ConsumerRebalanceListener listener) {
+  public synchronized int add(@Nullable ConsumerRebalanceListener listener) {
 
     int id = assignments.isEmpty() ? 0 : assignments.lastKey() + 1;
     Assignment assignment = new Assignment(id, listener);
@@ -176,22 +176,24 @@ public class ConsumerGroup implements Serializable {
 
   /** Perform a fresh assignment to all the consumers. */
   private void assign(NavigableMap<Integer, Assignment> assignments) {
-    // drop all assignments
-    assignments.values().forEach(Assignment::drop);
-    double equalShare = numPartitions / (double) assignments.size();
-    double shared = 0.0;
-    int partition = 0;
-    Iterator<Map.Entry<Integer, Assignment>> iter = assignments.entrySet().iterator();
-    while (partition < numPartitions) {
-      Map.Entry<Integer, Assignment> next = iter.next();
-      List<Partition> partitions = new ArrayList<>();
-      shared += equalShare;
-      int last = (int) shared;
-      while (partition < last) {
-        int partitionId = (int) partition++;
-        partitions.add(() -> partitionId);
+    if (!assignments.isEmpty()) {
+      // drop all assignments
+      assignments.values().forEach(Assignment::drop);
+      double equalShare = numPartitions / (double) assignments.size();
+      double shared = 0.0;
+      int partition = 0;
+      Iterator<Map.Entry<Integer, Assignment>> iter = assignments.entrySet().iterator();
+      while (partition < numPartitions) {
+        Map.Entry<Integer, Assignment> next = iter.next();
+        List<Partition> partitions = new ArrayList<>();
+        shared += equalShare;
+        int last = (int) shared;
+        while (partition < last) {
+          int partitionId = (int) partition++;
+          partitions.add(() -> partitionId);
+        }
+        next.getValue().assign(partitions);
       }
-      next.getValue().assign(partitions);
     }
   }
 

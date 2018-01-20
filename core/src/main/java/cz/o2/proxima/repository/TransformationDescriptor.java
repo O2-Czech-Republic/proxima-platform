@@ -59,7 +59,7 @@ public class TransformationDescriptor implements Serializable {
     }
 
     Builder addAttributes(AttributeDescriptor<?>... attrs) {
-      Arrays.stream(attrs).forEach(this.attrs::add);
+      this.attrs.addAll(Arrays.asList(attrs));
       return this;
     }
 
@@ -71,10 +71,13 @@ public class TransformationDescriptor implements Serializable {
     TransformationDescriptor build() {
 
       Preconditions.checkArgument(
-          !attrs.isEmpty(), "Please specify at least one attribute");
-      Preconditions.checkArgument(transformation != null,
+          !attrs.isEmpty(),
+          "Please specify at least one attribute");
+      Preconditions.checkArgument(
+          transformation != null,
           "Please specify transformation function");
-      Preconditions.checkArgument(entity != null,
+      Preconditions.checkArgument(
+          entity != null,
           "Please specify source entity");
 
       return new TransformationDescriptor(entity, attrs, transformation, filter);

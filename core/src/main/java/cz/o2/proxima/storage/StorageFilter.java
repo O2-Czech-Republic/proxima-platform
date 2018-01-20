@@ -17,7 +17,6 @@ package cz.o2.proxima.storage;
 
 /**
  * A filter that is applied to each input data ingest.
- *
  */
 @FunctionalInterface
 public interface StorageFilter {

@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.tools.groovy;
 
-import com.google.common.collect.Lists;
 import cz.o2.proxima.tools.io.TypedIngest;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.Window;
@@ -24,9 +23,10 @@ import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
 import cz.seznam.euphoria.core.client.io.Collector;
 import cz.seznam.euphoria.core.client.operator.Distinct;
 import cz.seznam.euphoria.core.client.operator.Join;
+import cz.seznam.euphoria.core.client.operator.LeftJoin;
 import cz.seznam.euphoria.core.client.operator.MapElements;
 import cz.seznam.euphoria.core.client.operator.ReduceByKey;
-import cz.seznam.euphoria.core.client.operator.Sort;
+import cz.seznam.euphoria.core.client.operator.ReduceWindow;
 import cz.seznam.euphoria.core.client.triggers.Trigger;
 import cz.seznam.euphoria.core.client.triggers.TriggerContext;
 import cz.seznam.euphoria.core.client.util.Either;
@@ -35,6 +35,7 @@ import cz.seznam.euphoria.core.client.util.Sums;
 import cz.seznam.euphoria.core.executor.Executor;
 import groovy.lang.Closure;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -190,12 +191,9 @@ public class WindowedStream<T> extends Stream<T> {
       return ReduceByKey.of(dataset.build())
           .keyBy(keyDehydrated::call)
           .valueBy(valueDehydrated::call)
-          .reduceBy((Iterable<V> in) -> {
+          .reduceBy((java.util.stream.Stream<V> in) -> {
             V current = initialValue;
-            for (V v : in) {
-              current = reducerDehydrated.call(current, v);
-            }
-            return current;
+            return in.reduce(current, (a, b) -> reducerDehydrated.call(a, b));
           })
           .windowBy(windowing)
           .output();
@@ -214,9 +212,10 @@ public class WindowedStream<T> extends Stream<T> {
     return (WindowedStream) descendant(() -> {
       return ReduceByKey.of(dataset.build())
           .keyBy(keyDehydrated::call)
-          .reduceBy((Iterable<T> in) -> {
+          .reduceBy((java.util.stream.Stream<T> in) -> {
             V current = initialValue;
-            for (T v : in) {
+            Iterable<T> iter = () -> in.iterator();
+            for (T v : iter) {
               current = reducerDehydrated.call(current, v);
             }
             return current;
@@ -230,16 +229,13 @@ public class WindowedStream<T> extends Stream<T> {
   public <T> WindowedStream<TypedIngest<T>> reduceToLatest() {
     return descendant(() -> {
       Dataset<TypedIngest<T>> input = (Dataset<TypedIngest<T>>) dataset.build();
-      Dataset<Pair<Pair<String, String>, TypedIngest<T>>> reduced = ReduceByKey.of(input)
+      return ReduceByKey.of(input)
           .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
           .combineBy(values ->
               StreamSupport.stream(values.spliterator(), false)
                   .collect(Collectors.maxBy((a, b) -> Long.compare(a.getStamp(), b.getStamp())))
                   .get())
-          .output();
-      return MapElements.of(reduced)
-          .using(Pair::getSecond)
-          .output();
+          .outputValues();
     });
   }
 
@@ -254,9 +250,9 @@ public class WindowedStream<T> extends Stream<T> {
     return descendant(() -> {
         return ReduceByKey.of(dataset.build())
           .keyBy(keyDehydrated::call)
-          .reduceBy((Iterable<T> in, Collector<V> ctx) -> {
+          .reduceBy((java.util.stream.Stream<T> in, Collector<V> ctx) -> {
             List<V> ret = (List<V>) reducerDehydrated.call(
-                ctx.getWindow(), Lists.newArrayList(in));
+                ctx.getWindow(), in.collect(Collectors.toList()));
             ret.forEach(elem -> ctx.collect(elem));
           })
           .windowBy(windowing)
@@ -278,12 +274,8 @@ public class WindowedStream<T> extends Stream<T> {
       return ReduceByKey.of(dataset.build())
           .keyBy(keyDehydrated::call)
           .valueBy(valueDehydrated::call)
-          .combineBy((Iterable<V> iter) -> {
-            V ret = initial;
-            for (V v : iter) {
-              ret = combineDehydrated.call(ret, v);
-            }
-            return ret;
+          .combineBy((java.util.stream.Stream<V> in) -> {
+            return in.reduce(initial, (a, b) -> combineDehydrated.call(a, b));
           })
           .windowBy(windowing)
           .output();
@@ -301,12 +293,8 @@ public class WindowedStream<T> extends Stream<T> {
     return descendant(() -> {
       return ReduceByKey.of(dataset.build())
           .keyBy(keyDehydrated::call)
-          .combineBy((Iterable<T> iter) -> {
-            T ret = initial;
-            for (T v : iter) {
-              ret = combineDehydrated.call(ret, v);
-            }
-            return ret;
+          .combineBy((java.util.stream.Stream<T> in) -> {
+            return in.reduce(initial, (a, b) -> combineDehydrated.call(a, b));
           })
           .windowBy(windowing)
           .output();
@@ -356,12 +344,11 @@ public class WindowedStream<T> extends Stream<T> {
     Closure<?> leftKeyDehydrated = leftKey.dehydrate();
     Closure<?> rightKeyDehydrated = rightKey.dehydrate();
     return descendant(() -> {
-      Dataset<Pair<Object, Pair<T, RIGHT>>> joined = Join.of(dataset.build(), right.dataset.build())
+      Dataset<Pair<Object, Pair<T, RIGHT>>> joined = LeftJoin.of(dataset.build(), right.dataset.build())
           .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
-          .using((T l, RIGHT r, Collector<Pair<T, RIGHT>> ctx) -> {
-            ctx.collect(Pair.of(l, r));
+          .using((T l, Optional<RIGHT> r, Collector<Pair<T, RIGHT>> ctx) -> {
+            ctx.collect(Pair.of(l, r.orElse(null)));
           })
-          .outer()
           .windowBy(new JoinedWindowing<>(this, right))
           .output();
       return MapElements.of(joined)
@@ -372,12 +359,14 @@ public class WindowedStream<T> extends Stream<T> {
 
 
   @SuppressWarnings("unchecked")
-  public <S extends Comparable<S>> WindowedStream<T> sorted(Closure<?> toComparable) {
-    Closure<?> dehydrated = toComparable.dehydrate();
+  public <S extends Comparable<S>> WindowedStream<S> sorted(Closure<Integer> toComparable) {
+    Closure<Integer> dehydrated = toComparable.dehydrate();
     return descendant(() -> {
-      return Sort.of(dataset.build())
-          .by(e -> (S) dehydrated.call(e))
-          .setNumPartitions(1)
+      return ReduceWindow.of((Dataset<S>) dataset.build())
+          .reduceBy((java.util.stream.Stream<S> in, cz.seznam.euphoria.core.client.io.Collector<S> ctx) -> {
+            in.forEach(ctx::collect);
+          })
+          .withSortedValues((a, b) -> dehydrated.call(a, b))
           .output();
     });
   }

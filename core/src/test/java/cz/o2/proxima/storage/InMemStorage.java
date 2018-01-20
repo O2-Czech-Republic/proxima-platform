@@ -218,7 +218,8 @@ public class InMemStorage extends StorageDescriptor {
 
       return flow.createInput(
           DataSourceUtils.fromPartitions(
-              DataSourceUtils.fromBlockingQueue(queue, producer)));
+              DataSourceUtils.fromBlockingQueue(queue, producer, () -> 0,
+                  a -> null, a -> null)));
 
     }
 
@@ -228,8 +229,7 @@ public class InMemStorage extends StorageDescriptor {
         String name,
         PartitionedLogObserver<T> observer) {
 
-      // FIXME
-      throw new UnsupportedOperationException("Unsupported yet.");
+      return observePartitions(flow, getPartitions(), observer);
     }
 
   }

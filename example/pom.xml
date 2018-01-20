@@ -1,6 +1,6 @@
 <!--
 
-    Copyright 2017 O2 Czech Republic, a.s.
+    Copyright 2017-2018 O2 Czech Republic, a.s.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
   </parent>
      
   <groupId>cz.o2.proxima.example</groupId>
@@ -31,6 +31,11 @@
   <packaging>pom</packaging>
      
   <name>Proxima platform example module parent</name>
+
+  <properties>
+    <gpg.skip>true</gpg.skip>
+    <skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo>
+  </properties>
 
   <modules>
     <module>proto</module>

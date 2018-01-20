@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.repository;
 
 import com.typesafe.config.ConfigFactory;
@@ -26,7 +25,7 @@ import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.io.StdoutSink;
 import cz.seznam.euphoria.core.client.operator.MapElements;
-import cz.seznam.euphoria.inmem.InMemExecutor;
+import cz.seznam.euphoria.executor.local.LocalExecutor;
 import java.io.Serializable;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
@@ -42,7 +41,7 @@ public class PartitionedViewTest implements Serializable {
   private final transient Repository repo = Repository.Builder.of(
       ConfigFactory.load().resolve()).build();
 
-  private transient InMemExecutor executor;
+  private transient LocalExecutor executor;
   private final transient EntityDescriptor entity = repo.findEntity("event").get();
   private final transient AttributeDescriptor<?> attr = entity.findAttribute("data").get();
 
@@ -51,7 +50,7 @@ public class PartitionedViewTest implements Serializable {
 
   @Before
   public void setUp() {
-    executor = new InMemExecutor();
+    executor = new LocalExecutor();
     AttributeFamilyDescriptor family = repo.getAllFamilies()
         .filter(af -> af.getName().equals("event-storage-stream"))
         .findAny()

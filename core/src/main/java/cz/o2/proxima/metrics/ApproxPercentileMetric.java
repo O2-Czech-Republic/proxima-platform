@@ -17,7 +17,7 @@ package cz.o2.proxima.metrics;
 
 import com.tdunning.math.stats.TDigest;
 import cz.o2.proxima.util.Pair;
-import cz.seznam.euphoria.shaded.guava.com.google.common.base.Preconditions;
+import cz.seznam.euphoria.shadow.com.google.common.base.Preconditions;
 import java.util.Arrays;
 
 /**
@@ -33,7 +33,7 @@ public class ApproxPercentileMetric
    * @param name metric name
    * @param duration total duration of the statistic in ms
    * @param window windowNs size in ms
-   * @return
+   * @return the metric
    */
   public static ApproxPercentileMetric of(
       String group, String name, long duration, long window) {

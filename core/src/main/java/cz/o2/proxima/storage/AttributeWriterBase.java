@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage;
 
 import java.io.Serializable;
@@ -29,10 +28,16 @@ public interface AttributeWriterBase extends Serializable {
     BULK
   }
 
-  /** Retrieve URI of this writer. */
+  /**
+   * Retrieve URI of this writer.
+   * @return URI of this writer
+   */
   URI getURI();
 
-  /** Retrieve type of the writer. */
+  /**
+   * Retrieve type of the writer.
+   * @return {@link Type} of the writer
+   */
   Type getType();
 
   /** Rollback the writer to last committed position. */
@@ -41,6 +46,7 @@ public interface AttributeWriterBase extends Serializable {
   /**
    * Cast this to {@code OnlineAttributeWriter}.
    * This is just a syntactic sugar.
+   * @return {@link OnlineAttributeWriter} from this writer
    */
   @SuppressWarnings("unchecked")
   default OnlineAttributeWriter online() {
@@ -50,6 +56,7 @@ public interface AttributeWriterBase extends Serializable {
   /**
    * Case this to {@code BulkAttributeWriter}.
    * This is just a syntactic sugar.
+   * @return {@link BulkAttributeWriter} from this writer
    */
   @SuppressWarnings("unchecked")
   default BulkAttributeWriter bulk() {

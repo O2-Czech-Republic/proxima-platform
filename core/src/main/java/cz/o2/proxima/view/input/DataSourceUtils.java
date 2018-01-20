@@ -15,17 +15,17 @@
  */
 package cz.o2.proxima.view.input;
 
+import cz.seznam.euphoria.core.client.functional.UnaryFunction;
+import cz.seznam.euphoria.core.client.functional.VoidFunction;
 import cz.seznam.euphoria.core.client.io.DataSource;
-import cz.seznam.euphoria.core.client.io.Partition;
-import cz.seznam.euphoria.core.client.io.Reader;
+import cz.seznam.euphoria.core.client.io.UnboundedDataSource;
+import cz.seznam.euphoria.core.client.io.UnboundedPartition;
+import cz.seznam.euphoria.core.client.io.UnboundedReader;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 
 /**
@@ -34,86 +34,108 @@ import java.util.concurrent.BlockingQueue;
 @Slf4j
 public class DataSourceUtils {
 
+  /**
+   * Function to be called to start the producer of data.
+   */
   @FunctionalInterface
   public static interface Producer extends Serializable {
 
+    /**
+     * Run the producer.
+     */
     void run();
 
   }
 
   /**
    * Create unbounded {@code DataSource} from {@code BlockingQueue}.
+   * @param <T> data type to read
+   * @param <OFF> type of the offset
    * @param queue the blocking queue to read
-   * @return the single partitioned {@code DataSource}.
+   * @param producer producer to run to start producing data
+   * @param offsetProducer function that returns current offset
+   * @param offsetReset function to reset offset and start reading from given offset
+   * @param commitOffset function by which to commit offset
+   * @return the single {@code UnboundedPartition}.
    *
    */
-  public static <T> Partition<T> fromBlockingQueue(
+  public static <T, OFF extends Serializable> UnboundedPartition<T, OFF> fromBlockingQueue(
       BlockingQueue<T> queue,
-      Producer producer) {
+      Producer producer,
+      VoidFunction<OFF> offsetProducer,
+      UnaryFunction<OFF, Void> offsetReset,
+      UnaryFunction<OFF, Void> commitOffset) {
 
-    return new Partition<T>() {
-      @Override
-      public Set<String> getLocations() {
-        return Collections.singleton("local");
-      }
+    return () -> {
+      producer.run();
+      return new UnboundedReader<T, OFF>() {
+        T next = null;
 
-      @Override
-      public Reader<T> openReader() throws IOException {
-        producer.run();
-        return new Reader<T>() {
+        @Override
+        public OFF getCurrentOffset() {
+          return offsetProducer.apply();
+        }
 
-          T next = null;
+        @Override
+        public void reset(OFF offset) {
+          offsetReset.apply(offset);
+        }
 
-          @Override
-          public void close() throws IOException {
-            // nop
+        @Override
+        public void commitOffset(OFF offset) {
+          commitOffset.apply(offset);
+        }
+
+        @Override
+        public boolean hasNext() {
+          try {
+            next = queue.take();
+            return true;
+          } catch (InterruptedException ex) {
+            log.warn("Interrupted while waiting for next queue element.");
+            return false;
           }
+        }
 
-          @Override
-          public boolean hasNext() {
-            try {
-              next = queue.take();
-              return true;
-            } catch (InterruptedException ex) {
-              log.warn("Interrupted while waiting for next queue element.");
-              return false;
-            }
-          }
+        @Override
+        public T next() {
+          return next;
+        }
 
-          @Override
-          public T next() {
-            return next;
-          }
-        };
-      }
+        @Override
+        public void close() {
+          // nop
+        }
+      };
     };
   }
 
   /**
    * Create {@code Dataset} with given partitions.
+   * @param <T> datatype of the source
+   * @param <OFF> type of offset
+   * @param partitions array of partitions
+   * @return {@link DataSource} consisting of given partitions
    */
   @SafeVarargs
-  public static <T> DataSource<T> fromPartitions(Partition<T>... partitions) {
+  public static <T, OFF extends Serializable> DataSource<T> fromPartitions(
+      UnboundedPartition<T, OFF>... partitions) {
+
     return fromPartitions(Arrays.asList(partitions));
   }
 
 
   /**
    * Create {@code Dataset} with given partitions.
+   * @param <T> datatype of the source
+   * @param <OFF> type of offset
+   * @param partitions list of partitions
+   * @return {@link DataSource} consisting of given partitions
    */
-  public static <T> DataSource<T> fromPartitions(List<Partition<T>> partitions) {
-    return new DataSource<T>() {
-      @Override
-      public List<Partition<T>> getPartitions() {
-        return partitions;
-      }
+  public static <T, OFF extends Serializable> DataSource<T> fromPartitions(
+      List<UnboundedPartition<T, OFF>> partitions) {
 
-      @Override
-      public boolean isBounded() {
-        return false;
-      }
-
-    };
+    return (UnboundedDataSource<T, OFF>) () -> partitions;
   }
 
 }

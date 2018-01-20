@@ -86,7 +86,7 @@ public class ConsoleRandomReader implements Closeable {
       String key, String prefix, @Nullable String offset) {
 
     List<KeyValue<?>> ret = new ArrayList<>();
-    list(key, prefix, null, -1, ret::add);
+    list(key, prefix, offset, -1, ret::add);
     return ret;
   }
 

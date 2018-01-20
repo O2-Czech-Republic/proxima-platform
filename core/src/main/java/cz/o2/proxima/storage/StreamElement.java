@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -28,7 +27,17 @@ import lombok.Getter;
  */
 public class StreamElement {
 
-  /** Update given entity attribute with given value. */
+  /**
+   * Update given entity attribute with given value.
+   * @param entityDesc descriptor of entity
+   * @param attributeDesc descriptor of attribute
+   * @param uuid UUID of the request
+   * @param key key of entity
+   * @param attribute name of attribute of the entity
+   * @param stamp timestamp of the event
+   * @param value serialized value
+   * @return {@link StreamElement} to be written to the system
+   */
   public static StreamElement update(
       EntityDescriptor entityDesc,
       AttributeDescriptor<?> attributeDesc,
@@ -43,7 +52,16 @@ public class StreamElement {
         attribute, stamp, value);
   }
 
-  /** Delete given instance of attribute. */
+  /**
+   * Delete given instance of attribute.
+   * @param entityDesc descriptor of entity
+   * @param attributeDesc descriptor of attribute
+   * @param uuid UUID of the event
+   * @param key key of entity
+   * @param attribute attribute of the entity
+   * @param stamp timestamp of the delete event
+   * @return {@link StreamElement} to be written to the system
+   */
   public static StreamElement delete(
       EntityDescriptor entityDesc,
       AttributeDescriptor<?> attributeDesc,
@@ -57,7 +75,15 @@ public class StreamElement {
         attribute, stamp, null);
   }
 
-  /** Delete all versions of given wildcard attribute. */
+  /**
+   * Delete all versions of given wildcard attribute.
+   * @param entityDesc descriptor of entity
+   * @param attributeDesc descriptor of attribute
+   * @param uuid UUID of the event
+   * @param key key of entity
+   * @param stamp timestamp of the event
+   * @return {@link StreamElement} to be written to the system
+   */
   public static StreamElement deleteWildcard(
       EntityDescriptor entityDesc,
       AttributeDescriptor<?> attributeDesc,
@@ -122,17 +148,27 @@ public class StreamElement {
 
   }
 
-  /** The element is a delete ingest. */
+  /**
+   * Check if this is a delete ingest.
+   * @return {@code true} if this is delete or delete wildcard event
+   */
   public boolean isDelete() {
     return value == null;
   }
 
-  /** The element is a delete wildcard ingest. */
+  /**
+   * Check if this is a delete wildcard ingest.
+   * @return {@code true} if this is delete wildcard event
+   */
   public boolean isDeleteWildcard() {
     return isDelete() && attribute == null;
   }
 
-  /** Retrieve parsed value. */
+  /**
+   * Retrieve parsed value.
+   * @param <T> the deserialized datatype
+   * @return optional deserialized value
+   */
   @SuppressWarnings("unchecked")
   public <T> Optional<T> getParsed() {
     return (Optional<T>) attributeDescriptor.getValueSerializer().deserialize(value);

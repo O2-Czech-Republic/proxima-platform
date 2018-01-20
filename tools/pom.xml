@@ -1,6 +1,6 @@
 <!--
 
-    Copyright 2017 O2 Czech Republic, a.s.
+    Copyright 2017-2018 O2 Czech Republic, a.s.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -23,10 +23,10 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
   </parent>
      
-  <artifactId>platform-tools</artifactId>
+  <artifactId>tools</artifactId>
   <packaging>jar</packaging>
      
   <name>Proxima platform Tools</name>
@@ -55,7 +55,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-core</artifactId>
+      <artifactId>core</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -102,6 +102,7 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
       <version>1.7.25</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -112,7 +113,7 @@
 
     <dependency>
       <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-inmem</artifactId>
+      <artifactId>euphoria-local</artifactId>
       <version>${euphoria.version}</version>
     </dependency>
 
@@ -130,7 +131,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-client</artifactId>
+      <artifactId>ingest-client</artifactId>
       <version>${project.version}</version>
     </dependency>
   </dependencies>

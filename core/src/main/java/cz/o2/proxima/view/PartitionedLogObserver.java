@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.view;
 
 import cz.o2.proxima.storage.Partition;
@@ -46,7 +45,7 @@ public interface PartitionedLogObserver<T> extends Serializable {
 
     /**
      * Confirm failure of processing.
-     * @param error
+     * @param error error caught during processing
      */
     default void fail(Throwable error) {
       confirm(false, error);
@@ -66,6 +65,7 @@ public interface PartitionedLogObserver<T> extends Serializable {
    * A repartitioning operation has just happened.
    * This method is called before first element is processed and
    * then after each repartition.
+   * @param assigned collection of assigned partitions
    */
   default void onRepartition(Collection<Partition> assigned) {
 
@@ -77,9 +77,10 @@ public interface PartitionedLogObserver<T> extends Serializable {
    * @param ingest the ingested data written to the commit log
    * @param confirm a callback that the application must use to confirm processing
    * of the ingest. If the application fails to do so, the result is undefined
-   * @param consumer consumer of the output data that will be available as output
+   * @param partition the source partition of this ingest
+   * @param collector collector of the output data that will be available as output
    *                 {@code Dataset}
-   * @returns {@code true} if the processing should continue, {@code false} otherwise
+   * @return {@code true} if the processing should continue, {@code false} otherwise
    **/
   boolean onNext(
       StreamElement ingest, ConfirmCallback confirm,
@@ -96,6 +97,7 @@ public interface PartitionedLogObserver<T> extends Serializable {
 
   /**
    * Called to notify there was an error in the reader.
+   * @param error the error caught during processing
    */
   void onError(Throwable error);
 

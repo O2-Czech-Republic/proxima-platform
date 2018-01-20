@@ -23,8 +23,6 @@ package cz.o2.proxima.storage.commitlog;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A parent class for retryable online and bulk log observers.
@@ -68,9 +66,9 @@ public abstract class AbstractRetryableLogObserver {
       failure();
     }
   }
-  
+
   protected void success() {
-    numFailures = 0;    
+    numFailures = 0;
   }
 
   public void start() {
@@ -84,6 +82,7 @@ public abstract class AbstractRetryableLogObserver {
 
   /**
    * Called when processing is to start from given position.
+   * @param position position in the log
    */
   protected abstract void startInternal(CommitLogReader.Position position);
 

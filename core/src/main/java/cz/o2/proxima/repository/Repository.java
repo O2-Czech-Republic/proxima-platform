@@ -63,7 +63,8 @@ public class Repository {
 
   /**
    * Construct default repository from the config.
-   * @param config
+   * @param config configuration to use
+   * @return loaded {@link Repository}
    */
   public static Repository of(Config config) {
     return Repository.Builder.of(config).build();
@@ -93,6 +94,9 @@ public class Repository {
       this.executorFactory = () -> Executors.newCachedThreadPool(r -> {
           Thread t = new Thread(r);
           t.setName("ProximaRepositoryPool");
+          t.setUncaughtExceptionHandler((thr, exc) -> {
+            log.error("Error running task in thread {}", thr.getName(), exc);
+          });
           return t;
         });
 
@@ -508,7 +512,11 @@ public class Repository {
   }
 
 
-  /** Find entity descriptor based on entity name. */
+  /**
+   * Find entity descriptor based on entity name.
+   * @param name name of the entity to search for
+   * @return optional {@link EntityDescriptor} found by name
+   */
   public Optional<EntityDescriptor> findEntity(String name) {
     EntityDescriptor byName = entitiesByName.get(name);
     if (byName != null) {
@@ -521,7 +529,11 @@ public class Repository {
         .map(Map.Entry::getValue);
   }
 
-  /** Retrieve value serializer for given scheme. */
+  /**
+   * Retrieve value serializer for given scheme.
+   * @param scheme scheme of the {@link ValueSerializerFactory}
+   * @return {@link ValueSerializerFactory} for the scheme
+   */
   public ValueSerializerFactory<?> getValueSerializerFactory(String scheme) {
     ValueSerializerFactory serializer = serializersMap.get(scheme);
     if (serializer == null) {
@@ -821,7 +833,11 @@ public class Repository {
 
   }
 
-  /** Retrieve storage descriptor by scheme. */
+  /**
+   * Retrieve storage descriptor by scheme.
+   * @param scheme storage scheme to look for
+   * @return {@link StorageDescriptor} for the specified scheme
+   */
   public StorageDescriptor getStorageDescriptor(String scheme) {
     StorageDescriptor desc = this.schemeToStorage.get(scheme);
     if (desc == null) {
@@ -831,13 +847,20 @@ public class Repository {
   }
 
 
-  /** List all unique atttribute families. */
+  /**
+   * List all unique attribute families.
+   * @return all families specified in this repository
+   */
   public Stream<AttributeFamilyDescriptor> getAllFamilies() {
     return attributeToFamily.values().stream()
         .flatMap(Collection::stream).distinct();
   }
 
-  /** Retrieve list of attribute families for attribute. */
+  /**
+   * Retrieve list of attribute families for attribute.
+   * @param attr attribute descriptor
+   * @return all families of given attribute
+   */
   public Set<AttributeFamilyDescriptor> getFamiliesForAttribute(
       AttributeDescriptor<?> attr) {
 
@@ -846,18 +869,28 @@ public class Repository {
         "Cannot find any family for attribute " + attr);
   }
 
-  /** Retrieve stream of all entities. */
+  /**
+   * Retrieve stream of all entities.
+   * @return {@link Stream} of all entities specified in this repository
+   */
   public Stream<EntityDescriptor> getAllEntities() {
     return Stream.concat(
             entitiesByName.values().stream(),
             entitiesByPattern.values().stream());
   }
 
-  /** Retrieve all transformers. */
+  /**
+   * Retrieve all transformers.
+   * @return all transformations by name
+   */
   public Map<String, TransformationDescriptor> getTransformations() {
     return Collections.unmodifiableMap(transformations);
   }
 
+  /**
+   * Check if this repostiory is empty.
+   * @return {@code true} if this repository is empty
+   */
   public boolean isEmpty() {
     return this.entitiesByName.isEmpty() && entitiesByPattern.isEmpty();
   }

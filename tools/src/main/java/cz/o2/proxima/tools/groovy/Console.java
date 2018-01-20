@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.tools.groovy;
 
 import com.google.protobuf.AbstractMessage;
@@ -47,10 +46,10 @@ import cz.seznam.euphoria.core.client.operator.Filter;
 import cz.seznam.euphoria.core.client.operator.FlatMap;
 import cz.seznam.euphoria.core.client.operator.ReduceByKey;
 import cz.seznam.euphoria.core.client.util.Pair;
-import cz.seznam.euphoria.inmem.InMemExecutor;
-import cz.seznam.euphoria.inmem.ProcessingTimeTriggerScheduler;
-import cz.seznam.euphoria.inmem.WatermarkEmitStrategy;
-import cz.seznam.euphoria.inmem.WatermarkTriggerScheduler;
+import cz.seznam.euphoria.executor.local.LocalExecutor;
+import cz.seznam.euphoria.executor.local.ProcessingTimeTriggerScheduler;
+import cz.seznam.euphoria.executor.local.WatermarkEmitStrategy;
+import cz.seznam.euphoria.executor.local.WatermarkTriggerScheduler;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.GroovyClassLoader;
@@ -79,6 +78,7 @@ public class Console {
   /**
    * This is supposed to be called only from the groovysh initialized in this
    * main method.
+   * @return the singleton instance
    */
   public static final Console get() { return INSTANCE; }
 
@@ -200,7 +200,7 @@ public class Console {
     };
 
     return Stream.wrap(
-        new InMemExecutor()
+        new LocalExecutor()
             .setTriggeringSchedulerSupplier(() -> {
               return eventTime
                   ? new WatermarkTriggerScheduler(500)
@@ -256,7 +256,8 @@ public class Console {
             .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
             .combineBy(values -> {
               TypedIngest<Object> res = null;
-              for (TypedIngest<Object> v : values) {
+              Iterable<TypedIngest<Object>> iter = () -> values.iterator();
+              for (TypedIngest<Object> v : iter) {
                 if (res == null || v.getStamp() > res.getStamp()) {
                   res = v;
                 }
@@ -291,7 +292,7 @@ public class Console {
     };
 
     return Stream.wrap(
-        new InMemExecutor()
+        new LocalExecutor()
             .setTriggeringSchedulerSupplier(() -> {
               return new ProcessingTimeTriggerScheduler();
             })
@@ -337,7 +338,7 @@ public class Console {
     };
 
     return Stream.wrap(
-        new InMemExecutor()
+        new LocalExecutor()
             .setTriggeringSchedulerSupplier(() -> {
               return new ProcessingTimeTriggerScheduler();
             })

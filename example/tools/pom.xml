@@ -1,6 +1,6 @@
 <!--
 
-    Copyright 2017 O2 Czech Republic, a.s.
+    Copyright 2017-2018 O2 Czech Republic, a.s.
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima.example</groupId>
     <artifactId>example-parent</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
   </parent>
      
   <artifactId>example-tools</artifactId>
@@ -121,31 +121,31 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-core</artifactId>
+      <artifactId>core</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-tools</artifactId>
+      <artifactId>tools</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-cassandra</artifactId>
+      <artifactId>io-cassandra</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-kafka</artifactId>
+      <artifactId>io-kafka</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-hdfs</artifactId>
+      <artifactId>io-hdfs</artifactId>
       <version>${project.version}</version>
     </dependency>
 

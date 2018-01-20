@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.util;
 
 import java.io.Serializable;
@@ -33,6 +32,7 @@ public class NamePattern implements Serializable {
   /**
    * Constructor.
    * Convert ingest config pattern into java {@code java.util.regex.Pattern}.
+   * @param pattern string pattern to wrap into this object
    */
   public NamePattern(String pattern) {
     this.pattern = Objects.requireNonNull(pattern);
@@ -44,7 +44,11 @@ public class NamePattern implements Serializable {
     return Pattern.compile("^" + textPattern + "$");
   }
 
-  /** Match input string against the pattern. */
+  /**
+   * Match input string against the pattern.
+   * @param what the string to match
+   * @return {@code true} if matches
+   */
   public boolean matches(String what) {
     return compiled.matcher(what).find();
   }

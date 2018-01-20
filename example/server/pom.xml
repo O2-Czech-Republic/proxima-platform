@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima.example</groupId>
     <artifactId>example-parent</artifactId>
-    <version>0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
   </parent>
      
   <artifactId>example-ingest-server</artifactId>
@@ -81,7 +81,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>platform-server-grpc</artifactId>
+      <artifactId>ingest-server-grpc</artifactId>
       <version>${project.version}</version>
     </dependency>
 

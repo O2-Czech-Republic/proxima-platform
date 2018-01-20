@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.view;
 
 import cz.o2.proxima.storage.Partition;
@@ -30,6 +29,7 @@ public interface PartitionedView extends Serializable {
 
   /**
    * Retrieve list of partitions of this commit log.
+   * @return list of partitions in this view
    */
   List<Partition> getPartitions();
 
@@ -38,9 +38,11 @@ public interface PartitionedView extends Serializable {
    * Subscribe to given set of partitions.
    * If you use this call then the reader stops being automatically
    * load balanced and the set of partitions cannot be changed.
+   * @param <T> output datatype
    * @param flow the flow to run this observation in
    * @param partitions the list of partitions to subscribe to
    * @param observer the observer to subscribe to the partitions
+   * @return {@link Dataset} produced by this observer
    */
   <T> Dataset<T> observePartitions(
       Flow flow,
@@ -52,8 +54,10 @@ public interface PartitionedView extends Serializable {
    * Subscribe to given set of partitions.
    * If you use this call then the reader stops being automatically
    * load balanced and the set of partitions cannot be changed.
+   * @param <T> output datatype
    * @param partitions the list of partitions to subscribe to
    * @param observer the observer to subscribe to the partitions
+   * @return {@link Dataset} produced by this observer
    */
   default <T> Dataset<T> observePartitions(
       Collection<Partition> partitions,
@@ -70,9 +74,11 @@ public interface PartitionedView extends Serializable {
    * If multiple observers share the same name, then the data
    * is load-balanced between them (in an undefined manner).
    * This is a non blocking call.
-   * @param Flow the flow to observe the data in
+   * @param <T> output datatype
+   * @param flow the flow to observe the data in
    * @param name identifier of the consumer
    * @param observer the observer to subscribe to the commit log
+   * @return {@link Dataset} produced by this observer
    */
   <T> Dataset<T> observe(
       Flow flow,
@@ -87,6 +93,10 @@ public interface PartitionedView extends Serializable {
    * If multiple observers share the same name, then the data
    * is load-balanced between them (in an undefined manner).
    * This is a non blocking call.
+   * @param <T> output datatype
+   * @param name name of the observer
+   * @param observer the observer
+   * @return {@link Dataset} produced by this observer
    */
   default <T> Dataset<T> observe(
       String name, PartitionedLogObserver<T> observer) {

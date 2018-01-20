@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,6 +32,7 @@ public interface Transformation extends Serializable {
 
     /**
      * Collect transformed value.
+     * @param value the value to collect
      */
     void collect(T value);
 
@@ -48,7 +49,6 @@ public interface Transformation extends Serializable {
    * Apply the transformation function.
    * @param input the input stream element to transform
    * @param collector collector for outputs
-   * @return transformed stream element
    */
   void apply(StreamElement input, Collector<StreamElement> collector);
 

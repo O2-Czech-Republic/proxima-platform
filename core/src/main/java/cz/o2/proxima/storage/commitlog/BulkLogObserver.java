@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.commitlog;
 
 import cz.o2.proxima.storage.Partition;
@@ -33,6 +32,10 @@ import javax.annotation.Nullable;
  */
 public interface BulkLogObserver extends LogObserverBase {
 
+  /**
+   * Interface for bulk commit. WHen committed, all elements preceding the committed
+   * one are considered as committed.
+   */
   @FunctionalInterface
   interface BulkCommitter {
 
@@ -66,7 +69,7 @@ public interface BulkLogObserver extends LogObserverBase {
    * until the confirm is committed, all uncommitted elements will be reprocessed
    * in case of failure. Call to `BulkCommitter#commit` all elements
    * processed so far will be committed.
-   * @returns {@code true} if the processing should continue, {@code false} otherwise
+   * @return {@code true} if the processing should continue, {@code false} otherwise
    **/
   default boolean onNext(StreamElement ingest, BulkCommitter confirm) {
     throw new UnsupportedOperationException(
@@ -77,11 +80,12 @@ public interface BulkLogObserver extends LogObserverBase {
   /**
    * Process next record in the commit log.
    * @param ingest the ingested data written to the commit log
+   * @param partition the source partition of the ingest
    * @param confirm a callback that the application *might* use to commit the ingest
    * until the confirm is committed, all uncommitted elements will be reprocessed
    * in case of failure. Call to `BulkCommitter#commit` all elements
    * processed so far will be committed.
-   * @returns {@code true} if the processing should continue, {@code false} otherwise
+   * @return {@code true} if the processing should continue, {@code false} otherwise
    **/
   default boolean onNext(
       StreamElement ingest,

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.repository;
 
 import com.typesafe.config.ConfigFactory;
@@ -39,9 +38,10 @@ import static org.junit.Assert.*;
  */
 public class RepositoryTest {
 
+  final Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
+
   @Test
   public void testConfigParsing() throws IOException {
-    Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
     assertTrue("Entity event should have been parsed",
         repo.findEntity("event").isPresent());
     assertTrue("Entity gateway should have been parsed",
@@ -72,9 +72,8 @@ public class RepositoryTest {
     assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 5000)
   public void testProxyWrite() throws UnsupportedEncodingException, InterruptedException {
-    Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
     EntityDescriptor proxied = repo.findEntity("proxied").get();
     AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
     AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();

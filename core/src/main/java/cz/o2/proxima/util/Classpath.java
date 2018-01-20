@@ -23,9 +23,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class Classpath {
 
-  /** Find given class.
-   * Try hard to find it replacing `.' by `$' if
-   * appropriate.
+  /**
+   * Find given class.
+   * Try hard to find it replacing `.' by `$' if appropriate.
+   * @param <T> type of the superclass
+   * @param name class name to search for
+   * @param superClass class or interface the found class should extend
+   * @return class object of the found class
    */
   @SuppressWarnings({ "unchecked", "rawtypes" })
   public static <T> Class<T> findClass(String name, Class<T> superClass) {

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.metrics;
 
-import cz.seznam.euphoria.shaded.guava.com.google.common.util.concurrent.AtomicDouble;
+import cz.seznam.euphoria.shadow.com.google.common.util.concurrent.AtomicDouble;
 import java.beans.ConstructorProperties;
 
 /**

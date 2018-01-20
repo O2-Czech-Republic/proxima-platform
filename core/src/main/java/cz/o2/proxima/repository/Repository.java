@@ -93,6 +93,9 @@ public class Repository {
       this.executorFactory = () -> Executors.newCachedThreadPool(r -> {
           Thread t = new Thread(r);
           t.setName("ProximaRepositoryPool");
+          t.setUncaughtExceptionHandler((thr, exc) -> {
+            log.error("Error running task in thread {}", thr.getName(), exc);
+          });
           return t;
         });
 

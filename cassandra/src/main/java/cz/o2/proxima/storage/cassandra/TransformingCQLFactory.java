@@ -22,7 +22,7 @@ import com.datastax.driver.core.Statement;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
-import cz.seznam.euphoria.shaded.guava.com.google.common.base.Joiner;
+import cz.seznam.euphoria.shadow.com.google.common.base.Joiner;
 import java.io.Serializable;
 import lombok.extern.slf4j.Slf4j;
 

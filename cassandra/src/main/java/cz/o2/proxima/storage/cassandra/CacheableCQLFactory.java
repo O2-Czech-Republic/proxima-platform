@@ -21,8 +21,8 @@ import com.datastax.driver.core.Session;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.URIUtil;
-import cz.seznam.euphoria.shaded.guava.com.google.common.annotations.VisibleForTesting;
-import cz.seznam.euphoria.shaded.guava.com.google.common.base.Strings;
+import cz.seznam.euphoria.shadow.com.google.common.annotations.VisibleForTesting;
+import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;

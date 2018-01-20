@@ -15,23 +15,38 @@
  */
 package cz.o2.proxima.storage.kafka;
 
+import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
+import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.Accessor;
 import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.LocalKafkaWriter;
-import cz.seznam.euphoria.shaded.guava.com.google.common.collect.Iterators;
+import cz.o2.proxima.storage.kafka.partitioner.FirstPartitionPartitioner;
+import cz.o2.proxima.view.PartitionedLogObserver;
+import cz.o2.proxima.view.PartitionedView;
+import cz.seznam.euphoria.core.client.dataset.Dataset;
+import cz.seznam.euphoria.executor.local.LocalExecutor;
+import cz.seznam.euphoria.shadow.com.google.common.collect.Iterators;
+import java.io.Serializable;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
+import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -44,9 +59,9 @@ import org.junit.Test;
 /**
  * Test suite for {@code LocalKafkaCommitLogDescriptorTest}.
  */
-public class LocalKafkaCommitLogDescriptorTest {
+public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
-  final Repository repo = Repository.Builder.ofTest(ConfigFactory.empty()).build();
+  final transient Repository repo = Repository.Builder.ofTest(ConfigFactory.empty()).build();
   final AttributeDescriptorBase<?> attr;
   final EntityDescriptor entity;
   final URI storageURI;
@@ -421,16 +436,168 @@ public class LocalKafkaCommitLogDescriptorTest {
     assertEquals(1, poll.count());
   }
 
-  private Map<String, Object> partitionsCfg(int partitions) {
+  @Test(timeout = 2000)
+  public void testPartitionedViewSinglePartition() throws InterruptedException {
+    Accessor accessor = kafka.getAccessor(
+        entity, storageURI, partitionsCfg(3, FirstPartitionPartitioner.class));
+    LocalKafkaWriter writer = accessor.newWriter();
+    PartitionedView view = accessor.getPartitionedView(context()).orElseThrow(
+        () -> new IllegalStateException("Missing partitioned view"));
+
+    List<Partition> partitions = view.getPartitions();
+    assertEquals(3, partitions.size());
+    List<Partition> partition = Lists.newArrayList(partitions.subList(0, 1));
+    final List<Partition> observed = new ArrayList<>();
+    final BlockingQueue<StreamElement> ingests = new SynchronousQueue<>();
+    Dataset<Void> result;
+    result = view.observePartitions(partition, new PartitionedLogObserver<Void>() {
+
+      @Override
+      public void onRepartition(Collection<Partition> assigned) {
+        observed.addAll(assigned);
+      }
+
+      @Override
+      public boolean onNext(
+          StreamElement ingest,
+          PartitionedLogObserver.ConfirmCallback confirm,
+          Partition partition,
+          PartitionedLogObserver.Consumer<Void> collector) {
+
+        assertEquals(0, partition.getId());
+        confirm.confirm();
+        try {
+          ingests.put(ingest);
+        } catch (InterruptedException ex) {
+          Thread.currentThread().interrupt();
+        }
+        return false;
+      }
+
+      @Override
+      public void onCompleted() {
+
+      }
+
+      @Override
+      public void onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+    });
+
+    LocalExecutor runner = new LocalExecutor();
+    runner.submit(result.getFlow());
+
+    StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
+    CountDownLatch latch = new CountDownLatch(1);
+    writer.write(update, (succ, err) -> {
+      assertTrue(succ);
+      latch.countDown();
+    });
+    latch.await();
+    StreamElement element = ingests.take();
+    assertEquals(update.getKey(), element.getKey());
+    assertEquals(update.getAttribute(), element.getAttribute());
+    assertEquals(update.getAttributeDescriptor(), element.getAttributeDescriptor());
+    assertEquals(update.getEntityDescriptor(), element.getEntityDescriptor());
+    assertArrayEquals(update.getValue(), element.getValue());
+    assertEquals(1, observed.size());
+
+  }
+
+  @Test(timeout = 2000)
+  public void testPartitionedView() throws InterruptedException {
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    PartitionedView view = accessor.getPartitionedView(context()).orElseThrow(
+        () -> new IllegalStateException("Missing partitioned view"));
+
+    final List<Partition> observed = new ArrayList<>();
+    final BlockingQueue<StreamElement> ingests = new SynchronousQueue<>();
+    Dataset<Void> result;
+    result = view.observe("test", new PartitionedLogObserver<Void>() {
+
+      @Override
+      public void onRepartition(Collection<Partition> assigned) {
+        observed.addAll(assigned);
+      }
+
+      @Override
+      public boolean onNext(
+          StreamElement ingest,
+          PartitionedLogObserver.ConfirmCallback confirm,
+          Partition partition,
+          PartitionedLogObserver.Consumer<Void> collector) {
+
+        confirm.confirm();
+        try {
+          ingests.put(ingest);
+        } catch (InterruptedException ex) {
+          Thread.currentThread().interrupt();
+        }
+        return false;
+      }
+
+      @Override
+      public void onCompleted() {
+
+      }
+
+      @Override
+      public void onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+    });
+
+    LocalExecutor runner = new LocalExecutor();
+    runner.submit(result.getFlow());
+
+    StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
+    CountDownLatch latch = new CountDownLatch(1);
+    writer.write(update, (succ, err) -> {
+      assertTrue(succ);
+      latch.countDown();
+    });
+    latch.await();
+    StreamElement element = ingests.take();
+    assertEquals(update.getKey(), element.getKey());
+    assertEquals(update.getAttribute(), element.getAttribute());
+    assertEquals(update.getAttributeDescriptor(), element.getAttributeDescriptor());
+    assertEquals(update.getEntityDescriptor(), element.getEntityDescriptor());
+    assertArrayEquals(update.getValue(), element.getValue());
+    assertEquals(3, observed.size());
+
+  }
+
+  private static Map<String, Object> partitionsCfg(int partitions) {
+    return partitionsCfg(partitions, null);
+  }
+
+  private static Map<String, Object> partitionsCfg(
+      int partitions, @Nullable Class<? extends Partitioner> partitioner) {
+
     Map<String, Object> ret = new HashMap<>();
     ret.put(
         LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS,
         String.valueOf(partitions));
+    if (partitioner != null) {
+      ret.put(KafkaAccessor.PARTITIONER_CLASS, partitioner.getName());
+    }
     return ret;
   }
 
-  private byte[] emptyValue() {
+  private static byte[] emptyValue() {
     return new byte[] { };
+  }
+
+  private static Context context() {
+    return new Context(() -> Executors.newCachedThreadPool()) { };
   }
 
 }

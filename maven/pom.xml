@@ -53,7 +53,7 @@
           <relocations>
             <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.seznam.euphoria.shaded.guava.com.google.common.</shadedPattern>
+              <shadedPattern>cz.seznam.euphoria.shadow.com.google.common.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -126,7 +126,7 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>21.0</version>
+      <version>23.0</version>
       <scope>provided</scope>
     </dependency>
 

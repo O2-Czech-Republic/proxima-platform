@@ -29,6 +29,7 @@ import cz.o2.proxima.view.PartitionedView;
 import cz.o2.proxima.view.input.DataSourceUtils;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
+import cz.seznam.euphoria.core.client.io.DataSource;
 import cz.seznam.euphoria.core.client.operator.MapElements;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,7 +44,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
@@ -128,15 +128,20 @@ public class KafkaLogReader extends AbstractStorage
     BlockingQueue<T> queue = new ArrayBlockingQueue<>(100);
 
     DataSourceUtils.Producer producer = () -> {
-        observePartitions(null, partitions, Position.NEWEST, false,
-            Utils.forwardingTo(queue, observer),
-            Utils.rebalanceListener(observer));
+      observePartitions(null, partitions, Position.NEWEST, false,
+          Utils.forwardingTo(queue, observer),
+          Utils.rebalanceListener(observer));
     };
+
+
+    // FIXME: revisit this logic, we need to be able to correctly commit
+    // and rewind the source (https://github.com/O2-Czech-Republic/proxima-platform/issues/57)
+    DataSource<T> source = DataSourceUtils.fromPartitions(
+        DataSourceUtils.fromBlockingQueue(queue, producer, () -> 0, a -> null, a -> null));
 
     // we need to remap the input here to be able to directly persist it again
     return MapElements.of(
-        flow.createInput(DataSourceUtils.fromPartitions(
-            DataSourceUtils.fromBlockingQueue(queue, producer))))
+        flow.createInput(source))
         .using(e -> e)
         .output();
   }
@@ -145,7 +150,7 @@ public class KafkaLogReader extends AbstractStorage
   public <T> Dataset<T> observe(
       Flow flow, String name, PartitionedLogObserver<T> observer) {
 
-    BlockingQueue<T> queue = new SynchronousQueue<>();
+    BlockingQueue<T> queue = new ArrayBlockingQueue<>(100);
 
     DataSourceUtils.Producer producer = () -> {
       observePartitions(name, null, Position.NEWEST, false,
@@ -153,10 +158,15 @@ public class KafkaLogReader extends AbstractStorage
           Utils.rebalanceListener(observer));
     };
 
+    // FIXME: revisit this logic, we need to be able to correctly commit
+    // and rewind the source (https://github.com/O2-Czech-Republic/proxima-platform/issues/57)
+    DataSource<T> source = DataSourceUtils.fromPartitions(
+        DataSourceUtils.fromBlockingQueue(
+            queue, producer, () -> 0, a -> null, a -> null));
+
     // we need to remap the input here to be able to directly persist it again
     return MapElements.of(
-        flow.createInput(DataSourceUtils.fromPartitions(
-            DataSourceUtils.fromBlockingQueue(queue, producer))))
+        flow.createInput(source))
         .using(e -> e)
         .output();
   }
@@ -167,14 +177,12 @@ public class KafkaLogReader extends AbstractStorage
     try (KafkaConsumer<String, byte[]> consumer = createConsumer()) {
       partitions = consumer.partitionsFor(topic);
     }
-    return partitions.stream().map(pi ->
-      new Partition() {
-        @Override
-        public int getId() {
-          return pi.partition();
-        }
-      }
-    ).collect(Collectors.toList());
+    return partitions.stream()
+        .map(p -> {
+          final int id = p.partition();
+          return (Partition) (() -> id);
+        })
+        .collect(Collectors.toList());
   }
 
   protected Cancellable observePartitions(
@@ -275,7 +283,7 @@ public class KafkaLogReader extends AbstractStorage
     CountDownLatch latch = new CountDownLatch(1);
 
     // start new thread that will fill our observer
-    Thread consumer = new Thread(() -> {
+    Future<?> submit = context.getExecutorService().submit(() -> {
 
       consumerRef.set(createConsumer(name, null, listener, position));
       try {
@@ -291,9 +299,6 @@ public class KafkaLogReader extends AbstractStorage
         consumerRef.get().close();
       }
     });
-    consumer.setDaemon(true);
-    consumer.setName("consumer-" + name);
-    consumer.start();
 
     try {
       log.debug("Waiting for the consumer {} to be created and run", name);
@@ -302,9 +307,7 @@ public class KafkaLogReader extends AbstractStorage
       log.warn("Interrupted while waiting for the creation of the consumer.", ex);
       Thread.currentThread().interrupt();
     }
-    return () -> {
-      consumer.interrupt();
-    };
+    return () -> submit.cancel(true);
   }
 
 
@@ -417,7 +420,7 @@ public class KafkaLogReader extends AbstractStorage
         byte[] value = r.value();
         TopicPartition tp = new TopicPartition(r.topic(), r.partition());
         preWrite.apply(tp, r);
-        // in kafka, each entity attribute is separeted by `#' from entity key
+        // in kafka, each entity attribute is separated by `#' from entity key
         int hashPos = key.lastIndexOf("#");
         KafkaStreamElement ingest = null;
         if (hashPos < 0 || hashPos >= key.length()) {
@@ -489,12 +492,14 @@ public class KafkaLogReader extends AbstractStorage
     final KafkaConsumer<String, byte[]> consumer;
 
     if (name != null) {
-      if (listener != null) {
-        consumer = factory.create(name, listener);
-      } else {
-        consumer = factory.create(name);
-      }
+      consumer = factory.create(name, listener);
     } else if (partitions != null) {
+      if (listener != null) {
+        listener.onPartitionsAssigned(
+            partitions.stream()
+                .map(p -> new TopicPartition(topic, p.getId()))
+                .collect(Collectors.toList()));
+      }
       consumer = factory.create(partitions);
     } else {
       throw new IllegalArgumentException("Need either name or partitions to observe");

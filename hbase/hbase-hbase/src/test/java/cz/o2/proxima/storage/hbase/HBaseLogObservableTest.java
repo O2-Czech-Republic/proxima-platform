@@ -23,7 +23,7 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
 import static cz.o2.proxima.storage.hbase.TestUtil.b;
-import cz.seznam.euphoria.shaded.guava.com.google.common.collect.Lists;
+import cz.seznam.euphoria.shadow.com.google.common.collect.Lists;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;

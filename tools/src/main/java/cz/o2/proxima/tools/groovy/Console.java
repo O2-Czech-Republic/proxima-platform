@@ -39,6 +39,7 @@ import cz.o2.proxima.tools.io.StreamSource;
 import cz.o2.proxima.tools.io.TypedIngest;
 import cz.o2.proxima.util.Classpath;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
+import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import cz.seznam.euphoria.core.client.io.Collector;
 import cz.seznam.euphoria.core.client.operator.AssignEventTime;
@@ -211,7 +212,7 @@ public class Console {
         this::resetFlow);
   }
 
-  public <T> WindowedStream<TypedIngest<T>> getBatchSnapshot(
+  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchSnapshot(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc) {
 
@@ -220,7 +221,7 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> WindowedStream<TypedIngest<T>> getBatchSnapshot(
+  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchSnapshot(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       long fromStamp,
@@ -304,7 +305,7 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> WindowedStream<TypedIngest<T>> getBatchUpdates(
+  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchUpdates(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       long startStamp,

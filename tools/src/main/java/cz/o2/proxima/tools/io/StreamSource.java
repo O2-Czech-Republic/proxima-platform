@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.tools.io;
 
 import cz.o2.proxima.storage.StreamElement;
@@ -21,15 +20,14 @@ import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.CommitLogReader.Position;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.seznam.euphoria.core.client.functional.UnaryFunction;
-import cz.seznam.euphoria.core.client.io.DataSource;
-import cz.seznam.euphoria.core.client.io.Partition;
-import cz.seznam.euphoria.core.client.io.Reader;
+import cz.seznam.euphoria.core.client.io.UnboundedDataSource;
+import cz.seznam.euphoria.core.client.io.UnboundedPartition;
+import cz.seznam.euphoria.core.client.io.UnboundedReader;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicReference;
@@ -38,7 +36,7 @@ import java.util.stream.Collectors;
 /**
  * A {@code DataSource} reading from a specific attribute of entity.
  */
-public class StreamSource<T> implements DataSource<T> {
+public class StreamSource<T> implements UnboundedDataSource<T, Serializable> {
 
   public static <T> StreamSource<T> of(
       CommitLogReader reader,
@@ -67,16 +65,12 @@ public class StreamSource<T> implements DataSource<T> {
   }
 
   @Override
-  public List<Partition<T>> getPartitions() {
+  public List<UnboundedPartition<T, Serializable>> getPartitions() {
     return reader.getPartitions().stream()
-        .map(p -> new Partition<T>() {
-            @Override
-            public Set<String> getLocations() {
-              return Collections.singleton("Unknown");
-            }
+        .map(p -> new UnboundedPartition<T, Serializable>() {
 
             @Override
-            public Reader<T> openReader() throws IOException {
+            public UnboundedReader<T, Serializable> openReader() throws IOException {
               BlockingQueue<Optional<T>> queue = new SynchronousQueue<>();
               AtomicReference<T> current = new AtomicReference<>();
 
@@ -86,7 +80,7 @@ public class StreamSource<T> implements DataSource<T> {
                   stopAtCurrent,
                   partitionObserver(queue));
 
-              return new Reader<T>() {
+              return new UnboundedReader<T, Serializable>() {
 
                 @Override
                 public void close() throws IOException {
@@ -109,6 +103,24 @@ public class StreamSource<T> implements DataSource<T> {
                 @Override
                 public T next() {
                   return current.get();
+                }
+
+                @Override
+                public Serializable getCurrentOffset() {
+                  // FIXME
+                  return 0;
+                }
+
+                @Override
+                public void reset(Serializable offset) {
+                  // FIXME
+                  // nop
+                }
+
+                @Override
+                public void commitOffset(Serializable offset) {
+                  // FIXME
+                  // nop
                 }
               };
             }
@@ -137,7 +149,7 @@ public class StreamSource<T> implements DataSource<T> {
       }
 
       @Override
-      public void onError(Throwable error) {
+      public boolean onError(Throwable error) {
         onCompleted();
         throw new RuntimeException(error);
       }
@@ -156,12 +168,6 @@ public class StreamSource<T> implements DataSource<T> {
 
       }
     };
-  }
-
-
-  @Override
-  public boolean isBounded() {
-    return stopAtCurrent;
   }
 
 }

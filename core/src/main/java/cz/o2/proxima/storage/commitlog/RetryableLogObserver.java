@@ -67,7 +67,9 @@ public abstract class RetryableLogObserver
 
   /**
    * Called to observe the ingest data.
-   * @returns true to continue processing, false otherwise
+   * @param ingest input data
+   * @param confirm callback used to confirm processing
+   * @return {@code true} to continue processing, {@code false} otherwise
    */
   protected boolean onNextInternal(
       StreamElement ingest, LogObserver.ConfirmCallback confirm) {
@@ -79,7 +81,10 @@ public abstract class RetryableLogObserver
 
   /**
    * Called to observe the ingest data.
-   * @returns true to continue processing, false otherwise
+   * @param ingest input data
+   * @param partition source partition
+   * @param confirm callback used to confirm processing
+   * @return {@code true} to continue processing, {@code false} otherwise
    */
   protected boolean onNextInternal(
       StreamElement ingest, Partition partition,

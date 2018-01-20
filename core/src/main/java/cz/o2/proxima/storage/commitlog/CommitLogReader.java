@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.commitlog;
 
 import cz.o2.proxima.storage.Partition;
@@ -46,11 +45,13 @@ public interface CommitLogReader extends Closeable, Serializable {
 
   /**
    * Retrieve URI representing this resource.
+   * @return URI representing this resource
    */
   URI getURI();
 
   /**
    * Retrieve list of partitions of this commit log.
+   * @return list of partitions of this reader
    */
   List<Partition> getPartitions();
 
@@ -65,6 +66,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @param name identifier of the consumer
    * @param position the position to seek for in the commit log
    * @param observer the observer to subscribe to the commit log
+   * @return {@link Cancellable} to asynchronously cancel the observation
    */
   Cancellable observe(String name, Position position, LogObserver observer);
 
@@ -78,6 +80,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    * This is a non blocking call.
    * @param name identifier of the consumer
    * @param observer the observer to subscribe to the commit log
+   * @return {@link Cancellable} to asynchronously cancel the observation
    */
   default Cancellable observe(String name, LogObserver observer) {
     return observe(name, Position.NEWEST, observer);
@@ -94,6 +97,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @param stopAtCurrent when {@code true} then stop the observer as soon
    *                      as it reaches most recent record
    * @param observer the observer to subscribe to the partitions
+   * @return {@link Cancellable} to asynchronously cancel the observation
    */
   Cancellable observePartitions(
       Collection<Partition> partitions,
@@ -110,6 +114,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @param partitions the list of partitions to subscribe to
    * @param position the position to seek to in the partitions
    * @param observer the observer to subscribe to the partitions
+   * @return {@link Cancellable} to asynchronously cancel the observation
    */
   default Cancellable observePartitions(
       Collection<Partition> partitions,
@@ -127,6 +132,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    * by call to this method again.
    * @param partitions the partitions to subscribe to
    * @param observer the observer to subscribe to the given partitions
+   * @return {@link Cancellable} to asynchronously cancel the observation
    */
   default Cancellable observePartitions(
       List<Partition> partitions,
@@ -141,6 +147,10 @@ public interface CommitLogReader extends Closeable, Serializable {
    * are not committed one-by-one, but in a bulks, where all elements in a bulk
    * are committed at once. This is useful for micro-batching approach of
    * data processing.
+   * @param name name of the observer
+   * @param position the position to seek to in the partitions
+   * @param observer the observer to subscribe
+   * @return {@link Cancellable} to asynchronously cancel the observation
    */
   Cancellable observeBulk(
       String name,

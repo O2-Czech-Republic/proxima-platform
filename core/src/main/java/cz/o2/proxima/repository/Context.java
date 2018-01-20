@@ -45,6 +45,7 @@ public class Context implements Serializable {
 
   /**
    * Get executor for asynchronous tasks.
+   * @return {@link ExecutorService} to use in runtime
    */
   public ExecutorService getExecutorService() {
     initialize();

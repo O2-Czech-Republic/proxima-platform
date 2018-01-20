@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.tools.groovy;
 
 import com.google.protobuf.AbstractMessage;
@@ -40,6 +39,7 @@ import cz.o2.proxima.tools.io.StreamSource;
 import cz.o2.proxima.tools.io.TypedIngest;
 import cz.o2.proxima.util.Classpath;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
+import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import cz.seznam.euphoria.core.client.io.Collector;
 import cz.seznam.euphoria.core.client.operator.AssignEventTime;
@@ -47,10 +47,10 @@ import cz.seznam.euphoria.core.client.operator.Filter;
 import cz.seznam.euphoria.core.client.operator.FlatMap;
 import cz.seznam.euphoria.core.client.operator.ReduceByKey;
 import cz.seznam.euphoria.core.client.util.Pair;
-import cz.seznam.euphoria.inmem.InMemExecutor;
-import cz.seznam.euphoria.inmem.ProcessingTimeTriggerScheduler;
-import cz.seznam.euphoria.inmem.WatermarkEmitStrategy;
-import cz.seznam.euphoria.inmem.WatermarkTriggerScheduler;
+import cz.seznam.euphoria.executor.local.LocalExecutor;
+import cz.seznam.euphoria.executor.local.ProcessingTimeTriggerScheduler;
+import cz.seznam.euphoria.executor.local.WatermarkEmitStrategy;
+import cz.seznam.euphoria.executor.local.WatermarkTriggerScheduler;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.GroovyClassLoader;
@@ -79,6 +79,7 @@ public class Console {
   /**
    * This is supposed to be called only from the groovysh initialized in this
    * main method.
+   * @return the singleton instance
    */
   public static final Console get() { return INSTANCE; }
 
@@ -200,7 +201,7 @@ public class Console {
     };
 
     return Stream.wrap(
-        new InMemExecutor()
+        new LocalExecutor()
             .setTriggeringSchedulerSupplier(() -> {
               return eventTime
                   ? new WatermarkTriggerScheduler(500)
@@ -211,7 +212,7 @@ public class Console {
         this::resetFlow);
   }
 
-  public <T> WindowedStream<TypedIngest<T>> getBatchSnapshot(
+  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchSnapshot(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc) {
 
@@ -220,7 +221,7 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> WindowedStream<TypedIngest<T>> getBatchSnapshot(
+  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchSnapshot(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       long fromStamp,
@@ -256,7 +257,8 @@ public class Console {
             .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
             .combineBy(values -> {
               TypedIngest<Object> res = null;
-              for (TypedIngest<Object> v : values) {
+              Iterable<TypedIngest<Object>> iter = () -> values.iterator();
+              for (TypedIngest<Object> v : iter) {
                 if (res == null || v.getStamp() > res.getStamp()) {
                   res = v;
                 }
@@ -291,7 +293,7 @@ public class Console {
     };
 
     return Stream.wrap(
-        new InMemExecutor()
+        new LocalExecutor()
             .setTriggeringSchedulerSupplier(() -> {
               return new ProcessingTimeTriggerScheduler();
             })
@@ -303,7 +305,7 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> WindowedStream<TypedIngest<T>> getBatchUpdates(
+  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchUpdates(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       long startStamp,
@@ -337,7 +339,7 @@ public class Console {
     };
 
     return Stream.wrap(
-        new InMemExecutor()
+        new LocalExecutor()
             .setTriggeringSchedulerSupplier(() -> {
               return new ProcessingTimeTriggerScheduler();
             })

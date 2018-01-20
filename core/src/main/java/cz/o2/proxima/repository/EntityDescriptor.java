@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.repository;
 
 import java.io.Serializable;
@@ -61,7 +60,10 @@ public interface EntityDescriptor extends Serializable {
   }
 
 
-  /** Name of the entity. */
+  /**
+   * Name of the entity.
+   * @return name of the entity
+   */
   String getName();
 
   /**
@@ -86,12 +88,13 @@ public interface EntityDescriptor extends Serializable {
    * Find all attributes of this entity.
    * @param includeProtected when {@code true} then protected attributes are
    * also included (prefixed by _).
-   * @return
+   * @return all attributes of entity (including protected or not)
    */
   List<AttributeDescriptor<?>> getAllAttributes(boolean includeProtected);
 
   /**
    * List all attribute descriptors of given entity.
+   * @return get all unprotected attributes of entity
    */
   default List<AttributeDescriptor<?>> getAllAttributes() {
     return getAllAttributes(false);

@@ -41,14 +41,12 @@ public class ConsoleRandomReader implements Closeable {
 
   final EntityDescriptor entityDesc;
   final Map<AttributeDescriptor, RandomAccessReader> attrToReader;
-  final Map<String, Offset> listAttrOffsets;
   final Map<String, Offset> listEntityOffsets;
 
   public ConsoleRandomReader(EntityDescriptor desc, Repository repo) {
 
     this.entityDesc = desc;
     this.attrToReader = new HashMap<>();
-    this.listAttrOffsets = new HashMap<>();
     this.listEntityOffsets = new HashMap<>();
 
     desc.getAllAttributes().forEach(f -> {
@@ -86,7 +84,7 @@ public class ConsoleRandomReader implements Closeable {
       String key, String prefix, @Nullable String offset) {
 
     List<KeyValue<?>> ret = new ArrayList<>();
-    list(key, prefix, null, -1, ret::add);
+    list(key, prefix, offset, -1, ret::add);
     return ret;
   }
 
@@ -120,14 +118,7 @@ public class ConsoleRandomReader implements Closeable {
     }
     Offset off = offset == null ? null : reader.fetchOffset(
         RandomAccessReader.Listing.ATTRIBUTE, offset);
-    reader.scanWildcard(key, desc,
-        off,
-        limit, kv -> {
-          if (off == null) {
-            listAttrOffsets.put(kv.getAttribute(), kv.getOffset());
-          }
-          consumer.accept(kv);
-        });
+    reader.scanWildcard(key, desc, off, limit, consumer::accept);
   }
 
 

@@ -48,10 +48,16 @@ public abstract class Metric<T> implements Serializable {
     increment(-1.0);
   }
 
-  /** Increment the metric by given double value. */
-  public abstract void increment(double d);
+  /**
+   * Increment the metric by given double value.
+   * @param increment the value to increment the metric by
+   */
+  public abstract void increment(double increment);
 
-  /** Retrieve current value of the metric. */
+  /**
+   * Retrieve current value of the metric.
+   * @return current value
+   */
   public abstract T getValue();
 
   /** Reset the metric to initial state. */

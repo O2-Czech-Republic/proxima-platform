@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package cz.o2.proxima.repository;
 
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageFilter;
-import cz.seznam.euphoria.shaded.guava.com.google.common.base.Preconditions;
+import cz.seznam.euphoria.shadow.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,7 +59,7 @@ public class TransformationDescriptor implements Serializable {
     }
 
     Builder addAttributes(AttributeDescriptor<?>... attrs) {
-      Arrays.stream(attrs).forEach(this.attrs::add);
+      this.attrs.addAll(Arrays.asList(attrs));
       return this;
     }
 
@@ -71,10 +71,13 @@ public class TransformationDescriptor implements Serializable {
     TransformationDescriptor build() {
 
       Preconditions.checkArgument(
-          !attrs.isEmpty(), "Please specify at least one attribute");
-      Preconditions.checkArgument(transformation != null,
+          !attrs.isEmpty(),
+          "Please specify at least one attribute");
+      Preconditions.checkArgument(
+          transformation != null,
           "Please specify transformation function");
-      Preconditions.checkArgument(entity != null,
+      Preconditions.checkArgument(
+          entity != null,
           "Please specify source entity");
 
       return new TransformationDescriptor(entity, attrs, transformation, filter);

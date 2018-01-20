@@ -23,14 +23,12 @@ package cz.o2.proxima.storage.commitlog;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * A parent class for retryable online and bulk log observers.
  */
 @Slf4j
-public abstract class AbstractRetryableLogObserver {
+public abstract class AbstractRetryableLogObserver implements LogObserverBase {
 
   /** Maximal number of retries. */
   @Getter
@@ -58,19 +56,23 @@ public abstract class AbstractRetryableLogObserver {
   }
 
 
-  public void onError(Throwable error) {
+  @Override
+  public boolean onError(Throwable error) {
+    numFailures++;
     log.error(
-        "Error in observing commit log {} by {}",
-        commitLog.getURI(), name, error);
-    if (numFailures++ < maxRetries) {
+        "Error in observing commit log {} by {}, retries so far {}, maxRetries {}",
+        commitLog.getURI(), name, numFailures, maxRetries, error);
+    if (numFailures < maxRetries) {
       startInternal(position);
+      return true;
     } else {
       failure();
+      return false;
     }
   }
-  
+
   protected void success() {
-    numFailures = 0;    
+    numFailures = 0;
   }
 
   public void start() {
@@ -84,6 +86,7 @@ public abstract class AbstractRetryableLogObserver {
 
   /**
    * Called when processing is to start from given position.
+   * @param position position in the log
    */
   protected abstract void startInternal(CommitLogReader.Position position);
 

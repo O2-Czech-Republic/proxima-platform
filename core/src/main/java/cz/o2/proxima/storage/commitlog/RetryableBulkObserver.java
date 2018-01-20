@@ -26,7 +26,9 @@ import java.io.IOException;
  * The number of retries is configurable.
  */
 @Slf4j
-public abstract class RetryableBulkObserver extends AbstractRetryableLogObserver implements BulkLogObserver {
+public abstract class RetryableBulkObserver
+    extends AbstractRetryableLogObserver
+    implements BulkLogObserver {
 
   public RetryableBulkObserver(
       int maxRetries,
@@ -38,10 +40,12 @@ public abstract class RetryableBulkObserver extends AbstractRetryableLogObserver
 
   @Override
   public final boolean onNext(
-      StreamElement ingest, Partition partition, BulkLogObserver.BulkCommitter confirm) {
+      StreamElement ingest, Partition partition,
+      BulkLogObserver.BulkCommitter confirm) {
 
+    boolean ret = onNextInternal(ingest, partition, confirm);
     success();
-    return onNextInternal(ingest, partition, confirm);
+    return ret;
   }
 
   @Override
@@ -61,10 +65,11 @@ public abstract class RetryableBulkObserver extends AbstractRetryableLogObserver
     }
   }
 
-
   /**
    * Called to observe the ingest data.
-   * @returns true to continue processing, false otherwise
+   * @param ingest the input data
+   * @param confirm the callback to use to confirm processing
+   * @return {@code true} to continue processing, {@code false} otherwise
    */
   protected boolean onNextInternal(
       StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
@@ -73,10 +78,12 @@ public abstract class RetryableBulkObserver extends AbstractRetryableLogObserver
         "Please override either of `onNextInternal` methods");
   }
 
-
   /**
    * Called to observe the ingest data.
-   * @returns true to continue processing, false otherwise
+   * @param ingest input data
+   * @param partition source partition
+   * @param confirm callback to use to confirm processing
+   * @return {@code true} to continue processing, {@code false} otherwise
    */
   protected boolean onNextInternal(
       StreamElement ingest, Partition partition,

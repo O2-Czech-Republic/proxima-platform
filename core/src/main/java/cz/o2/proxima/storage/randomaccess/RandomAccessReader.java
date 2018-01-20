@@ -57,6 +57,7 @@ public interface RandomAccessReader extends Closeable, Serializable {
    * (representing either key of the entity or attribute).
    * @param type the type of the key
    * @param key the key of entity or attribute
+   * @return offset representation of the key
    */
   Offset fetchOffset(Listing type, String key);
 
@@ -65,6 +66,7 @@ public interface RandomAccessReader extends Closeable, Serializable {
    * Retrieve data stored under given (key, attribute) pair (if any).
    * @param key key of the entity
    * @param desc the attribute to search for (not wildcard)
+   * @return optional {@link KeyValue} if present
    */
   default Optional<KeyValue<?>> get(
       String key,
@@ -79,6 +81,7 @@ public interface RandomAccessReader extends Closeable, Serializable {
    * @param key key of the entity
    * @param attribute name of the attribute
    * @param desc the attribute to search for
+   * @return optional {@link KeyValue} if present
    */
   Optional<KeyValue<?>> get(
       String key,
@@ -130,6 +133,9 @@ public interface RandomAccessReader extends Closeable, Serializable {
 
   /**
    * List all entity keys with offset and limit.
+   * @param offset offset of the entities
+   * @param limit limit for number of results
+   * @param consumer consumer of results
    */
   void listEntities(
       @Nullable Offset offset,

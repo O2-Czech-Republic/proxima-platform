@@ -21,8 +21,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import static cz.o2.proxima.storage.hbase.TestUtil.b;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader.Offset;
+import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.net.URI;
@@ -165,7 +164,7 @@ public class RandomHBaseReaderTest {
     reader.scanWildcard("key", wildcard, null, 1, res::add);
     assertEquals(1, res.size());
 
-    RandomAccessReader.Offset offset = res.get(0).getOffset();
+    RandomOffset offset = res.get(0).getOffset();
     res.clear();
     reader.scanWildcard("key", wildcard, offset, 3, res::add);
     assertEquals(3, res.size());
@@ -212,10 +211,10 @@ public class RandomHBaseReaderTest {
     write("key2", "wildcard.1", "b");
     write("key0", "dummy", "c");
 
-    List<Pair<Offset, String>> keys = new ArrayList<>();
+    List<Pair<RandomOffset, String>> keys = new ArrayList<>();
     reader.listEntities(null, 1, keys::add);
     assertEquals(1, keys.size());
-    Offset off = keys.get(0).getFirst();
+    RandomOffset off = keys.get(0).getFirst();
     keys.clear();
     reader.listEntities(off, 1, keys::add);
     assertEquals("key1", keys.get(0).getSecond());

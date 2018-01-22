@@ -13,43 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.storage.cassandra;
+package cz.o2.proxima.storage.kafka;
 
-import cz.o2.proxima.storage.randomaccess.RandomOffset;
-import lombok.Getter;
+import cz.o2.proxima.storage.commitlog.Offset;
+import java.util.List;
 
-/**
- * Offset based on {@code token} function.
- */
-public class Offsets {
+interface QueryableTopicPartitionCommitter extends TopicPartitionCommitter {
 
   /**
-   * Offset represented by a token (hash) of the key.
+   * Retrieve currently committed offsets.
+   * @return committed offsets for partitions
    */
-  public static class Token implements RandomOffset {
-
-    @Getter
-    final long token;
-
-    Token(long token) {
-      this.token = token;
-    }
-
-  }
-
-  /**
-   * Offset represented by the raw string value.
-   */
-  public static class Raw implements RandomOffset {
-
-    @Getter
-    final String raw;
-
-    Raw(String s) {
-      this.raw = s;
-    }
-
-  }
+  List<Offset> getCommittedOffsets();
 
 
 }
+

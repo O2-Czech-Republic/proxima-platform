@@ -39,6 +39,7 @@ import cz.o2.proxima.storage.commitlog.AbstractRetryableLogObserver;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
+import cz.o2.proxima.storage.commitlog.Offset;
 import cz.o2.proxima.storage.commitlog.RetryableBulkObserver;
 import cz.o2.proxima.storage.commitlog.RetryableLogObserver;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
@@ -57,6 +58,8 @@ import net.jodah.failsafe.RetryPolicy;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
@@ -722,7 +725,7 @@ public class IngestServer {
 
       @Override
       public boolean onNextInternal(
-          StreamElement ingest, LogObserver.ConfirmCallback confirm) {
+          StreamElement ingest, LogObserver.OffsetContext context) {
 
         // add one to prevent confirmation before all elements
         // are processed
@@ -740,27 +743,27 @@ public class IngestServer {
                   elem, elem.getUuid(), rpc -> {
                     if (rpc.getStatus() == 200) {
                       if (toConfirm.decrementAndGet() == 0) {
-                        confirm.confirm();
+                        context.confirm();
                       }
                     } else {
                       toConfirm.set(-1);
-                      confirm.fail(new RuntimeException(
+                      context.fail(new RuntimeException(
                           String.format("Received invalid status %d:%s",
                               rpc.getStatus(), rpc.getStatusMessage())));
                     }
                   });
             } catch (Exception ex) {
               toConfirm.set(-1);
-              confirm.fail(ex);
+              context.fail(ex);
             }
           };
           t.apply(ingest, collector);
           if (toConfirm.decrementAndGet() == 0) {
-            confirm.confirm();
+            context.confirm();
           }
         } catch (Exception ex) {
           toConfirm.set(-1);
-          confirm.fail(ex);
+          context.fail(ex);
         }
         return true;
       }
@@ -845,23 +848,23 @@ public class IngestServer {
       BulkAttributeWriter writer,
       RetryPolicy retry) {
 
-    return new RetryableBulkObserver(3, consumerName, commitLog) {
+    return new RetryableBulkObserver<Serializable>(3, consumerName, commitLog) {
 
       @Override
       public boolean onNextInternal(
           StreamElement ingest,
-          BulkLogObserver.BulkCommitter confirm) {
+          BulkLogObserver.OffsetContext context) {
 
-        return writeInternal(ingest, confirm);
+        return writeInternal(ingest, context);
       }
 
       private boolean writeInternal(
-          StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
+          StreamElement ingest, BulkLogObserver.OffsetContext context) {
 
         final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
         log.debug("Received new ingest element {}", ingest);
         if (allowed && filter.apply(ingest)) {
-          Failsafe.with(retryPolicy).run(() -> {
+          Failsafe.with(retry).run(() -> {
             log.debug("Writing element {} into {}", ingest, writer);
             writer.write(ingest, (success, exc) -> {
               if (!success) {
@@ -873,9 +876,9 @@ public class IngestServer {
                   log.error(
                       "Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
                       ingest, writer.getURI());
-                  confirm.commit();
+                  context.confirm();
                 } else {
-                  confirm.fail(exc);
+                  context.fail(exc);
                 }
               } else {
                 if (ingest.isDelete()) {
@@ -883,7 +886,7 @@ public class IngestServer {
                 } else {
                   Metrics.NON_COMMIT_LOG_UPDATES.increment();
                 }
-                confirm.commit();
+                context.confirm();
               }
             });
           });
@@ -908,10 +911,10 @@ public class IngestServer {
       }
 
       @Override
-      public void onRestart() {
+      public void onRestart(List<Offset> offsets) {
         log.info(
-            "Restarting bulk processing of {}, rollbacking the writer",
-            writer.getURI());
+            "Restarting bulk processing of {} from {}, rollbacking the writer",
+            writer.getURI(), offsets);
         writer.rollback();
       }
 
@@ -931,7 +934,7 @@ public class IngestServer {
       @Override
       public boolean onNextInternal(
           StreamElement ingest,
-          LogObserver.ConfirmCallback confirm) {
+          LogObserver.OffsetContext context) {
 
         final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
         log.debug("Received new ingest element {}", ingest);
@@ -948,9 +951,9 @@ public class IngestServer {
                   log.error(
                       "Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
                       ingest, writer.getURI());
-                  confirm.confirm();
+                  context.confirm();
                 } else {
-                  confirm.fail(exc);
+                  context.fail(exc);
                 }
               } else {
                 if (ingest.isDelete()) {
@@ -958,7 +961,7 @@ public class IngestServer {
                 } else {
                   Metrics.NON_COMMIT_LOG_UPDATES.increment();
                 }
-                confirm.confirm();
+                context.confirm();
               }
             });
           });
@@ -971,7 +974,7 @@ public class IngestServer {
               allowed ? "applied filter" : "invalid attribute",
               allowedAttributes,
               filter.getClass());
-          confirm.confirm();
+          context.confirm();
         }
         return true;
       }

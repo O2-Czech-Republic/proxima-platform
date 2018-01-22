@@ -22,7 +22,6 @@ import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader.Offset;
 import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.util.Arrays;
@@ -47,13 +46,18 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.SynchronousQueue;
+import cz.o2.proxima.storage.commitlog.BulkLogObserver.OffsetContext;
+import cz.o2.proxima.storage.commitlog.Offset;
+import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.storage.randomaccess.RandomOffset;
+import java.util.stream.Collectors;
 
 /**
  * InMemStorage for testing purposes.
  */
 public class InMemStorage extends StorageDescriptor {
 
-  private static class RawOffset implements Offset {
+  private static class RawOffset implements RandomOffset {
 
     final String raw;
 
@@ -135,7 +139,23 @@ public class InMemStorage extends StorageDescriptor {
       final int id;
       synchronized (observers) {
         id = observers.isEmpty() ? 0 : observers.lastKey() + 1;
-        observers.put(id, elem -> observer.onNext(elem, () -> 0, (succ, exc) -> { }));
+        observers.put(id, elem -> {
+          try {
+            observer.onNext(elem, new LogObserver.OffsetContext() {
+              @Override
+              public void commit(boolean success, Throwable err) {
+
+              }
+
+              @Override
+              public Offset getCurrentOffset() {
+                return null;
+              }
+            });
+          } catch (Exception ex) {
+            observer.onError(ex);
+          }
+        });
       }
       return () -> {
         observers.remove(id);
@@ -169,7 +189,23 @@ public class InMemStorage extends StorageDescriptor {
       final int id;
       synchronized (observers) {
         id = observers.isEmpty() ? 0 : observers.lastKey();
-        observers.put(id, elem -> observer.onNext(elem, () -> 0, (succ, exc) -> { }));
+        observers.put(id, elem -> {
+          try {
+            observer.onNext(elem, () -> 0, new OffsetContext() {
+              @Override
+              public void commit(boolean success, Throwable err) {
+
+              }
+
+              @Override
+              public List<Offset> getCommittedOffsets() {
+                return Collections.emptyList();
+              }
+            });
+          } catch (Exception ex) {
+            observer.onError(ex);
+          }
+        });
       }
       return () -> {
         observers.remove(id);
@@ -192,8 +228,8 @@ public class InMemStorage extends StorageDescriptor {
       DataSourceUtils.Producer producer = () -> {
           observe("partitionedView-" + flow.getName(), new LogObserver() {
             @Override
-            public boolean onNext(StreamElement ingest, LogObserver.ConfirmCallback confirm) {
-              observer.onNext(ingest, confirm::confirm, () -> 0, e -> {
+            public boolean onNext(StreamElement ingest, LogObserver.OffsetContext confirm) {
+              observer.onNext(ingest, confirm::commit, () -> 0, e -> {
                 try {
                   queue.put(e);
                 } catch (InterruptedException ex) {
@@ -206,11 +242,6 @@ public class InMemStorage extends StorageDescriptor {
             @Override
             public boolean onError(Throwable error) {
               throw new RuntimeException(error);
-            }
-
-            @Override
-            public void close() throws Exception {
-
             }
 
           });
@@ -230,6 +261,23 @@ public class InMemStorage extends StorageDescriptor {
         PartitionedLogObserver<T> observer) {
 
       return observePartitions(flow, getPartitions(), observer);
+    }
+
+    @Override
+    public Cancellable observeBulkPartitions(
+        List<Partition> partitions,
+        Position position,
+        BulkLogObserver observer) {
+
+      return observeBulk("unnamed-" + observer, position, observer);
+    }
+
+    @Override
+    public Cancellable observeBulkOffsets(List<Offset> offsets, BulkLogObserver observer) {
+      return observeBulkPartitions(
+          offsets.stream().map(Offset::getPartition).collect(Collectors.toList()),
+          Position.NEWEST,
+          observer);
     }
 
   }
@@ -277,7 +325,7 @@ public class InMemStorage extends StorageDescriptor {
     public void scanWildcard(
         String key,
         AttributeDescriptor<?> wildcard,
-        @Nullable Offset offset,
+        @Nullable RandomOffset offset,
         int limit,
         Consumer<KeyValue<?>> consumer) {
 
@@ -312,9 +360,9 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public void listEntities(
-        Offset offset,
+        RandomOffset offset,
         int limit,
-        Consumer<Pair<Offset, String>> consumer) {
+        Consumer<Pair<RandomOffset, String>> consumer) {
 
       throw new UnsupportedOperationException("Unsupported.");
     }
@@ -325,7 +373,7 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
-    public Offset fetchOffset(Listing type, String key) {
+    public RandomOffset fetchOffset(Listing type, String key) {
       return new RawOffset(key);
     }
 

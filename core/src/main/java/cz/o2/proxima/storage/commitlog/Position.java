@@ -13,43 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.storage.cassandra;
-
-import cz.o2.proxima.storage.randomaccess.RandomOffset;
-import lombok.Getter;
+package cz.o2.proxima.storage.commitlog;
 
 /**
- * Offset based on {@code token} function.
+ * An enum specifying the position in the commit log to start reading from.
  */
-public class Offsets {
+public enum Position {
 
   /**
-   * Offset represented by a token (hash) of the key.
+   * Read the commit log from the current data actually pushed to the log
+   * or the currently committed position.
    */
-  public static class Token implements RandomOffset {
+  NEWEST,
 
-    @Getter
-    final long token;
-
-    Token(long token) {
-      this.token = token;
-    }
-
-  }
-
-  /**
-   * Offset represented by the raw string value.
-   */
-  public static class Raw implements RandomOffset {
-
-    @Getter
-    final String raw;
-
-    Raw(String s) {
-      this.raw = s;
-    }
-
-  }
-
+  /** Read the commit log from the oldest data available. */
+  OLDEST;
 
 }
+

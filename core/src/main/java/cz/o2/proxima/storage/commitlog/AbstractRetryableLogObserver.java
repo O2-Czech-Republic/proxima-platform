@@ -37,13 +37,12 @@ public abstract class AbstractRetryableLogObserver implements LogObserverBase {
   @Getter
   private final String name;
   /** The commit log this observer observes from. */
-  @Getter
   private final CommitLogReader commitLog;
   /** Current number of failures in a row. */
   private int numFailures;
 
   @Getter
-  private CommitLogReader.Position position;
+  private Position position;
 
   public AbstractRetryableLogObserver(
       int maxRetries,
@@ -76,10 +75,10 @@ public abstract class AbstractRetryableLogObserver implements LogObserverBase {
   }
 
   public void start() {
-    start(CommitLogReader.Position.NEWEST);
+    start(Position.NEWEST);
   }
 
-  public void start(CommitLogReader.Position position) {
+  public void start(Position position) {
     this.position = position;
     this.startInternal(position);
   }
@@ -88,11 +87,16 @@ public abstract class AbstractRetryableLogObserver implements LogObserverBase {
    * Called when processing is to start from given position.
    * @param position position in the log
    */
-  protected abstract void startInternal(CommitLogReader.Position position);
+  protected abstract void startInternal(Position position);
 
   /**
    * Called when unrecoverable error detected on the commit log.
    */
   protected abstract void failure();
+
+  @SuppressWarnings("unchecked")
+  CommitLogReader getCommitLog() {
+    return commitLog;
+  }
 
 }

@@ -3,7 +3,7 @@
  * AUTO GENERATED! DO NOT EDIT!
  */
 
-import cz.o2.proxima.storage.commitlog.CommitLogReader.Position
+import cz.o2.proxima.storage.commitlog.Position
 import cz.o2.proxima.tools.groovy.Console
 import cz.o2.proxima.tools.groovy.Stream
 import cz.o2.proxima.tools.groovy.WindowedStream

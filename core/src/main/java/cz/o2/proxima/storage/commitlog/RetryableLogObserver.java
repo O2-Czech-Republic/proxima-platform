@@ -15,11 +15,9 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
-import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 
 /**
  * {@code LogObserver} which is able to retry the observation on error.
@@ -39,60 +37,28 @@ public abstract class RetryableLogObserver
 
   @Override
   public final boolean onNext(
-      StreamElement ingest, Partition partition,
-      LogObserver.ConfirmCallback confirm) {
+      StreamElement ingest, LogObserver.OffsetContext confirm) {
 
-    boolean ret = onNextInternal(ingest, partition, confirm);
+    boolean ret = onNextInternal(ingest, confirm);
     success();
     return ret;
   }
 
   @Override
-  protected final void startInternal(CommitLogReader.Position position) {
+  protected final void startInternal(Position position) {
     log.info(
         "Starting to process commitlog {} as {} from {}",
         getCommitLog().getURI(), getName(), getPosition());
     getCommitLog().observe(getName(), getPosition(), this);
   }
 
-  @Override
-  public void close() {
-    try {
-      getCommitLog().close();
-    } catch (IOException ex) {
-      log.error("Error while closing log observer {}", getName(), ex);
-    }
-  }
-
-
   /**
    * Called to observe the ingest data.
    * @param ingest input data
    * @param confirm callback used to confirm processing
    * @return {@code true} to continue processing, {@code false} otherwise
    */
-  protected boolean onNextInternal(
-      StreamElement ingest, LogObserver.ConfirmCallback confirm) {
-
-    throw new UnsupportedOperationException(
-        "Please override either of `onNextInternal` methods");
-  }
-
-
-  /**
-   * Called to observe the ingest data.
-   * @param ingest input data
-   * @param partition source partition
-   * @param confirm callback used to confirm processing
-   * @return {@code true} to continue processing, {@code false} otherwise
-   */
-  protected boolean onNextInternal(
-      StreamElement ingest, Partition partition,
-      LogObserver.ConfirmCallback confirm) {
-
-    return onNextInternal(ingest, confirm);
-  }
-
-
+  protected abstract boolean onNextInternal(
+      StreamElement ingest, LogObserver.OffsetContext confirm);
 
 }

@@ -24,6 +24,8 @@ import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.commitlog.LogObserverBase;
+import cz.o2.proxima.storage.commitlog.Offset;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.o2.proxima.view.input.DataSourceUtils;
@@ -31,16 +33,17 @@ import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import cz.seznam.euphoria.core.client.io.DataSource;
 import cz.seznam.euphoria.core.client.operator.MapElements;
+import cz.seznam.euphoria.shadow.com.google.common.base.Preconditions;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -117,7 +120,21 @@ public class KafkaLogReader extends AbstractStorage
       Position position,
       BulkLogObserver observer) {
 
-    return observePartitionsBulk(name, position, observer);
+    return observeKafkaBulk(name, null, position, observer);
+  }
+
+  @Override
+  public Cancellable observeBulkPartitions(
+      List<Partition> partitions,
+      Position position,
+      BulkLogObserver observer) {
+
+    return observeKafkaBulk(null, asOffsets(partitions), position, observer);
+  }
+
+  @Override
+  public Cancellable observeBulkOffsets(List<Offset> offsets, BulkLogObserver observer) {
+    return observeKafkaBulk(null, offsets, null, observer);
   }
 
   @Override
@@ -201,7 +218,7 @@ public class KafkaLogReader extends AbstractStorage
     // start new thread that will fill our observer
     AtomicReference<Future<?>> submit = new AtomicReference<>();
     runConsumption(
-        name, partitions, position, stopAtCurrent,
+        name, asOffsets(partitions), position, stopAtCurrent,
         listener, submit, executor, latch, observer);
 
     try {
@@ -218,7 +235,7 @@ public class KafkaLogReader extends AbstractStorage
   }
 
   private void runConsumption(
-      String name, Collection<Partition> partitions,
+      String name, Collection<Offset> offsets,
       Position position, boolean stopAtCurrent,
       ConsumerRebalanceListener listener,
       AtomicReference<Future<?>> submit, ExecutorService executor,
@@ -227,10 +244,10 @@ public class KafkaLogReader extends AbstractStorage
     submit.set(executor.submit(() -> {
       try {
         try (KafkaConsumer<String, byte[]> kafkaConsumer = createConsumer(
-            name, partitions, listener, position)) {
-          if (partitions != null) {
-            List<TopicPartition> assignment = partitions.stream()
-                .map(p -> new TopicPartition(topic, p.getId()))
+            name, offsets, listener, position)) {
+          if (offsets != null) {
+            List<TopicPartition> assignment = offsets.stream()
+                .map(p -> new TopicPartition(topic, p.getPartition().getId()))
                 .collect(Collectors.toList());
             kafkaConsumer.assign(assignment);
           }
@@ -248,20 +265,25 @@ public class KafkaLogReader extends AbstractStorage
         if (observer.onError(thwbl)) {
           log.info("Restarting consumption as requested");
           runConsumption(
-              name, partitions, position, stopAtCurrent,
+              name, offsets, position, stopAtCurrent,
               listener, submit, executor, null, observer);
         }
       }
     }));
   }
 
-  private Cancellable observePartitionsBulk(
-      String name, Position position, BulkLogObserver observer) {
+  private Cancellable observeKafkaBulk(
+      @Nullable String name,
+      @Nullable Collection<Offset> offsets,
+      @Nullable Position position,
+      BulkLogObserver observer) {
 
-    Objects.requireNonNull(
-        "You can bulk observe only with named observers!",
-        name);
+    Preconditions.checkArgument(
+        name != null || offsets != null,
+        "Either name of offsets have to be non null");
+
     final AtomicReference<KafkaConsumer<String, byte[]>> consumerRef;
+    final Map<Integer, Long> committedOffsets = new ConcurrentHashMap<>();
     consumerRef = new AtomicReference<>();
 
     ConsumerRebalanceListener listener = new ConsumerRebalanceListener() {
@@ -273,15 +295,23 @@ public class KafkaLogReader extends AbstractStorage
       @Override
       public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
         try {
-          observer.onRestart();
-          if (consumerRef.get() != null) {
+          KafkaConsumer<String, byte[]> consumer = consumerRef.get();
+          // initialize offsets as uncommitted
+          partitions.forEach(tp -> committedOffsets.put(tp.partition(), -1L));
+          // replace with current offsets (if any)
+          if (offsets != null) {
+            offsets.forEach(o -> committedOffsets.put(
+                o.getPartition().getId(), ((TopicOffset) o).getOffset()));
+          }
+          if (consumer != null && offsets == null) {
             for (TopicPartition tp : partitions) {
-              OffsetAndMetadata off = consumerRef.get().committed(tp);
+              OffsetAndMetadata off = consumer.committed(tp);
               if (off != null) {
                 log.info(
                     "Seeking to offset {} for consumer name {} on partition {}",
                     off.offset(), name, tp);
-                consumerRef.get().seek(tp, off.offset());
+                consumer.seek(tp, off.offset());
+                committedOffsets.put(tp.partition(), off.offset());
               } else {
                 log.debug(
                     "Partition {} for consumer name {} has no committed offset",
@@ -289,6 +319,7 @@ public class KafkaLogReader extends AbstractStorage
               }
             }
           }
+          observer.onRestart(TopicOffset.fromMap(committedOffsets));
         } catch (Exception | Error err) {
           log.error(
               "Failed to seek to committed offsets for {}",
@@ -304,8 +335,9 @@ public class KafkaLogReader extends AbstractStorage
     AtomicReference<Future<?>> submit = new AtomicReference<>();
 
     runBulkConsumption(
-        name, position, listener,
-        submit, consumerRef, latch, observer);
+        name, offsets, position, listener,
+        submit, consumerRef, latch,
+        committedOffsets, observer);
 
     try {
       log.debug("Waiting for the consumer {} to be created and run", name);
@@ -318,20 +350,23 @@ public class KafkaLogReader extends AbstractStorage
   }
 
   private void runBulkConsumption(
-      String name, Position position, ConsumerRebalanceListener listener,
+      String name, Collection<Offset> offsets, Position position,
+      ConsumerRebalanceListener listener,
       AtomicReference<Future<?>> submit,
       AtomicReference<KafkaConsumer<String, byte[]>> consumerRef,
-      @Nullable CountDownLatch latch, BulkLogObserver observer) {
+      @Nullable CountDownLatch latch,
+      Map<Integer, Long> committedOffsets,
+      BulkLogObserver observer) {
 
     // start new thread that will fill our observer
     submit.set(context.getExecutorService().submit(() -> {
 
-      consumerRef.set(createConsumer(name, null, listener, position));
+      consumerRef.set(createConsumer(name, offsets, listener, position));
       try {
         if (latch != null) {
           latch.countDown();
         }
-        processConsumer(consumerRef.get(), true, false, observer);
+        processConsumer(consumerRef.get(), name != null, false, committedOffsets, observer);
         consumerRef.get().close();
       } catch (Exception | Error exc) {
         log.error("Exception in running the observer {}", name, exc);
@@ -339,16 +374,14 @@ public class KafkaLogReader extends AbstractStorage
         if (observer.onError(exc)) {
           log.info("Restarting consumption as requested");
           runBulkConsumption(
-              name, position, listener, submit,
-              consumerRef, null, observer);
+              name, offsets, position, listener, submit,
+              consumerRef, null, committedOffsets, observer);
         } else {
           log.info("Terminating consumption as requested.");
         }
       }
     }));
   }
-
-
 
   private void processConsumer(
       KafkaConsumer<String, byte[]> kafkaConsumer,
@@ -363,16 +396,18 @@ public class KafkaLogReader extends AbstractStorage
     BiFunction<TopicPartition, ConsumerRecord<String, byte[]>, Void> preWrite = (tp, r) -> {
         if (named) {
           offsetCommitter.register(tp, r.offset(), 1,
-              () -> commitMap.put(tp, new OffsetAndMetadata(r.offset() + 1)));
+              () -> {
+                if (named) {
+                  // actually commit to kafka only if named
+                  commitMap.put(tp, new OffsetAndMetadata(r.offset() + 1));
+                }
+              });
         }
         return null;
     };
 
-    KafkaAccessor.OnlineConsumer onlineConsumer = new KafkaAccessor.OnlineConsumer(observer, (tp, offset) -> {
-        if (named) {
-          offsetCommitter.confirm(tp, offset);
-        }
-    });
+    Consumers.OnlineConsumer onlineConsumer = new Consumers.OnlineConsumer(
+        observer, offsetCommitter::confirm);
 
     processConsumerWithObserver(
         kafkaConsumer, named,
@@ -387,6 +422,7 @@ public class KafkaLogReader extends AbstractStorage
       KafkaConsumer<String, byte[]> kafkaConsumer,
       boolean named,
       boolean stopAtCurrent,
+      Map<Integer, Long> committedOffsets,
       BulkLogObserver observer) {
 
     Map<TopicPartition, OffsetAndMetadata> commitMap = Collections.synchronizedMap(
@@ -401,18 +437,28 @@ public class KafkaLogReader extends AbstractStorage
       return null;
     };
 
-    KafkaAccessor.BulkConsumer bulkConsumer = new KafkaAccessor.BulkConsumer(observer, (tp, offset) -> {
-      if (named) {
-        Map<TopicPartition, OffsetAndMetadata> copy;
-        synchronized (uncommittedMap) {
-          copy = new HashMap<>(uncommittedMap);
-          uncommittedMap.clear();
-        }
-        synchronized (commitMap) {
-          commitMap.putAll(copy);
-        }
-      }
-    });
+    Consumers.BulkConsumer bulkConsumer = new Consumers.BulkConsumer(
+        observer, new QueryableTopicPartitionCommitter() {
+          @Override
+          public void commit(TopicPartition tp, long offset) {
+            if (named) {
+              Map<TopicPartition, OffsetAndMetadata> copy;
+              synchronized (uncommittedMap) {
+                copy = new HashMap<>(uncommittedMap);
+                uncommittedMap.clear();
+              }
+              synchronized (commitMap) {
+                commitMap.putAll(copy);
+              }
+            }
+            committedOffsets.put(tp.partition(), offset);
+          }
+
+          @Override
+          public List<Offset> getCommittedOffsets() {
+            return TopicOffset.fromMap(committedOffsets);
+          }
+        });
 
     processConsumerWithObserver(
         kafkaConsumer, named,
@@ -429,7 +475,7 @@ public class KafkaLogReader extends AbstractStorage
       boolean named,
       boolean stopAtCurrent,
       BiFunction<TopicPartition, ConsumerRecord<String, byte[]>, Void> preWrite,
-      KafkaAccessor.ElementConsumer consumer,
+      ElementConsumer consumer,
       Map<TopicPartition, OffsetAndMetadata> commitMap,
       LogObserverBase baseObserver) {
 
@@ -453,7 +499,7 @@ public class KafkaLogReader extends AbstractStorage
     AtomicReference<Throwable> error = new AtomicReference<>();
     while (!shutdown.get() && !completed && !Thread.currentThread().isInterrupted()) {
       ConsumerRecords<String, byte[]> poll = kafkaConsumer.poll(consumerPollInterval);
-      poll.forEach(r -> {
+      for (ConsumerRecord<String, byte[]> r : poll) {
         String key = r.key();
         byte[] value = r.value();
         TopicPartition tp = new TopicPartition(r.topic(), r.partition());
@@ -476,7 +522,7 @@ public class KafkaLogReader extends AbstractStorage
                 entityKey, attribute, r.timestamp(), value, r.partition(), r.offset());
           }
         }
-        consumer.consumeWithConfirm(
+        boolean cont = consumer.consumeWithConfirm(
             ingest, tp, r.offset(), exc -> error.set(exc));
         if (endOffsets != null) {
           Long offset = endOffsets.get(tp);
@@ -484,7 +530,12 @@ public class KafkaLogReader extends AbstractStorage
             endOffsets.remove(tp);
           }
         }
-      });
+        if (!cont) {
+          log.info("Terminating consumption of by request");
+          completed = true;
+          break;
+        }
+      }
       Map<TopicPartition, OffsetAndMetadata> commitMapClone = null;
       synchronized (commitMap) {
         if (!commitMap.isEmpty()) {
@@ -513,43 +564,60 @@ public class KafkaLogReader extends AbstractStorage
 
 
   private KafkaConsumer<String, byte[]> createConsumer() {
-    return createConsumer(
-        "dummy-consumer",
-        null, null, Position.NEWEST);
+    return createConsumer("dummy-consumer", null, null, Position.NEWEST);
   }
 
   /** Create kafka consumer for the data. */
   @SuppressWarnings("unchecked")
   private KafkaConsumer<String, byte[]> createConsumer(
       @Nullable String name,
-      @Nullable Collection<Partition> partitions,
+      @Nullable Collection<Offset> offsets,
       @Nullable ConsumerRebalanceListener listener,
-      Position position) {
+      @Nullable Position position) {
 
     KafkaConsumerFactory factory = accessor.createConsumerFactory();
     final KafkaConsumer<String, byte[]> consumer;
 
     if (name != null) {
       consumer = factory.create(name, listener);
-    } else if (partitions != null) {
+    } else if (offsets != null) {
+      List<Partition> partitions = offsets.stream()
+          .map(Offset::getPartition)
+          .collect(Collectors.toList());
       if (listener != null) {
         listener.onPartitionsAssigned(
-            partitions.stream()
-                .map(p -> new TopicPartition(topic, p.getId()))
+            partitions.stream().map(p -> new TopicPartition(topic, p.getId()))
                 .collect(Collectors.toList()));
       }
       consumer = factory.create(partitions);
     } else {
-      throw new IllegalArgumentException("Need either name or partitions to observe");
+      throw new IllegalArgumentException("Need either name or offsets to observe");
     }
     if (position == Position.OLDEST) {
-      if (partitions == null) {
+      // seek all partitions to oldest data
+      if (offsets == null) {
+        log.info("Seeking consumer name {} to beginning of partitions", name);
         consumer.seekToBeginning(consumer.assignment());
       } else {
-        consumer.seekToBeginning(partitions.stream()
-            .map(p -> new TopicPartition(topic, p.getId()))
-            .collect(Collectors.toList()));
+        List<TopicPartition> tps = offsets.stream()
+            .map(p -> new TopicPartition(topic, p.getPartition().getId()))
+            .collect(Collectors.toList());
+        log.info("Seeking given partitions {} to beginning", tps);
+        consumer.seekToBeginning(tps);
       }
+    } else if (position != Position.NEWEST) {
+      log.info("Seeking to given offsets {}", offsets);
+      // seek to given offsets
+      offsets.forEach(o -> {
+        TopicOffset to = (TopicOffset) o;
+        if (to.getOffset() >= 0) {
+          consumer.seek(
+              new TopicPartition(topic, o.getPartition().getId()),
+              to.getOffset());
+        }
+      });
+    } else {
+      log.info("Starting to process kafka partitions from newest data");
     }
     return consumer;
   }
@@ -557,6 +625,15 @@ public class KafkaLogReader extends AbstractStorage
   @Override
   public void close() {
     this.shutdown.set(true);
+  }
+
+  private static Collection<Offset> asOffsets(Collection<Partition> partitions) {
+    if (partitions != null) {
+      return partitions.stream()
+          .map(p -> new TopicOffset(p.getId(), -1))
+          .collect(Collectors.toList());
+    }
+    return null;
   }
 
 }

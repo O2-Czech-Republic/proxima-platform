@@ -23,13 +23,13 @@
   <parent>
     <groupId>cz.o2.proxima.example</groupId>
     <artifactId>example-parent</artifactId>
-    <version>0.1.0</version>
+    <version>0.2-SNAPSHOT</version>
   </parent>
      
   <artifactId>example-proto</artifactId>
   <packaging>jar</packaging>
      
-  <name>Proxima platform example module compiled protobuffers</name>
+  <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
     <extensions>

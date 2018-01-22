@@ -22,11 +22,11 @@
      
   <groupId>cz.o2.proxima</groupId>
   <artifactId>platform-parent</artifactId>
-  <version>0.1.0</version>
+  <version>0.2-SNAPSHOT</version>
   <packaging>pom</packaging>
   <inceptionYear>2017</inceptionYear>
      
-  <name>Proxima platform parent</name>
+  <name>${project.groupId}:${project.artifactId}</name>
 
   <description>Proxima platform is batch and realtime storage and dataprocessing abstraction</description>
   <url>https://github.com/O2-Czech-Republic/proxima-platform</url>

@@ -23,13 +23,13 @@
   <parent>
     <groupId>cz.o2.proxima.example</groupId>
     <artifactId>example-parent</artifactId>
-    <version>0.1.0</version>
+    <version>0.2-SNAPSHOT</version>
   </parent>
      
   <artifactId>example-model</artifactId>
   <packaging>jar</packaging>
      
-  <name>Proxima platform example module datamodel defintions</name>
+  <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
     <plugins>
@@ -38,7 +38,7 @@
       <plugin>
         <groupId>cz.o2.proxima</groupId>
         <artifactId>compiler-maven-plugin</artifactId>
-        <version>0.1.0</version>
+        <version>0.2-SNAPSHOT</version>
         <configuration>
          <outputDir>generated-sources/model</outputDir>
          <javaPackage>cz.o2.proxima.example.model</javaPackage>

@@ -23,14 +23,14 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.1.0</version>
+    <version>0.2-SNAPSHOT</version>
   </parent>
      
   <groupId>cz.o2.proxima.example</groupId>
   <artifactId>example-parent</artifactId>
   <packaging>pom</packaging>
      
-  <name>Proxima platform example module parent</name>
+  <name>${project.groupId}:${project.artifactId}</name>
 
   <properties>
     <gpg.skip>true</gpg.skip>

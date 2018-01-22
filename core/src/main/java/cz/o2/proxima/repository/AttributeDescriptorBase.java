@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import java.net.URI;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -42,8 +43,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   @Getter
   protected final boolean wildcard;
 
-  @Getter
-  protected final ValueSerializer<T> valueSerializer;
+  protected @Nullable final ValueSerializer<T> valueSerializer;
 
   @Getter
   @Setter
@@ -51,14 +51,14 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
 
   public AttributeDescriptorBase(
       String name, String entity, URI schemeURI,
-      ValueSerializer<T> valueSerializer) {
+      @Nullable ValueSerializer<T> valueSerializer) {
 
     this.name = Objects.requireNonNull(name);
     this.entity = Objects.requireNonNull(entity);
     this.schemeURI = Objects.requireNonNull(schemeURI);
     this.wildcard = this.name.endsWith(".*");
     this.proxy = false;
-    this.valueSerializer = Objects.requireNonNull(valueSerializer);
+    this.valueSerializer = valueSerializer;
     if (this.wildcard) {
       if (name.length() < 3
           || name.substring(0, name.length() - 1).contains("*")
@@ -111,6 +111,11 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   @Override
   public boolean isPublic() {
     return !name.startsWith("_");
+  }
+
+  @Override
+  public ValueSerializer<T> getValueSerializer() {
+    return Objects.requireNonNull(valueSerializer);
   }
 
 }

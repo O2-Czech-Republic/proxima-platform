@@ -52,6 +52,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 
 /**
  * Repository of all entities configured in the system.
@@ -491,10 +492,14 @@ public class Repository {
    * @param scheme scheme of the {@link ValueSerializerFactory}
    * @return {@link ValueSerializerFactory} for the scheme
    */
-  public ValueSerializerFactory<?> getValueSerializerFactory(String scheme) {
+  public @Nullable ValueSerializerFactory<?> getValueSerializerFactory(String scheme) {
     ValueSerializerFactory serializer = serializersMap.get(scheme);
     if (serializer == null) {
-      throw new IllegalArgumentException("Missing serializer for scheme " + scheme);
+      if (shouldValidate) {
+        throw new IllegalArgumentException("Missing serializer for scheme " + scheme);
+      } else {
+        return null;
+      }
     }
     return serializer;
   }

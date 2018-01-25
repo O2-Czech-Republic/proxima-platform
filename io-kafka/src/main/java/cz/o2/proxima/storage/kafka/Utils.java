@@ -88,11 +88,13 @@ class Utils {
 
       @Override
       public boolean onNext(
-          StreamElement ingest, Partition partition,
-          LogObserver.ConfirmCallback confirm) {
+          StreamElement ingest,
+          LogObserver.OffsetContext context) {
 
-        observer.onNext(ingest, confirm::confirm, partition, consumer);
-        confirm.confirm();
+        observer.onNext(
+            ingest, context::commit,
+            context.getCurrentOffset().getPartition(), consumer);
+        context.confirm();
         return true;
       }
 
@@ -101,11 +103,6 @@ class Utils {
         observer.onError(error);
         return false;
       }
-
-      @Override
-      public void close() throws Exception {
-      }
-
 
     };
   }

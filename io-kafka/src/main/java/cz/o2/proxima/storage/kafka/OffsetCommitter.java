@@ -39,7 +39,7 @@ public class OffsetCommitter<ID> {
    * Callback to be called for performing the commit.
    */
   @FunctionalInterface
-  public static interface  Callback {
+  public static interface Callback {
     void apply();
   }
 
@@ -110,7 +110,7 @@ public class OffsetCommitter<ID> {
    * @param offset the offset to confirm
    */
   public void confirm(ID id, long offset) {
-    NavigableMap<Long, OffsetMeta> current = waitingOffsets.get(id);
+    Map<Long, OffsetMeta> current = waitingOffsets.get(id);
     log.debug("Confirming processing of offset {} with ID {}", offset, id);
     if (current != null) {
       OffsetMeta meta = current.get(offset);
@@ -121,7 +121,7 @@ public class OffsetCommitter<ID> {
     }
   }
 
-  private void checkCommitable(ID id, NavigableMap<Long, OffsetMeta> current) {
+  private void checkCommitable(ID id, Map<Long, OffsetMeta> current) {
     synchronized (current) {
       List<Map.Entry<Long, OffsetMeta>> commitable = new ArrayList<>();
       for (Map.Entry<Long, OffsetMeta> e : current.entrySet()) {
@@ -151,7 +151,7 @@ public class OffsetCommitter<ID> {
    * @param offset offset to clear
    */
   public void clear(ID id, long offset) {
-    NavigableMap<Long, OffsetMeta> current = waitingOffsets.get(id);
+    Map<Long, OffsetMeta> current = waitingOffsets.get(id);
     if (current != null) {
       current.remove(offset);
     }

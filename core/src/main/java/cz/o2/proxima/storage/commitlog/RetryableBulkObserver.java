@@ -19,14 +19,14 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
+import java.io.Serializable;
 
 /**
  * {@code BulkObserver} which is able to retry the observation on error.
  * The number of retries is configurable.
  */
 @Slf4j
-public abstract class RetryableBulkObserver
+public abstract class RetryableBulkObserver<OFF extends Serializable>
     extends AbstractRetryableLogObserver
     implements BulkLogObserver {
 
@@ -41,38 +41,31 @@ public abstract class RetryableBulkObserver
   @Override
   public final boolean onNext(
       StreamElement ingest, Partition partition,
-      BulkLogObserver.BulkCommitter confirm) {
+      BulkLogObserver.OffsetContext confirm) {
 
     boolean ret = onNextInternal(ingest, partition, confirm);
     success();
     return ret;
   }
 
+  @SuppressWarnings("unchecked")
   @Override
-  protected final void startInternal(CommitLogReader.Position position) {
+  protected final void startInternal(Position position) {
     log.info(
         "Starting to process commitlog {} as {} from {}",
         getCommitLog().getURI(), getName(), getPosition());
     getCommitLog().observeBulk(getName(), getPosition(), this);
   }
 
-  @Override
-  public void close() {
-    try {
-      getCommitLog().close();
-    } catch (IOException ex) {
-      log.error("Error while closing log observer {}", getName(), ex);
-    }
-  }
-
   /**
    * Called to observe the ingest data.
    * @param ingest the input data
-   * @param confirm the callback to use to confirm processing
+   * @param context the callback to use to confirm processing
    * @return {@code true} to continue processing, {@code false} otherwise
    */
   protected boolean onNextInternal(
-      StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
+      StreamElement ingest,
+      BulkLogObserver.OffsetContext context) {
 
     throw new UnsupportedOperationException(
         "Please override either of `onNextInternal` methods");
@@ -82,14 +75,14 @@ public abstract class RetryableBulkObserver
    * Called to observe the ingest data.
    * @param ingest input data
    * @param partition source partition
-   * @param confirm callback to use to confirm processing
+   * @param context callback to use to confirm processing
    * @return {@code true} to continue processing, {@code false} otherwise
    */
   protected boolean onNextInternal(
       StreamElement ingest, Partition partition,
-      BulkLogObserver.BulkCommitter confirm) {
+      BulkLogObserver.OffsetContext context) {
 
-    return onNextInternal(ingest, confirm);
+    return onNextInternal(ingest, context);
   }
 
 }

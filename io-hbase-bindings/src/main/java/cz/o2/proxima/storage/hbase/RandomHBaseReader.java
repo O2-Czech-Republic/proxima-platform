@@ -19,6 +19,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
+import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.net.URI;
@@ -47,7 +48,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
   private static final int KEYS_SCANNER_CACHING_DEFAULT = 1000;
   private static final Charset UTF8 = Charset.forName("UTF-8");
 
-  private static class ByteOffset implements Offset {
+  private static class ByteOffset implements RandomOffset {
 
     static ByteOffset following(byte[] what) {
       return new ByteOffset(what);
@@ -76,7 +77,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
   }
 
   @Override
-  public Offset fetchOffset(Listing type, String key) {
+  public RandomOffset fetchOffset(Listing type, String key) {
     return ByteOffset.following(key.getBytes(UTF8));
   }
 
@@ -101,7 +102,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
   @Override
   public void scanWildcard(
-      String key, AttributeDescriptor<?> wildcard, Offset offset,
+      String key, AttributeDescriptor<?> wildcard, RandomOffset offset,
       int limit, Consumer<KeyValue<?>> consumer) {
 
     try {
@@ -139,9 +140,9 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
   @Override
   public void listEntities(
-      Offset offset,
+      RandomOffset offset,
       int limit,
-      Consumer<Pair<Offset, String>> consumer) {
+      Consumer<Pair<RandomOffset, String>> consumer) {
 
     ensureClient();
     Scan s = offset == null

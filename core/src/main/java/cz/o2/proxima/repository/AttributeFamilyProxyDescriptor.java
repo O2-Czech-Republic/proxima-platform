@@ -28,8 +28,11 @@ import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
+import cz.o2.proxima.storage.commitlog.Offset;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
+import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
@@ -122,7 +125,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       @Override
       public Cancellable observe(
           String name,
-          CommitLogReader.Position position, LogObserver observer) {
+          Position position, LogObserver observer) {
 
         return reader.observe(
             name, position, wrapTransformed(targetAttribute, observer));
@@ -130,7 +133,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
       @Override
       public Cancellable observePartitions(
-          Collection<Partition> partitions, CommitLogReader.Position position,
+          Collection<Partition> partitions, Position position,
           boolean stopAtCurrent, LogObserver observer) {
 
         return reader.observePartitions(
@@ -140,7 +143,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
       @Override
       public Cancellable observeBulk(
-          String name, CommitLogReader.Position position,
+          String name, Position position,
           BulkLogObserver observer) {
 
         return reader.observeBulk(name, position, wrapTransformed(observer));
@@ -149,6 +152,23 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       @Override
       public void close() throws IOException {
         reader.close();
+      }
+
+      @Override
+      public Cancellable observeBulkPartitions(
+          List<Partition> partitions,
+          Position position,
+          BulkLogObserver observer) {
+
+        return reader.observeBulkPartitions(
+            partitions, position, wrapTransformed(observer));
+      }
+
+      @Override
+      public Cancellable observeBulkOffsets(
+          List<Offset> offsets, BulkLogObserver observer) {
+
+        return reader.observeBulkOffsets(offsets, wrapTransformed(observer));
       }
 
     };
@@ -195,7 +215,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     return new RandomAccessReader() {
 
       @Override
-      public RandomAccessReader.Offset fetchOffset(
+      public RandomOffset fetchOffset(
           RandomAccessReader.Listing type, String key) {
 
         if (type == Listing.ATTRIBUTE) {
@@ -217,7 +237,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       @Override
       public void scanWildcard(
           String key, AttributeDescriptor<?> wildcard,
-          RandomAccessReader.Offset offset, int limit, Consumer<KeyValue<?>> consumer) {
+          RandomOffset offset, int limit, Consumer<KeyValue<?>> consumer) {
 
         if (!targetAttribute.isWildcard()) {
           throw new IllegalArgumentException(
@@ -230,8 +250,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
       @Override
       public void listEntities(
-          RandomAccessReader.Offset offset, int limit,
-          Consumer<Pair<RandomAccessReader.Offset, String>> consumer) {
+          RandomOffset offset, int limit,
+          Consumer<Pair<RandomOffset, String>> consumer) {
 
       }
 
@@ -286,20 +306,9 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     return new LogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, LogObserver.ConfirmCallback confirm) {
+      public boolean onNext(StreamElement ingest, LogObserver.OffsetContext confirm) {
         return observer.onNext(
             transformToProxy(ingest, proxy), confirm);
-      }
-
-      @Override
-      public boolean onNext(
-          StreamElement ingest,
-          Partition partition,
-          LogObserver.ConfirmCallback confirm) {
-
-        return observer.onNext(
-            transformToProxy(ingest, proxy),
-            partition, confirm);
       }
 
       @Override
@@ -315,11 +324,6 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       @Override
       public boolean onError(Throwable error) {
         return observer.onError(error);
-      }
-
-      @Override
-      public void close() throws Exception {
-        observer.close();
       }
 
     };
@@ -342,24 +346,19 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       public boolean onNext(
           StreamElement ingest,
           Partition partition,
-          BulkLogObserver.BulkCommitter confirm) {
+          BulkLogObserver.OffsetContext confirm) {
 
         return observer.onNext(ingest, partition, confirm);
       }
 
       @Override
-      public void onRestart() {
-        observer.onRestart();
+      public void onRestart(List<Offset> offsets) {
+        observer.onRestart(offsets);
       }
 
       @Override
       public void onCancelled() {
         observer.onCancelled();
-      }
-
-      @Override
-      public void close() throws Exception {
-        observer.close();
       }
 
     };

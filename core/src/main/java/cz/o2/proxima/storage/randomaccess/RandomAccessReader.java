@@ -40,26 +40,13 @@ public interface RandomAccessReader extends Closeable, Serializable {
   }
 
   /**
-   * An interface representing offset for paging.
-   * This interface is needed because various db engines can
-   * have different notion of ordering and therefore it might be difficult
-   * to do paging based simply on the key (of entity or attribute).
-   * Simple example is a hash map, where you cannot page through the map
-   * based on the key stored in the map.
-   * This is just a labeling interface.
-   */
-  interface Offset extends Serializable {
-
-  }
-
-  /**
    * Construct {@code Offset} from string
    * (representing either key of the entity or attribute).
    * @param type the type of the key
    * @param key the key of entity or attribute
    * @return offset representation of the key
    */
-  Offset fetchOffset(Listing type, String key);
+  RandomOffset fetchOffset(Listing type, String key);
 
 
   /**
@@ -115,7 +102,7 @@ public interface RandomAccessReader extends Closeable, Serializable {
   void scanWildcard(
       String key,
       AttributeDescriptor<?> wildcard,
-      @Nullable Offset offset,
+      @Nullable RandomOffset offset,
       int limit,
       Consumer<KeyValue<?>> consumer);
 
@@ -126,7 +113,7 @@ public interface RandomAccessReader extends Closeable, Serializable {
    * @param consumer consumer that will receive keys of entities in the
    * random access storage
    */
-  default void listEntities(Consumer<Pair<Offset, String>> consumer) {
+  default void listEntities(Consumer<Pair<RandomOffset, String>> consumer) {
     listEntities(null, Integer.MAX_VALUE, consumer);
   }
 
@@ -138,8 +125,8 @@ public interface RandomAccessReader extends Closeable, Serializable {
    * @param consumer consumer of results
    */
   void listEntities(
-      @Nullable Offset offset,
+      @Nullable RandomOffset offset,
       int limit,
-      Consumer<Pair<Offset, String>> consumer);
+      Consumer<Pair<RandomOffset, String>> consumer);
 
 }

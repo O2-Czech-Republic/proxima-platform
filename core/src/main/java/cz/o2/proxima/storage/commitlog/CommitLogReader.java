@@ -15,7 +15,10 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.process.source.UnboundedStreamSource;
 import cz.o2.proxima.storage.Partition;
+import cz.o2.proxima.storage.StreamElement;
+import cz.seznam.euphoria.core.client.io.DataSource;
 import java.io.Closeable;
 import java.io.Serializable;
 import java.net.URI;
@@ -31,19 +34,6 @@ import java.util.List;
 public interface CommitLogReader extends Closeable, Serializable {
 
   /**
-   * An enum specifying the position in the commit log to start reading from.
-   */
-  enum Position {
-
-    /** Read the commit log from the current data actually pushed to the log. */
-    NEWEST,
-
-    /** Read the commit log from the oldest data available. */
-    OLDEST
-
-  }
-
-  /**
    * Retrieve URI representing this resource.
    * @return URI representing this resource
    */
@@ -54,7 +44,6 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @return list of partitions of this reader
    */
   List<Partition> getPartitions();
-
 
   /**
    * Subscribe observer by name to the commit log.
@@ -70,7 +59,6 @@ public interface CommitLogReader extends Closeable, Serializable {
    */
   Cancellable observe(String name, Position position, LogObserver observer);
 
-
   /**
    * Subscribe observer by name to the commit log and read the newest data.
    * Each observer maintains its own position in the commit log, so that
@@ -85,7 +73,6 @@ public interface CommitLogReader extends Closeable, Serializable {
   default Cancellable observe(String name, LogObserver observer) {
     return observe(name, Position.NEWEST, observer);
   }
-
 
   /**
    * Subscribe to given set of partitions.
@@ -104,7 +91,6 @@ public interface CommitLogReader extends Closeable, Serializable {
       Position position,
       boolean stopAtCurrent,
       LogObserver observer);
-
 
   /**
    * Subscribe to given set of partitions.
@@ -158,5 +144,66 @@ public interface CommitLogReader extends Closeable, Serializable {
       BulkLogObserver observer);
 
 
+  /**
+   * Subscribe to the commitlog in a bulk fashion from newest data.
+   * That implies that elements are not committed one-by-one, but in a bulks,
+   * where all elements in a bulk are committed at once. This is useful for
+   * micro-batching approach of data processing.
+   * @param name name of the observer
+   * @param observer the observer to subscribe
+   * @return {@link Cancellable} to asynchronously cancel the observation
+   */
+  default Cancellable observeBulk(
+      String name,
+      BulkLogObserver observer) {
+
+    return observeBulk(name, Position.NEWEST, observer);
+  }
+
+  /**
+   * Subscribe to given partitions in a bulk fashion.
+   * @param partitions the partitions to subscribe to
+   * @param position the position to seek to in the partitions
+   * @param observer the observer to subscribe to the partitions
+   * @return {@link Cancellable} to asynchronously cancel the observation
+   */
+  Cancellable observeBulkPartitions(
+      List<Partition> partitions,
+      Position position,
+      BulkLogObserver observer);
+
+  /**
+   * Consume from given offsets in a bulk fashion. A typical use-case for this
+   * type of consumption is to first use {@link observeBulkPartitions}, observe
+   * for some time, than interrupt the consumption, store associated offsets
+   * and resume the consumption from these offsets later
+   * @param offsets the @{link Offset}s to subscribe to
+   * @param observer the observer to subscribe to the offsets
+   * @return {@link Cancellable} to asynchronously cancel the observation
+   */
+  Cancellable observeBulkOffsets(
+      List<Offset> offsets,
+      BulkLogObserver observer);
+
+
+  /**
+   * Retrieve source from this reader that can be used in Euphoria processing.
+   * @param position where to start reading
+   * @return {@link DataSource} for further processing
+   */
+  default DataSource<StreamElement> getSource(Position position) {
+
+    return UnboundedStreamSource.of(this, position);
+  }
+
+  /**
+   * Retrieve source from this reader that can be used in Euphoria processing.
+   * The source reads data from newest position and continues processing
+   * as new data is incoming.
+   * @return {@link DataSource} for further processing
+   */
+  default DataSource<StreamElement> getSource() {
+    return getSource(Position.NEWEST);
+  }
 
 }

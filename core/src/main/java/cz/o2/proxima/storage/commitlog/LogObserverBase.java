@@ -20,7 +20,7 @@ import java.io.Serializable;
 /**
  * Base interface for bulk and online observers.
  */
-public interface LogObserverBase extends AutoCloseable, Serializable {
+public interface LogObserverBase extends Serializable {
 
   /**
    * Notify that the processing has gracefully ended.

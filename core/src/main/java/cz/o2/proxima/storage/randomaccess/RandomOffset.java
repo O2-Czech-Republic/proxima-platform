@@ -13,43 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.storage.cassandra;
+package cz.o2.proxima.storage.randomaccess;
 
-import cz.o2.proxima.storage.randomaccess.RandomOffset;
-import lombok.Getter;
+import java.io.Serializable;
 
 /**
- * Offset based on {@code token} function.
+ * An interface representing offset for paging.
+ * This interface is needed because various db engines can
+ * have different notion of ordering and therefore it might be difficult
+ * to do paging based simply on the key (of entity or attribute).
+ * Simple example is a hash map, where you cannot page through the map
+ * based on the key stored in the map.
+ * This is just a labeling interface.
  */
-public class Offsets {
-
-  /**
-   * Offset represented by a token (hash) of the key.
-   */
-  public static class Token implements RandomOffset {
-
-    @Getter
-    final long token;
-
-    Token(long token) {
-      this.token = token;
-    }
-
-  }
-
-  /**
-   * Offset represented by the raw string value.
-   */
-  public static class Raw implements RandomOffset {
-
-    @Getter
-    final String raw;
-
-    Raw(String s) {
-      this.raw = s;
-    }
-
-  }
-
+public interface RandomOffset extends Serializable {
 
 }
+

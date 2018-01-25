@@ -26,6 +26,7 @@ import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
@@ -234,6 +235,13 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       }).when(mock).seekToBeginning(any());
 
       doAnswer(invocation -> {
+        TopicPartition tp = (TopicPartition) invocation.getArguments()[0];
+        long offset = (long) invocation.getArguments()[1];
+        seekConsumerTo(consumerId, tp.partition(), offset);
+        return null;
+      }).when(mock).seek(any(), anyLong());
+
+      doAnswer(invocation -> {
         Map<TopicPartition, OffsetAndMetadata> commitMap;
         commitMap = (Map<TopicPartition, OffsetAndMetadata>) invocation.getArguments()[0];
         commitConsumer(name, commitMap);
@@ -271,6 +279,22 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
         committedOffsets.get(Pair.of(name, partition)).set((int) offset);
       });
       log.debug("Consumer {} committed offsets {}", name, commitMap);
+    }
+
+    private void seekConsumerTo(
+        Pair<String, Integer> consumerId, int partition, long offset) {
+
+      List<Pair<Integer, AtomicInteger>> partOffsets;
+      partOffsets = consumerOffsets.computeIfAbsent(consumerId, c -> new ArrayList<>());
+      for (Pair<Integer, AtomicInteger> p : partOffsets) {
+        if (p.getFirst() == partition) {
+          p.getSecond().set((int) (offset + 1));
+          return;
+        }
+      }
+      if (offset >= 0) {
+        partOffsets.add(Pair.of(partition, new AtomicInteger((int) (offset + 1))));
+      }
     }
 
     private void seekConsumerToBeginning(

@@ -24,6 +24,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
+import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.util.Pair;
 import java.nio.ByteBuffer;
 import java.util.Optional;
@@ -90,7 +91,7 @@ class CassandraRandomReader
   public synchronized void scanWildcard(
       String key,
       AttributeDescriptor<?> wildcard,
-      @Nullable Offset offset,
+      @Nullable RandomOffset offset,
       int limit,
       Consumer<KeyValue<?>> consumer) {
 
@@ -137,9 +138,9 @@ class CassandraRandomReader
 
   @Override
   public synchronized void listEntities(
-      Offset offset,
+      RandomOffset offset,
       int limit,
-      Consumer<Pair<Offset, String>> consumer) {
+      Consumer<Pair<RandomOffset, String>> consumer) {
 
     Session session = accessor.ensureSession();
     BoundStatement statement = accessor.getCqlFactory().getListEntitiesStatement(
@@ -165,7 +166,7 @@ class CassandraRandomReader
   }
 
   @Override
-  public synchronized Offset fetchOffset(Listing type, String key) {
+  public synchronized RandomOffset fetchOffset(Listing type, String key) {
     try {
       switch (type) {
         case ATTRIBUTE:

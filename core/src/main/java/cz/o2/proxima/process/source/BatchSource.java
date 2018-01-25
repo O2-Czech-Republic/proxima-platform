@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.tools.io;
+package cz.o2.proxima.process.source;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
@@ -40,7 +40,16 @@ import java.util.stream.Collectors;
  * Source reading from {@code BatchLogObservable}.
  */
 @Slf4j
-public class BatchSource<T> implements BoundedDataSource<TypedIngest<T>> {
+public class BatchSource<T> implements BoundedDataSource<StreamElement> {
+
+  public static <T> BatchSource<T> of(
+      BatchLogObservable observable,
+      List<AttributeDescriptor<?>> attrs,
+      long startStamp,
+      long endStamp) {
+
+    return new BatchSource<>(observable, attrs, startStamp, endStamp);
+  }
 
   public static <T> BatchSource<T> of(
       BatchLogObservable observable,
@@ -48,7 +57,8 @@ public class BatchSource<T> implements BoundedDataSource<TypedIngest<T>> {
       long startStamp,
       long endStamp) {
 
-    return new BatchSource<>(observable, family.getAttributes(), startStamp, endStamp);
+    return new BatchSource<>(
+        observable, family.getAttributes(), startStamp, endStamp);
   }
 
   private static class Observer implements BatchLogObserver {
@@ -113,30 +123,30 @@ public class BatchSource<T> implements BoundedDataSource<TypedIngest<T>> {
   }
 
   @Override
-  public BoundedReader<TypedIngest<T>> openReader() throws IOException {
+  public BoundedReader<StreamElement> openReader() throws IOException {
     throw new UnsupportedOperationException("Not supported. Call `split` first.");
   }
 
 
   @Override
   @SuppressWarnings("unchecked")
-  public List<BoundedDataSource<TypedIngest<T>>> split(long desiredSplitBytes) {
+  public List<BoundedDataSource<StreamElement>> split(long desiredSplitBytes) {
     return observable.getPartitions(startStamp, endStamp)
         .stream()
         .map(p -> {
 
-          return new UnsplittableBoundedSource<TypedIngest<T>>() {
+          return new UnsplittableBoundedSource<StreamElement>() {
             @Override
             public Set<String> getLocations() {
               return Collections.singleton("unknown");
             }
 
             @Override
-            public BoundedReader<TypedIngest<T>> openReader() throws IOException {
+            public BoundedReader<StreamElement> openReader() throws IOException {
               Observer observer = new Observer();
               observable.observe(Arrays.asList(p), attributes, observer);
-              return new BoundedReader<TypedIngest<T>>() {
-                TypedIngest<T> current = null;
+              return new BoundedReader<StreamElement>() {
+                StreamElement current = null;
                 @Override
                 public void close() throws IOException {
                   observer.stop();
@@ -146,8 +156,7 @@ public class BatchSource<T> implements BoundedDataSource<TypedIngest<T>> {
                 public boolean hasNext() {
                   try {
                     current = observer.getQueue().take()
-                        .map(TypedIngest::of)
-                        .orElse((TypedIngest) null);
+                        .orElse(null);
                   } catch (InterruptedException ex) {
                     log.warn("Interrupted while trying to retrieve next element.");
                     Thread.currentThread().interrupt();
@@ -156,7 +165,7 @@ public class BatchSource<T> implements BoundedDataSource<TypedIngest<T>> {
                 }
 
                 @Override
-                public TypedIngest<T> next() {
+                public StreamElement next() {
                   return current;
                 }
               };

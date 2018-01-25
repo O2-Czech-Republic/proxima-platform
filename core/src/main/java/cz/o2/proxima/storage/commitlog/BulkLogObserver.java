@@ -17,6 +17,8 @@ package cz.o2.proxima.storage.commitlog;
 
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import java.io.Serializable;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -36,20 +38,19 @@ public interface BulkLogObserver extends LogObserverBase {
    * Interface for bulk commit. WHen committed, all elements preceding the committed
    * one are considered as committed.
    */
-  @FunctionalInterface
-  interface BulkCommitter {
+  interface OffsetContext extends Serializable {
 
     /**
      * Commit bulk processing of all currently uncommitted messages.
-     * @param success the successs flag
+     * @param success the success flag
      * @param err error thrown in bulk processing (if any)
      */
     void commit(boolean success, @Nullable Throwable err);
 
     /**
-     * Confirm successfull processing.
+     * Confirm successful processing.
      */
-    default void commit() {
+    default void confirm() {
       commit(true, null);
     }
 
@@ -60,18 +61,27 @@ public interface BulkLogObserver extends LogObserverBase {
     default void fail(Throwable err)  {
       commit(false, err);
     }
+
+    /**
+     * Retrieve current offsets that has been last successfully committed for
+     * each partition.
+     * @return the last successfully committed offsets for each partition
+     * currently being assigned to this observer
+     */
+    List<Offset> getCommittedOffsets();
+
   }
 
   /**
    * Process next record in the commit log.
    * @param ingest the ingested data written to the commit log
-   * @param confirm a callback that the application *might* use to commit the ingest
+   * @param context a callback that the application *might* use to commit the ingest
    * until the confirm is committed, all uncommitted elements will be reprocessed
    * in case of failure. Call to `BulkCommitter#commit` all elements
    * processed so far will be committed.
    * @return {@code true} if the processing should continue, {@code false} otherwise
    **/
-  default boolean onNext(StreamElement ingest, BulkCommitter confirm) {
+  default boolean onNext(StreamElement ingest, OffsetContext context) {
     throw new UnsupportedOperationException(
         "Please override either of `onNext`methods");
   }
@@ -90,15 +100,16 @@ public interface BulkLogObserver extends LogObserverBase {
   default boolean onNext(
       StreamElement ingest,
       Partition partition,
-      BulkCommitter confirm) {
+      OffsetContext confirm) {
 
     return onNext(ingest, confirm);
   }
 
   /**
    * Called when the bulk processing is restarted from last committed position.
+   * @param offsets the offsets at which the processing starts for each partition
    */
-  default void onRestart() {
+  default void onRestart(List<Offset> offsets) {
 
   }
 

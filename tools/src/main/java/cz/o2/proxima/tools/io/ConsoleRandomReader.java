@@ -22,7 +22,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader.Offset;
+import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.util.Pair;
 import java.io.Closeable;
 import java.io.IOException;
@@ -41,7 +41,7 @@ public class ConsoleRandomReader implements Closeable {
 
   final EntityDescriptor entityDesc;
   final Map<AttributeDescriptor, RandomAccessReader> attrToReader;
-  final Map<String, Offset> listEntityOffsets;
+  final Map<String, RandomOffset> listEntityOffsets;
 
   public ConsoleRandomReader(EntityDescriptor desc, Repository repo) {
 
@@ -116,32 +116,32 @@ public class ConsoleRandomReader implements Closeable {
       throw new IllegalArgumentException(
           "Attribute " + prefix + " has no random access reader");
     }
-    Offset off = offset == null ? null : reader.fetchOffset(
+    RandomOffset off = offset == null ? null : reader.fetchOffset(
         RandomAccessReader.Listing.ATTRIBUTE, offset);
     reader.scanWildcard(key, desc, off, limit, consumer::accept);
   }
 
 
-  public void listKeys(Consumer<Pair<Offset, String>> consumer) {
+  public void listKeys(Consumer<Pair<RandomOffset, String>> consumer) {
     RandomAccessReader reader = attrToReader.values().stream()
         .findAny().orElseThrow(
         () -> new IllegalStateException(
             "Have no random readers for entity " + entityDesc));
 
     reader.listEntities(p -> {
-      Offset off = p.getFirst();
+      RandomOffset off = p.getFirst();
       listEntityOffsets.put(p.getSecond(), off);
       consumer.accept(p);
     });
   }
 
 
-  public List<Pair<Offset, String>> listKeys(String start, int limit) {
+  public List<Pair<RandomOffset, String>> listKeys(String start, int limit) {
     RandomAccessReader reader = attrToReader.values().stream()
         .findAny().orElseThrow(
         () -> new IllegalStateException(
             "Have no random readers for entity " + entityDesc));
-    List<Pair<Offset, String>> ret = new ArrayList<>();
+    List<Pair<RandomOffset, String>> ret = new ArrayList<>();
     reader.listEntities(listEntityOffsets.get(start), limit, p -> {
       listEntityOffsets.put(p.getSecond(), p.getFirst());
       ret.add(p);

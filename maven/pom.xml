@@ -79,12 +79,6 @@
     </dependency>
 
     <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>scheme</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
     </dependency>

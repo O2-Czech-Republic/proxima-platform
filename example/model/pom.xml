@@ -50,14 +50,6 @@
             <goals><goal>compile</goal></goals>
           </execution>
         </executions>
-        <!-- add our data definitions as dependency to the compiler -->
-        <dependencies>
-          <dependency>
-            <groupId>cz.o2.proxima.example</groupId>
-            <artifactId>example-proto</artifactId>
-            <version>${project.version}</version>
-          </dependency>
-        </dependencies>
       </plugin>
     </plugins>
   </build>

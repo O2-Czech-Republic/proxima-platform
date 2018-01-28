@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ package cz.o2.proxima.repository;
 import java.net.URI;
 import cz.o2.proxima.scheme.ValueSerializer;
 
+import javax.annotation.Nullable;
+
 /**
  * Descriptor of attribute of entity.
  */
@@ -27,7 +29,7 @@ public class AttributeDescriptorImpl<T>
 
   AttributeDescriptorImpl(
       String name, String entity,
-      URI schemeURI, ValueSerializer<T> serializer) {
+      URI schemeURI, @Nullable ValueSerializer<T> serializer) {
 
     super(name, entity, schemeURI, serializer);
   }

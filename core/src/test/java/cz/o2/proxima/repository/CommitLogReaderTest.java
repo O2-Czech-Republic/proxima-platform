@@ -73,7 +73,7 @@ public class CommitLogReaderTest {
     reader.observe("test", new LogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, LogObserver.OffsetContext context) {
+      public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter context) {
         received.add(ingest);
         latch.countDown();
         context.confirm();
@@ -104,7 +104,7 @@ public class CommitLogReaderTest {
     reader.observe("test", new LogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, LogObserver.OffsetContext context) {
+      public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter context) {
         throw new RuntimeException("fail");
       }
 
@@ -136,7 +136,7 @@ public class CommitLogReaderTest {
 
       @Override
       protected boolean onNextInternal(
-          StreamElement ingest, LogObserver.OffsetContext confirm) {
+          StreamElement ingest, LogObserver.OffsetCommitter confirm) {
 
         if (count.incrementAndGet() == 0) {
           throw new RuntimeException("fail");
@@ -171,7 +171,7 @@ public class CommitLogReaderTest {
     reader.observeBulk("test", new BulkLogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, BulkLogObserver.OffsetContext context) {
+      public boolean onNext(StreamElement ingest, BulkLogObserver.OffsetCommitter context) {
         received.add(ingest);
         latch.countDown();
         if (received.size() == 2) {

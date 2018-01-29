@@ -16,8 +16,12 @@
 package cz.o2.proxima.storage.kafka;
 
 import cz.o2.proxima.storage.StreamElement;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 
 /**
@@ -39,5 +43,49 @@ interface ElementConsumer {
       @Nullable StreamElement element,
       TopicPartition tp, long offset,
       Consumer<Throwable> errorHandler);
+
+  /**
+   * Retrieve map of offsets that should be committed right away.
+   * The offset map has to be atomically cloned and swapped with empty map
+   * @return map of actually committed offsets
+   */
+  Map<TopicPartition, OffsetAndMetadata> prepareOffsetsForCommit();
+
+  /**
+   * @return list of current offsets
+   */
+  List<TopicOffset> getCurrentOffsets();
+
+  /**
+   * @return list of committed offsets
+   */
+  List<TopicOffset> getCommittedOffsets();
+
+  /**
+   * Called when processing finishes.
+   */
+  void onCompleted();
+
+  /**
+   * Called when processing is canceled.
+   */
+  void onCancelled();
+
+  /**
+   * Called when processing throws error.
+   * @param err the error thrown
+   * @return result of {@link LogObserverBase#onError}
+   */
+  boolean onError(Throwable err);
+
+  /**
+   * Called by reassign listener when partitions are assigned.
+   * @param consumer the consumer that actually reads data
+   * @param offsets the assigned partitions
+   */
+  void onAssign(
+      KafkaConsumer<String, byte[]> consumer,
+      List<TopicOffset> offsets);
+
 }
 

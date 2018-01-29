@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.hbase;
 
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
@@ -26,7 +27,6 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Consumer;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellScanner;

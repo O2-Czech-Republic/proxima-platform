@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.CommitCallback;
@@ -25,7 +26,6 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
-import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.commitlog.Offset;
@@ -44,8 +44,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.function.Function;
+import cz.o2.proxima.storage.commitlog.ObserveHandle;
 
 /**
  * Proxy attribute family applying transformations of attributes
@@ -123,7 +123,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       }
 
       @Override
-      public Cancellable observe(
+      public ObserveHandle observe(
           String name,
           Position position, LogObserver observer) {
 
@@ -132,7 +132,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       }
 
       @Override
-      public Cancellable observePartitions(
+      public ObserveHandle observePartitions(
           Collection<Partition> partitions, Position position,
           boolean stopAtCurrent, LogObserver observer) {
 
@@ -142,7 +142,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       }
 
       @Override
-      public Cancellable observeBulk(
+      public ObserveHandle observeBulk(
           String name, Position position,
           BulkLogObserver observer) {
 
@@ -155,7 +155,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       }
 
       @Override
-      public Cancellable observeBulkPartitions(
+      public ObserveHandle observeBulkPartitions(
           List<Partition> partitions,
           Position position,
           BulkLogObserver observer) {
@@ -165,7 +165,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       }
 
       @Override
-      public Cancellable observeBulkOffsets(
+      public ObserveHandle observeBulkOffsets(
           List<Offset> offsets, BulkLogObserver observer) {
 
         return reader.observeBulkOffsets(offsets, wrapTransformed(observer));
@@ -253,6 +253,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           RandomOffset offset, int limit,
           Consumer<Pair<RandomOffset, String>> consumer) {
 
+        reader.listEntities(offset, limit, consumer);
       }
 
       @Override
@@ -306,7 +307,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     return new LogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, LogObserver.OffsetContext confirm) {
+      public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter confirm) {
         return observer.onNext(
             transformToProxy(ingest, proxy), confirm);
       }
@@ -346,7 +347,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       public boolean onNext(
           StreamElement ingest,
           Partition partition,
-          BulkLogObserver.OffsetContext confirm) {
+          BulkLogObserver.OffsetCommitter confirm) {
 
         return observer.onNext(ingest, partition, confirm);
       }
@@ -405,7 +406,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           StreamElement ingest,
           PartitionedLogObserver.ConfirmCallback confirm,
           Partition partition,
-          PartitionedLogObserver.Consumer<T> collector) {
+          Consumer<T> collector) {
 
         return observer.onNext(transformToProxy(ingest, target),
             confirm, partition, collector);
@@ -417,8 +418,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       }
 
       @Override
-      public void onError(Throwable error) {
-        observer.onError(error);
+      public boolean onError(Throwable error) {
+        return observer.onError(error);
       }
 
     };

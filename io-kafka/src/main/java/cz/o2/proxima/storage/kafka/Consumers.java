@@ -15,65 +15,78 @@
  */
 package cz.o2.proxima.storage.kafka;
 
+import cz.o2.proxima.functional.BiConsumer;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
-import cz.o2.proxima.storage.commitlog.LogObserver;
-import cz.o2.proxima.storage.commitlog.Offset;
+import cz.o2.proxima.storage.commitlog.LogObserverBase;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 
 /**
  * Placeholder class for consumers.
  */
+@Slf4j
 class Consumers {
 
-  static final class OnlineConsumer implements ElementConsumer {
-    final LogObserver observer;
-    final TopicPartitionCommitter committer;
-    OnlineConsumer(LogObserver observer, TopicPartitionCommitter committer) {
-      this.observer = observer;
-      this.committer = committer;
+  private static abstract class ConsumerBase implements ElementConsumer {
+
+    final Map<Integer, Long> committed = Collections.synchronizedMap(new HashMap<>());
+    final Map<Integer, Long> processing = Collections.synchronizedMap(new HashMap<>());
+
+    @Override
+    public void onCompleted() {
+      observer().onCompleted();
     }
 
     @Override
-    public boolean consumeWithConfirm(
-        @Nullable StreamElement element,
-        TopicPartition tp, long offset,
-        Consumer<Throwable> errorHandler) {
-
-      if (element != null) {
-        return observer.onNext(element, new LogObserver.OffsetContext() {
-          @Override
-          public void commit(boolean succ, Throwable exc) {
-            if (succ) {
-              committer.commit(tp, offset);
-            } else {
-              errorHandler.accept(exc);
-            }
-          }
-
-          @Override
-          public Offset getCurrentOffset() {
-            return () -> () -> tp.partition();
-          }
-
-        });
-      } else {
-        committer.commit(tp, offset);
-      }
-      return true;
+    public void onCancelled() {
+      observer().onCancelled();
     }
+
+    @Override
+    public boolean onError(Throwable err) {
+      return observer().onError(err);
+    }
+
+    @Override
+    public void onAssign(
+        KafkaConsumer<String, byte[]> consumer,
+        List<TopicOffset> offsets) {
+
+      committed.clear();
+      committed.putAll(offsets.stream().collect(Collectors.toMap(
+          o -> o.getPartition().getId(),
+          o -> o.getOffset())));
+    }
+
+    abstract LogObserverBase observer();
+
   }
 
-  static final class BulkConsumer implements ElementConsumer {
-    final BulkLogObserver observer;
-    final QueryableTopicPartitionCommitter committer;
+  static final class OnlineConsumer extends ConsumerBase {
 
-    BulkConsumer(BulkLogObserver observer, QueryableTopicPartitionCommitter committer) {
+    private final KafkaLogObserver observer;
+    private final OffsetCommitter<TopicPartition> committer;
+    private final Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit;
+
+    OnlineConsumer(
+        KafkaLogObserver observer,
+        OffsetCommitter<TopicPartition> committer,
+        Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit) {
+
       this.observer = observer;
       this.committer = committer;
+      this.prepareCommit = prepareCommit;
     }
 
     @Override
@@ -82,32 +95,134 @@ class Consumers {
         TopicPartition tp, long offset,
         Consumer<Throwable> errorHandler) {
 
+      processing.put(tp.partition(), offset);
       if (element != null) {
-        return observer.onNext(element, tp::partition, bulkCommitter(tp, offset, errorHandler));
+        return observer.onNext(element, (succ, exc) -> {
+          if (succ) {
+            committed.compute(tp.partition(), (k, v) -> v == null || v < offset ? offset : v);
+            committer.confirm(tp, offset);
+          } else {
+            errorHandler.accept(exc);
+          }
+        }, tp::partition);
+      }
+      committed.compute(tp.partition(), (k, v) -> v == null || v < offset ? offset : v);
+      committer.confirm(tp, offset);
+      return true;
+    }
+
+    @Override
+    public List<TopicOffset> getCurrentOffsets() {
+      return TopicOffset.fromMap(processing);
+    }
+
+    @Override
+    public List<TopicOffset> getCommittedOffsets() {
+      return TopicOffset.fromMap(committed);
+    }
+
+    @Override
+    public Map<TopicPartition, OffsetAndMetadata> prepareOffsetsForCommit() {
+      return prepareCommit.apply();
+    }
+
+    @Override
+    LogObserverBase observer() {
+      return observer;
+    }
+
+    @Override
+    public void onAssign(
+        KafkaConsumer<String, byte[]> consumer,
+        List<TopicOffset> offsets) {
+
+      super.onAssign(consumer, offsets);
+      observer.onRepartition(offsets.stream()
+          .map(TopicOffset::getPartition)
+          .collect(Collectors.toList()));
+    }
+
+  }
+
+  static final class BulkConsumer extends ConsumerBase {
+
+    private final String topic;
+    private final BulkLogObserver observer;
+    private final BiConsumer<TopicPartition, Long> commit;
+    private final Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit;
+
+    BulkConsumer(
+        String topic,
+        BulkLogObserver observer,
+        BiConsumer<TopicPartition, Long> commit,
+        Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit) {
+
+      this.topic = topic;
+      this.observer = observer;
+      this.commit = commit;
+      this.prepareCommit = prepareCommit;
+    }
+
+    @Override
+    public boolean consumeWithConfirm(
+        @Nullable StreamElement element,
+        TopicPartition tp, long offset,
+        Consumer<Throwable> errorHandler) {
+
+      processing.put(tp.partition(), offset);
+      if (element != null) {
+        return observer.onNext(
+            element, tp::partition,
+            bulkCommitter(tp, offset, errorHandler));
       }
       return true;
     }
 
-    private BulkLogObserver.OffsetContext bulkCommitter(
+    private BulkLogObserver.OffsetCommitter bulkCommitter(
         TopicPartition tp, long offset, Consumer<Throwable> errorHandler) {
 
-      return new BulkLogObserver.OffsetContext() {
-
-        @Override
-        public void commit(boolean success, Throwable err) {
-          if (success) {
-            committer.commit(tp, offset);
-          } else {
-            errorHandler.accept(err);
-          }
-        }
-
-        @Override
-        public List<Offset> getCommittedOffsets() {
-          return committer.getCommittedOffsets();
+      return (succ, err) -> {
+        if (succ) {
+          committed.compute(tp.partition(), (k, v) -> v == null || v < offset ? offset : v);
+          commit.accept(tp, offset);
+        } else {
+          errorHandler.accept(err);
         }
       };
     }
+
+    @Override
+    public List<TopicOffset> getCurrentOffsets() {
+      return TopicOffset.fromMap(processing);
+    }
+
+    @Override
+    public List<TopicOffset> getCommittedOffsets() {
+      return TopicOffset.fromMap(committed);
+    }
+
+    @Override
+    LogObserverBase observer() {
+      return observer;
+    }
+
+    @Override
+    public Map<TopicPartition, OffsetAndMetadata> prepareOffsetsForCommit() {
+      return prepareCommit.apply();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void onAssign(
+        KafkaConsumer<String, byte[]> consumer,
+        List<TopicOffset> offsets) {
+
+      super.onAssign(consumer, offsets);
+      observer.onRestart((List) offsets);
+
+      Utils.seekToCommitted(topic, (List) offsets, consumer);
+    }
+
   }
 
 }

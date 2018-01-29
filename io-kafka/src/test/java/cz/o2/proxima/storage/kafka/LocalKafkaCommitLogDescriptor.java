@@ -23,7 +23,6 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StorageDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
-import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.commitlog.Position;
@@ -64,6 +63,7 @@ import org.apache.kafka.common.PartitionInfo;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.*;
+import cz.o2.proxima.storage.commitlog.ObserveHandle;
 
 /**
  * A class that can be used as {@code KafkaCommitLog} in various test scenarios.
@@ -180,7 +180,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
      * @param id ID of the consumer in the associated consumer group
      */
     @SuppressWarnings("unchecked")
-    protected KafkaConsumer<String, byte[]> mockKafkaConsumer(
+    KafkaConsumer<String, byte[]> mockKafkaConsumer(
         String name,
         Pair<String, Integer> consumerId,
         ConsumerGroup group) {
@@ -249,6 +249,12 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       }).when(mock).commitSync(any());
 
       doAnswer(invocation -> {
+        TopicPartition part = (TopicPartition) invocation.getArguments()[0];
+        return new OffsetAndMetadata(committedOffsets.get(
+            Pair.of(name, part.partition())).get());
+      }).when(mock).committed(any());
+
+      doAnswer(invocation -> {
         Collection<Partition> partitions = group.getAssignment(consumerId.getSecond());
         return partitions.stream()
             .map(p -> new TopicPartition(getTopic(), p.getId()))
@@ -265,6 +271,16 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
         group.remove(consumerId.getSecond());
         return null;
       }).when(mock).close();
+
+      doAnswer(invocation -> {
+        TopicPartition tp = (TopicPartition) invocation.getArguments()[0];
+        return consumerOffsets.get(consumerId)
+            .stream().filter(p -> p.getFirst() == tp.partition())
+            .findAny()
+            .map(Pair::getSecond)
+            .map(AtomicInteger::get)
+            .orElse(-1);
+      }).when(mock).position(any());
 
       return mock;
     }
@@ -284,16 +300,19 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     private void seekConsumerTo(
         Pair<String, Integer> consumerId, int partition, long offset) {
 
+      log.debug(
+          "Consumer {} seeked to offset {} in partition {}",
+          consumerId, partition, offset);
       List<Pair<Integer, AtomicInteger>> partOffsets;
       partOffsets = consumerOffsets.computeIfAbsent(consumerId, c -> new ArrayList<>());
       for (Pair<Integer, AtomicInteger> p : partOffsets) {
         if (p.getFirst() == partition) {
-          p.getSecond().set((int) (offset + 1));
+          p.getSecond().set((int) (offset));
           return;
         }
       }
       if (offset >= 0) {
-        partOffsets.add(Pair.of(partition, new AtomicInteger((int) (offset + 1))));
+        partOffsets.add(Pair.of(partition, new AtomicInteger((int) (offset))));
       }
     }
 
@@ -348,9 +367,10 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
       if (log.isDebugEnabled()) {
         log.debug(
-            "Polling consumerId {}.{} with assignment {}",
+            "Polling consumerId {}.{} with assignment {} and offsets {}",
             descriptorId, consumerId,
-            assignment.stream().map(Partition::getId).collect(Collectors.toList()));
+            assignment.stream().map(Partition::getId).collect(Collectors.toList()),
+            consumerOffsets.get(consumerId));
       }
       for (Partition part : assignment) {
         int partition = part.getId();
@@ -486,14 +506,14 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     }
 
     @Override
-    public Cancellable observePartitions(
+    public ObserveHandle observePartitions(
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
         LogObserver observer) {
 
-      Cancellable ret = super.observePartitions(
-          null, partitions, position, stopAtCurrent, observer, null);
+      ObserveHandle ret = super.observePartitions(
+          partitions, position, stopAtCurrent, observer);
       log.debug(
           "Started to observe partitions {} of LocalKafkaCommitLog URI {}",
           partitions, getURI());
@@ -501,8 +521,8 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     }
 
     @Override
-    public Cancellable observe(String name, Position position, LogObserver observer) {
-      Cancellable ret = super.observe(name, position, observer);
+    public ObserveHandle observe(String name, Position position, LogObserver observer) {
+      ObserveHandle ret = super.observe(name, position, observer);
       log.debug(
           "Started to observe LocalKafkaCommitLog with URI {} by consumer {}",
           getURI(), name);
@@ -510,13 +530,13 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     }
 
     @Override
-    protected Cancellable observePartitions(
+    ObserveHandle observeKafka(
         String name, Collection<Partition> partitions,
         Position position, boolean stopAtCurrent,
-        LogObserver observer, ConsumerRebalanceListener listener) {
+        KafkaLogObserver observer) {
 
-      Cancellable ret = super.observePartitions(
-          name, partitions, position, stopAtCurrent, observer, listener);
+      ObserveHandle ret = super.observeKafka(
+          name, partitions, position, stopAtCurrent, observer);
       log.debug(
           "Started to observe partitions {} of LocalKafkaCommitLog with URI {} by consumer {}",
           partitions, getURI(), name);
@@ -548,15 +568,16 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     }
 
     @Override
-    public Cancellable observeBulk(
+    public ObserveHandle observeBulk(
         String name, Position position, BulkLogObserver observer) {
 
-      Cancellable ret = super.observeBulk(name, position, observer);
+      ObserveHandle ret = super.observeBulk(name, position, observer);
       log.debug("Started to bulk observe LocalKafkaCommitLog with URI {} by {}",
           getURI(), name);
       return ret;
     }
 
+    @Override
     public Accessor getAccessor() {
       return (Accessor) accessor;
     }
@@ -589,6 +610,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       callback.commit(true, null);
     }
 
+    @Override
     public Accessor getAccessor() {
       return (Accessor) accessor;
     }

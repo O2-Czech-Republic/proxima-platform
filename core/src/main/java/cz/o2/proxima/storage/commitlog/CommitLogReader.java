@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
-import cz.o2.proxima.process.source.UnboundedStreamSource;
+import cz.o2.proxima.source.UnboundedStreamSource;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.seznam.euphoria.core.client.io.DataSource;
@@ -55,9 +55,9 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @param name identifier of the consumer
    * @param position the position to seek for in the commit log
    * @param observer the observer to subscribe to the commit log
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  Cancellable observe(String name, Position position, LogObserver observer);
+  ObserveHandle observe(String name, Position position, LogObserver observer);
 
   /**
    * Subscribe observer by name to the commit log and read the newest data.
@@ -68,9 +68,9 @@ public interface CommitLogReader extends Closeable, Serializable {
    * This is a non blocking call.
    * @param name identifier of the consumer
    * @param observer the observer to subscribe to the commit log
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default Cancellable observe(String name, LogObserver observer) {
+  default ObserveHandle observe(String name, LogObserver observer) {
     return observe(name, Position.NEWEST, observer);
   }
 
@@ -84,9 +84,9 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @param stopAtCurrent when {@code true} then stop the observer as soon
    *                      as it reaches most recent record
    * @param observer the observer to subscribe to the partitions
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  Cancellable observePartitions(
+  ObserveHandle observePartitions(
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
@@ -100,9 +100,9 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @param partitions the list of partitions to subscribe to
    * @param position the position to seek to in the partitions
    * @param observer the observer to subscribe to the partitions
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default Cancellable observePartitions(
+  default ObserveHandle observePartitions(
       Collection<Partition> partitions,
       Position position,
       LogObserver observer) {
@@ -118,9 +118,9 @@ public interface CommitLogReader extends Closeable, Serializable {
    * by call to this method again.
    * @param partitions the partitions to subscribe to
    * @param observer the observer to subscribe to the given partitions
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default Cancellable observePartitions(
+  default ObserveHandle observePartitions(
       List<Partition> partitions,
       LogObserver observer) {
 
@@ -136,9 +136,9 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @param name name of the observer
    * @param position the position to seek to in the partitions
    * @param observer the observer to subscribe
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  Cancellable observeBulk(
+  ObserveHandle observeBulk(
       String name,
       Position position,
       BulkLogObserver observer);
@@ -151,9 +151,9 @@ public interface CommitLogReader extends Closeable, Serializable {
    * micro-batching approach of data processing.
    * @param name name of the observer
    * @param observer the observer to subscribe
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default Cancellable observeBulk(
+  default ObserveHandle observeBulk(
       String name,
       BulkLogObserver observer) {
 
@@ -165,9 +165,9 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @param partitions the partitions to subscribe to
    * @param position the position to seek to in the partitions
    * @param observer the observer to subscribe to the partitions
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  Cancellable observeBulkPartitions(
+  ObserveHandle observeBulkPartitions(
       List<Partition> partitions,
       Position position,
       BulkLogObserver observer);
@@ -179,9 +179,9 @@ public interface CommitLogReader extends Closeable, Serializable {
    * and resume the consumption from these offsets later
    * @param offsets the @{link Offset}s to subscribe to
    * @param observer the observer to subscribe to the offsets
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  Cancellable observeBulkOffsets(
+  ObserveHandle observeBulkOffsets(
       List<Offset> offsets,
       BulkLogObserver observer);
 

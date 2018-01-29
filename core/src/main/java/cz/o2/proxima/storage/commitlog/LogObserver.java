@@ -32,9 +32,9 @@ import javax.annotation.Nullable;
 public interface LogObserver extends LogObserverBase {
 
   /**
-   * Context for manipulation with offset during consumption.
+   * Committer for manipulation with offset during consumption.
    */
-  interface OffsetContext extends Serializable {
+  interface OffsetCommitter extends Serializable {
 
     /**
      * Confirm processing of element.
@@ -58,21 +58,15 @@ public interface LogObserver extends LogObserverBase {
       commit(false, error);
     }
 
-    /**
-     * Retrieve of offset from current partition.
-     * @return offset of currently processed element
-     */
-    Offset getCurrentOffset();
-
   }
 
   /**
    * Process next record in the commit log.
    * @param ingest the ingested data written to the commit log
-   * @param context a context that the application must use to confirm processing
+   * @param committer a context that the application must use to confirm processing
    * of the ingest. If the application fails to do so, the result is undefined
    * @return {@code true} if the processing should continue, {@code false} otherwise
    **/
-  boolean onNext(StreamElement ingest, OffsetContext context);
+  boolean onNext(StreamElement ingest, OffsetCommitter committer);
 
 }

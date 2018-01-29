@@ -13,19 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.storage.kafka;
+package cz.o2.proxima.functional;
 
-import cz.o2.proxima.storage.commitlog.Offset;
-import java.util.List;
+import java.io.Serializable;
 
-interface QueryableTopicPartitionCommitter extends TopicPartitionCommitter {
+/**
+ * A factory function.
+ *
+ * @param <T> type of returned object
+ */
+public interface Factory<T> extends Serializable {
 
   /**
-   * Retrieve currently committed offsets.
-   * @return committed offsets for partitions
+   * Apply the factory funtion.
+   * @return the created object
    */
-  List<Offset> getCommittedOffsets();
-
-
+  T apply();
+  
 }
-

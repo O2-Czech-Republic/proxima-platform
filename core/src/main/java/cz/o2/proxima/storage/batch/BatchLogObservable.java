@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.storage.batch;
 
-import cz.o2.proxima.process.source.BatchSource;
+import cz.o2.proxima.source.BatchSource;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;

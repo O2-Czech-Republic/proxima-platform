@@ -41,7 +41,7 @@ public abstract class RetryableBulkObserver<OFF extends Serializable>
   @Override
   public final boolean onNext(
       StreamElement ingest, Partition partition,
-      BulkLogObserver.OffsetContext confirm) {
+      BulkLogObserver.OffsetCommitter confirm) {
 
     boolean ret = onNextInternal(ingest, partition, confirm);
     success();
@@ -65,7 +65,7 @@ public abstract class RetryableBulkObserver<OFF extends Serializable>
    */
   protected boolean onNextInternal(
       StreamElement ingest,
-      BulkLogObserver.OffsetContext context) {
+      BulkLogObserver.OffsetCommitter context) {
 
     throw new UnsupportedOperationException(
         "Please override either of `onNextInternal` methods");
@@ -80,7 +80,7 @@ public abstract class RetryableBulkObserver<OFF extends Serializable>
    */
   protected boolean onNextInternal(
       StreamElement ingest, Partition partition,
-      BulkLogObserver.OffsetContext context) {
+      BulkLogObserver.OffsetCommitter context) {
 
     return onNextInternal(ingest, context);
   }

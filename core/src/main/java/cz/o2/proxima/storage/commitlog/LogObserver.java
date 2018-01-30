@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
-import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
 import javax.annotation.Nullable;
@@ -32,21 +31,23 @@ import javax.annotation.Nullable;
  */
 public interface LogObserver extends LogObserverBase {
 
-  @FunctionalInterface
-  interface ConfirmCallback extends Serializable {
+  /**
+   * Committer for manipulation with offset during consumption.
+   */
+  interface OffsetCommitter extends Serializable {
 
     /**
      * Confirm processing of element.
      * @param success success/fail flag
      * @param error error that was thrown during processing
      */
-    void confirm(boolean success, @Nullable Throwable error);
+    void commit(boolean success, @Nullable Throwable error);
 
     /**
      * Successfully confirm the processing.
      */
     default void confirm() {
-      confirm(true, null);
+      commit(true, null);
     }
 
     /**
@@ -54,7 +55,7 @@ public interface LogObserver extends LogObserverBase {
      * @param error error caught during processing
      */
     default void fail(Throwable error) {
-      confirm(false, error);
+      commit(false, error);
     }
 
   }
@@ -62,30 +63,10 @@ public interface LogObserver extends LogObserverBase {
   /**
    * Process next record in the commit log.
    * @param ingest the ingested data written to the commit log
-   * @param confirm a callback that the application must use to confirm processing
+   * @param committer a context that the application must use to confirm processing
    * of the ingest. If the application fails to do so, the result is undefined
    * @return {@code true} if the processing should continue, {@code false} otherwise
    **/
-  default boolean onNext(StreamElement ingest, ConfirmCallback confirm) {
-    throw new UnsupportedOperationException(
-        "Please override either of onNext methods");
-  }
-
-  /**
-   * Process next record in the commit log.
-   * @param ingest the ingested data written to the commit log
-   * @param partition identifier of source partition
-   * @param confirm a callback that the application must use to confirm processing
-   * of the ingest. If the application fails to do so, the result is undefined
-   * @return {@code true} if the processing should continue, {@code false} otherwise
-   */
-  default boolean onNext(
-      StreamElement ingest,
-      Partition partition,
-      ConfirmCallback confirm) {
-
-    return onNext(ingest, confirm);
-  }
-
+  boolean onNext(StreamElement ingest, OffsetCommitter committer);
 
 }

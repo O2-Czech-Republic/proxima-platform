@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.view.input;
 
-import cz.seznam.euphoria.core.client.functional.UnaryFunction;
-import cz.seznam.euphoria.core.client.functional.VoidFunction;
+import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.functional.Factory;
 import cz.seznam.euphoria.core.client.io.DataSource;
 import cz.seznam.euphoria.core.client.io.UnboundedDataSource;
 import cz.seznam.euphoria.core.client.io.UnboundedPartition;
@@ -55,35 +55,33 @@ public class DataSourceUtils {
    * @param producer producer to run to start producing data
    * @param offsetProducer function that returns current offset
    * @param offsetReset function to reset offset and start reading from given offset
-   * @param commitOffset function by which to commit offset
    * @return the single {@code UnboundedPartition}.
    *
    */
-  public static <T, OFF extends Serializable> UnboundedPartition<T, OFF> fromBlockingQueue(
+  public static <T, OFF extends Serializable> UnboundedPartition<T, List<OFF>> fromBlockingQueue(
       BlockingQueue<T> queue,
       Producer producer,
-      VoidFunction<OFF> offsetProducer,
-      UnaryFunction<OFF, Void> offsetReset,
-      UnaryFunction<OFF, Void> commitOffset) {
+      Factory<List<OFF>> offsetProducer,
+      Consumer<List<OFF>> offsetReset) {
 
     return () -> {
       producer.run();
-      return new UnboundedReader<T, OFF>() {
+      return new UnboundedReader<T, List<OFF>>() {
         T next = null;
 
         @Override
-        public OFF getCurrentOffset() {
+        public List<OFF> getCurrentOffset() {
           return offsetProducer.apply();
         }
 
         @Override
-        public void reset(OFF offset) {
-          offsetReset.apply(offset);
+        public void reset(List<OFF> offsets) {
+          offsetReset.accept(offsets);
         }
 
         @Override
-        public void commitOffset(OFF offset) {
-          commitOffset.apply(offset);
+        public void commitOffset(List<OFF> offsets) {
+          // nop
         }
 
         @Override
@@ -119,7 +117,7 @@ public class DataSourceUtils {
    */
   @SafeVarargs
   public static <T, OFF extends Serializable> DataSource<T> fromPartitions(
-      UnboundedPartition<T, OFF>... partitions) {
+      UnboundedPartition<T, List<OFF>>... partitions) {
 
     return fromPartitions(Arrays.asList(partitions));
   }
@@ -132,10 +130,11 @@ public class DataSourceUtils {
    * @param partitions list of partitions
    * @return {@link DataSource} consisting of given partitions
    */
+  @SuppressWarnings("unchecked")
   public static <T, OFF extends Serializable> DataSource<T> fromPartitions(
-      List<UnboundedPartition<T, OFF>> partitions) {
+      List<UnboundedPartition<T, List<OFF>>> partitions) {
 
-    return (UnboundedDataSource<T, OFF>) () -> partitions;
+    return (UnboundedDataSource) () -> partitions;
   }
 
 }

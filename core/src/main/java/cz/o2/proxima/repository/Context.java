@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
-import cz.seznam.euphoria.core.client.functional.VoidFunction;
+import cz.o2.proxima.functional.Factory;
 import java.io.Serializable;
 import java.util.concurrent.ExecutorService;
 
@@ -27,7 +27,7 @@ public class Context implements Serializable {
   /**
    * Executor associated with all asynchronous operations.
    */
-  private final VoidFunction<ExecutorService> executorFactory;
+  private final Factory<ExecutorService> executorFactory;
 
   /**
    * Initialization marker. After deserialization this will be `false`.
@@ -39,7 +39,7 @@ public class Context implements Serializable {
    */
   private transient ExecutorService service;
 
-  protected Context(VoidFunction<ExecutorService> executorFactory) {
+  protected Context(Factory<ExecutorService> executorFactory) {
     this.executorFactory = executorFactory;
   }
 

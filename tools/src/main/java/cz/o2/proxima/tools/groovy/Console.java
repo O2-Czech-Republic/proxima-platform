@@ -32,11 +32,11 @@ import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
-import cz.o2.proxima.storage.commitlog.CommitLogReader.Position;
-import cz.o2.proxima.tools.io.BatchSource;
+import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.source.BatchSource;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
-import cz.o2.proxima.tools.io.StreamSource;
-import cz.o2.proxima.tools.io.TypedIngest;
+import cz.o2.proxima.source.UnboundedStreamSource;
+import cz.o2.proxima.tools.io.TypedStreamElement;
 import cz.o2.proxima.util.Classpath;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
@@ -45,6 +45,7 @@ import cz.seznam.euphoria.core.client.io.Collector;
 import cz.seznam.euphoria.core.client.operator.AssignEventTime;
 import cz.seznam.euphoria.core.client.operator.Filter;
 import cz.seznam.euphoria.core.client.operator.FlatMap;
+import cz.seznam.euphoria.core.client.operator.MapElements;
 import cz.seznam.euphoria.core.client.operator.ReduceByKey;
 import cz.seznam.euphoria.core.client.util.Pair;
 import cz.seznam.euphoria.executor.local.LocalExecutor;
@@ -155,7 +156,7 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> Stream<TypedIngest<T>> getStream(
+  public <T> Stream<TypedStreamElement<?>> getStream(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       Position position,
@@ -167,7 +168,7 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> Stream<TypedIngest<T>> getStream(
+  public <T> Stream<TypedStreamElement<?>> getStream(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       Position position,
@@ -182,21 +183,22 @@ public class Console {
         .orElseThrow(() -> new IllegalArgumentException(
             "Attribute " + attrDesc + " has no commit log"));
 
-    DatasetBuilder<TypedIngest<?>> builder = () -> {
-      Dataset<TypedIngest<?>> input = flow.get().createInput(StreamSource.of(
+    DatasetBuilder<TypedStreamElement<Object>> builder = () -> {
+      Dataset<StreamElement> input = flow.get().createInput(UnboundedStreamSource.of(
           reader,
-          position,
-          stopAtCurrent,
-          TypedIngest::of));
+          position));
 
       String prefix = attrDesc.toAttributePrefix();
       if (eventTime) {
         input = AssignEventTime.of(input)
-            .using(TypedIngest::getStamp)
+            .using(StreamElement::getStamp)
             .output();
       }
-      return Filter.of(input)
-          .by(t -> t.getAttrDesc().toAttributePrefix().equals(prefix))
+      Dataset<StreamElement> filtered = Filter.of(input)
+          .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
+          .output();
+      return MapElements.of(filtered)
+          .using(TypedStreamElement::of)
           .output();
     };
 
@@ -212,7 +214,7 @@ public class Console {
         this::resetFlow);
   }
 
-  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchSnapshot(
+  public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc) {
 
@@ -221,14 +223,14 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchSnapshot(
+  public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       long fromStamp,
       long toStamp) {
 
-    DatasetBuilder<TypedIngest<Object>> builder = () -> {
-      final Dataset<TypedIngest<Object>> input;
+    DatasetBuilder<StreamElement> builder = () -> {
+      final Dataset<StreamElement> input;
       AttributeFamilyDescriptor family = repo.getFamiliesForAttribute(attrDesc)
           .stream()
           .filter(af -> af.getAccess().canReadBatchSnapshot())
@@ -245,20 +247,20 @@ public class Console {
             .findAny()
             .orElseThrow(() -> new IllegalStateException(
                 "Cannot create batch snapshot, missing random access family and state commit log for " + attrDesc));
-        Dataset<TypedIngest<Object>> stream = flow.get().createInput(
-            StreamSource.of(reader, Position.OLDEST, true, TypedIngest::of));
+        Dataset<StreamElement> stream = flow.get().createInput(
+            UnboundedStreamSource.of(reader, Position.OLDEST));
 
         // filter by stamp
         stream = Filter.of(stream)
             .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
             .output();
 
-        Dataset<Pair<Pair<String, String>, TypedIngest<Object>>> reduced = ReduceByKey.of(stream)
+        Dataset<Pair<Pair<String, String>, StreamElement>> reduced = ReduceByKey.of(stream)
             .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
             .combineBy(values -> {
-              TypedIngest<Object> res = null;
-              Iterable<TypedIngest<Object>> iter = () -> values.iterator();
-              for (TypedIngest<Object> v : iter) {
+              StreamElement res = null;
+              Iterable<StreamElement> iter = () -> values.iterator();
+              for (StreamElement v : iter) {
                 if (res == null || v.getStamp() > res.getStamp()) {
                   res = v;
                 }
@@ -268,7 +270,7 @@ public class Console {
             .output();
 
         input = FlatMap.of(reduced)
-            .using((Pair<Pair<String, String>, TypedIngest<Object>> e, Collector<TypedIngest<Object>> ctx) -> {
+            .using((Pair<Pair<String, String>, StreamElement> e, Collector<StreamElement> ctx) -> {
               if (e.getSecond().getValue() != null) {
                 ctx.collect(e.getSecond());
               }
@@ -276,7 +278,7 @@ public class Console {
             .output();
 
       } else {
-        Dataset<TypedIngest<Object>> raw = flow.get().createInput(BatchSource.of(
+        Dataset<StreamElement> raw = flow.get().createInput(BatchSource.of(
             family.getBatchObservable().get(),
             family,
             fromStamp,
@@ -288,7 +290,7 @@ public class Console {
 
       String prefix = attrDesc.toAttributePrefix();
       return Filter.of(input)
-          .by(t -> t.getAttrDesc().toAttributePrefix().equals(prefix))
+          .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
           .output();
     };
 
@@ -305,7 +307,7 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchUpdates(
+  public <T> WindowedStream<StreamElement, GlobalWindowing> getBatchUpdates(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       long startStamp,
@@ -319,8 +321,8 @@ public class Console {
         .orElseThrow(() -> new IllegalStateException("Attribute "
             + attrDesc.getName() + " has no random access reader"));
 
-    DatasetBuilder<TypedIngest<Object>> builder = () -> {
-      Dataset<TypedIngest<Object>> input = flow.get().createInput(BatchSource.of(
+    DatasetBuilder<StreamElement> builder = () -> {
+      Dataset<StreamElement> input = flow.get().createInput(BatchSource.of(
           family.getBatchObservable().get(),
           family,
           startStamp, endStamp));
@@ -330,11 +332,11 @@ public class Console {
           .output();
 
       String prefix = attrDesc.toAttributePrefix();
-      Dataset<TypedIngest<Object>> filtered = Filter.of(input)
-          .by(t -> t.getAttrDesc().toAttributePrefix().equals(prefix))
+      Dataset<StreamElement> filtered = Filter.of(input)
+          .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
           .output();
       return AssignEventTime.of(filtered)
-          .using(TypedIngest::getStamp)
+          .using(StreamElement::getStamp)
           .output();
     };
 

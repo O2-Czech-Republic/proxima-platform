@@ -17,6 +17,8 @@ package cz.o2.proxima.storage.kafka;
 
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.Context;
@@ -26,6 +28,9 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
+import cz.o2.proxima.storage.commitlog.ObserveHandle;
+import cz.o2.proxima.storage.commitlog.Offset;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.storage.commitlog.RetryableBulkObserver;
 import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.Accessor;
 import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.LocalKafkaWriter;
@@ -47,12 +52,14 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -65,9 +72,19 @@ import org.junit.Test;
 /**
  * Test suite for {@code LocalKafkaCommitLogDescriptorTest}.
  */
+@Slf4j
 public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
-  final transient Repository repo = Repository.Builder.ofTest(ConfigFactory.empty()).build();
+  final transient Factory<ExecutorService> serviceFactory =
+      () -> Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r);
+        t.setUncaughtExceptionHandler((thr, exc) -> exc.printStackTrace(System.err));
+        return t;
+      });
+  final transient Repository repo = Repository.Builder
+      .ofTest(ConfigFactory.empty())
+      .withExecutorFactory(serviceFactory)
+      .build();
   final AttributeDescriptorBase<?> attr;
   final EntityDescriptor entity;
   final URI storageURI;
@@ -468,7 +485,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           StreamElement ingest,
           PartitionedLogObserver.ConfirmCallback confirm,
           Partition partition,
-          PartitionedLogObserver.Consumer<Void> collector) {
+          Consumer<Void> collector) {
 
         assertEquals(0, partition.getId());
         confirm.confirm();
@@ -486,7 +503,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       }
 
       @Override
-      public void onError(Throwable error) {
+      public boolean onError(Throwable error) {
         throw new RuntimeException(error);
       }
 
@@ -536,7 +553,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           StreamElement ingest,
           PartitionedLogObserver.ConfirmCallback confirm,
           Partition partition,
-          PartitionedLogObserver.Consumer<Void> collector) {
+          Consumer<Void> collector) {
 
         confirm.confirm();
         try {
@@ -553,7 +570,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       }
 
       @Override
-      public void onError(Throwable error) {
+      public boolean onError(Throwable error) {
         throw new RuntimeException(error);
       }
 
@@ -578,7 +595,6 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(update.getEntityDescriptor(), element.getEntityDescriptor());
     assertArrayEquals(update.getValue(), element.getValue());
     assertEquals(3, observed.size());
-
   }
 
   @Test(timeout = 2000)
@@ -595,11 +611,11 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
 
-    reader.observeBulk("test", CommitLogReader.Position.NEWEST, new BulkLogObserver() {
+    reader.observeBulk("test", Position.NEWEST, new BulkLogObserver() {
 
       @Override
       public boolean onNext(
-          StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
+          StreamElement ingest, BulkLogObserver.OffsetCommitter confirm) {
         restarts.incrementAndGet();
         throw new RuntimeException("FAIL!");
       }
@@ -611,14 +627,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
       @Override
       public boolean onError(Throwable error) {
-        latch.countDown();
         exc.set(error);
+        latch.countDown();
         throw new RuntimeException(error);
-      }
-
-      @Override
-      public void close() throws Exception {
-
       }
 
     });
@@ -653,7 +664,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
       @Override
       protected boolean onNextInternal(
-          StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
+          StreamElement ingest, BulkLogObserver.OffsetCommitter confirm) {
         restarts.incrementAndGet();
         throw new RuntimeException("FAIL!");
       }
@@ -692,14 +703,18 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
 
-    reader.observeBulk("test", CommitLogReader.Position.NEWEST, new BulkLogObserver() {
+    reader.observeBulk("test", Position.NEWEST, new BulkLogObserver() {
+
+      @Override
+      public void onRestart(List<Offset> offsets) {
+        restarts.incrementAndGet();
+      }
 
       @Override
       public boolean onNext(
-          StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
-        restarts.incrementAndGet();
+          StreamElement ingest, BulkLogObserver.OffsetCommitter context) {
         input.set(ingest);
-        confirm.commit();
+        context.confirm();
         latch.countDown();
         return true;
       }
@@ -715,9 +730,58 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         throw new RuntimeException(error);
       }
 
-      @Override
-      public void close() throws Exception {
+    });
 
+    writer.write(update, (succ, e) -> {
+      assertTrue(succ);
+      latch.countDown();
+    });
+    latch.await();
+    assertNull(exc.get());
+    assertEquals(1, restarts.get());
+    assertArrayEquals(update.getValue(), input.get().getValue());
+  }
+
+  @Test(timeout = 2000)
+  public void testBulkObservePartitionsSuccess() throws InterruptedException {
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+
+    AtomicInteger restarts = new AtomicInteger();
+    AtomicReference<Throwable> exc = new AtomicReference<>();
+    AtomicReference<StreamElement> input = new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(2);
+    StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
+
+    reader.observeBulkPartitions(reader.getPartitions(), Position.NEWEST, new BulkLogObserver() {
+
+      @Override
+      public void onRestart(List<Offset> offsets) {
+        restarts.incrementAndGet();
+      }
+
+      @Override
+      public boolean onNext(
+          StreamElement ingest, BulkLogObserver.OffsetCommitter context) {
+        input.set(ingest);
+        context.confirm();
+        latch.countDown();
+        return true;
+      }
+
+      @Override
+      public void onCompleted() {
+        fail("This should not be called");
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        exc.set(error);
+        throw new RuntimeException(error);
       }
 
     });
@@ -730,6 +794,65 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertNull(exc.get());
     assertEquals(1, restarts.get());
     assertArrayEquals(update.getValue(), input.get().getValue());
+  }
+
+  @Test(timeout = 2000)
+  public void testBulkObserveOffsets() throws InterruptedException {
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+
+    List<KafkaStreamElement> input = new ArrayList<>();
+    AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(3));
+    StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
+
+    Map<Integer, Offset> currentOffsets = new HashMap<>();
+
+    BulkLogObserver observer = new BulkLogObserver() {
+
+      @Override
+      public boolean onNext(
+          StreamElement ingest, BulkLogObserver.OffsetCommitter context) {
+
+        input.add((KafkaStreamElement) ingest);
+        context.confirm();
+        latch.get().countDown();
+        return !currentOffsets.isEmpty();
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+    };
+    ObserveHandle handle = reader.observeBulkPartitions(
+        reader.getPartitions(), Position.NEWEST, observer);
+
+    // write two elements
+    for (int i = 0; i < 2; i++) {
+      writer.write(update, (succ, e) -> {
+        assertTrue(succ);
+        latch.get().countDown();
+      });
+    }
+    latch.get().await();
+    latch.set(new CountDownLatch(1));
+
+    handle.getCommittedOffsets().forEach(o -> currentOffsets.put(o.getPartition().getId(), o));
+
+    // each partitions has a record here
+    assertEquals(3, currentOffsets.size());
+
+    // restart from old offset
+    reader.observeBulkOffsets(Lists.newArrayList(currentOffsets.values()), observer);
+    latch.get().await();
+    assertEquals(2, input.size());
+    assertEquals(0, input.get(0).getOffset());
+    assertEquals(1, input.get(1).getOffset());
   }
 
   private static Map<String, Object> partitionsCfg(int partitions) {
@@ -753,8 +876,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     return new byte[] { };
   }
 
-  private static Context context() {
-    return new Context(() -> Executors.newCachedThreadPool()) { };
+  private Context context() {
+    return new Context(serviceFactory) { };
   }
 
 }

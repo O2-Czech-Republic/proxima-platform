@@ -15,15 +15,20 @@
  */
 package cz.o2.proxima.storage.kafka;
 
+import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
-import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
-import cz.o2.proxima.storage.commitlog.LogObserverBase;
+import cz.o2.proxima.storage.commitlog.ObserveHandle;
+import cz.o2.proxima.storage.commitlog.Offset;
+import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.storage.kafka.Consumers.BulkConsumer;
+import cz.o2.proxima.storage.kafka.Consumers.OnlineConsumer;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.o2.proxima.view.input.DataSourceUtils;
@@ -31,22 +36,21 @@ import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import cz.seznam.euphoria.core.client.io.DataSource;
 import cz.seznam.euphoria.core.client.operator.MapElements;
+import cz.seznam.euphoria.shadow.com.google.common.base.Preconditions;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -91,33 +95,52 @@ public class KafkaLogReader extends AbstractStorage
    * @param name identifier of the consumer
    */
   @Override
-  public Cancellable observe(
+  public ObserveHandle observe(
       String name,
       Position position,
       LogObserver observer) {
 
-    return observePartitions(name, null, position, false, observer, null);
+    return observeKafka(
+        name, null, position, false,
+        new KafkaLogObserver.LogObserverKafkaLogObserver(observer));
   }
 
 
   @Override
-  public Cancellable observePartitions(
+  public ObserveHandle observePartitions(
       @Nullable Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
       LogObserver observer) {
 
-    return observePartitions(
-        null, partitions, position, stopAtCurrent, observer, null);
+    return observeKafka(
+        null, partitions, position, stopAtCurrent,
+        new KafkaLogObserver.LogObserverKafkaLogObserver(observer));
+
   }
 
   @Override
-  public Cancellable observeBulk(
+  public ObserveHandle observeBulk(
       String name,
       Position position,
       BulkLogObserver observer) {
 
-    return observePartitionsBulk(name, position, observer);
+    return observeKafkaBulk(name, null, position, observer);
+  }
+
+  @Override
+  public ObserveHandle observeBulkPartitions(
+      List<Partition> partitions,
+      Position position,
+      BulkLogObserver observer) {
+
+    return observeKafkaBulk(null, asOffsets(partitions), position, observer);
+  }
+
+  @Override
+  public ObserveHandle observeBulkOffsets(
+      List<Offset> offsets, BulkLogObserver observer) {
+    return observeKafkaBulk(null, offsets, null, observer);
   }
 
   @Override
@@ -126,18 +149,24 @@ public class KafkaLogReader extends AbstractStorage
       PartitionedLogObserver<T> observer) {
 
     BlockingQueue<T> queue = new ArrayBlockingQueue<>(100);
+    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
 
     DataSourceUtils.Producer producer = () -> {
-      observePartitions(null, partitions, Position.NEWEST, false,
-          Utils.forwardingTo(queue, observer),
-          Utils.rebalanceListener(observer));
+      handle.set(observeKafka(
+          null, partitions, Position.NEWEST, false,
+          KafkaLogObserver.PartitionedLogObserverKafkaLogObserver.of(
+              observer, Utils.unchecked(queue::put))));
     };
 
-
-    // FIXME: revisit this logic, we need to be able to correctly commit
-    // and rewind the source (https://github.com/O2-Czech-Republic/proxima-platform/issues/57)
     DataSource<T> source = DataSourceUtils.fromPartitions(
-        DataSourceUtils.fromBlockingQueue(queue, producer, () -> 0, a -> null, a -> null));
+        DataSourceUtils.fromBlockingQueue(
+            queue, producer, () -> handle.get().getCurrentOffsets(),
+            off -> handle.updateAndGet(h -> {
+              if (h != null) {
+                h.resetOffsets(off);
+              }
+              return h;
+            })));
 
     // we need to remap the input here to be able to directly persist it again
     return MapElements.of(
@@ -151,18 +180,23 @@ public class KafkaLogReader extends AbstractStorage
       Flow flow, String name, PartitionedLogObserver<T> observer) {
 
     BlockingQueue<T> queue = new ArrayBlockingQueue<>(100);
+    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
 
     DataSourceUtils.Producer producer = () -> {
-      observePartitions(name, null, Position.NEWEST, false,
-          Utils.forwardingTo(queue, observer),
-          Utils.rebalanceListener(observer));
+      handle.set(observeKafka(name, null, Position.NEWEST, false,
+          KafkaLogObserver.PartitionedLogObserverKafkaLogObserver.of(
+              observer, Utils.unchecked(queue::put))));
     };
 
-    // FIXME: revisit this logic, we need to be able to correctly commit
-    // and rewind the source (https://github.com/O2-Czech-Republic/proxima-platform/issues/57)
     DataSource<T> source = DataSourceUtils.fromPartitions(
         DataSourceUtils.fromBlockingQueue(
-            queue, producer, () -> 0, a -> null, a -> null));
+            queue, producer, () -> handle.get().getCurrentOffsets(),
+            off -> handle.updateAndGet(h -> {
+              if (h != null) {
+                h.resetOffsets(off);
+              }
+              return h;
+            })));
 
     // we need to remap the input here to be able to directly persist it again
     return MapElements.of(
@@ -185,371 +219,336 @@ public class KafkaLogReader extends AbstractStorage
         .collect(Collectors.toList());
   }
 
-  protected Cancellable observePartitions(
+  @VisibleForTesting
+  ObserveHandle observeKafka(
       @Nullable String name,
       @Nullable Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer,
-      @Nullable ConsumerRebalanceListener listener) {
-
-    // wait until the consumer is really created
-    CountDownLatch latch = new CountDownLatch(1);
-
-    ExecutorService executor = context.getExecutorService();
-
-    // start new thread that will fill our observer
-    AtomicReference<Future<?>> submit = new AtomicReference<>();
-    runConsumption(
-        name, partitions, position, stopAtCurrent,
-        listener, submit, executor, latch, observer);
+      KafkaLogObserver observer) {
 
     try {
-      log.debug("Waiting for the consumer {} to be created and run", name);
-      latch.await();
+      return processConsumer(
+          name, asOffsets(partitions), position, stopAtCurrent,
+          name != null, observer, context.getExecutorService());
     } catch (InterruptedException ex) {
-      log.warn("Interrupted while waiting for the creation of the consumer.", ex);
-      Thread.currentThread().interrupt();
+      log.warn("Interrupted waiting for kafka observer to start", ex);
+      throw new RuntimeException(ex);
     }
-
-    return () -> {
-      submit.get().cancel(true);
-    };
   }
 
-  private void runConsumption(
-      String name, Collection<Partition> partitions,
-      Position position, boolean stopAtCurrent,
-      ConsumerRebalanceListener listener,
-      AtomicReference<Future<?>> submit, ExecutorService executor,
-      @Nullable CountDownLatch latch, LogObserver observer) {
-
-    submit.set(executor.submit(() -> {
-      try {
-        try (KafkaConsumer<String, byte[]> kafkaConsumer = createConsumer(
-            name, partitions, listener, position)) {
-          if (partitions != null) {
-            List<TopicPartition> assignment = partitions.stream()
-                .map(p -> new TopicPartition(topic, p.getId()))
-                .collect(Collectors.toList());
-            kafkaConsumer.assign(assignment);
-          }
-          if (latch != null) {
-            latch.countDown();
-          }
-          processConsumer(
-              kafkaConsumer,
-              name != null,
-              name != null ? false : stopAtCurrent,
-              observer);
-        }
-      } catch (Throwable thwbl) {
-        log.error("Error in running the observer {}", name, thwbl);
-        if (observer.onError(thwbl)) {
-          log.info("Restarting consumption as requested");
-          runConsumption(
-              name, partitions, position, stopAtCurrent,
-              listener, submit, executor, null, observer);
-        }
-      }
-    }));
-  }
-
-  private Cancellable observePartitionsBulk(
-      String name, Position position, BulkLogObserver observer) {
-
-    Objects.requireNonNull(
-        "You can bulk observe only with named observers!",
-        name);
-    final AtomicReference<KafkaConsumer<String, byte[]>> consumerRef;
-    consumerRef = new AtomicReference<>();
-
-    ConsumerRebalanceListener listener = new ConsumerRebalanceListener() {
-      @Override
-      public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
-        // nop
-      }
-
-      @Override
-      public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
-        try {
-          observer.onRestart();
-          if (consumerRef.get() != null) {
-            for (TopicPartition tp : partitions) {
-              OffsetAndMetadata off = consumerRef.get().committed(tp);
-              if (off != null) {
-                log.info(
-                    "Seeking to offset {} for consumer name {} on partition {}",
-                    off.offset(), name, tp);
-                consumerRef.get().seek(tp, off.offset());
-              } else {
-                log.debug(
-                    "Partition {} for consumer name {} has no committed offset",
-                    tp, name);
-              }
-            }
-          }
-        } catch (Exception | Error err) {
-          log.error(
-              "Failed to seek to committed offsets for {}",
-              partitions, err);
-          throw new RuntimeException(err);
-        }
-      }
-
-    };
-
-    // wait until the consumer is really created
-    CountDownLatch latch = new CountDownLatch(1);
-    AtomicReference<Future<?>> submit = new AtomicReference<>();
-
-    runBulkConsumption(
-        name, position, listener,
-        submit, consumerRef, latch, observer);
-
-    try {
-      log.debug("Waiting for the consumer {} to be created and run", name);
-      latch.await();
-    } catch (InterruptedException ex) {
-      log.warn("Interrupted while waiting for the creation of the consumer.", ex);
-      Thread.currentThread().interrupt();
-    }
-    return () -> submit.get().cancel(true);
-  }
-
-  private void runBulkConsumption(
-      String name, Position position, ConsumerRebalanceListener listener,
-      AtomicReference<Future<?>> submit,
-      AtomicReference<KafkaConsumer<String, byte[]>> consumerRef,
-      @Nullable CountDownLatch latch, BulkLogObserver observer) {
-
-    // start new thread that will fill our observer
-    submit.set(context.getExecutorService().submit(() -> {
-
-      consumerRef.set(createConsumer(name, null, listener, position));
-      try {
-        if (latch != null) {
-          latch.countDown();
-        }
-        processConsumer(consumerRef.get(), true, false, observer);
-        consumerRef.get().close();
-      } catch (Exception | Error exc) {
-        log.error("Exception in running the observer {}", name, exc);
-        consumerRef.get().close();
-        if (observer.onError(exc)) {
-          log.info("Restarting consumption as requested");
-          runBulkConsumption(
-              name, position, listener, submit,
-              consumerRef, null, observer);
-        } else {
-          log.info("Terminating consumption as requested.");
-        }
-      }
-    }));
-  }
-
-
-
-  private void processConsumer(
-      KafkaConsumer<String, byte[]> kafkaConsumer,
-      boolean named,
-      boolean stopAtCurrent,
-      LogObserver observer) {
-
-    Map<TopicPartition, OffsetAndMetadata> commitMap = Collections.synchronizedMap(
-        new HashMap<>());
-    OffsetCommitter<TopicPartition> offsetCommitter = new OffsetCommitter<>();
-
-    BiFunction<TopicPartition, ConsumerRecord<String, byte[]>, Void> preWrite = (tp, r) -> {
-        if (named) {
-          offsetCommitter.register(tp, r.offset(), 1,
-              () -> commitMap.put(tp, new OffsetAndMetadata(r.offset() + 1)));
-        }
-        return null;
-    };
-
-    KafkaAccessor.OnlineConsumer onlineConsumer = new KafkaAccessor.OnlineConsumer(observer, (tp, offset) -> {
-        if (named) {
-          offsetCommitter.confirm(tp, offset);
-        }
-    });
-
-    processConsumerWithObserver(
-        kafkaConsumer, named,
-        stopAtCurrent, preWrite,
-        onlineConsumer,
-        commitMap,
-        observer);
-  }
-
-
-  private void processConsumer(
-      KafkaConsumer<String, byte[]> kafkaConsumer,
-      boolean named,
-      boolean stopAtCurrent,
+  private ObserveHandle observeKafkaBulk(
+      @Nullable String name,
+      @Nullable Collection<Offset> offsets,
+      @Nullable Position position,
       BulkLogObserver observer) {
 
-    Map<TopicPartition, OffsetAndMetadata> commitMap = Collections.synchronizedMap(
-        new HashMap<>());
-    Map<TopicPartition, OffsetAndMetadata> uncommittedMap = Collections.synchronizedMap(
-        new HashMap<>());
+    Preconditions.checkArgument(
+        name != null || offsets != null,
+        "Either name of offsets have to be non null");
 
-    BiFunction<TopicPartition, ConsumerRecord<String, byte[]>, Void> preWrite = (tp, r) -> {
-      if (named) {
-        uncommittedMap.put(tp, new OffsetAndMetadata(r.offset() + 1));
-      }
-      return null;
-    };
+    try {
+      return processConsumerBulk(
+          name, offsets, position, false,
+          name != null, observer, context.getExecutorService());
+    } catch (InterruptedException ex) {
+      log.warn("Interrupted waiting for kafka observer to start", ex);
+      throw new RuntimeException(ex);
+    }
 
-    KafkaAccessor.BulkConsumer bulkConsumer = new KafkaAccessor.BulkConsumer(observer, (tp, offset) -> {
-      if (named) {
-        Map<TopicPartition, OffsetAndMetadata> copy;
-        synchronized (uncommittedMap) {
-          copy = new HashMap<>(uncommittedMap);
-          uncommittedMap.clear();
-        }
-        synchronized (commitMap) {
-          commitMap.putAll(copy);
-        }
+  }
+
+  /**
+   * Process given consumer in online fashion.
+   * @param name name of the consumer
+   * @param offsets assigned offsets
+   * @param position where to read from
+   * @param stopAtCurrent termination flag
+   * @param listener the rebalance listener
+   * @param commitToKafka should we commit to kafka
+   * @param observer the observer
+   * @param executor executor to use for async processing
+   * @return observe handle
+   */
+  @VisibleForTesting
+  ObserveHandle processConsumer(
+      @Nullable String name, @Nullable Collection<Offset> offsets,
+      Position position, boolean stopAtCurrent,
+      boolean commitToKafka,
+      KafkaLogObserver observer,
+      ExecutorService executor) throws InterruptedException {
+
+    // offsets that should be committed to kafka
+    Map<TopicPartition, OffsetAndMetadata> kafkaCommitMap;
+    kafkaCommitMap = Collections.synchronizedMap(new HashMap<>());
+
+    OffsetCommitter<TopicPartition> offsetCommitter = new OffsetCommitter<>();
+
+    BiConsumer<TopicPartition, ConsumerRecord<String, byte[]>> preWrite = (tp, r) ->
+      offsetCommitter.register(tp, r.offset(), 1,
+          () -> {
+            OffsetAndMetadata mtd = new OffsetAndMetadata(r.offset() + 1);
+            if (commitToKafka) {
+              kafkaCommitMap.put(tp, mtd);
+            }
+          });
+
+    OnlineConsumer onlineConsumer = new OnlineConsumer(observer, offsetCommitter, () -> {
+      synchronized (kafkaCommitMap) {
+        Map<TopicPartition, OffsetAndMetadata> clone = new HashMap<>(kafkaCommitMap);
+        kafkaCommitMap.clear();
+        return clone;
       }
     });
 
-    processConsumerWithObserver(
-        kafkaConsumer, named,
-        stopAtCurrent, preWrite,
-        bulkConsumer,
-        commitMap,
-        observer);
+    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+    submitConsumerWithObserver(
+        name, offsets, position, stopAtCurrent,
+        preWrite, onlineConsumer, executor, handle);
+    return dynamicHandle(handle);
   }
 
 
+  /**
+   * Process given consumer in bulk fashion.
+   * @param name name of the consumer
+   * @param offsets assigned offsets
+   * @param position where to read from
+   * @param stopAtCurrent termination flag
+   * @param commitToKafka should we commit to kafka
+   * @param observer the observer
+   * @param executor executor to use for async processing
+   * @return observe handle
+   */
+  @VisibleForTesting
+  ObserveHandle processConsumerBulk(
+      @Nullable String name, @Nullable Collection<Offset> offsets,
+      Position position, boolean stopAtCurrent,
+      boolean commitToKafka,
+      BulkLogObserver observer,
+      ExecutorService executor) throws InterruptedException {
 
-  private void processConsumerWithObserver(
-      KafkaConsumer<String, byte[]> kafkaConsumer,
-      boolean named,
-      boolean stopAtCurrent,
-      BiFunction<TopicPartition, ConsumerRecord<String, byte[]>, Void> preWrite,
-      KafkaAccessor.ElementConsumer consumer,
-      Map<TopicPartition, OffsetAndMetadata> commitMap,
-      LogObserverBase baseObserver) {
+    // offsets that should be committed to kafka
+    Map<TopicPartition, OffsetAndMetadata> kafkaCommitMap;
+    kafkaCommitMap = Collections.synchronizedMap(new HashMap<>());
 
-    final Map<TopicPartition, Long> endOffsets;
-    if (stopAtCurrent) {
-      Set<TopicPartition> assignment = kafkaConsumer.assignment();
-      Map<TopicPartition, Long> beginning;
+    BulkConsumer bulkConsumer = new BulkConsumer(topic, observer, (tp, o) -> {
+      OffsetAndMetadata off = new OffsetAndMetadata(o);
+      if (commitToKafka) {
+        kafkaCommitMap.put(tp, off);
+      }
+    }, () -> {
+      synchronized (kafkaCommitMap) {
+        Map<TopicPartition, OffsetAndMetadata> clone = new HashMap<>(kafkaCommitMap);
+        kafkaCommitMap.clear();
+        return clone;
+      }
+    });
 
-      beginning = kafkaConsumer.beginningOffsets(assignment);
-      endOffsets = kafkaConsumer.endOffsets(assignment)
-          .entrySet()
-          .stream()
-          .filter(entry -> beginning.get(entry.getKey()) < entry.getValue())
-          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    } else {
-      endOffsets = null;
-    }
+    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+    submitConsumerWithObserver(
+        name, offsets, position, stopAtCurrent, (tp, r) -> { },
+        bulkConsumer, executor, handle);
+    return dynamicHandle(handle);
+  }
 
-    boolean completed = false;
+  private void submitConsumerWithObserver(
+      @Nullable String name, @Nullable Collection<Offset> offsets,
+      Position position, boolean stopAtCurrent,
+      BiConsumer<TopicPartition, ConsumerRecord<String, byte[]>> preWrite,
+      ElementConsumer consumer,
+      ExecutorService executor,
+      AtomicReference<ObserveHandle> handle) throws InterruptedException {
 
-    AtomicReference<Throwable> error = new AtomicReference<>();
-    while (!shutdown.get() && !completed && !Thread.currentThread().isInterrupted()) {
-      ConsumerRecords<String, byte[]> poll = kafkaConsumer.poll(consumerPollInterval);
-      poll.forEach(r -> {
-        String key = r.key();
-        byte[] value = r.value();
-        TopicPartition tp = new TopicPartition(r.topic(), r.partition());
-        preWrite.apply(tp, r);
-        // in kafka, each entity attribute is separated by `#' from entity key
-        int hashPos = key.lastIndexOf("#");
-        KafkaStreamElement ingest = null;
-        if (hashPos < 0 || hashPos >= key.length()) {
-          log.error("Invalid key in kafka topic: {}", key);
-        } else {
-          String entityKey = key.substring(0, hashPos);
-          String attribute = key.substring(hashPos + 1);
-          Optional<AttributeDescriptor<?>> attr = getEntityDescriptor().findAttribute(attribute);
-          if (!attr.isPresent()) {
-            log.error("Invalid attribute in kafka key {}", key);
-          } else {
-            ingest = new KafkaStreamElement(
-                getEntityDescriptor(), attr.get(),
-                String.valueOf(r.topic() + "#" + r.partition() + "#" + r.offset()),
-                entityKey, attribute, r.timestamp(), value, r.partition(), r.offset());
-          }
+    final CountDownLatch latch = new CountDownLatch(1);
+    AtomicBoolean completed = new AtomicBoolean();
+    List<TopicOffset> seekOffsets = Collections.synchronizedList(new ArrayList<>());
+
+    executor.submit(() -> {
+      handle.set(new ObserveHandle() {
+
+        @Override
+        public void cancel() {
+          completed.set(true);
         }
-        consumer.consumeWithConfirm(
-            ingest, tp, r.offset(), exc -> error.set(exc));
-        if (endOffsets != null) {
-          Long offset = endOffsets.get(tp);
-          if (offset != null && offset <= r.offset() + 1) {
-            endOffsets.remove(tp);
-          }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public List<Offset> getCommittedOffsets() {
+          return (List) consumer.getCommittedOffsets();
         }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public void resetOffsets(List<Offset> offsets) {
+          seekOffsets.addAll((Collection) offsets);
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public List<Offset> getCurrentOffsets() {
+          return (List) consumer.getCurrentOffsets();
+        }
+
       });
-      Map<TopicPartition, OffsetAndMetadata> commitMapClone = null;
-      synchronized (commitMap) {
-        if (!commitMap.isEmpty()) {
-          commitMapClone = new HashMap<>(commitMap);
-          commitMap.clear();
+      AtomicReference<KafkaConsumer<String, byte[]>> consumerRef = new AtomicReference<>();
+      try (KafkaConsumer<String, byte[]> kafka = createConsumer(
+          name, offsets, listener(consumerRef, consumer), position)) {
+
+        consumerRef.set(kafka);
+        latch.countDown();
+        consumer.onAssign(kafka, kafka.assignment().stream()
+            .map(tp -> new TopicOffset(tp.partition(), kafka.position(tp) - 1))
+            .collect(Collectors.toList()));
+
+        final Map<TopicPartition, Long> endOffsets;
+        if (stopAtCurrent) {
+          Set<TopicPartition> assignment = kafka.assignment();
+          Map<TopicPartition, Long> beginning;
+
+          beginning = kafka.beginningOffsets(assignment);
+          endOffsets = kafka.endOffsets(assignment)
+              .entrySet()
+              .stream()
+              .filter(entry -> beginning.get(entry.getKey()) < entry.getValue())
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        } else {
+          endOffsets = null;
+        }
+
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        while (!shutdown.get() && !completed.get() && !Thread.currentThread().isInterrupted()) {
+          ConsumerRecords<String, byte[]> poll = kafka.poll(consumerPollInterval);
+          synchronized (seekOffsets) {
+            if (!seekOffsets.isEmpty()) {
+              Utils.seekToCommitted(topic, offsets, kafka);
+              consumer.onAssign(kafka, kafka.assignment().stream()
+                  .map(tp -> new TopicOffset(tp.partition(), kafka.position(tp) - 1))
+                  .collect(Collectors.toList()));
+              seekOffsets.clear();
+              continue;
+            }
+          }
+          for (ConsumerRecord<String, byte[]> r : poll) {
+            String key = r.key();
+            byte[] value = r.value();
+            TopicPartition tp = new TopicPartition(r.topic(), r.partition());
+            preWrite.accept(tp, r);
+            // in kafka, each entity attribute is separated by `#' from entity key
+            int hashPos = key.lastIndexOf("#");
+            KafkaStreamElement ingest = null;
+            if (hashPos < 0 || hashPos >= key.length()) {
+              log.error("Invalid key in kafka topic: {}", key);
+            } else {
+              String entityKey = key.substring(0, hashPos);
+              String attribute = key.substring(hashPos + 1);
+              Optional<AttributeDescriptor<?>> attr = getEntityDescriptor().findAttribute(attribute);
+              if (!attr.isPresent()) {
+                log.error("Invalid attribute in kafka key {}", key);
+              } else {
+                ingest = new KafkaStreamElement(
+                    getEntityDescriptor(), attr.get(),
+                    String.valueOf(r.topic() + "#" + r.partition() + "#" + r.offset()),
+                    entityKey, attribute, r.timestamp(), value, r.partition(), r.offset());
+              }
+            }
+            boolean cont = consumer.consumeWithConfirm(
+                ingest, tp, r.offset(), exc -> error.set(exc));
+            if (endOffsets != null) {
+              Long offset = endOffsets.get(tp);
+              if (offset != null && offset <= r.offset() + 1) {
+                endOffsets.remove(tp);
+              }
+            }
+            if (!cont) {
+              log.info("Terminating consumption of by request");
+              completed.set(true);
+              break;
+            }
+          }
+          Map<TopicPartition, OffsetAndMetadata> commitMapClone;
+          commitMapClone = consumer.prepareOffsetsForCommit();
+          if (!commitMapClone.isEmpty()) {
+            kafka.commitSync(commitMapClone);
+          }
+          if (stopAtCurrent && endOffsets.isEmpty()) {
+            log.info("Reached end of current data. Terminating consumption.");
+            completed.set(true);
+          }
+          Throwable errorThrown = error.getAndSet(null);
+          if (errorThrown != null) {
+            throw new RuntimeException(errorThrown);
+          }
+        }
+        if (!Thread.currentThread().isInterrupted()) {
+          consumer.onCompleted();
+        } else {
+          consumer.onCancelled();
+        }
+      } catch (Throwable err) {
+        if (consumer.onError(err)) {
+          try {
+            submitConsumerWithObserver(
+                name, offsets, position, stopAtCurrent,
+                preWrite, consumer, executor, handle);
+          } catch (InterruptedException ex) {
+            log.warn("Interrupted while restarting observer");
+            throw new RuntimeException(ex);
+          }
         }
       }
-      if (named && commitMapClone != null) {
-        kafkaConsumer.commitSync(commitMapClone);
-      }
-      if (stopAtCurrent && endOffsets.isEmpty()) {
-        log.info("Reached end of current data. Terminating consumption.");
-        completed = true;
-      }
-      Throwable errorThrown = error.getAndSet(null);
-      if (errorThrown != null) {
-        throw new RuntimeException(errorThrown);
-      }
-    }
-    if (!Thread.currentThread().isInterrupted()) {
-      baseObserver.onCompleted();
-    } else {
-      baseObserver.onCancelled();
-    }
+    });
+    latch.await();
   }
 
 
   private KafkaConsumer<String, byte[]> createConsumer() {
-    return createConsumer(
-        "dummy-consumer",
-        null, null, Position.NEWEST);
+    return createConsumer("dummy-consumer", null, null, Position.NEWEST);
   }
 
   /** Create kafka consumer for the data. */
   @SuppressWarnings("unchecked")
   private KafkaConsumer<String, byte[]> createConsumer(
       @Nullable String name,
-      @Nullable Collection<Partition> partitions,
+      @Nullable Collection<Offset> offsets,
       @Nullable ConsumerRebalanceListener listener,
-      Position position) {
+      @Nullable Position position) {
 
     KafkaConsumerFactory factory = accessor.createConsumerFactory();
     final KafkaConsumer<String, byte[]> consumer;
 
     if (name != null) {
       consumer = factory.create(name, listener);
-    } else if (partitions != null) {
+    } else if (offsets != null) {
+      List<Partition> partitions = offsets.stream()
+          .map(Offset::getPartition)
+          .collect(Collectors.toList());
       if (listener != null) {
         listener.onPartitionsAssigned(
-            partitions.stream()
-                .map(p -> new TopicPartition(topic, p.getId()))
+            partitions.stream().map(p -> new TopicPartition(topic, p.getId()))
                 .collect(Collectors.toList()));
       }
       consumer = factory.create(partitions);
     } else {
-      throw new IllegalArgumentException("Need either name or partitions to observe");
+      throw new IllegalArgumentException("Need either name or offsets to observe");
     }
     if (position == Position.OLDEST) {
-      if (partitions == null) {
+      // seek all partitions to oldest data
+      if (offsets == null) {
+        log.info("Seeking consumer name {} to beginning of partitions", name);
         consumer.seekToBeginning(consumer.assignment());
       } else {
-        consumer.seekToBeginning(partitions.stream()
-            .map(p -> new TopicPartition(topic, p.getId()))
-            .collect(Collectors.toList()));
+        List<TopicPartition> tps = offsets.stream()
+            .map(p -> new TopicPartition(topic, p.getPartition().getId()))
+            .collect(Collectors.toList());
+        log.info("Seeking given partitions {} to beginning", tps);
+        consumer.seekToBeginning(tps);
       }
+    } else if (position != Position.NEWEST) {
+      log.info("Seeking to given offsets {}", offsets);
+      Utils.seekToCommitted(topic, offsets, consumer);
+    } else {
+      log.info("Starting to process kafka partitions from newest data");
     }
     return consumer;
   }
@@ -557,6 +556,65 @@ public class KafkaLogReader extends AbstractStorage
   @Override
   public void close() {
     this.shutdown.set(true);
+  }
+
+  private static Collection<Offset> asOffsets(Collection<Partition> partitions) {
+    if (partitions != null) {
+      return partitions.stream()
+          .map(p -> new TopicOffset(p.getId(), -1))
+          .collect(Collectors.toList());
+    }
+    return null;
+  }
+
+  private static ObserveHandle dynamicHandle(AtomicReference<ObserveHandle> proxy) {
+    return new ObserveHandle() {
+      @Override
+      public void cancel() {
+        proxy.get().cancel();
+      }
+
+      @Override
+      public List<Offset> getCommittedOffsets() {
+        return proxy.get().getCommittedOffsets();
+      }
+
+      @Override
+      public void resetOffsets(List<Offset> offsets) {
+        proxy.get().resetOffsets(offsets);
+      }
+
+      @Override
+      public List<Offset> getCurrentOffsets() {
+        return proxy.get().getCurrentOffsets();
+      }
+
+    };
+  }
+
+  // create rebalance listener from consumer
+  private ConsumerRebalanceListener listener(
+      AtomicReference<KafkaConsumer<String, byte[]>> kafka,
+      ElementConsumer consumer) {
+
+    return new ConsumerRebalanceListener() {
+      @Override
+      public void onPartitionsRevoked(Collection<TopicPartition> parts) {
+        // nop
+      }
+
+      @Override
+      public void onPartitionsAssigned(Collection<TopicPartition> parts) {
+        kafka.getAndUpdate(c -> {
+          if (c != null) {
+            consumer.onAssign(c, c.assignment().stream()
+            .map(tp -> new TopicOffset(tp.partition(), c.position(tp) - 1))
+            .collect(Collectors.toList()));
+          }
+          return c;
+        });
+      }
+    };
   }
 
 }

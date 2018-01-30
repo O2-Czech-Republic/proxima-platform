@@ -16,31 +16,36 @@
 package cz.o2.proxima.storage.commitlog;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
- * Base interface for bulk and online observers.
+ * A interface for handling progress and control consumption
+ * of running observe process.
  */
-public interface LogObserverBase extends Serializable {
+public interface ObserveHandle extends Serializable {
 
   /**
-   * Notify that the processing has gracefully ended.
+   * Stop the consumption.
    */
-  default void onCompleted() {
-
-  }
+  void cancel();
 
   /**
-   * Notify that the processing has been canceled.
+   * Retrieve currently committed offsets.
+   * @return list of offsets that have been committed for each partition
+   *         assigned to the observation
    */
-  default void onCancelled() {
-
-  }
+  List<Offset> getCommittedOffsets();
 
   /**
-   * Called to notify there was an error in the commit reader.
-   * @param error error caught during processing
-   * @return {@code true} to restart processing from last committed position, {@code false} to stop processing
+   * Reset the consumption to given offsets.
+   * This will trigger onRestart when appropriate.
+   * @param offsets the offsets to reset the processing to
    */
-  boolean onError(Throwable error);
+  void resetOffsets(List<Offset> offsets);
+
+  /**
+   * @return list of last processed element from each assigned partition.
+   */
+  List<Offset> getCurrentOffsets();
 
 }

@@ -20,24 +20,17 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.DataAccessor;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
-import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.kafka.partitioner.KeyPartitioner;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.common.TopicPartition;
-
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.function.Consumer;
 import lombok.AccessLevel;
 
 /**
@@ -45,76 +38,6 @@ import lombok.AccessLevel;
  */
 @Slf4j
 public class KafkaAccessor extends AbstractStorage implements DataAccessor {
-
-  /**
-   * Consumer of stream elements.
-   * The callback may or might not be called depending on the consuming mode
-   * (bulk or online).
-   */
-  static interface ElementConsumer {
-    void consumeWithConfirm(
-        @Nullable StreamElement element,
-        TopicPartition tp, long offset,
-        Consumer<Throwable> errorHandler);
-  }
-
-  static interface TopicPartitionCommitter {
-    void commit(TopicPartition tp, long offset);
-  }
-
-  static final class OnlineConsumer implements ElementConsumer {
-    final LogObserver observer;
-    final TopicPartitionCommitter committer;
-    OnlineConsumer(LogObserver observer, TopicPartitionCommitter committer) {
-      this.observer = observer;
-      this.committer = committer;
-    }
-
-    @Override
-    public void consumeWithConfirm(
-        @Nullable StreamElement element,
-        TopicPartition tp, long offset,
-        Consumer<Throwable> errorHandler) {
-
-      if (element != null) {
-        observer.onNext(element, tp::partition, (succ, exc) -> {
-          if (succ) {
-            committer.commit(tp, offset);
-          } else {
-            errorHandler.accept(exc);
-          }
-        });
-      } else {
-        committer.commit(tp, offset);
-      }
-    }
-  }
-
-  static final class BulkConsumer implements ElementConsumer {
-    final BulkLogObserver observer;
-    final TopicPartitionCommitter committer;
-    BulkConsumer(BulkLogObserver observer, TopicPartitionCommitter committer) {
-      this.observer = observer;
-      this.committer = committer;
-    }
-
-    @Override
-    public void consumeWithConfirm(
-        @Nullable StreamElement element,
-        TopicPartition tp, long offset,
-        Consumer<Throwable> errorHandler) {
-
-      if (element != null) {
-        observer.onNext(element, tp::partition, (succ, exc) -> {
-          if (succ) {
-            committer.commit(tp, offset);
-          } else {
-            errorHandler.accept(exc);
-          }
-        });
-      }
-    }
-  }
 
   /** A poll interval in milliseconds. */
   public static final String POLL_INTERVAL_CFG = "poll.interval";

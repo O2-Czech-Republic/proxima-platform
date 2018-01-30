@@ -13,43 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.storage.cassandra;
+package cz.o2.proxima.functional;
 
-import cz.o2.proxima.storage.randomaccess.RandomOffset;
-import lombok.Getter;
+import java.io.Serializable;
 
 /**
- * Offset based on {@code token} function.
+ * Apply action to two input elements.
+ * @param <A> the first element type
+ * @param <B> the second element type
  */
-public class Offsets {
+@FunctionalInterface
+public interface BiConsumer<A, B> extends Serializable {
 
   /**
-   * Offset represented by a token (hash) of the key.
+   * Apply action to first arguments.
+   * @param first first argument
+   * @param second second argument
    */
-  public static class Token implements RandomOffset {
-
-    @Getter
-    final long token;
-
-    Token(long token) {
-      this.token = token;
-    }
-
-  }
-
-  /**
-   * Offset represented by the raw string value.
-   */
-  public static class Raw implements RandomOffset {
-
-    @Getter
-    final String raw;
-
-    Raw(String s) {
-      this.raw = s;
-    }
-
-  }
-
+  void accept(A first, B second);
 
 }

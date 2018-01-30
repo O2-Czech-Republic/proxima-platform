@@ -15,8 +15,11 @@
  */
 package cz.o2.proxima.storage.batch;
 
+import cz.o2.proxima.source.BatchSource;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.Partition;
+import cz.o2.proxima.storage.StreamElement;
+import cz.seznam.euphoria.core.client.io.DataSource;
 import java.util.List;
 
 /**
@@ -59,5 +62,27 @@ public interface BatchLogObservable {
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer);
+
+  /**
+   * Retrieve {@link DataSource} for processing of this {@link BatchLogObservable}.
+   * @param attrs attributes to process
+   * @return {@link DataSource} for batch processing
+   */
+  default DataSource<StreamElement> getSource(List<AttributeDescriptor<?>> attrs) {
+    return getSource(attrs, Long.MIN_VALUE, Long.MAX_VALUE);
+  }
+
+  /**
+   * Retrieve {@link DataSource} for processing of this {@link BatchLogObservable}.
+   * @param attrs attributes to process
+   * @param startStamp start stamp (inclusive)
+   * @param endStamp end stamp (exclusive)
+   * @return {@link DataSource} for batch processing
+   */
+  default DataSource<StreamElement> getSource(
+      List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp) {
+
+    return BatchSource.of(this, attrs, startStamp, endStamp);
+  }
 
 }

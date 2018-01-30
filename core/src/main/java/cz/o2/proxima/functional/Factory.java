@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package cz.o2.proxima.storage.commitlog;
+package cz.o2.proxima.functional;
 
 import java.io.Serializable;
 
 /**
- * A interface for option to cancel running commit log operation.
+ * A factory function.
+ *
+ * @param <T> type of returned object
  */
-@FunctionalInterface
-public interface Cancellable extends Serializable {
+public interface Factory<T> extends Serializable {
 
-  void cancel();
-
+  /**
+   * Apply the factory funtion.
+   * @return the created object
+   */
+  T apply();
+  
 }

@@ -15,45 +15,49 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
+import cz.o2.proxima.storage.commitlog.Offset;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader.Offset;
+import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.util.Pair;
-import java.net.URI;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
-import java.util.Optional;
-import java.util.TreeMap;
-import java.util.function.Consumer;
-import javax.annotation.Nullable;
-import lombok.Getter;
-import cz.o2.proxima.storage.commitlog.BulkLogObserver;
-import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.o2.proxima.view.input.DataSourceUtils;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import java.io.Serializable;
+import java.net.URI;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.SynchronousQueue;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+import lombok.Getter;
+import cz.o2.proxima.storage.commitlog.ObserveHandle;
+import java.util.ArrayList;
 
 /**
  * InMemStorage for testing purposes.
  */
 public class InMemStorage extends StorageDescriptor {
 
-  private static class RawOffset implements Offset {
+  private static class RawOffset implements RandomOffset {
 
     final String raw;
 
@@ -123,7 +127,7 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
-    public Cancellable observe(
+    public ObserveHandle observe(
         String name,
         Position position,
         LogObserver observer) {
@@ -135,16 +139,42 @@ public class InMemStorage extends StorageDescriptor {
       final int id;
       synchronized (observers) {
         id = observers.isEmpty() ? 0 : observers.lastKey() + 1;
-        observers.put(id, elem -> observer.onNext(elem, () -> 0, (succ, exc) -> { }));
+        observers.put(id, elem -> {
+          try {
+            observer.onNext(elem, (suc, err) -> { });
+          } catch (Exception ex) {
+            observer.onError(ex);
+          }
+        });
       }
-      return () -> {
-        observers.remove(id);
-        observer.onCancelled();
+      return new ObserveHandle() {
+
+        @Override
+        public void cancel() {
+          observers.remove(id);
+          observer.onCancelled();
+        }
+
+        @Override
+        public List<Offset> getCommittedOffsets() {
+          throw new UnsupportedOperationException("Not supported.");
+        }
+
+        @Override
+        public void resetOffsets(List<Offset> offsets) {
+          throw new UnsupportedOperationException("Not supported.");
+        }
+
+        @Override
+        public List<Offset> getCurrentOffsets() {
+          throw new UnsupportedOperationException("Not supported.");
+        }
+
       };
     }
 
     @Override
-    public Cancellable observePartitions(
+    public ObserveHandle observePartitions(
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
@@ -157,7 +187,7 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
-    public Cancellable observeBulk(
+    public ObserveHandle observeBulk(
         String name,
         Position position,
         BulkLogObserver observer) {
@@ -169,11 +199,36 @@ public class InMemStorage extends StorageDescriptor {
       final int id;
       synchronized (observers) {
         id = observers.isEmpty() ? 0 : observers.lastKey();
-        observers.put(id, elem -> observer.onNext(elem, () -> 0, (succ, exc) -> { }));
+        observers.put(id, elem -> {
+          try {
+            observer.onNext(elem, () -> 0, (suc, err) -> { });
+          } catch (Exception ex) {
+            observer.onError(ex);
+          }
+        });
       }
-      return () -> {
-        observers.remove(id);
-        observer.onCancelled();
+      return new ObserveHandle() {
+        @Override
+        public void cancel() {
+          observers.remove(id);
+          observer.onCancelled();
+        }
+
+        @Override
+        public List<Offset> getCommittedOffsets() {
+          throw new UnsupportedOperationException("Not supported ");
+        }
+
+        @Override
+        public void resetOffsets(List<Offset> offsets) {
+          throw new UnsupportedOperationException("Not supported.");
+        }
+
+        @Override
+        public List<Offset> getCurrentOffsets() {
+          throw new UnsupportedOperationException("Not supported.");
+        }
+
       };
     }
 
@@ -192,8 +247,8 @@ public class InMemStorage extends StorageDescriptor {
       DataSourceUtils.Producer producer = () -> {
           observe("partitionedView-" + flow.getName(), new LogObserver() {
             @Override
-            public boolean onNext(StreamElement ingest, LogObserver.ConfirmCallback confirm) {
-              observer.onNext(ingest, confirm::confirm, () -> 0, e -> {
+            public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter confirm) {
+              observer.onNext(ingest, confirm::commit, () -> 0, e -> {
                 try {
                   queue.put(e);
                 } catch (InterruptedException ex) {
@@ -208,18 +263,14 @@ public class InMemStorage extends StorageDescriptor {
               throw new RuntimeException(error);
             }
 
-            @Override
-            public void close() throws Exception {
-
-            }
-
           });
         };
 
       return flow.createInput(
           DataSourceUtils.fromPartitions(
-              DataSourceUtils.fromBlockingQueue(queue, producer, () -> 0,
-                  a -> null, a -> null)));
+              DataSourceUtils.fromBlockingQueue(queue, producer,
+                  () -> new ArrayList<>(),
+                  l -> { })));
 
     }
 
@@ -230,6 +281,23 @@ public class InMemStorage extends StorageDescriptor {
         PartitionedLogObserver<T> observer) {
 
       return observePartitions(flow, getPartitions(), observer);
+    }
+
+    @Override
+    public ObserveHandle observeBulkPartitions(
+        List<Partition> partitions,
+        Position position,
+        BulkLogObserver observer) {
+
+      return observeBulk("unnamed-" + observer, position, observer);
+    }
+
+    @Override
+    public ObserveHandle observeBulkOffsets(List<Offset> offsets, BulkLogObserver observer) {
+      return observeBulkPartitions(
+          offsets.stream().map(Offset::getPartition).collect(Collectors.toList()),
+          Position.NEWEST,
+          observer);
     }
 
   }
@@ -277,7 +345,7 @@ public class InMemStorage extends StorageDescriptor {
     public void scanWildcard(
         String key,
         AttributeDescriptor<?> wildcard,
-        @Nullable Offset offset,
+        @Nullable RandomOffset offset,
         int limit,
         Consumer<KeyValue<?>> consumer) {
 
@@ -312,9 +380,9 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public void listEntities(
-        Offset offset,
+        RandomOffset offset,
         int limit,
-        Consumer<Pair<Offset, String>> consumer) {
+        Consumer<Pair<RandomOffset, String>> consumer) {
 
       throw new UnsupportedOperationException("Unsupported.");
     }
@@ -325,7 +393,7 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
-    public Offset fetchOffset(Listing type, String key) {
+    public RandomOffset fetchOffset(Listing type, String key) {
       return new RawOffset(key);
     }
 

@@ -20,22 +20,28 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.ObserveHandle;
 import cz.o2.proxima.storage.commitlog.Offset;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.storage.randomaccess.RawOffset;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.PartitionedCachedView;
-import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +54,7 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
 
   private final KafkaLogReader reader;
   private final EntityDescriptor entity;
+  private final ExecutorService executor;
 
   /**
    * Cache for data in memory.
@@ -60,41 +67,104 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
    * Handle of the observation thread (if any running).
    */
   @Nullable
-  private ObserveHandle handle;
+  private AtomicReference<ObserveHandle> handle = new AtomicReference<>();
 
-  public LocalCachedPartitionedView(KafkaLogReader reader) {
+  public LocalCachedPartitionedView(KafkaLogReader reader, ExecutorService executor) {
     this.reader = reader;
     this.entity = reader.getEntityDescriptor();
+    this.executor = executor;
   }
+
+  private boolean onCache(StreamElement ingest, KafkaLogObserver.ConfirmCallback confirm) {
+    Optional<Object> parsed = ingest.getParsed();
+    if (parsed.isPresent()) {
+      cache.compute(ingest.getKey(), (key, m) -> {
+        if (m == null) {
+          m = new TreeMap<>();
+        }
+        m.put(ingest.getAttribute(), Pair.of(ingest.getStamp(), parsed.get()));
+        return m;
+      });
+    }
+    confirm.apply(true, null);
+    return true;
+  }
+
 
   @Override
   public void assign(Collection<Partition> partitions) {
     close();
-    reader.observePartitions(partitions, new PartitionedLogObserver<Void>() {
+    CountDownLatch latch = new CountDownLatch(1);
 
+    BulkLogObserver prefetchObserver = new BulkLogObserver() {
       @Override
       public boolean onNext(
           StreamElement ingest,
-          PartitionedLogObserver.ConfirmCallback confirm,
           Partition partition,
-          Consumer<Void> collector) {
+          BulkLogObserver.OffsetCommitter committer) {
 
-
-        return true;
+        return onCache(ingest, committer::commit);
       }
 
       @Override
       public boolean onError(Throwable error) {
-        return true;
+        log.error("Failed to prefetch data", error);
+        assign(partitions);
+        return false;
       }
 
-    });
+      @Override
+      public void onCompleted() {
+        latch.countDown();
+      }
+
+    };
+    KafkaLogObserver observer = new KafkaLogObserver() {
+
+      @Override
+      public boolean onNext(
+          StreamElement ingest,
+          KafkaLogObserver.ConfirmCallback confirm,
+          Partition partition) {
+
+        return onCache(ingest, confirm);
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        log.error("Error in caching data. Restarting consumption", error);
+        assign(partitions);
+        return false;
+      }
+
+      @Override
+      public void onRepartition(Collection<Partition> assigned) {
+        // should not happen
+      }
+
+    };
+    try {
+      // prefetch the data
+      ObserveHandle h = reader.processConsumerBulk(
+          null, partitions.stream()
+              .map(p -> new TopicOffset(p.getId(), -1L)).collect(Collectors.toList()),
+          Position.OLDEST, true, false, prefetchObserver, executor);
+      latch.await();
+      List<Offset> offsets = h.getCommittedOffsets();
+      // continue the processing
+      handle.set(reader.processConsumer(
+          null, offsets,
+          Position.CURRENT, false, false, observer, executor));
+      handle.get().waitUntilReady();
+    } catch (InterruptedException ex) {
+      throw new RuntimeException(ex);
+    }
   }
 
   @Override
   public Collection<Partition> getAssigned() {
-    if (handle != null) {
-      return handle.getCommittedOffsets()
+    if (handle.get() != null) {
+      return handle.get().getCommittedOffsets()
           .stream().map(Offset::getPartition)
           .collect(Collectors.toList());
     }
@@ -153,10 +223,13 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
 
   @Override
   public void close() {
-    if (handle != null) {
-      handle.cancel();
-      handle = null;
-    }
+    handle.getAndUpdate(h -> {
+      if (h != null) {
+        cache.clear();
+        h.cancel();
+      }
+      return null;
+    });
   }
 
   @SuppressWarnings("unchecked")

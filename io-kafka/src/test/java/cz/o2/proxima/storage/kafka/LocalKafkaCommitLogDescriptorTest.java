@@ -35,6 +35,7 @@ import cz.o2.proxima.storage.commitlog.RetryableBulkObserver;
 import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.Accessor;
 import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.LocalKafkaWriter;
 import cz.o2.proxima.storage.kafka.partitioner.FirstPartitionPartitioner;
+import cz.o2.proxima.view.PartitionedCachedView;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
@@ -58,6 +59,8 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -85,7 +88,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       .ofTest(ConfigFactory.empty())
       .withExecutorFactory(serviceFactory)
       .build();
-  final AttributeDescriptorBase<?> attr;
+  final AttributeDescriptorBase<byte[]> attr;
   final EntityDescriptor entity;
   final URI storageURI;
 
@@ -853,6 +856,38 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(2, input.size());
     assertEquals(0, input.get(0).getOffset());
     assertEquals(1, input.get(1).getOffset());
+  }
+
+  @Test(timeout = 2000)
+  public void testCachedView() throws InterruptedException {
+    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+        () -> new IllegalStateException("Missing cached view"));
+    AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
+    StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
+    writer.write(update, (succ, exc) -> {
+      assertTrue(succ);
+      latch.get().countDown();
+    });
+    latch.get().await();
+    latch.set(new CountDownLatch(1));
+    view.assign(IntStream.range(0, 3)
+        .mapToObj(i -> (Partition) () -> i)
+        .collect(Collectors.toList()));
+    assertArrayEquals(new byte[] { 1, 2 }, view.get("key", attr).get().getValue());
+    update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2, 3 });
+    writer.write(update, (succ, exc) -> {
+      assertTrue(succ);
+      latch.get().countDown();
+    });
+    latch.get().await();
+    TimeUnit.SECONDS.sleep(1);
+    assertArrayEquals(new byte[] { 1, 2, 3 }, view.get("key", attr).get().getValue());
   }
 
   private static Map<String, Object> partitionsCfg(int partitions) {

@@ -302,7 +302,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
       log.debug(
           "Consumer {} seeked to offset {} in partition {}",
-          consumerId, partition, offset);
+          consumerId, offset, partition);
       List<Pair<Integer, AtomicInteger>> partOffsets;
       partOffsets = consumerOffsets.computeIfAbsent(consumerId, c -> new ArrayList<>());
       for (Pair<Integer, AtomicInteger> p : partOffsets) {

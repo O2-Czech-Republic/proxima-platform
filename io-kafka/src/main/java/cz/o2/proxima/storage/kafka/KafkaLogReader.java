@@ -332,18 +332,19 @@ public class KafkaLogReader extends AbstractStorage
     Map<TopicPartition, OffsetAndMetadata> kafkaCommitMap;
     kafkaCommitMap = Collections.synchronizedMap(new HashMap<>());
 
-    BulkConsumer bulkConsumer = new BulkConsumer(topic, observer, (tp, o) -> {
-      OffsetAndMetadata off = new OffsetAndMetadata(o);
-      if (commitToKafka) {
-        kafkaCommitMap.put(tp, off);
-      }
-    }, () -> {
-      synchronized (kafkaCommitMap) {
-        Map<TopicPartition, OffsetAndMetadata> clone = new HashMap<>(kafkaCommitMap);
-        kafkaCommitMap.clear();
-        return clone;
-      }
-    });
+    BulkConsumer bulkConsumer = new BulkConsumer(
+        topic, observer, (tp, o) -> {
+          if (commitToKafka) {
+            OffsetAndMetadata off = new OffsetAndMetadata(o);
+            kafkaCommitMap.put(tp, off);
+          }
+        }, () -> {
+          synchronized (kafkaCommitMap) {
+            Map<TopicPartition, OffsetAndMetadata> clone = new HashMap<>(kafkaCommitMap);
+            kafkaCommitMap.clear();
+            return clone;
+          }
+        });
 
     AtomicReference<ObserveHandle> handle = new AtomicReference<>();
     submitConsumerWithObserver(
@@ -388,6 +389,11 @@ public class KafkaLogReader extends AbstractStorage
         @Override
         public List<Offset> getCurrentOffsets() {
           return (List) consumer.getCurrentOffsets();
+        }
+
+        @Override
+        public void waitUntilReady() throws InterruptedException {
+          latch.await();
         }
 
       });
@@ -544,7 +550,7 @@ public class KafkaLogReader extends AbstractStorage
         log.info("Seeking given partitions {} to beginning", tps);
         consumer.seekToBeginning(tps);
       }
-    } else if (position != Position.NEWEST) {
+    } else if (position == Position.CURRENT) {
       log.info("Seeking to given offsets {}", offsets);
       Utils.seekToCommitted(topic, offsets, consumer);
     } else {
@@ -587,6 +593,11 @@ public class KafkaLogReader extends AbstractStorage
       @Override
       public List<Offset> getCurrentOffsets() {
         return proxy.get().getCurrentOffsets();
+      }
+
+      @Override
+      public void waitUntilReady() throws InterruptedException {
+        proxy.get().waitUntilReady();
       }
 
     };

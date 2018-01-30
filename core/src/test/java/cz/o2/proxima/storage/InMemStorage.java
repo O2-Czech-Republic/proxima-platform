@@ -161,6 +161,11 @@ public class InMemStorage extends StorageDescriptor {
           throw new UnsupportedOperationException("Not supported.");
         }
 
+        @Override
+        public void waitUntilReady() throws InterruptedException {
+          // nop
+        }
+
       };
     }
 
@@ -218,6 +223,11 @@ public class InMemStorage extends StorageDescriptor {
         @Override
         public List<Offset> getCurrentOffsets() {
           throw new UnsupportedOperationException("Not supported.");
+        }
+
+        @Override
+        public void waitUntilReady() throws InterruptedException {
+          // nop
         }
 
       };

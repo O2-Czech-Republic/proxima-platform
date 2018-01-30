@@ -63,7 +63,7 @@ class TopicOffset implements Offset {
   }
 
 
-  static List<Offset> fromMap(Map<Integer, Long> offsetMap) {
+  static List<TopicOffset> fromMap(Map<Integer, Long> offsetMap) {
     return offsetMap.entrySet().stream()
         .map(e -> new TopicOffset(e.getKey(), e.getValue()))
         .collect(Collectors.toList());

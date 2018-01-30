@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.process.source;
+package cz.o2.proxima.source;
 
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
-import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
+import cz.o2.proxima.storage.commitlog.ObserveHandle;
 import cz.o2.proxima.storage.commitlog.Offset;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.seznam.euphoria.core.client.io.UnboundedDataSource;
@@ -40,7 +40,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class UnboundedStreamSource
-    implements UnboundedDataSource<StreamElement, BulkLogObserver.OffsetContext> {
+    implements UnboundedDataSource<StreamElement, Offset> {
 
   public static UnboundedStreamSource of(
       CommitLogReader reader,
@@ -61,92 +61,79 @@ public class UnboundedStreamSource
   }
 
   @Override
-  public List<UnboundedPartition<StreamElement, BulkLogObserver.OffsetContext>> getPartitions() {
+  public List<UnboundedPartition<StreamElement, Offset>> getPartitions() {
     return reader.getPartitions().stream()
         .map(this::asUnboundedPartition)
         .collect(Collectors.toList());
   }
 
-  private UnboundedPartition<StreamElement, BulkLogObserver.OffsetContext> asUnboundedPartition(
+  private UnboundedPartition<StreamElement, Offset> asUnboundedPartition(
       Partition p) {
 
-    return new UnboundedPartition<StreamElement, BulkLogObserver.OffsetContext>() {
+    return () -> {
 
-      AtomicReference<BulkLogObserver.OffsetContext> last = new AtomicReference<>();
+      BlockingQueue<Optional<StreamElement>> queue = new ArrayBlockingQueue<>(100);
+      AtomicReference<StreamElement> current = new AtomicReference<>();
 
-      @Override
-      public UnboundedReader<StreamElement, BulkLogObserver.OffsetContext> openReader() throws IOException {
-        BlockingQueue<Optional<StreamElement>> queue = new ArrayBlockingQueue<>(100);
-        AtomicReference<StreamElement> current = new AtomicReference<>();
+      AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+      handle.set(reader.observeBulkPartitions(
+          Arrays.asList(p),
+          position,
+          partitionObserver(queue)));
 
-        AtomicReference<Cancellable> cancel = new AtomicReference<>();
-        cancel.set(reader.observeBulkPartitions(
-            Arrays.asList(p),
-            position,
-            partitionObserver(last, queue)));
+      return new UnboundedReader<StreamElement, Offset>() {
 
-        return new UnboundedReader<StreamElement, BulkLogObserver.OffsetContext>() {
+        @Override
+        public void close() throws IOException {
+          handle.get().cancel();
+        }
 
-          @Override
-          public void close() throws IOException {
-            cancel.get().cancel();
-          }
-
-          @Override
-          public boolean hasNext() {
-            try {
-              Optional<StreamElement> elem = queue.take();
-              if (elem.isPresent()) {
-                current.set(elem.get());
-                return true;
-              }
-            } catch (InterruptedException ex) {
-              Thread.currentThread().interrupt();
+        @Override
+        public boolean hasNext() {
+          try {
+            Optional<StreamElement> elem = queue.take();
+            if (elem.isPresent()) {
+              current.set(elem.get());
+              return true;
             }
-            return false;
+          } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
           }
+          return false;
+        }
 
-          @Override
-          public StreamElement next() {
-            return current.get();
-          }
+        @Override
+        public StreamElement next() {
+          return current.get();
+        }
 
-          @Override
-          public BulkLogObserver.OffsetContext getCurrentOffset() {
-            return last.get();
-          }
+        @Override
+        public Offset getCurrentOffset() {
+          return handle.get().getCurrentOffsets().get(0);
+        }
 
-          @Override
-          public void reset(BulkLogObserver.OffsetContext offset) {
-            cancel.get().cancel();
-            current.set(null);
-            queue.clear();
-            List<Offset> committedOffsets = offset.getCommittedOffsets();
-            log.info("Restarting processing to committed offsets {}", committedOffsets);
-            cancel.set(reader.observeBulkOffsets(
-                committedOffsets,
-                partitionObserver(last, queue)));
-          }
+        @Override
+        public void reset(Offset offset) {
+          handle.get().resetOffsets(Arrays.asList(offset));
+        }
 
-          @Override
-          public void commitOffset(BulkLogObserver.OffsetContext offset) {
-            offset.confirm();
-          }
+        @Override
+        public void commitOffset(Offset offset) {
+          // nop, don't commit externally the offset at all
+        }
 
-        };
-      }
+      };
     };
 
   }
 
   private BulkLogObserver partitionObserver(
-      AtomicReference<BulkLogObserver.OffsetContext> last,
       BlockingQueue<Optional<StreamElement>> queue) {
 
     return new BulkLogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, BulkLogObserver.OffsetContext confirm) {
+      public boolean onNext(StreamElement ingest, BulkLogObserver.OffsetCommitter confirm) {
 
         try {
           try {
@@ -155,7 +142,6 @@ public class UnboundedStreamSource
             Thread.currentThread().interrupt();
             return false;
           }
-          last.set(confirm);
           return true;
         } catch (Exception ex) {
           confirm.fail(ex);

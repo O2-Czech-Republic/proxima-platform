@@ -17,6 +17,7 @@ package cz.o2.proxima.repository;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.AttributeWriterBase;
@@ -28,7 +29,6 @@ import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Classpath;
-import cz.seznam.euphoria.core.client.functional.VoidFunction;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Configuration;
@@ -83,7 +83,7 @@ public class Repository {
     }
 
     private final Config config;
-    private VoidFunction<ExecutorService> executorFactory;
+    private Factory<ExecutorService> executorFactory;
     private boolean readOnly = false;
     private boolean validate = true;
     private boolean loadFamilies = true;
@@ -129,7 +129,7 @@ public class Repository {
     }
 
     public Builder withExecutorFactory(
-        VoidFunction<ExecutorService> executorFactory) {
+        Factory<ExecutorService> executorFactory) {
       this.executorFactory = executorFactory;
       return this;
     }
@@ -213,7 +213,7 @@ public class Repository {
   /**
    * Executor to be used for any asynchronous operations.
    */
-  private final VoidFunction<ExecutorService> executorFactory;
+  private final Factory<ExecutorService> executorFactory;
 
   /**
    * Context passed to serializable data accessors.
@@ -238,7 +238,7 @@ public class Repository {
       boolean shouldValidate,
       boolean loadFamilies,
       boolean loadAccessors,
-      VoidFunction<ExecutorService> executorFactory) {
+      Factory<ExecutorService> executorFactory) {
 
     this.config = cfg;
     this.executorFactory = executorFactory;

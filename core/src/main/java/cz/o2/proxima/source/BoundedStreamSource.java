@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.process.source;
+package cz.o2.proxima.source;
 
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Cancellable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
+import cz.o2.proxima.storage.commitlog.ObserveHandle;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.seznam.euphoria.core.client.io.BoundedDataSource;
 import cz.seznam.euphoria.core.client.io.BoundedReader;
@@ -64,7 +64,7 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
     BlockingQueue<Optional<StreamElement>> queue = new ArrayBlockingQueue<>(100);
     AtomicReference<StreamElement> current = new AtomicReference<>();
 
-    AtomicReference<Cancellable> cancel = new AtomicReference<>();
+    AtomicReference<ObserveHandle> cancel = new AtomicReference<>();
     cancel.set(reader.observePartitions(
         Arrays.asList(p),
         position,
@@ -106,7 +106,7 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
     return new LogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, LogObserver.OffsetContext confirm) {
+      public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter confirm) {
 
         try {
           try {

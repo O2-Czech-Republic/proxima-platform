@@ -94,7 +94,7 @@ public class RepositoryTest {
     proxiedFamilies.iterator().next().getCommitLogReader().get().observe("dummy", new LogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, LogObserver.OffsetContext confirm) {
+      public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter confirm) {
         assertEquals("test", new String(ingest.getValue()));
         assertEquals("event.abc", ingest.getAttribute());
         assertEquals(source, ingest.getAttributeDescriptor());

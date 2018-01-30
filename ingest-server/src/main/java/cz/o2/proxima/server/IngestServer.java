@@ -725,7 +725,7 @@ public class IngestServer {
 
       @Override
       public boolean onNextInternal(
-          StreamElement ingest, LogObserver.OffsetContext context) {
+          StreamElement ingest, LogObserver.OffsetCommitter committer) {
 
         // add one to prevent confirmation before all elements
         // are processed
@@ -743,27 +743,27 @@ public class IngestServer {
                   elem, elem.getUuid(), rpc -> {
                     if (rpc.getStatus() == 200) {
                       if (toConfirm.decrementAndGet() == 0) {
-                        context.confirm();
+                        committer.confirm();
                       }
                     } else {
                       toConfirm.set(-1);
-                      context.fail(new RuntimeException(
+                      committer.fail(new RuntimeException(
                           String.format("Received invalid status %d:%s",
                               rpc.getStatus(), rpc.getStatusMessage())));
                     }
                   });
             } catch (Exception ex) {
               toConfirm.set(-1);
-              context.fail(ex);
+              committer.fail(ex);
             }
           };
           t.apply(ingest, collector);
           if (toConfirm.decrementAndGet() == 0) {
-            context.confirm();
+            committer.confirm();
           }
         } catch (Exception ex) {
           toConfirm.set(-1);
-          context.fail(ex);
+          committer.fail(ex);
         }
         return true;
       }
@@ -853,13 +853,13 @@ public class IngestServer {
       @Override
       public boolean onNextInternal(
           StreamElement ingest,
-          BulkLogObserver.OffsetContext context) {
+          BulkLogObserver.OffsetCommitter committer) {
 
-        return writeInternal(ingest, context);
+        return writeInternal(ingest, committer);
       }
 
       private boolean writeInternal(
-          StreamElement ingest, BulkLogObserver.OffsetContext context) {
+          StreamElement ingest, BulkLogObserver.OffsetCommitter committer) {
 
         final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
         log.debug("Received new ingest element {}", ingest);
@@ -876,9 +876,9 @@ public class IngestServer {
                   log.error(
                       "Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
                       ingest, writer.getURI());
-                  context.confirm();
+                  committer.confirm();
                 } else {
-                  context.fail(exc);
+                  committer.fail(exc);
                 }
               } else {
                 if (ingest.isDelete()) {
@@ -886,7 +886,7 @@ public class IngestServer {
                 } else {
                   Metrics.NON_COMMIT_LOG_UPDATES.increment();
                 }
-                context.confirm();
+                committer.confirm();
               }
             });
           });
@@ -934,7 +934,7 @@ public class IngestServer {
       @Override
       public boolean onNextInternal(
           StreamElement ingest,
-          LogObserver.OffsetContext context) {
+          LogObserver.OffsetCommitter committer) {
 
         final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
         log.debug("Received new ingest element {}", ingest);
@@ -951,9 +951,9 @@ public class IngestServer {
                   log.error(
                       "Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
                       ingest, writer.getURI());
-                  context.confirm();
+                  committer.confirm();
                 } else {
-                  context.fail(exc);
+                  committer.fail(exc);
                 }
               } else {
                 if (ingest.isDelete()) {
@@ -961,7 +961,7 @@ public class IngestServer {
                 } else {
                   Metrics.NON_COMMIT_LOG_UPDATES.increment();
                 }
-                context.confirm();
+                committer.confirm();
               }
             });
           });
@@ -974,7 +974,7 @@ public class IngestServer {
               allowed ? "applied filter" : "invalid attribute",
               allowedAttributes,
               filter.getClass());
-          context.confirm();
+          committer.confirm();
         }
         return true;
       }

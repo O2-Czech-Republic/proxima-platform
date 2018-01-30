@@ -136,7 +136,7 @@ class Environment {
         reader.listKeys(consumer)
       }
 
-      def List<cz.o2.proxima.util.Pair<cz.o2.proxima.storage.randomaccess.RandomAccessReader.Offset, String>> listKeys(
+      def List<cz.o2.proxima.util.Pair<cz.o2.proxima.storage.randomaccess.RandomOffset, String>> listKeys(
           String offset, int limit) {
         return reader.listKeys(offset, limit)
       }

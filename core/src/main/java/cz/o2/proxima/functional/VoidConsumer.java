@@ -13,18 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.storage.kafka;
+package cz.o2.proxima.functional;
 
-import org.apache.kafka.common.TopicPartition;
+import java.io.Serializable;
 
+/**
+ * A function of zero arguments returning void.
+ */
 @FunctionalInterface
-interface TopicPartitionCommitter {
+public interface VoidConsumer extends Serializable {
 
   /**
-   * Commit given offset for given partition.
-   * @param tp the {@link TopicPartition} to commit offset for
-   * @param offset the offset
+   * Call the function.
    */
-  void commit(TopicPartition tp, long offset);
+  void apply();
 
 }

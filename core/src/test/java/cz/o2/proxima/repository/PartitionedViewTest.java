@@ -16,6 +16,7 @@
 package cz.o2.proxima.repository;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
@@ -77,13 +78,13 @@ public class PartitionedViewTest implements Serializable {
           Partition partition,
           Consumer<String> collector) {
 
-        collector.consume(ingest.getKey());
+        collector.accept(ingest.getKey());
         confirm.confirm();
         return true;
       }
 
       @Override
-      public void onError(Throwable error) {
+      public boolean onError(Throwable error) {
         throw new RuntimeException(error);
       }
 

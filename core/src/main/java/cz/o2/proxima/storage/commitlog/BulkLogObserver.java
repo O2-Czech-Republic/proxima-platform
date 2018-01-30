@@ -35,10 +35,11 @@ import javax.annotation.Nullable;
 public interface BulkLogObserver extends LogObserverBase {
 
   /**
-   * Interface for bulk commit. WHen committed, all elements preceding the committed
+   * Interface for bulk commit. When committed, all elements preceding the committed
    * one are considered as committed.
    */
-  interface OffsetContext extends Serializable {
+  @FunctionalInterface
+  interface OffsetCommitter extends Serializable {
 
     /**
      * Commit bulk processing of all currently uncommitted messages.
@@ -62,26 +63,18 @@ public interface BulkLogObserver extends LogObserverBase {
       commit(false, err);
     }
 
-    /**
-     * Retrieve current offsets that has been last successfully committed for
-     * each partition.
-     * @return the last successfully committed offsets for each partition
-     * currently being assigned to this observer
-     */
-    List<Offset> getCommittedOffsets();
-
   }
 
   /**
    * Process next record in the commit log.
    * @param ingest the ingested data written to the commit log
-   * @param context a callback that the application *might* use to commit the ingest
+   * @param committer a callback that the application *might* use to commit the ingest
    * until the confirm is committed, all uncommitted elements will be reprocessed
    * in case of failure. Call to `BulkCommitter#commit` all elements
    * processed so far will be committed.
    * @return {@code true} if the processing should continue, {@code false} otherwise
    **/
-  default boolean onNext(StreamElement ingest, OffsetContext context) {
+  default boolean onNext(StreamElement ingest, OffsetCommitter committer) {
     throw new UnsupportedOperationException(
         "Please override either of `onNext`methods");
   }
@@ -91,7 +84,7 @@ public interface BulkLogObserver extends LogObserverBase {
    * Process next record in the commit log.
    * @param ingest the ingested data written to the commit log
    * @param partition the source partition of the ingest
-   * @param confirm a callback that the application *might* use to commit the ingest
+   * @param committer a callback that the application *might* use to commit the ingest
    * until the confirm is committed, all uncommitted elements will be reprocessed
    * in case of failure. Call to `BulkCommitter#commit` all elements
    * processed so far will be committed.
@@ -100,9 +93,9 @@ public interface BulkLogObserver extends LogObserverBase {
   default boolean onNext(
       StreamElement ingest,
       Partition partition,
-      OffsetContext confirm) {
+      OffsetCommitter committer) {
 
-    return onNext(ingest, confirm);
+    return onNext(ingest, committer);
   }
 
   /**

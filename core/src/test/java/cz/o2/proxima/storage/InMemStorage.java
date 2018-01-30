@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Context;
@@ -50,22 +51,16 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import cz.o2.proxima.storage.commitlog.ObserveHandle;
+import cz.o2.proxima.storage.randomaccess.RawOffset;
+import cz.o2.proxima.view.PartitionedCachedView;
 import java.util.ArrayList;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * InMemStorage for testing purposes.
  */
+@Slf4j
 public class InMemStorage extends StorageDescriptor {
-
-  private static class RawOffset implements RandomOffset {
-
-    final String raw;
-
-    RawOffset(String key) {
-      raw = key;
-    }
-
-  }
 
   @FunctionalInterface
   private interface InMemIngestWriter extends Serializable {
@@ -170,6 +165,11 @@ public class InMemStorage extends StorageDescriptor {
           throw new UnsupportedOperationException("Not supported.");
         }
 
+        @Override
+        public void waitUntilReady() throws InterruptedException {
+          // nop
+        }
+
       };
     }
 
@@ -229,6 +229,11 @@ public class InMemStorage extends StorageDescriptor {
           throw new UnsupportedOperationException("Not supported.");
         }
 
+        @Override
+        public void waitUntilReady() throws InterruptedException {
+          // nop
+        }
+
       };
     }
 
@@ -245,26 +250,27 @@ public class InMemStorage extends StorageDescriptor {
 
       SynchronousQueue<T> queue = new SynchronousQueue<>();
       DataSourceUtils.Producer producer = () -> {
-          observe("partitionedView-" + flow.getName(), new LogObserver() {
-            @Override
-            public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter confirm) {
-              observer.onNext(ingest, confirm::commit, () -> 0, e -> {
-                try {
-                  queue.put(e);
-                } catch (InterruptedException ex) {
-                  Thread.currentThread().interrupt();
-                }
-              });
-              return true;
-            }
+        observer.onRepartition(partitions);
+        observe("partitionedView-" + flow.getName(), new LogObserver() {
+          @Override
+          public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter confirm) {
+            observer.onNext(ingest, confirm::commit, () -> 0, e -> {
+              try {
+                queue.put(e);
+              } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+              }
+            });
+            return true;
+          }
 
-            @Override
-            public boolean onError(Throwable error) {
-              throw new RuntimeException(error);
-            }
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
 
-          });
-        };
+        });
+      };
 
       return flow.createInput(
           DataSourceUtils.fromPartitions(
@@ -285,7 +291,7 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public ObserveHandle observeBulkPartitions(
-        List<Partition> partitions,
+        Collection<Partition> partitions,
         Position position,
         BulkLogObserver observer) {
 
@@ -293,7 +299,8 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
-    public ObserveHandle observeBulkOffsets(List<Offset> offsets, BulkLogObserver observer) {
+    public ObserveHandle observeBulkOffsets(
+        Collection<Offset> offsets, BulkLogObserver observer) {
       return observeBulkPartitions(
           offsets.stream().map(Offset::getPartition).collect(Collectors.toList()),
           Position.NEWEST,
@@ -317,10 +324,10 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
-    public Optional<KeyValue<?>> get(
+    public <T> Optional<KeyValue<T>> get(
         String key,
         String attribute,
-        AttributeDescriptor<?> desc) {
+        AttributeDescriptor<T> desc) {
 
       return data.entrySet().stream()
           .filter(
@@ -340,17 +347,37 @@ public class InMemStorage extends StorageDescriptor {
           });
     }
 
+    @SuppressWarnings("unchecked")
+    @Override
+    public void scanWildcardAll(
+        String key, RandomOffset offset,
+        int limit, Consumer<KeyValue<?>> consumer) {
+
+      scanWildcardPrefix(key, "", offset, limit, (Consumer) consumer);
+    }
+
     @Override
     @SuppressWarnings("unchecked")
-    public void scanWildcard(
+    public <T> void scanWildcard(
         String key,
-        AttributeDescriptor<?> wildcard,
+        AttributeDescriptor<T> wildcard,
         @Nullable RandomOffset offset,
         int limit,
-        Consumer<KeyValue<?>> consumer) {
+        Consumer<KeyValue<T>> consumer) {
 
-      String off = offset == null ? "" : ((RawOffset) offset).raw;
-      String prefix = wildcard.toAttributePrefix(false);
+      String prefix = wildcard.toAttributePrefix();
+      scanWildcardPrefix(key, prefix, offset, limit, (Consumer) consumer);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void scanWildcardPrefix(
+        String key,
+        String prefix,
+        @Nullable RandomOffset offset,
+        int limit,
+        Consumer<KeyValue<Object>> consumer) {
+
+      String off = offset == null ? "" : ((RawOffset) offset).getOffset();
       String start = getURI().getPath() + "/" + key + "#" + prefix;
       int count = 0;
       for (Map.Entry<String, byte[]> e : data.tailMap(start).entrySet()) {
@@ -360,16 +387,24 @@ public class InMemStorage extends StorageDescriptor {
           if (attribute.equals(off)) {
             continue;
           }
-          consumer.accept(KeyValue.of(
-              getEntityDescriptor(),
-              (AttributeDescriptor) wildcard,
-              key,
-              attribute,
-              new RawOffset(attribute),
-              wildcard.getValueSerializer().deserialize(e.getValue()),
-              e.getValue()));
-          if (++count == limit) {
-            break;
+          Optional<AttributeDescriptor<Object>> attr;
+          attr = getEntityDescriptor().findAttribute(attribute, true);
+          if (attr.isPresent()) {
+            consumer.accept((KeyValue) KeyValue.of(
+                getEntityDescriptor(),
+                (AttributeDescriptor) attr.get(),
+                key,
+                attribute,
+                new RawOffset(attribute),
+                attr.get().getValueSerializer().deserialize(e.getValue()),
+                e.getValue()));
+            if (++count == limit) {
+              break;
+            }
+          } else {
+            log.warn(
+                "Unknown attribute {} in entity {}",
+                attribute, getEntityDescriptor());
           }
         } else {
           break;
@@ -399,6 +434,95 @@ public class InMemStorage extends StorageDescriptor {
 
   }
 
+  private static class CachedView implements PartitionedCachedView {
+
+    private final RandomAccessReader reader;
+    private final OnlineAttributeWriter writer;
+    private BiConsumer<StreamElement, Pair<Long, Object>> updateCallback;
+
+    CachedView(RandomAccessReader reader, OnlineAttributeWriter writer) {
+      this.reader = reader;
+      this.writer = writer;
+    }
+
+    @Override
+    public void assign(
+        Collection<Partition> partitions,
+        BiConsumer<StreamElement, Pair<Long, Object>> updateCallback) {
+
+      this.updateCallback = updateCallback;
+    }
+
+    @Override
+    public Collection<Partition> getAssigned() {
+      return Arrays.asList(() -> 0);
+    }
+
+    @Override
+    public RandomOffset fetchOffset(Listing type, String key) {
+      return reader.fetchOffset(type, key);
+    }
+
+    @Override
+    public <T> Optional<KeyValue<T>> get(
+        String key, String attribute, AttributeDescriptor<T> desc) {
+
+      return reader.get(key, attribute, desc);
+    }
+
+    @Override
+    public <T> void scanWildcard(
+        String key, AttributeDescriptor<T> wildcard,
+        RandomOffset offset,
+        int limit,
+        Consumer<KeyValue<T>> consumer) {
+
+      reader.scanWildcard(key, wildcard, offset, limit, consumer);
+    }
+
+    @Override
+    public void listEntities(
+        RandomOffset offset,
+        int limit,
+        Consumer<Pair<RandomOffset, String>> consumer) {
+
+      reader.listEntities(offset, limit, consumer);
+    }
+
+    @Override
+    public EntityDescriptor getEntityDescriptor() {
+      return reader.getEntityDescriptor();
+    }
+
+    @Override
+    public void close() {
+
+    }
+
+    @Override
+    public void write(StreamElement data, CommitCallback statusCallback) {
+      updateCallback.accept(
+          data,
+          Pair.of(-1L, get(
+              data.getKey(), data.getAttribute(),
+              data.getAttributeDescriptor()).orElse(null)));
+      writer.write(data, statusCallback);
+    }
+
+    @Override
+    public URI getURI() {
+      return writer.getURI();
+    }
+
+    @Override
+    public void scanWildcardAll(
+        String key, RandomOffset offset,
+        int limit, Consumer<KeyValue<?>> consumer) {
+
+      reader.scanWildcardAll(key, offset, limit, consumer);
+    }
+
+  }
 
   @Getter
   private final NavigableMap<String, byte[]> data;
@@ -422,6 +546,7 @@ public class InMemStorage extends StorageDescriptor {
     InMemCommitLogReader commitLogReader = new InMemCommitLogReader(
         entityDesc, uri, uriObservers);
     Reader reader = new Reader(entityDesc, uri, data);
+    CachedView cachedView = new CachedView(reader, writer);
 
     return new DataAccessor() {
       @Override
@@ -446,6 +571,12 @@ public class InMemStorage extends StorageDescriptor {
       public Optional<PartitionedView> getPartitionedView(Context context) {
         Objects.requireNonNull(context);
         return Optional.of(commitLogReader);
+      }
+
+      @Override
+      public Optional<PartitionedCachedView> getCachedView(Context context) {
+        Objects.requireNonNull(context);
+        return Optional.of(cachedView);
       }
 
     };

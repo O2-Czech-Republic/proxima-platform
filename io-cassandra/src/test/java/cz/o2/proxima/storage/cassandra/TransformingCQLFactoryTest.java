@@ -81,6 +81,7 @@ public class TransformingCQLFactoryTest {
       }
     };
     factory.setup(
+        entity,
         new URI("cassandra://wherever/my_table/"),
         StringConverter.DEFAULT);
   }
@@ -123,6 +124,7 @@ public class TransformingCQLFactoryTest {
     when(session.prepare((String) any())).thenReturn(statement);
     when(statement.bind(any(), any())).thenReturn(mock(BoundStatement.class));
     factory.setup(
+        entity,
         new URI("cassandra://wherever/my_table/?ttl=86400"),
         StringConverter.DEFAULT);
 

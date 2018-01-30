@@ -17,7 +17,6 @@ package cz.o2.proxima.util;
 
 import java.io.Serializable;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 /**
  * Pattern matcher for syntax used for patterns in input config.
@@ -27,7 +26,7 @@ import java.util.regex.Pattern;
 public class NamePattern implements Serializable {
 
   private final String pattern;
-  private final Pattern compiled;
+  private final boolean prefixOnly;
 
   /**
    * Constructor.
@@ -35,13 +34,15 @@ public class NamePattern implements Serializable {
    * @param pattern string pattern to wrap into this object
    */
   public NamePattern(String pattern) {
-    this.pattern = Objects.requireNonNull(pattern);
-    this.compiled = convert(pattern);
+    this.prefixOnly = pattern.endsWith(".*");
+    this.pattern = convert(Objects.requireNonNull(pattern), prefixOnly);
   }
 
-  private Pattern convert(String pattern) {
-    String textPattern = pattern.replace(".", "\\.").replace("*", ".+");
-    return Pattern.compile("^" + textPattern + "$");
+  private String convert(String pattern, boolean prefixOnly) {
+    if (prefixOnly) {
+      return pattern.substring(0, pattern.length() - 1);
+    }
+    return pattern;
   }
 
   /**
@@ -50,7 +51,10 @@ public class NamePattern implements Serializable {
    * @return {@code true} if matches
    */
   public boolean matches(String what) {
-    return compiled.matcher(what).find();
+    if (prefixOnly) {
+      return what.startsWith(pattern);
+    }
+    return what.equals(pattern);
   }
 
   @Override
@@ -59,12 +63,12 @@ public class NamePattern implements Serializable {
       return false;
     }
     NamePattern other = (NamePattern) obj;
-    return other.pattern.equals(this.pattern);
+    return other.pattern.equals(this.pattern) && other.prefixOnly == prefixOnly;
   }
 
   @Override
   public int hashCode() {
-    return pattern.hashCode();
+    return Objects.hash(pattern, prefixOnly);
   }
 
 }

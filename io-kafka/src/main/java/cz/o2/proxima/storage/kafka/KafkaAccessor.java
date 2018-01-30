@@ -23,6 +23,7 @@ import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.kafka.partitioner.KeyPartitioner;
 import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.view.PartitionedCachedView;
 import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import lombok.Getter;
@@ -135,6 +136,12 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
     return Optional.of(new KafkaLogReader(this, context));
   }
 
-
+  @Override
+  public Optional<PartitionedCachedView> getCachedView(Context context) {
+    return Optional.of(new LocalCachedPartitionedView(
+        new KafkaLogReader(this, context),
+        getWriter(context).get().online(),
+        context::getExecutorService));
+  }
 
 }

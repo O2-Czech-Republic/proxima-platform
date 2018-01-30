@@ -86,7 +86,8 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   public boolean equals(Object obj) {
     if (obj instanceof AttributeDescriptor) {
       AttributeDescriptor other = (AttributeDescriptor) obj;
-      return Objects.equals(other.getEntity(), entity) && Objects.equals(other.getName(), name);
+      return Objects.equals(
+          other.getEntity(), entity) && Objects.equals(other.getName(), name);
     }
     return false;
   }

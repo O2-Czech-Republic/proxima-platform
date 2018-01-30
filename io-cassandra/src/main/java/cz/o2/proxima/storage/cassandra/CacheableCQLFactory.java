@@ -19,6 +19,7 @@ import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.URIUtil;
 import cz.seznam.euphoria.shadow.com.google.common.annotations.VisibleForTesting;
@@ -30,6 +31,7 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import lombok.Getter;
 
 
 /**
@@ -38,7 +40,12 @@ import java.util.Map;
 @Slf4j
 public abstract class CacheableCQLFactory implements CQLFactory {
 
-  protected String tableName;
+  @Getter
+  private EntityDescriptor entity;
+
+  @Getter
+  private String tableName;
+
   @Nullable
   private String payloadCol;
 
@@ -54,6 +61,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   private final Map<AttributeDescriptor, PreparedStatement> listCache;
   private PreparedStatement listEntities;
   private PreparedStatement fetchToken;
+  private PreparedStatement listAllAttributes;
 
   private static Map<AttributeDescriptor, PreparedStatement> createCache(long maxSize) {
 
@@ -89,7 +97,8 @@ public abstract class CacheableCQLFactory implements CQLFactory {
 
 
   @Override
-  public final void setup(URI uri, StringConverter<?> converter) {
+  public final void setup(EntityDescriptor entity, URI uri, StringConverter<?> converter) {
+    this.entity = entity;
     String path = uri.getPath();
     this.tableName = path;
     while (this.tableName.endsWith("/")) {
@@ -196,6 +205,13 @@ public abstract class CacheableCQLFactory implements CQLFactory {
     return cached;
   }
 
+  protected PreparedStatement getPreparedListAllStatement(Session session) {
+    if (listAllAttributes == null) {
+      listAllAttributes = prepare(session, createListAllStatement(session));
+    }
+    return listAllAttributes;
+  }
+
 
   /**
    * Create statement to be prepared for given ingest.
@@ -260,6 +276,14 @@ public abstract class CacheableCQLFactory implements CQLFactory {
 
 
   /**
+   * Create statement to list all attributes of this entity.
+   * @param session the connection session
+   * @return string representation of the CQL
+   */
+  protected abstract String createListAllStatement(Session session);
+
+
+  /**
    * Clear the cache (e.g. on reconnects).
    */
   protected void clearCache() {
@@ -269,6 +293,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
     listCache.clear();
     listEntities = null;
     fetchToken = null;
+    listAllAttributes = null;
   }
 
 

@@ -23,6 +23,7 @@ import com.datastax.driver.core.Token;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.cassandra.CQLFactory.KvIterable;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.storage.randomaccess.RandomOffset;
@@ -48,10 +49,10 @@ class CassandraRandomReader
   }
 
   @Override
-  public synchronized Optional<KeyValue<?>> get(
+  public synchronized <T> Optional<KeyValue<T>> get(
       String key,
       String attribute,
-      AttributeDescriptor<?> desc) {
+      AttributeDescriptor<T> desc) {
 
     Session session = accessor.ensureSession();
     BoundStatement statement = accessor.getCqlFactory()
@@ -85,15 +86,40 @@ class CassandraRandomReader
     return Optional.empty();
   }
 
+  @Override
+  public void scanWildcardAll(
+      String key,
+      RandomOffset offset,
+      int limit,
+      Consumer<KeyValue<?>> consumer) {
+
+    try {
+      Offsets.Raw off = (Offsets.Raw) offset;
+      Session session = accessor.ensureSession();
+      KvIterable iter = accessor.getCqlFactory().getListAllStatement(key, off, limit, session);
+      for (KeyValue<?> kv : iter.iterable(accessor)) {
+        if (kv.getAttribute().compareTo(off.getRaw()) > 0) {
+          if (limit-- == 0) {
+            break;
+          }
+          consumer.accept(kv);
+        }
+      }
+    } catch (Exception ex) {
+      log.error("Failed to scan attributes of {}", key, ex);
+      throw new RuntimeException(ex);
+    }
+
+  }
 
   @Override
   @SuppressWarnings("unchecked")
-  public synchronized void scanWildcard(
+  public synchronized <T> void scanWildcard(
       String key,
-      AttributeDescriptor<?> wildcard,
+      AttributeDescriptor<T> wildcard,
       @Nullable RandomOffset offset,
       int limit,
-      Consumer<KeyValue<?>> consumer) {
+      Consumer<KeyValue<T>> consumer) {
 
     try {
       Session session = accessor.ensureSession();
@@ -115,7 +141,7 @@ class CassandraRandomReader
           Optional parsed = wildcard.getValueSerializer().deserialize(rowValue);
 
           if (parsed.isPresent()) {
-            consumer.accept(KeyValue.of(
+            consumer.accept((KeyValue) KeyValue.of(
                 getEntityDescriptor(),
                 (AttributeDescriptor) wildcard,
                 key,
@@ -186,6 +212,5 @@ class CassandraRandomReader
     }
     throw new IllegalArgumentException("Unknown type of listing: " + type);
   }
-
 
 }

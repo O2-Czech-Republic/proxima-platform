@@ -121,7 +121,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   default ObserveHandle observePartitions(
-      List<Partition> partitions,
+      Collection<Partition> partitions,
       LogObserver observer) {
 
     return observePartitions(partitions, Position.NEWEST, observer);
@@ -168,7 +168,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   ObserveHandle observeBulkPartitions(
-      List<Partition> partitions,
+      Collection<Partition> partitions,
       Position position,
       BulkLogObserver observer);
 
@@ -182,7 +182,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   ObserveHandle observeBulkOffsets(
-      List<Offset> offsets,
+      Collection<Offset> offsets,
       BulkLogObserver observer);
 
 

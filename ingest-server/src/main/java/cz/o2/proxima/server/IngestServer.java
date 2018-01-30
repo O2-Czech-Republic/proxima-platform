@@ -329,7 +329,7 @@ public class IngestServer {
             .orElseThrow(() -> new Status(
                 404, "Entity " + request.getEntity() + " not found"));
 
-        AttributeDescriptor wildcard = entity.findAttribute(
+        AttributeDescriptor<Object> wildcard = entity.findAttribute(
             request.getWildcardPrefix() + ".*").orElseThrow(
                 () -> new Status(404, "Entity " + request.getEntity()
                     + " does not have wildcard attribute "
@@ -372,6 +372,7 @@ public class IngestServer {
       }
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void get(
         Rpc.GetRequest request,
@@ -389,7 +390,7 @@ public class IngestServer {
             .orElseThrow(() -> new Status(
                 404, "Entity " + request.getEntity() + " not found"));
 
-        AttributeDescriptor attribute = entity.findAttribute(
+        AttributeDescriptor<Object> attribute = entity.findAttribute(
             request.getAttribute()).orElseThrow(
                 () -> new Status(404, "Entity " + request.getEntity()
                     + " does not have attribute "
@@ -402,7 +403,7 @@ public class IngestServer {
             .orElseThrow(() -> new Status(400, "Attribute " + attribute
                 + " has no random reader"));
 
-        KeyValue<?> kv = reader.get(request.getKey(), request.getAttribute(), attribute)
+        KeyValue<Object> kv = reader.get(request.getKey(), request.getAttribute(), attribute)
             .orElseThrow(() -> new Status(404, "Key " + request.getKey() + " and/or attribute "
                 + request.getAttribute() + " not found"));
 
@@ -507,7 +508,7 @@ public class IngestServer {
           "Entity " + request.getEntity() + " not found"));
       return false;
     }
-    Optional<AttributeDescriptor<?>> attr = entity.get().findAttribute(
+    Optional<AttributeDescriptor<Object>> attr = entity.get().findAttribute(
         request.getAttribute());
     if (!attr.isPresent()) {
       consumer.accept(notFound(request.getUuid(),

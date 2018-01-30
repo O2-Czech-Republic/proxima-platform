@@ -31,6 +31,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
+import cz.o2.proxima.view.PartitionedCachedView;
 import cz.o2.proxima.view.PartitionedView;
 import java.io.Serializable;
 import javax.annotation.Nullable;
@@ -70,6 +71,10 @@ public class AttributeFamilyDescriptor implements Serializable {
 
     @Setter
     @Accessors(chain = true)
+    private PartitionedCachedView cachedView;
+
+    @Setter
+    @Accessors(chain = true)
     private StorageType type;
 
     @Setter
@@ -90,7 +95,7 @@ public class AttributeFamilyDescriptor implements Serializable {
     public AttributeFamilyDescriptor build() {
       return new AttributeFamilyDescriptor(
           name, type, attributes, writer, commitLog, batchObservable,
-          randomAccess, partitionedView, access, filter);
+          randomAccess, partitionedView, cachedView, access, filter);
     }
   }
 
@@ -133,6 +138,9 @@ public class AttributeFamilyDescriptor implements Serializable {
   @Nullable
   private final PartitionedView partitionedView;
 
+  @Nullable
+  private final PartitionedCachedView cachedView;
+
   AttributeFamilyDescriptor(String name,
       StorageType type,
       List<AttributeDescriptor<?>> attributes,
@@ -141,6 +149,7 @@ public class AttributeFamilyDescriptor implements Serializable {
       @Nullable BatchLogObservable batchObservable,
       @Nullable RandomAccessReader randomAccess,
       @Nullable PartitionedView partitionedView,
+      @Nullable PartitionedCachedView cachedView,
       AccessType access,
       StorageFilter filter) {
 
@@ -152,6 +161,7 @@ public class AttributeFamilyDescriptor implements Serializable {
     this.batchObservable = batchObservable;
     this.randomAccess = randomAccess;
     this.partitionedView = partitionedView;
+    this.cachedView = cachedView;
     this.access = Objects.requireNonNull(access);
     this.filter = filter;
   }
@@ -240,6 +250,20 @@ public class AttributeFamilyDescriptor implements Serializable {
     if (access.canCreatePartitionedView()) {
       return Optional.of(Objects.requireNonNull(
           partitionedView, "Family " + name + " doesn't have partitioned view"));
+    }
+    return Optional.empty();
+  }
+
+
+  /**
+   * Retrieve partitioned cached view.
+   * Empty if the attribute family cannot create partitioned cached view.
+   * @return optional {@link PartitionedCachedView} of this family
+   */
+  public Optional<PartitionedCachedView> getPartitionedCachedView() {
+    if (access.canCreatePartitionedCachedView()) {
+      return Optional.of(Objects.requireNonNull(
+          cachedView, "Family " + name + " cannot create cached view"));
     }
     return Optional.empty();
   }

@@ -50,22 +50,13 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import cz.o2.proxima.storage.commitlog.ObserveHandle;
+import cz.o2.proxima.storage.randomaccess.RawOffset;
 import java.util.ArrayList;
 
 /**
  * InMemStorage for testing purposes.
  */
 public class InMemStorage extends StorageDescriptor {
-
-  private static class RawOffset implements RandomOffset {
-
-    final String raw;
-
-    RawOffset(String key) {
-      raw = key;
-    }
-
-  }
 
   @FunctionalInterface
   private interface InMemIngestWriter extends Serializable {
@@ -285,7 +276,7 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public ObserveHandle observeBulkPartitions(
-        List<Partition> partitions,
+        Collection<Partition> partitions,
         Position position,
         BulkLogObserver observer) {
 
@@ -293,7 +284,8 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
-    public ObserveHandle observeBulkOffsets(List<Offset> offsets, BulkLogObserver observer) {
+    public ObserveHandle observeBulkOffsets(
+        Collection<Offset> offsets, BulkLogObserver observer) {
       return observeBulkPartitions(
           offsets.stream().map(Offset::getPartition).collect(Collectors.toList()),
           Position.NEWEST,
@@ -317,10 +309,10 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
-    public Optional<KeyValue<?>> get(
+    public <T> Optional<KeyValue<T>> get(
         String key,
         String attribute,
-        AttributeDescriptor<?> desc) {
+        AttributeDescriptor<T> desc) {
 
       return data.entrySet().stream()
           .filter(
@@ -342,14 +334,14 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void scanWildcard(
+    public <T> void scanWildcard(
         String key,
-        AttributeDescriptor<?> wildcard,
+        AttributeDescriptor<T> wildcard,
         @Nullable RandomOffset offset,
         int limit,
-        Consumer<KeyValue<?>> consumer) {
+        Consumer<KeyValue<T>> consumer) {
 
-      String off = offset == null ? "" : ((RawOffset) offset).raw;
+      String off = offset == null ? "" : ((RawOffset) offset).getOffset();
       String prefix = wildcard.toAttributePrefix(false);
       String start = getURI().getPath() + "/" + key + "#" + prefix;
       int count = 0;

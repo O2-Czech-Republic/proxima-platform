@@ -48,10 +48,10 @@ class CassandraRandomReader
   }
 
   @Override
-  public synchronized Optional<KeyValue<?>> get(
+  public synchronized <T> Optional<KeyValue<T>> get(
       String key,
       String attribute,
-      AttributeDescriptor<?> desc) {
+      AttributeDescriptor<T> desc) {
 
     Session session = accessor.ensureSession();
     BoundStatement statement = accessor.getCqlFactory()
@@ -88,12 +88,12 @@ class CassandraRandomReader
 
   @Override
   @SuppressWarnings("unchecked")
-  public synchronized void scanWildcard(
+  public synchronized <T> void scanWildcard(
       String key,
-      AttributeDescriptor<?> wildcard,
+      AttributeDescriptor<T> wildcard,
       @Nullable RandomOffset offset,
       int limit,
-      Consumer<KeyValue<?>> consumer) {
+      Consumer<KeyValue<T>> consumer) {
 
     try {
       Session session = accessor.ensureSession();

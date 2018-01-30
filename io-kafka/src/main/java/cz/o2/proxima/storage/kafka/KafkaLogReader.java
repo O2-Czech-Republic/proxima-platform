@@ -130,7 +130,7 @@ public class KafkaLogReader extends AbstractStorage
 
   @Override
   public ObserveHandle observeBulkPartitions(
-      List<Partition> partitions,
+      Collection<Partition> partitions,
       Position position,
       BulkLogObserver observer) {
 
@@ -139,7 +139,7 @@ public class KafkaLogReader extends AbstractStorage
 
   @Override
   public ObserveHandle observeBulkOffsets(
-      List<Offset> offsets, BulkLogObserver observer) {
+      Collection<Offset> offsets, BulkLogObserver observer) {
     return observeKafkaBulk(null, offsets, null, observer);
   }
 
@@ -442,7 +442,7 @@ public class KafkaLogReader extends AbstractStorage
             } else {
               String entityKey = key.substring(0, hashPos);
               String attribute = key.substring(hashPos + 1);
-              Optional<AttributeDescriptor<?>> attr = getEntityDescriptor().findAttribute(attribute);
+              Optional<AttributeDescriptor<Object>> attr = getEntityDescriptor().findAttribute(attribute);
               if (!attr.isPresent()) {
                 log.error("Invalid attribute in kafka key {}", key);
               } else {

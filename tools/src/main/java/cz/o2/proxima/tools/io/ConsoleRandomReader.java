@@ -61,9 +61,9 @@ public class ConsoleRandomReader implements Closeable {
     });
   }
 
-  public KeyValue<?> get(String key, String attribute) {
+  public KeyValue<Object> get(String key, String attribute) {
 
-    AttributeDescriptor desc = entityDesc.findAttribute(attribute)
+    AttributeDescriptor<Object> desc = entityDesc.findAttribute(attribute)
         .orElseThrow(() -> new IllegalArgumentException(
             "Unknown attribute " + attribute));
 
@@ -76,25 +76,25 @@ public class ConsoleRandomReader implements Closeable {
   }
 
 
-  public List<KeyValue<?>> list(String key, String prefix) {
+  public List<KeyValue<Object>> list(String key, String prefix) {
     return list(key, prefix, null);
   }
 
-  public List<KeyValue<?>> list(
+  public List<KeyValue<Object>> list(
       String key, String prefix, @Nullable String offset) {
 
-    List<KeyValue<?>> ret = new ArrayList<>();
+    List<KeyValue<Object>> ret = new ArrayList<>();
     list(key, prefix, offset, -1, ret::add);
     return ret;
   }
 
-  public List<KeyValue<?>> list(
+  public List<KeyValue<Object>> list(
       String key,
       String prefix,
       @Nullable String offset,
       int limit) {
 
-    List<KeyValue<?>> ret = new ArrayList<>();
+    List<KeyValue<Object>> ret = new ArrayList<>();
     list(key, prefix, offset, limit, ret::add);
     return ret;
   }
@@ -105,7 +105,7 @@ public class ConsoleRandomReader implements Closeable {
       String prefix,
       @Nullable String offset,
       int limit,
-      Consumer<KeyValue<?>> consumer) {
+      Consumer<KeyValue<Object>> consumer) {
 
     AttributeDescriptor desc = entityDesc.findAttribute(prefix + ".*")
         .orElseThrow(() -> new IllegalArgumentException(

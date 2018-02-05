@@ -50,22 +50,14 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import cz.o2.proxima.storage.commitlog.ObserveHandle;
+import cz.o2.proxima.storage.randomaccess.RawOffset;
+import cz.o2.proxima.view.PartitionedCachedView;
 import java.util.ArrayList;
 
 /**
  * InMemStorage for testing purposes.
  */
 public class InMemStorage extends StorageDescriptor {
-
-  private static class RawOffset implements RandomOffset {
-
-    final String raw;
-
-    RawOffset(String key) {
-      raw = key;
-    }
-
-  }
 
   @FunctionalInterface
   private interface InMemIngestWriter extends Serializable {
@@ -170,6 +162,11 @@ public class InMemStorage extends StorageDescriptor {
           throw new UnsupportedOperationException("Not supported.");
         }
 
+        @Override
+        public void waitUntilReady() throws InterruptedException {
+          // nop
+        }
+
       };
     }
 
@@ -229,6 +226,11 @@ public class InMemStorage extends StorageDescriptor {
           throw new UnsupportedOperationException("Not supported.");
         }
 
+        @Override
+        public void waitUntilReady() throws InterruptedException {
+          // nop
+        }
+
       };
     }
 
@@ -285,7 +287,7 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public ObserveHandle observeBulkPartitions(
-        List<Partition> partitions,
+        Collection<Partition> partitions,
         Position position,
         BulkLogObserver observer) {
 
@@ -293,7 +295,8 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
-    public ObserveHandle observeBulkOffsets(List<Offset> offsets, BulkLogObserver observer) {
+    public ObserveHandle observeBulkOffsets(
+        Collection<Offset> offsets, BulkLogObserver observer) {
       return observeBulkPartitions(
           offsets.stream().map(Offset::getPartition).collect(Collectors.toList()),
           Position.NEWEST,
@@ -317,10 +320,10 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
-    public Optional<KeyValue<?>> get(
+    public <T> Optional<KeyValue<T>> get(
         String key,
         String attribute,
-        AttributeDescriptor<?> desc) {
+        AttributeDescriptor<T> desc) {
 
       return data.entrySet().stream()
           .filter(
@@ -342,14 +345,14 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void scanWildcard(
+    public <T> void scanWildcard(
         String key,
-        AttributeDescriptor<?> wildcard,
+        AttributeDescriptor<T> wildcard,
         @Nullable RandomOffset offset,
         int limit,
-        Consumer<KeyValue<?>> consumer) {
+        Consumer<KeyValue<T>> consumer) {
 
-      String off = offset == null ? "" : ((RawOffset) offset).raw;
+      String off = offset == null ? "" : ((RawOffset) offset).getOffset();
       String prefix = wildcard.toAttributePrefix(false);
       String start = getURI().getPath() + "/" + key + "#" + prefix;
       int count = 0;
@@ -399,6 +402,76 @@ public class InMemStorage extends StorageDescriptor {
 
   }
 
+  private static class CachedView implements PartitionedCachedView {
+
+    private final RandomAccessReader reader;
+    private final OnlineAttributeWriter writer;
+
+    private long clearStamp = -1L;
+
+    CachedView(RandomAccessReader reader, OnlineAttributeWriter writer) {
+      this.reader = reader;
+      this.writer = writer;
+    }
+
+    @Override
+    public void assign(Collection<Partition> partitions) {
+      close();
+    }
+
+    @Override
+    public Collection<Partition> getAssigned() {
+      return Arrays.asList(() -> 0);
+    }
+
+    @Override
+    public RandomOffset fetchOffset(Listing type, String key) {
+      return reader.fetchOffset(type, key);
+    }
+
+    @Override
+    public <T> Optional<KeyValue<T>> get(
+        String key, String attribute, AttributeDescriptor<T> desc) {
+
+      return reader.get(key, attribute, desc);
+    }
+
+    @Override
+    public <T> void scanWildcard(
+        String key, AttributeDescriptor<T> wildcard,
+        RandomOffset offset,
+        int limit,
+        Consumer<KeyValue<T>> consumer) {
+
+      reader.scanWildcard(key, wildcard, offset, limit, consumer);
+    }
+
+    @Override
+    public void listEntities(RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
+      reader.listEntities(offset, limit, consumer);
+    }
+
+    @Override
+    public EntityDescriptor getEntityDescriptor() {
+      return reader.getEntityDescriptor();
+    }
+
+    @Override
+    public void close() {
+      clearStamp = System.currentTimeMillis();
+    }
+
+    @Override
+    public void write(StreamElement data, CommitCallback statusCallback) {
+      writer.write(data, statusCallback);
+    }
+
+    @Override
+    public URI getURI() {
+      return writer.getURI();
+    }
+
+  }
 
   @Getter
   private final NavigableMap<String, byte[]> data;
@@ -422,6 +495,7 @@ public class InMemStorage extends StorageDescriptor {
     InMemCommitLogReader commitLogReader = new InMemCommitLogReader(
         entityDesc, uri, uriObservers);
     Reader reader = new Reader(entityDesc, uri, data);
+    CachedView cachedView = new CachedView(reader, writer);
 
     return new DataAccessor() {
       @Override
@@ -446,6 +520,12 @@ public class InMemStorage extends StorageDescriptor {
       public Optional<PartitionedView> getPartitionedView(Context context) {
         Objects.requireNonNull(context);
         return Optional.of(commitLogReader);
+      }
+
+      @Override
+      public Optional<PartitionedCachedView> getCachedView(Context context) {
+        Objects.requireNonNull(context);
+        return Optional.of(cachedView);
       }
 
     };

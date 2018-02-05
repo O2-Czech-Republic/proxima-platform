@@ -46,6 +46,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
 import cz.o2.proxima.storage.commitlog.ObserveHandle;
+import cz.o2.proxima.view.PartitionedCachedView;
+import java.net.URISyntaxException;
 
 /**
  * Proxy attribute family applying transformations of attributes
@@ -64,6 +66,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         getBatchObservable(targetAttribute, targetFamily),
         getRandomAccess(targetAttribute, targetFamily),
         getPartitionedView(targetAttribute, targetFamily),
+        getPartitionedCachedView(targetAttribute, targetFamily),
         targetFamily.getType() == StorageType.PRIMARY
             ? targetFamily.getAccess()
             : AccessType.or(targetFamily.getAccess(), AccessType.from("read-only")),
@@ -79,6 +82,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       return null;
     }
     OnlineAttributeWriter writer = w.get().online();
+    final URI uri = getProxyURI(writer.getURI(), targetFamily);
     return new OnlineAttributeWriter() {
 
       @Override
@@ -95,7 +99,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
       @Override
       public URI getURI() {
-        return writer.getURI();
+        return uri;
       }
 
     };
@@ -156,7 +160,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
       @Override
       public ObserveHandle observeBulkPartitions(
-          List<Partition> partitions,
+          Collection<Partition> partitions,
           Position position,
           BulkLogObserver observer) {
 
@@ -166,7 +170,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
       @Override
       public ObserveHandle observeBulkOffsets(
-          List<Offset> offsets, BulkLogObserver observer) {
+          Collection<Offset> offsets, BulkLogObserver observer) {
 
         return reader.observeBulkOffsets(offsets, wrapTransformed(observer));
       }
@@ -203,8 +207,9 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     };
   }
 
+  @SuppressWarnings("unchecked")
   private static RandomAccessReader getRandomAccess(
-      AttributeProxyDescriptorImpl<?> targetAttribute,
+      AttributeProxyDescriptorImpl targetAttribute,
       AttributeFamilyDescriptor targetFamily) {
 
     Optional<RandomAccessReader> target = targetFamily.getRandomAccessReader();
@@ -226,8 +231,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       }
 
       @Override
-      public Optional<KeyValue<?>> get(
-          String key, String attribute, AttributeDescriptor<?> desc) {
+      public <T> Optional<KeyValue<T>> get(
+          String key, String attribute, AttributeDescriptor<T> desc) {
 
         ProxyTransform transform = targetAttribute.getTransform();
         return reader.get(key, transform.fromProxy(attribute), desc)
@@ -235,16 +240,16 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       }
 
       @Override
-      public void scanWildcard(
-          String key, AttributeDescriptor<?> wildcard,
-          RandomOffset offset, int limit, Consumer<KeyValue<?>> consumer) {
+      public <T> void scanWildcard(
+          String key, AttributeDescriptor<T> wildcard,
+          RandomOffset offset, int limit, Consumer<KeyValue<T>> consumer) {
 
         if (!targetAttribute.isWildcard()) {
           throw new IllegalArgumentException(
               "Proxy target is not wildcard attribute!");
         }
         reader.scanWildcard(key, targetAttribute.getTarget(), offset, limit, kv -> {
-          consumer.accept(transformToProxy(kv, targetAttribute));
+          consumer.accept((KeyValue) transformToProxy(kv, targetAttribute));
         });
       }
 
@@ -258,13 +263,20 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
       @Override
       public void close() throws IOException {
+        reader.close();
+      }
+
+      @Override
+      public EntityDescriptor getEntityDescriptor() {
+        return reader.getEntityDescriptor();
       }
 
     };
   }
 
+  @SuppressWarnings("unchecked")
   private static PartitionedView getPartitionedView(
-      AttributeProxyDescriptorImpl<?> targetAttribute,
+      AttributeProxyDescriptorImpl targetAttribute,
       AttributeFamilyDescriptor targetFamily) {
 
     Optional<PartitionedView> target = targetFamily.getPartitionedView();
@@ -297,11 +309,107 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
             targetAttribute, observer));
       }
 
+      @Override
+      public EntityDescriptor getEntityDescriptor() {
+        return view.getEntityDescriptor();
+      }
+
     };
   }
 
+  private static <T> PartitionedCachedView getPartitionedCachedView(
+      AttributeProxyDescriptorImpl<T> targetAttribute,
+      AttributeFamilyDescriptor targetFamily) {
+
+    Optional<PartitionedCachedView> target = targetFamily.getPartitionedCachedView();
+    if (!target.isPresent()) {
+      return null;
+    }
+    PartitionedCachedView view = target.get();
+    final URI uri = getProxyURI(view.getURI(), targetFamily);
+
+    return new PartitionedCachedView() {
+
+      @Override
+      public void assign(Collection<Partition> partitions) {
+        view.assign(partitions);
+      }
+
+      @Override
+      public Collection<Partition> getAssigned() {
+        return view.getAssigned();
+      }
+
+      @Override
+      public RandomOffset fetchOffset(
+          RandomAccessReader.Listing type, String key) {
+
+        if (type == Listing.ATTRIBUTE) {
+          return view.fetchOffset(
+              type, targetAttribute.getTransform().fromProxy(key));
+        }
+        return view.fetchOffset(type, key);
+      }
+
+      @SuppressWarnings("unchecked")
+      @Override
+      public <T> Optional<KeyValue<T>> get(
+          String key, String attribute, AttributeDescriptor<T> desc) {
+
+        ProxyTransform transform = targetAttribute.getTransform();
+        return view.get(key, transform.fromProxy(attribute), desc)
+            .map(kv -> (KeyValue) transformToProxy(kv, targetAttribute));
+      }
+
+      @SuppressWarnings("unchecked")
+      @Override
+      public <T> void scanWildcard(
+          String key, AttributeDescriptor<T> wildcard,
+          RandomOffset offset, int limit, Consumer<KeyValue<T>> consumer) {
+
+        if (!targetAttribute.isWildcard()) {
+          throw new IllegalArgumentException(
+              "Proxy target is not wildcard attribute!");
+        }
+        view.scanWildcard(key, targetAttribute.getTarget(), offset, limit, kv -> {
+          consumer.accept((KeyValue) transformToProxy(kv, targetAttribute));
+        });
+      }
+
+      @Override
+      public void listEntities(
+          RandomOffset offset, int limit,
+          Consumer<Pair<RandomOffset, String>> consumer) {
+
+        view.listEntities(offset, limit, consumer);
+      }
+
+      @Override
+      public void close() throws IOException {
+        view.close();
+      }
+
+      @Override
+      public EntityDescriptor getEntityDescriptor() {
+        return view.getEntityDescriptor();
+      }
+
+      @Override
+      public void write(StreamElement data, CommitCallback statusCallback) {
+        view.write(transformToRaw(data, targetAttribute), statusCallback);
+      }
+
+      @Override
+      public URI getURI() {
+        return uri;
+      }
+
+    };
+  }
+
+  @SuppressWarnings("unchecked")
   private static LogObserver wrapTransformed(
-      AttributeProxyDescriptorImpl<?> proxy,
+      AttributeProxyDescriptorImpl proxy,
       LogObserver observer) {
 
     return new LogObserver() {
@@ -365,7 +473,6 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     };
   }
 
-
   static BatchLogObserver wrapTransformed(BatchLogObserver observer) {
     return new BatchLogObserver() {
 
@@ -390,9 +497,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     };
   }
 
-
   private static <T> PartitionedLogObserver<T> wrapTransformed(
-      AttributeProxyDescriptorImpl<?> target, PartitionedLogObserver<T> observer) {
+      AttributeProxyDescriptorImpl<T> target, PartitionedLogObserver<T> observer) {
 
     return new PartitionedLogObserver<T>() {
 
@@ -425,25 +531,28 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     };
   }
 
+  @SuppressWarnings("unchecked")
   private static StreamElement transformToRaw(
       StreamElement data,
-      AttributeProxyDescriptorImpl<?> targetDesc) {
+      AttributeProxyDescriptorImpl targetDesc) {
 
     return transform(data,
         targetDesc.getTarget(),
         targetDesc.getTransform()::fromProxy);
   }
 
+  @SuppressWarnings("unchecked")
   private static StreamElement transformToProxy(
       StreamElement data,
-      AttributeProxyDescriptorImpl<?> targetDesc) {
+      AttributeProxyDescriptorImpl targetDesc) {
 
     return transform(data, targetDesc, targetDesc.getTransform()::toProxy);
   }
 
-  private static KeyValue<?> transformToProxy(
-      KeyValue<?> kv,
-      AttributeProxyDescriptorImpl<?> targetDesc) {
+  @SuppressWarnings("unchecked")
+  private static <T> KeyValue<T> transformToProxy(
+      KeyValue<T> kv,
+      AttributeProxyDescriptorImpl targetDesc) {
 
     return KeyValue.of(
         kv.getEntityDescriptor(),
@@ -452,9 +561,10 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         kv.getOffset(), kv.getValueBytes());
   }
 
+  @SuppressWarnings("unchecked")
   private static StreamElement transform(
       StreamElement data,
-      AttributeDescriptor<?> target,
+      AttributeDescriptor target,
       Function<String, String> transform) {
 
     if (data.isDelete()) {
@@ -476,7 +586,14 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         data.getStamp(), data.getValue());
   }
 
-
-
+  private static URI getProxyURI(
+      URI uri, AttributeFamilyDescriptor targetFamily) {
+    try {
+      return new URI(String.format(
+          "proxy-%s.%s", targetFamily.getName(), uri.toString()));
+    } catch (URISyntaxException ex) {
+      throw new RuntimeException(ex);
+    }
+  }
 
 }

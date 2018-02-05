@@ -591,6 +591,11 @@ public class Repository {
                 .orElseThrow(() -> new IllegalArgumentException(
                     "Storage " + storageDesc + " has no valid partitioned view.")));
           }
+          if (access.canCreatePartitionedCachedView()) {
+            family.setCachedView(accessor.getCachedView(context)
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Storage " + storageDesc + " has no cached partitioned view.")));
+          }
           if (access.canReadBatchSnapshot() || access.canReadBatchUpdates()) {
             family.setBatchObservable(accessor.getBatchLogObservable(context)
                 .orElseThrow(() -> new IllegalArgumentException(

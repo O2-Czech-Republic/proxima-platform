@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.view;
 
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
@@ -28,11 +29,16 @@ import java.util.List;
 public interface PartitionedView extends Serializable {
 
   /**
+   * Retrieve entity associated with the view.
+   * @return entity associated with the view
+   */
+  EntityDescriptor getEntityDescriptor();
+
+  /**
    * Retrieve list of partitions of this commit log.
    * @return list of partitions in this view
    */
   List<Partition> getPartitions();
-
 
   /**
    * Subscribe to given set of partitions.

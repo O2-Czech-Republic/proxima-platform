@@ -63,8 +63,9 @@ public class EntityDescriptorImpl implements EntityDescriptor {
 
 
   /** Find attribute based by name. */
+  @SuppressWarnings("unchecked")
   @Override
-  public Optional<AttributeDescriptor<?>> findAttribute(
+  public <T> Optional<AttributeDescriptor<T>> findAttribute(
       String name, boolean includeProtected) {
 
     AttributeDescriptor found = attributesByName.get(name);

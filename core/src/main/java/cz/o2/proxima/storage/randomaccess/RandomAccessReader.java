@@ -17,6 +17,7 @@ package cz.o2.proxima.storage.randomaccess;
 
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.util.Pair;
 import java.io.Closeable;
 import java.io.Serializable;
@@ -48,16 +49,16 @@ public interface RandomAccessReader extends Closeable, Serializable {
    */
   RandomOffset fetchOffset(Listing type, String key);
 
-
   /**
    * Retrieve data stored under given (key, attribute) pair (if any).
+   * @param <T> value type
    * @param key key of the entity
    * @param desc the attribute to search for (not wildcard)
    * @return optional {@link KeyValue} if present
    */
-  default Optional<KeyValue<?>> get(
+  default <T> Optional<KeyValue<T>> get(
       String key,
-      AttributeDescriptor<?> desc) {
+      AttributeDescriptor<T> desc) {
 
     return get(key, desc.getName(), desc);
   }
@@ -65,27 +66,29 @@ public interface RandomAccessReader extends Closeable, Serializable {
 
   /**
    * Retrieve data stored under given (key, attribute) pair (if any).
+   * @param <T> value type
    * @param key key of the entity
    * @param attribute name of the attribute
    * @param desc the attribute to search for
    * @return optional {@link KeyValue} if present
    */
-  Optional<KeyValue<?>> get(
+  <T> Optional<KeyValue<T>> get(
       String key,
       String attribute,
-      AttributeDescriptor<?> desc);
+      AttributeDescriptor<T> desc);
 
 
   /**
    * List data stored for a particular wildcard attribute.
+   * @param <T> value type
    * @param key key of the entity
    * @param wildcard wildcard attribute to scan
    * @param consumer the consumer to stream data to
    */
-  default void scanWildcard(
+  default <T> void scanWildcard(
       String key,
-      AttributeDescriptor<?> wildcard,
-      Consumer<KeyValue<?>> consumer) {
+      AttributeDescriptor<T> wildcard,
+      Consumer<KeyValue<T>> consumer) {
 
     scanWildcard(key, wildcard, null, -1, consumer);
   }
@@ -93,20 +96,19 @@ public interface RandomAccessReader extends Closeable, Serializable {
 
   /**
    * List data stored for a particular wildcard attribute.
+   * @param <T> value type
    * @param key key of the entity
    * @param wildcard wildcard attribute to scan
    * @param offset name of attribute (including the prefix) to start from
    * @param limit maximal number of items to consume
    * @param consumer the consumer to stream data to
    */
-  void scanWildcard(
+  <T> void scanWildcard(
       String key,
-      AttributeDescriptor<?> wildcard,
+      AttributeDescriptor<T> wildcard,
       @Nullable RandomOffset offset,
       int limit,
-      Consumer<KeyValue<?>> consumer);
-
-
+      Consumer<KeyValue<T>> consumer);
 
   /**
    * List all entity keys.
@@ -129,4 +131,11 @@ public interface RandomAccessReader extends Closeable, Serializable {
       int limit,
       Consumer<Pair<RandomOffset, String>> consumer);
 
+
+  /**
+   * Retrieve entity associated with this reader.
+   * @return entity associated with this reader
+   */
+  EntityDescriptor getEntityDescriptor();
+  
 }

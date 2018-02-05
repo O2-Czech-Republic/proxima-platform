@@ -13,32 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package cz.o2.proxima.storage.randomaccess;
 
-package cz.o2.proxima.repository;
-
-import java.net.URI;
-import cz.o2.proxima.scheme.ValueSerializer;
-
-import javax.annotation.Nullable;
+import lombok.Getter;
 
 /**
- * Descriptor of attribute of entity.
+ * Offset that is represented by raw string.
  */
-public class AttributeDescriptorImpl<T>
-    extends AttributeDescriptorBase<T> {
+public class RawOffset implements RandomOffset {
 
-  AttributeDescriptorImpl(
-      String name, String entity,
-      URI schemeURI, @Nullable ValueSerializer<T> serializer) {
+  @Getter
+  private final String offset;
 
-    super(name, entity, schemeURI, serializer);
+  public RawOffset(String offset) {
+    this.offset = offset;
   }
-
-
-  @Override
-  public String toString() {
-    return "AttributeDescriptor(entity=" + entity + ", name=" + name + ")";
-  }
-
 
 }

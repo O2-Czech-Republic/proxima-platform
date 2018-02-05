@@ -203,8 +203,8 @@ public class CassandraDBAccessorTest {
 
 
   Repository repo = Repository.Builder.ofTest(ConfigFactory.defaultApplication()).build();
-  AttributeDescriptorBase<?> attr;
-  AttributeDescriptorBase<?> attrWildcard;
+  AttributeDescriptorBase<byte[]> attr;
+  AttributeDescriptorBase<byte[]> attrWildcard;
   EntityDescriptor entity;
 
   public CassandraDBAccessorTest() throws URISyntaxException {
@@ -334,7 +334,7 @@ public class CassandraDBAccessorTest {
 
     accessor.setRes(res);
 
-    Optional<KeyValue<?>> value = db.get("key", attr);
+    Optional<KeyValue<byte[]>> value = db.get("key", attr);
     assertTrue(value.isPresent());
     assertEquals("dummy", value.get().getAttribute());
     assertEquals("key", value.get().getKey());

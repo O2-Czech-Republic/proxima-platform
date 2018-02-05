@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import java.io.Serializable;
 import java.net.URI;
@@ -54,9 +55,11 @@ public interface AttributeDescriptor<T> extends Serializable {
       Objects.requireNonNull(name, "Please specify name");
       Objects.requireNonNull(entity, "Please specify entity");
       Objects.requireNonNull(schemeURI, "Please specify scheme URI");
+
+      ValueSerializerFactory<?> factory = repo.getValueSerializerFactory(schemeURI.getScheme());
+
       return new AttributeDescriptorImpl<>(name, entity, schemeURI,
-          (ValueSerializer<T>) repo.getValueSerializerFactory(
-              schemeURI.getScheme()).getValueSerializer(schemeURI));
+          factory == null ? null : (ValueSerializer<T>) factory.getValueSerializer(schemeURI));
     }
   }
 

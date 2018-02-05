@@ -15,25 +15,9 @@
  */
 package cz.o2.proxima.maven;
 
-import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.seznam.euphoria.shadow.com.google.common.base.Joiner;
+import cz.o2.proxima.generator.ModelGenerator;
 import freemarker.template.Configuration;
-import freemarker.template.Template;
-import freemarker.template.TemplateExceptionHandler;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-import org.apache.commons.io.IOUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -69,32 +53,17 @@ public class CompileMojo extends AbstractMojo {
 
     validate();
 
-    conf = getConf();
-
-    File output = toOutputDir(javaPackage, outputDir);
-    if (!output.exists()) {
-      output.mkdirs();
+    File targetOutputDir = new File(outputDir);
+    if (!targetOutputDir.isAbsolute()) {
+      targetOutputDir = new File(new File(project.getBasedir(), "target"), outputDir);
     }
-    Repository repo = Repository.Builder
-        .of(ConfigFactory.parseFile(new File(config)).resolve())
-        .withReadOnly(true)
-        .withValidate(false)
-        .withLoadFamilies(false)
-        .withLoadAccessors(false)
-        .build();
-    Map<String, Object> root = new HashMap<>();
 
-    List<Map<String, Object>> entities = getEntities(repo);
-    try (FileOutputStream out = new FileOutputStream(new File(output, className + ".java"))) {
-      root.put("input_path", config);
-      root.put("input_config", readFileToString(config));
-      root.put("java_package", javaPackage);
-      root.put("java_classname", className);
-      root.put("java_config_resourcename", new File(config).getName());
-      root.put("entities", entities);
-      Template template = conf.getTemplate("java-source.ftlh");
-      template.process(root, new OutputStreamWriter(out));
-      project.addCompileSourceRoot(output.getCanonicalPath());
+    ModelGenerator generator = new ModelGenerator(
+        javaPackage, className, config, targetOutputDir.getAbsolutePath());
+
+    try {
+      generator.generate();
+      project.addCompileSourceRoot(targetOutputDir.getCanonicalPath());
     } catch (Exception ex) {
       throw new MojoExecutionException("Cannot create output", ex);
     }
@@ -106,74 +75,4 @@ public class CompileMojo extends AbstractMojo {
           + "`config' or `javaPackage'");
     }
   }
-
-  private List<Map<String, Object>> getEntities(Repository repo) {
-    List<Map<String, Object>> ret = new ArrayList<>();
-    repo.getAllEntities().forEach(e -> {
-      ret.add(getEntityDict(e));
-    });
-    return ret;
-  }
-
-  private Configuration getConf() {
-    conf = new Configuration(Configuration.VERSION_2_3_23);
-    conf.setDefaultEncoding("utf-8");
-    conf.setClassForTemplateLoading(getClass(), "/");
-    conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
-    conf.setLogTemplateExceptions(false);
-    return conf;
-  }
-
-  private Map<String, Object> getEntityDict(EntityDescriptor e) {
-    Map<String, Object> ret = new HashMap<>();
-    ret.put("classname", toClassName(e.getName()));
-    ret.put("name", e.getName());
-    ret.put("nameCamel", toCamelCase(e.getName()));
-
-    List<Map<String, Object>> attributes = e.getAllAttributes().stream()
-        .map(attr -> {
-          Map<String, Object> attrMap = new HashMap<>();
-          String nameModified = attr.toAttributePrefix(false);
-          attrMap.put("wildcard", attr.isWildcard());
-          attrMap.put("nameRaw", attr.getName());
-          attrMap.put("name", nameModified);
-          attrMap.put("nameCamel", toCamelCase(nameModified));
-          attrMap.put("nameUpper", nameModified.toUpperCase());
-          // FIXME: this is working just for protobufs
-          attrMap.put("type", attr.getSchemeURI().getSchemeSpecificPart());
-          return attrMap;
-        })
-        .collect(Collectors.toList());
-    ret.put("attributes", attributes);
-    return ret;
-  }
-
-  private String toCamelCase(String what) {
-    if (what.isEmpty()) {
-      throw new IllegalArgumentException("Entity name cannot be empty.");
-    }
-    char[] chars = what.toCharArray();
-    chars[0] = Character.toUpperCase(chars[0]);
-    return new String(chars);
-  }
-
-  private String toClassName(String name) {
-     return toCamelCase(name);
-  }
-
-  private File toOutputDir(String javaPackage, String outputDir) {
-    File target = new File(project.getBasedir(), "target");
-    String replaced = javaPackage.replaceAll("\\.", File.separator);
-    return new File(new File(target, outputDir), replaced);
-  }
-
-  private String readFileToString(String path)
-      throws FileNotFoundException, IOException {
-
-    return Joiner.on("\n + ").join(
-        IOUtils.readLines(new FileInputStream(new File(path)))
-            .stream().map(s -> "\"" + s.replace("\"", "\\\"") + "\\n\"")
-            .collect(Collectors.toList()));
-  }
-
 }

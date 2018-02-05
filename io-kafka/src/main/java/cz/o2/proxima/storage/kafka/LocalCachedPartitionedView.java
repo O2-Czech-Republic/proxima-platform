@@ -66,8 +66,7 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
   /**
    * Handle of the observation thread (if any running).
    */
-  @Nullable
-  private AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+  private final AtomicReference<ObserveHandle> handle = new AtomicReference<>();
 
   public LocalCachedPartitionedView(KafkaLogReader reader, ExecutorService executor) {
     this.reader = reader;

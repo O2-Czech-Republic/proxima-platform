@@ -890,12 +890,56 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertArrayEquals(new byte[] { 1, 2, 3 }, view.get("key", attr).get().getValue());
   }
 
+  @Test(timeout = 2000)
+  public void testCachedViewReload() throws InterruptedException {
+    Accessor accessor = kafka.getAccessor(
+        entity, storageURI, partitionsCfg(3, FirstBytePartitioner.class));
+    LocalKafkaWriter writer = accessor.newWriter();
+    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+        () -> new IllegalStateException("Missing cached view"));
+    AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(2));
+    List<StreamElement> updates = Arrays.asList(
+      StreamElement.update(
+          entity, attr, UUID.randomUUID().toString(),
+          "key1", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
+      StreamElement.update(
+          entity, attr, UUID.randomUUID().toString(),
+          "key2", attr.getName(), System.currentTimeMillis(), new byte[] { 2, 3 }));
+    updates.forEach(update -> writer.write(update, (succ, exc) -> {
+      assertTrue(succ);
+      latch.get().countDown();
+    }));
+    latch.get().await();
+    latch.set(new CountDownLatch(1));
+    view.assign(IntStream.range(1, 2)
+        .mapToObj(i -> (Partition) () -> i)
+        .collect(Collectors.toList()));
+    assertFalse(view.get("key2", attr).isPresent());
+    assertTrue(view.get("key1", attr).isPresent());
+    StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key1", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2, 3 });
+    writer.write(update, (succ, exc) -> {
+      assertTrue(succ);
+      latch.get().countDown();
+    });
+    latch.get().await();
+    TimeUnit.SECONDS.sleep(1);
+    view.assign(IntStream.range(1, 3)
+        .mapToObj(i -> (Partition) () -> i)
+        .collect(Collectors.toList()));
+    assertTrue(view.get("key2", attr).isPresent());
+    assertTrue(view.get("key1", attr).isPresent());
+  }
+
+
   private static Map<String, Object> partitionsCfg(int partitions) {
     return partitionsCfg(partitions, null);
   }
 
   private static Map<String, Object> partitionsCfg(
-      int partitions, @Nullable Class<? extends Partitioner> partitioner) {
+      int partitions,
+      @Nullable Class<? extends Partitioner> partitioner) {
 
     Map<String, Object> ret = new HashMap<>();
     ret.put(
@@ -913,6 +957,16 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   private Context context() {
     return new Context(serviceFactory) { };
+  }
+
+  static final class FirstBytePartitioner implements Partitioner {
+    @Override
+    public int getPartitionId(String key, String attribute, byte[] value) {
+      if (value != null) {
+        return (int) value[0];
+      }
+      return 0;
+    }
   }
 
 }

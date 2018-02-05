@@ -18,6 +18,8 @@ package cz.o2.proxima.storage.kafka;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.storage.CommitCallback;
+import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
@@ -30,6 +32,7 @@ import cz.o2.proxima.storage.randomaccess.RawOffset;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.PartitionedCachedView;
 import cz.o2.proxima.view.PartitionedView;
+import java.net.URI;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -57,6 +60,11 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
   private final ExecutorService executor;
 
   /**
+   * Writer to persist data to.
+   */
+  private final OnlineAttributeWriter writer;
+
+  /**
    * Cache for data in memory.
    * Entity key -> Attribute -> (timestamp, value)
    */
@@ -68,25 +76,42 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
    */
   private final AtomicReference<ObserveHandle> handle = new AtomicReference<>();
 
-  public LocalCachedPartitionedView(KafkaLogReader reader, ExecutorService executor) {
+  public LocalCachedPartitionedView(
+      KafkaLogReader reader, OnlineAttributeWriter writer,
+      ExecutorService executor) {
+
     this.reader = reader;
     this.entity = reader.getEntityDescriptor();
     this.executor = executor;
+    this.writer = writer;
   }
 
-  private boolean onCache(StreamElement ingest, KafkaLogObserver.ConfirmCallback confirm) {
+  private boolean onCache(
+      StreamElement ingest, CommitCallback confirm) {
+
     Optional<Object> parsed = ingest.getParsed();
-    if (parsed.isPresent()) {
-      cache.compute(ingest.getKey(), (key, m) -> {
-        if (m == null) {
-          m = new TreeMap<>();
-        }
-        m.put(ingest.getAttribute(), Pair.of(ingest.getStamp(), parsed.get()));
-        return m;
-      });
+    try {
+      if (parsed.isPresent()) {
+        cache.compute(ingest.getKey(), (key, m) -> {
+          if (m == null) {
+            m = new TreeMap<>();
+          }
+          m.compute(ingest.getAttribute(), (k, c) -> {
+            if (c == null || c.getFirst() < ingest.getStamp()) {
+              return Pair.of(ingest.getStamp(), parsed.get());
+            }
+            log.debug("Ignoring old arrival ingest {}, current {}", ingest, c);
+            return c;
+          });
+          return m;
+        });
+      }
+      confirm.commit(true, null);
+      return true;
+    } catch (Throwable err) {
+      confirm.commit(false, err);
+      return false;
     }
-    confirm.apply(true, null);
-    return true;
   }
 
 
@@ -126,7 +151,7 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
           KafkaLogObserver.ConfirmCallback confirm,
           Partition partition) {
 
-        return onCache(ingest, confirm);
+        return onCache(ingest, confirm::apply);
       }
 
       @Override
@@ -224,11 +249,11 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
   public void close() {
     handle.getAndUpdate(h -> {
       if (h != null) {
-        cache.clear();
         h.cancel();
       }
       return null;
     });
+    cache.clear();
   }
 
   @SuppressWarnings("unchecked")
@@ -251,5 +276,24 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
   @Override
   public EntityDescriptor getEntityDescriptor() {
     return entity;
+  }
+
+  @Override
+  public void write(StreamElement data, CommitCallback statusCallback) {
+    try {
+      onCache(data, (succ, exc) -> {
+        if (!succ) {
+          throw new RuntimeException(exc);
+        }
+      });
+      writer.write(data, statusCallback);
+    } catch (Exception ex) {
+      statusCallback.commit(false, ex);
+    }
+  }
+
+  @Override
+  public URI getURI() {
+    return reader.getURI();
   }
 }

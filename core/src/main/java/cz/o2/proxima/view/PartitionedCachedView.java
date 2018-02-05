@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.view;
 
+import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import java.util.Collection;
@@ -24,8 +25,11 @@ import java.util.Collection;
  * from partitions and makes in random accessible.
  *
  * Client can provide callbacks to be called on data updates.
+ * Client might also update the view, all updates must be persisted in a way that
+ * will guarantee that subsequent reloads will contain the new data and
+ * that read-write operations have happens-before relation semantics.
  */
-public interface PartitionedCachedView extends RandomAccessReader {
+public interface PartitionedCachedView extends RandomAccessReader, OnlineAttributeWriter {
 
   /**
    * Assign and make given partitions accessible by random reads.

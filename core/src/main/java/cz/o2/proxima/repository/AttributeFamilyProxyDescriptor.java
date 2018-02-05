@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import cz.o2.proxima.storage.commitlog.ObserveHandle;
 import cz.o2.proxima.view.PartitionedCachedView;
+import java.net.URISyntaxException;
 
 /**
  * Proxy attribute family applying transformations of attributes
@@ -81,6 +82,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       return null;
     }
     OnlineAttributeWriter writer = w.get().online();
+    final URI uri = getProxyURI(writer.getURI(), targetFamily);
     return new OnlineAttributeWriter() {
 
       @Override
@@ -97,7 +99,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
       @Override
       public URI getURI() {
-        return writer.getURI();
+        return uri;
       }
 
     };
@@ -324,6 +326,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       return null;
     }
     PartitionedCachedView view = target.get();
+    final URI uri = getProxyURI(view.getURI(), targetFamily);
 
     return new PartitionedCachedView() {
 
@@ -389,6 +392,16 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       @Override
       public EntityDescriptor getEntityDescriptor() {
         return view.getEntityDescriptor();
+      }
+
+      @Override
+      public void write(StreamElement data, CommitCallback statusCallback) {
+        view.write(transformToRaw(data, targetAttribute), statusCallback);
+      }
+
+      @Override
+      public URI getURI() {
+        return uri;
       }
 
     };
@@ -571,6 +584,16 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         target, data.getUuid(), data.getKey(),
         transform.apply(data.getAttribute()),
         data.getStamp(), data.getValue());
+  }
+
+  private static URI getProxyURI(
+      URI uri, AttributeFamilyDescriptor targetFamily) {
+    try {
+      return new URI(String.format(
+          "proxy-%s.%s", targetFamily.getName(), uri.toString()));
+    } catch (URISyntaxException ex) {
+      throw new RuntimeException(ex);
+    }
   }
 
 }

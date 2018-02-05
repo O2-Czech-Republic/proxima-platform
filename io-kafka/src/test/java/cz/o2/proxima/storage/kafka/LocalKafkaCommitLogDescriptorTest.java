@@ -932,6 +932,33 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertTrue(view.get("key1", attr).isPresent());
   }
 
+  @Test(timeout = 2000)
+  public void testCachedViewWrite() throws InterruptedException {
+    Accessor accessor = kafka.getAccessor(
+        entity, storageURI, partitionsCfg(3, FirstBytePartitioner.class));
+    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+        () -> new IllegalStateException("Missing cached view"));
+    List<StreamElement> updates = Arrays.asList(
+      StreamElement.update(
+          entity, attr, UUID.randomUUID().toString(),
+          "key1", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
+      StreamElement.update(
+          entity, attr, UUID.randomUUID().toString(),
+          "key2", attr.getName(), System.currentTimeMillis(), new byte[] { 2, 3 }));
+    CountDownLatch latch = new CountDownLatch(2);
+    updates.forEach(update -> view.write(update, (succ, exc) -> {
+      assertTrue("Exception: " + exc, succ);
+      latch.countDown();
+    }));
+    latch.await();
+    assertTrue(view.get("key2", attr).isPresent());
+    assertTrue(view.get("key1", attr).isPresent());
+    view.assign(IntStream.range(0, 3)
+        .mapToObj(i -> (Partition) () -> i)
+        .collect(Collectors.toList()));
+    assertTrue(view.get("key2", attr).isPresent());
+    assertTrue(view.get("key1", attr).isPresent());
+  }
 
   private static Map<String, Object> partitionsCfg(int partitions) {
     return partitionsCfg(partitions, null);

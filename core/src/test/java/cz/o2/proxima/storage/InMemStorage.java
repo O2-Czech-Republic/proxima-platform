@@ -51,6 +51,7 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import cz.o2.proxima.storage.commitlog.ObserveHandle;
 import cz.o2.proxima.storage.randomaccess.RawOffset;
+import cz.o2.proxima.view.PartitionedCachedView;
 import java.util.ArrayList;
 
 /**
@@ -401,6 +402,76 @@ public class InMemStorage extends StorageDescriptor {
 
   }
 
+  private static class CachedView implements PartitionedCachedView {
+
+    private final RandomAccessReader reader;
+    private final OnlineAttributeWriter writer;
+
+    private long clearStamp = -1L;
+
+    CachedView(RandomAccessReader reader, OnlineAttributeWriter writer) {
+      this.reader = reader;
+      this.writer = writer;
+    }
+
+    @Override
+    public void assign(Collection<Partition> partitions) {
+      close();
+    }
+
+    @Override
+    public Collection<Partition> getAssigned() {
+      return Arrays.asList(() -> 0);
+    }
+
+    @Override
+    public RandomOffset fetchOffset(Listing type, String key) {
+      return reader.fetchOffset(type, key);
+    }
+
+    @Override
+    public <T> Optional<KeyValue<T>> get(
+        String key, String attribute, AttributeDescriptor<T> desc) {
+
+      return reader.get(key, attribute, desc);
+    }
+
+    @Override
+    public <T> void scanWildcard(
+        String key, AttributeDescriptor<T> wildcard,
+        RandomOffset offset,
+        int limit,
+        Consumer<KeyValue<T>> consumer) {
+
+      reader.scanWildcard(key, wildcard, offset, limit, consumer);
+    }
+
+    @Override
+    public void listEntities(RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
+      reader.listEntities(offset, limit, consumer);
+    }
+
+    @Override
+    public EntityDescriptor getEntityDescriptor() {
+      return reader.getEntityDescriptor();
+    }
+
+    @Override
+    public void close() {
+      clearStamp = System.currentTimeMillis();
+    }
+
+    @Override
+    public void write(StreamElement data, CommitCallback statusCallback) {
+      writer.write(data, statusCallback);
+    }
+
+    @Override
+    public URI getURI() {
+      return writer.getURI();
+    }
+
+  }
 
   @Getter
   private final NavigableMap<String, byte[]> data;
@@ -424,6 +495,7 @@ public class InMemStorage extends StorageDescriptor {
     InMemCommitLogReader commitLogReader = new InMemCommitLogReader(
         entityDesc, uri, uriObservers);
     Reader reader = new Reader(entityDesc, uri, data);
+    CachedView cachedView = new CachedView(reader, writer);
 
     return new DataAccessor() {
       @Override
@@ -448,6 +520,12 @@ public class InMemStorage extends StorageDescriptor {
       public Optional<PartitionedView> getPartitionedView(Context context) {
         Objects.requireNonNull(context);
         return Optional.of(commitLogReader);
+      }
+
+      @Override
+      public Optional<PartitionedCachedView> getCachedView(Context context) {
+        Objects.requireNonNull(context);
+        return Optional.of(cachedView);
       }
 
     };

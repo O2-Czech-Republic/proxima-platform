@@ -139,7 +139,9 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   @Override
   public Optional<PartitionedCachedView> getCachedView(Context context) {
     return Optional.of(new LocalCachedPartitionedView(
-        new KafkaLogReader(this, context), context.getExecutorService()));
+        new KafkaLogReader(this, context),
+        getWriter(context).get().online(),
+        context.getExecutorService()));
   }
 
 }

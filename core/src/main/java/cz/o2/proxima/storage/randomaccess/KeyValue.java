@@ -47,7 +47,8 @@ public class KeyValue<T> {
         attribute,
         offset,
         value.get(),
-        valueBytes);
+        valueBytes,
+        System.currentTimeMillis());
   }
 
 
@@ -67,7 +68,30 @@ public class KeyValue<T> {
         attribute,
         offset,
         value,
-        valueBytes);
+        valueBytes,
+        System.currentTimeMillis());
+  }
+
+
+  public static <T> KeyValue<T> of(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<T> attrDesc,
+      String key,
+      String attribute,
+      RandomOffset offset,
+      T value,
+      byte[] valueBytes,
+      long stamp) {
+
+    return new KeyValue<>(
+        entityDesc,
+        attrDesc,
+        key,
+        attribute,
+        offset,
+        value,
+        valueBytes,
+        stamp);
   }
 
   @Getter
@@ -91,6 +115,9 @@ public class KeyValue<T> {
   @Getter
   private final RandomOffset offset;
 
+  @Getter
+  private final long stamp;
+
 
   KeyValue(
       EntityDescriptor entityDesc,
@@ -99,7 +126,8 @@ public class KeyValue<T> {
       String attribute,
       RandomOffset offset,
       T value,
-      byte[] valueBytes) {
+      byte[] valueBytes,
+      long stamp) {
 
     this.entityDescriptor = entityDesc;
     this.attrDescriptor = attrDesc;
@@ -108,6 +136,7 @@ public class KeyValue<T> {
     this.value = value;
     this.valueBytes = valueBytes;
     this.offset = offset;
+    this.stamp = stamp;
   }
 
   @Override
@@ -118,6 +147,7 @@ public class KeyValue<T> {
         + ", key=" + getKey()
         + ", attribute=" + getAttribute()
         + ", offset=" + getOffset()
+        + ", stamp=" + getStamp()
         + ", value=" + getValue() + ")";
   }
 

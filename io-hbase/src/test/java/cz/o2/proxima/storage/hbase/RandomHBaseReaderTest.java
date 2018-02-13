@@ -49,8 +49,10 @@ public class RandomHBaseReaderTest {
 
   private final Repository repo = Repository.Builder.ofTest(ConfigFactory.load()).build();
   private final EntityDescriptor entity = repo.findEntity("test").get();
-  private final AttributeDescriptor<?> attr = entity.findAttribute("dummy").get();
-  private final AttributeDescriptor<?> wildcard = entity.findAttribute("wildcard.*").get();
+  @SuppressWarnings("unchecked")
+  private final AttributeDescriptor<byte[]> attr = (AttributeDescriptor) entity.findAttribute("dummy").get();
+  @SuppressWarnings("unchecked")
+  private final AttributeDescriptor<byte[]> wildcard = (AttributeDescriptor) entity.findAttribute("wildcard.*").get();
   private final TableName tableName = TableName.valueOf("test");
 
   private HBaseTestingUtility util;
@@ -83,7 +85,7 @@ public class RandomHBaseReaderTest {
   @Test
   public void testRandomGet() throws IOException {
     write("key", "dummy", "value");
-    Optional<KeyValue<?>> res = reader.get("key", attr);
+    Optional<KeyValue<byte[]>> res = reader.get("key", attr);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
     assertArrayEquals(b("value"), res.get().getValueBytes());
@@ -93,7 +95,7 @@ public class RandomHBaseReaderTest {
   @Test
   public void testRandomGetWildcard() throws IOException {
     write("key", "wildcard.12345", "value");
-    Optional<KeyValue<?>> res = reader.get("key", "wildcard.12345", wildcard);
+    Optional<KeyValue<byte[]>> res = reader.get("key", "wildcard.12345", wildcard);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
     assertArrayEquals(b("value"), res.get().getValueBytes());

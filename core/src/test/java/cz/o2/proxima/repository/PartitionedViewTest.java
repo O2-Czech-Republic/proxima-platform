@@ -28,7 +28,7 @@ import cz.seznam.euphoria.core.client.io.StdoutSink;
 import cz.seznam.euphoria.core.client.operator.MapElements;
 import cz.seznam.euphoria.executor.local.LocalExecutor;
 import java.io.Serializable;
-import java.util.concurrent.TimeUnit;
+import java.util.Collection;
 import org.junit.After;
 import static org.junit.Assert.*;
 import org.junit.Before;
@@ -69,7 +69,15 @@ public class PartitionedViewTest implements Serializable {
   @Test(timeout = 2000)
   public void testViewConsumption() throws InterruptedException {
     assertEquals(1, view.getPartitions().size());
+    SerializableCountDownLatch latch = new SerializableCountDownLatch(1);
+    SerializableCountDownLatch start = new SerializableCountDownLatch(1);
+
     Dataset<String> result = view.observePartitions(view.getPartitions(), new PartitionedLogObserver<String>() {
+
+      @Override
+      public void onRepartition(Collection<Partition> assigned) {
+        start.countDown();
+      }
 
       @Override
       public boolean onNext(
@@ -90,9 +98,6 @@ public class PartitionedViewTest implements Serializable {
 
     });
 
-    // count down one after writing the ingest and one after processing
-    // it in the pipeline
-    SerializableCountDownLatch latch = new SerializableCountDownLatch(2);
     MapElements.of(result)
         .using(e -> {
           latch.countDown();
@@ -103,9 +108,7 @@ public class PartitionedViewTest implements Serializable {
 
     executor.submit(result.getFlow());
 
-
-    // wait for 1 second to enable starting of the execution pipeline
-    TimeUnit.SECONDS.sleep(1);
+    start.await();
 
     // write data to event
     writer.online().write(

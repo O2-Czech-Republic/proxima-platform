@@ -20,7 +20,9 @@ import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
+import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.transform.EventDataToDummy;
+import cz.o2.proxima.view.PartitionedCachedView;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
@@ -159,19 +161,16 @@ public class RepositoryTest {
     assertEquals(source, kv.getAttrDescriptor());
     assertEquals("event.abc", kv.getAttribute());
     assertEquals("key", kv.getKey());
-
   }
 
   @Test
   public void testProxyScan() throws UnsupportedEncodingException, InterruptedException {
     Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
     EntityDescriptor proxied = repo.findEntity("proxied").get();
-    AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
     AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
     Set<AttributeFamilyDescriptor> proxiedFamilies = repo
         .getFamiliesForAttribute(source);
 
-    // verify that writing to attribute event.abc ends up as _e.abc
     source.getWriter().write(StreamElement.update(
         proxied,
         source, UUID.randomUUID().toString(),
@@ -193,6 +192,7 @@ public class RepositoryTest {
     proxiedFamilies.iterator().next()
         .getRandomAccessReader().get().scanWildcard("key", source, kvs::add);
 
+    assertEquals(2, kvs.size());
     assertEquals("test", new String((byte[]) kvs.get(0).getValue()));
     assertEquals(source, kvs.get(0).getAttrDescriptor());
     assertEquals("event.abc", kvs.get(0).getAttribute());
@@ -202,9 +202,33 @@ public class RepositoryTest {
     assertEquals(source, kvs.get(1).getAttrDescriptor());
     assertEquals("event.def", kvs.get(1).getAttribute());
     assertEquals("key", kvs.get(1).getKey());
-
   }
 
-
+  @Test
+  public void testProxyCachedView() throws UnsupportedEncodingException {
+    Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
+    EntityDescriptor proxied = repo.findEntity("proxied").get();
+    AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
+    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    PartitionedCachedView view = repo.getFamiliesForAttribute(source).stream()
+        .filter(af -> af.getAccess().canCreatePartitionedCachedView())
+        .findAny()
+        .flatMap(af -> af.getPartitionedCachedView())
+        .orElseThrow(() -> new IllegalStateException("Missing cached view for " + source));
+    RandomAccessReader reader = repo.getFamiliesForAttribute(target).stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(af -> af.getRandomAccessReader())
+        .orElseThrow(() -> new IllegalStateException("Missing random reader for " + target));
+    view.assign(Arrays.asList(() -> 0));
+    StreamElement update = StreamElement.update(
+        proxied,
+        source, UUID.randomUUID().toString(),
+        "key", "event.def", System.currentTimeMillis(), "test2".getBytes("UTF-8"));
+    assertFalse(reader.get("key", target.toAttributePrefix() + "def", target).isPresent());
+    view.write(update, (succ, exc) -> { });
+    assertTrue(reader.get("key", target.toAttributePrefix() + "def", target).isPresent());
+    assertTrue(view.get("key", source.toAttributePrefix() + "def", source).isPresent());
+  }
 
 }

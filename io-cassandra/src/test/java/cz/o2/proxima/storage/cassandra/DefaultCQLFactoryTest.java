@@ -125,6 +125,7 @@ public class DefaultCQLFactoryTest {
 
     };
     factory.setup(
+        entity,
         new URI("cassandra://wherever/my_table?data=my_col&primary=hgw"),
         StringConverter.DEFAULT);
   }
@@ -133,6 +134,7 @@ public class DefaultCQLFactoryTest {
   @Test(expected=IllegalStateException.class)
   public void testSetupWithNoQuery() throws URISyntaxException {
     factory.setup(
+        entity,
         new URI("cassandra://wherever/my_table"),
         StringConverter.DEFAULT);
   }
@@ -141,6 +143,7 @@ public class DefaultCQLFactoryTest {
   @Test
   public void testSetupWithJustPrimary() throws URISyntaxException {
     factory.setup(
+        entity,
         new URI("cassandra://wherever/my_table?primary=hgw"),
         StringConverter.DEFAULT);
   }
@@ -149,6 +152,7 @@ public class DefaultCQLFactoryTest {
   @Test(expected = IllegalArgumentException.class)
   public void testSetupWithNoPath() throws URISyntaxException {
     factory.setup(
+        entity,
         new URI("cassandra://wherever/"),
         StringConverter.DEFAULT);
   }
@@ -176,6 +180,7 @@ public class DefaultCQLFactoryTest {
   public void testIngestWithTTL() throws URISyntaxException {
     long now = System.currentTimeMillis();
     factory.setup(
+        entity,
         new URI("cassandra://wherever/my_table?data=my_col&primary=hgw&ttl=86400"),
         StringConverter.DEFAULT);
     StreamElement ingest = StreamElement.update(
@@ -368,6 +373,7 @@ public class DefaultCQLFactoryTest {
   @Test
   public void testListWildcardWithExplicitSecondaryField() throws URISyntaxException {
     factory.setup(
+        entity,
         new URI("cassandra://wherever/my_table?data=my_col&primary=hgw&secondary=stamp"),
         StringConverter.DEFAULT);
     BoundStatement bound = mock(BoundStatement.class);

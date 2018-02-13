@@ -97,7 +97,7 @@ public class CassandraDBAccessorTest {
     }
 
     @Override
-    public void setup(URI uri, StringConverter converter) {
+    public void setup(EntityDescriptor entity, URI uri, StringConverter converter) {
       // nop
     }
 
@@ -140,6 +140,13 @@ public class CassandraDBAccessorTest {
         Session session) {
 
       return mock(BoundStatement.class);
+    }
+
+    @Override
+    public KvIterable getListAllStatement(
+        String key, Offsets.Raw offset, int limit, Session session) {
+      
+      return mock(KvIterable.class);
     }
 
   }
@@ -153,7 +160,7 @@ public class CassandraDBAccessorTest {
 
 
     @Override
-    public void setup(URI uri, StringConverter converter) {
+    public void setup(EntityDescriptor entity, URI uri, StringConverter converter) {
       // nop
     }
 
@@ -199,12 +206,18 @@ public class CassandraDBAccessorTest {
 
       throw new RuntimeException("Fail");
     }
+
+    @Override
+    public KvIterable getListAllStatement(
+        String key, Offsets.Raw offset, int limit, Session session) {
+      throw new RuntimeException("Fail");
+    }
   }
 
 
   Repository repo = Repository.Builder.ofTest(ConfigFactory.defaultApplication()).build();
-  AttributeDescriptorBase<?> attr;
-  AttributeDescriptorBase<?> attrWildcard;
+  AttributeDescriptorBase<byte[]> attr;
+  AttributeDescriptorBase<byte[]> attrWildcard;
   EntityDescriptor entity;
 
   public CassandraDBAccessorTest() throws URISyntaxException {
@@ -334,7 +347,7 @@ public class CassandraDBAccessorTest {
 
     accessor.setRes(res);
 
-    Optional<KeyValue<?>> value = db.get("key", attr);
+    Optional<KeyValue<byte[]>> value = db.get("key", attr);
     assertTrue(value.isPresent());
     assertEquals("dummy", value.get().getAttribute());
     assertEquals("key", value.get().getKey());

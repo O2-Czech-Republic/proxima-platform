@@ -26,6 +26,11 @@ public enum Position {
    */
   NEWEST,
 
+  /**
+   * Read from given offsets (current).
+   */
+  CURRENT,
+
   /** Read the commit log from the oldest data available. */
   OLDEST;
 

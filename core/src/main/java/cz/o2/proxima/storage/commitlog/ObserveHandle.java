@@ -48,4 +48,10 @@ public interface ObserveHandle extends Serializable {
    */
   List<Offset> getCurrentOffsets();
 
+  /**
+   * Wait until the consumer is ready to read data.
+   * @throws InterruptedException when interrupted before the wait is done
+   */
+  void waitUntilReady() throws InterruptedException;
+
 }

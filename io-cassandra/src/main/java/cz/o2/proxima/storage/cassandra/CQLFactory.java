@@ -19,7 +19,9 @@ import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.randomaccess.KeyValue;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.List;
@@ -27,18 +29,24 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
- * A factory CQL queries for ingesting.
+ * A factory CQL queries for data access.
  */
 public interface CQLFactory extends Serializable {
 
   /**
+   * Interface for iteration over returned results returning {@link KeyValue}s.
+   */
+  interface KvIterable {
+    Iterable<KeyValue<?>> iterable(CassandraDBAccessor accessor);
+  }
+
+  /**
    * Setup the factory from URI and given string converter.
+   * @param entity descriptor of entity
    * @param uri URI of the source
    * @param converter payload to string converter
    */
-  public void setup(
-      URI uri,
-      StringConverter<?> converter);
+  void setup(EntityDescriptor entity, URI uri, StringConverter<?> converter);
 
 
   /**
@@ -66,6 +74,19 @@ public interface CQLFactory extends Serializable {
       AttributeDescriptor<?> desc,
       Session session);
 
+  /**
+   * Retrieve wrapped statement to execute to list all attributes of given key.
+   * @param key key to list attributes of
+   * @param offset offset to start from (return next attribute)
+   * @param limit maximum number of items to return
+   * @param session the connection session
+   * @return iterable over keyvalues
+   */
+  KvIterable getListAllStatement(
+      String key,
+      @Nullable Offsets.Raw offset,
+      int limit,
+      Session session);
 
   /**
    * Retrieve a CQL query to execute in order to list wildcard attributes.

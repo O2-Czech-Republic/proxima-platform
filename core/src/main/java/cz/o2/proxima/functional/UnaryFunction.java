@@ -13,24 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.util;
+package cz.o2.proxima.functional;
 
-import org.junit.Test;
-
-import static org.junit.Assert.*;
+import java.io.Serializable;
 
 /**
- * Test pattern matching.
+ * Function of single argument.
  */
-public class NamePatternTest {
+@FunctionalInterface
+public interface UnaryFunction<IN, OUT> extends Serializable {
 
-  @Test
-  public void testSingleWildcard() {
-    String pattern = "device.*";
-    NamePattern test = new NamePattern(pattern);
-    assertTrue(test.matches("device.abc-xyz"));
-    assertTrue(test.matches("device."));
-    assertFalse(test.matches("device"));
-  }
+  /**
+   * Apply function and return result.
+   * @param input input of the function
+   * @return result
+   */
+  OUT apply(IN input);
 
 }

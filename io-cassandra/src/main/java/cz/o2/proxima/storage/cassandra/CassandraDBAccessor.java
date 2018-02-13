@@ -110,7 +110,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
     try {
       cqlFactory = Classpath.findClass(cqlFactoryName, CQLFactory.class).newInstance();
-      cqlFactory.setup(uri, converter);
+      cqlFactory.setup(entityDesc, uri, converter);
     } catch (InstantiationException | IllegalAccessException ex) {
       throw new IllegalArgumentException("Cannot instantiate class " + cqlFactoryName,
           ex);

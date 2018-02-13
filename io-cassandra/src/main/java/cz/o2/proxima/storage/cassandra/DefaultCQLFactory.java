@@ -59,7 +59,6 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
   @Nullable
   String secondaryField;
 
-
   /**
    * Converter between type stored in cassandra and string used
    * as a specifier in wildcard attributes.
@@ -73,11 +72,6 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
 
   /** The connection session in use. */
   Session current = null;
-
-  public DefaultCQLFactory() {
-
-  }
-
 
   @Override
   protected void setup(
@@ -200,12 +194,12 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
       // use the first part of the attribute name
       String colName = toColName(element.getAttributeDescriptor());
       return String.format("INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?) USING TIMESTAMP ?%s",
-          tableName, primaryField, toUnderScore(colName),
+          getTableName(), primaryField, toUnderScore(colName),
           toPayloadCol(element.getAttributeDescriptor()),
           ttl > 0 ? (" AND TTL " + ttl) : "");
     } else {
       return String.format("INSERT INTO %s (%s, %s) VALUES (?, ?) USING TIMESTAMP ?%s",
-          tableName, primaryField, toUnderScore(element.getAttribute()),
+          getTableName(), primaryField, toUnderScore(element.getAttribute()),
           ttl > 0 ? (" AND TTL " + ttl) : "");
     }
 
@@ -218,10 +212,11 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
       // use the first part of the attribute name
       String colName = toColName(element.getAttributeDescriptor());
       return String.format("DELETE %s FROM %s USING TIMESTAMP ? WHERE %s=? AND %s=?",
-          toPayloadCol(element.getAttributeDescriptor()), tableName, toUnderScore(colName), primaryField);
+          toPayloadCol(element.getAttributeDescriptor()), getTableName(),
+          toUnderScore(colName), primaryField);
     } else {
       return String.format("DELETE %s FROM %s USING TIMESTAMP ? WHERE %s=?",
-          toUnderScore(element.getAttribute()), tableName, primaryField);
+          toUnderScore(element.getAttribute()), getTableName(), primaryField);
     }
   }
 
@@ -229,7 +224,7 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
   protected String createDeleteWildcardStatement(StreamElement what) {
     return String.format(
         "DELETE FROM %s USING TIMESTAMP ? WHERE %s=?",
-        tableName, primaryField);
+        getTableName(), primaryField);
   }
 
 
@@ -240,11 +235,11 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
     if (desc.isWildcard()) {
       String colName = toColName(desc);
       return String.format("SELECT %s FROM %s WHERE %s=? AND %s=?",
-          toPayloadCol(desc), tableName, primaryField, toUnderScore(colName));
+          toPayloadCol(desc), getTableName(), primaryField, toUnderScore(colName));
     }
 
     return String.format("SELECT %s FROM %s WHERE %s=?",
-        toUnderScore(attribute), tableName, primaryField);
+        toUnderScore(attribute), getTableName(), primaryField);
   }
 
 
@@ -255,7 +250,7 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
     String colName = toColName(attr);
     String dataCol = toUnderScore(colName);
     return String.format("SELECT %s, %s FROM %s WHERE %s=? AND %s%s? LIMIT ?",
-        dataCol, toPayloadCol(attr), tableName, primaryField, dataCol,
+        dataCol, toPayloadCol(attr), getTableName(), primaryField, dataCol,
         reversed ? "<" : ">");
   }
 
@@ -279,14 +274,20 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
   protected String createListEntititiesStatement() {
     return String.format(
         "SELECT %s, token(%s) FROM %s WHERE token(%s) > ? LIMIT ?",
-        primaryField, primaryField, tableName, primaryField);
+        primaryField, primaryField, getTableName(), primaryField);
   }
 
 
   @Override
   protected String createFetchTokenStatement() {
     return String.format("SELECT token(%s) FROM %s WHERE %s=?",
-        primaryField, tableName, primaryField);
+        primaryField, getTableName(), primaryField);
+  }
+
+  @Override
+  protected String createListAllStatement(Session session) {
+    throw new UnsupportedOperationException(
+        "Unsupported. See https://github.com/O2-Czech-Republic/proxima-platform/issues/67");
   }
 
   @Override
@@ -309,13 +310,22 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
     }
     String query = String.format(
         "SELECT %s, %s FROM %s WHERE token(%s) >= %d AND token(%s) %s %d",
-        primaryField, columns.toString(), tableName, primaryField,
+        primaryField, columns.toString(), getTableName(), primaryField,
         partition.getTokenStart(), primaryField,
         partition.isEndInclusive() ? "<=" : "<",
         partition.getTokenEnd());
 
     log.info("Scanning partition with query {}", query);
     return new SimpleStatement(query);
+  }
+
+  @Override
+  public KvIterable getListAllStatement(
+      String key, Offsets.Raw offset,
+      int limit, Session session) {
+
+    throw new UnsupportedOperationException(
+        "Unsupported. See https://github.com/O2-Czech-Republic/proxima-platform/issues/67");
   }
 
 }

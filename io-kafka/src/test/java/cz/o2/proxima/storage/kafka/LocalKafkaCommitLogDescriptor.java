@@ -302,7 +302,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
       log.debug(
           "Consumer {} seeked to offset {} in partition {}",
-          consumerId, partition, offset);
+          consumerId, offset, partition);
       List<Pair<Integer, AtomicInteger>> partOffsets;
       partOffsets = consumerOffsets.computeIfAbsent(consumerId, c -> new ArrayList<>());
       for (Pair<Integer, AtomicInteger> p : partOffsets) {
@@ -423,8 +423,8 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
           getTopic(),
           partitionId,
           offset,
-          System.currentTimeMillis(),
-          TimestampType.LOG_APPEND_TIME,
+          ingest.getStamp(),
+          TimestampType.CREATE_TIME,
           0L,
           -1,
           -1,
@@ -603,10 +603,13 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       int partitionId = accessor.getPartitioner().getPartitionId(
           data.getKey(), data.getAttribute(), data.getValue());
       int partition = (partitionId & Integer.MAX_VALUE) % numPartitions;
+      Accessor local = (LocalKafkaCommitLogDescriptor.Accessor) accessor;
+      local.written.get(partition).add(data);
+      long offset = local.written.get(partition).size() - 1;
       log.debug(
-          "Written data {} to LocalKafkaCommitLog descriptorId {} URI {}, partition {}",
-          data, descriptorId, getURI(), partition);
-      ((LocalKafkaCommitLogDescriptor.Accessor) accessor).written.get(partition).add(data);
+          "Written data {} to LocalKafkaCommitLog descriptorId {} URI {}, partition {} at offset {}",
+          data, descriptorId, getURI(), partition, offset);
+
       callback.commit(true, null);
     }
 

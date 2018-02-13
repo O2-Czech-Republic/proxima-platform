@@ -93,7 +93,7 @@ public class StreamElement {
 
     return new StreamElement(
         entityDesc, attributeDesc, uuid,
-        key, null, stamp, null);
+        key, attributeDesc.toAttributePrefix() + "*", stamp, null);
   }
 
   @Getter
@@ -161,7 +161,8 @@ public class StreamElement {
    * @return {@code true} if this is delete wildcard event
    */
   public boolean isDeleteWildcard() {
-    return isDelete() && attribute == null;
+    return isDelete()
+        && attribute.equals(attributeDescriptor.toAttributePrefix() + "*");
   }
 
   /**

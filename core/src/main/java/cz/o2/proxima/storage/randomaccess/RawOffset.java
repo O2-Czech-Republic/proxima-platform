@@ -13,24 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.util;
+package cz.o2.proxima.storage.randomaccess;
 
-import org.junit.Test;
-
-import static org.junit.Assert.*;
+import lombok.Getter;
 
 /**
- * Test pattern matching.
+ * Offset that is represented by raw string.
  */
-public class NamePatternTest {
+public class RawOffset implements RandomOffset {
 
-  @Test
-  public void testSingleWildcard() {
-    String pattern = "device.*";
-    NamePattern test = new NamePattern(pattern);
-    assertTrue(test.matches("device.abc-xyz"));
-    assertTrue(test.matches("device."));
-    assertFalse(test.matches("device"));
+  @Getter
+  private final String offset;
+
+  public RawOffset(String offset) {
+    this.offset = offset;
   }
 
 }

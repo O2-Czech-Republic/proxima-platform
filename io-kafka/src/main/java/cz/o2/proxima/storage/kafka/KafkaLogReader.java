@@ -130,7 +130,7 @@ public class KafkaLogReader extends AbstractStorage
 
   @Override
   public ObserveHandle observeBulkPartitions(
-      List<Partition> partitions,
+      Collection<Partition> partitions,
       Position position,
       BulkLogObserver observer) {
 
@@ -139,7 +139,7 @@ public class KafkaLogReader extends AbstractStorage
 
   @Override
   public ObserveHandle observeBulkOffsets(
-      List<Offset> offsets, BulkLogObserver observer) {
+      Collection<Offset> offsets, BulkLogObserver observer) {
     return observeKafkaBulk(null, offsets, null, observer);
   }
 
@@ -332,18 +332,19 @@ public class KafkaLogReader extends AbstractStorage
     Map<TopicPartition, OffsetAndMetadata> kafkaCommitMap;
     kafkaCommitMap = Collections.synchronizedMap(new HashMap<>());
 
-    BulkConsumer bulkConsumer = new BulkConsumer(topic, observer, (tp, o) -> {
-      OffsetAndMetadata off = new OffsetAndMetadata(o);
-      if (commitToKafka) {
-        kafkaCommitMap.put(tp, off);
-      }
-    }, () -> {
-      synchronized (kafkaCommitMap) {
-        Map<TopicPartition, OffsetAndMetadata> clone = new HashMap<>(kafkaCommitMap);
-        kafkaCommitMap.clear();
-        return clone;
-      }
-    });
+    BulkConsumer bulkConsumer = new BulkConsumer(
+        topic, observer, (tp, o) -> {
+          if (commitToKafka) {
+            OffsetAndMetadata off = new OffsetAndMetadata(o);
+            kafkaCommitMap.put(tp, off);
+          }
+        }, () -> {
+          synchronized (kafkaCommitMap) {
+            Map<TopicPartition, OffsetAndMetadata> clone = new HashMap<>(kafkaCommitMap);
+            kafkaCommitMap.clear();
+            return clone;
+          }
+        });
 
     AtomicReference<ObserveHandle> handle = new AtomicReference<>();
     submitConsumerWithObserver(
@@ -388,6 +389,11 @@ public class KafkaLogReader extends AbstractStorage
         @Override
         public List<Offset> getCurrentOffsets() {
           return (List) consumer.getCurrentOffsets();
+        }
+
+        @Override
+        public void waitUntilReady() throws InterruptedException {
+          latch.await();
         }
 
       });
@@ -442,9 +448,9 @@ public class KafkaLogReader extends AbstractStorage
             } else {
               String entityKey = key.substring(0, hashPos);
               String attribute = key.substring(hashPos + 1);
-              Optional<AttributeDescriptor<?>> attr = getEntityDescriptor().findAttribute(attribute);
+              Optional<AttributeDescriptor<Object>> attr = getEntityDescriptor().findAttribute(attribute);
               if (!attr.isPresent()) {
-                log.error("Invalid attribute in kafka key {}", key);
+                log.error("Invalid attribute {} in kafka key {}", attribute, key);
               } else {
                 ingest = new KafkaStreamElement(
                     getEntityDescriptor(), attr.get(),
@@ -544,7 +550,7 @@ public class KafkaLogReader extends AbstractStorage
         log.info("Seeking given partitions {} to beginning", tps);
         consumer.seekToBeginning(tps);
       }
-    } else if (position != Position.NEWEST) {
+    } else if (position == Position.CURRENT) {
       log.info("Seeking to given offsets {}", offsets);
       Utils.seekToCommitted(topic, offsets, consumer);
     } else {
@@ -587,6 +593,11 @@ public class KafkaLogReader extends AbstractStorage
       @Override
       public List<Offset> getCurrentOffsets() {
         return proxy.get().getCurrentOffsets();
+      }
+
+      @Override
+      public void waitUntilReady() throws InterruptedException {
+        proxy.get().waitUntilReady();
       }
 
     };

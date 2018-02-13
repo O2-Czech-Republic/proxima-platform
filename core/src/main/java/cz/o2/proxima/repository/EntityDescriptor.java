@@ -68,19 +68,21 @@ public interface EntityDescriptor extends Serializable {
 
   /**
    * Find attribute by name.
+   * @param <T> value type
    * @param name name of the attribute to search for
    * @param includeProtected {@code true} to allow search for protected fields (prefixed by _).
    * @return optional found attribute descriptor
    */
-  Optional<AttributeDescriptor<?>> findAttribute(String name, boolean includeProtected);
+  <T> Optional<AttributeDescriptor<T>> findAttribute(String name, boolean includeProtected);
 
   /**
    * Find attribute by name.
    * Do not search protected fields (prefixed by _).
+   * @param <T> value type
    * @param name name of the attribute to search for
    * @return optional found attribute descriptor
    */
-  default Optional<AttributeDescriptor<?>> findAttribute(String name) {
+  default <T> Optional<AttributeDescriptor<T>> findAttribute(String name) {
     return findAttribute(name, false);
   }
 

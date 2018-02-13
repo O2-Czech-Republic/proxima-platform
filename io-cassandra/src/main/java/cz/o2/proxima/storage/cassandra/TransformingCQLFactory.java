@@ -91,7 +91,7 @@ public class TransformingCQLFactory<T extends Serializable> extends CacheableCQL
   protected String createInsertStatement(StreamElement element) {
     StringBuilder sb = new StringBuilder();
     sb.append(
-        String.format("INSERT INTO %s (%s) VALUES (", tableName,
+        String.format("INSERT INTO %s (%s) VALUES (", getTableName(),
         Joiner.on(", ").join(columns)));
     String comma = "";
     for (int i = 0; i < extractors.size(); i++) {
@@ -175,6 +175,17 @@ public class TransformingCQLFactory<T extends Serializable> extends CacheableCQL
       CassandraPartition partition,
       Session session) {
 
+    throw new UnsupportedOperationException("Not supported.");
+  }
+
+  @Override
+  protected String createListAllStatement(Session session) {
+    throw new UnsupportedOperationException("Not supported.");
+  }
+
+  @Override
+  public KvIterable getListAllStatement(
+      String key, Offsets.Raw offset, int limit, Session session) {
     throw new UnsupportedOperationException("Not supported.");
   }
 

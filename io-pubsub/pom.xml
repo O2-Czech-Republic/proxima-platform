@@ -26,12 +26,21 @@
     <version>0.2-SNAPSHOT</version>
   </parent>
      
-  <artifactId>io-kafka</artifactId>
+  <artifactId>io-pubsub</artifactId>
   <packaging>jar</packaging>
      
   <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
+
+    <extensions>
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.4.1.Final</version>
+      </extension>
+    </extensions>
+
     <plugins>
       <!-- generate test-jar artifact -->
       <plugin>
@@ -47,6 +56,26 @@
         </executions>
       </plugin>
 
+      <!-- compile protobuffers -->
+      <plugin>
+        <groupId>org.xolstice.maven.plugins</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <version>0.5.0</version>
+        <configuration>
+          <protocArtifact>com.google.protobuf:protoc:${proto.version}:exe:${os.detected.classifier}</protocArtifact>
+          <pluginId>grpc-java</pluginId>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>compile</goal>
+              <goal>test-compile</goal>
+              <goal>compile-custom</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -57,41 +86,55 @@
             <excludes>
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:core</exclude>
+              <!-- make tcnative boringssl explicit dependency -->
+              <exclude>io.netty:netty-tcnative-boringssl-static</exclude>
             </excludes>
           </artifactSet>
           <shadeTestJar>true</shadeTestJar>
           <relocations>
             <relocation>
-              <pattern>org.apache.kafka.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.org.apache.kafka.</shadedPattern>
+              <pattern>io.netty.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.netty.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>net.sf.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.net.sf.</shadedPattern>
+              <pattern>io.grpc.auth.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.auth.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>com.yammer.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.com.yammer.</shadedPattern>
+              <pattern>io.grpc.internal.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.internal.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>scala.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.scala.</shadedPattern>
+              <pattern>io.grpc.stub.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.stub.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>com.101tec.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.com.101tec.</shadedPattern>
+              <pattern>io.grpc.protobuf.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.protobuf.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>org.apache.zookeeper.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.org.apache.zookeeper.</shadedPattern>
+              <pattern>com.google.api.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.api.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.pubsub.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.pubsub.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.cloud.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.cloud.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.auth.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.auth.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.com.google.common.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.protobuf.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.com.google.protobuf.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.protobuf.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -116,15 +159,21 @@
     </dependency>
 
     <dependency>
-      <groupId>org.apache.kafka</groupId>
-      <artifactId>kafka_2.12</artifactId>
-      <version>${kafka.version}</version>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-pubsub</artifactId>
+      <version>0.34.0-beta</version>
       <exclusions>
         <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-log4j12</artifactId>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-tcnative-boringssl-static</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>${proto.version}</version>
     </dependency>
 
     <dependency>
@@ -137,6 +186,16 @@
       <artifactId>euphoria-local</artifactId>
       <version>${euphoria.version}</version>
       <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-tcnative-boringssl-static</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
     </dependency>
 
     <dependency>
@@ -157,12 +216,6 @@
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
       <artifactId>jsr305</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>23.0</version>
     </dependency>
 
   </dependencies>

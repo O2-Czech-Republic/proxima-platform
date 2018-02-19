@@ -81,8 +81,32 @@
           </artifactSet>
           <relocations>
             <relocation>
+              <pattern>io.netty.</pattern>
+              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.io.netty.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.auth.</pattern>
+              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.io.grpc.auth.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.internal.</pattern>
+              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.io.grpc.internal.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.stub.</pattern>
+              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.io.grpc.stub.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.protobuf.</pattern>
+              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.io.grpc.protobuf.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>com.google.common.</pattern>
               <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.com.google.common.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.auth.</pattern>
+              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.com.google.auth.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.protobuf.</pattern>
@@ -118,7 +142,7 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-storage</artifactId>
-      <version>1.14.0</version>
+      <version>1.16.0</version>
     </dependency>
 
     <dependency>

@@ -48,8 +48,39 @@
           <artifactSet>
             <excludes>
               <exclude>cz.o2.proxima:core</exclude>
+              <exclude>io.netty:netty-tcnative-boringssl-static</exclude>
             </excludes>
           </artifactSet>
+          <relocations>
+            <relocation>
+              <pattern>io.netty.</pattern>
+              <shadedPattern>cz.o2.proxima.bigtable.shaded.io.netty.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.</pattern>
+              <shadedPattern>cz.o2.proxima.bigtable.shaded.io.grpc.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.api.</pattern>
+              <shadedPattern>cz.o2.proxima.bigtable.shaded.com.google.api.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.bigtable.</pattern>
+              <shadedPattern>cz.o2.proxima.bigtable.shaded.com.google.pubsub.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.cloud.</pattern>
+              <shadedPattern>cz.o2.proxima.bigtable.shaded.com.google.cloud.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.auth.</pattern>
+              <shadedPattern>cz.o2.proxima.bigtable.shaded.com.google.auth.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.common.</pattern>
+              <shadedPattern>cz.o2.proxima.bigtable.shaded.com.google.common.</shadedPattern>
+            </relocation>
+          </relocations>
         </configuration>
         <executions>
           <execution>
@@ -74,7 +105,7 @@
     <dependency>
       <groupId>com.google.cloud.bigtable</groupId>
       <artifactId>bigtable-hbase-1.x</artifactId>
-      <version>1.0.0</version>
+      <version>1.1.2</version>
       <exclusions>
         <exclusion>
           <groupId>log4j</groupId>
@@ -96,8 +127,6 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-tcnative-boringssl-static</artifactId>
-      <version>2.0.6.Final</version>
-      <classifier>${os.detected.classifier}</classifier>
     </dependency>
 
   </dependencies>

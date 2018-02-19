@@ -11,7 +11,7 @@ addons:
       - oracle-java8-installer
 
 install: true
-script: mvn install -B -V
+script: mvn install -B -V -Pallow-snapshots
 before_cache: rm -rf ~/.m2/repository/cz/o2/proxima || /bin/true
 
 cache:

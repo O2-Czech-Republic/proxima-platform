@@ -45,4 +45,22 @@ public class URIUtil {
     }
   }
 
+  /**
+   * Get normalized path from URI, which:
+   *  * is not null
+   *  * doesn't start or end with slash
+   * @param uri the URI to extract path from
+   * @return normalized path
+   */
+  public static String getPathNormalized(URI uri) {
+    String p = uri.getPath();
+    while (p.startsWith("/")) {
+      p = p.substring(1);
+    }
+    while (p.endsWith("/")) {
+      p = p.substring(0, p.length() - 1);
+    }
+    return p + "/";
+  }
+
 }

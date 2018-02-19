@@ -75,7 +75,7 @@
     <kafka.version>0.11.0.1</kafka.version>
     <proto.version>3.5.0</proto.version>
     <grpc.version>1.7.0</grpc.version>
-    <euphoria.version>0.8.0-rc1</euphoria.version>
+    <euphoria.version>0.9-SNAPSHOT</euphoria.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
@@ -332,6 +332,7 @@
     <module>io-hdfs</module>
     <module>io-http</module>
     <module>io-kafka</module>
+    <module>io-pubsub</module>
     <module>maven</module>
     <module>rpc</module>
     <module>scheme</module>

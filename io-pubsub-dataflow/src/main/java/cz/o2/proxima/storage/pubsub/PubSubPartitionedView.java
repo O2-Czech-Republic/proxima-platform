@@ -30,6 +30,7 @@ import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
@@ -170,15 +171,35 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
       PartitionedLogObserver<T> observer, int partitionId) {
 
     return new DoFn<StreamElement, T>() {
+
+      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
+      @Setup
+      public void setup() {
+        observer.onRepartition(Arrays.asList(() -> partitionId));
+      }
+
+      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
+      @Teardown
+      public void tearDown() {
+        observer.onCompleted();
+      }
+
       @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
       @ProcessElement
       public void process(ProcessContext context) {
         StreamElement elem = context.element();
-        observer.onNext(elem, (succ, exc) -> {
-          if (!succ) {
-            throw new RuntimeException(exc);
+        try {
+          boolean cont = observer.onNext(elem, (succ, exc) -> {
+            if (!succ) {
+              throw new RuntimeException(exc);
+            }
+          }, () -> partitionId, context::output);
+          if (!cont) {
+            // FIXME: how to interrupt the processing?
           }
-        }, () -> partitionId, context::output);
+        } catch (Throwable err) {
+          observer.onError(err);
+        }
       }
     };
   }

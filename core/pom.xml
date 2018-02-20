@@ -39,6 +39,11 @@
         <version>2.4.3</version>
         <configuration>
           <shadeTestJar>true</shadeTestJar>
+          <artifactSet>
+            <excludes>
+              <exclude>org.slf4j:slf4j-api:jar:</exclude>
+            </excludes>
+          </artifactSet>
           <relocations>
             <relocation>
               <pattern>org.reflections.</pattern>

@@ -46,6 +46,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.threeten.bp.Duration;
@@ -82,14 +83,20 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   @Override
   public ObserveHandle observe(String name, Position position, LogObserver observer) {
     validatePosition(position);
-    return consume(name, (e, c) -> observer.onNext(e, (succ, exc) -> {
-      if (succ) {
-        c.ack();
-      } else {
-        log.warn("Error during processing of {}", e, exc);
-        c.nack();
+    return consume(name, (e, c) -> {
+      boolean ret = observer.onNext(e, (succ, exc) -> {
+        if (succ) {
+          c.ack();
+        } else {
+          log.warn("Error during processing of {}", e, exc);
+          c.nack();
+        }
+      });
+      if (!ret) {
+        observer.onCompleted();
       }
-    }));
+      return ret;
+    }, observer::onError, observer::onCancelled);
   }
 
   @Override
@@ -125,7 +132,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     List<AckReplyConsumer> unconfirmed = Collections.synchronizedList(new ArrayList<>());
     return consume(name, (e, c) -> {
       unconfirmed.add(c);
-      return observer.onNext(e, (succ, exc) -> {
+      boolean ret = observer.onNext(e, (succ, exc) -> {
           if (succ) {
             unconfirmed.forEach(AckReplyConsumer::ack);
           } else {
@@ -133,7 +140,11 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
             unconfirmed.forEach(AckReplyConsumer::nack);
           }
         });
-    });
+      if (!ret) {
+        observer.onCompleted();
+      }
+      return ret;
+    }, observer::onError, observer::onCancelled);
   }
 
   @Override
@@ -174,23 +185,39 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
   private ObserveHandle consume(
       String name,
-      BiFunction<StreamElement, AckReplyConsumer, Boolean> consumer) {
+      BiFunction<StreamElement, AckReplyConsumer, Boolean> consumer,
+      Function<Throwable, Boolean> errorHandler,
+      Runnable cancel) {
 
     SubscriptionName subscription = SubscriptionName.of(project, name);
     AtomicReference<Subscriber> subscriber = new AtomicReference<>();
-    MessageReceiver receiver = (m, c) -> {
-      Optional<StreamElement> elem = toElement(getEntityDescriptor(), m);
-      if (elem.isPresent()) {
-        if (!consumer.apply(elem.get(), c)) {
-          log.info("Terminating consumption by request.");
+    AtomicReference<MessageReceiver> receiver = new AtomicReference<>();
+    receiver.set((m, c) -> {
+      try {
+        Optional<StreamElement> elem = toElement(getEntityDescriptor(), m);
+        if (elem.isPresent()) {
+          if (!consumer.apply(elem.get(), c)) {
+            log.info("Terminating consumption by request.");
+            subscriber.get().stopAsync();
+          }
+        } else {
+          log.warn("Skipping unparseable element {}", m);
+          c.ack();
+        }
+      } catch (Throwable ex) {
+        log.error("Failed to consume element {}", m, ex);
+        if (errorHandler.apply(ex)) {
+          log.info("Restarting consumption by request.");
+          subscriber.get().stopAsync();
+          subscriber.set(newSubscriber(subscription, receiver.get()));
+          subscriber.get().startAsync().awaitRunning();
+        } else {
+          log.info("Terminating consumption after error.");
           subscriber.get().stopAsync();
         }
-      } else {
-        log.warn("Skipping unparseable element {}", m);
-        c.ack();
       }
-    };
-    subscriber.set(newSubscriber(subscription, receiver));
+    });
+    subscriber.set(newSubscriber(subscription, receiver.get()));
     subscriber.get().startAsync().awaitRunning();
 
     return new ObserveHandle() {
@@ -198,6 +225,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       @Override
       public void cancel() {
         subscriber.get().stopAsync();
+        cancel.run();
       }
 
       @Override
@@ -230,7 +258,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       ByteString data = m.getData();
       PubSub.KeyValue parsed = PubSub.KeyValue.parseFrom(data);
       Optional<AttributeDescriptor<Object>> attribute = entity.findAttribute(parsed.getAttribute());
-      if (!attribute.isPresent()) {
+      if (attribute.isPresent()) {
         if (parsed.getDelete()) {
           return Optional.of(StreamElement.delete(
               entity, attribute.get(), uuid,

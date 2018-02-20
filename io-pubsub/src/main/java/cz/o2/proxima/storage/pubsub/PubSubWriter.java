@@ -29,6 +29,7 @@ import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.pubsub.proto.PubSub;
+import cz.seznam.euphoria.shadow.com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,55 +38,68 @@ import lombok.extern.slf4j.Slf4j;
  * A {@link OnlineAttributeWriter} for Google PubSub.
  */
 @Slf4j
-class PubSubWriter extends AbstractOnlineAttributeWriter implements OnlineAttributeWriter {
+class PubSubWriter extends AbstractOnlineAttributeWriter
+    implements OnlineAttributeWriter {
 
-  final Publisher client;
+  final Publisher publisher;
   final Executor executor;
 
   PubSubWriter(PubSubAccessor accessor, Context context) {
     super(accessor.getEntityDescriptor(), accessor.getURI());
     try {
-      this.client = Publisher.newBuilder(
-          TopicName.of(accessor.getProject(), accessor.getTopic()))
-          .build();
+      this.publisher = newPublisher(accessor.getProject(), accessor.getTopic());
       this.executor = context.getExecutorService();
     } catch (IOException ex) {
       throw new RuntimeException(ex);
     }
   }
 
+  @VisibleForTesting
+  Publisher newPublisher(String project, String topic) throws IOException {
+    return Publisher.newBuilder(TopicName.of(project, topic)).build();
+  }
+
   @Override
   public void write(StreamElement data, CommitCallback statusCallback) {
 
-    ApiFuture<String> future = client.publish(PubsubMessage.newBuilder()
-        .setMessageId(data.getUuid())
-        .setPublishTime(Timestamp.newBuilder()
-            .setSeconds(data.getStamp() / 1000)
-            .setNanos((int) ((data.getStamp() % 1000)) * 1_000_000))
-        .setData(PubSub.KeyValue.newBuilder()
-            .setKey(data.getKey())
-            .setAttribute(data.getAttribute())
-            .setDelete(data.isDelete())
-            .setDeleteWildcard(data.isDeleteWildcard())
-            .setValue(ByteString.copyFrom(data.getValue()))
-            .build()
-            .toByteString())
-        .build());
+    log.debug("Writing data {} to {}", data, getURI());
+    try {
+      ApiFuture<String> future = publisher.publish(PubsubMessage.newBuilder()
+          .setMessageId(data.getUuid())
+          .setPublishTime(Timestamp.newBuilder()
+              .setSeconds(data.getStamp() / 1000)
+              .setNanos((int) ((data.getStamp() % 1000)) * 1_000_000))
+          .setData(PubSub.KeyValue.newBuilder()
+              .setKey(data.getKey())
+              .setAttribute(data.getAttribute())
+              .setDelete(data.isDelete())
+              .setDeleteWildcard(data.isDeleteWildcard())
+              .setValue(data.isDelete()
+                  ? ByteString.EMPTY
+                  : ByteString.copyFrom(data.getValue()))
+              .build()
+              .toByteString())
+          .build());
 
-    ApiFutures.addCallback(future, new ApiFutureCallback<String>() {
+      ApiFutures.addCallback(future, new ApiFutureCallback<String>() {
 
-      @Override
-      public void onFailure(Throwable thrwbl) {
-        log.warn("Failed to publish to pubsub", thrwbl);
-        statusCallback.commit(false, thrwbl);
-      }
+        @Override
+        public void onFailure(Throwable thrwbl) {
+          log.warn("Failed to publish elemet {} to pubsub", data, thrwbl);
+          statusCallback.commit(false, thrwbl);
+        }
 
-      @Override
-      public void onSuccess(String v) {
-        statusCallback.commit(true, null);
-      }
+        @Override
+        public void onSuccess(String v) {
+          log.debug("Committing processing of {} with success", data);
+          statusCallback.commit(true, null);
+        }
 
-    }, executor);
+      }, executor);
+    } catch (Throwable err) {
+      log.warn("Failed to publish {} to pubsub", data, err);
+      statusCallback.commit(false, err);
+    }
   }
 
 }

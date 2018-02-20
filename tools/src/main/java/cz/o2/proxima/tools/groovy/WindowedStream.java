@@ -49,7 +49,7 @@ import javax.annotation.Nullable;
 public class WindowedStream<T, W extends Windowing> extends Stream<T> {
 
   @SuppressWarnings("unchecked")
-  private static class JoinedWindowing<L, R> implements Windowing<Either<L, R>, Window> {
+  private static class JoinedWindowing<L, R, W extends Window<W>> implements Windowing<Either<L, R>, W> {
 
     private final  Windowing left;
     private final Windowing right;
@@ -62,7 +62,7 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
     }
 
     @Override
-    public Iterable<Window> assignWindowsToElement(WindowedElement<?, Either<L, R>> el) {
+    public Iterable<W> assignWindowsToElement(WindowedElement<?, Either<L, R>> el) {
       if (el.getElement().isLeft()) {
         return (Iterable) left.assignWindowsToElement(
             new WindowedElement() {
@@ -103,8 +103,8 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
     }
 
     @Override
-    public Trigger<Window> getTrigger() {
-      return new Trigger<Window>() {
+    public Trigger<W> getTrigger() {
+      return new Trigger<W>() {
         @Override
         public boolean isStateful() {
           return left.getTrigger().isStateful() || right.getTrigger().isStateful();
@@ -140,7 +140,7 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
         }
 
         @Override
-        public Trigger.TriggerResult onTimer(long time, Window window, TriggerContext ctx) {
+        public Trigger.TriggerResult onTimer(long time, W window, TriggerContext ctx) {
           Trigger.TriggerResult res = toResult(
               left.getTrigger().onTimer(time, window, ctx),
               right.getTrigger().onTimer(time, window, ctx));
@@ -153,13 +153,13 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
         }
 
         @Override
-        public void onClear(Window window, TriggerContext ctx) {
+        public void onClear(W window, TriggerContext ctx) {
           left.getTrigger().onClear(window, ctx);
           right.getTrigger().onClear(window, ctx);
         }
 
         @Override
-        public void onMerge(Window window, TriggerContext.TriggerMergeContext ctx) {
+        public void onMerge(W window, TriggerContext.TriggerMergeContext ctx) {
           left.getTrigger().onMerge(window, ctx);
           right.getTrigger().onMerge(window, ctx);
         }

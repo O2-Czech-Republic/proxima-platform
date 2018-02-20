@@ -59,7 +59,7 @@ class GCloudClient extends AbstractStorage {
 
   // normalize path to not start and to end with slash
   private static String toPath(URI uri) {
-    return URIUtil.getPathNormalized() + "/";
+    return URIUtil.getPathNormalized(uri) + "/";
   }
 
   Blob createBlob(String name) {

@@ -34,6 +34,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.source.BatchSource;
+import cz.o2.proxima.source.BoundedStreamSource;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
 import cz.o2.proxima.source.UnboundedStreamSource;
 import cz.o2.proxima.tools.io.TypedStreamElement;
@@ -42,6 +43,7 @@ import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import cz.seznam.euphoria.core.client.io.Collector;
+import cz.seznam.euphoria.core.client.io.DataSource;
 import cz.seznam.euphoria.core.client.operator.AssignEventTime;
 import cz.seznam.euphoria.core.client.operator.Filter;
 import cz.seznam.euphoria.core.client.operator.FlatMap;
@@ -183,10 +185,16 @@ public class Console {
         .orElseThrow(() -> new IllegalArgumentException(
             "Attribute " + attrDesc + " has no commit log"));
 
-    DatasetBuilder<TypedStreamElement<Object>> builder = () -> {
-      Dataset<StreamElement> input = flow.get().createInput(UnboundedStreamSource.of(
-          reader,
-          position));
+    final DatasetBuilder<TypedStreamElement<Object>> builder;
+    builder = () -> {
+      final DataSource source;
+      if (stopAtCurrent) {
+        source = BoundedStreamSource.of(reader, position);
+      } else {
+        source = UnboundedStreamSource.of(reader, position);
+      }
+
+      Dataset<StreamElement> input = flow.get().createInput(source);
 
       String prefix = attrDesc.toAttributePrefix();
       if (eventTime) {
@@ -201,7 +209,6 @@ public class Console {
           .using(TypedStreamElement::of)
           .output();
     };
-
     return Stream.wrap(
         new LocalExecutor()
             .setTriggeringSchedulerSupplier(() -> {

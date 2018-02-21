@@ -159,14 +159,20 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   }
 
   Session ensureSession() {
-    if (session == null) {
-      this.cluster = getCluster(uri);
+    if (session == null || session.isClosed()) {
+      if (this.cluster == null || this.cluster.isClosed()) {
+        this.cluster = getCluster(uri);
+      }
       this.session = this.cluster.connect();
     }
     return session;
   }
 
   synchronized void close() {
+    if (session != null) {
+      session.close();
+      session = null;
+    }
     if (cluster != null) {
       cluster.close();
       cluster = null;

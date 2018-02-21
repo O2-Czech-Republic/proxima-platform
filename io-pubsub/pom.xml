@@ -86,6 +86,8 @@
             <excludes>
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:core</exclude>
+              <!-- make tcnative boringssl explicit dependency -->
+              <exclude>io.netty:netty-tcnative-boringssl-static</exclude>
             </excludes>
           </artifactSet>
           <shadeTestJar>true</shadeTestJar>
@@ -93,6 +95,22 @@
             <relocation>
               <pattern>io.netty.</pattern>
               <shadedPattern>cz.o2.proxima.pubsub.shaded.io.netty.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.auth.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.storage.shaded.io.grpc.auth.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.internal.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.storage.shaded.io.grpc.internal.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.stub.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.storage.shaded.io.grpc.stub.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.protobuf.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.storage.shaded.io.grpc.protobuf.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.api.</pattern>
@@ -107,8 +125,16 @@
               <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.cloud.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>com.google.auth.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.auth.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>com.google.common.</pattern>
               <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.common.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.protobuf.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.protobuf.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -136,6 +162,12 @@
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
       <version>0.34.0-beta</version>
+      <exclusions>
+        <exclusion>
+          <groupId>io.netty</groupId>
+          <artifactId>netty-tcnative-boringssl-static</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -157,6 +189,11 @@
     </dependency>
 
     <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-tcnative-boringssl-static</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
@@ -164,8 +201,6 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.25</version>
-      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -181,13 +216,6 @@
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
       <artifactId>jsr305</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>23.0</version>
-      <scope>provided</scope>
     </dependency>
 
   </dependencies>

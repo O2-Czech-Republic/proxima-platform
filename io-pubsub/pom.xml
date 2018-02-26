@@ -98,19 +98,19 @@
             </relocation>
             <relocation>
               <pattern>io.grpc.auth.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.storage.shaded.io.grpc.auth.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.auth.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>io.grpc.internal.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.storage.shaded.io.grpc.internal.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.internal.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>io.grpc.stub.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.storage.shaded.io.grpc.stub.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.stub.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>io.grpc.protobuf.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.storage.shaded.io.grpc.protobuf.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.protobuf.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.api.</pattern>

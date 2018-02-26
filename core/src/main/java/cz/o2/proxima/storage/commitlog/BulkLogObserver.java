@@ -76,7 +76,7 @@ public interface BulkLogObserver extends LogObserverBase {
    **/
   default boolean onNext(StreamElement ingest, OffsetCommitter committer) {
     throw new UnsupportedOperationException(
-        "Please override either of `onNext`methods");
+        "Please override either of `onNext` methods");
   }
 
 

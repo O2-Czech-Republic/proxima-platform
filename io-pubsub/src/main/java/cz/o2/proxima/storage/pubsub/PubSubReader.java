@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.storage.pubsub;
 
-import com.google.api.gax.rpc.NotFoundException;
+import com.google.api.gax.rpc.AlreadyExistsException;
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
@@ -96,6 +96,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     return consume(name, (e, c) -> {
       boolean ret = observer.onNext(e, (succ, exc) -> {
         if (succ) {
+          log.debug("Confirming message {} to PubSub", e);
           c.ack();
         } else {
           log.warn("Error during processing of {}", e, exc);
@@ -119,7 +120,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
           "PubSub can observe only current data.");
     }
     return observe(
-        "Unnamed-consumer-" + UUID.randomUUID().toString(),
+        "unnamed-consumer-" + UUID.randomUUID().toString(),
         position, observer);
   }
 
@@ -142,14 +143,18 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     List<AckReplyConsumer> unconfirmed = Collections.synchronizedList(new ArrayList<>());
     return consume(name, (e, c) -> {
       unconfirmed.add(c);
-      boolean ret = observer.onNext(e, (succ, exc) -> {
+      boolean ret = observer.onNext(e, () -> 0, (succ, exc) -> {
+        synchronized (unconfirmed) {
           if (succ) {
+            log.debug("Bulk confirming {} messages", unconfirmed.size());
             unconfirmed.forEach(AckReplyConsumer::ack);
           } else {
             log.warn("Error during processing of last bulk", exc);
             unconfirmed.forEach(AckReplyConsumer::nack);
           }
-        });
+          unconfirmed.clear();
+        }
+      });
       if (!ret) {
         observer.onCompleted();
       }
@@ -162,7 +167,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       Collection<Partition> partitions, Position position, BulkLogObserver observer) {
 
     return observeBulk(
-        "Unnamed-bulk-consumer-" + UUID.randomUUID().toString(),
+        "unnamed-bulk-consumer-" + UUID.randomUUID().toString(),
         position, observer);
   }
 
@@ -185,14 +190,14 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     if (subscriptionAutoCreate) {
       try (SubscriptionAdminClient client = SubscriptionAdminClient.create()) {
         try {
-          client.getSubscription(subscription);
-        } catch (NotFoundException ex) {
-          log.info(
-              "Automatically creating subscription {} for topic {} as requested",
-              subscription.getSubscription(), topic);
           client.createSubscription(
               subscription, TopicName.of(project, topic),
               PushConfig.newBuilder().build(), this.subscriptionAckDeadline);
+          log.info(
+              "Automatically creating subscription {} for topic {} as requested",
+              subscription.getSubscription(), topic);
+        } catch (AlreadyExistsException ex) {
+          log.debug("Subscription {} already exists. Skipping creation.", subscription);
         }
       } catch (IOException ex) {
         log.error("Failed to close SubscriptionAdminClient", ex);

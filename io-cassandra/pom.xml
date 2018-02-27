@@ -42,6 +42,7 @@
             <excludes>
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:core</exclude>
+              <exclude>io.netty:*</exclude>
             </excludes>
           </artifactSet>
           <relocations>
@@ -93,7 +94,7 @@
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-handler</artifactId>
-      <version>4.1.16.Final</version>
+      <version>${netty.version}</version>
     </dependency>
 
     <dependency>
@@ -114,12 +115,6 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-handler</artifactId>
-      <version>4.1.16.Final</version>
     </dependency>
 
     <dependency>

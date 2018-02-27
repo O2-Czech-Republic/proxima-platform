@@ -78,6 +78,7 @@
     <euphoria.version>0.9-SNAPSHOT</euphoria.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <netty.version>4.1.17.Final</netty.version>
   </properties>
 
   <profiles>

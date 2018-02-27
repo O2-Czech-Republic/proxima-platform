@@ -44,7 +44,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -140,25 +139,32 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       String name, Position position, BulkLogObserver observer) {
 
     validatePosition(position);
-    List<AckReplyConsumer> unconfirmed = Collections.synchronizedList(new ArrayList<>());
+    List<AckReplyConsumer> unconfirmed = new ArrayList<>();
+    Object lock = new Object();
     return consume(name, (e, c) -> {
-      unconfirmed.add(c);
-      boolean ret = observer.onNext(e, () -> 0, (succ, exc) -> {
-        synchronized (unconfirmed) {
-          if (succ) {
-            log.debug("Bulk confirming {} messages", unconfirmed.size());
-            unconfirmed.forEach(AckReplyConsumer::ack);
-          } else {
-            log.warn("Error during processing of last bulk", exc);
-            unconfirmed.forEach(AckReplyConsumer::nack);
+      // our observers are not supposed to be thread safe, so we must
+      // ensure explicit synchronization here
+      synchronized (lock) {
+        unconfirmed.add(c);
+        boolean ret = observer.onNext(e, () -> 0, (succ, exc) -> {
+          // the implementation can (in theory) use some other
+          // thread for this, so we need to synchronize here as well
+          synchronized (lock) {
+            if (succ) {
+              log.debug("Bulk confirming {} messages", unconfirmed.size());
+              unconfirmed.forEach(AckReplyConsumer::ack);
+            } else {
+              log.warn("Error during processing of last bulk", exc);
+              unconfirmed.forEach(AckReplyConsumer::nack);
+            }
+            unconfirmed.clear();
           }
-          unconfirmed.clear();
+        });
+        if (!ret) {
+          observer.onCompleted();
         }
-      });
-      if (!ret) {
-        observer.onCompleted();
+        return ret;
       }
-      return ret;
     }, observer::onError, observer::onCancelled);
   }
 

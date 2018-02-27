@@ -236,8 +236,8 @@ public class BulkGCloudStorageWriter
       }
     }
     log.info(
-        "Flushed blob {} with size {}", blob.getBlobId().getName(),
-        written);
+        "Flushed blob {} with size {} KiB", blob.getBlobId().getName(),
+        written / 1024.);
   }
 
 }

@@ -79,6 +79,58 @@
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.0.2</version>
+        <executions>
+          <execution>
+            <id>unpack-dependencies</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>unpack-dependencies</goal>
+            </goals>
+            <configuration>
+              <includes>**/META-INF/native/*</includes>
+              <outputDirectory>${project.build.directory}/classes/</outputDirectory>
+              <overWriteReleases>true</overWriteReleases>
+              <overWriteSnapshots>true</overWriteSnapshots>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>com.coderplus.maven.plugins</groupId>
+        <artifactId>copy-rename-maven-plugin</artifactId>
+        <version>1.0</version>
+        <executions>
+          <execution>
+            <id>copy-and-rename-tcnative</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>rename</goal>
+            </goals>
+            <configuration>
+              <fileSets>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_linux_x86_64.so</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_shaded_netty_tcnative_linux_x86_64.so</destinationFile>
+                </fileSet>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/netty_tcnative_windows_x86_64.dll</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_pubsub_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
+                </fileSet>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_osx_x86_64.jnilib</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_shaded_libnetty_tcnative_osx_x86_64.jnilib</destinationFile>
+                </fileSet>
+              </fileSets>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>2.4.3</version>
         <configuration>
@@ -86,8 +138,6 @@
             <excludes>
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:core</exclude>
-              <!-- make tcnative boringssl explicit dependency -->
-              <exclude>io.netty:netty-tcnative-boringssl-static</exclude>
             </excludes>
           </artifactSet>
           <shadeTestJar>true</shadeTestJar>
@@ -162,12 +212,6 @@
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
       <version>0.34.0-beta</version>
-      <exclusions>
-        <exclusion>
-          <groupId>io.netty</groupId>
-          <artifactId>netty-tcnative-boringssl-static</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
@@ -186,11 +230,6 @@
       <artifactId>euphoria-local</artifactId>
       <version>${euphoria.version}</version>
       <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-tcnative-boringssl-static</artifactId>
     </dependency>
 
     <dependency>

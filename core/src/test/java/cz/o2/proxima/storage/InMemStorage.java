@@ -86,6 +86,7 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
+      log.debug("Writing element {} to {}", data, getURI());
       if (data.isDeleteWildcard()) {
         String prefix = getURI().getPath() + "/" + data.getKey()
             + "#" + data.getAttributeDescriptor().toAttributePrefix();

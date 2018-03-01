@@ -40,7 +40,9 @@ import org.junit.Test;
 public class CommitLogReaderTest {
 
   private final transient Repository repo = Repository.Builder.of(
-      ConfigFactory.load().resolve()).build();
+      ConfigFactory.load()
+          .withFallback(ConfigFactory.load("test-reference.conf"))
+          .resolve()).build();
 
   private transient LocalExecutor executor;
   private final transient EntityDescriptor entity = repo.findEntity("event").get();

@@ -40,7 +40,10 @@ import static org.junit.Assert.*;
  */
 public class RepositoryTest {
 
-  final Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
+  final Repository repo = Repository.Builder.of(
+      ConfigFactory.load()
+          .withFallback(ConfigFactory.load("test-reference.conf"))
+          .resolve()).build();
 
   @Test
   public void testConfigParsing() throws IOException {
@@ -134,7 +137,6 @@ public class RepositoryTest {
 
   @Test
   public void testProxyRandomGet() throws UnsupportedEncodingException, InterruptedException {
-    Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
     EntityDescriptor proxied = repo.findEntity("proxied").get();
     AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
     AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
@@ -165,7 +167,6 @@ public class RepositoryTest {
 
   @Test
   public void testProxyScan() throws UnsupportedEncodingException, InterruptedException {
-    Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
     EntityDescriptor proxied = repo.findEntity("proxied").get();
     AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
     Set<AttributeFamilyDescriptor> proxiedFamilies = repo
@@ -206,7 +207,6 @@ public class RepositoryTest {
 
   @Test
   public void testProxyCachedView() throws UnsupportedEncodingException {
-    Repository repo = Repository.Builder.of(ConfigFactory.load().resolve()).build();
     EntityDescriptor proxied = repo.findEntity("proxied").get();
     AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
     AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();

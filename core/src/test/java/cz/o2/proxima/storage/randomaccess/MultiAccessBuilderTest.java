@@ -39,7 +39,10 @@ import static org.junit.Assert.*;
  */
 public class MultiAccessBuilderTest {
 
-  final Repository repo = Repository.of(ConfigFactory.load().resolve());
+  final Repository repo = Repository.Builder.of(
+      ConfigFactory.load()
+          .withFallback(ConfigFactory.load("test-reference.conf"))
+          .resolve()).build();
 
   RandomAccessReader reader;
   long now;

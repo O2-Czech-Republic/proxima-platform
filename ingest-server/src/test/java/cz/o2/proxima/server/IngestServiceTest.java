@@ -47,10 +47,9 @@ public class IngestServiceTest {
 
   @Before
   public void setup() throws InterruptedException {
-    server = new IngestServer(
-        ConfigFactory.load()
-          .withFallback(ConfigFactory.load("test-reference.conf"))
-          .resolve());
+    server = new IngestServer(ConfigFactory.load()
+        .withFallback(ConfigFactory.load("test-reference.conf"))
+        .resolve());
     ingest = server.new IngestService();
     server.startConsumerThreads();
     latch = new CountDownLatch(1);

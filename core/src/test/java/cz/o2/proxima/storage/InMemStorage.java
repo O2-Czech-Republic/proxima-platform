@@ -70,12 +70,12 @@ public class InMemStorage extends StorageDescriptor {
   public static final class Writer
       extends AbstractOnlineAttributeWriter {
 
-    private final Map<String, byte[]> data;
+    private final NavigableMap<String, Pair<Long, byte[]>> data;
     private final Map<Integer, InMemIngestWriter> observers;
 
     private Writer(
         EntityDescriptor entityDesc, URI uri,
-        Map<String, byte[]> data,
+        NavigableMap<String, Pair<Long, byte[]>> data,
         Map<Integer, InMemIngestWriter> observers) {
 
       super(entityDesc, uri);
@@ -86,10 +86,32 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
-      this.data.put(
-          getURI().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
-          data.getValue());
-
+      if (data.isDeleteWildcard()) {
+        String prefix = getURI().getPath() + "/" + data.getKey()
+            + "#" + data.getAttributeDescriptor().toAttributePrefix();
+        for (Map.Entry<String, Pair<Long, byte[]>> e
+            : this.data.tailMap(prefix).entrySet()) {
+          if (!e.getKey().startsWith(prefix)) {
+            break;
+          }
+          if (e.getValue().getFirst() < data.getStamp()) {
+            String attr = e.getKey().substring(prefix.lastIndexOf('#') + 1);
+            write(StreamElement.delete(
+                data.getEntityDescriptor(), data.getAttributeDescriptor(),
+                data.getUuid(), data.getKey(), attr, data.getStamp()),
+                (succ, exc) -> { });
+          }
+        }
+      } else {
+        this.data.compute(
+            getURI().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
+            (key, old) -> {
+              if (old != null && old.getFirst() > data.getStamp()) {
+                return old;
+              }
+              return Pair.of(data.getStamp(), data.getValue());
+            });
+      }
       synchronized (observers) {
         observers.values().forEach(o -> o.write(data));
       }
@@ -313,11 +335,11 @@ public class InMemStorage extends StorageDescriptor {
       extends AbstractStorage
       implements RandomAccessReader {
 
-    private final NavigableMap<String, byte[]> data;
+    private final NavigableMap<String, Pair<Long, byte[]>> data;
 
     private Reader(
         EntityDescriptor entityDesc, URI uri,
-        NavigableMap<String, byte[]> data) {
+        NavigableMap<String, Pair<Long, byte[]>> data) {
 
       super(entityDesc, uri);
       this.data = data;
@@ -331,12 +353,16 @@ public class InMemStorage extends StorageDescriptor {
 
       String mapKey = getURI().getPath() + "/" + key + "#" + attribute;
       return Optional.ofNullable(data.get(mapKey))
+          .filter(p -> p.getSecond() != null)
           .map(b -> {
             try {
               return KeyValue.of(
                   getEntityDescriptor(),
                   desc, key, attribute,
-                  new RawOffset(attribute), b);
+                  new RawOffset(attribute),
+                  desc.getValueSerializer().deserialize(b.getSecond()).get(),
+                  b.getSecond(),
+                  b.getFirst());
             } catch (Exception ex) {
               throw new RuntimeException(ex);
             }
@@ -376,11 +402,11 @@ public class InMemStorage extends StorageDescriptor {
       String off = offset == null ? "" : ((RawOffset) offset).getOffset();
       String start = getURI().getPath() + "/" + key + "#" + prefix;
       int count = 0;
-      for (Map.Entry<String, byte[]> e : data.tailMap(start).entrySet()) {
+      for (Map.Entry<String, Pair<Long, byte[]>> e : data.tailMap(start).entrySet()) {
         if (e.getKey().startsWith(start)) {
           int hash = e.getKey().lastIndexOf("#");
           String attribute = e.getKey().substring(hash + 1);
-          if (attribute.equals(off)) {
+          if (attribute.equals(off) || e.getValue().getSecond() == null) {
             continue;
           }
           Optional<AttributeDescriptor<Object>> attr;
@@ -392,8 +418,8 @@ public class InMemStorage extends StorageDescriptor {
                 key,
                 attribute,
                 new RawOffset(attribute),
-                attr.get().getValueSerializer().deserialize(e.getValue()).get(),
-                e.getValue()));
+                attr.get().getValueSerializer().deserialize(e.getValue().getSecond()).get(),
+                e.getValue().getSecond()));
             if (++count == limit) {
               break;
             }
@@ -532,7 +558,7 @@ public class InMemStorage extends StorageDescriptor {
   }
 
   @Getter
-  private final NavigableMap<String, byte[]> data;
+  private final NavigableMap<String, Pair<Long, byte[]>> data;
 
   private final Map<URI, NavigableMap<Integer, InMemIngestWriter>> observers;
 

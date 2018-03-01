@@ -329,18 +329,14 @@ public class InMemStorage extends StorageDescriptor {
         String attribute,
         AttributeDescriptor<T> desc) {
 
-      return data.entrySet().stream()
-          .filter(
-              e -> e.getKey().equals(
-                  getURI().getPath() + "/" + key + "#" + attribute))
-          .findFirst()
-          .map(kv -> {
+      String mapKey = getURI().getPath() + "/" + key + "#" + attribute;
+      return Optional.ofNullable(data.get(mapKey))
+          .map(b -> {
             try {
               return KeyValue.of(
                   getEntityDescriptor(),
                   desc, key, attribute,
-                  new RawOffset(attribute),
-                  kv.getValue());
+                  new RawOffset(attribute), b);
             } catch (Exception ex) {
               throw new RuntimeException(ex);
             }
@@ -390,13 +386,13 @@ public class InMemStorage extends StorageDescriptor {
           Optional<AttributeDescriptor<Object>> attr;
           attr = getEntityDescriptor().findAttribute(attribute, true);
           if (attr.isPresent()) {
-            consumer.accept((KeyValue) KeyValue.of(
+            consumer.accept(KeyValue.of(
                 getEntityDescriptor(),
                 (AttributeDescriptor) attr.get(),
                 key,
                 attribute,
                 new RawOffset(attribute),
-                attr.get().getValueSerializer().deserialize(e.getValue()),
+                attr.get().getValueSerializer().deserialize(e.getValue()).get(),
                 e.getValue()));
             if (++count == limit) {
               break;
@@ -419,7 +415,18 @@ public class InMemStorage extends StorageDescriptor {
         int limit,
         Consumer<Pair<RandomOffset, String>> consumer) {
 
-      throw new UnsupportedOperationException("Unsupported.");
+      String off = offset == null ? "" : ((RawOffset) offset).getOffset();
+      for (String k : data.tailMap(off).keySet()) {
+        if (k.compareTo(off) > 0) {
+          if (limit-- != 0) {
+            String substr = k.substring(k.lastIndexOf('/') + 1, k.indexOf('#'));
+            consumer.accept(Pair.of(new RawOffset(substr), substr));
+            off = substr;
+          } else {
+            break;
+          }
+        }
+      }
     }
 
     @Override

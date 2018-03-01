@@ -34,6 +34,16 @@ import javax.annotation.Nullable;
  */
 public interface RandomAccessReader extends Closeable, Serializable {
 
+  /**
+   * Create a new builder that is able to construct {@link RandomAccessReader}
+   * from multiple readers responsible for reading from various attribute
+   * families.
+   * @return new builder for multi random access reader
+   */
+  public static MultiAccessBuilder newBuilder() {
+    return new MultiAccessBuilder();
+  }
+
   /** Type of listing (either listing entities of entity attributes). */
   enum Listing {
     ENTITY,

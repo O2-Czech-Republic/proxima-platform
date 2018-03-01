@@ -40,8 +40,10 @@ import org.junit.Test;
 public class PartitionedViewTest implements Serializable {
 
   private final transient Repository repo = Repository.Builder.of(
-      ConfigFactory.load().resolve()).build();
-
+      ConfigFactory.load()
+          .withFallback(ConfigFactory.load("test-reference.conf"))
+          .resolve()).build();
+  
   private transient LocalExecutor executor;
   private final transient EntityDescriptor entity = repo.findEntity("event").get();
   private final transient AttributeDescriptor<?> attr = entity.findAttribute("data").get();

@@ -186,6 +186,10 @@
               <pattern>com.google.protobuf.</pattern>
               <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.protobuf.</shadedPattern>
             </relocation>
+            <relocation>
+              <pattern>com.fasterxml.</pattern>
+              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.fasterxml.</shadedPattern>
+            </relocation>
           </relocations>
         </configuration>
         <executions>

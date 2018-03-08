@@ -110,7 +110,15 @@
             </relocation>
             <relocation>
               <pattern>com.google.protobuf.</pattern>
-              <shadedPattern>cz.o2.proxima.gcloud.storage.com.google.protobuf.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.com.google.protobuf.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>org.codehaus.jackson.</pattern>
+              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.org.codehaus.jackson.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.fasterxml.</pattern>
+              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.com.fasterxml.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>

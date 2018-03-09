@@ -646,8 +646,9 @@ public class Repository implements Serializable {
               "Added family {} for entity {} of type {} and access {}",
               familyBuilt, entDesc, familyBuilt.getType(), familyBuilt.getAccess());
         });
-      } catch (URISyntaxException ex) {
-        throw new IllegalArgumentException("Cannot parse input URI " + storage.get("storage"), ex);
+      } catch (Exception ex) {
+        throw new IllegalArgumentException(
+            "Failed to read settings of attribute family " + name, ex);
       }
 
     }

@@ -41,16 +41,25 @@ import lombok.extern.slf4j.Slf4j;
 class PubSubWriter extends AbstractOnlineAttributeWriter
     implements OnlineAttributeWriter {
 
-  final Publisher publisher;
-  final Executor executor;
+  private final PubSubAccessor accessor;
+  private final Context context;
+  transient Publisher publisher;
+  transient Executor executor;
 
   PubSubWriter(PubSubAccessor accessor, Context context) {
     super(accessor.getEntityDescriptor(), accessor.getURI());
-    try {
-      this.publisher = newPublisher(accessor.getProject(), accessor.getTopic());
-      this.executor = context.getExecutorService();
-    } catch (IOException ex) {
-      throw new RuntimeException(ex);
+    this.accessor = accessor;
+    this.context = context;
+  }
+
+  void initialize() {
+    if (executor == null) {
+      try {
+        this.publisher = newPublisher(accessor.getProject(), accessor.getTopic());
+        this.executor = context.getExecutorService();
+      } catch (IOException ex) {
+        throw new RuntimeException(ex);
+      }
     }
   }
 
@@ -61,7 +70,7 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
 
   @Override
   public void write(StreamElement data, CommitCallback statusCallback) {
-
+    initialize();
     log.debug("Writing data {} to {}", data, getURI());
     try {
       ApiFuture<String> future = publisher.publish(PubsubMessage.newBuilder()

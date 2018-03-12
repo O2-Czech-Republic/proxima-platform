@@ -9,6 +9,7 @@ addons:
   apt:
     packages:
       - oracle-java8-installer
+      - realpath
 
 install: true
 script: mvn install -B -V -Pallow-snapshots

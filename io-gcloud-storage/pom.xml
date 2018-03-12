@@ -31,7 +31,12 @@
      
   <name>${project.groupId}:${project.artifactId}</name>
 
+  <properties>
+    <shadePattern>cz.o2.proxima.gcloud.storage.shaded</shadePattern>
+  </properties>
+
   <build>
+
     <extensions>
       <extension>
         <groupId>kr.motd.maven</groupId>
@@ -65,6 +70,80 @@
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.0.2</version>
+        <executions>
+          <execution>
+            <id>unpack-dependencies</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>unpack-dependencies</goal>
+            </goals>
+            <configuration>
+              <includes>**/META-INF/native/*</includes>
+              <outputDirectory>${project.build.directory}/classes/</outputDirectory>
+              <overWriteReleases>true</overWriteReleases>
+              <overWriteSnapshots>true</overWriteSnapshots>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>com.coderplus.maven.plugins</groupId>
+        <artifactId>copy-rename-maven-plugin</artifactId>
+        <version>1.0</version>
+        <executions>
+          <execution>
+            <id>copy-and-rename-tcnative</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>rename</goal>
+            </goals>
+            <configuration>
+              <fileSets>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_linux_x86_64.so</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_gcloud_storage_shaded_netty_tcnative_linux_x86_64.so</destinationFile>
+                </fileSet>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/netty_tcnative_windows_x86_64.dll</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_gcloud_storage_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
+                </fileSet>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_osx_x86_64.jnilib</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_gcloud_storage_shaded_libnetty_tcnative_osx_x86_64.jnilib</destinationFile>
+                </fileSet>
+              </fileSets>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <artifactId>exec-maven-plugin</artifactId>
+        <groupId>org.codehaus.mojo</groupId>
+        <executions>
+          <execution>
+            <id>Services shade</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${basedir}/shade-grpc-services.sh</executable>
+              <arguments>
+                <argument>${project.build.directory}/io-gcloud-storage-${project.version}.jar</argument>
+                <argument>io.grpc</argument>
+                <argument>${shadePattern}.io.grpc</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>2.4.3</version>
         <configuration>
@@ -82,45 +161,44 @@
           <relocations>
             <relocation>
               <pattern>io.netty.</pattern>
-              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.io.netty.</shadedPattern>
+              <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>io.grpc.auth.</pattern>
-              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.io.grpc.auth.</shadedPattern>
+              <pattern>io.grpc.</pattern>
+              <shadedPattern>${shadePattern}.io.grpc.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>io.grpc.internal.</pattern>
-              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.io.grpc.internal.</shadedPattern>
+              <pattern>io.opencensus.</pattern>
+              <shadedPattern>${shadePattern}.io.opencensus.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>io.grpc.stub.</pattern>
-              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.io.grpc.stub.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>io.grpc.protobuf.</pattern>
-              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.io.grpc.protobuf.</shadedPattern>
+              <pattern>com.google.api.</pattern>
+              <shadedPattern>${shadePattern}.com.google.api.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.com.google.common.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.auth.</pattern>
-              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.com.google.auth.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>com.google.protobuf.</pattern>
-              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.com.google.protobuf.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.google.auth.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>org.codehaus.jackson.</pattern>
-              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.org.codehaus.jackson.</shadedPattern>
+              <shadedPattern>${shadePattern}.org.codehaus.jackson.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.protobuf.</pattern>
+              <shadedPattern>${shadePattern}.com.google.protobuf.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.fasterxml.</pattern>
-              <shadedPattern>cz.o2.proxima.gcloud.storage.shaded.com.fasterxml.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>
           </relocations>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+          </transformers>
         </configuration>
         <executions>
           <execution>

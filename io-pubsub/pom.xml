@@ -31,6 +31,10 @@
      
   <name>${project.groupId}:${project.artifactId}</name>
 
+  <properties>
+    <shadePattern>cz.o2.proxima.pubsub.shaded</shadePattern>
+  </properties>
+
   <build>
 
     <extensions>
@@ -130,6 +134,28 @@
       </plugin>
 
       <plugin>
+        <artifactId>exec-maven-plugin</artifactId>
+        <groupId>org.codehaus.mojo</groupId>
+        <executions>
+          <execution>
+            <id>Services shade</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${basedir}/shade-grpc-services.sh</executable>
+              <arguments>
+                <argument>${project.build.directory}/io-pubsub-${project.version}.jar</argument>
+                <argument>io.grpc</argument>
+                <argument>${shadePattern}.io.grpc</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>2.4.3</version>
@@ -144,57 +170,52 @@
           <relocations>
             <relocation>
               <pattern>io.netty.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.netty.</shadedPattern>
+              <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>io.grpc.auth.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.auth.</shadedPattern>
+              <pattern>io.grpc.</pattern>
+              <shadedPattern>${shadePattern}.io.grpc.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>io.grpc.internal.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.internal.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>io.grpc.stub.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.stub.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>io.grpc.protobuf.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.io.grpc.protobuf.</shadedPattern>
+              <pattern>io.opencensus.</pattern>
+              <shadedPattern>${shadePattern}.io.opencensus.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.api.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.api.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.google.api.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.pubsub.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.pubsub.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.google.pubsub.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.cloud.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.cloud.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.google.cloud.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.auth.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.auth.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.google.auth.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.common.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.protobuf.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.google.protobuf.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.google.protobuf.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.fasterxml.</pattern>
-              <shadedPattern>cz.o2.proxima.pubsub.shaded.com.fasterxml.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>
           </relocations>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+          </transformers>
         </configuration>
         <executions>
           <execution>
-            <phase>verify</phase>
+            <phase>package</phase>
             <goals>
               <goal>shade</goal>
             </goals>

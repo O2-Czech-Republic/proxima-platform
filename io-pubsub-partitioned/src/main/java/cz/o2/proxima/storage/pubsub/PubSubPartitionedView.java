@@ -17,6 +17,7 @@ package cz.o2.proxima.storage.pubsub;
 
 import com.google.common.collect.Lists;
 import com.google.protobuf.InvalidProtocolBufferException;
+import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
@@ -33,14 +34,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
-import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
@@ -49,6 +51,7 @@ import org.apache.beam.sdk.values.TypeDescriptor;
 /**
  * A {@link PartitionedView} for Google PubSub.
  */
+@Slf4j
 class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
   private final PipelineOptions options;
@@ -146,9 +149,15 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
       PartitionedLogObserver<T> observer,
       BeamFlow flow) {
 
-    PCollection<StreamElement> parsed = msgs.apply(MapElements
-        .into(TypeDescriptor.of(StreamElement.class))
-        .via(m -> toElement(entity, m)));
+    PCollection<StreamElement> parsed = msgs.apply(ParDo.of(
+        new DoFn<PubsubMessage, StreamElement>() {
+      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
+      @ProcessElement
+      public void process(ProcessContext context) {
+        toElement(entity, context.element())
+            .ifPresent(context::output);
+      }
+    })).setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
     PCollectionList<StreamElement> partitioned = parsed.apply(
         org.apache.beam.sdk.transforms.Partition.of(
             numPartitions, (message, partitionCount) -> {
@@ -205,29 +214,36 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
     };
   }
 
-  private static StreamElement toElement(
+  private static Optional<StreamElement> toElement(
       EntityDescriptor entity, PubsubMessage message) {
 
     try {
       PubSub.KeyValue parsed = PubSub.KeyValue.parseFrom(message.getPayload());
+      // FIXME: need to get access to messageId and publish time
+      // from the Beam's PubsubMessage wrapper
+      // fallback to uuid regeneration and ingestion time for now
+      // that is not 100% correct, but good enough for now
       String uuid = UUID.randomUUID().toString();
-      if (parsed.getDeleteWildcard()) {
-        return StreamElement.deleteWildcard(
-            entity, entity.findAttribute(parsed.getAttribute()),
-            uuid, parsed.getKey(), message.);
-      } else if (parsed.getDelete()) {
-        return StreamElement.delete(
-            entity, entity.findAttribute(parsed.getAttribute()),
-            uuid, parsed.getKey(), parsed.getAttribute(),
-            parsed.getStamp());
+      long stamp = System.currentTimeMillis();
+      Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(parsed.getAttribute());
+      if (attr.isPresent()) {
+        if (parsed.getDeleteWildcard()) {
+          return Optional.of(StreamElement.deleteWildcard(
+              entity, attr.get(), uuid, parsed.getKey(), stamp));
+        } else if (parsed.getDelete()) {
+          return Optional.of(StreamElement.delete(
+              entity, attr.get(), uuid, parsed.getKey(),
+              parsed.getAttribute(), stamp));
+        }
+        return Optional.of(StreamElement.update(
+            entity, attr.get(), uuid, parsed.getKey(), parsed.getAttribute(),
+            stamp, parsed.getValue().toByteArray()));
       }
-      return StreamElement.update(
-          entity, entity.findAttribute(parsed.getAttribute()),
-          uuid, parsed.getKey(), parsed.getAttribute(),
-          parsed.getStamp(), parsed.getValue());
+      log.warn("Missing attribute {} of entity {}", parsed.getAttribute(), entity);
     } catch (InvalidProtocolBufferException ex) {
-      throw new RuntimeException(ex);
+      log.error("Failed to parse input {}", message, ex);
     }
+    return Optional.empty();
   }
 
 }

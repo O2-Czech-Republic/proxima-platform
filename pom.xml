@@ -355,7 +355,7 @@
     <module>io-http</module>
     <module>io-kafka</module>
     <module>io-pubsub</module>
-    <module>io-pubsub-dataflow</module>
+    <module>io-pubsub-partitioned</module>
     <module>maven</module>
     <module>rpc</module>
     <module>scheme</module>

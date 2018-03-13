@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
@@ -209,12 +210,21 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
     try {
       PubSub.KeyValue parsed = PubSub.KeyValue.parseFrom(message.getPayload());
+      String uuid = UUID.randomUUID().toString();
       if (parsed.getDeleteWildcard()) {
-
+        return StreamElement.deleteWildcard(
+            entity, entity.findAttribute(parsed.getAttribute()),
+            uuid, parsed.getKey(), message.);
       } else if (parsed.getDelete()) {
-
+        return StreamElement.delete(
+            entity, entity.findAttribute(parsed.getAttribute()),
+            uuid, parsed.getKey(), parsed.getAttribute(),
+            parsed.getStamp());
       }
-      throw new UnsupportedOperationException();
+      return StreamElement.update(
+          entity, entity.findAttribute(parsed.getAttribute()),
+          uuid, parsed.getKey(), parsed.getAttribute(),
+          parsed.getStamp(), parsed.getValue());
     } catch (InvalidProtocolBufferException ex) {
       throw new RuntimeException(ex);
     }

@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.server;
 
+import com.google.common.base.Strings;
+import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.TextFormat;
 import com.typesafe.config.Config;
@@ -45,8 +47,6 @@ import cz.o2.proxima.storage.commitlog.RetryableLogObserver;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Pair;
-import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
-import cz.seznam.euphoria.shadow.com.google.common.collect.Sets;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;

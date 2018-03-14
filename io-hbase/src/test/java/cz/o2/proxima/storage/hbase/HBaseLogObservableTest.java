@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.hbase;
 
+import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -23,7 +24,6 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
 import static cz.o2.proxima.storage.hbase.TestUtil.b;
-import cz.seznam.euphoria.shadow.com.google.common.collect.Lists;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;

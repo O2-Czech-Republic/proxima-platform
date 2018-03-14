@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.metrics;
 
-import cz.seznam.euphoria.shadow.com.google.common.util.concurrent.AtomicDouble;
+import com.google.common.util.concurrent.AtomicDouble;
 import java.beans.ConstructorProperties;
 
 /**

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.kafka;
 
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.functional.Consumer;
@@ -43,7 +44,6 @@ import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.executor.local.LocalExecutor;
-import cz.seznam.euphoria.shadow.com.google.common.collect.Iterators;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;

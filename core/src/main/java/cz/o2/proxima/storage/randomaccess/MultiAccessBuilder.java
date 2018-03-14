@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.storage.randomaccess;
 
+import com.google.common.collect.Iterables;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.util.Pair;
 import cz.seznam.euphoria.core.util.ExceptionUtils;
-import cz.seznam.euphoria.shadow.com.google.common.collect.Iterables;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.HashMap;

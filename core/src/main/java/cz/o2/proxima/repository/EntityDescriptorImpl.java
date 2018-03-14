@@ -15,8 +15,9 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.collect.Maps;
 import cz.o2.proxima.util.NamePattern;
-import cz.seznam.euphoria.shadow.com.google.common.collect.Maps;
+import cz.o2.proxima.util.Pair;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -54,8 +55,8 @@ public class EntityDescriptorImpl implements EntityDescriptor {
 
     attributesByPattern = attrs.stream()
         .filter(AttributeDescriptor::isWildcard)
-        .map(p -> Maps.immutableEntry(new NamePattern(p.getName()), p))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .map(p -> Pair.of(new NamePattern(p.getName()), p))
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
     this.attributesByName = Maps.uniqueIndex(
         fullyQualified, AttributeDescriptor::getName);

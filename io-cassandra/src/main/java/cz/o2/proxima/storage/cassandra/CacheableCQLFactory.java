@@ -18,12 +18,12 @@ package cz.o2.proxima.storage.cassandra;
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.URIUtil;
-import cz.seznam.euphoria.shadow.com.google.common.annotations.VisibleForTesting;
-import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;

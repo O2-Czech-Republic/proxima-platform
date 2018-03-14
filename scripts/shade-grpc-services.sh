@@ -44,6 +44,9 @@ mkdir $TMP || /bin/true
 cd $TMP
 jar xf $JAR
 cd META-INF/services
+for f in *; do
+  sed "s/^${PATTERN}/${SHADED}/" -i $f
+done
 rename "s/${PATTERN}/${SHADED}/" * -v -n
 cd ../../
 jar cf $JAR .

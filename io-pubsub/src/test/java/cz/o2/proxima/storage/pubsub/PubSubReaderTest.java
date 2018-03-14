@@ -17,8 +17,8 @@ package cz.o2.proxima.storage.pubsub;
 
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
+import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.v1.SubscriptionName;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorImpl;
@@ -77,7 +77,7 @@ public class PubSubReaderTest {
 
     @Override
     Subscriber newSubscriber(
-        SubscriptionName subscription,
+        ProjectSubscriptionName subscription,
         MessageReceiver receiver) {
 
       return MockSubscriber.create(

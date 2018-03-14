@@ -66,7 +66,7 @@
         <artifactId>protobuf-maven-plugin</artifactId>
         <version>0.5.0</version>
         <configuration>
-          <protocArtifact>com.google.protobuf:protoc:${proto.version}:exe:${os.detected.classifier}</protocArtifact>
+          <protocArtifact>com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}</protocArtifact>
           <pluginId>grpc-java</pluginId>
           <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
         </configuration>
@@ -82,6 +82,29 @@
       </plugin>
 
       <plugin>
+        <artifactId>exec-maven-plugin</artifactId>
+        <groupId>org.codehaus.mojo</groupId>
+        <version>1.6.0</version>
+        <executions>
+          <execution>
+            <id>Services shade</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${basedir}/shade-grpc-services.sh</executable>
+              <arguments>
+                <argument>${project.build.directory}/io-pubsub-${project.version}.jar</argument>
+                <argument>io.grpc</argument>
+                <argument>${shadePattern}.io.grpc</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>         
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
         <version>3.0.2</version>
@@ -116,41 +139,18 @@
             <configuration>
               <fileSets>
                 <fileSet>
-                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_linux_x86_64.so</sourceFile>
-                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_shaded_netty_tcnative_linux_x86_64.so</destinationFile>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libio_grpc_netty_shaded_netty_tcnative_linux_x86_64.so</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_shaded_io_grpc_netty_shaded_netty_tcnative_linux_x86_64.so</destinationFile>
                 </fileSet>
                 <fileSet>
-                  <sourceFile>${project.build.directory}/classes/META-INF/native/netty_tcnative_windows_x86_64.dll</sourceFile>
-                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_pubsub_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_pubsub_shaded_io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
                 </fileSet>
                 <fileSet>
-                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_osx_x86_64.jnilib</sourceFile>
-                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_shaded_libnetty_tcnative_osx_x86_64.jnilib</destinationFile>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libio_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_shaded_io_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib</destinationFile>
                 </fileSet>
               </fileSets>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
-      <plugin>
-        <artifactId>exec-maven-plugin</artifactId>
-        <groupId>org.codehaus.mojo</groupId>
-        <version>1.6.0</version>
-        <executions>
-          <execution>
-            <id>Services shade</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>${basedir}/shade-grpc-services.sh</executable>
-              <arguments>
-                <argument>${project.build.directory}/io-pubsub-${project.version}.jar</argument>
-                <argument>io.grpc</argument>
-                <argument>${shadePattern}.io.grpc</argument>
-              </arguments>
             </configuration>
           </execution>
         </executions>
@@ -164,15 +164,12 @@
           <artifactSet>
             <excludes>
               <!-- exclude proxima and core dependencies -->
+              <exclude>cz.seznam.euphoria:*</exclude>
               <exclude>cz.o2.proxima:core</exclude>
             </excludes>
           </artifactSet>
           <shadeTestJar>true</shadeTestJar>
           <relocations>
-            <relocation>
-              <pattern>io.netty.</pattern>
-              <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
-            </relocation>
             <relocation>
               <pattern>io.grpc.</pattern>
               <shadedPattern>${shadePattern}.io.grpc.</shadedPattern>
@@ -198,6 +195,10 @@
               <shadedPattern>${shadePattern}.com.google.auth.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>com.google.iam.</pattern>
+              <shadedPattern>${shadePattern}.com.google.iam.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>com.google.common.</pattern>
               <shadedPattern>${shadePattern}.com.google.common.</shadedPattern>
             </relocation>
@@ -210,9 +211,6 @@
               <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>
           </relocations>
-          <transformers>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-          </transformers>
         </configuration>
         <executions>
           <execution>
@@ -223,6 +221,7 @@
           </execution>
         </executions>
       </plugin>
+
     </plugins>
   </build>
 
@@ -237,7 +236,7 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <version>0.34.0-beta</version>
+      <version>0.38.0-beta</version>
     </dependency>
 
     <dependency>

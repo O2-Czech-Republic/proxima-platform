@@ -73,7 +73,8 @@
   <properties>
     <hbase.version>1.3.1</hbase.version>
     <kafka.version>0.11.0.1</kafka.version>
-    <proto.version>3.5.0</proto.version>
+    <proto.version>3.5.1</proto.version>
+    <protoc.version>3.5.1-1</protoc.version>
     <grpc.version>1.9.0</grpc.version>
     <euphoria.version>0.9-SNAPSHOT</euphoria.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>

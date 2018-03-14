@@ -20,7 +20,7 @@ import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.v1.SubscriptionName;
+import com.google.pubsub.v1.ProjectSubscriptionName;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -34,7 +34,7 @@ import static org.mockito.Mockito.*;
 public class MockSubscriber {
 
   public static Subscriber create(
-      SubscriptionName subscription,
+      ProjectSubscriptionName subscription,
       MessageReceiver receiver,
       Supplier<PubsubMessage> supplier,
       ExecutorService executor) {

@@ -27,6 +27,7 @@ import cz.o2.proxima.storage.pubsub.proto.PubSub;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.beam.BeamFlow;
+import cz.seznam.euphoria.beam.io.KryoCoder;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -46,7 +47,6 @@ import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
-import org.apache.beam.sdk.values.TypeDescriptor;
 
 /**
  * A {@link PartitionedView} for Google PubSub.
@@ -55,12 +55,14 @@ import org.apache.beam.sdk.values.TypeDescriptor;
 class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
   private final PipelineOptions options;
+  private final String projectId;
   private final String topic;
   private final Partitioner partitioner;
   private final int numPartitions;
 
   PubSubPartitionedView(PartitionedPubSubAccessor accessor, Context context) {
     super(accessor.getEntityDescriptor(), accessor.getURI());
+    this.projectId = accessor.getProjectId();
     this.topic = accessor.getTopic();
     this.partitioner = accessor.getPartitioner();
     this.options = accessor.getOptions();
@@ -130,7 +132,7 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
       }
       PCollection<PubsubMessage> msgs = pipeline.apply(
           PubsubIO.readMessages()
-              .fromTopic(topic));
+              .fromTopic(String.format("projects/%s/topics/%s", projectId, topic)));
       return applyObserver(
           msgs, getEntityDescriptor(), partitioner,
           numPartitions, observer, bf);
@@ -157,7 +159,7 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
         toElement(entity, context.element())
             .ifPresent(context::output);
       }
-    })).setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
+    })).setCoder(new KryoCoder<>());
     PCollectionList<StreamElement> partitioned = parsed.apply(
         org.apache.beam.sdk.transforms.Partition.of(
             numPartitions, (message, partitionCount) -> {
@@ -169,7 +171,8 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
     for (int i = 0; i < partitioned.size(); i++) {
       final int partitionId = i;
       flatten.add(partitioned.get(partitionId)
-          .apply(ParDo.of(toDoFn(observer, partitionId))));
+          .apply(ParDo.of(toDoFn(observer, partitionId)))
+          .setCoder(new KryoCoder<>()));
     }
     PCollectionList<T> l = PCollectionList.of(flatten);
     PCollection<T> result = l.apply(Flatten.pCollections());

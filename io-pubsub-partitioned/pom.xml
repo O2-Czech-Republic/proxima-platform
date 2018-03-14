@@ -52,7 +52,7 @@
         <artifactId>protobuf-maven-plugin</artifactId>
         <version>0.5.0</version>
         <configuration>
-          <protocArtifact>com.google.protobuf:protoc:${proto.version}:exe:${os.detected.classifier}</protocArtifact>
+          <protocArtifact>com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}</protocArtifact>
           <pluginId>grpc-java</pluginId>
           <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
         </configuration>
@@ -150,6 +150,7 @@
           <artifactSet>
             <excludes>
               <!-- exclude proxima and core dependencies -->
+              <exclude>cz.seznam.euphoria:*</exclude>
               <exclude>cz.o2.proxima:core</exclude>
             </excludes>
           </artifactSet>
@@ -184,21 +185,22 @@
               <shadedPattern>${shadePattern}.com.google.auth.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>com.google.iam.</pattern>
+              <shadedPattern>${shadePattern}.com.google.iam.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>com.google.common.</pattern>
               <shadedPattern>${shadePattern}.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>org.apache.beam.sdk.io.gcp.</pattern>
-              <shadedPattern>${shadePattern}.org.apache.beam.sdk.io.gcp.</shadedPattern>
+              <pattern>com.google.protobuf.</pattern>
+              <shadedPattern>${shadePattern}.com.google.protobuf.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.fasterxml.</pattern>
               <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>
           </relocations>
-          <transformers>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-          </transformers>
         </configuration>
         <executions>
           <execution>
@@ -223,7 +225,21 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-all</artifactId>
-      <version>1.2.0</version>
+      <version>1.9.0</version>
+      <exclusions>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-okhttp</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-protobuf-nano</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-testing</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>

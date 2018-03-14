@@ -22,10 +22,10 @@ import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.pubsub.v1.ProjectSubscriptionName;
+import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PushConfig;
-import com.google.pubsub.v1.SubscriptionName;
-import com.google.pubsub.v1.TopicName;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -192,16 +192,16 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   }
 
   @VisibleForTesting
-  Subscriber newSubscriber(SubscriptionName subscription, MessageReceiver receiver) {
+  Subscriber newSubscriber(ProjectSubscriptionName subscription, MessageReceiver receiver) {
     if (subscriptionAutoCreate) {
       try (SubscriptionAdminClient client = SubscriptionAdminClient.create()) {
         try {
           client.createSubscription(
-              subscription, TopicName.of(project, topic),
+              subscription, ProjectTopicName.of(project, topic),
               PushConfig.newBuilder().build(), this.subscriptionAckDeadline);
           log.info(
               "Automatically creating subscription {} for topic {} as requested",
-              subscription.getSubscription(), topic);
+              subscription, topic);
         } catch (AlreadyExistsException ex) {
           log.debug("Subscription {} already exists. Skipping creation.", subscription);
         }
@@ -228,7 +228,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       Function<Throwable, Boolean> errorHandler,
       Runnable cancel) {
 
-    SubscriptionName subscription = SubscriptionName.of(project, name);
+    ProjectSubscriptionName subscription = ProjectSubscriptionName.of(project, name);
     AtomicReference<Subscriber> subscriber = new AtomicReference<>();
     AtomicReference<MessageReceiver> receiver = new AtomicReference<>();
     receiver.set((m, c) -> {

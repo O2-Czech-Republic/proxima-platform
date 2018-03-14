@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.kafka;
 
+import com.google.common.base.Strings;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
@@ -25,7 +26,6 @@ import cz.o2.proxima.storage.kafka.partitioner.KeyPartitioner;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.view.PartitionedCachedView;
 import cz.o2.proxima.view.PartitionedView;
-import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import java.net.URI;

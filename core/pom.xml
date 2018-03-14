@@ -42,11 +42,11 @@
           <relocations>
             <relocation>
               <pattern>org.reflections.</pattern>
-              <shadedPattern>cz.o2.proxima.internal.org.reflections.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.internal.shaded.org.reflections.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.seznam.euphoria.shadow.com.google.common.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.internal.shaded.com.google.common.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -157,7 +157,6 @@
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
       <version>23.0</version>
-      <scope>test</scope>
     </dependency>
 
   </dependencies>

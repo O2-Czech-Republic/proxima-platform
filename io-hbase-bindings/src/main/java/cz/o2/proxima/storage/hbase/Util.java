@@ -16,8 +16,8 @@
 package cz.o2.proxima.storage.hbase;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import cz.o2.proxima.storage.URIUtil;
-import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import java.net.URI;
 import java.util.Optional;
 import org.apache.hadoop.conf.Configuration;

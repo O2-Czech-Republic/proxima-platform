@@ -17,11 +17,11 @@ package cz.o2.proxima.gcloud.storage;
 
 import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.Blob;
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.BulkAttributeWriter;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.StreamElement;
-import cz.seznam.euphoria.shadow.com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Hex;
 

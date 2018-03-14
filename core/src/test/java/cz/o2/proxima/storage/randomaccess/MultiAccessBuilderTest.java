@@ -75,10 +75,10 @@ public class MultiAccessBuilderTest {
         .build();
 
     // write some data
-    armed.getWriter().write(StreamElement.update(
+    repo.getWriter(armed).get().write(StreamElement.update(
         gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
         now, new byte[] { 1, 2 }), (succ, exc) -> { });
-    device.getWriter().write(StreamElement.update(
+    repo.getWriter(device).get().write(StreamElement.update(
         gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
         now, new byte[] { 2, 3 }), (succ, exc) -> { });
     Optional<? extends KeyValue<?>> kv = reader.get("gw", armed);
@@ -108,10 +108,10 @@ public class MultiAccessBuilderTest {
         .build();
 
     // write some data
-    armed.getWriter().write(StreamElement.update(
+    repo.getWriter(armed).get().write(StreamElement.update(
         gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
         now, new byte[] { 1, 2 }), (succ, exc) -> { });
-    device.getWriter().write(StreamElement.update(
+    repo.getWriter(device).get().write(StreamElement.update(
         gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
         now, new byte[] { 2, 3 }), (succ, exc) -> { });
     Optional<? extends KeyValue<?>> kv = reader.get("gw", armed);
@@ -150,13 +150,13 @@ public class MultiAccessBuilderTest {
         .build();
 
     // write some data
-    armed.getWriter().write(StreamElement.update(
+    repo.getWriter(armed).get().write(StreamElement.update(
         gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
         now, new byte[] { 1, 2 }), (succ, exc) -> { });
-    device.getWriter().write(StreamElement.update(
+    repo.getWriter(device).get().write(StreamElement.update(
         gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
         now, new byte[] { 2, 3 }), (succ, exc) -> { });
-    data.getWriter().write(StreamElement.update(
+    repo.getWriter(data).get().write(StreamElement.update(
         dummy, data, UUID.randomUUID().toString(), "dummy", data.getName(),
         now, new byte[] { 3, 4 }), (succ, exc) -> { });
     Optional<? extends KeyValue<?>> kv = reader.get("gw", armed);
@@ -188,10 +188,10 @@ public class MultiAccessBuilderTest {
         .build();
 
     // write some data
-    device.getWriter().write(StreamElement.update(
+    repo.getWriter(device).get().write(StreamElement.update(
         gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
         now, new byte[] { 2, 3 }), (succ, exc) -> { });
-    device.getWriter().write(StreamElement.update(
+    repo.getWriter(device).get().write(StreamElement.update(
         gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "2",
         now, new byte[] { 2, 3 }), (succ, exc) -> { });
     List<KeyValue<?>> kvs = new ArrayList<>();
@@ -219,10 +219,10 @@ public class MultiAccessBuilderTest {
         .build();
 
     // write some data
-    armed.getWriter().write(StreamElement.update(
+    repo.getWriter(armed).get().write(StreamElement.update(
         gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
         now, new byte[] { 1, 2 }), (succ, exc) -> { });
-    device.getWriter().write(StreamElement.update(
+    repo.getWriter(device).get().write(StreamElement.update(
         gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
         now, new byte[] { 2, 3 }), (succ, exc) -> { });
     Set<KeyValue<?>> kvs = new TreeSet<>((k1, k2) -> k1.getAttribute().compareTo(k2.getAttribute()));
@@ -251,10 +251,10 @@ public class MultiAccessBuilderTest {
         .build();
 
     // write some data
-    armed.getWriter().write(StreamElement.update(
+    repo.getWriter(armed).get().write(StreamElement.update(
         gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
         now, new byte[] { 1, 2 }), (succ, exc) -> { });
-    device.getWriter().write(StreamElement.update(
+    repo.getWriter(device).get().write(StreamElement.update(
         gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
         now, new byte[] { 2, 3 }), (succ, exc) -> { });
 

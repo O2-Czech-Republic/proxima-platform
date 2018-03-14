@@ -16,7 +16,6 @@
 package cz.o2.proxima.repository;
 
 import cz.o2.proxima.scheme.ValueSerializerFactory;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Objects;
@@ -100,12 +99,6 @@ public interface AttributeDescriptor<T> extends Serializable {
   String getEntity();
 
   /**
-   * Retrieve writer for the data.
-   * @return {@link OnlineAttributeWriter} of this attribute
-   */
-  OnlineAttributeWriter getWriter();
-
-  /**
    * Retrieve name of the attribute if not wildcard, otherwise
    * retrieve the prefix without the last asterisk.
    * @return attribute prefix of this attribute
@@ -121,7 +114,6 @@ public interface AttributeDescriptor<T> extends Serializable {
    * @return attribute prefix with or without dot
    */
   String toAttributePrefix(boolean includeLastDot);
-
 
   /**
    * Retrieve serializer for value type.

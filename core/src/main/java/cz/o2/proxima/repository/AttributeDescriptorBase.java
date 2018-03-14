@@ -16,12 +16,10 @@
 package cz.o2.proxima.repository;
 
 import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
 import java.net.URI;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import lombok.Getter;
-import lombok.Setter;
 
 /**
  * Base class for {@link AttributeDescriptorImpl} and {@link AttributeProxyDescriptorImpl}.
@@ -44,10 +42,6 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   protected final boolean wildcard;
 
   protected @Nullable final ValueSerializer<T> valueSerializer;
-
-  @Getter
-  @Setter
-  protected OnlineAttributeWriter writer = null;
 
   public AttributeDescriptorBase(
       String name, String entity, URI schemeURI,

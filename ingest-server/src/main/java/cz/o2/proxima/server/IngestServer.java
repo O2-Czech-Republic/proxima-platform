@@ -555,7 +555,7 @@ public class IngestServer {
     EntityDescriptor entityDesc = ingest.getEntityDescriptor();
     AttributeDescriptor attributeDesc = ingest.getAttributeDescriptor();
 
-    OnlineAttributeWriter writerBase = attributeDesc.getWriter();
+    OnlineAttributeWriter writerBase = repo.getWriter(attributeDesc).get();
     // we need online writer here
     OnlineAttributeWriter writer = writerBase == null ? null : writerBase.online();
 
@@ -804,7 +804,8 @@ public class IngestServer {
                 .stream()
                 .map(attr -> {
                   AttributeFamilyDescriptor commitFamily = attrToCommitLog.get(attr);
-                  if (commitFamily == null && attr.getWriter() != null) {
+                  Optional<OnlineAttributeWriter> writer = repo.getWriter(attr);
+                  if (commitFamily == null && writer.isPresent()) {
                     throw new IllegalStateException("Missing source commit log family for " + attr);
                   }
                   return commitFamily;

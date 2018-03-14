@@ -20,8 +20,8 @@ import com.typesafe.config.ConfigValue;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
-import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.DataAccessor;
+import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StorageDescriptor;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
@@ -44,7 +44,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -274,7 +273,6 @@ public class Repository {
           loadProxiedFamilies(config);
           // Read transformations from one entity to another.
           readTransformations(config);
-          linkAttributesToWriters();
         }
       }
 
@@ -648,30 +646,6 @@ public class Repository {
 
   }
 
-  private void linkAttributesToWriters() {
-    // iterate over all attribute families and setup appropriate (commit) writers
-    // for all attributes
-    attributeToFamily.forEach((key, value) -> {
-      Optional<AttributeWriterBase> writer = value
-          .stream()
-          .filter(af -> af.getType() == StorageType.PRIMARY)
-          .filter(af -> !af.getAccess().isReadonly())
-          .filter(af -> af.getWriter().isPresent())
-          .findAny()
-          .map(af -> af.getWriter()
-              .orElseThrow(() -> new NoSuchElementException("Writer can not be empty")));
-
-      if (writer.isPresent()) {
-        ((AttributeDescriptorBase<?>) key).setWriter(writer.get().online());
-      } else {
-        log.info(
-            "No writer found for attribute {}, continuing, but assuming "
-                + "the attribute is read-only. Any attempt to write it will fail.",
-            key);
-      }
-    });
-  }
-
   private void loadProxiedFamilies(Config cfg) {
     getAllEntities()
         .flatMap(e -> e.getAllAttributes(true).stream())
@@ -834,6 +808,21 @@ public class Repository {
     return Objects.requireNonNull(
         attributeToFamily.get(attr),
         "Cannot find any family for attribute " + attr);
+  }
+
+  /**
+   * Retrieve writer for specified attribute.
+   * @param attr the attribute to retrieve writer for
+   * @return the attribute writer
+   */
+  public Optional<OnlineAttributeWriter> getWriter(AttributeDescriptor<?> attr) {
+    return getFamiliesForAttribute(attr)
+        .stream()
+        .filter(af -> af.getType() == StorageType.PRIMARY)
+        .filter(af -> !af.getAccess().isReadonly())
+        .filter(af -> af.getWriter().isPresent())
+        .map(af -> af.getWriter().get().online())
+        .findAny();
   }
 
   /**

@@ -114,7 +114,7 @@ public class RepositoryTest {
 
     });
 
-    source.getWriter().write(StreamElement.update(
+    repo.getWriter(source).get().write(StreamElement.update(
         proxied,
         source, UUID.randomUUID().toString(),
         "key", "event.abc", System.currentTimeMillis(), "test".getBytes("UTF-8")),
@@ -144,7 +144,7 @@ public class RepositoryTest {
         .getFamiliesForAttribute(source);
 
     // verify that writing to attribute event.abc ends up as _e.abc
-    source.getWriter().write(StreamElement.update(
+    repo.getWriter(source).get().write(StreamElement.update(
         proxied,
         source, UUID.randomUUID().toString(),
         "key", "event.abc", System.currentTimeMillis(), "test".getBytes("UTF-8")),
@@ -172,7 +172,7 @@ public class RepositoryTest {
     Set<AttributeFamilyDescriptor> proxiedFamilies = repo
         .getFamiliesForAttribute(source);
 
-    source.getWriter().write(StreamElement.update(
+    repo.getWriter(source).get().write(StreamElement.update(
         proxied,
         source, UUID.randomUUID().toString(),
         "key", "event.abc", System.currentTimeMillis(), "test".getBytes("UTF-8")),
@@ -180,7 +180,7 @@ public class RepositoryTest {
           assertTrue(s);
         });
 
-    source.getWriter().write(StreamElement.update(
+    repo.getWriter(source).get().write(StreamElement.update(
         proxied,
         source, UUID.randomUUID().toString(),
         "key", "event.def", System.currentTimeMillis(), "test2".getBytes("UTF-8")),

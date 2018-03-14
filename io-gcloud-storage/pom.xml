@@ -53,7 +53,7 @@
         <artifactId>protobuf-maven-plugin</artifactId>
         <version>0.5.0</version>
         <configuration>
-          <protocArtifact>com.google.protobuf:protoc:${proto.version}:exe:${os.detected.classifier}</protocArtifact>
+          <protocArtifact>com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}</protocArtifact>
           <pluginId>grpc-java</pluginId>
           <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
         </configuration>
@@ -156,6 +156,7 @@
           <artifactSet>
             <excludes>
               <!-- exclude proxima and core dependencies -->
+              <exclude>cz.seznam.euphoria:*</exclude>
               <exclude>cz.o2.proxima:core</exclude>
             </excludes>
           </artifactSet>
@@ -175,6 +176,10 @@
             <relocation>
               <pattern>com.google.api.</pattern>
               <shadedPattern>${shadePattern}.com.google.api.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.iam.</pattern>
+              <shadedPattern>${shadePattern}.com.google.iam.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.common.</pattern>
@@ -197,9 +202,6 @@
               <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>
           </relocations>
-          <transformers>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
-          </transformers>
         </configuration>
         <executions>
           <execution>

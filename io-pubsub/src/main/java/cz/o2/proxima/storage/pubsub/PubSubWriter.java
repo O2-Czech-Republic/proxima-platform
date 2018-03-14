@@ -21,8 +21,8 @@ import com.google.api.core.ApiFutures;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
+import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.v1.TopicName;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.storage.CommitCallback;
@@ -65,7 +65,7 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
 
   @VisibleForTesting
   Publisher newPublisher(String project, String topic) throws IOException {
-    return Publisher.newBuilder(TopicName.of(project, topic)).build();
+    return Publisher.newBuilder(ProjectTopicName.of(project, topic)).build();
   }
 
   @Override

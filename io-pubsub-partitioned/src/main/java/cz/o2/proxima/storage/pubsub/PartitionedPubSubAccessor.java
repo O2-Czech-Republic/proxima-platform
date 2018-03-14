@@ -45,6 +45,9 @@ class PartitionedPubSubAccessor extends AbstractStorage implements DataAccessor 
   public static final String CFG_NUM_PARTITIONS = "num-partitions";
 
   @Getter
+  private final String projectId;
+
+  @Getter
   private final String topic;
 
   @Getter
@@ -61,6 +64,7 @@ class PartitionedPubSubAccessor extends AbstractStorage implements DataAccessor 
       URI uri, Map<String, Object> cfg) {
 
     super(entity, uri);
+    projectId = uri.getAuthority();
     topic = URIUtil.getPathNormalized(uri);
     partitioner = Optional.ofNullable(cfg.get(CFG_PARTITIONER))
         .map(Object::toString)
@@ -74,7 +78,12 @@ class PartitionedPubSubAccessor extends AbstractStorage implements DataAccessor 
         .map(Integer::valueOf)
         .orElse(1);
 
-    Preconditions.checkArgument(!Strings.isNullOrEmpty(topic), "Path has to represent topic");
+    Preconditions.checkArgument(
+        !Strings.isNullOrEmpty(projectId),
+        "Authority represents projectId and must not be empty");
+    Preconditions.checkArgument(
+        !Strings.isNullOrEmpty(topic),
+        "Path has to represent topic and must not be empty");
   }
 
   @Override

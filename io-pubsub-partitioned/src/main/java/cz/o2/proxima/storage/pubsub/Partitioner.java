@@ -16,12 +16,13 @@
 package cz.o2.proxima.storage.pubsub;
 
 import cz.o2.proxima.storage.StreamElement;
+import java.io.Serializable;
 
 /**
  * Partitioner for {@link StreamElement}s.
  */
 @FunctionalInterface
-public interface Partitioner {
+public interface Partitioner extends Serializable {
 
   /**
    * Retrieve partition for given element.

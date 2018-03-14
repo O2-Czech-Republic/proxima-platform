@@ -194,7 +194,8 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
     PubsubIO.Read<PubsubMessage> read = PubsubIO.readMessages()
         .fromTopic(String.format("projects/%s/topics/%s", projectId, topic));
     if (subscription != null) {
-      read.fromSubscription(subscription);
+      read.fromSubscription(
+          String.format("projects/%s/subscriptions/%s", projectId, subscription));
     }
     return read;
   }

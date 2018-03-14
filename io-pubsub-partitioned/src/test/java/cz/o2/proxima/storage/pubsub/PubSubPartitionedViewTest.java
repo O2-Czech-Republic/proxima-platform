@@ -15,9 +15,7 @@
  */
 package cz.o2.proxima.storage.pubsub;
 
-import com.esotericsoftware.kryo.Kryo;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.GeneratedMessage;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -29,45 +27,22 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import static cz.o2.proxima.storage.pubsub.PartitionedPubSubAccessor.CFG_NUM_PARTITIONS;
 import static cz.o2.proxima.storage.pubsub.PartitionedPubSubAccessor.CFG_PARTITIONER;
-import cz.o2.proxima.storage.pubsub.proto.ProtobufKryo;
 import cz.o2.proxima.storage.pubsub.proto.PubSub.KeyValue;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.PartitionedLogObserver;
+import cz.o2.proxima.view.PartitionedView;
+import cz.seznam.euphoria.beam.BeamExecutor;
 import cz.seznam.euphoria.beam.BeamFlow;
-import cz.seznam.euphoria.beam.io.KryoCoder;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
-import cz.seznam.euphoria.core.client.functional.VoidFunction;
+import cz.seznam.euphoria.core.client.io.ListDataSink;
 import cz.seznam.euphoria.core.client.operator.ReduceWindow;
 import cz.seznam.euphoria.core.client.util.Sums;
-import de.javakaffee.kryoserializers.ArraysAsListSerializer;
-import de.javakaffee.kryoserializers.CollectionsEmptyListSerializer;
-import de.javakaffee.kryoserializers.CollectionsEmptyMapSerializer;
-import de.javakaffee.kryoserializers.CollectionsEmptySetSerializer;
-import de.javakaffee.kryoserializers.CollectionsSingletonListSerializer;
-import de.javakaffee.kryoserializers.CollectionsSingletonMapSerializer;
-import de.javakaffee.kryoserializers.CollectionsSingletonSetSerializer;
-import de.javakaffee.kryoserializers.GregorianCalendarSerializer;
-import de.javakaffee.kryoserializers.JdkProxySerializer;
-import de.javakaffee.kryoserializers.SynchronizedCollectionsSerializer;
-import de.javakaffee.kryoserializers.UnmodifiableCollectionsSerializer;
-import de.javakaffee.kryoserializers.guava.ArrayListMultimapSerializer;
-import de.javakaffee.kryoserializers.guava.HashMultimapSerializer;
-import de.javakaffee.kryoserializers.guava.ImmutableListSerializer;
-import de.javakaffee.kryoserializers.guava.ImmutableMapSerializer;
-import de.javakaffee.kryoserializers.guava.ImmutableMultimapSerializer;
-import de.javakaffee.kryoserializers.guava.ImmutableSetSerializer;
-import de.javakaffee.kryoserializers.guava.LinkedHashMultimapSerializer;
-import de.javakaffee.kryoserializers.guava.LinkedListMultimapSerializer;
-import de.javakaffee.kryoserializers.guava.ReverseListSerializer;
-import de.javakaffee.kryoserializers.guava.TreeMultimapSerializer;
-import de.javakaffee.kryoserializers.guava.UnmodifiableNavigableSetSerializer;
+import cz.seznam.euphoria.core.executor.Executor;
 import java.io.Serializable;
-import java.lang.reflect.InvocationHandler;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -162,45 +137,61 @@ public class PubSubPartitionedViewTest implements Serializable {
   }
 
   @Test
-  public void testViewConsumption() {
+  public void testViewNamedObserve() {
     PubSubPartitionedView view = createView(
         FirstBytePartitioner.class, 3,
         messages("key",
             new byte[]{1, 2, 3}, new byte[]{2, 3, 4}, new byte[]{3, 4}));
 
-    VoidFunction<Kryo> FACTORY = KryoCoder.FACTORY;
-    KryoCoder.withKryoFactory(() -> {
-      Kryo kryo = FACTORY.apply();
-      kryo.addDefaultSerializer(GeneratedMessage.class, ProtobufKryo.class);
-      kryo.register(Arrays.asList("").getClass(), new ArraysAsListSerializer());
-      kryo.register(Collections.EMPTY_LIST.getClass(), new CollectionsEmptyListSerializer());
-      kryo.register(Collections.EMPTY_MAP.getClass(), new CollectionsEmptyMapSerializer());
-      kryo.register(Collections.EMPTY_SET.getClass(), new CollectionsEmptySetSerializer());
-      kryo.register(Collections.singletonList("").getClass(), new CollectionsSingletonListSerializer());
-      kryo.register(Collections.singleton("").getClass(), new CollectionsSingletonSetSerializer());
-      kryo.register(Collections.singletonMap("", "").getClass(), new CollectionsSingletonMapSerializer());
-      kryo.register(GregorianCalendar.class, new GregorianCalendarSerializer());
-      kryo.register(InvocationHandler.class, new JdkProxySerializer());
-      UnmodifiableCollectionsSerializer.registerSerializers(kryo);
-      SynchronizedCollectionsSerializer.registerSerializers(kryo);
-      ImmutableListSerializer.registerSerializers(kryo);
-      ImmutableSetSerializer.registerSerializers(kryo);
-      ImmutableMapSerializer.registerSerializers(kryo);
-      ImmutableMultimapSerializer.registerSerializers(kryo);
-      ReverseListSerializer.registerSerializers(kryo);
-      UnmodifiableNavigableSetSerializer.registerSerializers(kryo);
-      ArrayListMultimapSerializer.registerSerializers(kryo);
-      HashMultimapSerializer.registerSerializers(kryo);
-      LinkedHashMultimapSerializer.registerSerializers(kryo);
-      LinkedListMultimapSerializer.registerSerializers(kryo);
-      TreeMultimapSerializer.registerSerializers(kryo);
-      return kryo;
-    });
+    testViewObserve(view, "dummy");
+  }
+
+  @Test
+  public void testViewUnamedObserve() {
+    PubSubPartitionedView view = createView(
+        FirstBytePartitioner.class, 3,
+        messages("key",
+            new byte[]{1, 2, 3}, new byte[]{2, 3, 4}, new byte[]{3, 4}));
+
+    testViewObserve(view, null);
+  }
+
+  @Test
+  public void testViewPersist() {
+    PubSubPartitionedView view = createView(
+        FirstBytePartitioner.class, 3,
+        messages("key",
+            new byte[]{1, 2, 3}, new byte[]{2, 3, 4}, new byte[]{3, 4}));
     PipelineOptions opts = PipelineOptionsFactory.create();
     opts.setRunner(DirectRunner.class);
     Pipeline pipeline = Pipeline.create(opts);
     BeamFlow flow = BeamFlow.create(pipeline);
-    Dataset<Integer> ds = view.observe(flow, "projects/dummy/subscriptions/dummy", new PartitionedLogObserver<Integer>() {
+
+    Dataset<Integer> output = createOutputDataset(view, flow, "dummy");
+    ListDataSink<Integer> sink = ListDataSink.get();
+    output.persist(sink);
+    Executor executor = new BeamExecutor(opts);
+    executor.submit(flow).join();
+    assertEquals(1, sink.getOutputs().size());
+    assertEquals(22, (int) sink.getOutputs().get(0));
+  }
+
+  public void testViewObserve(PartitionedView view, @Nullable String name) {
+    PipelineOptions opts = PipelineOptionsFactory.create();
+    opts.setRunner(DirectRunner.class);
+    Pipeline pipeline = Pipeline.create(opts);
+    BeamFlow flow = BeamFlow.create(pipeline);
+    Dataset<Integer> ds = createOutputDataset(view, flow, name);
+
+    PCollection<Integer> output = flow.unwrapped(ReduceWindow.of(ds)
+        .combineBy(Sums.ofInts())
+        .output());
+    PAssert.that(output).containsInAnyOrder(22);
+    pipeline.run();
+  }
+
+  Dataset<Integer> createOutputDataset(PartitionedView view, BeamFlow flow, String name) {
+    Dataset<Integer> ds = view.observe(flow, name, new PartitionedLogObserver<Integer>() {
 
       @Override
       public boolean onNext(
@@ -222,17 +213,9 @@ public class PubSubPartitionedViewTest implements Serializable {
       }
 
     });
-
-    PCollection<Integer> output = flow.unwrapped(ReduceWindow.of(ds)
-        .combineBy(Sums.ofInts())
-        .output());
-    PAssert.that(output).containsInAnyOrder(6, 9, 7);
-    try {
-      pipeline.run();
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-    }
+    return ds;
   }
+
 
   private List<PubsubMessage> messages(String key, byte[]... payloads) {
     return Arrays.stream(payloads)

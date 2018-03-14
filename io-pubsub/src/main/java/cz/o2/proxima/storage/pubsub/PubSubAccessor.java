@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.storage.pubsub;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
@@ -22,8 +24,6 @@ import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.URIUtil;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
-import cz.seznam.euphoria.shadow.com.google.common.base.Preconditions;
-import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;

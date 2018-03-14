@@ -44,16 +44,18 @@ public class ProtoSerializerFactory<M extends AbstractMessage>
 
   @SuppressWarnings("unchecked")
   private ValueSerializer<M> createSerializer(URI uri) {
-    String protoClass = uri.getSchemeSpecificPart();
-    M defVal = getDefaultInstance(protoClass);
     return new ValueSerializer<M>() {
 
-      transient Parser<?> parser = getParserForClass(protoClass);
+      final String protoClass = uri.getSchemeSpecificPart();
+      final M defVal = getDefaultInstance(protoClass);
+      final ProtoSerializerFactory factory = ProtoSerializerFactory.this;
+
+      transient Parser<?> parser = null;
 
       @Override
       public Optional<M> deserialize(byte[] input) {
         if (parser == null) {
-          parser = getParserForClass(protoClass);
+          parser = factory.getParserForClass(protoClass);
         }
         try {
           return Optional.of((M) parser.parseFrom(input));

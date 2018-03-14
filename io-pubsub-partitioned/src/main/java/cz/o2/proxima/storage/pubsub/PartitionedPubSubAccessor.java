@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.storage.pubsub;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
@@ -22,14 +24,11 @@ import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.URIUtil;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.view.PartitionedView;
-import cz.seznam.euphoria.shadow.com.google.common.base.Preconditions;
-import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -94,10 +93,10 @@ class PartitionedPubSubAccessor extends AbstractStorage implements DataAccessor 
   @SuppressWarnings("unchecked")
   private PipelineOptions asOptions(Map<String, Object> cfg) {
     PipelineOptions ret = PipelineOptionsFactory.create();
-    ret.setRunner(Optional.ofNullable(cfg.get(CFG_RUNNER))
+    Optional.ofNullable(cfg.get(CFG_RUNNER))
         .map(Object::toString)
-        .map(c -> Classpath.findClass(c, PipelineRunner.class))
-        .orElse((Class) DirectRunner.class));
+        .map(c -> (Class) Classpath.findClass(c, PipelineRunner.class))
+        .ifPresent(ret::setRunner);
     return ret;
   }
 

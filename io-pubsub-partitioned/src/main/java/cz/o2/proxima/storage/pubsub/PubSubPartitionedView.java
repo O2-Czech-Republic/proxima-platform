@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.pubsub;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.protobuf.InvalidProtocolBufferException;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -37,6 +38,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
@@ -44,7 +46,9 @@ import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
+import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
 
@@ -105,9 +109,7 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
         throw new IllegalStateException(
             "Please create flow with BeamFlow.create(pipeline)", ex);
       }
-      PCollection<PubsubMessage> msgs = pipeline.apply(
-          PubsubIO.readMessages()
-              .fromTopic(topic));
+      PCollection<PubsubMessage> msgs = pipeline.apply(pubsubIO());
       return applyObserver(
           msgs, getEntityDescriptor(), partitioner,
           numPartitions, observer, bf);
@@ -121,6 +123,7 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
   public <T> Dataset<T> observe(
       Flow flow, String name,
       PartitionedLogObserver<T> observer) {
+
     if (flow instanceof BeamFlow) {
       BeamFlow bf = (BeamFlow) flow;
       final Pipeline pipeline;
@@ -130,9 +133,7 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
         throw new IllegalStateException(
             "Please create flow with BeamFlow.create(pipeline)", ex);
       }
-      PCollection<PubsubMessage> msgs = pipeline.apply(
-          PubsubIO.readMessages()
-              .fromTopic(String.format("projects/%s/topics/%s", projectId, topic)));
+      PCollection<PubsubMessage> msgs = pipeline.apply(pubsubIO(projectId, topic, name));
       return applyObserver(
           msgs, getEntityDescriptor(), partitioner,
           numPartitions, observer, bf);
@@ -175,10 +176,28 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
           .setCoder(new KryoCoder<>()));
     }
     PCollectionList<T> l = PCollectionList.of(flatten);
-    PCollection<T> result = l.apply(Flatten.pCollections());
+    PCollection<T> result = l
+        .apply(Flatten.pCollections())
+        .setCoder(new KryoCoder<>());
     return flow.wrapped(result);
   }
 
+  private PTransform<PBegin, PCollection<PubsubMessage>> pubsubIO() {
+    return pubsubIO(projectId, topic, null);
+  }
+
+  @VisibleForTesting
+  PTransform<PBegin, PCollection<PubsubMessage>> pubsubIO(
+      String projectId, String topic,
+      @Nullable String subscription) {
+
+    PubsubIO.Read<PubsubMessage> read = PubsubIO.readMessages()
+        .fromTopic(String.format("projects/%s/topics/%s", projectId, topic));
+    if (subscription != null) {
+      read.fromSubscription(subscription);
+    }
+    return read;
+  }
 
   private static <T> DoFn<StreamElement, T> toDoFn(
       PartitionedLogObserver<T> observer, int partitionId) {

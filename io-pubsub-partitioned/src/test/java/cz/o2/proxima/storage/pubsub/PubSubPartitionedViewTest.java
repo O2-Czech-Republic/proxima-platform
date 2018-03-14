@@ -183,9 +183,7 @@ public class PubSubPartitionedViewTest implements Serializable {
     BeamFlow flow = BeamFlow.create(pipeline);
     Dataset<Integer> ds = createOutputDataset(view, flow, name);
 
-    PCollection<Integer> output = flow.unwrapped(ReduceWindow.of(ds)
-        .combineBy(Sums.ofInts())
-        .output());
+    PCollection<Integer> output = flow.unwrapped(ds);
     PAssert.that(output).containsInAnyOrder(22);
     pipeline.run();
   }
@@ -213,7 +211,9 @@ public class PubSubPartitionedViewTest implements Serializable {
       }
 
     });
-    return ds;
+    return ReduceWindow.of(ds)
+        .combineBy(Sums.ofInts())
+        .output();
   }
 
 

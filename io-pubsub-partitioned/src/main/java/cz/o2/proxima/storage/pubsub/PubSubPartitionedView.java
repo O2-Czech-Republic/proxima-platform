@@ -154,12 +154,14 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
     PCollection<StreamElement> parsed = msgs.apply(ParDo.of(
         new DoFn<PubsubMessage, StreamElement>() {
+
       @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
       @ProcessElement
       public void process(ProcessContext context) {
         toElement(entity, context.element())
             .ifPresent(context::output);
       }
+
     })).setCoder(new KryoCoder<>());
     PCollectionList<StreamElement> partitioned = parsed.apply(
         org.apache.beam.sdk.transforms.Partition.of(
@@ -191,13 +193,13 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
       String projectId, String topic,
       @Nullable String subscription) {
 
-    PubsubIO.Read<PubsubMessage> read = PubsubIO.readMessages()
-        .fromTopic(String.format("projects/%s/topics/%s", projectId, topic));
     if (subscription != null) {
-      read.fromSubscription(
+      return PubsubIO.readMessages().fromSubscription(
           String.format("projects/%s/subscriptions/%s", projectId, subscription));
+    } else {
+      return PubsubIO.readMessages()
+        .fromTopic(String.format("projects/%s/topics/%s", projectId, topic));
     }
-    return read;
   }
 
   private static <T> DoFn<StreamElement, T> toDoFn(

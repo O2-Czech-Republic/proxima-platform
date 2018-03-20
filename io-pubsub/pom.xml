@@ -210,6 +210,10 @@
               <pattern>com.fasterxml.</pattern>
               <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>
+            <relocation>
+              <pattern>cz.o2.proxima.storage.pubsub.proto.</pattern>
+              <shadedPattern>cz.o2.proxima.storage.pubsub.internal.proto.</shadedPattern>
+            </relocation>
           </relocations>
         </configuration>
         <executions>

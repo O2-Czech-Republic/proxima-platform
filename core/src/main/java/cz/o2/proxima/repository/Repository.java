@@ -525,6 +525,14 @@ public class Repository {
       }
 
       try {
+        boolean isDisabled = Optional.ofNullable(storage.get("disabled"))
+            .map(Object::toString)
+            .map(Boolean::valueOf)
+            .orElse(false);
+        if (isDisabled) {
+          log.info("Skipping load of disabled family {}", name);
+          continue;
+        }
         String entity = Objects.requireNonNull(storage.get("entity")).toString();
         String filter = toString(storage.get("filter"));
         // type is one of the following:

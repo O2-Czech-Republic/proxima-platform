@@ -77,6 +77,25 @@ public class RepositoryTest {
     assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
   }
 
+  @Test(expected = IllegalArgumentException.class)
+  public void testInvalidFamily() {
+    Repository.Builder.of(
+      ConfigFactory.load()
+          .withFallback(ConfigFactory.load("test-reference.conf"))
+          .withFallback(ConfigFactory.parseString("attributeFamilies.invalid.invalid = true"))
+          .resolve()).build();
+  }
+
+  @Test
+  public void testInvalidDisabledFamily() {
+    Repository.Builder.of(
+      ConfigFactory.load()
+          .withFallback(ConfigFactory.load("test-reference.conf"))
+          .withFallback(ConfigFactory.parseString("attributeFamilies.invalid.invalid = true\n"
+              + "attributeFamilies.invalid.disabled = true"))
+          .resolve()).build();
+  }
+
   @Test(timeout = 5000)
   public void testProxyWrite() throws UnsupportedEncodingException, InterruptedException {
     EntityDescriptor proxied = repo.findEntity("proxied").get();

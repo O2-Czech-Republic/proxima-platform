@@ -138,6 +138,17 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
       @Override
       public ObserveHandle observePartitions(
+          String name,
+          Collection<Partition> partitions, Position position,
+          boolean stopAtCurrent, LogObserver observer) {
+
+        return reader.observePartitions(
+            name, partitions, position, stopAtCurrent,
+            wrapTransformed(targetAttribute, observer));
+      }
+
+      @Override
+      public ObserveHandle observePartitions(
           Collection<Partition> partitions, Position position,
           boolean stopAtCurrent, LogObserver observer) {
 
@@ -167,6 +178,17 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
         return reader.observeBulkPartitions(
             partitions, position, wrapTransformed(observer));
+      }
+
+      @Override
+      public ObserveHandle observeBulkPartitions(
+          String name,
+          Collection<Partition> partitions,
+          Position position,
+          BulkLogObserver observer) {
+
+        return reader.observeBulkPartitions(
+            name, partitions, position, wrapTransformed(observer));
       }
 
       @Override

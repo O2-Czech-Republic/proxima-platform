@@ -108,6 +108,7 @@ public class KafkaLogReader extends AbstractStorage
 
   @Override
   public ObserveHandle observePartitions(
+      String name,
       @Nullable Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
@@ -130,10 +131,13 @@ public class KafkaLogReader extends AbstractStorage
 
   @Override
   public ObserveHandle observeBulkPartitions(
+      String name,
       Collection<Partition> partitions,
       Position position,
       BulkLogObserver observer) {
 
+    // name is ignored, because when observing partition the offsets
+    // are not committed to kafka
     return observeKafkaBulk(null, asOffsets(partitions), position, observer);
   }
 

@@ -46,7 +46,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -111,16 +110,14 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
   @Override
   public ObserveHandle observePartitions(
-      Collection<Partition> partitions, Position position,
+      String name, Collection<Partition> partitions, Position position,
       boolean stopAtCurrent, LogObserver observer) {
 
     if (stopAtCurrent) {
       throw new UnsupportedOperationException(
           "PubSub can observe only current data.");
     }
-    return observe(
-        "unnamed-consumer-" + UUID.randomUUID().toString(),
-        position, observer);
+    return observe(name, position, observer);
   }
 
   /**
@@ -170,11 +167,12 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
   @Override
   public ObserveHandle observeBulkPartitions(
-      Collection<Partition> partitions, Position position, BulkLogObserver observer) {
+      String name,
+      Collection<Partition> partitions,
+      Position position,
+      BulkLogObserver observer) {
 
-    return observeBulk(
-        "unnamed-bulk-consumer-" + UUID.randomUUID().toString(),
-        position, observer);
+    return observeBulk(name, position, observer);
   }
 
   @Override

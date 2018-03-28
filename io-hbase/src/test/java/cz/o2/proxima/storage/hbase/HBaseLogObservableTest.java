@@ -87,7 +87,7 @@ public class HBaseLogObservableTest {
         cluster.getConfiguration(),
         Collections.emptyMap(),
         entity,
-        Executors.newCachedThreadPool());
+        () -> Executors.newCachedThreadPool());
   }
 
   @After

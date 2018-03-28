@@ -21,6 +21,7 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
+import cz.seznam.euphoria.core.client.functional.VoidFunction;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
@@ -52,15 +53,16 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
   private static Charset UTF8 = Charset.forName("UTF-8");
 
   private final EntityDescriptor entity;
-  private final Executor executor;
+  private final VoidFunction<Executor> executorFactory;
+  private transient Executor executor;
 
   public HBaseLogObservable(
       URI uri, Configuration conf, Map<String, Object> cfg,
-      EntityDescriptor entity, Executor executor) {
+      EntityDescriptor entity, VoidFunction<Executor> executorFactory) {
 
     super(uri, conf, cfg);
     this.entity = entity;
-    this.executor = executor;
+    this.executorFactory = executorFactory;
   }
 
   @Override
@@ -68,7 +70,7 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
     try {
       ensureClient();
       List<Partition> ret = new ArrayList<>();
-      byte[][] end = conn.getRegionLocator(table).getEndKeys();
+      byte[][] end = conn.getRegionLocator(tableName()).getEndKeys();
       byte[] startPos = new byte[0];
       if (startStamp < 0) {
         startStamp = 0;
@@ -89,7 +91,7 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor.execute(() -> {
+    executor().execute(() -> {
       ensureClient();
       try {
         outer:
@@ -117,6 +119,13 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
         observer.onError(ex);
       }
     });
+  }
+
+  private Executor executor() {
+    if (executor == null) {
+      executor = executorFactory.apply();
+    }
+    return executor;
   }
 
   private boolean consume(Result r,

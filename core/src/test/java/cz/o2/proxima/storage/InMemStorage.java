@@ -198,6 +198,7 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public ObserveHandle observePartitions(
+        String name,
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
@@ -314,11 +315,12 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public ObserveHandle observeBulkPartitions(
+        String name,
         Collection<Partition> partitions,
         Position position,
         BulkLogObserver observer) {
 
-      return observeBulk("unnamed-" + observer, position, observer);
+      return observeBulk(name, position, observer);
     }
 
     @Override

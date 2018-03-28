@@ -30,12 +30,6 @@ class TestUtil {
   }
 
   static void write(
-      String key, String attribute, String value, Table client) throws IOException {
-
-    write(key, attribute, value, System.currentTimeMillis(), client);
-  }
-
-  static void write(
       String key, String attribute, String value, long stamp, Table client)
       throws IOException {
 

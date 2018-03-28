@@ -72,9 +72,10 @@ public class HBaseWriterTest {
   @Test(timeout = 10000)
   public void testWrite() throws InterruptedException, IOException {
     CountDownLatch latch = new CountDownLatch(1);
+    long now = 1500000000000L;
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
-        "entity", "dummy", System.currentTimeMillis(), new byte[] { 1, 2 }),
+        "entity", "dummy", now, new byte[] { 1, 2 }),
         (succ, exc) -> {
           assertTrue("Error on write: " + exc, succ);
           latch.countDown();
@@ -87,6 +88,8 @@ public class HBaseWriterTest {
     NavigableMap<byte[], byte[]> familyMap = res.getFamilyMap(b("u"));
     assertEquals(1, familyMap.size());
     assertArrayEquals(new byte[] { 1, 2 }, familyMap.get(b("dummy")));
+    assertEquals(now, (long) res.getMap().get(b("u"))
+        .get(b("dummy")).firstEntry().getKey());
   }
 
 }

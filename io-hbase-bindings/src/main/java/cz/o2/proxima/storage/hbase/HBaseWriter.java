@@ -89,6 +89,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
         Put put = new Put(key, stamp);
         put.addColumn(
             family, column.getBytes(UTF8),
+            data.getStamp(),
             data.getValue());
         this.client.put(put);
       }

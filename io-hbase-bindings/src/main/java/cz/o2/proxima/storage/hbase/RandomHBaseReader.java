@@ -190,7 +190,8 @@ public class RandomHBaseReader extends HBaseClientWrapper
     return KeyValue.of(
         entity, desc, key,
         attribute, ByteOffset.following(attribute.getBytes(UTF8)),
-        cell.getValue());
+        cell.getValue(),
+        cell.getTimestamp());
   }
 
   @Override

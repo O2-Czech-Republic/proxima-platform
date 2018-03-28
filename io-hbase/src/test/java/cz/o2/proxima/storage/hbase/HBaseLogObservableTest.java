@@ -117,10 +117,11 @@ public class HBaseLogObservableTest {
   @Test(timeout = 30000)
   public void testObserve() throws InterruptedException, IOException {
 
-    write("a", "dummy", "a");
-    write("firs", "wildcard.1", "firs");
-    write("fir", "dummy", "fir");
-    write("first", "dummy", "first");
+    long now = 1500000000000L;
+    write("a", "dummy", "a", now);
+    write("firs", "wildcard.1", "firs", now);
+    write("fir", "dummy", "fir", now);
+    write("first", "dummy", "first", now);
 
     List<Partition> partitions = reader.getPartitions();
     List<String> keys = new ArrayList<>();
@@ -129,6 +130,7 @@ public class HBaseLogObservableTest {
 
       @Override
       public boolean onNext(StreamElement element) {
+        assertEquals(now, element.getStamp());
         keys.add(element.getKey());
         return true;
       }
@@ -147,9 +149,10 @@ public class HBaseLogObservableTest {
   @Test(timeout = 30000)
   public void testObserveLast() throws InterruptedException, IOException {
 
-    write("secon", "dummy", "secon");
-    write("second", "dummy", "second");
-    write("third", "dummy", "third");
+    long now = 1500000000000L;
+    write("secon", "dummy", "secon", now);
+    write("second", "dummy", "second", now);
+    write("third", "dummy", "third", now);
 
     List<Partition> partitions = reader.getPartitions();
     List<String> keys = new ArrayList<>();
@@ -158,6 +161,7 @@ public class HBaseLogObservableTest {
 
       @Override
       public boolean onNext(StreamElement element) {
+        assertEquals(now, element.getStamp());
         keys.add(element.getKey());
         return true;
       }
@@ -176,10 +180,11 @@ public class HBaseLogObservableTest {
   @Test(timeout = 30000)
   public void testObserveMultiple() throws IOException, InterruptedException {
 
-    write("a", "dummy", "a");
-    write("firs", "wildcard.1", "firs");
-    write("fir", "dummy", "fir");
-    write("first", "dummy", "first");
+    long now = 1500000000000L;
+    write("a", "dummy", "a", now);
+    write("firs", "wildcard.1", "firs", now);
+    write("fir", "dummy", "fir", now);
+    write("first", "dummy", "first", now);
 
     List<Partition> partitions = reader.getPartitions();
     List<String> keys = new ArrayList<>();
@@ -197,6 +202,7 @@ public class HBaseLogObservableTest {
 
           @Override
           public boolean onNext(StreamElement element) {
+            assertEquals(now, element.getStamp());
             keys.add(element.getKey());
             return true;
           }
@@ -213,8 +219,10 @@ public class HBaseLogObservableTest {
     assertEquals(Lists.newArrayList("a", "fir", "firs"), keys);
   }
 
-  private void write(String key, String attribute, String value) throws IOException {
-    TestUtil.write(key, attribute, value, client);
+  private void write(
+      String key, String attribute, String value,
+      long stamp) throws IOException {
+    TestUtil.write(key, attribute, value, stamp, client);
   }
 
 

@@ -84,38 +84,43 @@ public class RandomHBaseReaderTest {
 
   @Test
   public void testRandomGet() throws IOException {
-    write("key", "dummy", "value");
+    long now = 1500000000000L;
+    write("key", "dummy", "value", now);
     Optional<KeyValue<byte[]>> res = reader.get("key", attr);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
     assertArrayEquals(b("value"), res.get().getValueBytes());
     assertEquals(attr, res.get().getAttrDescriptor());
+    assertEquals(now, res.get().getStamp());
   }
 
   @Test
   public void testRandomGetWildcard() throws IOException {
-    write("key", "wildcard.12345", "value");
+    long now = 1500000000000L;
+    write("key", "wildcard.12345", "value", now);
     Optional<KeyValue<byte[]>> res = reader.get("key", "wildcard.12345", wildcard);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
     assertArrayEquals(b("value"), res.get().getValueBytes());
     assertEquals("wildcard.12345", res.get().getAttribute());
     assertEquals(wildcard, res.get().getAttrDescriptor());
+    assertEquals(now, res.get().getStamp());
   }
 
   @Test
   public void testListWildcard() throws IOException {
+    long now = 1500000000000L;
     // write several values, delibetarely written in descending order
-    write("key", "wildcard.12345", "value1");
-    write("key", "wildcard.1234", "value2");
-    write("key", "wildcard.123", "value3");
-    write("key", "wildcard.12", "value4");
-    write("key", "wildcard.1", "value5");
-    write("key", "wildcard.0", "value6");
+    write("key", "wildcard.12345", "value1", now);
+    write("key", "wildcard.1234", "value2", now + 1);
+    write("key", "wildcard.123", "value3", now + 2);
+    write("key", "wildcard.12", "value4", now + 3);
+    write("key", "wildcard.1", "value5", now + 4);
+    write("key", "wildcard.0", "value6", now + 5);
 
     // include some "garbage"
-    write("key", "dummy", "blah");
-    write("key2", "wildcard.1", "blah");
+    write("key", "dummy", "blah", now + 6);
+    write("key2", "wildcard.1", "blah", now + 7);
 
     List<KeyValue<?>> res = new ArrayList<>();
     reader.scanWildcard("key", wildcard, res::add);
@@ -146,21 +151,25 @@ public class RandomHBaseReaderTest {
         res.stream()
             .map(k -> new String(k.getValueBytes()))
             .collect(Collectors.toList()));
+
+    res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts >= now));
+    res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts < now + 10));
   }
 
   @Test
   public void testListWildcardWithOffset() throws IOException {
+    long now = 1500000000000L;
     // write several values, delibetarely written in descending order
-    write("key", "wildcard.12345", "value1");
-    write("key", "wildcard.1234", "value2");
-    write("key", "wildcard.123", "value3");
-    write("key", "wildcard.12", "value4");
-    write("key", "wildcard.1", "value5");
-    write("key", "wildcard.0", "value6");
+    write("key", "wildcard.12345", "value1", now);
+    write("key", "wildcard.1234", "value2", now + 1);
+    write("key", "wildcard.123", "value3", now + 2);
+    write("key", "wildcard.12", "value4", now + 3);
+    write("key", "wildcard.1", "value5", now + 4);
+    write("key", "wildcard.0", "value6", now + 5);
 
     // include some "garbage"
-    write("key", "dummy", "blah");
-    write("key2", "wildcard.1", "blah");
+    write("key", "dummy", "blah", now + 6);
+    write("key2", "wildcard.1", "blah", now + 7);
 
     List<KeyValue<?>> res = new ArrayList<>();
     reader.scanWildcard("key", wildcard, null, 1, res::add);
@@ -194,13 +203,17 @@ public class RandomHBaseReaderTest {
         Arrays.asList(
             "wildcard.1", "wildcard.12", "wildcard.123"),
         res.stream().map(KeyValue::getAttribute).collect(Collectors.toList()));
+
+    res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts >= now));
+    res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts < now + 10));
   }
 
   @Test
   public void testListKeys() throws IOException {
-    write("key1", "dummy", "a");
-    write("key2", "wildcard.1", "b");
-    write("key0", "dummy", "c");
+    long now = 1500000000000L;
+    write("key1", "dummy", "a", now);
+    write("key2", "wildcard.1", "b", now);
+    write("key0", "dummy", "c", now);
 
     List<String> keys = new ArrayList<>();
     reader.listEntities(p -> keys.add(p.getSecond()));
@@ -209,9 +222,10 @@ public class RandomHBaseReaderTest {
 
   @Test
   public void testListKeysOffset() throws IOException {
-    write("key1", "dummy", "a");
-    write("key2", "wildcard.1", "b");
-    write("key0", "dummy", "c");
+    long now = 1500000000000L;
+    write("key1", "dummy", "a", now);
+    write("key2", "wildcard.1", "b", now);
+    write("key0", "dummy", "c", now);
 
     List<Pair<RandomOffset, String>> keys = new ArrayList<>();
     reader.listEntities(null, 1, keys::add);
@@ -222,8 +236,11 @@ public class RandomHBaseReaderTest {
     assertEquals("key1", keys.get(0).getSecond());
   }
 
-  void write(String key, String attribute, String value) throws IOException {
-    TestUtil.write(key, attribute, value, client);
+  void write(
+      String key, String attribute, String value,
+      long stamp) throws IOException {
+
+    TestUtil.write(key, attribute, value, stamp, client);
   }
 
 }

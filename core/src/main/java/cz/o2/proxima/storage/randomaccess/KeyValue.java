@@ -34,6 +34,22 @@ public class KeyValue<T> {
       RandomOffset offset,
       byte[] valueBytes) {
 
+    return of(
+        entityDesc, attrDesc, key, attribute,
+        offset, valueBytes, System.currentTimeMillis());
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T> KeyValue<T> of(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<T> attrDesc,
+      String key,
+      String attribute,
+      RandomOffset offset,
+      byte[] valueBytes,
+      long stamp) {
+
+
     Optional<T> value = attrDesc.getValueSerializer().deserialize(valueBytes);
 
     if (!value.isPresent()) {
@@ -48,7 +64,7 @@ public class KeyValue<T> {
         offset,
         value.get(),
         valueBytes,
-        System.currentTimeMillis());
+        stamp);
   }
 
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2017 O2 Czech Republic, a.s.
+# Copyright 2017-2018 O2 Czech Republic, a.s.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,4 +27,9 @@ LOG_LEVEL=INFO
 JAR="${BIN_DIR}/../target/proxima-example-ingest-server.jar"
 CLASS=cz.o2.proxima.server.IngestServer
 
-java -cp ${JAR} -DLOG_LEVEL=${LOG_LEVEL} -Djava.library.path=${BIN_DIR}/hadoop-native/ ${CLASS}
+JAVAOPTS=""
+# Enable this for kerberized kafka
+#JAVAOPTS="${JAVAOPTS} -Djava.security.auth.login.config=kafka_jaas.conf"
+
+CONFIG=${1:-"${BIN_DIR}/../../model/src/main/resources/reference.conf"}
+java -cp ${JAR} -DLOG_LEVEL=${LOG_LEVEL} -Djava.library.path=${BIN_DIR}/hadoop-native/ ${JAVAOPTS} ${CLASS} ${CONFIG}

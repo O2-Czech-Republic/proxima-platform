@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage;
 
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
 /**
  * Access type to {@code attribute family}.
  */
-public interface AccessType {
+public interface AccessType extends Serializable {
 
   /**
    * Return {@code AccessType} based on configuration specification.

@@ -29,7 +29,7 @@ import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Classpath;
-import lombok.Getter;
+import java.io.Serializable;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Configuration;
 import org.reflections.Reflections;
@@ -52,12 +52,13 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import lombok.Getter;
 
 /**
  * Repository of all entities configured in the system.
  */
 @Slf4j
-public class Repository {
+public class Repository implements Serializable {
 
   /**
    * Construct default repository from the config.
@@ -149,8 +150,7 @@ public class Repository {
   /**
    * Classpath reflections scanner.
    */
-  @Getter
-  private final Reflections reflections;
+  private final transient Reflections reflections;
 
   /**
    * When read-only flag is specified, some checks are not performed in construction.

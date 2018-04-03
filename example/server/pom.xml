@@ -60,7 +60,7 @@
             </relocation>
             <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.com.google.common.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.internal.shaded.com.google.common.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>

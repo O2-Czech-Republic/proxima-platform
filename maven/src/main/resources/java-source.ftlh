@@ -15,6 +15,7 @@ import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.view.PartitionedView;
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.HashSet;
@@ -22,7 +23,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-public class ${java_classname} {
+public class ${java_classname} implements Serializable {
 
   private static final String GENERATED_FROM = ${input_config};
 
@@ -52,12 +53,12 @@ public class ${java_classname} {
   /**
    * Class wrapping access to attribute data of entity ${entity.name}.
    **/
-  public class ${entity.classname}Wrapper {
+  public class ${entity.classname}Wrapper implements Serializable {
 
   <#list entity.attributes as attribute>
     <#if !attribute.wildcard>
     @Nullable
-    private Optional<${attribute.type}> ${attribute.nameCamel} = Optional.empty();
+    private ${attribute.type} ${attribute.nameCamel} = null;
     @SuppressWarnings("unchecked")
     private final ${attribute.type} ${attribute.nameCamel}Default = (${attribute.type}) repo.findEntity(
         "${entity.name}").get().findAttribute("${attribute.name}").get().getValueSerializer().getDefault();
@@ -71,7 +72,7 @@ public class ${java_classname} {
     <#list entity.attributes as attribute>
     <#if !attribute.wildcard>
     public ${attribute.type} get${attribute.nameCamel}() {
-      return ${attribute.nameCamel}.orElse(${attribute.nameCamel}Default);
+      return ${attribute.nameCamel} == null ? ${attribute.nameCamel}Default : ${attribute.nameCamel};
     }
     </#if>
     </#list> <#-- entity.attributes as attribute -->
@@ -81,7 +82,7 @@ public class ${java_classname} {
   /**
    * Class wrapping views on entity ${entity.name}
    **/
-  public class ${entity.classname} {
+  public class ${entity.classname} implements Serializable {
 
     private final EntityDescriptor descriptor = repo.findEntity("${entity.name}").get();
 
@@ -165,7 +166,7 @@ public class ${java_classname} {
 
         <#if !attribute.wildcard>
           Optional<KeyValue<${attribute.type}>> kv = (Optional) reader.get(key, desc);
-          ret.${attribute.nameCamel} = kv.map(KeyValue::getValue);
+          ret.${attribute.nameCamel} = kv.map(KeyValue::getValue).orElse(null);
         </#if>
           continue;
         }

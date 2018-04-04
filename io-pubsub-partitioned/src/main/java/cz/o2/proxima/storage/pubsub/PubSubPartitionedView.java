@@ -52,10 +52,8 @@ import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.MapElements;
-import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.TypeDescriptor;
@@ -117,7 +115,7 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
         throw new IllegalStateException(
             "Please create flow with BeamFlow.create(pipeline)", ex);
       }
-      PCollection<PubsubMessage> msgs = pipeline.apply(pubsubIO());
+      PCollection<StreamElement> msgs = pubsubIO(pipeline, getEntityDescriptor());
       return applyObserver(
           msgs, getEntityDescriptor(), partitioner,
           numPartitions, observer, bf);
@@ -141,7 +139,10 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
         throw new IllegalStateException(
             "Please create flow with BeamFlow.create(pipeline)", ex);
       }
-      PCollection<PubsubMessage> msgs = pipeline.apply(pubsubIO(projectId, topic, name));
+      PCollection<StreamElement> msgs = pubsubIO(
+          pipeline, projectId, topic,
+          name, getEntityDescriptor());
+
       return applyObserver(
           msgs, getEntityDescriptor(), partitioner,
           numPartitions, observer, bf);
@@ -153,25 +154,14 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
   }
 
   private static <T> Dataset<T> applyObserver(
-      PCollection<PubsubMessage> msgs,
+      PCollection<StreamElement> msgs,
       EntityDescriptor entity,
       Partitioner partitioner,
       int numPartitions,
       PartitionedLogObserver<T> observer,
       BeamFlow flow) {
 
-    PCollection<StreamElement> parsed = msgs.apply(ParDo.of(
-        new DoFn<PubsubMessage, StreamElement>() {
-
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @ProcessElement
-      public void process(ProcessContext context) {
-        toElement(entity, context.element())
-            .ifPresent(context::output);
-      }
-
-    })).setCoder(new KryoCoder<>());
-    PCollection<KV<Integer, StreamElement>> parts = parsed.apply(
+    PCollection<KV<Integer, StreamElement>> parts = msgs.apply(
         MapElements
             .into(new TypeDescriptor<KV<Integer, StreamElement>>() { })
             .via(e -> KV.of((partitioner.getPartition(e)
@@ -198,22 +188,36 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
     return flow.wrapped(result);
   }
 
-  private PTransform<PBegin, PCollection<PubsubMessage>> pubsubIO() {
-    return pubsubIO(projectId, topic, null);
+  private PCollection<StreamElement> pubsubIO(
+      Pipeline pipeline, EntityDescriptor entity) {
+
+    return pubsubIO(pipeline, projectId, topic, null, entity);
   }
 
   @VisibleForTesting
-  PTransform<PBegin, PCollection<PubsubMessage>> pubsubIO(
-      String projectId, String topic,
-      @Nullable String subscription) {
+  PCollection<StreamElement> pubsubIO(
+      Pipeline pipeline, String projectId, String topic,
+      @Nullable String subscription, EntityDescriptor entity) {
 
+    final PCollection<PubsubMessage> msgs;
     if (subscription != null) {
-      return PubsubIO.readMessages().fromSubscription(
-          String.format("projects/%s/subscriptions/%s", projectId, subscription));
+      msgs = pipeline.apply(PubsubIO.readMessages().fromSubscription(
+          String.format("projects/%s/subscriptions/%s", projectId, subscription)));
     } else {
-      return PubsubIO.readMessages()
-        .fromTopic(String.format("projects/%s/topics/%s", projectId, topic));
+      msgs = pipeline.apply(PubsubIO.readMessages()
+        .fromTopic(String.format("projects/%s/topics/%s", projectId, topic)));
     }
+    return msgs.apply(ParDo.of(
+        new DoFn<PubsubMessage, StreamElement>() {
+
+      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
+      @ProcessElement
+      public void process(ProcessContext context) {
+        toElement(entity, context.element())
+            .ifPresent(context::output);
+      }
+
+    })).setCoder(new KryoCoder<>());
   }
 
   private static <T> DoFn<KV<Integer, StreamElement>, T> toDoFn(

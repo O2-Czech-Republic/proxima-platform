@@ -77,6 +77,7 @@
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.seznam.euphoria:*</exclude>
               <exclude>cz.o2.proxima:core</exclude>
+              <exclude>cz.o2.proxima:io-pubsub</exclude>
               <exclude>io.netty:*</exclude>
               <exclude>io.grpc:*</exclude>
             </excludes>
@@ -106,6 +107,12 @@
     <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>io-pubsub</artifactId>
       <version>${project.version}</version>
     </dependency>
 

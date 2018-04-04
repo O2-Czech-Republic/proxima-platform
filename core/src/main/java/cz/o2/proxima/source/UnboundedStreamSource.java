@@ -35,6 +35,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -48,16 +49,28 @@ public class UnboundedStreamSource
       CommitLogReader reader,
       Position position) {
 
-    return new UnboundedStreamSource(reader, position);
+    return new UnboundedStreamSource(null, reader, position);
   }
 
-  final CommitLogReader reader;
-  final Position position;
-
-  UnboundedStreamSource(
+  public static UnboundedStreamSource of(
+      @Nullable String name,
       CommitLogReader reader,
       Position position) {
 
+    return new UnboundedStreamSource(name, reader, position);
+  }
+
+
+  final CommitLogReader reader;
+  final Position position;
+  @Nullable final String consumer;
+
+  UnboundedStreamSource(
+      @Nullable String consumer,
+      CommitLogReader reader,
+      Position position) {
+
+    this.consumer = consumer;
     this.reader = reader;
     this.position = position;
   }
@@ -80,6 +93,7 @@ public class UnboundedStreamSource
       BlockingQueue<BulkLogObserver.OffsetCommitter> committers = new LinkedBlockingDeque<>();
       AtomicReference<ObserveHandle> handle = new AtomicReference<>();
       handle.set(reader.observeBulkPartitions(
+          consumer,
           Arrays.asList(p),
           position,
           partitionObserver(queue, committers)));

@@ -15,13 +15,9 @@
  */
 package cz.o2.proxima.storage.pubsub;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.DataAccessor;
-import cz.o2.proxima.storage.URIUtil;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.view.PartitionedView;
 import java.net.URI;
@@ -37,17 +33,11 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
  * {@link DataAccessor} for partitioned pubsub view.
  */
 @Slf4j
-class PartitionedPubSubAccessor extends AbstractStorage implements DataAccessor {
+class PartitionedPubSubAccessor extends PubSubAccessor implements DataAccessor {
 
   public static final String CFG_PARTITIONER = "partitioner";
   public static final String CFG_RUNNER = "runner";
   public static final String CFG_NUM_PARTITIONS = "num-partitions";
-
-  @Getter
-  private final String projectId;
-
-  @Getter
-  private final String topic;
 
   @Getter
   private final Partitioner partitioner;
@@ -62,9 +52,7 @@ class PartitionedPubSubAccessor extends AbstractStorage implements DataAccessor 
       EntityDescriptor entity,
       URI uri, Map<String, Object> cfg) {
 
-    super(entity, uri);
-    projectId = uri.getAuthority();
-    topic = URIUtil.getPathNormalized(uri);
+    super(entity, uri, cfg);
     partitioner = Optional.ofNullable(cfg.get(CFG_PARTITIONER))
         .map(Object::toString)
         .map(c -> Classpath.findClass(c, Partitioner.class))
@@ -76,13 +64,6 @@ class PartitionedPubSubAccessor extends AbstractStorage implements DataAccessor 
         .map(Object::toString)
         .map(Integer::valueOf)
         .orElse(1);
-
-    Preconditions.checkArgument(
-        !Strings.isNullOrEmpty(projectId),
-        "Authority represents projectId and must not be empty");
-    Preconditions.checkArgument(
-        !Strings.isNullOrEmpty(topic),
-        "Path has to represent topic and must not be empty");
   }
 
   @Override

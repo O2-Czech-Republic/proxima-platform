@@ -16,14 +16,16 @@
 package cz.o2.proxima.storage.pubsub;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Lists;
 import com.google.protobuf.InvalidProtocolBufferException;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.source.UnboundedStreamSource;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.CommitLogReader;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.storage.pubsub.proto.PubSub;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
@@ -31,6 +33,7 @@ import cz.seznam.euphoria.beam.BeamFlow;
 import cz.seznam.euphoria.beam.io.KryoCoder;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
+import cz.seznam.euphoria.core.client.io.DataSource;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,12 +41,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.VarIntCoder;
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.state.StateSpec;
@@ -69,19 +73,24 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
   private final String topic;
   private final Partitioner partitioner;
   private final int numPartitions;
+  private final CommitLogReader reader;
 
   PubSubPartitionedView(PartitionedPubSubAccessor accessor, Context context) {
     super(accessor.getEntityDescriptor(), accessor.getURI());
-    this.projectId = accessor.getProjectId();
+    this.projectId = accessor.getProject();
     this.topic = accessor.getTopic();
     this.partitioner = accessor.getPartitioner();
     this.options = accessor.getOptions();
     this.numPartitions = accessor.getNumPartitions();
+    this.reader = accessor.getCommitLogReader(context).orElseThrow(
+        () -> new IllegalStateException("Fix code! Need a commit log reader!"));
   }
 
   @Override
   public List<Partition> getPartitions() {
-    return Lists.newArrayList(() -> 0);
+    return IntStream.range(0, numPartitions)
+        .mapToObj(i -> (Partition) () -> i)
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -108,14 +117,7 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
     if (flow instanceof BeamFlow) {
       BeamFlow bf = (BeamFlow) flow;
-      final Pipeline pipeline;
-      try {
-        pipeline = bf.getPipeline();
-      } catch (NullPointerException ex) {
-        throw new IllegalStateException(
-            "Please create flow with BeamFlow.create(pipeline)", ex);
-      }
-      PCollection<StreamElement> msgs = pubsubIO(pipeline, getEntityDescriptor());
+      PCollection<StreamElement> msgs = pubsubIO(bf, getEntityDescriptor(), reader);
       return applyObserver(
           msgs, getEntityDescriptor(), partitioner,
           numPartitions, observer, bf);
@@ -132,16 +134,9 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
     if (flow instanceof BeamFlow) {
       BeamFlow bf = (BeamFlow) flow;
-      final Pipeline pipeline;
-      try {
-        pipeline = bf.getPipeline();
-      } catch (NullPointerException ex) {
-        throw new IllegalStateException(
-            "Please create flow with BeamFlow.create(pipeline)", ex);
-      }
       PCollection<StreamElement> msgs = pubsubIO(
-          pipeline, projectId, topic,
-          name, getEntityDescriptor());
+          bf, projectId, topic,
+          name, getEntityDescriptor(), reader);
 
       return applyObserver(
           msgs, getEntityDescriptor(), partitioner,
@@ -189,35 +184,22 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
   }
 
   private PCollection<StreamElement> pubsubIO(
-      Pipeline pipeline, EntityDescriptor entity) {
+      BeamFlow flow, EntityDescriptor entity, CommitLogReader reader) {
 
-    return pubsubIO(pipeline, projectId, topic, null, entity);
+    return pubsubIO(flow, projectId, topic, null, entity, reader);
   }
 
   @VisibleForTesting
   PCollection<StreamElement> pubsubIO(
-      Pipeline pipeline, String projectId, String topic,
-      @Nullable String subscription, EntityDescriptor entity) {
+      BeamFlow flow, String projectId, String topic,
+      @Nullable String subscription, EntityDescriptor entity,
+      CommitLogReader reader) {
 
-    final PCollection<PubsubMessage> msgs;
-    if (subscription != null) {
-      msgs = pipeline.apply(PubsubIO.readMessages().fromSubscription(
-          String.format("projects/%s/subscriptions/%s", projectId, subscription)));
-    } else {
-      msgs = pipeline.apply(PubsubIO.readMessages()
-        .fromTopic(String.format("projects/%s/topics/%s", projectId, topic)));
-    }
-    return msgs.apply(ParDo.of(
-        new DoFn<PubsubMessage, StreamElement>() {
-
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @ProcessElement
-      public void process(ProcessContext context) {
-        toElement(entity, context.element())
-            .ifPresent(context::output);
-      }
-
-    })).setCoder(new KryoCoder<>());
+    final Pipeline pipeline = flow.getPipeline();
+    DataSource<StreamElement> source = UnboundedStreamSource.of(
+        subscription, reader, Position.NEWEST);
+    Dataset<StreamElement> input = flow.createInput(source);
+    return flow.unwrapped(input);
   }
 
   private static <T> DoFn<KV<Integer, StreamElement>, T> toDoFn(

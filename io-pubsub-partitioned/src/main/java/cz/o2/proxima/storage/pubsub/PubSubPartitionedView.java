@@ -16,8 +16,6 @@
 package cz.o2.proxima.storage.pubsub;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.protobuf.InvalidProtocolBufferException;
-import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.source.UnboundedStreamSource;
@@ -26,7 +24,6 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.storage.pubsub.proto.PubSub;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.beam.BeamFlow;
@@ -39,8 +36,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
@@ -48,7 +43,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.VarIntCoder;
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.state.StateSpec;
 import org.apache.beam.sdk.state.StateSpecs;
@@ -162,6 +156,7 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
             .via(e -> KV.of((partitioner.getPartition(e)
                 & Integer.MAX_VALUE) % numPartitions, e)))
         .setCoder(KvCoder.of(VarIntCoder.of(), new KryoCoder<>()));
+
     PCollectionList<KV<Integer, StreamElement>> partitioned = parts.apply(
         org.apache.beam.sdk.transforms.Partition.of(
             numPartitions, (message, partitionCount) -> {
@@ -249,38 +244,6 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
         }
       }
     };
-  }
-
-  private static Optional<StreamElement> toElement(
-      EntityDescriptor entity, PubsubMessage message) {
-
-    try {
-      PubSub.KeyValue parsed = PubSub.KeyValue.parseFrom(message.getPayload());
-      // FIXME: need to get access to messageId and publish time
-      // from the Beam's PubsubMessage wrapper
-      // fallback to uuid regeneration and ingestion time for now
-      // that is not 100% correct, but good enough for now
-      String uuid = UUID.randomUUID().toString();
-      long stamp = System.currentTimeMillis();
-      Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(parsed.getAttribute());
-      if (attr.isPresent()) {
-        if (parsed.getDeleteWildcard()) {
-          return Optional.of(StreamElement.deleteWildcard(
-              entity, attr.get(), uuid, parsed.getKey(), stamp));
-        } else if (parsed.getDelete()) {
-          return Optional.of(StreamElement.delete(
-              entity, attr.get(), uuid, parsed.getKey(),
-              parsed.getAttribute(), stamp));
-        }
-        return Optional.of(StreamElement.update(
-            entity, attr.get(), uuid, parsed.getKey(), parsed.getAttribute(),
-            stamp, parsed.getValue().toByteArray()));
-      }
-      log.warn("Missing attribute {} of entity {}", parsed.getAttribute(), entity);
-    } catch (InvalidProtocolBufferException ex) {
-      log.error("Failed to parse input {}", message, ex);
-    }
-    return Optional.empty();
   }
 
 }

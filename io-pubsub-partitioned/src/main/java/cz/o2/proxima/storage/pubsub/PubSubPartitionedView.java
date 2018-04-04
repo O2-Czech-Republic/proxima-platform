@@ -16,8 +16,6 @@
 package cz.o2.proxima.storage.pubsub;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Lists;
-import com.google.protobuf.InvalidProtocolBufferException;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -31,26 +29,35 @@ import cz.seznam.euphoria.beam.BeamFlow;
 import cz.seznam.euphoria.beam.io.KryoCoder;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
+import cz.seznam.euphoria.core.client.functional.UnaryFunctor;
+import cz.seznam.euphoria.core.client.io.Collector;
+import cz.seznam.euphoria.core.client.operator.FlatMap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.VarIntCoder;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.options.PipelineOptions;
+import org.apache.beam.sdk.state.StateSpec;
+import org.apache.beam.sdk.state.StateSpecs;
+import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.Flatten;
-import org.apache.beam.sdk.transforms.PTransform;
+import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
-import org.apache.beam.sdk.values.PBegin;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PCollectionList;
+import org.apache.beam.sdk.values.TypeDescriptor;
 
 /**
  * A {@link PartitionedView} for Google PubSub.
@@ -58,7 +65,9 @@ import org.apache.beam.sdk.values.PCollectionList;
 @Slf4j
 class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
-  private final PipelineOptions options;
+  private static final Set<Integer> repartitioned = new HashSet<>();
+
+  private final transient PipelineOptions options;
   private final String projectId;
   private final String topic;
   private final Partitioner partitioner;
@@ -66,7 +75,7 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
   PubSubPartitionedView(PartitionedPubSubAccessor accessor, Context context) {
     super(accessor.getEntityDescriptor(), accessor.getURI());
-    this.projectId = accessor.getProjectId();
+    this.projectId = accessor.getProject();
     this.topic = accessor.getTopic();
     this.partitioner = accessor.getPartitioner();
     this.options = accessor.getOptions();
@@ -75,7 +84,9 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
   @Override
   public List<Partition> getPartitions() {
-    return Lists.newArrayList(() -> 0);
+    return IntStream.range(0, numPartitions)
+        .mapToObj(i -> (Partition) () -> i)
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -102,16 +113,9 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
     if (flow instanceof BeamFlow) {
       BeamFlow bf = (BeamFlow) flow;
-      final Pipeline pipeline;
-      try {
-        pipeline = bf.getPipeline();
-      } catch (NullPointerException ex) {
-        throw new IllegalStateException(
-            "Please create flow with BeamFlow.create(pipeline)", ex);
-      }
-      PCollection<PubsubMessage> msgs = pipeline.apply(pubsubIO());
+      Dataset<StreamElement> msgs = pubsubIO(bf, getEntityDescriptor());
       return applyObserver(
-          msgs, getEntityDescriptor(), partitioner,
+          bf.unwrapped(msgs), partitioner,
           numPartitions, observer, bf);
     }
     throw new UnsupportedOperationException(
@@ -126,16 +130,12 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
     if (flow instanceof BeamFlow) {
       BeamFlow bf = (BeamFlow) flow;
-      final Pipeline pipeline;
-      try {
-        pipeline = bf.getPipeline();
-      } catch (NullPointerException ex) {
-        throw new IllegalStateException(
-            "Please create flow with BeamFlow.create(pipeline)", ex);
-      }
-      PCollection<PubsubMessage> msgs = pipeline.apply(pubsubIO(projectId, topic, name));
+      Dataset<StreamElement> msgs = pubsubIO(
+          bf, projectId, topic,
+          name, getEntityDescriptor());
+
       return applyObserver(
-          msgs, getEntityDescriptor(), partitioner,
+          bf.unwrapped(msgs), partitioner,
           numPartitions, observer, bf);
     }
     throw new UnsupportedOperationException(
@@ -145,84 +145,83 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
   }
 
   private static <T> Dataset<T> applyObserver(
-      PCollection<PubsubMessage> msgs,
-      EntityDescriptor entity,
+      PCollection<StreamElement> msgs,
       Partitioner partitioner,
       int numPartitions,
       PartitionedLogObserver<T> observer,
       BeamFlow flow) {
 
-    PCollection<StreamElement> parsed = msgs.apply(ParDo.of(
-        new DoFn<PubsubMessage, StreamElement>() {
-
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @ProcessElement
-      public void process(ProcessContext context) {
-        toElement(entity, context.element())
-            .ifPresent(context::output);
-      }
-
-    })).setCoder(new KryoCoder<>());
-    PCollectionList<StreamElement> partitioned = parsed.apply(
-        org.apache.beam.sdk.transforms.Partition.of(
-            numPartitions, (message, partitionCount) -> {
-              return (partitioner.getPartition(message)
-                  & Integer.MAX_VALUE) % partitionCount;
-            }));
-
-    List<PCollection<T>> flatten = new ArrayList<>();
-    for (int i = 0; i < partitioned.size(); i++) {
-      final int partitionId = i;
-      flatten.add(partitioned.get(partitionId)
-          .apply(ParDo.of(toDoFn(observer, partitionId)))
-          .setCoder(new KryoCoder<>()));
-    }
-    PCollectionList<T> l = PCollectionList.of(flatten);
-    PCollection<T> result = l
-        .apply(Flatten.pCollections())
+    PCollection<KV<Integer, StreamElement>> parts = msgs.apply(
+        MapElements
+            .into(new TypeDescriptor<KV<Integer, StreamElement>>() { })
+            .via(e -> {
+              return KV.of((partitioner.getPartition(e)
+                & Integer.MAX_VALUE) % numPartitions, e);
+            }))
+        .setCoder(KvCoder.of(VarIntCoder.of(), new KryoCoder<>()));
+    PCollection<T> result = parts.apply(ParDo.of(toDoFn(observer)))
         .setCoder(new KryoCoder<>());
     return flow.wrapped(result);
   }
 
-  private PTransform<PBegin, PCollection<PubsubMessage>> pubsubIO() {
-    return pubsubIO(projectId, topic, null);
+  private Dataset<StreamElement> pubsubIO(
+      BeamFlow flow, EntityDescriptor entity) {
+
+    return pubsubIO(flow, projectId, topic, null, entity);
   }
 
   @VisibleForTesting
-  PTransform<PBegin, PCollection<PubsubMessage>> pubsubIO(
-      String projectId, String topic,
-      @Nullable String subscription) {
+  Dataset<StreamElement> pubsubIO(
+      BeamFlow flow, String projectId, String topic,
+      @Nullable String subscription, EntityDescriptor entity) {
 
+    final Pipeline pipeline = flow.getPipeline();
+    final PCollection<PubSub.KeyValue> msgs;
     if (subscription != null) {
-      return PubsubIO.readMessages().fromSubscription(
-          String.format("projects/%s/subscriptions/%s", projectId, subscription));
+      msgs = pipeline
+          .apply(PubsubIO
+              .readProtos(PubSub.KeyValue.class)
+              .fromSubscription(String.format(
+                  "projects/%s/subscriptions/%s", projectId, subscription)));
     } else {
-      return PubsubIO.readMessages()
-        .fromTopic(String.format("projects/%s/topics/%s", projectId, topic));
+      msgs = pipeline
+          .apply(PubsubIO
+              .readProtos(PubSub.KeyValue.class)
+              .fromTopic(String.format(
+                  "projects/%s/topics/%s", projectId, topic)));
     }
-  }
+    return FlatMap.of(flow.wrapped(msgs))
+        .using(new UnaryFunctor<PubSub.KeyValue, StreamElement>() {
+          @Override
+          public void apply(PubSub.KeyValue e, Collector<StreamElement> c) {
+            toElement(entity, e).ifPresent(c::collect);
+          }
+        })
+        .output();
+    }
 
-  private static <T> DoFn<StreamElement, T> toDoFn(
-      PartitionedLogObserver<T> observer, int partitionId) {
 
-    return new DoFn<StreamElement, T>() {
+  private static <T> DoFn<KV<Integer, StreamElement>, T> toDoFn(
+      PartitionedLogObserver<T> observer) {
 
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @Setup
-      public void setup() {
-        observer.onRepartition(Arrays.asList(() -> partitionId));
-      }
+    return new DoFn<KV<Integer, StreamElement>, T>() {
 
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @Teardown
-      public void tearDown() {
-        observer.onCompleted();
-      }
+      @StateId("seq")
+      private final StateSpec<ValueState<Void>> seq = StateSpecs.value();
 
       @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
       @ProcessElement
-      public void process(ProcessContext context) {
-        StreamElement elem = context.element();
+      public void process(
+          ProcessContext context,
+          @StateId("seq") ValueState<Void> ign) {
+
+        KV<Integer, StreamElement> tmp = context.element();
+        int partitionId = tmp.getKey();
+        if (!repartitioned.contains(partitionId)) {
+          repartitioned.add(partitionId);
+          observer.onRepartition(Arrays.asList(() -> partitionId));
+        }
+        StreamElement elem = tmp.getValue();
         try {
           boolean cont = observer.onNext(elem, (succ, exc) -> {
             if (!succ) {
@@ -240,34 +239,29 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
   }
 
   private static Optional<StreamElement> toElement(
-      EntityDescriptor entity, PubsubMessage message) {
+      EntityDescriptor entity, PubSub.KeyValue parsed) {
 
-    try {
-      PubSub.KeyValue parsed = PubSub.KeyValue.parseFrom(message.getPayload());
-      // FIXME: need to get access to messageId and publish time
-      // from the Beam's PubsubMessage wrapper
-      // fallback to uuid regeneration and ingestion time for now
-      // that is not 100% correct, but good enough for now
-      String uuid = UUID.randomUUID().toString();
-      long stamp = System.currentTimeMillis();
-      Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(parsed.getAttribute());
-      if (attr.isPresent()) {
-        if (parsed.getDeleteWildcard()) {
-          return Optional.of(StreamElement.deleteWildcard(
-              entity, attr.get(), uuid, parsed.getKey(), stamp));
-        } else if (parsed.getDelete()) {
-          return Optional.of(StreamElement.delete(
-              entity, attr.get(), uuid, parsed.getKey(),
-              parsed.getAttribute(), stamp));
-        }
-        return Optional.of(StreamElement.update(
-            entity, attr.get(), uuid, parsed.getKey(), parsed.getAttribute(),
-            stamp, parsed.getValue().toByteArray()));
+    // FIXME: need to get access to messageId and publish time
+    // from the Beam's PubsubMessage wrapper
+    // fallback to uuid regeneration and ingestion time for now
+    // that is not 100% correct, but good enough for now
+    String uuid = UUID.randomUUID().toString();
+    long stamp = System.currentTimeMillis();
+    Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(parsed.getAttribute());
+    if (attr.isPresent()) {
+      if (parsed.getDeleteWildcard()) {
+        return Optional.of(StreamElement.deleteWildcard(
+            entity, attr.get(), uuid, parsed.getKey(), stamp));
+      } else if (parsed.getDelete()) {
+        return Optional.of(StreamElement.delete(
+            entity, attr.get(), uuid, parsed.getKey(),
+            parsed.getAttribute(), stamp));
       }
-      log.warn("Missing attribute {} of entity {}", parsed.getAttribute(), entity);
-    } catch (InvalidProtocolBufferException ex) {
-      log.error("Failed to parse input {}", message, ex);
+      return Optional.of(StreamElement.update(
+          entity, attr.get(), uuid, parsed.getKey(), parsed.getAttribute(),
+          stamp, parsed.getValue().toByteArray()));
     }
+    log.warn("Missing attribute {} of entity {}", parsed.getAttribute(), entity);
     return Optional.empty();
   }
 

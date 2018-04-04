@@ -46,10 +46,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.threeten.bp.Duration;
 
@@ -89,7 +91,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   }
 
   @Override
-  public ObserveHandle observe(String name, Position position, LogObserver observer) {
+  public ObserveHandle observe(
+      @Nullable String name, Position position, LogObserver observer) {
     validatePosition(position);
     return consume(name, (e, c) -> {
       boolean ret = observer.onNext(e, (succ, exc) -> {
@@ -110,7 +113,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
   @Override
   public ObserveHandle observePartitions(
-      String name, Collection<Partition> partitions, Position position,
+      @Nullable String name, Collection<Partition> partitions, Position position,
       boolean stopAtCurrent, LogObserver observer) {
 
     if (stopAtCurrent) {
@@ -133,7 +136,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
    */
   @Override
   public ObserveHandle observeBulk(
-      String name, Position position, BulkLogObserver observer) {
+      @Nullable String name, Position position, BulkLogObserver observer) {
 
     validatePosition(position);
     List<AckReplyConsumer> unconfirmed = new ArrayList<>();
@@ -167,7 +170,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
   @Override
   public ObserveHandle observeBulkPartitions(
-      String name,
+      @Nullable String name,
       Collection<Partition> partitions,
       Position position,
       BulkLogObserver observer) {
@@ -221,11 +224,12 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   }
 
   private ObserveHandle consume(
-      String name,
+      @Nullable String name,
       BiFunction<StreamElement, AckReplyConsumer, Boolean> consumer,
       Function<Throwable, Boolean> errorHandler,
       Runnable cancel) {
 
+    name = name != null ? name : "unnamed-consumer-" + UUID.randomUUID().toString();
     ProjectSubscriptionName subscription = ProjectSubscriptionName.of(project, name);
     AtomicReference<Subscriber> subscriber = new AtomicReference<>();
     AtomicReference<MessageReceiver> receiver = new AtomicReference<>();

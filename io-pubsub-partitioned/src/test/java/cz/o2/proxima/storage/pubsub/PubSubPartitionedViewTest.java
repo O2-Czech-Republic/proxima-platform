@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.storage.pubsub;
 
-import com.google.protobuf.ByteString;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -27,12 +26,12 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import static cz.o2.proxima.storage.pubsub.PartitionedPubSubAccessor.CFG_NUM_PARTITIONS;
 import static cz.o2.proxima.storage.pubsub.PartitionedPubSubAccessor.CFG_PARTITIONER;
-import cz.o2.proxima.storage.pubsub.proto.PubSub.KeyValue;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.beam.BeamExecutor;
 import cz.seznam.euphoria.beam.BeamFlow;
+import cz.seznam.euphoria.beam.io.KryoCoder;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.io.ListDataSink;
 import cz.seznam.euphoria.core.client.operator.ReduceWindow;
@@ -42,21 +41,18 @@ import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.transforms.Create;
-import org.apache.beam.sdk.transforms.PTransform;
-import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.junit.Test;
 
@@ -69,21 +65,24 @@ public class PubSubPartitionedViewTest implements Serializable {
 
   private static class TestedPubSubPartitionedView extends PubSubPartitionedView {
 
-    final List<PubsubMessage> input;
+    final List<StreamElement> input;
 
     public TestedPubSubPartitionedView(
         PartitionedPubSubAccessor accessor, Context context,
-        List<PubsubMessage> input) {
+        List<StreamElement> input) {
 
       super(accessor, context);
       this.input = input;
     }
 
     @Override
-    PTransform<PBegin, PCollection<PubsubMessage>> pubsubIO(
-        String projectId, String topic, @Nullable String subscription) {
+    Dataset<StreamElement> pubsubIO(
+        BeamFlow flow, String projectId, String topic,
+        @Nullable String subscription, EntityDescriptor entity) {
 
-      return Create.of(input);
+      return flow.wrapped(
+          flow.getPipeline().apply(
+              Create.of(input).withCoder(new KryoCoder<>())));
     }
 
   }
@@ -119,7 +118,7 @@ public class PubSubPartitionedViewTest implements Serializable {
   PubSubPartitionedView createView(
       Class<? extends Partitioner> partitionerClass,
       int numPartitions,
-      List<PubsubMessage> messages) {
+      List<StreamElement> messages) {
 
     try {
       return new TestedPubSubPartitionedView(
@@ -217,15 +216,11 @@ public class PubSubPartitionedViewTest implements Serializable {
   }
 
 
-  private List<PubsubMessage> messages(String key, byte[]... payloads) {
+  private List<StreamElement> messages(String key, byte[]... payloads) {
     return Arrays.stream(payloads)
-        .map(b -> KeyValue.newBuilder()
-        .setAttribute(attr.getName())
-        .setKey(key)
-        .setValue(ByteString.copyFrom(b))
-        .build()
-        .toByteArray())
-        .map(b -> new PubsubMessage(b, Collections.emptyMap()))
+        .map(b -> StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            key, attr.getName(), System.currentTimeMillis(), b))
         .collect(Collectors.toList());
   }
 

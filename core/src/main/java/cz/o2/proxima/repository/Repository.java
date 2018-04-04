@@ -148,11 +148,6 @@ public class Repository implements Serializable {
   private final Config config;
 
   /**
-   * Classpath reflections scanner.
-   */
-  private final transient Reflections reflections;
-
-  /**
    * When read-only flag is specified, some checks are not performed in construction.
    * This enables to use the repository inside reader applications that
    * don't have to have all the server jars on classpath.
@@ -252,7 +247,7 @@ public class Repository implements Serializable {
               ClasspathHelper.forManifest(),
               ClasspathHelper.forClassLoader());
 
-      reflections = new Reflections(reflectionConf);
+      Reflections reflections = new Reflections(reflectionConf);
 
       // First read all storage implementations available to the repository.
       Collection<StorageDescriptor> storages = findStorageDescriptors(reflections);

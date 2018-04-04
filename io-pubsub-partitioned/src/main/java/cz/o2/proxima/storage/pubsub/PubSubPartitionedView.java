@@ -41,16 +41,24 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.VarIntCoder;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.options.PipelineOptions;
+import org.apache.beam.sdk.state.StateSpec;
+import org.apache.beam.sdk.state.StateSpecs;
+import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
+import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
+import org.apache.beam.sdk.values.TypeDescriptor;
 
 /**
  * A {@link PartitionedView} for Google PubSub.
@@ -58,7 +66,7 @@ import org.apache.beam.sdk.values.PCollectionList;
 @Slf4j
 class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
-  private final PipelineOptions options;
+  private final transient PipelineOptions options;
   private final String projectId;
   private final String topic;
   private final Partitioner partitioner;
@@ -163,19 +171,25 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
       }
 
     })).setCoder(new KryoCoder<>());
-    PCollectionList<StreamElement> partitioned = parsed.apply(
+    PCollection<KV<Integer, StreamElement>> parts = parsed.apply(
+        MapElements
+            .into(new TypeDescriptor<KV<Integer, StreamElement>>() { })
+            .via(e -> KV.of((partitioner.getPartition(e)
+                & Integer.MAX_VALUE) % numPartitions, e)))
+        .setCoder(KvCoder.of(VarIntCoder.of(), new KryoCoder<>()));
+    PCollectionList<KV<Integer, StreamElement>> partitioned = parts.apply(
         org.apache.beam.sdk.transforms.Partition.of(
             numPartitions, (message, partitionCount) -> {
-              return (partitioner.getPartition(message)
-                  & Integer.MAX_VALUE) % partitionCount;
+              return (int) message.getKey();
             }));
 
     List<PCollection<T>> flatten = new ArrayList<>();
     for (int i = 0; i < partitioned.size(); i++) {
       final int partitionId = i;
-      flatten.add(partitioned.get(partitionId)
-          .apply(ParDo.of(toDoFn(observer, partitionId)))
-          .setCoder(new KryoCoder<>()));
+      flatten.add(
+          partitioned.get(partitionId)
+              .apply(ParDo.of(toDoFn(observer, partitionId)))
+              .setCoder(new KryoCoder<>()));
     }
     PCollectionList<T> l = PCollectionList.of(flatten);
     PCollection<T> result = l
@@ -202,15 +216,23 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
     }
   }
 
-  private static <T> DoFn<StreamElement, T> toDoFn(
+  private static <T> DoFn<KV<Integer, StreamElement>, T> toDoFn(
       PartitionedLogObserver<T> observer, int partitionId) {
 
-    return new DoFn<StreamElement, T>() {
+    return new DoFn<KV<Integer, StreamElement>, T>() {
+
+      boolean initialized = false;
+
+      @StateId("seq")
+      private final StateSpec<ValueState<Void>> seq = StateSpecs.value();
 
       @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
       @Setup
       public void setup() {
-        observer.onRepartition(Arrays.asList(() -> partitionId));
+        if (!initialized) {
+          observer.onRepartition(Arrays.asList(() -> partitionId));
+          initialized = true;
+        }
       }
 
       @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
@@ -221,8 +243,12 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
       @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
       @ProcessElement
-      public void process(ProcessContext context) {
-        StreamElement elem = context.element();
+      public void process(
+          ProcessContext context,
+          @StateId("seq") ValueState<Void> ign) {
+
+        KV<Integer, StreamElement> tmp = context.element();
+        StreamElement elem = tmp.getValue();
         try {
           boolean cont = observer.onNext(elem, (succ, exc) -> {
             if (!succ) {

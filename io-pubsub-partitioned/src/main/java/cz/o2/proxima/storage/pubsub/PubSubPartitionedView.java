@@ -32,25 +32,32 @@ import cz.seznam.euphoria.beam.io.KryoCoder;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.VarIntCoder;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.options.PipelineOptions;
+import org.apache.beam.sdk.state.StateSpec;
+import org.apache.beam.sdk.state.StateSpecs;
+import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.Flatten;
+import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.PCollectionList;
+import org.apache.beam.sdk.values.TypeDescriptor;
 
 /**
  * A {@link PartitionedView} for Google PubSub.
@@ -58,7 +65,10 @@ import org.apache.beam.sdk.values.PCollectionList;
 @Slf4j
 class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
 
-  private final PipelineOptions options;
+  // repartition initializer
+  private static Set<PartitionedLogObserver> repartitioned = new HashSet<>();
+
+  private final transient PipelineOptions options;
   private final String projectId;
   private final String topic;
   private final Partitioner partitioner;
@@ -152,34 +162,16 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
       PartitionedLogObserver<T> observer,
       BeamFlow flow) {
 
-    PCollection<StreamElement> parsed = msgs.apply(ParDo.of(
-        new DoFn<PubsubMessage, StreamElement>() {
-
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @ProcessElement
-      public void process(ProcessContext context) {
-        toElement(entity, context.element())
-            .ifPresent(context::output);
-      }
-
-    })).setCoder(new KryoCoder<>());
-    PCollectionList<StreamElement> partitioned = parsed.apply(
-        org.apache.beam.sdk.transforms.Partition.of(
-            numPartitions, (message, partitionCount) -> {
-              return (partitioner.getPartition(message)
-                  & Integer.MAX_VALUE) % partitionCount;
-            }));
-
-    List<PCollection<T>> flatten = new ArrayList<>();
-    for (int i = 0; i < partitioned.size(); i++) {
-      final int partitionId = i;
-      flatten.add(partitioned.get(partitionId)
-          .apply(ParDo.of(toDoFn(observer, partitionId)))
-          .setCoder(new KryoCoder<>()));
-    }
-    PCollectionList<T> l = PCollectionList.of(flatten);
-    PCollection<T> result = l
-        .apply(Flatten.pCollections())
+    PCollection<KV<Integer, StreamElement>> parts = msgs.apply(
+        MapElements
+            .into(new TypeDescriptor<KV<Integer, StreamElement>>() { })
+            .via(e -> {
+              StreamElement elem = toElement(entity, e.getPayload()).get();
+              return KV.of((partitioner.getPartition(elem)
+                & Integer.MAX_VALUE) % numPartitions, elem);
+            }))
+        .setCoder(KvCoder.of(VarIntCoder.of(), new KryoCoder<>()));
+    PCollection<T> result = parts.apply(ParDo.of(toDoFn(observer)))
         .setCoder(new KryoCoder<>());
     return flow.wrapped(result);
   }
@@ -202,27 +194,27 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
     }
   }
 
-  private static <T> DoFn<StreamElement, T> toDoFn(
-      PartitionedLogObserver<T> observer, int partitionId) {
+  private static <T> DoFn<KV<Integer, StreamElement>, T> toDoFn(
+      PartitionedLogObserver<T> observer) {
 
-    return new DoFn<StreamElement, T>() {
+    return new DoFn<KV<Integer, StreamElement>, T>() {
 
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @Setup
-      public void setup() {
-        observer.onRepartition(Arrays.asList(() -> partitionId));
-      }
+      @StateId("seq")
+      private final StateSpec<ValueState<Void>> seq = StateSpecs.value();
 
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @Teardown
-      public void tearDown() {
-        observer.onCompleted();
-      }
+      Set<Integer> repartitioned = new HashSet<>();
 
       @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
       @ProcessElement
-      public void process(ProcessContext context) {
-        StreamElement elem = context.element();
+      public void process(ProcessContext context, @StateId("seq") ValueState<Void> ign) {
+
+        KV<Integer, StreamElement> tmp = context.element();
+        int partitionId = tmp.getKey();
+        if (!repartitioned.contains(partitionId)) {
+          repartitioned.add(partitionId);
+          observer.onRepartition(Arrays.asList(() -> partitionId));
+        }
+        StreamElement elem = tmp.getValue();
         try {
           boolean cont = observer.onNext(elem, (succ, exc) -> {
             if (!succ) {
@@ -240,10 +232,10 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
   }
 
   private static Optional<StreamElement> toElement(
-      EntityDescriptor entity, PubsubMessage message) {
+      EntityDescriptor entity, byte[] payload) {
 
     try {
-      PubSub.KeyValue parsed = PubSub.KeyValue.parseFrom(message.getPayload());
+      PubSub.KeyValue parsed = PubSub.KeyValue.parseFrom(payload);
       // FIXME: need to get access to messageId and publish time
       // from the Beam's PubsubMessage wrapper
       // fallback to uuid regeneration and ingestion time for now
@@ -266,7 +258,7 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
       }
       log.warn("Missing attribute {} of entity {}", parsed.getAttribute(), entity);
     } catch (InvalidProtocolBufferException ex) {
-      log.error("Failed to parse input {}", message, ex);
+      log.error("Failed to parse input", ex);
     }
     return Optional.empty();
   }

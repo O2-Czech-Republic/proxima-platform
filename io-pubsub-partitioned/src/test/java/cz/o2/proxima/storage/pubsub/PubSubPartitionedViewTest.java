@@ -24,7 +24,6 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import static cz.o2.proxima.storage.pubsub.PartitionedPubSubAccessor.CFG_NUM_PARTITIONS;
 import static cz.o2.proxima.storage.pubsub.PartitionedPubSubAccessor.CFG_PARTITIONER;
 import cz.o2.proxima.util.Pair;
@@ -77,12 +76,13 @@ public class PubSubPartitionedViewTest implements Serializable {
     }
 
     @Override
-    PCollection<StreamElement> pubsubIO(
+    Dataset<StreamElement> pubsubIO(
         BeamFlow flow, String projectId, String topic,
-        @Nullable String subscription, EntityDescriptor entity,
-        CommitLogReader reader) {
+        @Nullable String subscription, EntityDescriptor entity) {
 
-      return flow.getPipeline().apply(Create.of(input).withCoder(new KryoCoder<>()));
+      return flow.wrapped(
+          flow.getPipeline().apply(
+              Create.of(input).withCoder(new KryoCoder<>())));
     }
 
   }

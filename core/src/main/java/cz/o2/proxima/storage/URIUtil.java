@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -28,7 +29,9 @@ import java.util.stream.Collectors;
 public class URIUtil {
 
   public static Map<String, String> parseQuery(URI uri) {
-    String query = uri.getQuery();
+    String query = Objects.requireNonNull(
+        uri.getQuery(),
+        "URI " + uri + " has empty query");
     return Arrays.asList(query.split("&")).stream()
         .map(s -> Arrays.copyOf(s.split("="), 2))
         .collect(Collectors.toMap(s -> decode(s[0]), s -> decode(s[1])));
@@ -40,6 +43,24 @@ public class URIUtil {
     } catch(final UnsupportedEncodingException e) {
       throw new IllegalStateException("UTF-8 is a required encoding", e);
     }
+  }
+
+  /**
+   * Get normalized path from URI, which:
+   *  * is not null
+   *  * doesn't start or end with slash
+   * @param uri the URI to extract path from
+   * @return normalized path
+   */
+  public static String getPathNormalized(URI uri) {
+    String p = uri.getPath();
+    while (p.startsWith("/")) {
+      p = p.substring(1);
+    }
+    while (p.endsWith("/")) {
+      p = p.substring(0, p.length() - 1);
+    }
+    return p;
   }
 
 }

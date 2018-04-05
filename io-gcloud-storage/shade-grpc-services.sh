@@ -1,0 +1,1 @@
+../scripts/shade-grpc-services.sh

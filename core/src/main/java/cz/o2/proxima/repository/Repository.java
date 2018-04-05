@@ -29,7 +29,7 @@ import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Classpath;
-import lombok.Getter;
+import java.io.Serializable;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Configuration;
 import org.reflections.Reflections;
@@ -52,12 +52,13 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import lombok.Getter;
 
 /**
  * Repository of all entities configured in the system.
  */
 @Slf4j
-public class Repository {
+public class Repository implements Serializable {
 
   /**
    * Construct default repository from the config.
@@ -145,12 +146,6 @@ public class Repository {
    */
   @Getter
   private final Config config;
-
-  /**
-   * Classpath reflections scanner.
-   */
-  @Getter
-  private final Reflections reflections;
 
   /**
    * When read-only flag is specified, some checks are not performed in construction.
@@ -252,7 +247,7 @@ public class Repository {
               ClasspathHelper.forManifest(),
               ClasspathHelper.forClassLoader());
 
-      reflections = new Reflections(reflectionConf);
+      Reflections reflections = new Reflections(reflectionConf);
 
       // First read all storage implementations available to the repository.
       Collection<StorageDescriptor> storages = findStorageDescriptors(reflections);
@@ -646,8 +641,9 @@ public class Repository {
               "Added family {} for entity {} of type {} and access {}",
               familyBuilt, entDesc, familyBuilt.getType(), familyBuilt.getAccess());
         });
-      } catch (URISyntaxException ex) {
-        throw new IllegalArgumentException("Cannot parse input URI " + storage.get("storage"), ex);
+      } catch (Exception ex) {
+        throw new IllegalArgumentException(
+            "Failed to read settings of attribute family " + name, ex);
       }
 
     }

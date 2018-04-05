@@ -23,7 +23,11 @@ import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.transform.EventDataToDummy;
 import cz.o2.proxima.view.PartitionedCachedView;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -248,6 +252,19 @@ public class RepositoryTest {
     view.write(update, (succ, exc) -> { });
     assertTrue(reader.get("key", target.toAttributePrefix() + "def", target).isPresent());
     assertTrue(view.get("key", source.toAttributePrefix() + "def", source).isPresent());
+  }
+
+  @Test
+  public void testRepositorySerializable() throws Exception {
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    ObjectOutputStream oos = new ObjectOutputStream(baos);
+    oos.writeObject(repo);
+    oos.flush();
+    ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+    ObjectInputStream ois = new ObjectInputStream(bais);
+    // must not throw
+    Repository clone = (Repository) ois.readObject();
+    assertNotNull(clone.getConfig());
   }
 
 }

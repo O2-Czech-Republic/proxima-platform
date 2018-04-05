@@ -24,6 +24,7 @@ import java.io.Serializable;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Read access to commit log.
@@ -79,6 +80,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    * If you use this call then the reader stops being automatically
    * load balanced and the set of partitions can only be changed
    * by call to this method again.
+   * @param name name of the observer
    * @param partitions the list of partitions to subscribe to
    * @param position the position to seek to in the partitions
    * @param stopAtCurrent when {@code true} then stop the observer as soon
@@ -87,10 +89,35 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   ObserveHandle observePartitions(
+      String name,
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
       LogObserver observer);
+
+
+  /**
+   * Subscribe to given set of partitions.
+   * If you use this call then the reader stops being automatically
+   * load balanced and the set of partitions can only be changed
+   * by call to this method again.
+   * @param partitions the list of partitions to subscribe to
+   * @param position the position to seek to in the partitions
+   * @param stopAtCurrent when {@code true} then stop the observer as soon
+   *                      as it reaches most recent record
+   * @param observer the observer to subscribe to the partitions
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  default ObserveHandle observePartitions(
+      Collection<Partition> partitions,
+      Position position,
+      boolean stopAtCurrent,
+      LogObserver observer) {
+
+    return observePartitions(
+        "unnamed-proxima-bulk-consumer-" + UUID.randomUUID().toString(),
+        partitions, position, stopAtCurrent, observer);
+  }
 
   /**
    * Subscribe to given set of partitions.
@@ -162,15 +189,36 @@ public interface CommitLogReader extends Closeable, Serializable {
 
   /**
    * Subscribe to given partitions in a bulk fashion.
+   * @param name name of the observer
    * @param partitions the partitions to subscribe to
    * @param position the position to seek to in the partitions
    * @param observer the observer to subscribe to the partitions
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   ObserveHandle observeBulkPartitions(
+      String name,
       Collection<Partition> partitions,
       Position position,
       BulkLogObserver observer);
+
+  /**
+   * Subscribe to given partitions in a bulk fashion.
+   * @param partitions the partitions to subscribe to
+   * @param position the position to seek to in the partitions
+   * @param observer the observer to subscribe to the partitions
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  default ObserveHandle observeBulkPartitions(
+      Collection<Partition> partitions,
+      Position position,
+      BulkLogObserver observer) {
+
+    return observeBulkPartitions(
+        "unnamed-proxima-bulk-consumer-" + UUID.randomUUID().toString(),
+        partitions,
+        position,
+        observer);
+  }
 
   /**
    * Consume from given offsets in a bulk fashion. A typical use-case for this

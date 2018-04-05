@@ -17,7 +17,6 @@ package cz.o2.proxima.repository;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import lombok.Setter;
@@ -42,8 +41,9 @@ public interface EntityDescriptor extends Serializable {
       return this;
     }
 
+    @SuppressWarnings("unchecked")
     public EntityDescriptor build() {
-      return new EntityDescriptorImpl(name, Collections.unmodifiableList(attributes));
+      return new EntityDescriptorImpl(name, (List) attributes);
     }
 
     AttributeDescriptorBase<?> findAttribute(String attr) {

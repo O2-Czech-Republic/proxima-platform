@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.repository;
 
-import com.google.common.collect.Maps;
 import cz.o2.proxima.util.NamePattern;
 import cz.o2.proxima.util.Pair;
 import java.util.Collections;
@@ -47,7 +46,7 @@ public class EntityDescriptorImpl implements EntityDescriptor {
 
   EntityDescriptorImpl(String name, List<AttributeDescriptor<?>> attrs) {
     this.name = Objects.requireNonNull(name);
-    this.attributes = Collections.unmodifiableList(Objects.requireNonNull(attrs));
+    this.attributes = Objects.requireNonNull(attrs);
 
     List<AttributeDescriptor<?>> fullyQualified = attrs.stream()
         .filter(a -> !a.isWildcard())
@@ -58,8 +57,8 @@ public class EntityDescriptorImpl implements EntityDescriptor {
         .map(p -> Pair.of(new NamePattern(p.getName()), p))
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
-    this.attributesByName = Maps.uniqueIndex(
-        fullyQualified, AttributeDescriptor::getName);
+    this.attributesByName = fullyQualified.stream()
+        .collect(Collectors.toMap(AttributeDescriptor::getName, e -> e));
   }
 
 

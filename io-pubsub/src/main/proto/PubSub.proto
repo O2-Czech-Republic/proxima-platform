@@ -1,0 +1,41 @@
+/**
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package cz.o2.proxima.storage.pubsub.proto;
+
+/**
+ * KeyValue sent to the PubSub by ingest.
+ **/
+message KeyValue {
+
+  /** Key of entity. */
+  string key = 1;
+
+  /** Attribute of entity. */
+  string attribute = 2;
+
+  /** Value (if not delete) */
+  bytes value = 3;
+
+  /** Is this attribute delete? */
+  bool delete = 4;
+
+  /** Is this wildcard attribute delete? */
+  bool deleteWildcard = 5;
+
+}

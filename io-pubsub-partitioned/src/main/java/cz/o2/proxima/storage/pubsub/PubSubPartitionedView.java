@@ -18,43 +18,53 @@ package cz.o2.proxima.storage.pubsub;
 import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.source.UnboundedStreamSource;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
+import cz.o2.proxima.storage.commitlog.ObserveHandle;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.beam.BeamFlow;
 import cz.seznam.euphoria.beam.io.KryoCoder;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
-import cz.seznam.euphoria.core.client.io.DataSource;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.coders.VarIntCoder;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.state.StateSpec;
 import org.apache.beam.sdk.state.StateSpecs;
 import org.apache.beam.sdk.state.ValueState;
+import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.TypeDescriptor;
+import org.joda.time.Instant;
 
 /**
  * A {@link PartitionedView} for Google PubSub.
@@ -191,10 +201,172 @@ class PubSubPartitionedView extends AbstractStorage implements PartitionedView {
       CommitLogReader reader) {
 
     final Pipeline pipeline = flow.getPipeline();
-    DataSource<StreamElement> source = UnboundedStreamSource.of(
-        subscription, reader, Position.NEWEST);
-    Dataset<StreamElement> input = flow.createInput(source);
-    return flow.unwrapped(input);
+    PCollection<Integer> parts = pipeline.apply(
+        Create.of(IntStream.range(0, numPartitions)
+            .mapToObj(Integer::valueOf)
+            .collect(Collectors.toList())));
+
+    return parts
+        .apply(ParDo.of(readParDo(reader, subscription)))
+        .setCoder(new KryoCoder<>());
+  }
+
+  @DoFn.UnboundedPerElement
+  private static class ReadDoFn extends DoFn<Integer, StreamElement> {
+
+    private class BulkRestrictionTracker implements RestrictionTracker<UnsplittableRestriction> {
+
+      private final UnsplittableRestriction restriction;
+      private BulkLogObserver.OffsetCommitter lastPolled;
+
+      BulkRestrictionTracker(UnsplittableRestriction restriction) {
+        this.restriction = restriction;
+      }
+
+      @Override
+      public UnsplittableRestriction currentRestriction() {
+        return restriction;
+      }
+
+      @Override
+      public UnsplittableRestriction checkpoint() {
+        if (lastPolled != null) {
+          System.err.println(" *** confirm " + lastPolled);
+          lastPolled.confirm();
+        }
+        restriction.setStop(true);
+        System.err.println(" *** checkpoint ");
+        return new UnsplittableRestriction(false);
+      }
+
+      @Override
+      public void checkDone() throws IllegalStateException {
+
+      }
+
+      @Override
+      public String toString() {
+        return "BulkRestrictionTracker(" + restriction + ")";
+      }
+
+      boolean isStop() {
+        if (restriction != null) {
+          return restriction.isStop();
+        }
+        return true;
+      }
+
+    }
+
+    private class UnsplittableRestriction {
+
+      @Getter
+      @Setter
+      private boolean stop = false;
+
+      UnsplittableRestriction(boolean stop) {
+        this.stop = stop;
+      }
+
+      UnsplittableRestriction() {
+        handle = reader.observeBulk(
+            subscription,
+            Position.NEWEST,
+            new BulkLogObserver() {
+
+              @Override
+              public boolean onNext(
+                  StreamElement ingest,
+                  BulkLogObserver.OffsetCommitter committer) {
+
+                try {
+                  queue.put(Pair.of(committer, ingest));
+                } catch (InterruptedException ex) {
+                  throw new RuntimeException(ex);
+                }
+                return true;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+
+            });
+      }
+
+    }
+
+    private final CommitLogReader reader;
+    private final @Nullable String subscription;
+    private final BlockingQueue<Pair<BulkLogObserver.OffsetCommitter, StreamElement>> queue;
+    private ObserveHandle handle;
+    long watermark = -1L;
+
+    private ReadDoFn(
+        CommitLogReader reader,
+        String subscription) {
+
+      this.reader = reader;
+      this.subscription = subscription;
+      this.queue = new ArrayBlockingQueue<>(100);
+    }
+
+    @Setup
+    public void setup() {
+    }
+
+    @Teardown
+    public void tearDown() {
+      handle.cancel();
+    }
+
+    @ProcessElement
+    public ProcessContinuation process(
+        ProcessContext context, BulkRestrictionTracker tracker)
+        throws InterruptedException {
+
+      System.err.println(" **** " + tracker);
+      while (!tracker.isStop()) {
+        Pair<BulkLogObserver.OffsetCommitter, StreamElement> poll;
+        poll = queue.poll(100, TimeUnit.MILLISECONDS);
+        if (poll != null) {
+          tracker.lastPolled = poll.getFirst();
+          StreamElement elem = poll.getSecond();
+          Instant instant = new Instant(elem.getStamp());
+          context.outputWithTimestamp(elem, instant);
+          if (watermark < elem.getStamp()) {
+            context.updateWatermark(instant);
+          }
+        }
+      }
+      System.err.println(" *** stop");
+      return ProcessContinuation.stop();
+    }
+
+    @GetInitialRestriction
+    public UnsplittableRestriction initialRestriction(Integer partition) {
+      System.err.println(" *** initialRestriction " + partition + " in " + this);
+      return new UnsplittableRestriction();
+    }
+
+    @NewTracker
+    public BulkRestrictionTracker newTracker(UnsplittableRestriction restriction) {
+      System.err.println(" *** newTracker " + restriction);
+      return new BulkRestrictionTracker(restriction);
+    }
+
+    @GetRestrictionCoder
+    public Coder<UnsplittableRestriction> getRestrictionCoder() {
+      return new KryoCoder<>();
+    }
+
+  }
+
+  private static DoFn<Integer, StreamElement> readParDo(
+      CommitLogReader reader, @Nullable String subscription) {
+
+    return new ReadDoFn(reader, subscription);
   }
 
   private static <T> DoFn<KV<Integer, StreamElement>, T> toDoFn(

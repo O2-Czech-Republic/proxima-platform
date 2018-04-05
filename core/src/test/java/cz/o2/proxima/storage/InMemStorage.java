@@ -86,6 +86,7 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
+      log.debug("Writing element {} to {}", data, getURI());
       if (data.isDeleteWildcard()) {
         String prefix = getURI().getPath() + "/" + data.getKey()
             + "#" + data.getAttributeDescriptor().toAttributePrefix();
@@ -197,6 +198,7 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public ObserveHandle observePartitions(
+        String name,
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
@@ -313,11 +315,12 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public ObserveHandle observeBulkPartitions(
+        String name,
         Collection<Partition> partitions,
         Position position,
         BulkLogObserver observer) {
 
-      return observeBulk("unnamed-" + observer, position, observer);
+      return observeBulk(name, position, observer);
     }
 
     @Override

@@ -26,13 +26,16 @@ import cz.seznam.euphoria.core.client.io.UnboundedDataSource;
 import cz.seznam.euphoria.core.client.io.UnboundedPartition;
 import cz.seznam.euphoria.core.client.io.UnboundedReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -46,16 +49,28 @@ public class UnboundedStreamSource
       CommitLogReader reader,
       Position position) {
 
-    return new UnboundedStreamSource(reader, position);
+    return new UnboundedStreamSource(null, reader, position);
   }
 
-  final CommitLogReader reader;
-  final Position position;
-
-  UnboundedStreamSource(
+  public static UnboundedStreamSource of(
+      @Nullable String name,
       CommitLogReader reader,
       Position position) {
 
+    return new UnboundedStreamSource(name, reader, position);
+  }
+
+
+  final CommitLogReader reader;
+  final Position position;
+  @Nullable final String consumer;
+
+  UnboundedStreamSource(
+      @Nullable String consumer,
+      CommitLogReader reader,
+      Position position) {
+
+    this.consumer = consumer;
     this.reader = reader;
     this.position = position;
   }
@@ -75,11 +90,13 @@ public class UnboundedStreamSource
       BlockingQueue<Optional<StreamElement>> queue = new ArrayBlockingQueue<>(100);
       AtomicReference<StreamElement> current = new AtomicReference<>();
 
+      BlockingQueue<BulkLogObserver.OffsetCommitter> committers = new LinkedBlockingDeque<>();
       AtomicReference<ObserveHandle> handle = new AtomicReference<>();
       handle.set(reader.observeBulkPartitions(
+          consumer,
           Arrays.asList(p),
           position,
-          partitionObserver(queue)));
+          partitionObserver(queue, committers)));
 
       return new UnboundedReader<StreamElement, Offset>() {
 
@@ -119,7 +136,9 @@ public class UnboundedStreamSource
 
         @Override
         public void commitOffset(Offset offset) {
-          // nop, don't commit externally the offset at all
+          List<BulkLogObserver.OffsetCommitter> toCommit = new ArrayList<>();
+          committers.drainTo(toCommit);
+          toCommit.forEach(c -> c.confirm());
         }
 
       };
@@ -128,15 +147,19 @@ public class UnboundedStreamSource
   }
 
   private BulkLogObserver partitionObserver(
-      BlockingQueue<Optional<StreamElement>> queue) {
+      BlockingQueue<Optional<StreamElement>> queue,
+      BlockingQueue<BulkLogObserver.OffsetCommitter> committers) {
 
     return new BulkLogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, BulkLogObserver.OffsetCommitter confirm) {
+      public boolean onNext(
+          StreamElement ingest,
+          BulkLogObserver.OffsetCommitter confirm) {
 
         try {
           try {
+            committers.add(confirm);
             queue.put(Optional.of(ingest));
           } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();

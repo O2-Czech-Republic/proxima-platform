@@ -35,7 +35,7 @@ public class Classpath {
   public static <T> Class<T> findClass(String name, Class<T> superClass) {
 
     Class clz;
-    if ((clz = instantiateClass(name)) != null) {
+    if ((clz = findClass(name)) != null) {
       return clz;
     }
     while (true) {
@@ -49,7 +49,7 @@ public class Classpath {
         newName += name.substring(lastDot + 1);
       }
       name = newName;
-      if ((clz = instantiateClass(name)) != null) {
+      if ((clz = findClass(name)) != null) {
         return clz;
       }
     }
@@ -57,12 +57,21 @@ public class Classpath {
   }
 
   @SuppressWarnings({ "unchecked", "rawtypes" })
-  private static Class instantiateClass(String name) {
+  private static Class findClass(String name) {
     try {
       return Thread.currentThread().getContextClassLoader().loadClass(name);
     } catch (ClassNotFoundException t) {
       log.debug("Cannot instantiate class {}", name, t);
       return null;
+    }
+  }
+
+
+  public static <T> T newInstance(Class<T> cls) {
+    try {
+      return cls.newInstance();
+    } catch (InstantiationException | IllegalAccessException ex) {
+      throw new RuntimeException(ex);
     }
   }
 

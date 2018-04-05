@@ -86,10 +86,12 @@ public class TransformationDescriptor implements Serializable {
 
   @Getter
   private final EntityDescriptor entity;
-  @Getter
+
   private final List<AttributeDescriptor<?>> attributes;
+
   @Getter
   private final Transformation transformation;
+
   @Getter
   private final StorageFilter filter;
 
@@ -100,8 +102,12 @@ public class TransformationDescriptor implements Serializable {
       @Nullable StorageFilter filter) {
 
     this.entity = Objects.requireNonNull(entity);
-    this.attributes = Collections.unmodifiableList(attributes);
+    this.attributes = Objects.requireNonNull(attributes);
     this.transformation = Objects.requireNonNull(transformation);
     this.filter = filter == null ? new PassthroughFilter() : filter;
+  }
+
+  public List<AttributeDescriptor<?>> getAttributes() {
+    return Collections.unmodifiableList(attributes);
   }
 }

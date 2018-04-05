@@ -121,7 +121,6 @@
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
       <version>23.0</version>
-      <scope>provided</scope>
     </dependency>
 
     <dependency>

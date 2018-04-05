@@ -39,6 +39,12 @@
         <version>2.4.3</version>
         <configuration>
           <shadeTestJar>true</shadeTestJar>
+          <artifactSet>
+            <excludes>
+              <exclude>org.slf4j:slf4j-api:jar:</exclude>
+              <exclude>cz.seznam.euphoria:*</exclude>
+            </excludes>
+          </artifactSet>
           <relocations>
             <relocation>
               <pattern>org.reflections.</pattern>
@@ -91,8 +97,6 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.25</version>
-      <scope>test</scope>
     </dependency>
 
     <dependency>

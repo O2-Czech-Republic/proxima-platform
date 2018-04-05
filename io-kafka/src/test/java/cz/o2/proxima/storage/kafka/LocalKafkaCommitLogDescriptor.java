@@ -507,13 +507,14 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
     @Override
     public ObserveHandle observePartitions(
+        String name,
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
         LogObserver observer) {
 
       ObserveHandle ret = super.observePartitions(
-          partitions, position, stopAtCurrent, observer);
+          name, partitions, position, stopAtCurrent, observer);
       log.debug(
           "Started to observe partitions {} of LocalKafkaCommitLog URI {}",
           partitions, getURI());

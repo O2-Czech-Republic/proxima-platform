@@ -728,16 +728,14 @@ public class IngestServer {
       public boolean onNextInternal(
           StreamElement ingest, LogObserver.OffsetCommitter committer) {
 
-        // add one to prevent confirmation before all elements
-        // are processed
         if (!f.apply(ingest)) {
           log.debug("Skipping transformation of {} by filter", ingest);
+          committer.confirm();
           return true;
         }
-        AtomicInteger toConfirm = new AtomicInteger(1);
+        AtomicInteger toConfirm = new AtomicInteger(0);
         try {
           Transformation.Collector<StreamElement> collector = elem -> {
-            toConfirm.incrementAndGet();
             try {
               log.info("Writing transformed element {}", elem);
               ingestRequest(
@@ -758,8 +756,8 @@ public class IngestServer {
               committer.fail(ex);
             }
           };
-          t.apply(ingest, collector);
-          if (toConfirm.decrementAndGet() == 0) {
+
+          if (toConfirm.addAndGet(t.apply(ingest, collector)) == 0) {
             committer.confirm();
           }
         } catch (Exception ex) {

@@ -49,7 +49,9 @@ public interface Transformation extends Serializable {
    * Apply the transformation function.
    * @param input the input stream element to transform
    * @param collector collector for outputs
+   * @return how many invocations of collector to expect before the elements
+   * should be considered processed
    */
-  void apply(StreamElement input, Collector<StreamElement> collector);
+  int apply(StreamElement input, Collector<StreamElement> collector);
 
 }

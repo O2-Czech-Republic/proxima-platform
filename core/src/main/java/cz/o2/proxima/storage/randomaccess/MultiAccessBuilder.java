@@ -129,7 +129,10 @@ public class MultiAccessBuilder implements Serializable {
 
         return Optional.ofNullable(attrMap.get(desc))
             .map(ra -> ra.get(key, attribute, desc))
-            .orElse(Optional.empty());
+            .orElseGet(() -> {
+              log.warn("Missing family for attribute {} in MultiAccessBuilder", desc);
+              return Optional.empty();
+            });
       }
 
       @SuppressWarnings("unchecked")

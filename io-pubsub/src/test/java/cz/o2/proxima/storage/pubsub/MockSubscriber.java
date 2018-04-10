@@ -22,6 +22,8 @@ import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,6 +39,8 @@ public class MockSubscriber {
       ProjectSubscriptionName subscription,
       MessageReceiver receiver,
       Supplier<PubsubMessage> supplier,
+      Set<Integer> acked,
+      Set<Integer> nacked,
       ExecutorService executor) {
 
     Objects.requireNonNull(subscription);
@@ -46,17 +50,19 @@ public class MockSubscriber {
     Subscriber ret = mock(Subscriber.class);
     doAnswer(invocation -> {
       executor.submit(() -> {
+        int offset = 0;
         while (!Thread.currentThread().isInterrupted()) {
           PubsubMessage msg = supplier.get();
+          int id = offset++;
           receiver.receiveMessage(msg, new AckReplyConsumer() {
             @Override
             public void ack() {
-              // nop
+              acked.add(id);
             }
 
             @Override
             public void nack() {
-              // nop
+              nacked.add(id);
             }
           });
         }
@@ -64,12 +70,9 @@ public class MockSubscriber {
       return mock(ApiService.class);
     }).when(ret).startAsync();
     doAnswer(invocation -> {
-      f.getAndUpdate(future -> {
-        if (future != null) {
-          future.cancel(true);
-        }
-        return null;
-      });
+      Optional
+          .ofNullable(f.getAndSet(null))
+          .ifPresent(future -> future.cancel(true));
       return null;
     }).when(ret).stopAsync();
     return ret;

@@ -37,6 +37,7 @@ import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import cz.seznam.euphoria.core.client.io.DataSource;
 import cz.seznam.euphoria.core.client.operator.MapElements;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -162,15 +163,15 @@ public class KafkaLogReader extends AbstractStorage
               observer, Utils.unchecked(queue::put))));
     };
 
+    final Serializable lock = new Serializable() { };
     DataSource<T> source = DataSourceUtils.fromPartitions(
         DataSourceUtils.fromBlockingQueue(
             queue, producer, () -> handle.get().getCurrentOffsets(),
-            off -> handle.updateAndGet(h -> {
-              if (h != null) {
-                h.resetOffsets(off);
+            off -> {
+              synchronized (lock) {
+                Optional.ofNullable(handle.get()).ifPresent(h -> h.resetOffsets(off));
               }
-              return h;
-            })));
+            }));
 
     // we need to remap the input here to be able to directly persist it again
     return MapElements.of(
@@ -192,15 +193,15 @@ public class KafkaLogReader extends AbstractStorage
               observer, Utils.unchecked(queue::put))));
     };
 
+    Serializable lock = new Serializable() { };
     DataSource<T> source = DataSourceUtils.fromPartitions(
         DataSourceUtils.fromBlockingQueue(
             queue, producer, () -> handle.get().getCurrentOffsets(),
-            off -> handle.updateAndGet(h -> {
-              if (h != null) {
-                h.resetOffsets(off);
+            off -> {
+              synchronized (lock) {
+                Optional.ofNullable(handle.get()).ifPresent(h -> h.resetOffsets(off));
               }
-              return h;
-            })));
+            }));
 
     // we need to remap the input here to be able to directly persist it again
     return MapElements.of(
@@ -620,13 +621,10 @@ public class KafkaLogReader extends AbstractStorage
 
       @Override
       public void onPartitionsAssigned(Collection<TopicPartition> parts) {
-        kafka.getAndUpdate(c -> {
-          if (c != null) {
-            consumer.onAssign(c, c.assignment().stream()
-            .map(tp -> new TopicOffset(tp.partition(), c.position(tp) - 1))
-            .collect(Collectors.toList()));
-          }
-          return c;
+        Optional.ofNullable(kafka.get()).ifPresent(c -> {
+          consumer.onAssign(c, c.assignment().stream()
+              .map(tp -> new TopicOffset(tp.partition(), c.position(tp) - 1))
+              .collect(Collectors.toList()));
         });
       }
     };

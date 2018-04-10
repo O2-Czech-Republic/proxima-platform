@@ -17,6 +17,7 @@ package cz.o2.proxima.storage;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -24,8 +25,10 @@ import lombok.Getter;
 
 /**
  * Data wrapper for all ingestion requests.
+ * NOTE: {@link Serializable} is implemented only for tests. Real-world applications
+ * should never use java serialization for passing data elements.
  */
-public class StreamElement {
+public class StreamElement implements Serializable {
 
   /**
    * Update given entity attribute with given value.

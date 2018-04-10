@@ -63,6 +63,13 @@ public interface BulkLogObserver extends LogObserverBase {
       commit(false, err);
     }
 
+    /**
+     * Nack the processing (no error thrown, but not successful).
+     */
+    default void nack() {
+      commit(false, null);
+    }
+
   }
 
   /**

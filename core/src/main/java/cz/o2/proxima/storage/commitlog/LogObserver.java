@@ -58,6 +58,13 @@ public interface LogObserver extends LogObserverBase {
       commit(false, error);
     }
 
+    /**
+     * Nack processing (no error thrown, message can be immediately retried).
+     */
+    default void nack() {
+      commit(false, null);
+    }
+
   }
 
   /**

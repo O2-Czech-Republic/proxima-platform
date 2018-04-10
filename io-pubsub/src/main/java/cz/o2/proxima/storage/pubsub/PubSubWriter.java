@@ -86,6 +86,7 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
               .setValue(data.isDelete()
                   ? ByteString.EMPTY
                   : ByteString.copyFrom(data.getValue()))
+              .setStamp(data.getStamp())
               .build()
               .toByteString())
           .build());

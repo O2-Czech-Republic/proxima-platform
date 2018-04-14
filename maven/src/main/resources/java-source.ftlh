@@ -21,7 +21,6 @@ import java.util.Optional;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 public class ${java_classname} implements Serializable {
 
@@ -57,7 +56,6 @@ public class ${java_classname} implements Serializable {
 
   <#list entity.attributes as attribute>
     <#if !attribute.wildcard>
-    @Nullable
     private ${attribute.type} ${attribute.nameCamel} = null;
     @SuppressWarnings("unchecked")
     private final ${attribute.type} ${attribute.nameCamel}Default = (${attribute.type}) repo.findEntity(

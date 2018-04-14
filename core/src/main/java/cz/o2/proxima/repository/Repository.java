@@ -670,8 +670,8 @@ public class Repository implements Serializable {
       // no loaded entities, no more stuff to read
       return;
     }
-    Map<String, Object> transformations = Optional.ofNullable(
-        cfg.root().get("transformations"))
+    Map<String, Object> transformations = Optional
+        .ofNullable(cfg.root().get("transformations"))
         .map(v -> toMap("transformations", v.unwrapped()))
         .orElse(null);
 
@@ -680,22 +680,32 @@ public class Repository implements Serializable {
       return;
     }
 
-    transformations.forEach((k, v) -> {
-      Map<String, Object> transformation = toMap(k, v);
-      EntityDescriptor entity = findEntity(readStr("entity", transformation, k))
+    transformations.forEach((name, v) -> {
+      Map<String, Object> transformation = toMap(name, v);
+
+      boolean disabled = Optional
+          .ofNullable(transformation.get("disabled"))
+          .map(d -> Boolean.valueOf(d.toString()))
+          .orElse(false);
+
+      if (disabled) {
+        log.info("Skipping load of disabled transformation {}", name);
+        return;
+      }
+      
+      EntityDescriptor entity = findEntity(readStr("entity", transformation, name))
           .orElseThrow(() -> new IllegalArgumentException(
               String.format("Entity `%s` doesn't exist",
                   transformation.get("entity"))));
 
       Transformation t = newInstance(
-          readStr("using", transformation, k), Transformation.class);
+          readStr("using", transformation, name), Transformation.class);
 
-      List<AttributeDescriptor<?>> attrs = readList("attributes", transformation, k)
+      List<AttributeDescriptor<?>> attrs = readList("attributes", transformation, name)
           .stream()
           .map(a -> entity.findAttribute(a, true).orElseThrow(
               () -> new IllegalArgumentException(
-                  String.format("Missing attribute `%s` in `%s`",
-                      a, entity))))
+                  String.format("Missing attribute `%s` in `%s`", a, entity))))
           .collect(Collectors.toList());
 
       TransformationDescriptor.Builder desc = TransformationDescriptor.newBuilder()
@@ -709,7 +719,7 @@ public class Repository implements Serializable {
           .map(s -> newInstance(s, StorageFilter.class))
           .ifPresent(desc::setFilter);
 
-      this.transformations.put(k, desc.build());
+      this.transformations.put(name, desc.build());
 
     });
 

@@ -88,7 +88,9 @@ class CassandraLogObservable implements BatchLogObservable {
             for (AttributeDescriptor<?> attribute : attributes) {
               String attributeName = attribute.getName();
               if (attribute.isWildcard()) {
-                String suffix = row.getString(field++);
+                // FIXME: this is wrong
+                // need mapping between attribute and accessor
+                String suffix = accessor.getConverter().asString(row.getObject(field++));
                 attributeName = attribute.toAttributePrefix() + suffix;
               }
               ByteBuffer bytes = row.getBytes(field++);

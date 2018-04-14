@@ -59,8 +59,10 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
@@ -545,19 +547,20 @@ public class IngestServer {
             request.getValue().toByteArray());
   }
 
-
-
   private boolean ingestRequest(
       StreamElement ingest, String uuid,
-      Consumer<Rpc.Status> responseConsumer)
-      throws IOException {
+      Consumer<Rpc.Status> responseConsumer) {
 
     EntityDescriptor entityDesc = ingest.getEntityDescriptor();
     AttributeDescriptor attributeDesc = ingest.getAttributeDescriptor();
 
-    OnlineAttributeWriter writerBase = repo.getWriter(attributeDesc).get();
+    OnlineAttributeWriter writerBase = repo.getWriter(attributeDesc)
+        .orElseThrow(() ->
+            new IllegalStateException(
+                "Writer for attribute " + attributeDesc.getName() + " not found"));
+
     // we need online writer here
-    OnlineAttributeWriter writer = writerBase == null ? null : writerBase.online();
+    OnlineAttributeWriter writer = writerBase.online();
 
     if (writer == null) {
       log.warn("Missing writer for request {}", ingest);
@@ -600,7 +603,6 @@ public class IngestServer {
     return true;
   }
 
-
   private Rpc.Status notFound(String uuid, String what) {
     return Rpc.Status.newBuilder()
         .setUuid(uuid)
@@ -624,9 +626,8 @@ public class IngestServer {
         .build();
   }
 
-
   /** Run the server. */
-  private void run() throws Exception {
+  private void run() {
     final int port = cfg.hasPath(Constants.CFG_PORT)
         ? cfg.getInt(Constants.CFG_PORT)
         : Constants.DEFALT_PORT;
@@ -635,13 +636,10 @@ public class IngestServer {
         .addService(new IngestService())
         .addService(new RetrieveService())
         .build();
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        log.info("Gracefully shuting down server.");
-        server.shutdown();
-      }
-    });
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      log.info("Gracefully shuting down server.");
+      server.shutdown();
+    }));
     Metrics.register();
     startConsumerThreads();
     try {
@@ -657,9 +655,8 @@ public class IngestServer {
 
   /**
    * Start all threads that will be consuming the commit log and write to the output.
-   * @throws InterruptedException when interrupted
    **/
-  protected void startConsumerThreads() throws InterruptedException {
+  protected void startConsumerThreads() {
 
     // index the repository
     Map<AttributeFamilyDescriptor, Set<AttributeFamilyDescriptor>> familyToCommitLog;
@@ -673,11 +670,13 @@ public class IngestServer {
             .orElseThrow(() -> new IllegalStateException(
                 "Failed validation on consistency of attribute families. Fix code!"));
         if (!family.getAccess().isReadonly()) {
-          AttributeWriterBase writer = family.getWriter().get();
+          AttributeWriterBase writer = family.getWriter()
+              .orElseThrow(() ->
+                  new IllegalStateException(
+                      "Unable to get writer for family " + family.getName() + "."));
           StorageFilter filter = family.getFilter();
-          Set<AttributeDescriptor<?>> allowedAttributes = family
-              .getAttributes()
-              .stream().collect(Collectors.toSet());
+          Set<AttributeDescriptor<?>> allowedAttributes =
+              new HashSet<>(family.getAttributes());
           final String name = "consumer-" + family.getName();
           Thread.currentThread().setName(name);
           registerWriterTo(name, commitLog, allowedAttributes, filter,
@@ -693,9 +692,7 @@ public class IngestServer {
     });
 
     // execute transformer threads
-    repo.getTransformations().forEach((k, v) -> {
-      runTransformer(k, v);
-    });
+    repo.getTransformations().forEach(this::runTransformer);
   }
 
   private void runTransformer(String name, TransformationDescriptor transform) {
@@ -706,16 +703,22 @@ public class IngestServer {
             .collect(Collectors.toSet()))
         .reduce(Sets::intersection)
         .filter(s -> !s.isEmpty())
-        .map(s -> s.stream().filter(f -> f.getCommitLogReader().isPresent())
-            .findAny().orElse(null))
-        .filter(af -> af != null)
-        .orElseThrow(() -> new IllegalArgumentException(
+        .map(s -> s.stream()
+            .filter(f -> f.getCommitLogReader().isPresent())
+            .findAny()
+            .orElse(null))
+        .filter(Objects::nonNull)
+        .orElseThrow(() ->
+            new IllegalArgumentException(
             "Cannot obtain attribute family for " + transform.getAttributes()));
 
     Transformation t = transform.getTransformation();
     StorageFilter f = transform.getFilter();
     final String consumer = "transformer-" + name;
-    CommitLogReader reader = family.getCommitLogReader().get();
+    CommitLogReader reader = family.getCommitLogReader()
+        .orElseThrow(() ->
+            new IllegalStateException(
+                "Unable to get reader for family " + family.getName() + "."));
 
     new RetryableLogObserver(3, consumer, reader) {
 
@@ -787,11 +790,9 @@ public class IngestServer {
     Map<AttributeDescriptor, AttributeFamilyDescriptor> attrToCommitLog = repo.getAllFamilies()
         .filter(af -> af.getType() == StorageType.PRIMARY)
         // take pair of attribute to associated commit log
-        .flatMap(af -> {
-          return af.getAttributes()
-              .stream()
-              .map(attr -> Pair.of(attr, af));
-        })
+        .flatMap(af -> af.getAttributes()
+            .stream()
+            .map(attr -> Pair.of(attr, af)))
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
     return (Map) repo.getAllFamilies()
@@ -808,7 +809,7 @@ public class IngestServer {
                   }
                   return commitFamily;
                 })
-                .filter(p -> p != null)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toSet())))
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
   }
@@ -829,7 +830,7 @@ public class IngestServer {
     if (writerBase.getType() == AttributeWriterBase.Type.ONLINE) {
       OnlineAttributeWriter writer = writerBase.online();
       observer = getOnlineWriter(
-          consumerName, commitLog, allowedAttributes, filter, writer, retry);
+          consumerName, commitLog, allowedAttributes, filter, writer);
     } else {
       BulkAttributeWriter writer = writerBase.bulk();
       observer = getBulkWriter(
@@ -926,8 +927,7 @@ public class IngestServer {
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,
       StorageFilter filter,
-      OnlineAttributeWriter writer,
-      RetryPolicy retry) {
+      OnlineAttributeWriter writer) {
 
     return new RetryableLogObserver(3, consumerName, commitLog) {
 

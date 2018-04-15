@@ -17,6 +17,7 @@ package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.tools.io.AttributeSink;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
@@ -153,22 +154,28 @@ public class Stream<T> {
     }
   }
 
-  @SuppressWarnings("unchecked")
   public void persist(
       String host, int port,
-      EntityDescriptor entity, AttributeDescriptor<T> attr) {
+      EntityDescriptor entity, AttributeDescriptor<T> attr,
+      Closure<String> keyExtractor,
+      Closure<T> valueExtractor,
+      Closure<Long> timeExtractor) {
 
-    // FIXME: this is wrong
-    // need:
-    //  - support Context.getTimestamp() in euphoria
-    //  - support serialization of data in ingest API
-    Dataset<Object> output = FlatMap.of((Dataset<Pair<String, byte[]>>) dataset.build())
-        .using((in, ctx) -> {
-          ctx.collect(Triple.of(in.getFirst(), in.getSecond(), System.currentTimeMillis()));
+    Closure<String> keyDehydrated = keyExtractor.dehydrate();
+    Closure<T> valueDehydrated = valueExtractor.dehydrate();
+    Closure<Long> timeDehydrated = timeExtractor.dehydrate();
+    Dataset<Triple<String, byte[], Long>> output;
+    final ValueSerializer<T> serializer = attr.getValueSerializer();
+    output = FlatMap.of((Dataset<Object>) dataset.build())
+        .using((Object in, Collector<Triple<String, byte[], Long>> ctx) -> {
+          String key = keyDehydrated.call(in);
+          long stamp = timeDehydrated.call(in);
+          byte[] value = serializer.serialize(valueDehydrated.call(in));
+          ctx.collect(Triple.of(key, value, stamp));
         })
         .output();
 
-    output.persist((DataSink) new AttributeSink(host, port, entity, attr));
+    output.persist(new AttributeSink(host, port, entity, attr));
 
     runFlow(output.getFlow());
   }

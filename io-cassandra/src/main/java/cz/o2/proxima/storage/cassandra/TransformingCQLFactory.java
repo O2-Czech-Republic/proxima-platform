@@ -111,6 +111,7 @@ public class TransformingCQLFactory<T extends Serializable> extends CacheableCQL
   public Optional<BoundStatement> getWriteStatement(
       StreamElement element, Session session) {
 
+    ensureSession(session);
     if (element.getValue() == null) {
       log.warn("Throwing away delete ingest specified for {}", getClass());
       return Optional.empty();

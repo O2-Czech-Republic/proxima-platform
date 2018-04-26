@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.functional;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
 /**
@@ -22,6 +23,7 @@ import java.io.Serializable;
  * @param <A> the first element type
  * @param <B> the second element type
  */
+@Stable
 @FunctionalInterface
 public interface BiConsumer<A, B> extends Serializable {
 

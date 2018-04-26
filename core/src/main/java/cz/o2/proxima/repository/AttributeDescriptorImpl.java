@@ -16,6 +16,7 @@
 
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.annotations.Internal;
 import java.net.URI;
 import cz.o2.proxima.scheme.ValueSerializer;
 
@@ -24,6 +25,7 @@ import javax.annotation.Nullable;
 /**
  * Descriptor of attribute of entity.
  */
+@Internal
 public class AttributeDescriptorImpl<T>
     extends AttributeDescriptorBase<T> {
 

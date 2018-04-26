@@ -15,12 +15,14 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.net.URI;
 
 /**
  * Base interface for {@code OnlineAttributeWriter} and {@code BulkAttributeWriter}.
  */
+@Stable
 public interface AttributeWriterBase extends Serializable {
 
   enum Type {

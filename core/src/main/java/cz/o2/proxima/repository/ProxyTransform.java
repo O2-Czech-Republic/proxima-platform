@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,13 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
 /**
  * A transformation of attribute name applied both on reading and writing attribute.
  */
+@Stable
 public interface ProxyTransform extends Serializable {
 
   /**

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.source;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
@@ -41,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * A {@code DataSource} reading from a specific attribute of entity.
  */
+@Stable
 @Slf4j
 public class UnboundedStreamSource
     implements UnboundedDataSource<StreamElement, Offset> {

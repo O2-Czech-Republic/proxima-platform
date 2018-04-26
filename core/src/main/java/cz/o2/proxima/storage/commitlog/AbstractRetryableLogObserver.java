@@ -21,12 +21,14 @@
 
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Stable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * A parent class for retryable online and bulk log observers.
  */
+@Stable
 @Slf4j
 public abstract class AbstractRetryableLogObserver implements LogObserverBase {
 

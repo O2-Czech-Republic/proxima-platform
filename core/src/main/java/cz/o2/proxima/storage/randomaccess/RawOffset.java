@@ -15,11 +15,13 @@
  */
 package cz.o2.proxima.storage.randomaccess;
 
+import cz.o2.proxima.annotations.Stable;
 import lombok.Getter;
 
 /**
  * Offset that is represented by raw string.
  */
+@Stable
 public class RawOffset implements RandomOffset {
 
   @Getter

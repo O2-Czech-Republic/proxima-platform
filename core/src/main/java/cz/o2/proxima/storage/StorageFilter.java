@@ -15,11 +15,13 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
 /**
  * A filter that is applied to each input data ingest.
  */
+@Stable
 @FunctionalInterface
 public interface StorageFilter extends Serializable {
 

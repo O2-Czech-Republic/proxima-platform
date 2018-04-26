@@ -15,11 +15,13 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
 
 /**
  * Base interface for bulk and online observers.
  */
+@Internal
 public interface LogObserverBase extends Serializable {
 
   /**

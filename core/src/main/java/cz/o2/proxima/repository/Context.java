@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.functional.Factory;
 import java.io.Serializable;
 import java.util.concurrent.ExecutorService;
@@ -22,6 +23,7 @@ import java.util.concurrent.ExecutorService;
 /**
  * Context created in local instance that can be distributed over wire.
  */
+@Stable
 public class Context implements Serializable {
 
   /**

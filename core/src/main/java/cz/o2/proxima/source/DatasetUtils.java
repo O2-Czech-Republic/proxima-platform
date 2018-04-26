@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.source;
 
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
 /**
  * Utilities able to retrieve {@link Dataset} for given attribute(s).
  */
+@Internal
 public class DatasetUtils {
 
   /**

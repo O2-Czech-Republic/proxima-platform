@@ -17,12 +17,14 @@ package cz.o2.proxima.metrics;
 
 import com.google.common.base.Preconditions;
 import com.tdunning.math.stats.TDigest;
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.util.Pair;
 import java.util.Arrays;
 
 /**
  * An approximation of 1st, 10th, 30th, 50th, 70th, 90th and 99th percentile.
  */
+@Stable
 public class ApproxPercentileMetric
     extends Metric<Stats>
     implements ApproxPercentileMetricMXBean {

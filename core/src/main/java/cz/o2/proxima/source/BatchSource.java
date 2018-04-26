@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.source;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.storage.StreamElement;
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
 /**
  * Source reading from {@code BatchLogObservable}.
  */
+@Stable
 @Slf4j
 public class BatchSource<T> implements BoundedDataSource<StreamElement> {
 

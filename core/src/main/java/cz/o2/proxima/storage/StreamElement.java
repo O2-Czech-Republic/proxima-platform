@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.io.Serializable;
@@ -28,6 +29,7 @@ import lombok.Getter;
  * NOTE: {@link Serializable} is implemented only for tests. Real-world applications
  * should never use java serialization for passing data elements.
  */
+@Evolving("Should change to interface with implementations")
 public class StreamElement implements Serializable {
 
   /**

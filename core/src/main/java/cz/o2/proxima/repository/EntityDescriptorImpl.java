@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.util.NamePattern;
 import cz.o2.proxima.util.Pair;
 import java.util.Collections;
@@ -28,6 +29,7 @@ import lombok.Getter;
 /**
  * Descriptor of entity.
  */
+@Internal
 public class EntityDescriptorImpl implements EntityDescriptor {
 
 

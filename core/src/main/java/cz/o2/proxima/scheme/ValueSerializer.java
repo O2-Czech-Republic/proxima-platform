@@ -15,12 +15,14 @@
  */
 package cz.o2.proxima.scheme;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.util.Optional;
 
 /**
  * A serializer of values with specified scheme.
  */
+@Stable
 public interface ValueSerializer<T> extends Serializable {
 
   /**

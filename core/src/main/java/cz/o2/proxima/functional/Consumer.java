@@ -15,12 +15,14 @@
  */
 package cz.o2.proxima.functional;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
 /**
  * {@link Serializable} consumer.
  * @param <T> type of input parameter
  */
+@Stable
 @FunctionalInterface
 public interface Consumer<T> extends Serializable {
 

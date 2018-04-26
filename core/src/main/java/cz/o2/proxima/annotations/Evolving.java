@@ -13,24 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.functional;
+package cz.o2.proxima.annotations;
 
-import cz.o2.proxima.annotations.Stable;
-import java.io.Serializable;
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * A factory function.
- *
- * @param <T> type of returned object
+ * This annotation indicates that the given class or
  */
-@Stable
-@FunctionalInterface
-public interface Factory<T> extends Serializable {
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.SOURCE)
+@Documented
+public @interface Evolving {
 
-  /**
-   * Apply the factory funtion.
-   * @return the created object
-   */
-  T apply();
+  String value();
 
 }

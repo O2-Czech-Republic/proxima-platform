@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.view;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.Partition;
@@ -32,6 +33,7 @@ import java.util.Collection;
  * will guarantee that subsequent reloads will contain the new data and
  * that read-write operations have happens-before relation semantics.
  */
+@Stable
 public interface PartitionedCachedView
     extends RandomAccessReader, OnlineAttributeWriter {
 

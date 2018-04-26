@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Internal;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
@@ -26,6 +27,7 @@ import java.util.stream.Collectors;
 /**
  * Utilities related to URIs.
  */
+@Internal
 public class URIUtil {
 
   public static Map<String, String> parseQuery(URI uri) {

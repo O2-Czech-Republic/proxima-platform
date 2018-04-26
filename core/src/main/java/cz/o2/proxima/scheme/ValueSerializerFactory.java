@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.net.URI;
 
@@ -22,6 +23,7 @@ import java.net.URI;
  * Factory for {@code ValueSerializer}.
  * The serializer has a specific scheme (e.g. proto:).
  */
+@Stable
 public interface ValueSerializerFactory<T> extends Serializable {
 
   /**

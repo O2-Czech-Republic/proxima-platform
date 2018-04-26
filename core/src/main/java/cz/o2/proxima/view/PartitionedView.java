@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.view;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
@@ -26,6 +27,7 @@ import java.util.List;
 /**
  * A view of a stream data that can be observed in through partitions.
  */
+@Stable
 public interface PartitionedView extends Serializable {
 
   /**

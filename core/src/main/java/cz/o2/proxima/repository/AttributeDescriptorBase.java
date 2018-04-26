@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.scheme.ValueSerializer;
 import java.net.URI;
 import java.util.Objects;
@@ -24,6 +25,7 @@ import lombok.Getter;
 /**
  * Base class for {@link AttributeDescriptorImpl} and {@link AttributeProxyDescriptorImpl}.
  */
+@Internal
 public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<T> {
 
   @Getter

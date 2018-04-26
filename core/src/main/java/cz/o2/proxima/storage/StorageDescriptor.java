@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.io.Serializable;
 import java.net.URI;
@@ -25,6 +26,7 @@ import lombok.Getter;
 /**
  * Descriptor of storage for attribute family.
  */
+@Stable
 public abstract class StorageDescriptor implements Serializable {
 
   /** Schemes of acceptable URIs. */

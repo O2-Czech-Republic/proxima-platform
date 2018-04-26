@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.randomaccess;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -32,6 +33,7 @@ import javax.annotation.Nullable;
  * pair (key, attribute) or scanned through by a mask (key, attributePrefix)
  * for attributes that are wildcard attributes.
  */
+@Stable
 public interface RandomAccessReader extends Closeable, Serializable {
 
   /**

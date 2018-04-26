@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
 import javax.annotation.Nullable;
@@ -29,6 +30,7 @@ import javax.annotation.Nullable;
  *
  * The implementation has to override either of `onNext` methods.
  */
+@Stable
 public interface LogObserver extends LogObserverBase {
 
   /**

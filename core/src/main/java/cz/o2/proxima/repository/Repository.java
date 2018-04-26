@@ -17,6 +17,7 @@ package cz.o2.proxima.repository;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigValue;
+import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
@@ -57,6 +58,7 @@ import lombok.Getter;
 /**
  * Repository of all entities configured in the system.
  */
+@Evolving("Affected by #66")
 @Slf4j
 public class Repository implements Serializable {
 
@@ -692,7 +694,7 @@ public class Repository implements Serializable {
         log.info("Skipping load of disabled transformation {}", name);
         return;
       }
-      
+
       EntityDescriptor entity = findEntity(readStr("entity", transformation, name))
           .orElseThrow(() -> new IllegalArgumentException(
               String.format("Entity `%s` doesn't exist",

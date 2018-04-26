@@ -16,6 +16,7 @@
 package cz.o2.proxima.repository;
 
 import com.google.common.base.Preconditions;
+import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageFilter;
 import java.io.Serializable;
@@ -30,6 +31,7 @@ import lombok.Getter;
 /**
  * Descriptor of single transformation specified in {@code transformations}.
  */
+@Evolving("Affected by #66")
 public class TransformationDescriptor implements Serializable {
 
   static Builder newBuilder() {

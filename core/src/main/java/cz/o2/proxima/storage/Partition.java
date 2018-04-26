@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
 /**
@@ -22,6 +23,7 @@ import java.io.Serializable;
  * A partition is an element of parallelism, an atomic part
  * that is read all at once and cannot be divided.
  */
+@Stable
 @FunctionalInterface
 public interface Partition extends Serializable {
 

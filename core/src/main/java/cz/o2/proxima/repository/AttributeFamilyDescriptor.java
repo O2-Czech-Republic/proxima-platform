@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.PassthroughFilter;
@@ -39,6 +40,7 @@ import lombok.experimental.Accessors;
 /**
  * A family of attributes with the same storage.
  */
+@Evolving("Affected by #66")
 public class AttributeFamilyDescriptor implements Serializable {
 
   public static final class Builder {

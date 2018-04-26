@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.view;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
@@ -26,6 +27,7 @@ import javax.annotation.Nullable;
 /**
  * Observer of data in {@code PartitionedView}.
  */
+@Stable
 public interface PartitionedLogObserver<T> extends LogObserverBase {
 
   @FunctionalInterface

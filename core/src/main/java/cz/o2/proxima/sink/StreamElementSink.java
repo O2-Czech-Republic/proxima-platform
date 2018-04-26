@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.sink;
 
+import cz.o2.proxima.annotations.Experimental;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
@@ -26,6 +27,7 @@ import java.io.IOException;
 /**
  * A {@link DataSink} created from {@link OnlineAttributeWriter}.
  */
+@Experimental("Not well tested")
 public class StreamElementSink<T> implements DataSink<StreamElement> {
 
   /**

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,7 @@ import lombok.experimental.Accessors;
 /**
  * An interface representing descriptor of entity.
  */
+@Stable
 public interface EntityDescriptor extends Serializable {
 
   /** Builder of the descriptor. */

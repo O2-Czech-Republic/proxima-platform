@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
  * {@code LogObserver} which is able to retry the observation on error.
  * The number of retries is configurable.
  */
+@Stable
 @Slf4j
 public abstract class RetryableLogObserver
     extends AbstractRetryableLogObserver implements LogObserver {

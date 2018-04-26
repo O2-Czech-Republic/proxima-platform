@@ -15,9 +15,12 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Stable;
+
 /**
  * An enum specifying the position in the commit log to start reading from.
  */
+@Stable
 public enum Position {
 
   /**

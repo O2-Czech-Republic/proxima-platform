@@ -476,15 +476,25 @@ public class IngestServer {
       Rpc.Ingest request,
       Consumer<Rpc.Status> consumer) {
 
-    log.info("Processing input ingest {}", TextFormat.shortDebugString(request));
+    if (log.isDebugEnabled()) {
+      log.debug("Processing input ingest {}", TextFormat.shortDebugString(request));
+    }
+    Consumer<Rpc.Status> loggingConsumer = rpc -> {
+      log.info(
+          "Input ingest {}: {}, {}",
+          TextFormat.shortDebugString(request),
+          rpc.getStatus(),
+          rpc.getStatus() == 200 ? "OK" : rpc.getStatusMessage());
+      consumer.accept(rpc);
+    };
     Metrics.INGESTS.increment();
     try {
-      if (!writeRequest(request, consumer)) {
+      if (!writeRequest(request, loggingConsumer)) {
         Metrics.INVALID_REQUEST.increment();
       }
     } catch (Exception err) {
       log.error("Error processing user request {}", request, err);
-      consumer.accept(status(request.getUuid(), 500, err.getMessage()));
+      loggingConsumer.accept(status(request.getUuid(), 500, err.getMessage()));
     }
   }
 

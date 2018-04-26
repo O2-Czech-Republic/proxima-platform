@@ -70,9 +70,6 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
    */
   boolean reversed = false;
 
-  /** The connection session in use. */
-  Session current = null;
-
   @Override
   protected void setup(
       Map<String, String> query, StringConverter<?> converter) {
@@ -103,6 +100,7 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
 
     return elementInsert(element);
   }
+
 
   @Override
   public BoundStatement getReadStatement(
@@ -143,16 +141,6 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
         startVal,
         limit < 0 ? Integer.MAX_VALUE : limit);
   }
-
-
-
-  private void ensureSession(Session session) {
-    if (this.current != session) {
-      clearCache();
-      current = session;
-    }
-  }
-
 
   private Optional<BoundStatement> elementInsert(StreamElement ingest) {
     PreparedStatement prepared = getPreparedStatement(current, ingest);

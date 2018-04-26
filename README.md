@@ -201,12 +201,6 @@ First, let's introduce some glossary:
    DataModel model = DataModel.ofTest(ConfigFactory.defaultApplication());
   ```  
   
- ## Simple stream processing
- Simple streams can be processed by attaching simple observer to it.
- ```java
-   DataModel model = DataModel.of(ConfigFactory.defaultApplication());
- ```
- 
  ## Platform's unified data processing API
  This is essentially just a wrapper around [Euphoria API](https://github.com/seznam/euphoria), currently outlined
  in `tools` package in groovy language, containing a console being able to execute data transformation _flows_.

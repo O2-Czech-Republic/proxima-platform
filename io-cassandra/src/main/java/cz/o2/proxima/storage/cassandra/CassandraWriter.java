@@ -47,6 +47,8 @@ class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAtt
       Optional<BoundStatement> cql = accessor.getCqlFactory().getWriteStatement(data, session);
       if (cql.isPresent()) {
         accessor.execute(cql.get());
+      } else {
+        log.warn("Missing CQL statement to write {}. Discarding.", data);
       }
       statusCallback.commit(true, null);
     } catch (Exception ex) {

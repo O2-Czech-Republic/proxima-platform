@@ -49,6 +49,11 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   @Nullable
   private String payloadCol;
 
+  /** The connection session in use. */
+  @Getter
+  @Nullable
+  Session current = null;
+
   /**
    * A TTL value in seconds associated with each update or insert.
    */
@@ -59,8 +64,11 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   private final Map<AttributeDescriptor, PreparedStatement> deleteWildcardCache;
   private final Map<AttributeDescriptor, PreparedStatement> getCache;
   private final Map<AttributeDescriptor, PreparedStatement> listCache;
+  @Nullable
   private PreparedStatement listEntities;
+  @Nullable
   private PreparedStatement fetchToken;
+  @Nullable
   private PreparedStatement listAllAttributes;
 
   private static Map<AttributeDescriptor, PreparedStatement> createCache(long maxSize) {
@@ -359,6 +367,13 @@ public abstract class CacheableCQLFactory implements CQLFactory {
       fetchToken = prepare(session, createFetchTokenStatement());
     }
     return fetchToken.bind(key);
+  }
+
+  void ensureSession(Session session) {
+    if (this.current != session) {
+      clearCache();
+      current = session;
+    }
   }
 
   static PreparedStatement prepare(Session session, String statement) {

@@ -16,11 +16,13 @@
 package cz.o2.proxima.storage.pubsub;
 
 import cz.o2.proxima.storage.StreamElement;
+import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import java.io.Serializable;
 
 /**
  * Partitioner for {@link StreamElement}s.
  */
+@Experimental
 @FunctionalInterface
 public interface Partitioner extends Serializable {
 

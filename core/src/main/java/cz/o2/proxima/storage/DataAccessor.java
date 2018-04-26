@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
@@ -27,6 +28,7 @@ import java.util.Optional;
 /**
  * Interface providing various types of data access patterns to storage.
  */
+@Internal
 public interface DataAccessor extends Serializable {
 
   /**

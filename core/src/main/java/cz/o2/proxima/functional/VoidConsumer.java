@@ -15,11 +15,13 @@
  */
 package cz.o2.proxima.functional;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
 /**
  * A function of zero arguments returning void.
  */
+@Stable
 @FunctionalInterface
 public interface VoidConsumer extends Serializable {
 

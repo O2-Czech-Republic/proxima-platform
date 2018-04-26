@@ -200,7 +200,7 @@
           <parallel>classes</parallel>
           <useSystemClassLoader>true</useSystemClassLoader>
           <useManifestOnlyJar>false</useManifestOnlyJar>
-          <argLine>-Xmx500m -XX:+HeapDumpOnOutOfMemoryError -Dsun.io.serialization.extendedDebugInfo=true</argLine>
+          <argLine>-Xmx500m -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true</argLine>
         </configuration>
       </plugin>
 

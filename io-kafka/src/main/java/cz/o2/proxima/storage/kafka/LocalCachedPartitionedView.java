@@ -382,12 +382,7 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
 
   @Override
   public void close() {
-    handle.getAndUpdate(h -> {
-      if (h != null) {
-        h.cancel();
-      }
-      return null;
-    });
+    Optional.ofNullable(handle.getAndSet(null)).ifPresent(ObserveHandle::cancel);
     cache.clear();
   }
 

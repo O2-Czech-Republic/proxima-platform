@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
 
@@ -22,6 +23,7 @@ import java.io.Serializable;
  * A stateless element-wise transformation applied on incoming data
  * converting single {@code StreamElement} to another {@code StreamElement}.
  */
+@Stable
 public interface Transformation extends Serializable {
 
   /**

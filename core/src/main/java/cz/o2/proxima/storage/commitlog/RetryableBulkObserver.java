@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ import java.io.Serializable;
  * {@code BulkObserver} which is able to retry the observation on error.
  * The number of retries is configurable.
  */
+@Stable
 @Slf4j
 public abstract class RetryableBulkObserver<OFF extends Serializable>
     extends AbstractRetryableLogObserver

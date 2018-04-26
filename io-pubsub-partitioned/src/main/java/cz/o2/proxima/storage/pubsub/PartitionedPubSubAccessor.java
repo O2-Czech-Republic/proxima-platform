@@ -15,12 +15,15 @@
  */
 package cz.o2.proxima.storage.pubsub;
 
+import cz.o2.proxima.pubsub.shaded.com.google.api.client.util.Preconditions;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.view.PartitionedView;
+import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import java.net.URI;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import lombok.Getter;
@@ -32,12 +35,15 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 /**
  * {@link DataAccessor} for partitioned pubsub view.
  */
+@Experimental
 @Slf4j
 class PartitionedPubSubAccessor extends PubSubAccessor implements DataAccessor {
 
   public static final String CFG_PARTITIONER = "partitioner";
   public static final String CFG_RUNNER = "runner";
   public static final String CFG_NUM_PARTITIONS = "num-partitions";
+  public static final String CFG_ORDERING_LATENESS = "ordering-lateness";
+  public static final String CFG_ORDERING_WINDOW = "ordering-window";
 
   @Getter
   private final Partitioner partitioner;
@@ -47,6 +53,12 @@ class PartitionedPubSubAccessor extends PubSubAccessor implements DataAccessor {
 
   @Getter
   private final PipelineOptions options;
+
+  @Getter
+  private final Duration orderingLateness;
+
+  @Getter
+  private final Duration orderingWindow;
 
   PartitionedPubSubAccessor(
       EntityDescriptor entity,
@@ -64,6 +76,20 @@ class PartitionedPubSubAccessor extends PubSubAccessor implements DataAccessor {
         .map(Object::toString)
         .map(Integer::valueOf)
         .orElse(1);
+    this.orderingLateness = Optional.ofNullable(cfg.get(CFG_ORDERING_LATENESS))
+        .map(Object::toString)
+        .map(Integer::valueOf)
+        .map(Duration::ofMillis)
+        .orElse(Duration.ZERO);
+    this.orderingWindow = Optional.ofNullable(cfg.get(CFG_ORDERING_WINDOW))
+        .map(Object::toString)
+        .map(Integer::valueOf)
+        .map(Duration::ofMillis)
+        .orElse(Duration.ZERO);
+
+    Preconditions.checkArgument(orderingLateness.isZero() == orderingWindow.isZero(),
+        "Please provide either both " + CFG_ORDERING_LATENESS + " and " + CFG_ORDERING_WINDOW
+        + " or neither of them");
   }
 
   @Override

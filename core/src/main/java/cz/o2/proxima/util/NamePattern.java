@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.util;
 
+import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -23,6 +24,7 @@ import java.util.Objects;
  * Accepted patterns can contain wildcards (*) which are then translated
  * into {@code java.util.regex.Pattern}s.
  */
+@Internal
 public class NamePattern implements Serializable {
 
   private final String pattern;

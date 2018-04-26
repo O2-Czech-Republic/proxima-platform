@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.randomaccess;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.util.Optional;
@@ -23,6 +24,7 @@ import lombok.Getter;
 /**
  * {@code KeyValue} with {@code Offset}.
  */
+@Stable
 public class KeyValue<T> {
 
   @SuppressWarnings("unchecked")

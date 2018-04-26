@@ -20,6 +20,7 @@ import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.internal.shaded.com.google.common.collect.Sets;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorImpl;
 import cz.o2.proxima.repository.Context;
@@ -48,6 +49,9 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import static cz.o2.proxima.storage.pubsub.Util.deleteWildcard;
 import static cz.o2.proxima.storage.pubsub.Util.update;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Test suite for {@link PubSubReader}.
@@ -64,6 +68,9 @@ public class PubSubReaderTest {
   private class TestPubSubReader extends PubSubReader {
 
     private final Context context;
+    private final Set<Integer> acked = new HashSet<>();
+    private final Set<Integer> nacked = new HashSet<>();
+
     private Supplier<PubsubMessage> supplier;
 
     public TestPubSubReader(Context context) {
@@ -81,7 +88,8 @@ public class PubSubReaderTest {
         MessageReceiver receiver) {
 
       return MockSubscriber.create(
-          subscription, receiver, supplier, context.getExecutorService());
+          subscription, receiver, supplier, acked, nacked,
+          context.getExecutorService());
     }
 
   }
@@ -173,6 +181,7 @@ public class PubSubReaderTest {
     assertEquals(now, elem.getStamp());
 
     assertTrue(cancelled.get());
+    assertEquals(Sets.newHashSet(0, 1, 2), reader.acked);
   }
 
   @Test(timeout = 2000)
@@ -204,12 +213,14 @@ public class PubSubReaderTest {
 
       @Override
       public boolean onError(Throwable error) {
-        assertEquals("Fail", error.getMessage());
+        assertEquals("Fail", error.getCause().getMessage());
         latch.countDown();
         return true;
       }
     });
     latch.await();
+    assertTrue(reader.acked.isEmpty());
+    assertFalse(reader.nacked.isEmpty());
     handle.cancel();
   }
 
@@ -230,11 +241,12 @@ public class PubSubReaderTest {
     List<StreamElement> elems = new ArrayList<>();
     AtomicBoolean cancelled = new AtomicBoolean();
     CountDownLatch latch = new CountDownLatch(3);
+    AtomicReference<BulkLogObserver.OffsetCommitter> commit = new AtomicReference<>();
     ObserveHandle handle = reader.observeBulk("dummy", new BulkLogObserver() {
       @Override
       public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
         elems.add(ingest);
-        committer.confirm();
+        commit.set(committer);
         latch.countDown();
         return true;
       }
@@ -250,6 +262,7 @@ public class PubSubReaderTest {
       }
     });
     latch.await();
+    commit.get().confirm();
     handle.cancel();
     assertEquals(3, elems.size());
     StreamElement elem = elems.get(0);
@@ -273,6 +286,7 @@ public class PubSubReaderTest {
     assertEquals(now, elem.getStamp());
 
     assertTrue(cancelled.get());
+    assertEquals(Sets.newHashSet(0, 1, 2), reader.acked);
   }
 
 }

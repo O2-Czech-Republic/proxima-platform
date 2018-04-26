@@ -16,6 +16,7 @@
 package cz.o2.proxima.storage.randomaccess;
 
 import com.google.common.collect.Iterables;
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
@@ -38,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * A builder for {@link RandomAccessReader} reading from multiple attribute families.
  */
+@Stable
 @Slf4j
 public class MultiAccessBuilder implements Serializable {
 
@@ -129,7 +131,10 @@ public class MultiAccessBuilder implements Serializable {
 
         return Optional.ofNullable(attrMap.get(desc))
             .map(ra -> ra.get(key, attribute, desc))
-            .orElse(Optional.empty());
+            .orElseGet(() -> {
+              log.warn("Missing family for attribute {} in MultiAccessBuilder", desc);
+              return Optional.empty();
+            });
       }
 
       @SuppressWarnings("unchecked")

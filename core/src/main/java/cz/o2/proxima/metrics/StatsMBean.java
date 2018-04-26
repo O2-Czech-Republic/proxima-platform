@@ -15,9 +15,12 @@
  */
 package cz.o2.proxima.metrics;
 
+import cz.o2.proxima.annotations.Stable;
+
 /**
  * An MBean for distribution stats.
  */
+@Stable
 public interface StatsMBean {
 
   /** @return 1st percentile. */

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.source.UnboundedStreamSource;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
@@ -32,6 +33,7 @@ import java.util.UUID;
  * observer on the stream. If the observer is named then if multiple registration
  * exist with the same name, it is automatically load balanced.
  */
+@Stable
 public interface CommitLogReader extends Closeable, Serializable {
 
   /**

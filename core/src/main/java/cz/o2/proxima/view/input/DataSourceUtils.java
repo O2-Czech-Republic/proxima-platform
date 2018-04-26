@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.view.input;
 
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
 import cz.seznam.euphoria.core.client.io.DataSource;
@@ -31,6 +32,7 @@ import java.util.concurrent.BlockingQueue;
 /**
  * Utils for creating and managing {@code DataSource}s.
  */
+@Internal
 @Slf4j
 public class DataSourceUtils {
 

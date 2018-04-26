@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.source;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
  * A {@code DataSource} reading from a specific attribute of entity with bounded
  * characteristics.
  */
+@Stable
 public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
 
   public static BoundedStreamSource of(

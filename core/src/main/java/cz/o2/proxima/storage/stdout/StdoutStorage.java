@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.stdout;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
@@ -31,6 +32,7 @@ import java.util.Optional;
 /**
  * Dummy storage printing data to stdout.
  */
+@Stable
 public class StdoutStorage extends StorageDescriptor {
 
   public StdoutStorage() {

@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Stable;
+
 /**
  * Writer for attribute values. This is online version, where each
  * element is committed one after another.
@@ -31,6 +33,7 @@ package cz.o2.proxima.storage;
  * Note that as a commit log might be marked any "regular" storage of the
  * message. If so, the message is not written to the commit log twice.
  */
+@Stable
 public interface OnlineAttributeWriter extends AttributeWriterBase {
 
   @Override

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
@@ -32,6 +33,7 @@ import javax.annotation.Nullable;
  *
  * Implementation has to override either of `onNext` methods.
  */
+@Stable
 public interface BulkLogObserver extends LogObserverBase {
 
   /**
@@ -61,6 +63,13 @@ public interface BulkLogObserver extends LogObserverBase {
      */
     default void fail(Throwable err)  {
       commit(false, err);
+    }
+
+    /**
+     * Nack the processing (no error thrown, but not successful).
+     */
+    default void nack() {
+      commit(false, null);
     }
 
   }

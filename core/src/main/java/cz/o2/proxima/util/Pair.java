@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.util;
 
+import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
 import java.util.Objects;
 import lombok.Getter;
@@ -22,6 +23,7 @@ import lombok.Getter;
 /**
  * A generic pair (tuple).
  */
+@Internal
 public class Pair<A, B> implements Serializable {
 
   public static <A, B> Pair<A, B> of(A first, B second) {

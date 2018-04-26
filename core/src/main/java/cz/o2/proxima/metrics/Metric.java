@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.metrics;
 
+import cz.o2.proxima.annotations.Stable;
 import java.beans.ConstructorProperties;
 import java.io.Serializable;
 import lombok.Getter;
@@ -24,6 +25,7 @@ import lombok.Getter;
  * A single metric might be a single number or a vector of numbers
  * (e.g. say percentile statistics).
  */
+@Stable
 public abstract class Metric<T> implements Serializable {
 
   @Getter

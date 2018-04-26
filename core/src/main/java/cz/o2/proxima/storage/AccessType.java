@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Set;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 /**
  * Access type to {@code attribute family}.
  */
+@Stable
 public interface AccessType extends Serializable {
 
   /**

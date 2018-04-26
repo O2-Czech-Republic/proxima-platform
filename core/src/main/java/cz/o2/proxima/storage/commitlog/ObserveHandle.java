@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.util.List;
 
@@ -22,6 +23,7 @@ import java.util.List;
  * A interface for handling progress and control consumption
  * of running observe process.
  */
+@Stable
 public interface ObserveHandle extends Serializable {
 
   /**

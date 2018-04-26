@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.randomaccess;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
 /**
@@ -26,6 +27,7 @@ import java.io.Serializable;
  * based on the key stored in the map.
  * This is just a labeling interface.
  */
+@Stable
 public interface RandomOffset extends Serializable {
 
 }

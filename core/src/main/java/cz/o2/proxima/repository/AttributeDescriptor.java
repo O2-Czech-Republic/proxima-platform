@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import java.io.Serializable;
 import java.net.URI;
@@ -27,6 +28,7 @@ import cz.o2.proxima.scheme.ValueSerializer;
 /**
  * An interface describing each attribute.
  */
+@Stable
 public interface AttributeDescriptor<T> extends Serializable {
 
   class Builder {

@@ -35,6 +35,7 @@ class Util {
             .setKey(key)
             .setAttribute(attribute)
             .setValue(ByteString.copyFrom(value))
+            .setStamp(stamp)
             .build().toByteString())
         .build();
   }
@@ -48,11 +49,14 @@ class Util {
             .setKey(key)
             .setAttribute(attribute)
             .setDelete(true)
+            .setStamp(stamp)
             .build().toByteString())
         .build();
   }
 
-  static PubsubMessage deleteWildcard(String key, AttributeDescriptor<?> attribute, long stamp) {
+  static PubsubMessage deleteWildcard(
+      String key, AttributeDescriptor<?> attribute, long stamp) {
+    
     return PubsubMessage.newBuilder()
         .setPublishTime(Timestamp.newBuilder()
             .setSeconds((int) (stamp / 1000))
@@ -61,6 +65,7 @@ class Util {
             .setKey(key)
             .setAttribute(attribute.toAttributePrefix())
             .setDeleteWildcard(true)
+            .setStamp(stamp)
             .build().toByteString())
         .build();
   }

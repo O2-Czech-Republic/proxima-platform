@@ -15,11 +15,13 @@
  */
 package cz.o2.proxima.util;
 
+import cz.o2.proxima.annotations.Internal;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Classpath related utilities.
  */
+@Internal
 @Slf4j
 public class Classpath {
 

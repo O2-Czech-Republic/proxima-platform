@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.metrics;
 
+import cz.o2.proxima.annotations.Stable;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 /**
  * Metric calculating average per time window.
  */
+@Stable
 public class TimeAveragingMetric extends ScalarMetric {
 
   public static TimeAveragingMetric of(String group, String name, long windowLengthMs,
@@ -56,7 +57,7 @@ public class TimeAveragingMetric extends ScalarMetric {
   TimeAveragingMetric(
       String group, String name,
       long windowLengthMs, long checkpointMs, long purgeMs) {
-    
+
     super(group, name);
     this.windowLengthNanos = windowLengthMs * 1_000_000L;
     this.checkpointNanos = checkpointMs * 1_000_000L;
@@ -92,7 +93,7 @@ public class TimeAveragingMetric extends ScalarMetric {
 
   private void applyCheckpoints(long now) {
     long toRemove = now - purgeNanos;
-    if (toRemove > startNanos) {      
+    if (toRemove > startNanos) {
       NavigableMap<Long, Double> headMap = checkpoints.headMap(toRemove, true);
       if (!headMap.isEmpty()) {
         Map.Entry<Long, Double> lastEntry = headMap.lastEntry();

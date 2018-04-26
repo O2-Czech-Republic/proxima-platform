@@ -38,4 +38,7 @@ message KeyValue {
   /** Is this wildcard attribute delete? */
   bool deleteWildcard = 5;
 
+  /** Timestamp of the write. */
+  uint64 stamp = 6;
+
 }

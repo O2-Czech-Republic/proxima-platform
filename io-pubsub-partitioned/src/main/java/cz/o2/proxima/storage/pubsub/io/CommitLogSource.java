@@ -23,6 +23,7 @@ import cz.o2.proxima.storage.commitlog.Offset;
 import cz.o2.proxima.storage.pubsub.AttributeData;
 import cz.o2.proxima.util.Pair;
 import cz.seznam.euphoria.beam.io.KryoCoder;
+import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import java.io.IOException;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -44,6 +45,7 @@ import org.joda.time.Instant;
 /**
  * A Beam source for {@link CommitLogReader}.
  */
+@Experimental
 @Slf4j
 public class CommitLogSource extends UnboundedSource<
     AttributeData, CommitLogSource.WatermarkCommitCheckpoint> {

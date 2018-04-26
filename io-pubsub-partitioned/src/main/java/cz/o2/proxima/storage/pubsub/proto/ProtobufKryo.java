@@ -20,6 +20,7 @@ import com.esotericsoftware.kryo.Serializer;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.google.protobuf.GeneratedMessage;
+import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -28,6 +29,7 @@ import java.lang.reflect.Method;
 /**
  * A {@link Serializer} for {@link Kryo} for {@link GeneratedMessage}.
  */
+@Experimental
 public class ProtobufKryo extends Serializer<Object> {
 
   private final Method parser;

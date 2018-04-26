@@ -18,6 +18,7 @@ package cz.o2.proxima.storage.pubsub;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.StorageDescriptor;
+import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Map;
@@ -25,6 +26,7 @@ import java.util.Map;
 /**
  * A {@link StorageDescriptor} for partitioned PubSub view.
  */
+@Experimental
 public class PartitionedPubSub extends StorageDescriptor {
 
   public PartitionedPubSub() {

@@ -33,6 +33,7 @@ import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.beam.BeamFlow;
 import cz.seznam.euphoria.beam.io.KryoCoder;
+import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -75,6 +76,7 @@ import org.joda.time.Instant;
 /**
  * A {@link PartitionedView} for Google PubSub.
  */
+@Experimental
 @Slf4j
 class PubSubPartitionedView extends PubSubReader implements PartitionedView {
 

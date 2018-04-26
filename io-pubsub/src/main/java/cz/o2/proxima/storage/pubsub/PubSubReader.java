@@ -41,6 +41,7 @@ import cz.o2.proxima.storage.commitlog.ObserveHandle;
 import cz.o2.proxima.storage.commitlog.Offset;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.storage.pubsub.proto.PubSub;
+import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -63,6 +64,7 @@ import org.threeten.bp.Duration;
 /**
  * A {@link CommitLogReader} for Google PubSub.
  */
+@Experimental
 @Slf4j
 class PubSubReader extends AbstractStorage implements CommitLogReader {
 

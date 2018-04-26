@@ -21,6 +21,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.view.PartitionedView;
+import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
@@ -34,6 +35,7 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 /**
  * {@link DataAccessor} for partitioned pubsub view.
  */
+@Experimental
 @Slf4j
 class PartitionedPubSubAccessor extends PubSubAccessor implements DataAccessor {
 

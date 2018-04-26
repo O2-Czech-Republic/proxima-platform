@@ -15,12 +15,14 @@
  */
 package cz.o2.proxima.storage.pubsub;
 
+import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import javax.annotation.Nullable;
 import lombok.Value;
 
 /**
  * Class holding data for attribute of entity.
  */
+@Experimental
 @Value
 public class AttributeData {
 

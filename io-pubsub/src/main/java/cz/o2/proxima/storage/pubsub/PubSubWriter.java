@@ -30,6 +30,7 @@ import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.pubsub.proto.PubSub;
+import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * A {@link OnlineAttributeWriter} for Google PubSub.
  */
+@Experimental
 @Slf4j
 class PubSubWriter extends AbstractOnlineAttributeWriter
     implements OnlineAttributeWriter {

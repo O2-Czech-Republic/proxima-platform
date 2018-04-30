@@ -158,7 +158,7 @@ public interface CommitLogReader extends Closeable, Serializable {
 
 
   /**
-   * Subscribe to the commitlog in a bulk fashion. That implies that elements
+   * Subscribe to the commit log in a bulk fashion. That implies that elements
    * are not committed one-by-one, but in a bulks, where all elements in a bulk
    * are committed at once. This is useful for micro-batching approach of
    * data processing.
@@ -174,7 +174,7 @@ public interface CommitLogReader extends Closeable, Serializable {
 
 
   /**
-   * Subscribe to the commitlog in a bulk fashion from newest data.
+   * Subscribe to the commit log in a bulk fashion from newest data.
    * That implies that elements are not committed one-by-one, but in a bulks,
    * where all elements in a bulk are committed at once. This is useful for
    * micro-batching approach of data processing.
@@ -224,7 +224,7 @@ public interface CommitLogReader extends Closeable, Serializable {
 
   /**
    * Consume from given offsets in a bulk fashion. A typical use-case for this
-   * type of consumption is to first use {@link observeBulkPartitions}, observe
+   * type of consumption is to first use {@link CommitLogReader#observeBulkPartitions}, observe
    * for some time, than interrupt the consumption, store associated offsets
    * and resume the consumption from these offsets later
    * @param offsets the @{link Offset}s to subscribe to

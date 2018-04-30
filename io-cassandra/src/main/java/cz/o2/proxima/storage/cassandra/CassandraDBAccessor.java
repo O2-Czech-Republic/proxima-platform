@@ -56,10 +56,6 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   @Getter(AccessLevel.PACKAGE)
   private final CQLFactory cqlFactory;
 
-  /** Config map. */
-  private final Map<String, Object> cfg;
-  /** Our connection URI. */
-  private final URI uri;
   /** Converter between string and native cassandra type used for wildcard types. */
   @Getter(AccessLevel.PACKAGE)
   private final StringConverter<Object> converter;
@@ -77,8 +73,6 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
     super(entityDesc, uri);
 
-    this.cfg = cfg;
-    this.uri = uri;
     Object factoryName = cfg.get(CQL_FACTORY_CFG);
     String cqlFactoryName = factoryName == null
         ? DefaultCQLFactory.class.getName()
@@ -112,10 +106,9 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
       cqlFactory = Classpath.findClass(cqlFactoryName, CQLFactory.class).newInstance();
       cqlFactory.setup(entityDesc, uri, converter);
     } catch (InstantiationException | IllegalAccessException ex) {
-      throw new IllegalArgumentException("Cannot instantiate class " + cqlFactoryName,
-          ex);
+      throw new IllegalArgumentException(
+          "Cannot instantiate class " + cqlFactoryName, ex);
     }
-
 
   }
 
@@ -161,7 +154,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   Session ensureSession() {
     if (session == null || session.isClosed()) {
       if (this.cluster == null || this.cluster.isClosed()) {
-        this.cluster = getCluster(uri);
+        this.cluster = getCluster(getURI());
       }
       this.session = this.cluster.connect();
     }

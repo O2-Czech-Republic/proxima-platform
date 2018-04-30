@@ -18,6 +18,7 @@ package cz.o2.proxima.storage.randomaccess;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -39,7 +40,7 @@ import static org.junit.Assert.*;
  */
 public class MultiAccessBuilderTest {
 
-  final Repository repo = Repository.Builder.of(
+  final Repository repo = ConfigRepository.Builder.of(
       ConfigFactory.load()
           .withFallback(ConfigFactory.load("test-reference.conf"))
           .resolve()).build();

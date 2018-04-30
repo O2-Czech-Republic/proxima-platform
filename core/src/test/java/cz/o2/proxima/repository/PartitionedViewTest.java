@@ -35,11 +35,11 @@ import org.junit.Before;
 import org.junit.Test;
 
 /**
- * Test {@PartitionView} capability of {@code InMemStorage}.
+ * Test {@link PartitionedView} capability of {@link cz.o2.proxima.storage.InMemStorage}.
  */
 public class PartitionedViewTest implements Serializable {
 
-  private final transient Repository repo = Repository.Builder.of(
+  private final transient Repository repo = ConfigRepository.Builder.of(
       ConfigFactory.load()
           .withFallback(ConfigFactory.load("test-reference.conf"))
           .resolve()).build();

@@ -9,6 +9,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
@@ -27,24 +28,24 @@ public class ${java_classname} implements Serializable {
   private static final String GENERATED_FROM = ${input_config};
 
   /**
-   * Create instance of {@code Model} for production usage.
+   * Create instance of {@code ${java_classname}} for production usage.
    **/
   public static ${java_classname} of(Config cfg) {
-    return new ${java_classname}(Repository.Builder.of(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+    return new ${java_classname}(ConfigRepository.Builder.of(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
 
   /**
-   * Create instance of {@code Model} with specified {@code Repository.Builder}.
+   * Create instance of {@code ${java_classname}} with specified {@code ConfigRepository.Builder}.
    **/
-  public static ${java_classname} of(Repository.Builder builder) {
+  public static ${java_classname} of(ConfigRepository.Builder builder) {
     return new ${java_classname}(builder);
   }
 
   /**
-   * Create instance of {@code Model} for testing purposes.
+   * Create instance of {@code ${java_classname}} for testing purposes.
    **/
   public static ${java_classname} ofTest(Config cfg) {
-    return new ${java_classname}(Repository.Builder.ofTest(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+    return new ${java_classname}(ConfigRepository.Builder.ofTest(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
 
 <#list entities as entity>
@@ -91,10 +92,12 @@ public class ${java_classname} implements Serializable {
   <#list entity.attributes as attribute>
     <#if attribute.wildcard>
     @SuppressWarnings("unchecked")
-    private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor = (AttributeDescriptor) descriptor.findAttribute("${attribute.name}.*").get();
+    private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor =
+      (AttributeDescriptor) descriptor.findAttribute("${attribute.name}.*").get();
     <#else>
     @SuppressWarnings("unchecked")
-    private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor = (AttributeDescriptor) descriptor.findAttribute("${attribute.name}").get();
+    private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor =
+      (AttributeDescriptor) descriptor.findAttribute("${attribute.name}").get();
     </#if> <#-- attribute.wildcard -->
 
     public AttributeDescriptor<${attribute.type}> get${attribute.nameCamel}Descriptor() {
@@ -189,9 +192,9 @@ public class ${java_classname} implements Serializable {
 </#list>
 
 
-  private ${java_classname}(Repository.Builder builder) {
+  private ${java_classname}(ConfigRepository.Builder builder) {
     this.repo = Objects.requireNonNull(builder).build();
-    this.cfg = repo.getConfig();
+    this.cfg = ((ConfigRepository) repo).getConfig();
 <#list entities as entity>
     ${entity.name} = new ${entity.classname}();
 </#list>

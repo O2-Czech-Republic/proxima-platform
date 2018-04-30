@@ -42,9 +42,9 @@ import static org.junit.Assert.*;
 /**
  * Test repository config parsing.
  */
-public class RepositoryTest {
+public class ConfigRepositoryTest {
 
-  final Repository repo = Repository.Builder.of(
+  private final Repository repo = ConfigRepository.Builder.of(
       ConfigFactory.load()
           .withFallback(ConfigFactory.load("test-reference.conf"))
           .resolve()).build();
@@ -83,7 +83,7 @@ public class RepositoryTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidFamily() {
-    Repository.Builder.of(
+    ConfigRepository.Builder.of(
       ConfigFactory.load()
           .withFallback(ConfigFactory.load("test-reference.conf"))
           .withFallback(ConfigFactory.parseString("attributeFamilies.invalid.invalid = true"))
@@ -92,7 +92,7 @@ public class RepositoryTest {
 
   @Test
   public void testInvalidDisabledFamily() {
-    Repository.Builder.of(
+    ConfigRepository.Builder.of(
       ConfigFactory.load()
           .withFallback(ConfigFactory.load("test-reference.conf"))
           .withFallback(ConfigFactory.parseString("attributeFamilies.invalid.invalid = true\n"
@@ -263,7 +263,7 @@ public class RepositoryTest {
     ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
     ObjectInputStream ois = new ObjectInputStream(bais);
     // must not throw
-    Repository clone = (Repository) ois.readObject();
+    ConfigRepository clone = (ConfigRepository) ois.readObject();
     assertNotNull(clone.getConfig());
   }
 

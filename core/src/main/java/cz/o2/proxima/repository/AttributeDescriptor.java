@@ -29,6 +29,7 @@ import cz.o2.proxima.scheme.ValueSerializer;
  * An interface describing each attribute.
  */
 @Stable
+@Accessors(chain = true)
 public interface AttributeDescriptor<T> extends Serializable {
 
   class Builder {
@@ -40,15 +41,12 @@ public interface AttributeDescriptor<T> extends Serializable {
     }
 
     @Setter
-    @Accessors(chain = true)
     private String entity;
 
     @Setter
-    @Accessors(chain = true)
     private String name;
 
     @Setter
-    @Accessors(chain = true)
     private URI schemeURI;
 
     @SuppressWarnings("unchecked")
@@ -72,7 +70,6 @@ public interface AttributeDescriptor<T> extends Serializable {
       String name,
       AttributeDescriptorBase<T> target,
       ProxyTransform transform) {
-
     return new AttributeProxyDescriptorImpl<>(name, target, transform);
   }
 

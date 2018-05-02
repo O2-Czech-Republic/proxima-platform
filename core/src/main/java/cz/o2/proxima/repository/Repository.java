@@ -106,4 +106,5 @@ public interface Repository {
    * @return the attribute writer
    */
   Optional<OnlineAttributeWriter> getWriter(AttributeDescriptor<?> attr);
+  
 }

@@ -18,6 +18,7 @@ package cz.o2.proxima.storage;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import java.net.URI;
@@ -30,7 +31,7 @@ import org.junit.Test;
  */
 public class StreamElementTest {
 
-  final Repository repo = Repository.Builder
+  final Repository repo = ConfigRepository.Builder
       .ofTest(ConfigFactory.empty())
       .build();
   final AttributeDescriptorBase<byte[]> attr;

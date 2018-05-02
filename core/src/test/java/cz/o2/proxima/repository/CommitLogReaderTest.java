@@ -22,6 +22,7 @@ import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.commitlog.RetryableLogObserver;
+import cz.o2.proxima.util.Optionals;
 import cz.seznam.euphoria.executor.local.LocalExecutor;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,14 +40,18 @@ import org.junit.Test;
  */
 public class CommitLogReaderTest {
 
-  private final transient Repository repo = Repository.Builder.of(
+  private final transient Repository repo = Repository.of(
       ConfigFactory.load()
           .withFallback(ConfigFactory.load("test-reference.conf"))
-          .resolve()).build();
+          .resolve());
 
   private transient LocalExecutor executor;
-  private final transient EntityDescriptor entity = repo.findEntity("event").get();
-  private final transient AttributeDescriptor<?> attr = entity.findAttribute("data").get();
+
+  private final transient EntityDescriptor entity =
+      Optionals.get(repo.findEntity("event"));
+
+  private final transient AttributeDescriptor<?> attr =
+      Optionals.get(entity.findAttribute("data"));
 
   private transient CommitLogReader reader;
   private transient AttributeWriterBase writer;

@@ -20,6 +20,7 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorImpl;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -45,7 +46,7 @@ import org.junit.Test;
  */
 public class PubSubWriterTest {
 
-  private final Repository repo = Repository.of(ConfigFactory.load().resolve());
+  private final Repository repo = ConfigRepository.of(ConfigFactory.load().resolve());
   private final AttributeDescriptorImpl<?> attr;
   private final AttributeDescriptorImpl<?> wildcard;
   private final EntityDescriptor entity;

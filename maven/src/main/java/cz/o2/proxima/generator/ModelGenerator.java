@@ -18,6 +18,7 @@ package cz.o2.proxima.generator;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import freemarker.template.Configuration;
@@ -47,8 +48,8 @@ public class ModelGenerator {
   private final File sourceConfigPath;
   private final File outputPath;
 
-  public ModelGenerator(String javaPackage, String className,
-                        String sourceConfigPath, String outputPath) {
+  public ModelGenerator(
+      String javaPackage, String className, String sourceConfigPath, String outputPath) {
 
     Preconditions.checkArgument(StringUtils.isNotBlank(javaPackage), "Java package name is missing");
     Preconditions.checkArgument(StringUtils.isNotBlank(className), "Class name is missing");
@@ -79,7 +80,7 @@ public class ModelGenerator {
       }
     }
 
-    Repository repo = Repository.Builder
+    final Repository repo = ConfigRepository.Builder
         .of(ConfigFactory.parseFile(sourceConfigPath).resolve())
         .withReadOnly(true)
         .withValidate(false)

@@ -22,6 +22,7 @@ import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -83,22 +84,22 @@ import org.junit.Test;
 @Slf4j
 public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
-  final transient Factory<ExecutorService> serviceFactory =
+  private final transient Factory<ExecutorService> serviceFactory =
       () -> Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r);
         t.setUncaughtExceptionHandler((thr, exc) -> exc.printStackTrace(System.err));
         return t;
       });
-  final transient Repository repo = Repository.Builder
+  private final transient Repository repo = ConfigRepository.Builder
       .ofTest(ConfigFactory.empty())
       .withExecutorFactory(serviceFactory)
       .build();
-  final AttributeDescriptorBase<byte[]> attr;
-  final AttributeDescriptorBase<byte[]> attrWildcard;
-  final EntityDescriptor entity;
-  final URI storageURI;
+  private final AttributeDescriptorBase<byte[]> attr;
+  private final AttributeDescriptorBase<byte[]> attrWildcard;
+  private final EntityDescriptor entity;
+  private final URI storageURI;
 
-  LocalKafkaCommitLogDescriptor kafka;
+  private LocalKafkaCommitLogDescriptor kafka;
 
   public LocalKafkaCommitLogDescriptorTest() throws Exception {
     this.attr = AttributeDescriptor

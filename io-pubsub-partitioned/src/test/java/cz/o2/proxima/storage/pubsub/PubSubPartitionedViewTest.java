@@ -22,6 +22,7 @@ import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.pubsub.shaded.com.google.protobuf.ByteString;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -180,7 +181,7 @@ public class PubSubPartitionedViewTest implements Serializable {
 
   }
 
-  private final transient Repository repo = Repository.of(ConfigFactory.empty());
+  private final transient Repository repo = ConfigRepository.of(ConfigFactory.empty());
   private final AttributeDescriptorBase<byte[]> attr = AttributeDescriptor.newBuilder(repo)
       .setEntity("entity")
       .setName("attr")

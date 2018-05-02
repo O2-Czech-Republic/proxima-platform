@@ -13,28 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.storage.cassandra;
+package cz.o2.proxima.util;
 
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.StorageDescriptor;
+import java.util.Optional;
 
-import java.net.URI;
-import java.util.Collections;
-import java.util.Map;
+public class Optionals {
 
-/**
- * Storage descriptor for Apache Cassandra.
- */
-public class CassandraStorageDescriptor extends StorageDescriptor {
-
-  public CassandraStorageDescriptor() {
-    super(Collections.singletonList("cassandra"));
+  public static <T> T get(Optional<T> optional) {
+    return optional.orElseThrow(() ->
+        new IllegalArgumentException("Provided optional is empty."));
   }
-
-  @Override
-  public CassandraDBAccessor getAccessor(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-    return new CassandraDBAccessor(entityDesc, uri, cfg);
-  }
-
 }

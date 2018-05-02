@@ -46,7 +46,7 @@ public interface PartitionedView extends Serializable {
    * Subscribe to given set of partitions.
    * If you use this call then the reader stops being automatically
    * load balanced and the set of partitions cannot be changed.
-   * @param <T> output datatype
+   * @param <T> output data type
    * @param flow the flow to run this observation in
    * @param partitions the list of partitions to subscribe to
    * @param observer the observer to subscribe to the partitions
@@ -82,7 +82,7 @@ public interface PartitionedView extends Serializable {
    * If multiple observers share the same name, then the data
    * is load-balanced between them (in an undefined manner).
    * This is a non blocking call.
-   * @param <T> output datatype
+   * @param <T> output data type
    * @param flow the flow to observe the data in
    * @param name identifier of the consumer
    * @param observer the observer to subscribe to the commit log
@@ -101,7 +101,7 @@ public interface PartitionedView extends Serializable {
    * If multiple observers share the same name, then the data
    * is load-balanced between them (in an undefined manner).
    * This is a non blocking call.
-   * @param <T> output datatype
+   * @param <T> output data type
    * @param name name of the observer
    * @param observer the observer
    * @return {@link Dataset} produced by this observer

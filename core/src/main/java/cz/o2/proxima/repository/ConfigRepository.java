@@ -545,15 +545,16 @@ public class ConfigRepository implements Repository, Serializable {
             "Missing required field `storage' in attribute family " + name)
             .toString());
         final StorageDescriptor storageDesc = isReadonly
-            ? asReadOnly(schemeToStorage.get(storageURI.getScheme()))
+            ? asReadOnly(Objects.requireNonNull(
+                schemeToStorage.get(storageURI.getScheme()),
+                "Missing storage descriptor for scheme " + storageURI.getScheme()))
             : schemeToStorage.get(storageURI.getScheme());
         EntityDescriptor entDesc = findEntity(entity)
             .orElseThrow(() -> new IllegalArgumentException(
                 "Cannot find entity " + entity));
         if (storageDesc == null) {
           throw new IllegalArgumentException(
-              "No storage for scheme "
-              + storageURI.getScheme());
+              "No storage for scheme " + storageURI.getScheme());
         }
 
         AttributeFamilyDescriptor.Builder family = AttributeFamilyDescriptor.newBuilder()
@@ -688,7 +689,7 @@ public class ConfigRepository implements Repository, Serializable {
         log.info("Skipping load of disabled transformation {}", name);
         return;
       }
-      
+
       EntityDescriptor entity = findEntity(readStr("entity", transformation, name))
           .orElseThrow(() -> new IllegalArgumentException(
               String.format("Entity `%s` doesn't exist",
@@ -855,6 +856,7 @@ public class ConfigRepository implements Repository, Serializable {
    */
   private StorageDescriptor asReadOnly(StorageDescriptor wrap) {
 
+    Objects.requireNonNull(wrap, "Missing storage descriptor");
     return new StorageDescriptor(wrap.getAcceptableSchemes()) {
 
       @Override

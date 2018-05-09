@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.kafka;
 
+import cz.o2.proxima.storage.commitlog.Partitioner;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
@@ -1281,9 +1282,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   static final class FirstBytePartitioner implements Partitioner {
     @Override
-    public int getPartitionId(String key, String attribute, byte[] value) {
-      if (value != null) {
-        return (int) value[0];
+    public int getPartitionId(StreamElement element) {
+      if (!element.isDelete()) {
+        return (int) element.getValue()[0];
       }
       return 0;
     }

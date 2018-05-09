@@ -19,6 +19,7 @@ import cz.o2.proxima.pubsub.shaded.com.google.api.client.util.Preconditions;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.DataAccessor;
+import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.core.annotation.stability.Experimental;
@@ -71,6 +72,7 @@ class PartitionedPubSubAccessor extends PubSubAccessor implements DataAccessor {
         .map(Classpath::newInstance)
         .orElseThrow(() -> new IllegalArgumentException(
             "Missing " + CFG_PARTITIONER + " as partitioner class"));
+    partitioner.setup(cfg);
     options = asOptions(cfg);
     this.numPartitions = Optional.ofNullable(cfg.get(CFG_NUM_PARTITIONS))
         .map(Object::toString)

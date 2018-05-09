@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.kafka;
 
+import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.StreamElement;
@@ -53,8 +54,7 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
       if (producer == null) {
         producer = createProducer();
       }
-      int partition = (partitioner.getPartitionId(
-          data.getKey(), data.getAttribute(), data.getValue()) & Integer.MAX_VALUE)
+      int partition = (partitioner.getPartitionId(data) & Integer.MAX_VALUE)
           % producer.partitionsFor(topic).size();
       producer.send(
           new ProducerRecord(topic, partition, data.getStamp(), data.getKey()

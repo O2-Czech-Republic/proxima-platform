@@ -18,7 +18,8 @@ package cz.o2.proxima.example;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 import cz.o2.proxima.example.event.Event.BaseEvent;
-import cz.o2.proxima.storage.kafka.Partitioner;
+import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Partitioner;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -28,12 +29,12 @@ import lombok.extern.slf4j.Slf4j;
 public class EventPartitioner implements Partitioner {
 
   @Override
-  public int getPartitionId(String key, String attribute, byte[] value) {
-    if (value == null) {
-      log.warn("Received event with null value!");
+  public int getPartitionId(StreamElement element) {
+    if (element.isDelete()) {
+      log.warn("Received delete event!");
     } else {
       try {
-        BaseEvent event = BaseEvent.parseFrom(value);
+        BaseEvent event = BaseEvent.parseFrom(element.getValue());
         int partition = event.getUserName().hashCode();
         if (log.isDebugEnabled()) {
           log.debug(

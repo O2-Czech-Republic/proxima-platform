@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.kafka;
 
+import cz.o2.proxima.storage.commitlog.Partitioner;
 import com.google.common.base.Strings;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;

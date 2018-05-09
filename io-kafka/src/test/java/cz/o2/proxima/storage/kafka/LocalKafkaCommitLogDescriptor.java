@@ -601,8 +601,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
     @Override
     public void write(StreamElement data, CommitCallback callback) {
-      int partitionId = accessor.getPartitioner().getPartitionId(
-          data.getKey(), data.getAttribute(), data.getValue());
+      int partitionId = accessor.getPartitioner().getPartitionId(data);
       int partition = (partitionId & Integer.MAX_VALUE) % numPartitions;
       Accessor local = (LocalKafkaCommitLogDescriptor.Accessor) accessor;
       local.written.get(partition).add(data);

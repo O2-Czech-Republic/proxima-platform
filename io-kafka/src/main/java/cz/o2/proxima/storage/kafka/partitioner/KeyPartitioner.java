@@ -15,7 +15,8 @@
  */
 package cz.o2.proxima.storage.kafka.partitioner;
 
-import cz.o2.proxima.storage.kafka.Partitioner;
+import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Partitioner;
 
 /**
  * A partitioner based on key of entity.
@@ -24,8 +25,8 @@ import cz.o2.proxima.storage.kafka.Partitioner;
 public class KeyPartitioner implements Partitioner {
 
   @Override
-  public int getPartitionId(String key, String attribute, byte[] value) {
-    return key.hashCode();
+  public int getPartitionId(StreamElement element) {
+    return element.getKey().hashCode();
   }
 
 }

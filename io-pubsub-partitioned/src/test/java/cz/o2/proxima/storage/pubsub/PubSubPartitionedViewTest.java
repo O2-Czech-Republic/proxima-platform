@@ -29,6 +29,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
+import cz.o2.proxima.storage.commitlog.Partitioner;
 import static cz.o2.proxima.storage.pubsub.PartitionedPubSubAccessor.CFG_NUM_PARTITIONS;
 import static cz.o2.proxima.storage.pubsub.PartitionedPubSubAccessor.CFG_PARTITIONER;
 import cz.o2.proxima.storage.pubsub.internal.proto.PubSub;
@@ -172,7 +173,7 @@ public class PubSubPartitionedViewTest implements Serializable {
   public static class FirstBytePartitioner implements Partitioner {
 
     @Override
-    public int getPartition(StreamElement element) {
+    public int getPartitionId(StreamElement element) {
       if (element.isDelete()) {
         return 0;
       }

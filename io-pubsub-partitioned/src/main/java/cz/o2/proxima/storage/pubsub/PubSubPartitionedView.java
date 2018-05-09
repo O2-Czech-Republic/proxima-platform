@@ -27,6 +27,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
+import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.storage.pubsub.io.CommitLogSource;
 import cz.o2.proxima.storage.pubsub.proto.PubSub;
 import cz.o2.proxima.view.PartitionedLogObserver;
@@ -188,7 +189,7 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
             .into(TypeDescriptors.kvs(TypeDescriptors.integers(), new TypeDescriptor<AttributeData>() { }))
             .via((AttributeData input) -> {
               int partition = toElement(entity, input)
-                .map(el -> (partitioner.getPartition(el) & Integer.MAX_VALUE) % numPartitions)
+                .map(el -> (partitioner.getPartitionId(el) & Integer.MAX_VALUE) % numPartitions)
                 .orElse(0);
               return KV.of(partition, input);
             }))

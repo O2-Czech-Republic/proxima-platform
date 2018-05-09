@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.storage.pubsub;
 
-import com.google.api.client.util.Lists;
 import com.google.api.gax.rpc.AlreadyExistsException;
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.pubsub.v1.ProjectSubscriptionName;
@@ -176,9 +176,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       }
       BulkLogObserver.OffsetCommitter committer = (succ, exc) -> {
         // the implementation can use some other
-        // thread for this, so we need to synchronize this in the AtomicReference
-        // the applied function is idempotent and therefore safe to apply
-        unconfirmed.updateAndGet(list -> {
+        // thread for this, so we need to synchronize this
+        synchronized (listLock) {
           int confirmCount = (int) (confirmUntil.get() - globalOffset.get());
           if (confirmCount > 0) {
             final Consumer<AckReplyConsumer> apply;
@@ -193,16 +192,14 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
               }
               apply = AckReplyConsumer::nack;
             }
+            List<AckReplyConsumer> list = unconfirmed.get();
             for (int i = 0; i < confirmCount; i++) {
-              apply.accept(list.get(i));
+                apply.accept(list.get(i));
             }
             globalOffset.addAndGet(confirmCount);
-            synchronized (listLock) {
-              return Lists.newArrayList(list.subList(confirmCount, list.size()));
-            }
+            unconfirmed.set(Lists.newArrayList(list.subList(confirmCount, list.size())));
           }
-          return list;
-        });
+        }
       };
 
       // our observers are not supposed to be thread safe, so we must

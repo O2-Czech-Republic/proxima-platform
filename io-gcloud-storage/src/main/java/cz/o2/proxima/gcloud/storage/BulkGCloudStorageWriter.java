@@ -218,8 +218,14 @@ public class BulkGCloudStorageWriter
     String date = DIR_FORMAT.format(LocalDateTime.ofInstant(
         Instant.ofEpochMilli(min), ZoneId.ofOffset("UTC", ZoneOffset.UTC)));
     String name = String.format(
-        "%s%s-%d_%d.blob", date, PREFIX, min, max);
+        "%s%s-%d_%d_%s.blob", date, PREFIX, min, max,
+        uuid());
     return name;
+  }
+
+  @VisibleForTesting
+  String uuid() {
+    return UUID.randomUUID().toString();
   }
 
   @VisibleForTesting

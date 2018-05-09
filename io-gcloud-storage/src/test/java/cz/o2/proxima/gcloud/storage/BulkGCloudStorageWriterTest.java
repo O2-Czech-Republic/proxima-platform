@@ -100,6 +100,11 @@ public class BulkGCloudStorageWriterTest {
       }
 
       @Override
+      String uuid() {
+        return "uuid";
+      }
+
+      @Override
       void flushToBlob(File file, Blob blob) throws IOException {
         written = new ArrayList<>();
         try (BinaryBlob.Reader reader = new BinaryBlob(file).reader(entity)) {

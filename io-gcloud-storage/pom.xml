@@ -68,7 +68,7 @@
         </executions>
       </plugin>
 
-      <plugin>
+      <!--plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
         <version>3.0.2</version>
@@ -87,9 +87,9 @@
             </configuration>
           </execution>
         </executions>
-      </plugin>
+      </plugin-->
 
-      <plugin>
+      <!--plugin>
         <groupId>com.coderplus.maven.plugins</groupId>
         <artifactId>copy-rename-maven-plugin</artifactId>
         <version>1.0</version>
@@ -118,7 +118,7 @@
             </configuration>
           </execution>
         </executions>
-      </plugin>
+      </plugin-->
 
       <plugin>
         <artifactId>exec-maven-plugin</artifactId>

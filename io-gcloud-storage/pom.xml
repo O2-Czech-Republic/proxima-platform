@@ -190,6 +190,10 @@
               <shadedPattern>${shadePattern}.com.google.auth.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>com.google.cloud.</pattern>
+              <shadedPattern>${shadePattern}.com.google.cloud.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>org.codehaus.jackson.</pattern>
               <shadedPattern>${shadePattern}.org.codehaus.jackson.</shadedPattern>
             </relocation>

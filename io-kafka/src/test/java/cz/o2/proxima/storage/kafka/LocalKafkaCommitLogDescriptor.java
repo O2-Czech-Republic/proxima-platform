@@ -64,6 +64,10 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyLong;
 import static org.mockito.Mockito.*;
 import cz.o2.proxima.storage.commitlog.ObserveHandle;
+import java.util.Objects;
+import java.util.UUID;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * A class that can be used as {@code KafkaCommitLog} in various test scenarios.
@@ -78,6 +82,49 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
   private static final Map<Integer, Map<URI, Accessor>> ACCESSORS =
       Collections.synchronizedMap(new HashMap<>());
 
+  // identifier of consumer with group name and consumer Id
+  private static class ConsumerId {
+    static ConsumerId of(String name, int id) {
+      return new ConsumerId(name, id);
+    }
+    @Getter
+    final String name;
+    @Getter
+    final int id;
+    @Getter
+    @Setter
+    boolean assigned = false;
+
+    private ConsumerId(String name, int id) {
+      this.name = name;
+      this.id = id;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name, id);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof ConsumerId)) {
+        return false;
+      }
+      final ConsumerId other = (ConsumerId) obj;
+      if (this.id != other.id || !Objects.equals(this.name, other.name)) {
+        return false;
+      }
+      return true;
+    }
+
+    @Override
+    public String toString() {
+      return "ConsumerId(" + name + ", " + id + ")";
+    }
+
+
+  }
+
   public static class Accessor extends KafkaAccessor {
 
     final int descriptorId;
@@ -88,7 +135,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     // ingests in different partitions
     transient List<List<StreamElement>> written;
     // (consumer name, consumer id) -> list(partition id, offset) (sparse)
-    transient Map<Pair<String, Integer>, List<Pair<Integer, AtomicInteger>>> consumerOffsets;
+    transient Map<ConsumerId, List<Pair<Integer, AtomicInteger>>> consumerOffsets;
     // (consumer name, partition id) -> committed offset
     transient Map<Pair<String, Integer>, AtomicInteger> committedOffsets;
 
@@ -131,13 +178,9 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
         @Override
         public KafkaConsumer<String, byte[]> create(Collection<Partition> partitions) {
-          String name = "unnamed-consumer-" + Math.round(Math.random() * Integer.MAX_VALUE);
+          String name = "unnamed-consumer-" + UUID.randomUUID().toString();
           ConsumerGroup group = new ConsumerGroup(name, getTopic(), numPartitions);
-          int id = group.add(partitions);
-          return mockKafkaConsumer(
-              name,
-              Pair.of(name, id),
-              group);
+          return mockKafkaConsumer(name, group, partitions, null);
         }
 
         @Override
@@ -157,8 +200,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
               consumerGroups.put(name, group);
             }
 
-            int id = group.add(listener);
-            return mockKafkaConsumer(name, Pair.of(name, id), group);
+            return mockKafkaConsumer(name, group, null, listener);
           }
         }
 
@@ -182,13 +224,14 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     @SuppressWarnings("unchecked")
     KafkaConsumer<String, byte[]> mockKafkaConsumer(
         String name,
-        Pair<String, Integer> consumerId,
-        ConsumerGroup group) {
+        ConsumerGroup group,
+        @Nullable Collection<Partition> assignedPartitions,
+        @Nullable ConsumerRebalanceListener listener) {
 
       for (int p  = 0; p < numPartitions; p++) {
         committedOffsets.putIfAbsent(
             Pair.of(name, p),
-            new AtomicInteger(written.get(p).size() - 1));
+            new AtomicInteger(written.get(p).size()));
       }
 
       log.info(
@@ -197,16 +240,20 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
           committedOffsets);
 
       KafkaConsumer<String, byte[]> mock = mock(KafkaConsumer.class);
+
+      int assignedId = assignedPartitions != null
+          ? group.add(assignedPartitions) : group.add(listener);
+      ConsumerId consumerId = ConsumerId.of(name, assignedId);
       consumerOffsets.put(
           consumerId,
-          group.getAssignment(consumerId.getSecond()).stream()
+          group.getAssignment(consumerId.getId()).stream()
               .map(p -> Pair.of(p.getId(), new AtomicInteger(
                   committedOffsets.get(Pair.of(name, p.getId())).get())))
               .collect(Collectors.toList()));
 
       doAnswer(invocation -> {
         long sleep = (long) invocation.getArguments()[0];
-        return pollConsumer(group, sleep, consumerId);
+        return pollConsumer(group, sleep, consumerId, listener);
       }).when(mock).poll(anyLong());
 
       doAnswer(invocation -> {
@@ -255,7 +302,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       }).when(mock).committed(any());
 
       doAnswer(invocation -> {
-        Collection<Partition> partitions = group.getAssignment(consumerId.getSecond());
+        Collection<Partition> partitions = group.getAssignment(consumerId.getId());
         return partitions.stream()
             .map(p -> new TopicPartition(getTopic(), p.getId()))
             .collect(Collectors.toSet());
@@ -268,7 +315,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
                   .collect(Collectors.toList()));
 
       doAnswer(invocation -> {
-        group.remove(consumerId.getSecond());
+        group.remove(consumerId.getId());
         return null;
       }).when(mock).close();
 
@@ -298,11 +345,8 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     }
 
     private void seekConsumerTo(
-        Pair<String, Integer> consumerId, int partition, long offset) {
+        ConsumerId consumerId, int partition, long offset) {
 
-      log.debug(
-          "Consumer {} seeked to offset {} in partition {}",
-          consumerId, offset, partition);
       List<Pair<Integer, AtomicInteger>> partOffsets;
       partOffsets = consumerOffsets.computeIfAbsent(consumerId, c -> new ArrayList<>());
       for (Pair<Integer, AtomicInteger> p : partOffsets) {
@@ -314,24 +358,30 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       if (offset >= 0) {
         partOffsets.add(Pair.of(partition, new AtomicInteger((int) (offset))));
       }
+      log.debug(
+          "Consumer {} seeked to offset {} in partition {}",
+          consumerId, offset, partition);
     }
 
     private void seekConsumerToBeginning(
-        Pair<String, Integer> consumerId,
+        ConsumerId consumerId,
         Collection<TopicPartition> parts) {
 
+      Map<Integer, AtomicInteger> current = new HashMap<>();
       List<Pair<Integer, AtomicInteger>> partOffsets;
       partOffsets = consumerOffsets.get(consumerId);
-      for (TopicPartition tp : parts) {
-        for (Pair<Integer, AtomicInteger> p : partOffsets) {
-          if (p.getFirst() == tp.partition()) {
-            p.getSecond().set(0);
-          }
-        }
+      if (partOffsets != null) {
+        partOffsets.forEach(p -> current.put(p.getFirst(), p.getSecond()));
       }
+
+      parts.forEach((tp) -> current.put(tp.partition(), new AtomicInteger(0)));
+      consumerOffsets.put(consumerId, current.entrySet()
+          .stream()
+          .map(e -> Pair.of(e.getKey(), e.getValue()))
+          .collect(Collectors.toList()));
       log.debug(
           "Consumer {} seeked to beginning of {}",
-          consumerId.getFirst(),
+          consumerId.getName(),
           parts);
     }
 
@@ -350,19 +400,31 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
     private ConsumerRecords<String, byte[]> pollConsumer(
         ConsumerGroup group,
-        long period, Pair<String, Integer> consumerId)
+        long period, ConsumerId consumerId,
+        @Nullable ConsumerRebalanceListener listener)
         throws InterruptedException {
 
-      String name = consumerId.getFirst();
+      String name = consumerId.getName();
+      if (!consumerId.isAssigned()) {
+        log.debug("Initializing consumer {} after first time poll", name);
+        consumerId.setAssigned(true);
+        if (listener != null) {
+          listener.onPartitionsAssigned(group.getAssignment(consumerId.getId())
+              .stream()
+              .map(p -> new TopicPartition(getTopic(), p.getId()))
+              .collect(Collectors.toList()));
+        }
+      }
       // need to sleep in order not to pollute the heap with
       // unnecessary objects
       // this is because mockito somehow creates lots of objects
       // when it is invoked too often
+      log.debug("Sleeping {} ms before attempting to poll", period);
       Thread.sleep(period);
 
       Map<TopicPartition, List<ConsumerRecord<String, byte[]>>> map;
       map = new HashMap<>();
-      Collection<Partition> assignment = group.getAssignment(consumerId.getSecond());
+      Collection<Partition> assignment = group.getAssignment(consumerId.getId());
       List<Pair<Integer, AtomicInteger>> offsets = consumerOffsets.get(consumerId);
 
       if (log.isDebugEnabled()) {
@@ -443,7 +505,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
         int partition = 0;
         for (int written : untilOffsets) {
           int current = partition;
-          if (consumerOffsets.get(Pair.of(name, current))
+          if (consumerOffsets.get(Pair.of(name, new AtomicInteger(current)))
               .stream()
               .filter(off -> off.getFirst() == current)
               .filter(off -> off.getSecond().get() < written)
@@ -532,7 +594,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
     @Override
     ObserveHandle observeKafka(
-        String name, Collection<Partition> partitions,
+        @Nullable String name, Collection<Partition> partitions,
         Position position, boolean stopAtCurrent,
         KafkaLogObserver observer) {
 

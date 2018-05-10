@@ -76,20 +76,21 @@ public abstract class AbstractRetryableLogObserver implements LogObserverBase {
     numFailures = 0;
   }
 
-  public void start() {
-    start(Position.NEWEST);
+  public ObserveHandle start() {
+    return start(Position.NEWEST);
   }
 
-  public void start(Position position) {
+  public ObserveHandle start(Position position) {
     this.position = position;
-    this.startInternal(position);
+    return this.startInternal(position);
   }
 
   /**
    * Called when processing is to start from given position.
    * @param position position in the log
+   * @return handle of the observe process
    */
-  protected abstract void startInternal(Position position);
+  protected abstract ObserveHandle startInternal(Position position);
 
   /**
    * Called when unrecoverable error detected on the commit log.

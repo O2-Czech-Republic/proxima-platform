@@ -52,11 +52,11 @@ public abstract class RetryableBulkObserver<OFF extends Serializable>
 
   @SuppressWarnings("unchecked")
   @Override
-  protected final void startInternal(Position position) {
+  protected final ObserveHandle startInternal(Position position) {
     log.info(
         "Starting to process commitlog {} as {} from {}",
         getCommitLog().getURI(), getName(), getPosition());
-    getCommitLog().observeBulk(getName(), getPosition(), this);
+    return getCommitLog().observeBulk(getName(), getPosition(), this);
   }
 
   /**

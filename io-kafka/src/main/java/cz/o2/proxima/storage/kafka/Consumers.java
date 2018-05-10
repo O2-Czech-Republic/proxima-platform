@@ -99,14 +99,14 @@ class Consumers {
       if (element != null) {
         return observer.onNext(element, (succ, exc) -> {
           if (succ) {
-            committed.compute(tp.partition(), (k, v) -> v == null || v < offset ? offset : v);
+            committed.compute(tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
             committer.confirm(tp, offset);
           } else {
             errorHandler.accept(exc);
           }
         }, tp::partition);
       }
-      committed.compute(tp.partition(), (k, v) -> v == null || v < offset ? offset : v);
+      committed.compute(tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
       committer.confirm(tp, offset);
       return true;
     }
@@ -183,7 +183,7 @@ class Consumers {
 
       return (succ, err) -> {
         if (succ) {
-          committed.compute(tp.partition(), (k, v) -> v == null || v < offset ? offset : v);
+          committed.compute(tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
           commit.accept(tp, offset);
         } else {
           errorHandler.accept(err);
@@ -220,7 +220,7 @@ class Consumers {
       super.onAssign(consumer, offsets);
       observer.onRestart((List) offsets);
 
-      Utils.seekToCommitted(topic, (List) offsets, consumer);
+      Utils.seekToOffsets(topic, (List) offsets, consumer);
     }
 
   }

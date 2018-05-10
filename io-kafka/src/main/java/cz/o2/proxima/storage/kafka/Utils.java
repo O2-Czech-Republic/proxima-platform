@@ -19,7 +19,6 @@ import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.URIUtil;
 import cz.o2.proxima.storage.commitlog.Offset;
 import java.net.URI;
-import java.util.Arrays;
 import java.util.Collection;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
@@ -57,7 +56,7 @@ class Utils {
     };
   }
 
-  static void seekToCommitted(
+  static void seekToOffsets(
       String topic,
       Collection<Offset> offsets,
       final KafkaConsumer<String, byte[]> consumer) {
@@ -66,11 +65,7 @@ class Utils {
     offsets.forEach(o -> {
       TopicOffset to = (TopicOffset) o;
       TopicPartition tp = new TopicPartition(topic, o.getPartition().getId());
-      if (to.getOffset() >= 0) {
-        consumer.seek(tp, to.getOffset() + 1);
-      } else {
-        consumer.seekToBeginning(Arrays.asList(tp));
-      }
+      consumer.seek(tp, to.getOffset());
     });
   }
 

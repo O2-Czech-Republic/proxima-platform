@@ -85,14 +85,13 @@ public class ConsumerGroup implements Serializable {
       // for sure
       partitions.clear();
       partitions.addAll(assign);
-      listener.onPartitionsAssigned(partitions.stream()
+      List<TopicPartition> tps = partitions.stream()
           .map(p -> new TopicPartition(topic, p.getId()))
-          .collect(Collectors.toList()));
-      if (log.isDebugEnabled()) {
-        log.debug("Assigned partitions {} to consumer ID {} of group {}",
-            partitions.stream().map(Partition::getId).collect(Collectors.toList()),
-            id, name);
-      }
+          .collect(Collectors.toList());
+      listener.onPartitionsAssigned(tps);
+      log.debug(
+          "Assigned partitions {} to consumer ID {} of group {}, notifying listener {}",
+          tps, id, name, listener);
     }
 
   }

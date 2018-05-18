@@ -13,11 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.scheme;
+package cz.o2.proxima.scheme.proto;
 
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.GeneratedMessage;
 import com.google.protobuf.Parser;
+import cz.o2.proxima.scheme.ValueSerializer;
+import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.util.Classpath;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,10 +34,9 @@ import java.util.Optional;
  * Serializer from protobuffers.
  */
 @Slf4j
-public class ProtoSerializerFactory<M extends AbstractMessage>
-    implements ValueSerializerFactory<M> {
+public class ProtoSerializerFactory implements ValueSerializerFactory {
 
-  private final Map<URI, ValueSerializer<M>> parsers = new HashMap<>();
+  private final Map<URI, ValueSerializer<?>> parsers = new HashMap<>();
 
   @Override
   public String getAcceptableScheme() {
@@ -43,7 +44,7 @@ public class ProtoSerializerFactory<M extends AbstractMessage>
   }
 
   @SuppressWarnings("unchecked")
-  private ValueSerializer<M> createSerializer(URI uri) {
+  private <M extends AbstractMessage> ValueSerializer<M> createSerializer(URI uri) {
     return new ValueSerializer<M>() {
 
       final String protoClass = uri.getSchemeSpecificPart();
@@ -94,13 +95,14 @@ public class ProtoSerializerFactory<M extends AbstractMessage>
   }
 
   // this method is synchronized because of the cache
+  @SuppressWarnings("unchecked")
   @Override
-  public synchronized ValueSerializer<M> getValueSerializer(URI scheme) {
+  public synchronized ValueSerializer getValueSerializer(URI scheme) {
     return parsers.computeIfAbsent(scheme, this::createSerializer);
   }
 
   @SuppressWarnings("unchecked")
-  private M getDefaultInstance(String protoClass) {
+  static <M extends AbstractMessage> M getDefaultInstance(String protoClass) {
     try {
       Class<GeneratedMessage> cls = Classpath.findClass(
           protoClass, GeneratedMessage.class);
@@ -108,8 +110,7 @@ public class ProtoSerializerFactory<M extends AbstractMessage>
       return (M) method.invoke(null);
     } catch (Exception ex) {
       throw new IllegalArgumentException(
-          "Cannot retrieve default instance for type "
-          + protoClass);
+          "Cannot retrieve default instance for type " + protoClass);
     }
   }
 

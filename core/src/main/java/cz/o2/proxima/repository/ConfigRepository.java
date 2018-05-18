@@ -481,7 +481,7 @@ public class ConfigRepository implements Repository, Serializable {
   }
 
   @Override
-  public @Nullable ValueSerializerFactory<?> getValueSerializerFactory(String scheme) {
+  public @Nullable ValueSerializerFactory getValueSerializerFactory(String scheme) {
     ValueSerializerFactory serializer = serializersMap.get(scheme);
     if (serializer == null) {
       if (shouldValidate) {

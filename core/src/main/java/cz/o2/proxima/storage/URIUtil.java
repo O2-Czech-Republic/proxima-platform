@@ -20,8 +20,8 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -31,9 +31,10 @@ import java.util.stream.Collectors;
 public class URIUtil {
 
   public static Map<String, String> parseQuery(URI uri) {
-    String query = Objects.requireNonNull(
-        uri.getQuery(),
-        "URI " + uri + " has empty query");
+    String query = uri.getQuery();
+    if (query == null) {
+      return Collections.emptyMap();
+    }
     return Arrays.asList(query.split("&")).stream()
         .map(s -> Arrays.copyOf(s.split("="), 2))
         .collect(Collectors.toMap(s -> decode(s[0]), s -> decode(s[1])));

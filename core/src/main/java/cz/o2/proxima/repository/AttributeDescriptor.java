@@ -55,7 +55,7 @@ public interface AttributeDescriptor<T> extends Serializable {
       Objects.requireNonNull(entity, "Please specify entity");
       Objects.requireNonNull(schemeURI, "Please specify scheme URI");
 
-      ValueSerializerFactory<?> factory = repo.getValueSerializerFactory(schemeURI.getScheme());
+      ValueSerializerFactory factory = repo.getValueSerializerFactory(schemeURI.getScheme());
 
       return new AttributeDescriptorImpl<>(name, entity, schemeURI,
           factory == null ? null : (ValueSerializer<T>) factory.getValueSerializer(schemeURI));

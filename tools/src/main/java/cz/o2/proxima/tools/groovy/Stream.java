@@ -154,6 +154,7 @@ public class Stream<T> {
     }
   }
 
+  @SuppressWarnings("unchecked")
   public void persist(
       String host, int port,
       EntityDescriptor entity, AttributeDescriptor<T> attr,

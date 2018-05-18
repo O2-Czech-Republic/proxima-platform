@@ -31,6 +31,7 @@ import cz.seznam.euphoria.core.client.operator.ReduceWindow;
 import cz.seznam.euphoria.core.client.triggers.Trigger;
 import cz.seznam.euphoria.core.client.triggers.TriggerContext;
 import cz.seznam.euphoria.core.client.util.Either;
+import cz.seznam.euphoria.core.client.util.Fold;
 import cz.seznam.euphoria.core.client.util.Pair;
 import cz.seznam.euphoria.core.client.util.Sums;
 import cz.seznam.euphoria.core.executor.Executor;
@@ -63,8 +64,9 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
 
     @Override
     public Iterable<W> assignWindowsToElement(WindowedElement<?, Either<L, R>> el) {
+      final Iterable<W> ret;
       if (el.getElement().isLeft()) {
-        return (Iterable) left.assignWindowsToElement(
+        ret = (Iterable) left.assignWindowsToElement(
             new WindowedElement() {
               @Override
               public Window getWindow() {
@@ -81,25 +83,26 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
                 return el.getElement().left();
               }
             });
+      } else {
+        ret = (Iterable) right.assignWindowsToElement(
+            new WindowedElement() {
+              @Override
+              public Window getWindow() {
+                return el.getWindow();
+              }
+
+              @Override
+              public long getTimestamp() {
+                return el.getTimestamp();
+              }
+
+              @Override
+              public Object getElement() {
+                return el.getElement().right();
+              }
+            });
       }
-
-      return (Iterable) right.assignWindowsToElement(
-          new WindowedElement() {
-            @Override
-            public Window getWindow() {
-              return el.getWindow();
-            }
-
-            @Override
-            public long getTimestamp() {
-              return el.getTimestamp();
-            }
-
-            @Override
-            public Object getElement() {
-              return el.getElement().right();
-            }
-          });
+      return ret;
     }
 
     @Override
@@ -149,7 +152,6 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
             return toResult(Trigger.TriggerResult.FLUSH, res);
           }
           return res;
-
         }
 
         @Override
@@ -355,6 +357,48 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
   }
 
   @SuppressWarnings("unchecked")
+  public WindowedStream<Double, W> average(Closure<Double> valueExtractor) {
+    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
+    return descendant(() -> {
+      Dataset<Pair<Double, Long>> intermediate = ReduceWindow.of(dataset.build())
+          .valueBy(e -> Pair.of(valueDehydrated.call(e), 1L))
+          .combineBy(Fold.of(
+              (a, b) -> Pair.of(
+                  a.getFirst() + b.getFirst(),
+                  a.getSecond() + b.getSecond())))
+          .windowBy(withEmitting())
+          .output();
+      return MapElements.of(intermediate)
+          .using(p -> p.getFirst() / p.getSecond())
+          .output();
+    });
+  }
+
+  @SuppressWarnings("unchecked")
+  public <K> WindowedStream<Pair<K, Double>, W> averageByKey(
+      Closure<K> keyExtractor,
+      Closure<Double> valueExtractor) {
+
+    Closure<K> keyDehydrated = keyExtractor.dehydrate();
+    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
+    return descendant(() -> {
+      Dataset<Pair<K, Pair<Double, Long>>> intermediate = ReduceByKey.of(dataset.build())
+          .keyBy(keyDehydrated::call)
+          .valueBy(e -> Pair.of(valueDehydrated.call(e), 1L))
+          .combineBy(Fold.of(
+              (a, b) -> Pair.of(
+                  a.getFirst() + b.getFirst(),
+                  a.getSecond() + b.getSecond())))
+          .windowBy(withEmitting())
+          .output();
+      return MapElements.of(intermediate)
+          .using(p -> Pair.of(p.getFirst(), p.getSecond().getFirst() / p.getSecond().getSecond()))
+          .output();
+    });
+  }
+
+
+  @SuppressWarnings("unchecked")
   public <KEY, RIGHT> WindowedStream<Pair<T, RIGHT>, JoinedWindowing> join(
       WindowedStream<RIGHT, ?> right,
       Closure<?> leftKey,
@@ -370,7 +414,7 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
           .using((T l, RIGHT r, Collector<Pair<T, RIGHT>> ctx) -> {
             ctx.collect(Pair.of(l, r));
           })
-          .windowBy(withEmitting())
+          .windowBy(windowing)
           .output();
       return MapElements.of(joined)
           .using(Pair::getSecond)
@@ -400,7 +444,7 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
           .using((T l, Optional<RIGHT> r, Collector<Pair<T, RIGHT>> ctx) -> {
             ctx.collect(Pair.of(l, r.orElse(null)));
           })
-          .windowBy(withEmitting())
+          .windowBy(windowing)
           .output();
       return MapElements.of(joined)
           .using(Pair::getSecond)
@@ -433,14 +477,38 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
   @SuppressWarnings("unchecked")
   public WindowedStream<Long, W> count() {
     return descendant(() -> {
-      Dataset<Pair<Byte, Long>> counted = ReduceByKey.of(dataset.build())
-          .keyBy(e -> (byte) 0)
+      return ReduceWindow.of(dataset.build())
           .valueBy(e -> 1L)
           .combineBy(Sums.ofLongs())
           .windowBy(withEmitting())
           .output();
-      return MapElements.of(counted)
-          .using(Pair::getSecond)
+    });
+  }
+
+  @SuppressWarnings("unchecked")
+  public WindowedStream<Double, W> sum(Closure<Double> valueExtractor) {
+    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
+    return descendant(() -> {
+      return ReduceWindow.of(dataset.build())
+          .valueBy(valueDehydrated::call)
+          .combineBy(Fold.of(0.0, (a, b) -> a + b))
+          .windowBy(withEmitting())
+          .output();
+    });
+  }
+
+  @SuppressWarnings("unchecked")
+  public <K> WindowedStream<Pair<K, Double>, W> sumByKey(
+      Closure<K> keyExtractor,
+      Closure<Double> valueExtractor) {
+    Closure<K> keyDehydrated = keyExtractor.dehydrate();
+    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
+    return descendant(() -> {
+      return ReduceByKey.of(dataset.build())
+          .keyBy(keyDehydrated::call)
+          .valueBy(valueDehydrated::call)
+          .combineBy(Fold.of(0.0, (a, b) -> a + b))
+          .windowBy(withEmitting())
           .output();
     });
   }

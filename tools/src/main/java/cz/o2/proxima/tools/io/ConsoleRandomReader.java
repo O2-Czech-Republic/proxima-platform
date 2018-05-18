@@ -100,6 +100,7 @@ public class ConsoleRandomReader implements Closeable {
   }
 
 
+  @SuppressWarnings("unchecked")
   public void list(
       String key,
       String prefix,

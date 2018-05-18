@@ -164,7 +164,7 @@ public class ModelGenerator {
   private String readFileToString(File path) throws IOException {
     return Joiner.on("\n + ").join(
         IOUtils.readLines(new FileInputStream(path), "UTF-8")
-            .stream().map(s -> "\"" + s.replace("\"", "\\\"") + "\\n\"")
+            .stream().map(s -> "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\\n\"")
             .collect(Collectors.toList()));
   }
 }

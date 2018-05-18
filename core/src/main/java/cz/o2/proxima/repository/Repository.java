@@ -97,7 +97,7 @@ public interface Repository {
    * @return {@link ValueSerializerFactory} for the scheme
    */
   @Nullable
-  ValueSerializerFactory<?> getValueSerializerFactory(String scheme);
+  ValueSerializerFactory getValueSerializerFactory(String scheme);
 
   /**
    * Retrieve writer for specified attribute.
@@ -106,5 +106,5 @@ public interface Repository {
    * @return the attribute writer
    */
   Optional<OnlineAttributeWriter> getWriter(AttributeDescriptor<?> attr);
-  
+
 }

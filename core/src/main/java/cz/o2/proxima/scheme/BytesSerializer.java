@@ -23,7 +23,7 @@ import java.util.Optional;
  * Validator of bytes scheme.
  */
 @Stable
-public class BytesSerializer implements ValueSerializerFactory<byte[]> {
+public class BytesSerializer implements ValueSerializerFactory {
 
   @Override
   public String getAcceptableScheme() {

@@ -24,7 +24,7 @@ import java.net.URI;
  * The serializer has a specific scheme (e.g. proto:).
  */
 @Stable
-public interface ValueSerializerFactory<T> extends Serializable {
+public interface ValueSerializerFactory extends Serializable {
 
   /**
    * Retrieve scheme that of URI that this parser accepts.
@@ -38,6 +38,6 @@ public interface ValueSerializerFactory<T> extends Serializable {
    * @param specifier URI specifier of this data type
    * @return {@link ValueSerializer} for the scheme
    */
-  ValueSerializer<T> getValueSerializer(URI specifier);
+  <T> ValueSerializer<T> getValueSerializer(URI specifier);
 
 }

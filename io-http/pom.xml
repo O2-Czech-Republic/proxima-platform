@@ -50,6 +50,10 @@
               <pattern>com.google.common.</pattern>
               <shadedPattern>cz.o2.proxima.http.shaded.com.google.common.</shadedPattern>
             </relocation>
+            <relocation>
+              <pattern>org.java_websocket.</pattern>
+              <shadedPattern>cz.o2.proxima.http.shaded.websocket.</shadedPattern>
+            </relocation>
           </relocations>
         </configuration>
         <executions>
@@ -81,6 +85,12 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.java-websocket</groupId>
+      <artifactId>Java-WebSocket</artifactId>
+      <version>1.3.8</version>
     </dependency>
 
   </dependencies>

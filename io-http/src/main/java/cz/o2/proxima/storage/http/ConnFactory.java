@@ -17,6 +17,7 @@ package cz.o2.proxima.storage.http;
 
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.URI;
 
@@ -24,7 +25,7 @@ import java.net.URI;
  * A factory for connections based on input elements.
  */
 @FunctionalInterface
-public interface ConnFactory {
+public interface ConnFactory extends Serializable {
 
   /**
    * Open and return HTTP(S) connection to given base URI with given

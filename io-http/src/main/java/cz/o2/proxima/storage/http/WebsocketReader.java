@@ -48,6 +48,7 @@ import org.java_websocket.handshake.ServerHandshake;
 public class WebsocketReader extends AbstractStorage implements CommitLogReader {
 
   private static final Charset CHARSET = Charset.forName("UTF-8");
+  private static final Partition PARTITION = () -> 0;
 
   private final AttributeDescriptor<?> attr;
   private final ValueSerializer<?> serializer;
@@ -87,7 +88,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   @Override
   public List<Partition> getPartitions() {
     // single partition
-    return Arrays.asList(() -> 0);
+    return Arrays.asList(PARTITION);
   }
 
   @Override
@@ -126,7 +127,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
           "Cannot read OLDEST data from websocket");
     }
     return observe(
-        element -> observer.onNext(element, nullBulkCommitter()),
+        element -> observer.onNext(element, PARTITION, nullBulkCommitter()),
         err -> observer.onError(err));
   }
 
@@ -192,7 +193,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
       @Override
       public List<Offset> getCommittedOffsets() {
-        return Arrays.asList(() -> () -> 0);
+        return Arrays.asList(() -> PARTITION);
       }
 
       @Override

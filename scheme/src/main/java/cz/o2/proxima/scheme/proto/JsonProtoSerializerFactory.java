@@ -76,6 +76,9 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
       public Optional deserialize(byte[] input) {
         try {
           AbstractMessage.Builder newBuilder = newBuilder(builder());
+          if (input.length == 0) {
+            input = new byte[] {'{', '}'};
+          }
           parser().merge(new String(input, CHARSET), newBuilder);
           return Optional.of(newBuilder.build());
         } catch (InvalidProtocolBufferException ex) {

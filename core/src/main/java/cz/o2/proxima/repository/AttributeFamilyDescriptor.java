@@ -43,49 +43,43 @@ import lombok.experimental.Accessors;
 @Evolving("Affected by #66")
 public class AttributeFamilyDescriptor implements Serializable {
 
+  @Accessors(chain = true)
   public static final class Builder {
 
     private final List<AttributeDescriptor<?>> attributes = new ArrayList<>();
 
     @Setter
-    @Accessors(chain = true)
     private String name;
 
     @Setter
-    @Accessors(chain = true)
     private AttributeWriterBase writer;
 
     @Setter
-    @Accessors(chain = true)
     private RandomAccessReader randomAccess;
 
     @Setter
-    @Accessors(chain = true)
     private CommitLogReader commitLog;
 
     @Setter
-    @Accessors(chain = true)
     private BatchLogObservable batchObservable;
 
     @Setter
-    @Accessors(chain = true)
     private PartitionedView partitionedView;
 
     @Setter
-    @Accessors(chain = true)
     private PartitionedCachedView cachedView;
 
     @Setter
-    @Accessors(chain = true)
     private StorageType type;
 
     @Setter
-    @Accessors(chain = true)
     private AccessType access;
 
     @Setter
-    @Accessors(chain = true)
     private StorageFilter filter = PassthroughFilter.INSTANCE;
+
+    @Setter
+    private String source;
 
     private Builder() { }
 
@@ -97,7 +91,8 @@ public class AttributeFamilyDescriptor implements Serializable {
     public AttributeFamilyDescriptor build() {
       return new AttributeFamilyDescriptor(
           name, type, attributes, writer, commitLog, batchObservable,
-          randomAccess, partitionedView, cachedView, access, filter);
+          randomAccess, partitionedView, cachedView, access, filter,
+          source);
     }
   }
 
@@ -143,6 +138,9 @@ public class AttributeFamilyDescriptor implements Serializable {
   @Nullable
   private final PartitionedCachedView cachedView;
 
+  @Nullable
+  private final String source;
+
   AttributeFamilyDescriptor(String name,
       StorageType type,
       List<AttributeDescriptor<?>> attributes,
@@ -153,7 +151,8 @@ public class AttributeFamilyDescriptor implements Serializable {
       @Nullable PartitionedView partitionedView,
       @Nullable PartitionedCachedView cachedView,
       AccessType access,
-      StorageFilter filter) {
+      StorageFilter filter,
+      @Nullable String source) {
 
     this.name = Objects.requireNonNull(name);
     this.type = type;
@@ -166,6 +165,7 @@ public class AttributeFamilyDescriptor implements Serializable {
     this.cachedView = cachedView;
     this.access = Objects.requireNonNull(access);
     this.filter = filter;
+    this.source = source;
   }
 
   public List<AttributeDescriptor<?>> getAttributes() {
@@ -268,6 +268,17 @@ public class AttributeFamilyDescriptor implements Serializable {
           cachedView, "Family " + name + " cannot create cached view"));
     }
     return Optional.empty();
+  }
+
+  /**
+   * Retrieve optional name of source attribute family, if this is replica.
+   * The source might not be explicitly specified (in which case this method
+   * returns {@code Optional.empty()} and the source is determined
+   * automatically.
+   * @return optional specified source family
+   */
+  public Optional<String> getSource() {
+    return Optional.ofNullable(source);
   }
 
 }

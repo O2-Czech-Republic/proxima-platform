@@ -59,6 +59,7 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -808,7 +809,17 @@ public class IngestServer {
     return (Map) repo.getAllFamilies()
         .filter(af -> af.getType() == StorageType.REPLICA)
         // map to pair of attribute family and associated commit log(s) via attributes
-        .map(af -> Pair.of(af,
+        .map(af -> {
+          if (af.getSource().isPresent()) {
+            String source = af.getSource().get();
+            return Pair.of(af, Collections.singleton(repo
+                .getAllFamilies()
+                .filter(af2 -> af2.getName().equals(source))
+                .findAny()
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Unknown family " + source))));
+          }
+          return Pair.of(af,
             af.getAttributes()
                 .stream()
                 .map(attr -> {
@@ -819,8 +830,9 @@ public class IngestServer {
                   }
                   return commitFamily;
                 })
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet())))
+              .filter(Objects::nonNull)
+              .collect(Collectors.toSet()));
+        })
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
   }
 

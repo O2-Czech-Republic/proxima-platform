@@ -35,6 +35,7 @@ public interface ValueSerializerFactory extends Serializable {
 
   /**
    * Get {@code ValueSerializer} for given scheme.
+   * @param <T> type of deserialized data
    * @param specifier URI specifier of this data type
    * @return {@link ValueSerializer} for the scheme
    */

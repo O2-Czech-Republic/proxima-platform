@@ -71,7 +71,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         targetFamily.getType() == StorageType.PRIMARY
             ? targetFamily.getAccess()
             : AccessType.or(targetFamily.getAccess(), AccessType.from("read-only")),
-        targetFamily.getFilter());
+        targetFamily.getFilter(),
+        null);
   }
 
   private static OnlineAttributeWriter getWriter(

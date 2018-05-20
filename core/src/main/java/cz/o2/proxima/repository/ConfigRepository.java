@@ -560,7 +560,8 @@ public class ConfigRepository implements Repository, Serializable {
         AttributeFamilyDescriptor.Builder family = AttributeFamilyDescriptor.newBuilder()
             .setName(name)
             .setType(type)
-            .setAccess(access);
+            .setAccess(access)
+            .setSource((String) storage.get("from"));
 
         if (shouldLoadAccessors) {
           DataAccessor accessor = storageDesc.getAccessor(

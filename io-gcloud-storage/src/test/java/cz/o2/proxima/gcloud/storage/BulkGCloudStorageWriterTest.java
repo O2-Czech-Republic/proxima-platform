@@ -19,6 +19,7 @@ import com.google.cloud.storage.Blob;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
+import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.Before;
 import org.junit.Test;
@@ -91,7 +93,7 @@ public class BulkGCloudStorageWriterTest {
     written = null;
     writer = new BulkGCloudStorageWriter(
         entity, new URI("gcloud-storage://project:bucket/path"),
-        cfg()) {
+        cfg(), context()) {
 
       @Override
       Blob createBlob(String name) {
@@ -161,6 +163,10 @@ public class BulkGCloudStorageWriterTest {
       ret.put("gzip", "true");
     }
     return ret;
+  }
+
+  private static Context context() {
+    return new Context(() -> Executors.newFixedThreadPool(1)) { };
   }
 
 }

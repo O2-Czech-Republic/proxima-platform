@@ -130,12 +130,13 @@ public class BulkGCloudStorageWriter
       if (maxTimestamp < data.getStamp()) {
         maxTimestamp = data.getStamp();
       }
-      if (System.currentTimeMillis() - lastFlushStamp >= rollPeriod) {
+      long now = System.currentTimeMillis();
+      if (now - lastFlushStamp >= rollPeriod) {
         writer.close();
         final File flushFile = localBlob.getPath();
         final long flushMinStamp = minTimestamp;
         final long flushMaxStamp = maxTimestamp;
-        lastFlushStamp = System.currentTimeMillis();
+        lastFlushStamp = now;
         flushExecutor.execute(() ->
           flush(flushFile, flushMinStamp, flushMaxStamp, statusCallback)
         );

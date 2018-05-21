@@ -267,4 +267,10 @@ public class ConfigRepositoryTest {
     assertNotNull(clone.getConfig());
   }
 
+  @Test
+  public void testEntityReplication() {
+    assertTrue(repo.findEntity("replica").isPresent());
+    assertEquals(7, repo.findEntity("replica").get().getAllAttributes().size());
+  }
+
 }

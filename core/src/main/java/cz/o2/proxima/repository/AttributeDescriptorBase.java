@@ -115,4 +115,12 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
     return Objects.requireNonNull(valueSerializer);
   }
 
+  @Override
+  public Builder toBuilder(Repository repo) {
+    return AttributeDescriptor.newBuilder(repo)
+        .setName(getName())
+        .setEntity(getEntity())
+        .setSchemeURI(getSchemeURI());
+  }
+
 }

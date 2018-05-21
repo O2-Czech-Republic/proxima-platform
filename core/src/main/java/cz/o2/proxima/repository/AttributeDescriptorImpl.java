@@ -42,5 +42,4 @@ public class AttributeDescriptorImpl<T>
     return "AttributeDescriptor(entity=" + entity + ", name=" + name + ")";
   }
 
-
 }

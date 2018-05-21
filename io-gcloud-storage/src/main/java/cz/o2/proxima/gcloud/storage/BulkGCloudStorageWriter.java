@@ -18,6 +18,7 @@ package cz.o2.proxima.gcloud.storage;
 import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.Blob;
 import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.BulkAttributeWriter;
 import cz.o2.proxima.storage.CommitCallback;
@@ -42,7 +43,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 /**
  * {@link BulkAttributeWriter} for gcloud storage.
@@ -73,17 +73,17 @@ public class BulkGCloudStorageWriter
   private final long rollPeriod;
   private final boolean gzip;
   private final int bufferSize;
-  private final Executor flushExecutor = Executors.newFixedThreadPool(1);
+  private final Executor flushExecutor;
   private boolean anyflush = false;
   private long minTimestamp = Long.MAX_VALUE;
   private long maxTimestamp = Long.MIN_VALUE;
   private BinaryBlob localBlob = null;
   private BinaryBlob.Writer writer = null;
-
-
+  private long lastFlushStamp;
 
   public BulkGCloudStorageWriter(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg,
+      Context context) {
 
     super(entityDesc, uri, cfg);
 
@@ -107,6 +107,9 @@ public class BulkGCloudStorageWriter
         .map(Integer::valueOf)
         .orElse(1024 * 1024);
 
+    flushExecutor = context.getExecutorService();
+    lastFlushStamp = System.currentTimeMillis() / rollPeriod * rollPeriod;
+
     init();
   }
 
@@ -127,11 +130,12 @@ public class BulkGCloudStorageWriter
       if (maxTimestamp < data.getStamp()) {
         maxTimestamp = data.getStamp();
       }
-      if (maxTimestamp - minTimestamp > rollPeriod) {
+      if (System.currentTimeMillis() - lastFlushStamp >= rollPeriod) {
         writer.close();
         final File flushFile = localBlob.getPath();
         final long flushMinStamp = minTimestamp;
         final long flushMaxStamp = maxTimestamp;
+        lastFlushStamp = System.currentTimeMillis();
         flushExecutor.execute(() ->
           flush(flushFile, flushMinStamp, flushMaxStamp, statusCallback)
         );

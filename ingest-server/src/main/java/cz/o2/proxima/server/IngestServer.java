@@ -565,13 +565,10 @@ public class IngestServer {
     EntityDescriptor entityDesc = ingest.getEntityDescriptor();
     AttributeDescriptor attributeDesc = ingest.getAttributeDescriptor();
 
-    OnlineAttributeWriter writerBase = repo.getWriter(attributeDesc)
+    OnlineAttributeWriter writer = repo.getWriter(attributeDesc)
         .orElseThrow(() ->
             new IllegalStateException(
                 "Writer for attribute " + attributeDesc.getName() + " not found"));
-
-    // we need online writer here
-    OnlineAttributeWriter writer = writerBase.online();
 
     if (writer == null) {
       log.warn("Missing writer for request {}", ingest);
@@ -603,8 +600,8 @@ public class IngestServer {
 
     Metrics.COMMIT_LOG_APPEND.increment();
     // write the ingest into the commit log and confirm to the client
-    log.debug("Writing request {} to commit log {}", ingest, writerBase.getURI());
-    writerBase.write(ingest, (s, exc) -> {
+    log.debug("Writing request {} to commit log {}", ingest, writer.getURI());
+    writer.write(ingest, (s, exc) -> {
       if (s) {
         responseConsumer.accept(ok(uuid));
       } else {
@@ -751,7 +748,7 @@ public class IngestServer {
         try {
           Transformation.Collector<StreamElement> collector = elem -> {
             try {
-              log.info("Writing transformed element {}", elem);
+              log.debug("Writing transformed element {}", elem);
               ingestRequest(
                   elem, elem.getUuid(), rpc -> {
                     if (rpc.getStatus() == 200) {

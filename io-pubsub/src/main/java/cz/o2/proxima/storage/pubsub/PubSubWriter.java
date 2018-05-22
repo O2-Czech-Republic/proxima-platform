@@ -24,13 +24,14 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
+import cz.o2.proxima.annotations.Experimental;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.pubsub.proto.PubSub;
-import cz.seznam.euphoria.core.annotation.stability.Experimental;
+import cz.seznam.euphoria.core.util.ExceptionUtils;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,15 +39,16 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * A {@link OnlineAttributeWriter} for Google PubSub.
  */
-@Experimental
+@Experimental("Not well tested yet")
 @Slf4j
 class PubSubWriter extends AbstractOnlineAttributeWriter
     implements OnlineAttributeWriter {
 
   private final PubSubAccessor accessor;
   private final Context context;
-  transient Publisher publisher;
-  transient Executor executor;
+  private transient boolean initialized = false;
+  private transient Publisher publisher;
+  private transient Executor executor;
 
   PubSubWriter(PubSubAccessor accessor, Context context) {
     super(accessor.getEntityDescriptor(), accessor.getURI());
@@ -54,12 +56,16 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
     this.context = context;
   }
 
-  void initialize() {
-    if (executor == null) {
+  synchronized void initialize() {
+    if (!initialized) {
       try {
-        this.publisher = newPublisher(accessor.getProject(), accessor.getTopic());
-        this.executor = context.getExecutorService();
+        publisher = newPublisher(accessor.getProject(), accessor.getTopic());
+        executor = context.getExecutorService();
+        initialized = true;
       } catch (IOException ex) {
+        if (publisher != null) {
+          ExceptionUtils.unchecked(() -> publisher.shutdown());
+        }
         throw new RuntimeException(ex);
       }
     }
@@ -71,7 +77,7 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
   }
 
   @Override
-  public void write(StreamElement data, CommitCallback statusCallback) {
+  public synchronized void write(StreamElement data, CommitCallback statusCallback) {
     initialize();
     log.debug("Writing data {} to {}", data, getURI());
     try {

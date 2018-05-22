@@ -218,6 +218,12 @@ public class ConfigRepository implements Repository, Serializable {
   private final Context context;
 
   /**
+   * Cache of writers for all attributes.
+   */
+  private final Map<AttributeDescriptor<?>, OnlineAttributeWriter> writers
+      = Collections.synchronizedMap(new HashMap<>());
+
+  /**
    * Construct the repository from the config with the specified read-only and
    * validation flag.
    *
@@ -745,9 +751,17 @@ public class ConfigRepository implements Repository, Serializable {
 
       List<AttributeDescriptor<?>> attrs = readList("attributes", transformation, name)
           .stream()
-          .map(a -> entity.findAttribute(a, true).orElseThrow(
-              () -> new IllegalArgumentException(
-                  String.format("Missing attribute `%s` in `%s`", a, entity))))
+          .flatMap(a -> {
+            if (a.equals("*")) {
+              return entity.getAllAttributes().stream();
+            } else {
+              return Stream.of(entity.findAttribute(a, true)
+                  .orElseThrow(
+                      () -> new IllegalArgumentException(
+                          String.format(
+                              "Missing attribute `%s` in `%s`", a, entity))));
+            }
+          })
           .collect(Collectors.toList());
 
       TransformationDescriptor.Builder desc = TransformationDescriptor.newBuilder()
@@ -855,13 +869,18 @@ public class ConfigRepository implements Repository, Serializable {
 
   @Override
   public Optional<OnlineAttributeWriter> getWriter(AttributeDescriptor<?> attr) {
-    return getFamiliesForAttribute(attr)
-        .stream()
-        .filter(af -> af.getType() == StorageType.PRIMARY)
-        .filter(af -> !af.getAccess().isReadonly())
-        .filter(af -> af.getWriter().isPresent())
-        .map(af -> af.getWriter().get().online())
-        .findAny();
+    synchronized (writers) {
+      return Optional.ofNullable(writers.computeIfAbsent(attr, a -> {
+        return getFamiliesForAttribute(a)
+            .stream()
+            .filter(af -> af.getType() == StorageType.PRIMARY)
+            .filter(af -> !af.getAccess().isReadonly())
+            .findAny()
+            .flatMap(af -> af.getWriter())
+            .map(w -> w.online())
+            .orElse(null);
+      }));
+    }
   }
 
   @Override

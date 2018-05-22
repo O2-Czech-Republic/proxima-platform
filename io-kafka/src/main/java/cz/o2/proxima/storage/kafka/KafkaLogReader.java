@@ -451,7 +451,7 @@ public class KafkaLogReader extends AbstractStorage
             if (!seekOffsets.isEmpty()) {
               Utils.seekToOffsets(topic, offsets, kafka);
               consumer.onAssign(kafka, kafka.assignment().stream()
-                  .map(tp -> new TopicOffset(tp.partition(), kafka.position(tp) - 1))
+                  .map(tp -> new TopicOffset(tp.partition(), kafka.position(tp)))
                   .collect(Collectors.toList()));
               seekOffsets.clear();
               continue;
@@ -637,7 +637,7 @@ public class KafkaLogReader extends AbstractStorage
       public void onPartitionsAssigned(Collection<TopicPartition> parts) {
         Optional.ofNullable(kafka.get()).ifPresent(c -> {
           consumer.onAssign(c, c.assignment().stream()
-              .map(tp -> new TopicOffset(tp.partition(), c.position(tp) - 1))
+              .map(tp -> new TopicOffset(tp.partition(), c.position(tp)))
               .collect(Collectors.toList()));
         });
       }

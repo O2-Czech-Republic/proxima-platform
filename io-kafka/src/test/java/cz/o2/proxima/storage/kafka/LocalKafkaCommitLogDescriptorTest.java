@@ -721,7 +721,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
 
-    reader.observeBulk("test", Position.NEWEST, new BulkLogObserver() {
+    ObserveHandle handle = reader.observeBulk("test", Position.NEWEST, new BulkLogObserver() {
 
       @Override
       public boolean onNext(
@@ -751,6 +751,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     latch.await();
     assertEquals("FAIL!", exc.get().getMessage());
     assertEquals(1, restarts.get());
+    assertEquals(3, handle.getCommittedOffsets().size());
+    handle.getCurrentOffsets()
+        .forEach(o -> assertEquals(0, ((TopicOffset) o).getOffset()));
   }
 
   @Test(timeout = 2000)
@@ -813,7 +816,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
 
-    reader.observeBulk("test", Position.NEWEST, new BulkLogObserver() {
+    ObserveHandle handle = reader.observeBulk("test", Position.NEWEST, new BulkLogObserver() {
 
       @Override
       public void onRestart(List<Offset> offsets) {
@@ -850,6 +853,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertNull(exc.get());
     assertEquals(1, restarts.get());
     assertArrayEquals(update.getValue(), input.get().getValue());
+    assertEquals(3, handle.getCommittedOffsets().size());
+    assertEquals(1L, (long) handle.getCommittedOffsets()
+        .stream()
+        .collect(Collectors.summingLong(o -> ((TopicOffset) o).getOffset())));
   }
 
   @Test(timeout = 2000)
@@ -867,7 +874,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
 
-    reader.observeBulkPartitions(reader.getPartitions(), Position.NEWEST, new BulkLogObserver() {
+    ObserveHandle handle = reader.observeBulkPartitions(reader.getPartitions(), Position.NEWEST, new BulkLogObserver() {
 
       @Override
       public void onRestart(List<Offset> offsets) {
@@ -904,6 +911,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertNull(exc.get());
     assertEquals(1, restarts.get());
     assertArrayEquals(update.getValue(), input.get().getValue());
+    assertEquals(3, handle.getCommittedOffsets().size());
+    assertEquals(1L, (long) handle.getCommittedOffsets()
+        .stream()
+        .collect(Collectors.summingLong(o -> ((TopicOffset) o).getOffset())));
   }
 
   @Test(timeout = 2000)
@@ -958,13 +969,21 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     // each partitions has a record here
     assertEquals(3, currentOffsets.size());
+    assertEquals(1L, (long) currentOffsets.values()
+        .stream()
+        .collect(Collectors.summingLong(o -> ((TopicOffset) o).getOffset())));
 
     // restart from old offset
-    reader.observeBulkOffsets(Lists.newArrayList(currentOffsets.values()), observer);
+    handle = reader.observeBulkOffsets(
+        Lists.newArrayList(currentOffsets.values()), observer);
     latch.get().await();
     assertEquals(2, input.size());
     assertEquals(0, input.get(0).getOffset());
     assertEquals(1, input.get(1).getOffset());
+    // committed offset 1 and 2
+    assertEquals(2L, (long) handle.getCommittedOffsets()
+        .stream()
+        .collect(Collectors.summingLong(o -> ((TopicOffset) o).getOffset())));
   }
 
   @Test(timeout = 2000)

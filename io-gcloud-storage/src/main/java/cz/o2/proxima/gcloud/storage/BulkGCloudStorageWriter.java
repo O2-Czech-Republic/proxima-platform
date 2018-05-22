@@ -18,6 +18,7 @@ package cz.o2.proxima.gcloud.storage;
 import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.Blob;
 import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.BulkAttributeWriter;
@@ -47,6 +48,7 @@ import java.util.concurrent.Executor;
 /**
  * {@link BulkAttributeWriter} for gcloud storage.
  */
+@Stable
 @Slf4j
 public class BulkGCloudStorageWriter
     extends GCloudClient
@@ -80,6 +82,7 @@ public class BulkGCloudStorageWriter
   private BinaryBlob localBlob = null;
   private BinaryBlob.Writer writer = null;
   private long lastFlushStamp;
+  private boolean forceFlush = false;
 
   public BulkGCloudStorageWriter(
       EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg,
@@ -131,7 +134,7 @@ public class BulkGCloudStorageWriter
         maxTimestamp = data.getStamp();
       }
       long now = System.currentTimeMillis();
-      if (now - lastFlushStamp >= rollPeriod) {
+      if (now - lastFlushStamp >= rollPeriod || forceFlush) {
         writer.close();
         final File flushFile = localBlob.getPath();
         final long flushMinStamp = minTimestamp;
@@ -143,6 +146,7 @@ public class BulkGCloudStorageWriter
         writer = null;
         minTimestamp = Long.MAX_VALUE;
         maxTimestamp = Long.MIN_VALUE;
+        forceFlush = false;
       }
     } catch (Exception ex) {
       log.warn("Exception writing data {}", data, ex);
@@ -199,6 +203,11 @@ public class BulkGCloudStorageWriter
   @VisibleForTesting
   void createLocalBlob() throws IOException {
     localBlob = new BinaryBlob(new File(tmpDir, UUID.randomUUID().toString()));
+  }
+
+  @VisibleForTesting
+  void flush() {
+    forceFlush = true;
   }
 
   private void flush(

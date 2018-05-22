@@ -29,6 +29,7 @@ import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Configuration;
@@ -38,6 +39,7 @@ import org.reflections.util.ConfigurationBuilder;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -360,35 +362,77 @@ public class ConfigRepository implements Repository, Serializable {
     }
 
     Map<String, Object> entitiesCfg = toMap("entities", entities.unwrapped());
+    List<Pair<String, String>> replicaEntities = new ArrayList<>();
     for (Map.Entry<String, Object> e : entitiesCfg.entrySet()) {
       String entityName = e.getKey();
-      Map<String, Object> entityAttrs = toMap(
-          "entities." + entityName + ".attributes",
-          toMap("entities." + entityName, e.getValue()).get("attributes"));
-      EntityDescriptor.Builder entity = EntityDescriptor.newBuilder()
-          .setName(entityName);
-
-      // first regular attributes
-      entityAttrs.forEach((key, value) -> {
-        Map<String, Object> settings = toMap(
-            "entities." + entityName + ".attributes." + key, value);
-        if (settings.get("proxy") == null) {
-          loadRegular(entityName, key, settings, entity);
-        }
-      });
-
-      // next proxies
-      entityAttrs.forEach((key, value) -> {
-        Map<String, Object> settings = toMap(
-            "entities." + entityName + ".attributes." + key, value);
-        if (settings.get("proxy") != null) {
-          loadProxy(key, settings, entity);
-        }
-      });
-
-      log.info("Adding entity {}", entityName);
-      entitiesByName.put(entityName, entity.build());
+      Map<String, Object> cfgMap = toMap("entities." + entityName, e.getValue());
+      Object attributes = cfgMap.get("attributes");
+      final EntityDescriptor entity;
+      if (attributes != null) {
+        entity = loadEntityWithAttributes(entityName, attributes);
+        log.info("Adding entity {}", entityName);
+        entitiesByName.put(entityName, entity);
+      } else if (cfgMap.get("from") != null) {
+        String fromName = cfgMap.get("from").toString();
+        replicaEntities.add(Pair.of(entityName, fromName));
+      } else {
+        throw new IllegalArgumentException(
+            "Invalid entity specfication. Entity " + entityName + " has no attributes");
+      }
     }
+
+    for (Pair<String, String> p : replicaEntities) {
+      String entityName = p.getFirst();
+      String fromName = p.getSecond();
+      EntityDescriptor from = Optional
+          .ofNullable(entitiesByName.get(fromName))
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Entity " + fromName + " doesn't exist"));
+      EntityDescriptor entity = loadEntityFromExisting(entityName, from);
+      log.info("Adding entity {} as replica of {}", entityName, fromName);
+      entitiesByName.put(entityName, entity);
+    }
+
+  }
+
+  private EntityDescriptor loadEntityWithAttributes(
+      String entityName, Object attributes) {
+
+    Map<String, Object> entityAttrs = toMap(
+        "entities." + entityName + ".attributes",
+        attributes);
+    EntityDescriptor.Builder entity = EntityDescriptor.newBuilder()
+        .setName(entityName);
+
+    // first regular attributes
+    entityAttrs.forEach((key, value) -> {
+      Map<String, Object> settings = toMap(
+          "entities." + entityName + ".attributes." + key, value);
+      if (settings.get("proxy") == null) {
+        loadRegular(entityName, key, settings, entity);
+      }
+    });
+
+    // next proxies
+    entityAttrs.forEach((key, value) -> {
+      Map<String, Object> settings = toMap(
+          "entities." + entityName + ".attributes." + key, value);
+      if (settings.get("proxy") != null) {
+        loadProxy(key, settings, entity);
+      }
+    });
+    return entity.build();
+  }
+
+  private EntityDescriptor loadEntityFromExisting(
+      String entityName, EntityDescriptor from) {
+
+    EntityDescriptor.Builder builder = EntityDescriptor.newBuilder()
+        .setName(entityName);
+    from.getAllAttributes().forEach(attr -> {
+      builder.addAttribute(attr.toBuilder(this).setEntity(entityName).build());
+    });
+    return builder.build();
   }
 
   @SuppressWarnings("unchecked")

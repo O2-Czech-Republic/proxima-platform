@@ -57,13 +57,13 @@ public class BulkGCloudStorageWriterTest {
   final AttributeDescriptor<?> wildcard;
   final EntityDescriptor entity;
 
-  @Parameterized.Parameter
-  public boolean gzip;
-
   @Parameterized.Parameters
   public static Collection<Boolean> parameters() {
     return Arrays.asList(true, false);
   }
+
+  @Parameterized.Parameter
+  public boolean gzip;
 
   BulkGCloudStorageWriter writer;
   List<String> blobs;
@@ -130,13 +130,14 @@ public class BulkGCloudStorageWriterTest {
     writer.write(first, (succ, exc) -> {
       // this one will not get committed
     });
-    TimeUnit.MILLISECONDS.sleep(1500);
+    // this will flush on next write
+    writer.flush();
     writer.write(second, (succ, exc) -> {
       assertTrue("Exception " + exc, succ);
       assertNull(exc);
       latch.countDown();
     });
-    latch.await();
+    assertTrue(latch.await(500, TimeUnit.MILLISECONDS));
     assertNotNull(written);
     validate(written, first, second);
     assertEquals(1, blobs.size());
@@ -150,9 +151,12 @@ public class BulkGCloudStorageWriterTest {
       throws IOException {
 
     Iterator<StreamElement> iterator = written.iterator();
+    assertEquals(
+        "Expected " + Arrays.toString(elements) + " got " + written,
+        elements.length, written.size());
     for (StreamElement el : elements) {
       StreamElement next = iterator.next();
-      assertEquals(next.toString(), el.toString());
+      assertEquals(next, el);
     }
   }
 

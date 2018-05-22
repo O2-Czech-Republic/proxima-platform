@@ -126,4 +126,11 @@ public interface AttributeDescriptor<T> extends Serializable {
    */
   boolean isPublic();
 
+  /**
+   * Convert this attribute back to builder.
+   * @param repo the repository
+   * @return builder representing this attribute
+   */
+  public AttributeDescriptor.Builder toBuilder(Repository repo);
+
 }

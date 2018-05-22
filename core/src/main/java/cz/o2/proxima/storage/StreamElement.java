@@ -150,7 +150,6 @@ public class StreamElement implements Serializable {
         + ", key=" + key + ", attribute=" + attribute
         + ", stamp=" + stamp
         + ", value.length=" + (value == null ? -1 : value.length) + ")";
-
   }
 
   /**
@@ -179,5 +178,20 @@ public class StreamElement implements Serializable {
   public <T> Optional<T> getParsed() {
     return (Optional<T>) attributeDescriptor.getValueSerializer().deserialize(value);
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj instanceof StreamElement) {
+      return ((StreamElement) obj).uuid.equals(uuid);
+    }
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return uuid.hashCode();
+  }
+
+
 
 }

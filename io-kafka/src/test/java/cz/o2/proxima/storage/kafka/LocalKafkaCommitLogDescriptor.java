@@ -355,9 +355,10 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
           return;
         }
       }
-      if (offset >= 0) {
-        partOffsets.add(Pair.of(partition, new AtomicInteger((int) (offset))));
+      if (offset < 0) {
+        throw new IllegalArgumentException("Cannot seek to negative offset");
       }
+      partOffsets.add(Pair.of(partition, new AtomicInteger((int) (offset))));
       log.debug(
           "Consumer {} seeked to offset {} in partition {}",
           consumerId, offset, partition);

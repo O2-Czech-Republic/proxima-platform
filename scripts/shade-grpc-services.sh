@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Copyright 2017-2018 O2 Czech Republic, a.s.
 #
@@ -40,12 +40,13 @@ TMP=${DIR}/shade-tmp
 
 set -e
 
-mkdir $TMP || /bin/true
+mkdir $TMP || true
 cd $TMP
 jar xf $JAR
 cd META-INF/services
-for f in *; do
-  sed "s/^${PATTERN}/${SHADED}/" -i $f
+for f in $(ls -1 *); do
+  sed -i.bak "s/^${PATTERN}/${SHADED}/" $f
+  rm $f.bak
 done
 rename "s/${PATTERN}/${SHADED}/" * -v -n
 cd ../../

@@ -24,7 +24,7 @@ import cz.o2.proxima.view.PartitionedLogObserver;
 import java.util.Collection;
 
 /**
- * A {@link PartitionedLogObserver} usable as {@LogObserver}.
+ * A {@link PartitionedLogObserver} usable as {@link LogObserver}.
  */
 interface KafkaLogObserver extends LogObserverBase {
 

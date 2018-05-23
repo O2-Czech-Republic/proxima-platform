@@ -211,3 +211,6 @@ First, let's introduce some glossary:
  
  There is also some pending work on the side of the maven compiler plugin, so it can be possible to obtain a `Dataset`
  from given attributes in the same way as it is possible for simple observers. This is contained in issue #3.
+
+ ## Build dependency
+  * rename command

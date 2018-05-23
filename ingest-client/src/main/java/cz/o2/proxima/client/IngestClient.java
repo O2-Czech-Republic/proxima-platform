@@ -139,6 +139,12 @@ public class IngestClient implements AutoCloseable {
       log.warn("Error on channel, closing stub", thrwbl);
       synchronized (IngestClient.this) {
         stub = null;
+        try {
+          TimeUnit.SECONDS.sleep(1);
+        } catch (InterruptedException ex) {
+          log.warn("Interrupted while waiting before channel open retry.", ex);
+          Thread.currentThread().interrupt();
+        }
         createChannelAndStub();
       }
     }

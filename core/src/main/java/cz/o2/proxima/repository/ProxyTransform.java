@@ -24,6 +24,21 @@ import java.io.Serializable;
 @Stable
 public interface ProxyTransform extends Serializable {
 
+  static final ProxyTransform IDENTITY = new ProxyTransform() {
+
+    @Override
+    public String fromProxy(String proxy) {
+      return proxy;
+    }
+
+    @Override
+    public String toProxy(String raw) {
+      return raw;
+    }
+
+  };
+
+
   /**
    * Apply transformation to attribute name from proxy naming.
    * @param proxy name of the attribute in proxy namespace
@@ -37,5 +52,13 @@ public interface ProxyTransform extends Serializable {
    * @return the proxy attribute name
    */
   String toProxy(String raw);
+
+  /**
+   * Setup this transform for given target attribute.
+   * @param target the target attribute descriptor
+   */
+  default void setup(AttributeDescriptor<?> target) {
+    // nop
+  }
 
 }

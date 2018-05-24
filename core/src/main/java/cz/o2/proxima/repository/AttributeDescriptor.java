@@ -68,9 +68,13 @@ public interface AttributeDescriptor<T> extends Serializable {
 
   static <T> AttributeDescriptorBase<T> newProxy(
       String name,
-      AttributeDescriptorBase<T> target,
-      ProxyTransform transform) {
-    return new AttributeProxyDescriptorImpl<>(name, target, transform);
+      AttributeDescriptorBase<T> targetRead,
+      ProxyTransform transformRead,
+      AttributeDescriptorBase<T> targetWrite,
+      ProxyTransform transformWrite) {
+
+    return new AttributeProxyDescriptorImpl<>(
+        name, targetRead, transformRead, targetWrite, transformWrite);
   }
 
   /**

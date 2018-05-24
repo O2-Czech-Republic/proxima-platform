@@ -17,8 +17,10 @@ package cz.o2.proxima.repository;
 
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
-import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -36,21 +38,20 @@ public interface EntityDescriptor extends Serializable {
     @Accessors(chain = true)
     private String name;
 
-    private final List<AttributeDescriptorBase<?>> attributes = new ArrayList<>();
+    private final Map<String, AttributeDescriptorBase<?>> attributes = new HashMap<>();
 
     public Builder addAttribute(AttributeDescriptorBase<?> attr) {
-      attributes.add(attr);
+      attributes.put(attr.getName(), attr);
       return this;
     }
 
     @SuppressWarnings("unchecked")
     public EntityDescriptor build() {
-      return new EntityDescriptorImpl(name, (List) attributes);
+      return new EntityDescriptorImpl(name, (Collection) attributes.values());
     }
 
     AttributeDescriptorBase<?> findAttribute(String attr) {
-      return attributes.stream().filter(a -> a.getName()
-          .equals(attr)).findAny()
+      return Optional.ofNullable(attributes.get(attr))
           .orElseThrow(() -> new IllegalArgumentException(
               "Cannot find attribute " + attr + " of entity " + this.name));
     }

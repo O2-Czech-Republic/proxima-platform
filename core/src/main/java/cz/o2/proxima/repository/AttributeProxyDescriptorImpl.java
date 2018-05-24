@@ -23,25 +23,36 @@ import lombok.Getter;
 class AttributeProxyDescriptorImpl<T> extends AttributeDescriptorBase<T> {
 
   @Getter
-  private final AttributeDescriptorBase<T> target;
+  private final AttributeDescriptorBase<T> readTarget;
 
   @Getter
-  private final ProxyTransform transform;
+  private final ProxyTransform readTransform;
+
+  @Getter
+  private final AttributeDescriptorBase<T> writeTarget;
+
+  @Getter
+  private final ProxyTransform writeTransform;
 
   AttributeProxyDescriptorImpl(
       String name,
-      AttributeDescriptorBase<T> target,
-      ProxyTransform transform) {
+      AttributeDescriptorBase<T> readTarget,
+      ProxyTransform readTransform,
+      AttributeDescriptorBase<T> writeTarget,
+      ProxyTransform writeTransform) {
 
-    super(name, target);
-    this.target = target;
-    this.transform = transform;
+    super(name, readTarget, writeTarget);
+    this.readTarget = readTarget;
+    this.readTransform = readTransform;
+    this.writeTarget = writeTarget;
+    this.writeTransform = writeTransform;
   }
 
   @Override
   public String toString() {
     return "AttributeProxyDescriptorImpl("
-        + "target=" + target
+        + "readTarget=" + readTarget
+        + ", writeTarget=" + writeTarget
         + ", name=" + name
         + ")";
   }

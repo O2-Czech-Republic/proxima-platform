@@ -258,7 +258,7 @@ public class ConfigRepository implements Repository, Serializable {
         readAttributeFamilies(config);
         if (shouldLoadAccessors) {
           // Link attribute families for proxied attribute.
-          loadProxiedFamilies(config);
+          loadProxiedFamilies();
           // Read transformations from one entity to another.
           readTransformations(config);
         }
@@ -309,7 +309,7 @@ public class ConfigRepository implements Repository, Serializable {
     });
   }
 
-  /** Read descriptors of entities from config */
+  /** Read descriptors of entities from config. */
   private void readEntityDescriptors(Config cfg) {
 
     ConfigValue entities = cfg.root().get("entities");
@@ -365,7 +365,7 @@ public class ConfigRepository implements Repository, Serializable {
     entityAttrs.forEach((key, value) -> {
       Map<String, Object> settings = toMap(
           "entities." + entityName + ".attributes." + key, value);
-      if (settings.get("proxy") == null) {
+      if (settings.get("scheme") != null) {
         loadRegular(entityName, key, settings, entity);
       }
     });
@@ -398,26 +398,76 @@ public class ConfigRepository implements Repository, Serializable {
       Map<String, Object> settings,
       EntityDescriptor.Builder entityBuilder) {
 
-    AttributeDescriptorBase target = Optional.ofNullable(settings.get("proxy"))
-        .map(Object::toString)
-        .map(entityBuilder::findAttribute)
-        .orElseThrow(() -> new IllegalStateException(
-            "Invalid state: `proxy` should not be null"));
+    final AttributeDescriptorBase readTarget;
+    final AttributeDescriptorBase writeTarget;
+    final ProxyTransform readTransform;
+    final ProxyTransform writeTransform;
+    if (settings.get("proxy") instanceof Map) {
+      Map<String, Object> proxyMap = (Map) settings.get("proxy");
+      Map<String, Object> write = toMapOrNull(proxyMap.get("write"));
+      Map<String, Object> read = toMapOrNull(proxyMap.get("read"));
+      AttributeDescriptorBase<?> original = null;
+      if (write == null || read == null) {
+        // we need to load the original attribute, which must have been
+        // loaded (must contain `scheme`)
+        original = Objects.requireNonNull(
+            entityBuilder.findAttribute(attrName),
+            "Proxy attribute have to be either full (containing both `read` and `write` sides) "
+                + "or declare `scheme`.");
+      }
+      if (read != null) {
+        readTarget = Optional.ofNullable(read.get("from"))
+            .map(Object::toString)
+            .map(entityBuilder::findAttribute)
+            .orElseThrow(() -> new IllegalStateException(
+                "Invalid state: `read.from` must not be null"));
+      } else {
+        readTarget = original;
+      }
+      if (write != null) {
+        writeTarget = Optional.ofNullable(write.get("into"))
+            .map(Object::toString)
+            .map(entityBuilder::findAttribute)
+            .orElseThrow(() -> new IllegalStateException(
+                "Invalid state: `write.into` must not be null"));
+      } else {
+        writeTarget = original;
+      }
 
-    final ProxyTransform transform;
-    if (shouldLoadAccessors) {
-      transform = Optional.ofNullable(settings.get("apply"))
-          .map(Object::toString)
-          .map(s -> newInstance(s, ProxyTransform.class))
-          .orElseThrow(() -> new IllegalArgumentException("Missing required field `apply'"));
+      if (shouldLoadAccessors) {
+        readTransform = readTarget == original
+            ? ProxyTransform.IDENTITY : getProxyTransform(read);
+        writeTransform = writeTarget == original
+            ? ProxyTransform.IDENTITY : getProxyTransform(write);
+        readTransform.setup(readTarget);
+        writeTransform.setup(writeTarget);
+      } else {
+        readTransform = writeTransform = null;
+      }
     } else {
-      transform = null;
-    }
+      readTarget = writeTarget = Optional.ofNullable(settings.get("proxy"))
+          .map(Object::toString)
+          .map(entityBuilder::findAttribute)
+          .orElseThrow(() -> new IllegalStateException(
+              "Invalid state: `proxy` must not be null"));
 
-    entityBuilder.addAttribute(
-        AttributeDescriptor.newProxy(attrName, target, transform));
+      if (shouldLoadAccessors) {
+        readTransform = writeTransform = getProxyTransform(settings);
+        readTransform.setup(readTarget);
+      } else {
+        readTransform = writeTransform = null;
+      }
+    }
+    entityBuilder.addAttribute(AttributeDescriptor.newProxy(
+        attrName, readTarget, readTransform, writeTarget, writeTransform));
   }
 
+  private ProxyTransform getProxyTransform(Map<String, Object> map) {
+    return Optional.ofNullable(map.get("apply"))
+        .map(Object::toString)
+        .map(s -> newInstance(s, ProxyTransform.class))
+        .orElseThrow(() -> new IllegalArgumentException("Missing required field `apply'"));
+  }
 
   private void loadRegular(
       String entityName,
@@ -473,6 +523,14 @@ public class ConfigRepository implements Repository, Serializable {
           + (value != null
               ? value.getClass().getName()
               : "(null)"));
+    }
+    return (Map<String, Object>) value;
+  }
+
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> toMapOrNull(Object value) {
+    if (!(value instanceof Map)) {
+      return null;
     }
     return (Map<String, Object>) value;
   }
@@ -655,16 +713,16 @@ public class ConfigRepository implements Repository, Serializable {
 
   }
 
-  private void loadProxiedFamilies(Config cfg) {
+  private void loadProxiedFamilies() {
     getAllEntities()
         .flatMap(e -> e.getAllAttributes(true).stream())
         .filter(a -> ((AttributeDescriptorBase<?>) a).isProxy())
         .forEach(a -> {
           AttributeProxyDescriptorImpl<?> p = (AttributeProxyDescriptorImpl<?>) a;
-          AttributeDescriptorBase<?> target = p.getTarget();
+          AttributeDescriptorBase<?> target = p.getWriteTarget();
           attributeToFamily.put(p, getFamiliesForAttribute(target)
               .stream()
-              .map(af -> new AttributeFamilyProxyDescriptor(p, af))
+              .map(af -> new AttributeFamilyProxyDescriptor(p, af, af))
               .collect(Collectors.toSet()));
         });
   }

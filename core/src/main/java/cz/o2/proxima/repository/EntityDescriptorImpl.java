@@ -15,9 +15,11 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.collect.Lists;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.util.NamePattern;
 import cz.o2.proxima.util.Pair;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -46,9 +48,9 @@ public class EntityDescriptorImpl implements EntityDescriptor {
   /** Map of attributes by pattern. */
   private final Map<NamePattern, AttributeDescriptor<?>> attributesByPattern;
 
-  EntityDescriptorImpl(String name, List<AttributeDescriptor<?>> attrs) {
+  EntityDescriptorImpl(String name, Collection<AttributeDescriptor<?>> attrs) {
     this.name = Objects.requireNonNull(name);
-    this.attributes = Objects.requireNonNull(attrs);
+    this.attributes = Lists.newArrayList(Objects.requireNonNull(attrs));
 
     List<AttributeDescriptor<?>> fullyQualified = attrs.stream()
         .filter(a -> !a.isWildcard())

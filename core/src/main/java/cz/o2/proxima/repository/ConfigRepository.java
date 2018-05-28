@@ -15,9 +15,12 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.DataAccessor;
@@ -25,9 +28,11 @@ import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StorageDescriptor;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
+import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
+import cz.o2.proxima.util.CamelCase;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
@@ -134,7 +139,7 @@ public class ConfigRepository implements Repository, Serializable {
       return this;
     }
 
-    public Repository build() {
+    public ConfigRepository build() {
       return new ConfigRepository(
           config, readOnly, validate, loadFamilies,
           loadAccessors, executorFactory);
@@ -145,7 +150,7 @@ public class ConfigRepository implements Repository, Serializable {
    * Application configuration.
    */
   @Getter
-  private final Config config;
+  private Config config;
 
   /**
    * When read-only flag is specified, some checks are not performed in construction.
@@ -250,29 +255,42 @@ public class ConfigRepository implements Repository, Serializable {
       // Next read all scheme serializers.
       readSchemeSerializers(ServiceLoader.load(ValueSerializerFactory.class));
 
-      // Read the config and store entity descriptors
-      readEntityDescriptors(cfg);
-
-      if (loadFamilies) {
-        // Read attribute families and map them to storages by attribute. */
-        readAttributeFamilies(config);
-        if (shouldLoadAccessors) {
-          // Link attribute families for proxied attribute.
-          loadProxiedFamilies();
-          // Read transformations from one entity to another.
-          readTransformations(config);
-        }
-      }
-
-      if (shouldValidate) {
-        // Sanity checks.
-        validate();
-      }
+      reloadConfig(loadFamilies, config);
 
     } catch (Exception ex) {
       throw new IllegalArgumentException("Cannot read config settings", ex);
     }
 
+  }
+
+  void reloadConfig(boolean loadFamilies, Config conf) {
+
+    this.config = conf;
+    this.attributeToFamily.clear();
+    this.entitiesByName.clear();
+    this.transformations.clear();
+    this.writers.clear();
+
+    // Read the config and store entity descriptors
+    readEntityDescriptors(config);
+
+    if (loadFamilies) {
+      // Read attribute families and map them to storages by attribute. */
+      readAttributeFamilies(config);
+      if (shouldLoadAccessors) {
+        // Read transformations from one entity to another.
+        readTransformations(config);
+        // Create replication families
+        createReplicationFamilies(config);
+        // Link attribute families for proxied attribute.
+        loadProxiedFamilies();
+      }
+    }
+
+    if (shouldValidate) {
+      // Sanity checks.
+      validate();
+    }
   }
 
   /**
@@ -350,7 +368,114 @@ public class ConfigRepository implements Repository, Serializable {
       entitiesByName.put(entityName, entity);
     }
 
+    Optional.ofNullable(cfg.root().get("replications"))
+        .map(ConfigValue::unwrapped)
+        .ifPresent(this::readEntityReplications);
+
   }
+
+  private void readEntityReplications(Object cfg) {
+    Map<String, Object> map = toMap("replications", cfg);
+    for (Map.Entry<String, Object> repl : map.entrySet()) {
+      log.info("Loading replication {}", repl.getKey());
+      Map<String, Object> replMap = toMap(repl.getKey(), repl.getValue());
+      String entityName = Optional.ofNullable(replMap.get("entity"))
+          .map(Object::toString)
+          .orElseThrow(() -> new IllegalArgumentException(
+              String.format("Missing field `entity` of replication %s",
+                  repl.getKey())));
+      EntityDescriptor entity = Optional
+          .ofNullable(entitiesByName.get(entityName))
+          .orElseThrow(() -> new IllegalArgumentException(
+              String.format("Entity %s not found", entityName)));
+      List<String> attrList = toList(
+          Objects.requireNonNull(
+              replMap.get("attributes"),
+              String.format(
+                  "Missing required field `attributes` of replication %s",
+                  repl.getKey())));
+      Set<AttributeDescriptor<?>> attrs = attrList
+          .stream()
+          .flatMap(a -> searchAttributesMatching(a, entity, false).stream())
+          .collect(Collectors.toSet());
+
+      // load targets
+      Collection<String> targets = Optional.ofNullable(replMap.get("targets"))
+          .map(t -> toMap("targets", t))
+          .map(m -> m.keySet())
+          .orElse(Collections.emptySet());
+
+      EntityDescriptor.Builder builder = entity.toBuilder();
+      attrs.forEach(a -> {
+        for (String target : targets) {
+          String name = toReplicationTargetName(repl.getKey(), target, a.getName());
+          builder.addAttribute(
+              AttributeDescriptor.newBuilder(this)
+                  .setEntity(entityName)
+                  .setSchemeURI(a.getSchemeURI())
+                  .setName(name)
+                  .setReplica(true)
+                  .build());
+        }
+        builder.addAttribute(
+              AttributeDescriptor.newBuilder(this)
+                  .setEntity(entityName)
+                  .setSchemeURI(a.getSchemeURI())
+                  .setName(toReplicationWriteName(repl.getKey(), a.getName()))
+                  .setReplica(true)
+                  .build());
+        builder.addAttribute(AttributeDescriptor.newBuilder(this)
+                  .setEntity(entityName)
+                  .setSchemeURI(a.getSchemeURI())
+                  .setName(toReplicationProxyName(repl.getKey(), a.getName()))
+                  .setReplica(true)
+                  .build());
+        Optional.ofNullable(replMap.get("source"))
+            .ifPresent(s -> {
+              builder.addAttribute(AttributeDescriptor.newBuilder(this)
+                  .setEntity(entityName)
+                  .setSchemeURI(a.getSchemeURI())
+                  .setName(toReplicationReadName(repl.getKey(), a.getName()))
+                  .setReplica(true)
+                  .build());
+            });
+      });
+      entitiesByName.put(entityName, builder.build());
+    }
+  }
+
+  private String toReplicationTargetName(
+      String replicationName,
+      String target,
+      String attr) {
+
+    return CamelCase.apply(
+        String.format("_%s_%s$%s", replicationName, target, attr),
+        false);
+  }
+
+  private static String toReplicationProxyName(
+      String replicationName,
+      String attr) {
+
+    return CamelCase.apply(
+        String.format("_%s_replicated$%s", replicationName, attr), false);
+  }
+
+  private static String toReplicationReadName(
+      String replicationName, String attr) {
+
+    return CamelCase.apply(String.format(
+        "_%s_read$%s", replicationName, attr), false);
+  }
+
+  private static String toReplicationWriteName(
+      String replicationName, String attr) {
+
+    return CamelCase.apply(String.format(
+        "_%s_write$%s", replicationName, attr), false);
+  }
+
 
   private EntityDescriptor loadEntityWithAttributes(
       String entityName, Object attributes) {
@@ -398,15 +523,15 @@ public class ConfigRepository implements Repository, Serializable {
       Map<String, Object> settings,
       EntityDescriptor.Builder entityBuilder) {
 
-    final AttributeDescriptorBase readTarget;
-    final AttributeDescriptorBase writeTarget;
+    final AttributeDescriptor readTarget;
+    final AttributeDescriptor writeTarget;
     final ProxyTransform readTransform;
     final ProxyTransform writeTransform;
     if (settings.get("proxy") instanceof Map) {
       Map<String, Object> proxyMap = (Map) settings.get("proxy");
       Map<String, Object> write = toMapOrNull(proxyMap.get("write"));
       Map<String, Object> read = toMapOrNull(proxyMap.get("read"));
-      AttributeDescriptorBase<?> original = null;
+      AttributeDescriptor<?> original = null;
       if (write == null || read == null) {
         // we need to load the original attribute, which must have been
         // loaded (must contain `scheme`)
@@ -466,7 +591,8 @@ public class ConfigRepository implements Repository, Serializable {
     return Optional.ofNullable(map.get("apply"))
         .map(Object::toString)
         .map(s -> newInstance(s, ProxyTransform.class))
-        .orElseThrow(() -> new IllegalArgumentException("Missing required field `apply'"));
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Missing required field `apply'"));
   }
 
   private void loadRegular(
@@ -505,11 +631,12 @@ public class ConfigRepository implements Repository, Serializable {
       } catch (Exception ex) {
         throw new IllegalStateException("Cannot use serializer for URI " + schemeURI, ex);
       }
-      entityBuilder.addAttribute(AttributeDescriptor.newBuilder(this)
-          .setEntity(entityName)
-          .setName(attrName)
-          .setSchemeURI(schemeURI)
-          .build());
+      entityBuilder.addAttribute(
+          AttributeDescriptor.newBuilder(this)
+              .setEntity(entityName)
+              .setName(attrName)
+              .setSchemeURI(schemeURI)
+              .build());
     } catch (URISyntaxException ex) {
       throw new RuntimeException(ex);
     }
@@ -564,146 +691,19 @@ public class ConfigRepository implements Repository, Serializable {
       // no loaded entities, no more stuff to read
       return;
     }
-    Map<String, Object> entitiesCfg = toMap("attributeFamilies",
+    Map<String, Object> attributeFamilyMap = toMap("attributeFamilies",
         Objects.requireNonNull(
             cfg.root().get("attributeFamilies"),
             "Missing required `attributeFamilies' settings")
         .unwrapped());
 
-    Set<String> familyNames = new HashSet<>();
-
-    for (Map.Entry<String, Object> e : entitiesCfg.entrySet()) {
+    for (Map.Entry<String, Object> e : attributeFamilyMap.entrySet()) {
       String name = e.getKey();
       Map<String, Object> storage = flatten(
           toMap("attributeFamilies." + name, e.getValue()));
-      if (!familyNames.add(name)) {
-        throw new IllegalArgumentException("Multiple attribute family names " + name);
-      }
 
       try {
-        boolean isDisabled = Optional.ofNullable(storage.get("disabled"))
-            .map(Object::toString)
-            .map(Boolean::valueOf)
-            .orElse(false);
-        if (isDisabled) {
-          log.info("Skipping load of disabled family {}", name);
-          continue;
-        }
-        String entity = Objects.requireNonNull(storage.get("entity")).toString();
-        String filter = toString(storage.get("filter"));
-        // type is one of the following:
-        // * commit (stream commit log)
-        // * append (append-only stream or batch)
-        // * random-access (random-access read-write)
-        StorageType type = StorageType.of((String) storage.get("type"));
-        AccessType access = AccessType.from(
-            Optional.ofNullable(storage.get("access"))
-                .map(Object::toString)
-                .orElse("read-only"));
-
-        List<String> attributes = toList(
-            Objects.requireNonNull(storage.get("attributes"),
-                "Missing required field `attributes' in attributeFamily "
-                + name));
-        URI storageURI = new URI(Objects.requireNonNull(
-            storage.get("storage"),
-            "Missing required field `storage' in attribute family " + name)
-            .toString());
-        final StorageDescriptor storageDesc = isReadonly
-            ? asReadOnly(Objects.requireNonNull(
-                schemeToStorage.get(storageURI.getScheme()),
-                "Missing storage descriptor for scheme " + storageURI.getScheme()))
-            : schemeToStorage.get(storageURI.getScheme());
-        EntityDescriptor entDesc = findEntity(entity)
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Cannot find entity " + entity));
-        if (storageDesc == null) {
-          throw new IllegalArgumentException(
-              "No storage for scheme " + storageURI.getScheme());
-        }
-
-        AttributeFamilyDescriptor.Builder family = AttributeFamilyDescriptor.newBuilder()
-            .setName(name)
-            .setType(type)
-            .setAccess(access)
-            .setSource((String) storage.get("from"));
-
-        if (shouldLoadAccessors) {
-          DataAccessor accessor = storageDesc.getAccessor(
-              entDesc, storageURI, storage);
-
-          if (!isReadonly && !access.isReadonly()) {
-            family.setWriter(accessor.getWriter(context)
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "Storage " + storageDesc + " has no valid writer for family " + name
-                        + " or specify the family as read-only.")));
-          }
-          if (access.canRandomRead()) {
-            family.setRandomAccess(accessor.getRandomAccessReader(context)
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "Storage " + storageDesc + " has no valid random access storage for family "
-                        + name)));
-          }
-          if (access.canReadCommitLog()) {
-            family.setCommitLog(accessor.getCommitLogReader(context).orElseThrow(
-                () -> new IllegalArgumentException(
-                    "Storage " + storageDesc
-                        + " has no valid commit-log storage for family " + name)));
-          }
-          if (access.canCreatePartitionedView()) {
-            family.setPartitionedView(accessor.getPartitionedView(context)
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "Storage " + storageDesc + " has no valid partitioned view.")));
-          }
-          if (access.canCreatePartitionedCachedView()) {
-            family.setCachedView(accessor.getCachedView(context)
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "Storage " + storageDesc + " has no cached partitioned view.")));
-          }
-          if (access.canReadBatchSnapshot() || access.canReadBatchUpdates()) {
-            family.setBatchObservable(accessor.getBatchLogObservable(context)
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "Storage " + storageDesc + " has no batch log observable.")));
-          }
-        }
-
-        if (!filter.isEmpty() && !isReadonly) {
-          if (type == StorageType.PRIMARY) {
-            throw new IllegalArgumentException("Primary storage cannot have filters");
-          }
-          family.setFilter(newInstance(filter, StorageFilter.class));
-        }
-
-        Collection<AttributeDescriptor<?>> allAttributes = new HashSet<>();
-
-        for (String attr : attributes) {
-          // attribute descriptors affected by this settings
-          final List<AttributeDescriptor<?>> attrDescs;
-          if (attr.equals("*")) {
-            // this means all attributes of entity
-            attrDescs = entDesc.getAllAttributes(true);
-          } else {
-            attrDescs = Collections.singletonList(entDesc.findAttribute(attr, true)
-                .orElseThrow(
-                    () -> new IllegalArgumentException("Cannot find attribute " + attr)));
-          }
-          allAttributes.addAll(attrDescs);
-        }
-
-        allAttributes.forEach(family::addAttribute);
-        final AttributeFamilyDescriptor familyBuilt = family.build();
-        allAttributes.forEach(a -> {
-          Set<AttributeFamilyDescriptor> families = attributeToFamily
-              .computeIfAbsent(a, k -> new HashSet<>());
-          if (!families.add(familyBuilt)) {
-            throw new IllegalArgumentException(
-                "Attribute family named "
-                + a.getName() + " already exists");
-          }
-          log.debug(
-              "Added family {} for entity {} of type {} and access {}",
-              familyBuilt, entDesc, familyBuilt.getType(), familyBuilt.getAccess());
-        });
+        loadSingleFamily(name, storage);
       } catch (Exception ex) {
         throw new IllegalArgumentException(
             "Failed to read settings of attribute family " + name, ex);
@@ -713,16 +713,495 @@ public class ConfigRepository implements Repository, Serializable {
 
   }
 
+  private void loadSingleFamily(
+      String name,
+      Map<String, Object> cfg)
+      throws URISyntaxException, IllegalArgumentException {
+
+    boolean isDisabled = Optional.ofNullable(cfg.get("disabled"))
+        .map(Object::toString)
+        .map(Boolean::valueOf)
+        .orElse(false);
+    if (isDisabled) {
+      log.info("Skipping load of disabled family {}", name);
+      return;
+    }
+    String entity = Objects.requireNonNull(cfg.get("entity")).toString();
+    String filter = toString(cfg.get("filter"));
+    // type is one of the following:
+    // * commit (stream commit log)
+    // * append (append-only stream or batch)
+    // * random-access (random-access read-write)
+    StorageType type = StorageType.of((String) cfg.get("type"));
+    AccessType access = AccessType.from(
+        Optional.ofNullable(cfg.get("access"))
+            .map(Object::toString)
+            .orElse("read-only"));
+    List<String> attributes = toList(
+        Objects.requireNonNull(cfg.get("attributes"),
+            "Missing required field `attributes' in attributeFamily "
+                + name));
+    URI storageURI = new URI(Objects.requireNonNull(
+        cfg.get("storage"),
+        "Missing required field `storage' in attribute family " + name)
+        .toString());
+    final StorageDescriptor storageDesc = isReadonly
+        ? asReadOnly(Objects.requireNonNull(
+            schemeToStorage.get(storageURI.getScheme()),
+            "Missing storage descriptor for scheme " + storageURI.getScheme()))
+        : schemeToStorage.get(storageURI.getScheme());
+    EntityDescriptor entDesc = findEntity(entity)
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Cannot find entity " + entity));
+    if (storageDesc == null) {
+      throw new IllegalArgumentException(
+          "No storage for scheme " + storageURI.getScheme());
+    }
+    AttributeFamilyDescriptor.Builder family = AttributeFamilyDescriptor.newBuilder()
+        .setName(name)
+        .setType(type)
+        .setAccess(access)
+        .setSource((String) cfg.get("from"));
+    if (shouldLoadAccessors) {
+      DataAccessor accessor = storageDesc.getAccessor(
+          entDesc, storageURI, cfg);
+
+      if (!isReadonly && !access.isReadonly()) {
+        family.setWriter(accessor.getWriter(context)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Storage " + storageDesc + " has no valid writer for family " + name
+                    + " or specify the family as read-only.")));
+      }
+      if (access.canRandomRead()) {
+        family.setRandomAccess(accessor.getRandomAccessReader(context)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Storage " + storageDesc + " has no valid random access storage for family "
+                    + name)));
+      }
+      if (access.canReadCommitLog()) {
+        family.setCommitLog(accessor.getCommitLogReader(context).orElseThrow(
+            () -> new IllegalArgumentException(
+                "Storage " + storageDesc
+                    + " has no valid commit-log storage for family " + name)));
+      }
+      if (access.canCreatePartitionedView()) {
+        family.setPartitionedView(accessor.getPartitionedView(context)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Storage " + storageDesc + " has no valid partitioned view.")));
+      }
+      if (access.canCreatePartitionedCachedView()) {
+        family.setCachedView(accessor.getCachedView(context)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Storage " + storageDesc + " has no cached partitioned view.")));
+      }
+      if (access.canReadBatchSnapshot() || access.canReadBatchUpdates()) {
+        family.setBatchObservable(accessor.getBatchLogObservable(context)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Storage " + storageDesc + " has no batch log observable.")));
+      }
+    }
+    if (!filter.isEmpty() && !isReadonly) {
+      if (type == StorageType.PRIMARY) {
+        throw new IllegalArgumentException("Primary storage cannot have filters");
+      }
+      family.setFilter(newInstance(filter, StorageFilter.class));
+    }
+    Collection<AttributeDescriptor<?>> allAttributes = new HashSet<>();
+    for (String attr : attributes) {
+      // attribute descriptors affected by this settings
+      final List<AttributeDescriptor<?>> attrDescs;
+      attrDescs = searchAttributesMatching(attr, entDesc, false);
+      allAttributes.addAll(attrDescs);
+    }
+    allAttributes.forEach(family::addAttribute);
+    insertFamily(family.build());
+  }
+
+  private void insertFamily(AttributeFamilyDescriptor family) {
+    family.getAttributes().forEach(a -> {
+      Set<AttributeFamilyDescriptor> families = attributeToFamily
+          .computeIfAbsent(a, k -> new HashSet<>());
+      if (!families.add(family)) {
+        throw new IllegalArgumentException(
+            "Attribute family named "
+                + a.getName() + " already exists");
+      }
+    });
+    log.debug(
+        "Added family {} of type {} and access {}",
+        family, family.getType(), family.getAccess());
+  }
+
+
+  private void createReplicationFamilies(Config config) {
+    if (!config.hasPath("replications")) {
+      return;
+    }
+    ConfigObject replications = config.getObject("replications");
+    for (Map.Entry<String, ConfigValue> e : replications.entrySet()) {
+      String replicationName = e.getKey();
+      Map<String, Object> replConf = toMap(e.getKey(), e.getValue().unwrapped());
+      Map<String, Object> targets = Optional
+          .ofNullable(replConf.get("targets"))
+          .map(t -> toMap("targets", t))
+          .orElse(Collections.emptyMap());
+      Map<String, Object> source = Optional
+          .ofNullable(replConf.get("source"))
+          .map(s -> toMap("source", s))
+          .orElse(Collections.emptyMap());
+      Map<String, Object> via = toMap("via", replConf.get("via"));
+      EntityDescriptor entity = Optional
+          .ofNullable(replConf.get("entity"))
+          .flatMap(ent -> findEntity(ent.toString()))
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Missing entity " + replConf.get("entity")));
+      Set<AttributeDescriptor<?>> attrs = Optional
+          .ofNullable(replConf.get("attributes"))
+          .map(o -> toList(o)
+              .stream()
+              .flatMap(a -> searchAttributesMatching(a, entity, false).stream())
+              .collect(Collectors.toSet()))
+          .orElse(Collections.emptySet());
+      Set<AttributeFamilyDescriptor> families = attrs.stream()
+          .flatMap(a -> getFamiliesForAttribute(a)
+              .stream()
+              .filter(af -> af.getType() == StorageType.PRIMARY))
+          .collect(Collectors.toSet());
+      if (families.size() != 1) {
+        throw new IllegalArgumentException(
+            "Each replication has to work on exactly single family. "
+                + "Got " + families + " for " + replicationName);
+      }
+
+      AttributeFamilyDescriptor sourceFamily = Iterables.getOnlyElement(families);
+
+      try {
+        // OK, we have single family for this replication
+        // we will create the following primary commit-logs:
+        // 1) read-only `replication_source_<name>` for source data
+        // 2) write-only `replication_target_<name>_<target>` for targets
+        // 3) `replication_<name>_write` for writes to original attributes
+        // 4) `replication_<name>_replicated` for replicated data
+        createReplicationCommitLogs(
+            replicationName,
+            entity,
+            attrs,
+            source,
+            via,
+            targets,
+            sourceFamily);
+
+        // add the following renaming transformations
+        // 1) _<replication_name>_read$attr -> _<replication_name>_replicated$attr
+        // 2) _<replication_name>_write$attr -> _<replication_name>_replicated$attr
+        // 3) _<replication_name>_write$attr -> _<replication_name>_<target>_$attr
+        createReplicationTransformations(
+            replicationName,
+            entity,
+            targets.keySet());
+
+        // remove the original attribute and replace it with proxy
+        // 1) on write: write to _<replication_name>_write$attr
+        // 2) on read: read from _<replication_name>_replicated$attr, or _<replication_name>_write$attr
+        //             if configured to read non-replicated data only
+        bindReplicationProxies(
+            replicationName,
+            entity,
+            attrs,
+            false);
+
+      } catch (URISyntaxException ex) {
+        throw new RuntimeException(ex);
+      }
+    }
+  }
+
+  private void createReplicationCommitLogs(
+      String name,
+      EntityDescriptor entity,
+      Set<AttributeDescriptor<?>> attrs,
+      Map<String, Object> source,
+      Map<String, Object> via,
+      Map<String, Object> targets,
+      AttributeFamilyDescriptor sourceFamily) throws URISyntaxException {
+
+    // create parent settings for families
+    List<String> attrList = attrs.stream()
+        .map(a -> a.getName()).collect(Collectors.toList());
+    Map<String, Object> cfgMapTemplate = new HashMap<String, Object>() {{
+      put("entity", entity.getName());
+      put("attributes", attrList);
+      put("type", "primary");
+    }};
+
+    {
+      // create source
+      Map<String, Object> cfg = new HashMap<>(cfgMapTemplate);
+      cfg.putAll(source);
+      cfg.put("access", "commit-log, read-only");
+      cfg.put("attributes", attrList
+          .stream()
+          .map(a -> toReplicationReadName(name, a))
+          .collect(Collectors.toList()));
+      loadSingleFamily(String.format("replication_%s_source", name), cfg);
+    }
+    {
+      // create family for writes and replication
+      Map<String, Object> cfg = new HashMap<>(cfgMapTemplate);
+      // this can be overridden
+      cfg.put("access", "commit-log");
+      cfg.putAll(via);
+      cfg.put("attributes", attrList
+          .stream()
+          .map(a -> toReplicationWriteName(name, a))
+          .collect(Collectors.toList()));
+      loadSingleFamily(String.format("replication_%s_write", name), cfg);
+    }
+    {
+      AttributeFamilyDescriptor.Builder builder = sourceFamily.toBuilder()
+          .setName(String.format("replication_%s_replicated", name))
+          .clearAttributes();
+      attrList
+          .stream()
+          .map(a -> entity.findAttribute(toReplicationProxyName(name, a), true).get())
+          .forEach(builder::addAttribute);
+      insertFamily(builder.build());
+    }
+    for (Map.Entry<String, Object> tgt : targets.entrySet()) {
+      Map<String, Object> cfg = new HashMap<>(cfgMapTemplate);
+      cfg.putAll(toMap(tgt.getKey(), tgt.getValue()));
+      cfg.put("access", "write-only");
+      cfg.put("attributes", attrList
+          .stream()
+          .map(a -> toReplicationTargetName(name, tgt.getKey(), a))
+          .collect(Collectors.toList()));
+      loadSingleFamily(String.format(
+          "replication_target_%s_%s", name, tgt.getKey()), cfg);
+    }
+  }
+
+  private void createReplicationTransformations(
+      String name,
+      EntityDescriptor entity,
+      Set<String> targets) {
+
+    AttributeFamilyDescriptor source = findFamily(
+        String.format("replication_%s_source", name));
+    AttributeFamilyDescriptor write = findFamily(
+        String.format("replication_%s_write", name));
+
+    {
+      // incoming data
+      String transform = CamelCase.apply(String.format("_%s_replicated", name), false);
+      String replPrefix = transform + "$";
+      Map<AttributeDescriptor<?>, AttributeDescriptor<?>> sourceMapping;
+      sourceMapping = getReplMapping(entity, source, replPrefix);
+
+      this.transformations.put(
+          transform,
+          TransformationDescriptor.newBuilder()
+              .addAttributes(source.getAttributes())
+              .setEntity(entity)
+              .setTransformation(
+                  renameTransform(
+                      sourceMapping::get,
+                      a -> renameReplicated(replPrefix, a)))
+              .build());
+    }
+
+    {
+      // local writes
+      String transform = CamelCase.apply(String.format("_%s_replicated", name), false);
+      String replPrefix = transform + "$";
+      Map<AttributeDescriptor<?>, AttributeDescriptor<?>> sourceMapping;
+      sourceMapping = getReplMapping(entity, write, replPrefix);
+
+      this.transformations.put(
+          transform,
+          TransformationDescriptor.newBuilder()
+              .addAttributes(write.getAttributes())
+              .setEntity(entity)
+              .setTransformation(
+                  renameTransform(
+                      sourceMapping::get,
+                      a -> renameReplicated(replPrefix, a)))
+              .build());
+    }
+
+    for (String tgt : targets) {
+      String transform = CamelCase.apply(String.format("_%s_%s", name, tgt));
+      String replPrefix = transform + "$";
+      Map<AttributeDescriptor<?>, AttributeDescriptor<?>> sourceMapping;
+      sourceMapping = getReplMapping(entity, write, replPrefix);
+
+      this.transformations.put(
+          transform,
+          TransformationDescriptor.newBuilder()
+              .addAttributes(write.getAttributes())
+              .setEntity(entity)
+              .setTransformation(
+                  renameTransform(
+                      sourceMapping::get,
+                      a -> renameReplicated(replPrefix, a)))
+              .build());
+    }
+
+
+  }
+
+  private static Map<AttributeDescriptor<?>, AttributeDescriptor<?>> getReplMapping(
+      EntityDescriptor entity, AttributeFamilyDescriptor family,
+      String mappedPrefix) {
+
+    return family.getAttributes()
+        .stream()
+        .map(a -> {
+          String renamed = renameReplicated(mappedPrefix, a.getName());
+          return Pair.of(a, entity
+              .findAttribute(renamed, true)
+              .orElseThrow(() -> new IllegalStateException("Missing attribute " + renamed)));
+        })
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+  }
+
+
+  private static String renameReplicated(String prefix, String input) {
+    int dollar = input.indexOf('$');
+    if (dollar < 0) {
+      throw new IllegalArgumentException("Invalid input, missing $ separator");
+    }
+    return prefix + input.substring(dollar + 1);
+  }
+
+  private static Transformation renameTransform(
+      UnaryFunction<AttributeDescriptor<?>, AttributeDescriptor<?>> descTransform,
+      UnaryFunction<String, String> nameTransform) {
+
+    return new Transformation() {
+
+      @Override
+      public void setup(Repository repo) {
+        // nop
+      }
+
+      @Override
+      public int apply(
+          StreamElement input,
+          Collector<StreamElement> collector) {
+
+        collector.collect(input.isDelete()
+            ? input.isDeleteWildcard()
+                ? StreamElement.deleteWildcard(
+                    input.getEntityDescriptor(),
+                    descTransform.apply(input.getAttributeDescriptor()),
+                    input.getUuid(),
+                    input.getKey(),
+                    input.getStamp())
+                : StreamElement.delete(
+                    input.getEntityDescriptor(),
+                    descTransform.apply(input.getAttributeDescriptor()),
+                    input.getUuid(),
+                    input.getKey(),
+                    nameTransform.apply(input.getAttribute()),
+                    input.getStamp())
+            : StreamElement.update(
+                input.getEntityDescriptor(),
+                descTransform.apply(input.getAttributeDescriptor()),
+                input.getUuid(),
+                input.getKey(),
+                nameTransform.apply(input.getAttribute()),
+                input.getStamp(),
+                input.getValue()));
+        return 1;
+      }
+    };
+  }
+
+
+
+  private AttributeFamilyDescriptor findFamily(String name) {
+    return getAllFamilies()
+        .filter(af -> af.getName().equals(name))
+        .findAny()
+        .get();
+  }
+
+  @SuppressWarnings("unchecked")
+  private void bindReplicationProxies(
+      String name,
+      EntityDescriptor entity,
+      Set<AttributeDescriptor<?>> attrs,
+      boolean readNonReplicatedOnly) {
+
+    // remove all families of the original attribute, it will be just proxy
+    attrs.forEach(this.attributeToFamily::remove);
+    EntityDescriptor.Builder builder = entity.toBuilder();
+    for (AttributeDescriptor<?> proxy : attrs) {
+      AttributeDescriptor source = entity.findAttribute(
+          readNonReplicatedOnly
+              ? toReplicationWriteName(name, proxy.getName())
+              : toReplicationProxyName(name, proxy.getName()), true).get();
+      AttributeDescriptor target = entity.findAttribute(
+          toReplicationWriteName(name, proxy.getName()), true).get();
+      builder.addAttribute(
+          AttributeDescriptor.newProxy(
+              proxy.getName(),
+              source,
+              ProxyTransform.renaming(
+                  proxy.toAttributePrefix(), source.toAttributePrefix()),
+              target,
+              ProxyTransform.renaming(
+                  proxy.toAttributePrefix(), target.toAttributePrefix())));
+    }
+    entitiesByName.put(entity.getName(), builder.build());
+  }
+
+  private List<AttributeDescriptor<?>> searchAttributesMatching(
+      String attr, EntityDescriptor entDesc, boolean allowReplicated) {
+
+    return searchAttributesMatching(attr, entDesc, allowReplicated, true);
+  }
+
+  private List<AttributeDescriptor<?>> searchAttributesMatching(
+      String attr, EntityDescriptor entDesc,
+      boolean allowReplicated, boolean includeProtected) {
+
+    List<AttributeDescriptor<?>> attrDescs;
+    if (attr.equals("*")) {
+      // this means all attributes of entity
+      attrDescs = entDesc.getAllAttributes(includeProtected)
+          .stream()
+          .filter(a -> !((AttributeDescriptorImpl) a).isReplica()|| allowReplicated)
+          .collect(Collectors.toList());
+    } else {
+      attrDescs = Collections.singletonList(
+          entDesc
+              .findAttribute(attr, includeProtected)
+              .orElseThrow(
+                  () -> new IllegalArgumentException(
+                      "Cannot find attribute " + attr)));
+    }
+    return attrDescs;
+  }
+
   private void loadProxiedFamilies() {
     getAllEntities()
         .flatMap(e -> e.getAllAttributes(true).stream())
         .filter(a -> ((AttributeDescriptorBase<?>) a).isProxy())
-        .forEach(a -> {
-          AttributeProxyDescriptorImpl<?> p = (AttributeProxyDescriptorImpl<?>) a;
-          AttributeDescriptorBase<?> target = p.getWriteTarget();
-          attributeToFamily.put(p, getFamiliesForAttribute(target)
+        .map(a -> ((AttributeDescriptorBase<?>) a).toProxy())
+        .forEach(p -> {
+          AttributeDescriptor<?> writeTarget = p.getWriteTarget();
+          AttributeDescriptor<?> readTarget = p.getReadTarget();
+          // find write family
+          AttributeFamilyDescriptor writeFamily = getFamiliesForAttribute(writeTarget)
               .stream()
-              .map(af -> new AttributeFamilyProxyDescriptor(p, af, af))
+              .filter(af -> af.getType() == StorageType.PRIMARY)
+              .findAny()
+              .orElseThrow(() -> new IllegalStateException(
+                  "Missing primary storage for " + writeTarget));
+          attributeToFamily.put(p, getFamiliesForAttribute(readTarget)
+              .stream()
+              .map(af -> new AttributeFamilyProxyDescriptor(p, af, writeFamily))
               .collect(Collectors.toSet()));
         });
   }
@@ -766,17 +1245,7 @@ public class ConfigRepository implements Repository, Serializable {
 
       List<AttributeDescriptor<?>> attrs = readList("attributes", transformation, name)
           .stream()
-          .flatMap(a -> {
-            if (a.equals("*")) {
-              return entity.getAllAttributes().stream();
-            } else {
-              return Stream.of(entity.findAttribute(a, true)
-                  .orElseThrow(
-                      () -> new IllegalArgumentException(
-                          String.format(
-                              "Missing attribute `%s` in `%s`", a, entity))));
-            }
-          })
+          .flatMap(a -> searchAttributesMatching(a, entity, true).stream())
           .collect(Collectors.toList());
 
       TransformationDescriptor.Builder desc = TransformationDescriptor.newBuilder()
@@ -877,6 +1346,7 @@ public class ConfigRepository implements Repository, Serializable {
   @Override
   public Set<AttributeFamilyDescriptor> getFamiliesForAttribute(
       AttributeDescriptor<?> attr) {
+
     return Objects.requireNonNull(
         attributeToFamily.get(attr),
         "Cannot find any family for attribute " + attr);
@@ -912,6 +1382,7 @@ public class ConfigRepository implements Repository, Serializable {
    * Check if this repository is empty.
    * @return {@code true} if this repository is empty
    */
+  @Override
   public boolean isEmpty() {
     return entitiesByName.isEmpty();
   }

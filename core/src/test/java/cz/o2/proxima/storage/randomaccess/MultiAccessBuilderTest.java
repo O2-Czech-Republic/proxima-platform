@@ -40,13 +40,17 @@ import static org.junit.Assert.*;
  */
 public class MultiAccessBuilderTest {
 
-  final Repository repo = ConfigRepository.Builder.of(
-      ConfigFactory.load()
-          .withFallback(ConfigFactory.load("test-reference.conf"))
-          .resolve()).build();
+  final Repository repo;
 
   RandomAccessReader reader;
   long now;
+
+  public MultiAccessBuilderTest() {
+    this.repo = ConfigRepository.Builder.of(
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve()).build();
+  }
 
   @Before
   public void setUp() {
@@ -65,9 +69,9 @@ public class MultiAccessBuilderTest {
     AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
         () -> new IllegalStateException("Missing attribute armed in gateway"));
     AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute davice.* in gateway"));
+        () -> new IllegalStateException("Missing attribute device.* in gateway"));
     RandomAccessReader base = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-steam"))
+        .filter(af -> af.getName().equals("gateway-storage-stream"))
         .findAny()
         .flatMap(AttributeFamilyDescriptor::getRandomAccessReader)
         .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
@@ -99,9 +103,9 @@ public class MultiAccessBuilderTest {
     AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
         () -> new IllegalStateException("Missing attribute armed in gateway"));
     AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute davice.* in gateway"));
+        () -> new IllegalStateException("Missing attribute device.* in gateway"));
     AttributeFamilyDescriptor family = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-steam"))
+        .filter(af -> af.getName().equals("gateway-storage-stream"))
         .findAny()
         .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
     reader = RandomAccessReader.newBuilder()
@@ -134,11 +138,11 @@ public class MultiAccessBuilderTest {
     AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
         () -> new IllegalStateException("Missing attribute armed in gateway"));
     AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute davice.* in gateway"));
+        () -> new IllegalStateException("Missing attribute device.* in gateway"));
     AttributeDescriptor<Object> data = dummy.findAttribute("data").orElseThrow(
         () -> new IllegalStateException("Missing attribute data in dummy"));
     AttributeFamilyDescriptor family = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-steam"))
+        .filter(af -> af.getName().equals("gateway-storage-stream"))
         .findAny()
         .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
     AttributeFamilyDescriptor dummyFamily = repo.getAllFamilies()
@@ -179,9 +183,9 @@ public class MultiAccessBuilderTest {
     EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
         () -> new IllegalStateException("Missing entity gateway"));
     AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute davice.* in gateway"));
+        () -> new IllegalStateException("Missing attribute device.* in gateway"));
     AttributeFamilyDescriptor family = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-steam"))
+        .filter(af -> af.getName().equals("gateway-storage-stream"))
         .findAny()
         .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
     reader = RandomAccessReader.newBuilder()
@@ -209,9 +213,9 @@ public class MultiAccessBuilderTest {
     AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
         () -> new IllegalStateException("Missing attribute armed in gateway"));
     AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute davice.* in gateway"));
+        () -> new IllegalStateException("Missing attribute device.* in gateway"));
     RandomAccessReader base = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-steam"))
+        .filter(af -> af.getName().equals("gateway-storage-stream"))
         .findAny()
         .flatMap(AttributeFamilyDescriptor::getRandomAccessReader)
         .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
@@ -241,9 +245,9 @@ public class MultiAccessBuilderTest {
     AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
         () -> new IllegalStateException("Missing attribute armed in gateway"));
     AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute davice.* in gateway"));
+        () -> new IllegalStateException("Missing attribute device.* in gateway"));
     RandomAccessReader base = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-steam"))
+        .filter(af -> af.getName().equals("gateway-storage-stream"))
         .findAny()
         .flatMap(AttributeFamilyDescriptor::getRandomAccessReader)
         .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));

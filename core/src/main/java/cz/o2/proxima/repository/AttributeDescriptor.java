@@ -49,6 +49,9 @@ public interface AttributeDescriptor<T> extends Serializable {
     @Setter
     private URI schemeURI;
 
+    @Setter
+    private boolean replica = false;
+
     @SuppressWarnings("unchecked")
     public <T> AttributeDescriptorImpl<T> build() {
       Objects.requireNonNull(name, "Please specify name");
@@ -57,8 +60,13 @@ public interface AttributeDescriptor<T> extends Serializable {
 
       ValueSerializerFactory factory = repo.getValueSerializerFactory(schemeURI.getScheme());
 
-      return new AttributeDescriptorImpl<>(name, entity, schemeURI,
-          factory == null ? null : (ValueSerializer<T>) factory.getValueSerializer(schemeURI));
+      return new AttributeDescriptorImpl<>(
+          name, entity,
+          schemeURI,
+          factory == null
+              ? null
+              : (ValueSerializer<T>) factory.getValueSerializer(schemeURI),
+          replica);
     }
   }
 
@@ -68,9 +76,9 @@ public interface AttributeDescriptor<T> extends Serializable {
 
   static <T> AttributeDescriptorBase<T> newProxy(
       String name,
-      AttributeDescriptorBase<T> targetRead,
+      AttributeDescriptor<T> targetRead,
       ProxyTransform transformRead,
-      AttributeDescriptorBase<T> targetWrite,
+      AttributeDescriptor<T> targetWrite,
       ProxyTransform transformWrite) {
 
     return new AttributeProxyDescriptorImpl<>(

@@ -38,9 +38,9 @@ public interface EntityDescriptor extends Serializable {
     @Accessors(chain = true)
     private String name;
 
-    private final Map<String, AttributeDescriptorBase<?>> attributes = new HashMap<>();
+    private final Map<String, AttributeDescriptor<?>> attributes = new HashMap<>();
 
-    public Builder addAttribute(AttributeDescriptorBase<?> attr) {
+    public Builder addAttribute(AttributeDescriptor<?> attr) {
       attributes.put(attr.getName(), attr);
       return this;
     }
@@ -50,7 +50,7 @@ public interface EntityDescriptor extends Serializable {
       return new EntityDescriptorImpl(name, (Collection) attributes.values());
     }
 
-    AttributeDescriptorBase<?> findAttribute(String attr) {
+    AttributeDescriptor<?> findAttribute(String attr) {
       return Optional.ofNullable(attributes.get(attr))
           .orElseThrow(() -> new IllegalArgumentException(
               "Cannot find attribute " + attr + " of entity " + this.name));
@@ -103,6 +103,16 @@ public interface EntityDescriptor extends Serializable {
    */
   default List<AttributeDescriptor<?>> getAllAttributes() {
     return getAllAttributes(false);
+  }
+
+  /**
+   * Convert this entity descriptor to builder.
+   * @return builder for this entity descriptor
+   */
+  default Builder toBuilder() {
+    Builder ret = new Builder().setName(getName());
+    getAllAttributes(true).forEach(ret::addAttribute);
+    return ret;
   }
 
 }

@@ -21,6 +21,7 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.CamelCase;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateExceptionHandler;
@@ -128,7 +129,7 @@ public class ModelGenerator {
     Map<String, Object> ret = new HashMap<>();
     ret.put("classname", toClassName(e.getName()));
     ret.put("name", e.getName());
-    ret.put("nameCamel", toCamelCase(e.getName()));
+    ret.put("nameCamel", CamelCase.apply(e.getName()));
 
     List<Map<String, Object>> attributes = e.getAllAttributes().stream()
         .map(attr -> {
@@ -137,7 +138,7 @@ public class ModelGenerator {
           attrMap.put("wildcard", attr.isWildcard());
           attrMap.put("nameRaw", attr.getName());
           attrMap.put("name", nameModified);
-          attrMap.put("nameCamel", toCamelCase(nameModified));
+          attrMap.put("nameCamel", CamelCase.apply(nameModified));
           attrMap.put("nameUpper", nameModified.toUpperCase());
           // FIXME: this is working just for protobufs
           attrMap.put("type", attr.getSchemeURI().getSchemeSpecificPart());
@@ -148,17 +149,8 @@ public class ModelGenerator {
     return ret;
   }
 
-  private String toCamelCase(String what) {
-    if (what.isEmpty()) {
-      throw new IllegalArgumentException("Entity name cannot be empty.");
-    }
-    char[] chars = what.toCharArray();
-    chars[0] = Character.toUpperCase(chars[0]);
-    return new String(chars);
-  }
-
   private String toClassName(String name) {
-    return toCamelCase(name);
+    return CamelCase.apply(name);
   }
 
   private String readFileToString(File path) throws IOException {

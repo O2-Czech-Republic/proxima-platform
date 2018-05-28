@@ -16,6 +16,7 @@
 package cz.o2.proxima.repository;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.LogObserver;
@@ -32,9 +33,11 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -44,10 +47,14 @@ import static org.junit.Assert.*;
  */
 public class ConfigRepositoryTest {
 
-  private final Repository repo = ConfigRepository.Builder.of(
-      ConfigFactory.load()
-          .withFallback(ConfigFactory.load("test-reference.conf"))
-          .resolve()).build();
+  private final ConfigRepository repo;
+
+  public ConfigRepositoryTest() {
+    this.repo = ConfigRepository.Builder.of(
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve()).build();
+  }
 
   @Test
   public void testConfigParsing() throws IOException {
@@ -111,7 +118,7 @@ public class ConfigRepositoryTest {
         .getFamiliesForAttribute(source);
     assertEquals(
         families.stream()
-          .map(a -> "proxy::event.*::" + a.getName())
+          .map(a -> "proxy::event::" + a.getName())
           .collect(Collectors.toList()),
         proxiedFamilies.stream()
           .map(a -> a.getName())
@@ -268,9 +275,108 @@ public class ConfigRepositoryTest {
   }
 
   @Test
-  public void testEntityReplication() {
+  public void testEntityFromOtherEntity() {
     assertTrue(repo.findEntity("replica").isPresent());
     assertEquals(7, repo.findEntity("replica").get().getAllAttributes().size());
+  }
+
+  @Test
+  public void testReplicationAttributesCreation() {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .resolve());
+    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
+        () -> new AssertionError("Missing entity gateway"));
+    // assert that we have created all necessary protected attributes
+    assertTrue(gateway.findAttribute(
+        "_gatewayReplication_inmemFirst$status", true).isPresent());
+    assertTrue(gateway.findAttribute(
+        "_gatewayReplication_inmemSecond$armed", true).isPresent());
+    assertTrue(gateway.findAttribute(
+        "_gatewayReplication_read$status", true).isPresent());
+    assertTrue(gateway.findAttribute(
+        "_gatewayReplication_write$device.*", true).isPresent());
+    assertTrue(gateway.findAttribute(
+        "_gatewayReplication_replicated$rule.*", true).isPresent());
+    assertTrue(gateway.findAttribute(
+        "_gatewayReplication_read$rule.*", true).isPresent());
+    assertTrue(gateway.findAttribute(
+        "_gatewayReplication_read$rule.*", true).get().isWildcard());
+    assertTrue(gateway.findAttribute("status").isPresent());
+    assertTrue(gateway.findAttribute("status").get().isPublic());
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testReplicationWriteObserve() throws InterruptedException {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .resolve());
+    EntityDescriptor gateway = repo
+        .findEntity("gateway")
+        .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<Object> armed = gateway
+        .findAttribute("armed")
+        .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+
+    // start replications
+    repo.getTransformations().forEach(this::runTransformation);
+    OnlineAttributeWriter writer = repo.getWriter(armed).get();
+    writer.write(
+        StreamElement.update(
+            gateway, armed, "uuid", "gw", armed.getName(),
+            System.currentTimeMillis(), new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+        });
+    // wait till write propagates
+    TimeUnit.MILLISECONDS.sleep(300);
+    RandomAccessReader reader = repo.getFamiliesForAttribute(armed)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(af -> af.getRandomAccessReader())
+        .orElseThrow(() -> new IllegalStateException("Missing random access reader for armed"));
+    Optional<KeyValue<Object>> kv = reader.get("gw", armed);
+    assertTrue(kv.isPresent());
+    assertEquals(armed, kv.get().getAttrDescriptor());
+  }
+
+  private void runTransformation(String name, TransformationDescriptor desc) {
+    desc.getAttributes().stream()
+        .flatMap(attr -> repo.getFamiliesForAttribute(attr)
+            .stream()
+            .filter(af -> af.getAccess().canReadCommitLog()))
+        .collect(Collectors.toSet())
+        .stream()
+        .findAny()
+        .get()
+        .getCommitLogReader()
+        .get()
+        .observe(name, new LogObserver() {
+          @Override
+          public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter committer) {
+            desc.getTransformation().apply(ingest, transformed -> {
+              repo.getWriter(transformed.getAttributeDescriptor())
+                  .get()
+                  .write(transformed, committer::commit);
+            });
+            return true;
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+
+        });
+
   }
 
 }

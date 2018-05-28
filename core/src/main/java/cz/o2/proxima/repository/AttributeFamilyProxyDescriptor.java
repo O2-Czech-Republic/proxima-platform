@@ -62,7 +62,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       AttributeFamilyDescriptor targetFamilyWrite) {
 
     super(
-        "proxy::" + targetAttribute.getName() + "::" + targetFamilyRead.getName(),
+        "proxy::" + targetAttribute.toAttributePrefix(false) + "::" + targetFamilyRead.getName(),
         targetFamilyRead.getType(),
         Arrays.asList(targetAttribute), getWriter(targetAttribute, targetFamilyWrite),
         getCommitLogReader(targetAttribute, targetFamilyRead),
@@ -286,9 +286,9 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           String key, RandomOffset offset,
           int limit, Consumer<KeyValue<?>> consumer) {
 
-        reader.scanWildcardAll(key, offset, limit, kv -> {
-          consumer.accept(transformToProxy(kv, targetAttribute));
-        });
+        reader.scanWildcardAll(
+            key, offset, limit,
+            kv -> consumer.accept(transformToProxy(kv, targetAttribute)));
       }
 
       @Override
@@ -641,7 +641,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       URI uri, AttributeFamilyDescriptor targetFamily) {
     try {
       return new URI(String.format(
-          "proxy-%s.%s", targetFamily.getName(), uri.toString()));
+          "proxy-%s.%s", targetFamily.getName(), uri.toString())
+          .replace("_", "-"));
     } catch (URISyntaxException ex) {
       throw new RuntimeException(ex);
     }

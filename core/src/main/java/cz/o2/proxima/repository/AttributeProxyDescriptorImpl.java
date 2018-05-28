@@ -23,22 +23,22 @@ import lombok.Getter;
 class AttributeProxyDescriptorImpl<T> extends AttributeDescriptorBase<T> {
 
   @Getter
-  private final AttributeDescriptorBase<T> readTarget;
+  private final AttributeDescriptor<T> readTarget;
 
   @Getter
   private final ProxyTransform readTransform;
 
   @Getter
-  private final AttributeDescriptorBase<T> writeTarget;
+  private final AttributeDescriptor<T> writeTarget;
 
   @Getter
   private final ProxyTransform writeTransform;
 
   AttributeProxyDescriptorImpl(
       String name,
-      AttributeDescriptorBase<T> readTarget,
+      AttributeDescriptor<T> readTarget,
       ProxyTransform readTransform,
-      AttributeDescriptorBase<T> writeTarget,
+      AttributeDescriptor<T> writeTarget,
       ProxyTransform writeTransform) {
 
     super(name, readTarget, writeTarget);

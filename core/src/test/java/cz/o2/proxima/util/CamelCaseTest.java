@@ -13,34 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package cz.o2.proxima.util;
 
-package cz.o2.proxima.repository;
-
-import cz.o2.proxima.annotations.Internal;
-import java.net.URI;
-import cz.o2.proxima.scheme.ValueSerializer;
-
-import javax.annotation.Nullable;
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
 
 /**
- * Descriptor of attribute of entity.
+ * Test suite for {@link CamelCase}.
  */
-@Internal
-public class AttributeDescriptorImpl<T>
-    extends AttributeDescriptorBase<T> {
+public class CamelCaseTest {
 
-  AttributeDescriptorImpl(
-      String name, String entity,
-      URI schemeURI, @Nullable ValueSerializer<T> serializer,
-      boolean replica) {
-
-    super(name, entity, schemeURI, serializer, replica);
+  @Test
+  public void testCamelCaseWithFirstLower() {
+    String input = "gateway-replication_test-123";
+    assertEquals("gatewayReplication_test123", CamelCase.apply(input, false));
   }
 
-
-  @Override
-  public String toString() {
-    return "AttributeDescriptor(entity=" + entity + ", name=" + name + ")";
+  @Test
+  public void testCamelCaseWithFirstUpper() {
+    String input = "gateway-replication_test-123";
+    assertEquals("GatewayReplication_test123", CamelCase.apply(input));
   }
 
 }

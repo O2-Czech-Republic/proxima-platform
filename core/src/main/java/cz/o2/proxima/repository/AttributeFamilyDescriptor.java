@@ -83,6 +83,11 @@ public class AttributeFamilyDescriptor implements Serializable {
 
     private Builder() { }
 
+    public Builder clearAttributes() {
+      attributes.clear();
+      return this;
+    }
+
     public Builder addAttribute(AttributeDescriptor<?> desc) {
       attributes.add(desc);
       return this;
@@ -279,6 +284,23 @@ public class AttributeFamilyDescriptor implements Serializable {
    */
   public Optional<String> getSource() {
     return Optional.ofNullable(source);
+  }
+
+  Builder toBuilder() {
+    Builder ret = new Builder()
+        .setAccess(access)
+        .setBatchObservable(batchObservable)
+        .setCachedView(cachedView)
+        .setCommitLog(commitLogReader)
+        .setFilter(filter)
+        .setName(name)
+        .setPartitionedView(partitionedView)
+        .setRandomAccess(randomAccess)
+        .setSource(source)
+        .setType(type)
+        .setWriter(writer);
+    attributes.forEach(ret::addAttribute);
+    return ret;
   }
 
 }

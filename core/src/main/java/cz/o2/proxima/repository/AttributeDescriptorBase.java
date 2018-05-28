@@ -44,11 +44,15 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   @Getter
   protected final boolean wildcard;
 
+  @Getter
+  protected final boolean replica;
+
   protected @Nullable final ValueSerializer<T> valueSerializer;
 
   public AttributeDescriptorBase(
       String name, String entity, URI schemeURI,
-      @Nullable ValueSerializer<T> valueSerializer) {
+      @Nullable ValueSerializer<T> valueSerializer,
+      boolean replica) {
 
     this.name = Objects.requireNonNull(name);
     this.entity = Objects.requireNonNull(entity);
@@ -56,6 +60,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
     this.wildcard = this.name.endsWith(".*");
     this.proxy = false;
     this.valueSerializer = valueSerializer;
+    this.replica = replica;
     if (this.wildcard) {
       if (name.length() < 3
           || name.substring(0, name.length() - 1).contains("*")
@@ -72,8 +77,8 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
 
   public AttributeDescriptorBase(
       String name,
-      AttributeDescriptorBase<T> targetRead,
-      AttributeDescriptorBase<T> targetWrite) {
+      AttributeDescriptor<T> targetRead,
+      AttributeDescriptor<T> targetWrite) {
 
     this.name = Objects.requireNonNull(name);
     Preconditions.checkArgument(
@@ -93,6 +98,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
     this.entity = targetRead.getEntity();
     this.schemeURI = targetRead.getSchemeURI();
     this.proxy = true;
+    this.replica = false;
     this.wildcard = targetRead.isWildcard();
     this.valueSerializer = targetRead.getValueSerializer();
   }
@@ -140,6 +146,10 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
         .setName(getName())
         .setEntity(getEntity())
         .setSchemeURI(getSchemeURI());
+  }
+
+  AttributeProxyDescriptorImpl<T> toProxy() {
+    return (AttributeProxyDescriptorImpl<T>) this;
   }
 
 }

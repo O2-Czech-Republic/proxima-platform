@@ -5,6 +5,9 @@ High level can be described by following scheme:
 
 ![high-level scheme](docs/design-platform.png)
 
+## Design document
+High level design document can be found [here](https://docs.google.com/document/d/1s6UFrEaFldjuGhLX9IosTnfNcMhMpvGjCWfI_5Lqqp4/edit?usp=sharing).
+
 ## Scheme definition
 First, let's introduce some glossary:
  * _entity_: a named dictionary consisting of string **key** and one or more _attributes_

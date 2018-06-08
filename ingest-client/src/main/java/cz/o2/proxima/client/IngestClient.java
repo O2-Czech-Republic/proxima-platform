@@ -17,6 +17,7 @@ package cz.o2.proxima.client;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.protobuf.TextFormat;
 import cz.o2.proxima.proto.service.IngestServiceGrpc;
 import cz.o2.proxima.proto.service.IngestServiceGrpc.IngestServiceStub;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
@@ -124,7 +125,9 @@ public class IngestClient implements AutoCloseable {
         final String uuid = status.getUuid();
         final Request request = inFlightRequests.remove(uuid);
         if (request == null) {
-          log.warn("Received response for unknown message " + status);
+          log.warn(
+              "Received response for unknown message {}",
+              TextFormat.shortDebugString(status));
         } else {
           synchronized (inFlightRequests) {
             inFlightRequests.notifyAll();

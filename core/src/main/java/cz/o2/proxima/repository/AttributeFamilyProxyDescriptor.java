@@ -49,11 +49,13 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Function;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Proxy attribute family applying transformations of attributes
  * to and from private space to public space.
  */
+@Slf4j
 class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
   AttributeFamilyProxyDescriptor(
@@ -66,7 +68,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         targetFamilyRead.getType(),
         Arrays.asList(targetAttribute), getWriter(targetAttribute, targetFamilyWrite),
         getCommitLogReader(targetAttribute, targetFamilyRead),
-        getBatchObservable(targetFamilyRead),
+        getBatchObservable(targetAttribute, targetFamilyRead),
         getRandomAccess(targetAttribute, targetFamilyRead),
         getPartitionedView(targetAttribute, targetFamilyRead),
         getPartitionedCachedView(targetAttribute, targetFamilyRead),
@@ -166,7 +168,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           BulkLogObserver observer) {
 
         return reader.observeBulk(
-            name, position, stopAtCurrent, wrapTransformed(observer));
+            name, position, stopAtCurrent, wrapTransformed(targetAttribute, observer));
       }
 
       @Override
@@ -182,7 +184,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           BulkLogObserver observer) {
 
         return reader.observeBulkPartitions(
-            partitions, position, stopAtCurrent, wrapTransformed(observer));
+            partitions, position, stopAtCurrent, wrapTransformed(targetAttribute, observer));
       }
 
       @Override
@@ -194,14 +196,15 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           BulkLogObserver observer) {
 
         return reader.observeBulkPartitions(
-            name, partitions, position, stopAtCurrent, wrapTransformed(observer));
+            name, partitions, position, stopAtCurrent, wrapTransformed(targetAttribute, observer));
       }
 
       @Override
       public ObserveHandle observeBulkOffsets(
           Collection<Offset> offsets, BulkLogObserver observer) {
 
-        return reader.observeBulkOffsets(offsets, wrapTransformed(observer));
+        return reader.observeBulkOffsets(
+            offsets, wrapTransformed(targetAttribute, observer));
       }
 
     };
@@ -209,6 +212,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
 
   private static BatchLogObservable getBatchObservable(
+      AttributeProxyDescriptorImpl targetDesc,
       AttributeFamilyDescriptor targetFamily) {
 
     Optional<BatchLogObservable> target = targetFamily.getBatchObservable();
@@ -229,7 +233,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           List<AttributeDescriptor<?>> attributes,
           BatchLogObserver observer) {
 
-        reader.observe(partitions, attributes, wrapTransformed(observer));
+        reader.observe(
+            partitions, attributes, wrapTransformed(targetDesc, observer));
       }
 
     };
@@ -489,7 +494,10 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     };
   }
 
-  static BulkLogObserver wrapTransformed(BulkLogObserver observer) {
+  static BulkLogObserver wrapTransformed(
+      AttributeProxyDescriptorImpl desc,
+      BulkLogObserver observer) {
+
     return new BulkLogObserver() {
 
       @Override
@@ -508,7 +516,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           Partition partition,
           BulkLogObserver.OffsetCommitter confirm) {
 
-        return observer.onNext(ingest, partition, confirm);
+        return observer.onNext(
+            transformToProxy(ingest, desc), partition, confirm);
       }
 
       @Override
@@ -524,7 +533,10 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     };
   }
 
-  static BatchLogObserver wrapTransformed(BatchLogObserver observer) {
+  static BatchLogObserver wrapTransformed(
+      AttributeProxyDescriptorImpl desc,
+      BatchLogObserver observer) {
+
     return new BatchLogObserver() {
 
       @Override
@@ -532,7 +544,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           StreamElement ingest,
           Partition partition) {
 
-        return observer.onNext(ingest, partition);
+        return observer.onNext(transformToProxy(ingest, desc), partition);
       }
 
       @Override

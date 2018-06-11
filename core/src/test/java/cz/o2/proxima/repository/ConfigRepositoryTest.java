@@ -19,6 +19,8 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.BulkLogObserver;
+import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
@@ -260,6 +262,113 @@ public class ConfigRepositoryTest {
     assertTrue(reader.get("key", target.toAttributePrefix() + "def", target).isPresent());
     assertTrue(view.get("key", source.toAttributePrefix() + "def", source).isPresent());
   }
+
+  @Test
+  public void testProxyObserve() throws InterruptedException, UnsupportedEncodingException {
+    EntityDescriptor proxied = repo.findEntity("proxied").get();
+    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    CommitLogReader reader = repo.getFamiliesForAttribute(source)
+        .stream()
+        .filter(af -> af.getAccess().canReadCommitLog())
+        .findAny()
+        .flatMap(af -> af.getCommitLogReader())
+        .get();
+    List<StreamElement> read = new ArrayList<>();
+    reader.observe("dummy", new LogObserver() {
+      @Override
+      public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter committer) {
+        read.add(ingest);
+        committer.confirm();
+        return true;
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+    }).waitUntilReady();
+
+    repo.getWriter(source).get().write(StreamElement.update(
+        proxied,
+        source, UUID.randomUUID().toString(),
+        "key", "event.abc", System.currentTimeMillis(), "test".getBytes("UTF-8")),
+        (s, exc) -> {
+          assertTrue(s);
+        });
+
+    repo.getWriter(source).get().write(StreamElement.update(
+        proxied,
+        source, UUID.randomUUID().toString(),
+        "key", "event.def", System.currentTimeMillis(), "test2".getBytes("UTF-8")),
+        (s, exc) -> {
+          assertTrue(s);
+        });
+
+    assertEquals(2, read.size());
+    assertEquals("test", new String((byte[]) read.get(0).getValue()));
+    assertEquals(source, read.get(0).getAttributeDescriptor());
+    assertEquals("event.abc", read.get(0).getAttribute());
+    assertEquals("key", read.get(0).getKey());
+
+    assertEquals("test2", new String((byte[]) read.get(1).getValue()));
+    assertEquals(source, read.get(1).getAttributeDescriptor());
+    assertEquals("event.def", read.get(1).getAttribute());
+    assertEquals("key", read.get(1).getKey());
+  }
+
+  @Test
+  public void testProxyObserveBulk() throws InterruptedException, UnsupportedEncodingException {
+    EntityDescriptor proxied = repo.findEntity("proxied").get();
+    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    CommitLogReader reader = repo.getFamiliesForAttribute(source)
+        .stream()
+        .filter(af -> af.getAccess().canReadCommitLog())
+        .findAny()
+        .flatMap(af -> af.getCommitLogReader())
+        .get();
+    List<StreamElement> read = new ArrayList<>();
+    reader.observeBulk("dummy", new BulkLogObserver() {
+      @Override
+      public boolean onNext(StreamElement ingest, BulkLogObserver.OffsetCommitter committer) {
+        read.add(ingest);
+        committer.confirm();
+        return true;
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+    }).waitUntilReady();
+
+    repo.getWriter(source).get().write(StreamElement.update(
+        proxied,
+        source, UUID.randomUUID().toString(),
+        "key", "event.abc", System.currentTimeMillis(), "test".getBytes("UTF-8")),
+        (s, exc) -> {
+          assertTrue(s);
+        });
+
+    repo.getWriter(source).get().write(StreamElement.update(
+        proxied,
+        source, UUID.randomUUID().toString(),
+        "key", "event.def", System.currentTimeMillis(), "test2".getBytes("UTF-8")),
+        (s, exc) -> {
+          assertTrue(s);
+        });
+
+    assertEquals(2, read.size());
+    assertEquals("test", new String((byte[]) read.get(0).getValue()));
+    assertEquals(source, read.get(0).getAttributeDescriptor());
+    assertEquals("event.abc", read.get(0).getAttribute());
+    assertEquals("key", read.get(0).getKey());
+
+    assertEquals("test2", new String((byte[]) read.get(1).getValue()));
+    assertEquals(source, read.get(1).getAttributeDescriptor());
+    assertEquals("event.def", read.get(1).getAttribute());
+    assertEquals("key", read.get(1).getKey());
+  }
+
 
   @Test
   public void testRepositorySerializable() throws Exception {

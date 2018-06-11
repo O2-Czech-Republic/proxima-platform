@@ -404,7 +404,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       ByteString data = m.getData();
       PubSub.KeyValue parsed = PubSub.KeyValue.parseFrom(data);
       long stamp = parsed.getStamp();
-      Optional<AttributeDescriptor<Object>> attribute = entity.findAttribute(parsed.getAttribute());
+      Optional<AttributeDescriptor<Object>> attribute = entity
+          .findAttribute(parsed.getAttribute(), true /* allow protected */);
       if (attribute.isPresent()) {
         if (parsed.getDelete()) {
           return Optional.of(StreamElement.delete(

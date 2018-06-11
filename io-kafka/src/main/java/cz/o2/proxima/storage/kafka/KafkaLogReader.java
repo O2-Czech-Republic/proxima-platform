@@ -477,7 +477,8 @@ public class KafkaLogReader extends AbstractStorage
             } else {
               String entityKey = key.substring(0, hashPos);
               String attribute = key.substring(hashPos + 1);
-              Optional<AttributeDescriptor<Object>> attr = getEntityDescriptor().findAttribute(attribute);
+              Optional<AttributeDescriptor<Object>> attr = getEntityDescriptor()
+                    .findAttribute(attribute, true /* allow reading protected */);
               if (!attr.isPresent()) {
                 log.error("Invalid attribute {} in kafka key {}", attribute, key);
               } else {

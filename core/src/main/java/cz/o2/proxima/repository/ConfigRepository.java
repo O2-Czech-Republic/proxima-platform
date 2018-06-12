@@ -338,7 +338,7 @@ public class ConfigRepository implements Repository, Serializable {
     }
 
     Map<String, Object> entitiesCfg = toMap("entities", entities.unwrapped());
-    List<Pair<String, String>> replicaEntities = new ArrayList<>();
+    List<Pair<String, String>> clonedEntities = new ArrayList<>();
     for (Map.Entry<String, Object> e : entitiesCfg.entrySet()) {
       String entityName = e.getKey();
       Map<String, Object> cfgMap = toMap("entities." + entityName, e.getValue());
@@ -350,14 +350,14 @@ public class ConfigRepository implements Repository, Serializable {
         entitiesByName.put(entityName, entity);
       } else if (cfgMap.get("from") != null) {
         String fromName = cfgMap.get("from").toString();
-        replicaEntities.add(Pair.of(entityName, fromName));
+        clonedEntities.add(Pair.of(entityName, fromName));
       } else {
         throw new IllegalArgumentException(
             "Invalid entity specfication. Entity " + entityName + " has no attributes");
       }
     }
 
-    for (Pair<String, String> p : replicaEntities) {
+    for (Pair<String, String> p : clonedEntities) {
       String entityName = p.getFirst();
       String fromName = p.getSecond();
       EntityDescriptor from = Optional
@@ -365,7 +365,7 @@ public class ConfigRepository implements Repository, Serializable {
           .orElseThrow(() -> new IllegalArgumentException(
               "Entity " + fromName + " doesn't exist"));
       EntityDescriptor entity = loadEntityFromExisting(entityName, from);
-      log.info("Adding entity {} as replica of {}", entityName, fromName);
+      log.info("Adding entity {} as clone of {}", entityName, fromName);
       entitiesByName.put(entityName, entity);
     }
 
@@ -883,7 +883,7 @@ public class ConfigRepository implements Repository, Serializable {
         // 2) write-only `replication_target_<name>_<target>` for targets
         // 3) `replication_<name>_write` for writes to original attributes
         // 4) `replication_<name>_replicated` for replicated data
-        createReplicationCommitLogs(
+        createReplicationCommitLog(
             replicationName,
             entity,
             attrs,
@@ -917,7 +917,7 @@ public class ConfigRepository implements Repository, Serializable {
     }
   }
 
-  private void createReplicationCommitLogs(
+  private void createReplicationCommitLog(
       String name,
       EntityDescriptor entity,
       Set<AttributeDescriptor<?>> attrs,
@@ -1193,11 +1193,20 @@ public class ConfigRepository implements Repository, Serializable {
   }
 
   private void loadProxiedFamilies() {
-    getAllEntities()
+    Map<Pair<AttributeFamilyDescriptor, AttributeFamilyDescriptor>,
+        List<AttributeProxyDescriptorImpl<?>>> readWriteToAttr;
+
+    // seek for attributes with the same read-write families
+    // and create new family for each such pair containing
+    // the attributes involved, thus reducing the number of created
+    // families (attributes stored in the same families will be
+    // proxied with single family, which will enable efficient
+    // reads of such attributes)
+    readWriteToAttr = getAllEntities()
         .flatMap(e -> e.getAllAttributes(true).stream())
         .filter(a -> ((AttributeDescriptorBase<?>) a).isProxy())
         .map(a -> ((AttributeDescriptorBase<?>) a).toProxy())
-        .forEach(p -> {
+        .flatMap(p -> {
           AttributeDescriptor<?> writeTarget = p.getWriteTarget();
           AttributeDescriptor<?> readTarget = p.getReadTarget();
           // find write family
@@ -1207,11 +1216,28 @@ public class ConfigRepository implements Repository, Serializable {
               .findAny()
               .orElseThrow(() -> new IllegalStateException(
                   "Missing primary storage for " + writeTarget));
-          attributeToFamily.put(p, getFamiliesForAttribute(readTarget)
+          return getFamiliesForAttribute(readTarget)
               .stream()
-              .map(af -> new AttributeFamilyProxyDescriptor(p, af, writeFamily))
-              .collect(Collectors.toSet()));
-        });
+              .map(af -> Pair.of(p, Pair.of(af, writeFamily)));
+        })
+        .collect(
+            Collectors.groupingBy(
+                Pair::getSecond,
+                Collectors.mapping(Pair::getFirst, Collectors.toList())));
+
+    readWriteToAttr.entrySet().stream().flatMap(e -> {
+      List<AttributeProxyDescriptorImpl<?>> v = e.getValue();
+      Pair<AttributeFamilyDescriptor, AttributeFamilyDescriptor> k = e.getKey();
+      return v
+          .stream()
+          .map(a -> Pair.of(
+              a,
+              AttributeFamilyProxyDescriptor.of(v, k.getFirst(), k.getSecond())));
+    })
+    .collect(Collectors.groupingBy(
+        Pair::getFirst,
+        Collectors.mapping(Pair::getSecond, Collectors.toSet())))
+    .forEach(this.attributeToFamily::put);
   }
 
   private void readTransformations(Config cfg) {

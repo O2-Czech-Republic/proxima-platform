@@ -26,8 +26,10 @@ import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.view.PartitionedCachedView;
 import cz.o2.proxima.view.PartitionedView;
+import cz.seznam.euphoria.shadow.com.google.common.collect.Lists;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -148,7 +150,7 @@ public class AttributeFamilyDescriptor implements Serializable {
 
   AttributeFamilyDescriptor(String name,
       StorageType type,
-      List<AttributeDescriptor<?>> attributes,
+      Collection<AttributeDescriptor<?>> attributes,
       @Nullable AttributeWriterBase writer,
       @Nullable CommitLogReader commitLogReader,
       @Nullable BatchLogObservable batchObservable,
@@ -161,7 +163,7 @@ public class AttributeFamilyDescriptor implements Serializable {
 
     this.name = Objects.requireNonNull(name);
     this.type = type;
-    this.attributes = Objects.requireNonNull(attributes);
+    this.attributes = Lists.newArrayList(Objects.requireNonNull(attributes));
     this.writer = writer;
     this.commitLogReader = commitLogReader;
     this.batchObservable = batchObservable;

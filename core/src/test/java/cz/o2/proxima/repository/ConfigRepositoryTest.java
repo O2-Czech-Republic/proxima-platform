@@ -120,7 +120,7 @@ public class ConfigRepositoryTest {
         .getFamiliesForAttribute(source);
     assertEquals(
         families.stream()
-          .map(a -> "proxy::event::" + a.getName())
+          .map(a -> "proxy::" + a.getName() + "::" + a.getName())
           .collect(Collectors.toList()),
         proxiedFamilies.stream()
           .map(a -> a.getName())
@@ -185,7 +185,7 @@ public class ConfigRepositoryTest {
         });
 
     KeyValue<?> kv = proxiedFamilies.iterator().next()
-        .getRandomAccessReader().get().get("key", "event.abc", target)
+        .getRandomAccessReader().get().get("key", "event.abc", source)
         .orElseGet(() -> {
           fail("Missing event.abc stored");
           return null;

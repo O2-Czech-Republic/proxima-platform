@@ -378,8 +378,15 @@ public class ConfigRepository implements Repository, Serializable {
   private void readEntityReplications(Object cfg) {
     Map<String, Object> map = toMap("replications", cfg);
     for (Map.Entry<String, Object> repl : map.entrySet()) {
-      log.info("Loading replication {}", repl.getKey());
       Map<String, Object> replMap = toMap(repl.getKey(), repl.getValue());
+      boolean disabled = Optional.ofNullable(replMap.get("disabled"))
+          .map(Object::toString)
+          .map(Boolean::valueOf)
+          .orElse(false);
+      if (disabled) {
+        log.info("Skipping load of disabled replication {}", repl.getKey());
+        continue;
+      }
       String entityName = Optional.ofNullable(replMap.get("entity"))
           .map(Object::toString)
           .orElseThrow(() -> new IllegalArgumentException(
@@ -442,6 +449,7 @@ public class ConfigRepository implements Repository, Serializable {
             });
       });
       entitiesByName.put(entityName, builder.build());
+      log.info("Loaded replication {}", repl.getKey());
     }
   }
 
@@ -842,6 +850,13 @@ public class ConfigRepository implements Repository, Serializable {
     for (Map.Entry<String, ConfigValue> e : replications.entrySet()) {
       String replicationName = e.getKey();
       Map<String, Object> replConf = toMap(e.getKey(), e.getValue().unwrapped());
+      boolean disabled = Optional.ofNullable(replConf.get("disabled"))
+          .map(Object::toString)
+          .map(Boolean::valueOf)
+          .orElse(false);
+      if (disabled) {
+        continue;
+      }
       Map<String, Object> targets = Optional
           .ofNullable(replConf.get("targets"))
           .map(t -> toMap("targets", t))
@@ -927,8 +942,11 @@ public class ConfigRepository implements Repository, Serializable {
       AttributeFamilyDescriptor sourceFamily) throws URISyntaxException {
 
     // create parent settings for families
-    List<String> attrList = attrs.stream()
-        .map(a -> a.getName()).collect(Collectors.toList());
+    List<String> attrList = attrs
+        .stream()
+        .map(a -> a.getName())
+        .collect(Collectors.toList());
+
     Map<String, Object> cfgMapTemplate = new HashMap<String, Object>() {{
       put("entity", entity.getName());
       put("attributes", attrList);
@@ -982,6 +1000,7 @@ public class ConfigRepository implements Repository, Serializable {
       loadSingleFamily(String.format(
           "replication_target_%s_%s", name, tgt.getKey()), cfg);
     }
+
   }
 
   private void createReplicationTransformations(
@@ -1141,8 +1160,13 @@ public class ConfigRepository implements Repository, Serializable {
       Set<AttributeDescriptor<?>> attrs,
       boolean readNonReplicatedOnly) {
 
-    // remove all families of the original attribute, it will be just proxy
-    attrs.forEach(this.attributeToFamily::remove);
+    // remove primary family of the original attribute, it will be just proxy
+    attrs.forEach(attr -> this.attributeToFamily.put(
+        attr,
+        this.attributeToFamily.get(attr)
+            .stream()
+            .filter(af -> af.getType() != StorageType.PRIMARY)
+            .collect(Collectors.toSet())));
     EntityDescriptor.Builder builder = entity.toBuilder();
     for (AttributeDescriptor<?> proxy : attrs) {
       AttributeDescriptor source = entity.findAttribute(
@@ -1237,7 +1261,12 @@ public class ConfigRepository implements Repository, Serializable {
     .collect(Collectors.groupingBy(
         Pair::getFirst,
         Collectors.mapping(Pair::getSecond, Collectors.toSet())))
-    .forEach(this.attributeToFamily::put);
+    .forEach((attr, families) -> {
+      Set<AttributeFamilyDescriptor> current = attributeToFamily.computeIfAbsent(
+          attr, tmp -> new HashSet<>());
+      current.addAll(families);
+    });
+
   }
 
   private void readTransformations(Config cfg) {

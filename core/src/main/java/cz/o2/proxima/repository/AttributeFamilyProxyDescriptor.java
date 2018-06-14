@@ -45,7 +45,9 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -83,7 +85,21 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     }
 
     List<AttributeProxyDescriptorImpl<?>> lookupRead(String name) {
-      return lookup(readNameToDesc, name);
+      List<AttributeProxyDescriptorImpl<?>> read = readNameToDesc.get(name);
+      if (read == null) {
+        log.debug(
+            "Fallbacking to lookup of proxy attribute with name {}. "
+                + "This can happen when switching to and from replicated modes.",
+            name);
+        // FIXME
+        try {
+          return Arrays.asList(lookupProxy(name));
+        } catch (Exception ex) {
+          log.error("Failed to lookup name {}, returning empty list. Fix code!", name, ex);
+          return Collections.emptyList();
+        }
+      }
+      return read;
     }
 
     AttributeProxyDescriptorImpl<?> lookupProxy(String name) {
@@ -123,7 +139,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         getBatchObservable(lookup, targetFamilyRead),
         getRandomAccess(lookup, targetFamilyRead),
         getPartitionedView(lookup, targetFamilyRead),
-        getPartitionedCachedView(lookup, targetFamilyRead),
+        getPartitionedCachedView(lookup, targetFamilyRead, targetFamilyWrite),
         targetFamilyRead.getType() == StorageType.PRIMARY
             ? targetFamilyRead.getAccess()
             : AccessType.or(targetFamilyRead.getAccess(), AccessType.from("read-only")),
@@ -428,14 +444,16 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
   private static PartitionedCachedView getPartitionedCachedView(
       AttrLookup lookup,
-      AttributeFamilyDescriptor targetFamily) {
+      AttributeFamilyDescriptor targetFamilyRead,
+      AttributeFamilyDescriptor targetFamilyWrite) {
 
-    Optional<PartitionedCachedView> target = targetFamily.getPartitionedCachedView();
+    Optional<PartitionedCachedView> target = targetFamilyRead.getPartitionedCachedView();
     if (!target.isPresent()) {
       return null;
     }
-    PartitionedCachedView view = target.get();
-    final URI uri = getProxyURI(view.getURI(), targetFamily);
+    final PartitionedCachedView view = target.get();
+    final OnlineAttributeWriter writer = targetFamilyWrite.getWriter().get().online();
+    final URI uri = getProxyURI(view.getURI(), targetFamilyRead);
 
     return new PartitionedCachedView() {
 
@@ -444,7 +462,12 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           Collection<Partition> partitions,
           BiConsumer<StreamElement, Pair<Long, Object>> updateCallback) {
 
-        view.assign(partitions, updateCallback);
+        view.assign(partitions, (elem, pair) -> {
+          lookup.lookupRead(elem.getAttributeDescriptor().getName())
+              .forEach(attr -> updateCallback.accept(
+                  transformToProxy(elem, attr),
+                  pair));
+        });
       }
 
       @Override
@@ -527,7 +550,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       public void write(StreamElement data, CommitCallback statusCallback) {
         AttributeProxyDescriptorImpl<?> target = lookup.lookupProxy(
             data.getAttributeDescriptor().getName());
-        view.write(
+        view.cache(transformToRawRead(data, target));
+        writer.write(
             transformToRaw(data, target),
             statusCallback);
       }
@@ -535,6 +559,13 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       @Override
       public URI getURI() {
         return uri;
+      }
+
+      @Override
+      public void cache(StreamElement element) {
+        AttributeProxyDescriptorImpl<?> target = lookup.lookupProxy(
+            element.getAttributeDescriptor().getName());
+        view.cache(transformToRawRead(element, target));
       }
 
     };
@@ -551,12 +582,18 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       public boolean onNext(
           StreamElement ingest, LogObserver.OffsetCommitter confirm) {
 
-        return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
-            .stream()
-            .map(attr -> observer.onNext(transformToProxy(ingest, attr), confirm))
-            .filter(c -> !c)
-            .findFirst()
-            .orElse(true);
+        try {
+          return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
+              .stream()
+              .map(attr -> observer.onNext(transformToProxy(ingest, attr), confirm))
+              .filter(c -> !c)
+              .findFirst()
+              .orElse(true);
+        } catch (Exception ex) {
+          log.error("Failed to transform ingest {}", ingest, ex);
+          confirm.confirm();
+          return true;
+        }
       }
 
       @Override
@@ -599,12 +636,18 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           Partition partition,
           BulkLogObserver.OffsetCommitter confirm) {
 
-        return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
-            .stream()
-            .map(attr -> observer.onNext(transformToProxy(ingest, attr), partition, confirm))
-            .filter(c -> !c)
-            .findFirst()
-            .orElse(true);
+        try {
+          return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
+              .stream()
+              .map(attr -> observer.onNext(transformToProxy(ingest, attr), partition, confirm))
+              .filter(c -> !c)
+              .findFirst()
+              .orElse(true);
+        } catch (Exception ex) {
+          log.error("Failed to transform ingest {}", ingest, ex);
+          confirm.confirm();
+          return true;
+        }
       }
 
       @Override
@@ -631,12 +674,17 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           StreamElement ingest,
           Partition partition) {
 
-        return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
-            .stream()
-            .map(attr -> observer.onNext(transformToProxy(ingest, attr), partition))
-            .filter(c -> !c)
-            .findFirst()
-            .orElse(true);
+        try {
+          return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
+              .stream()
+              .map(attr -> observer.onNext(transformToProxy(ingest, attr), partition))
+              .filter(c -> !c)
+              .findFirst()
+              .orElse(true);
+        } catch (Exception ex) {
+          log.error("Failed to transform ingest {}", ingest, ex);
+          return true;
+        }
       }
 
       @Override
@@ -670,14 +718,19 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           Partition partition,
           Consumer<T> collector) {
 
-        return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
-            .stream()
-            .map(attr -> observer.onNext(
-                transformToProxy(ingest, attr),
-                confirm, partition, collector))
-            .filter(c -> !c)
-            .findFirst()
-            .orElse(true);
+        try {
+          return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
+              .stream()
+              .map(attr -> observer.onNext(
+                  transformToProxy(ingest, attr),
+                  confirm, partition, collector))
+              .filter(c -> !c)
+              .findFirst()
+              .orElse(true);
+        } catch (Exception ex) {
+          log.error("Failed to transform ingest {}", ingest, ex);
+          return true;
+        }
       }
 
       @Override
@@ -704,6 +757,16 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
   }
 
   @SuppressWarnings("unchecked")
+  private static StreamElement transformToRawRead(
+      StreamElement data,
+      AttributeProxyDescriptorImpl targetReadDesc) {
+
+    return transform(data,
+        targetReadDesc.getWriteTarget(),
+        targetReadDesc.getWriteTransform()::fromProxy);
+  }
+
+  @SuppressWarnings("unchecked")
   private static StreamElement transformToProxy(
       StreamElement data,
       AttributeProxyDescriptorImpl<?> targetDesc) {
@@ -720,7 +783,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         kv.getEntityDescriptor(),
         targetDesc, kv.getKey(),
         targetDesc.getReadTransform().toProxy(kv.getAttribute()),
-        kv.getOffset(), kv.getValueBytes());
+        kv.getOffset(), kv.getValue(), kv.getValueBytes(), kv.getStamp());
   }
 
   @SuppressWarnings("unchecked")

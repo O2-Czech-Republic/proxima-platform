@@ -74,6 +74,26 @@ public interface ProxyTransform extends Serializable {
     };
   }
 
+  static ProxyTransform droppingUntilCharacter(char character, String rawPrefix) {
+    return new ProxyTransform() {
+
+      @Override
+      public String fromProxy(String proxy) {
+        return rawPrefix + proxy;
+      }
+
+      @Override
+      public String toProxy(String raw) {
+        int pos = raw.indexOf(character);
+        if (pos > 0) {
+          return raw.substring(pos + 1);
+        }
+        return raw;
+      }
+
+    };
+  }
+
 
   /**
    * Apply transformation to attribute name from proxy naming.

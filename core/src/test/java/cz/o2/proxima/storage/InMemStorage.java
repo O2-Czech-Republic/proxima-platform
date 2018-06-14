@@ -539,11 +539,7 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
-      updateCallback.accept(
-          data,
-          Pair.of(-1L, get(
-              data.getKey(), data.getAttribute(),
-              data.getAttributeDescriptor()).orElse(null)));
+      cache(data);
       writer.write(data, statusCallback);
     }
 
@@ -558,6 +554,15 @@ public class InMemStorage extends StorageDescriptor {
         int limit, Consumer<KeyValue<?>> consumer) {
 
       reader.scanWildcardAll(key, offset, limit, consumer);
+    }
+
+    @Override
+    public void cache(StreamElement element) {
+      updateCallback.accept(
+          element,
+          Pair.of(-1L, get(
+              element.getKey(), element.getAttribute(),
+              element.getAttributeDescriptor()).orElse(null)));
     }
 
   }

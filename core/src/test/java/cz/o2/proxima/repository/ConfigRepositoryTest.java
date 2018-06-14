@@ -52,10 +52,15 @@ public class ConfigRepositoryTest {
   private final ConfigRepository repo;
 
   public ConfigRepositoryTest() {
-    this.repo = ConfigRepository.Builder.of(
-        ConfigFactory.load()
-            .withFallback(ConfigFactory.load("test-reference.conf"))
-            .resolve()).build();
+    try {
+      this.repo = ConfigRepository.Builder.of(
+          ConfigFactory.load()
+              .withFallback(ConfigFactory.load("test-reference.conf"))
+              .resolve()).build();
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw new RuntimeException(ex);
+    }
   }
 
   @Test

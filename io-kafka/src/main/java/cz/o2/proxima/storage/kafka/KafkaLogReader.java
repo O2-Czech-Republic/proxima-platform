@@ -30,6 +30,7 @@ import cz.o2.proxima.storage.commitlog.Offset;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.storage.kafka.Consumers.BulkConsumer;
 import cz.o2.proxima.storage.kafka.Consumers.OnlineConsumer;
+import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.o2.proxima.view.input.DataSourceUtils;
@@ -460,8 +461,9 @@ public class KafkaLogReader extends AbstractStorage
               consumer.onAssign(kafka, kafka.assignment().stream()
                   .map(tp -> new TopicOffset(tp.partition(), kafka.position(tp)))
                   .collect(Collectors.toList()));
+              log.info("Seeked consumer to offsets {} as requested", seekOffsets);
               seekOffsets.clear();
-              continue;
+              poll = ConsumerRecords.empty();
             }
           }
           for (ConsumerRecord<String, byte[]> r : poll) {
@@ -490,14 +492,8 @@ public class KafkaLogReader extends AbstractStorage
             }
             boolean cont = consumer.consumeWithConfirm(
                 ingest, tp, r.offset(), exc -> error.set(exc));
-            if (endOffsets != null) {
-              Long offset = endOffsets.get(tp);
-              if (offset != null && offset <= r.offset() + 1) {
-                endOffsets.remove(tp);
-              }
-            }
             if (!cont) {
-              log.info("Terminating consumption of by request");
+              log.info("Terminating consumption by request");
               completed.set(true);
               break;
             }
@@ -507,9 +503,18 @@ public class KafkaLogReader extends AbstractStorage
           if (!commitMapClone.isEmpty()) {
             kafka.commitSync(commitMapClone);
           }
-          if (stopAtCurrent && endOffsets.isEmpty()) {
-            log.info("Reached end of current data. Terminating consumption.");
-            completed.set(true);
+          if (stopAtCurrent) {
+            endOffsets.entrySet()
+                .stream()
+                .map(e -> Pair.of(e.getKey(), kafka.position(e.getKey())))
+                .filter(p -> endOffsets.get(p.getFirst()) <= p.getSecond())
+                .map(Pair::getFirst)
+                .collect(Collectors.toList())
+                .forEach(endOffsets::remove);
+            if (endOffsets.isEmpty()) {
+              log.info("Reached end of current data. Terminating consumption.");
+              completed.set(true);
+            }
           }
           Throwable errorThrown = error.getAndSet(null);
           if (errorThrown != null) {

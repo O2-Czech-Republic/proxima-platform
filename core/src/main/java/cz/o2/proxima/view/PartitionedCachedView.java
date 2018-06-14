@@ -67,4 +67,12 @@ public interface PartitionedCachedView
    */
   Collection<Partition> getAssigned();
 
+  /**
+   * Cache given {@link StreamElement} into local cache without writing
+   * it to the underlaying writer. This is used in conjunction with
+   * attribute family proxy.
+   * @param element the data to cache
+   */
+  void cache(StreamElement element);
+
 }

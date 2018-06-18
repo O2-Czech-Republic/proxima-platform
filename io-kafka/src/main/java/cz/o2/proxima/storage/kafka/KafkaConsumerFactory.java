@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -32,6 +33,7 @@ import org.apache.kafka.common.serialization.Serdes;
 /**
  * Factory for {@code KafkaConsumer}s attached to the given commit log.
  */
+@Slf4j
 public class KafkaConsumerFactory {
 
   /** URI of the log. */
@@ -53,6 +55,8 @@ public class KafkaConsumerFactory {
       String name,
       @Nullable ConsumerRebalanceListener listener) {
 
+    log.debug("Creating named consumer with name {} and listener {}", name, listener);
+    Properties props = new Properties(this.props);
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
     props.put(ConsumerConfig.GROUP_ID_CONFIG, name);
     props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 0);
@@ -80,6 +84,8 @@ public class KafkaConsumerFactory {
   }
 
   public KafkaConsumer<String, byte[]> create(Collection<Partition> partitions) {
+    log.debug("Creating unnamed consumer for partitions {}", partitions);
+    Properties props = new Properties(this.props);
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
@@ -101,6 +107,8 @@ public class KafkaConsumerFactory {
    * @return unnamed {@link KafkaConsumer} for all partitions
    */
   public KafkaConsumer<String, byte[]> create() {
+    log.debug("Creating unnamed consumer for all partitions of topic {}", topic);
+    Properties props = new Properties(this.props);
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,

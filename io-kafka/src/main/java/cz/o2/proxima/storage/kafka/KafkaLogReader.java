@@ -30,7 +30,6 @@ import cz.o2.proxima.storage.commitlog.Offset;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.storage.kafka.Consumers.BulkConsumer;
 import cz.o2.proxima.storage.kafka.Consumers.OnlineConsumer;
-import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
 import cz.o2.proxima.view.input.DataSourceUtils;
@@ -47,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -416,27 +416,8 @@ public class KafkaLogReader extends AbstractStorage
       });
       AtomicReference<KafkaConsumer<String, byte[]>> consumerRef = new AtomicReference<>();
       try (KafkaConsumer<String, byte[]> kafka = createConsumer(
-          name, offsets, listener(consumerRef, consumer), position)) {
+          name, offsets, listener(name, consumerRef, consumer), position)) {
         consumerRef.set(kafka);
-
-        // we need to poll first to initialize kafka assignments and
-        // rebalance listener
-        ConsumerRecords<String, byte[]> poll = kafka.poll(consumerPollInterval);
-        if (offsets != null) {
-          // when manual offsets are assigned, we need to ensure calling
-          // onAssign by hand
-          consumer.onAssign(kafka, kafka.assignment()
-              .stream()
-              .map(tp -> {
-                long offset = Optional.ofNullable(kafka.committed(tp))
-                    .map(OffsetAndMetadata::offset)
-                    .orElse(0L);
-                return new TopicOffset(tp.partition(), offset);
-              })
-              .collect(Collectors.toList()));
-        }
-
-        latch.countDown();
 
         final Map<TopicPartition, Long> endOffsets;
         if (stopAtCurrent) {
@@ -452,6 +433,31 @@ public class KafkaLogReader extends AbstractStorage
         } else {
           endOffsets = null;
         }
+
+        // we need to poll first to initialize kafka assignments and
+        // rebalance listener
+        if (offsets != null) {
+          // when manual offsets are assigned, we need to ensure calling
+          // onAssign by hand
+          consumer.onAssign(kafka, kafka.assignment()
+              .stream()
+              .map(tp -> {
+                final long offset;
+                if (name != null) {
+                  offset = Optional.ofNullable(kafka.committed(tp))
+                    .map(OffsetAndMetadata::offset)
+                    .orElse(0L);
+                } else {
+                  offset = kafka.position(tp);
+                }
+                return new TopicOffset(tp.partition(), offset);
+              })
+              .collect(Collectors.toList()));
+        }
+
+        ConsumerRecords<String, byte[]> poll = kafka.poll(consumerPollInterval);
+
+        latch.countDown();
 
         AtomicReference<Throwable> error = new AtomicReference<>();
         do {
@@ -497,6 +503,12 @@ public class KafkaLogReader extends AbstractStorage
               completed.set(true);
               break;
             }
+            if (stopAtCurrent) {
+              Long end = endOffsets.get(tp);
+              if (end != null && end - 1 <= r.offset()) {
+                endOffsets.remove(tp);
+              }
+            }
           }
           Map<TopicPartition, OffsetAndMetadata> commitMapClone;
           commitMapClone = consumer.prepareOffsetsForCommit();
@@ -504,13 +516,6 @@ public class KafkaLogReader extends AbstractStorage
             kafka.commitSync(commitMapClone);
           }
           if (stopAtCurrent) {
-            endOffsets.entrySet()
-                .stream()
-                .map(e -> Pair.of(e.getKey(), kafka.position(e.getKey())))
-                .filter(p -> endOffsets.get(p.getFirst()) <= p.getSecond())
-                .map(Pair::getFirst)
-                .collect(Collectors.toList())
-                .forEach(endOffsets::remove);
             if (endOffsets.isEmpty()) {
               log.info("Reached end of current data. Terminating consumption.");
               completed.set(true);
@@ -546,7 +551,8 @@ public class KafkaLogReader extends AbstractStorage
 
 
   private KafkaConsumer<String, byte[]> createConsumer() {
-    return createConsumer("dummy-consumer", null, null, Position.NEWEST);
+    return createConsumer(
+        UUID.randomUUID().toString(), null, null, Position.NEWEST);
   }
 
   /** Create kafka consumer for the data. */
@@ -557,9 +563,15 @@ public class KafkaLogReader extends AbstractStorage
       @Nullable ConsumerRebalanceListener listener,
       Position position) {
 
+    Preconditions.checkArgument(
+        name != null || listener == null,
+        "Please use either named group (with listener) or offsets without listener");
     KafkaConsumerFactory factory = accessor.createConsumerFactory();
     final KafkaConsumer<String, byte[]> consumer;
 
+    if ("".equals(name)) {
+      throw new IllegalArgumentException("Consumer group cannot be empty string");
+    }
     if (name != null) {
       consumer = factory.create(name, listener);
     } else if (offsets != null) {
@@ -637,9 +649,13 @@ public class KafkaLogReader extends AbstractStorage
 
   // create rebalance listener from consumer
   private ConsumerRebalanceListener listener(
+      String name,
       AtomicReference<KafkaConsumer<String, byte[]>> kafka,
       ElementConsumer consumer) {
 
+    if (name == null) {
+      return null;
+    }
     return new ConsumerRebalanceListener() {
       @Override
       public void onPartitionsRevoked(Collection<TopicPartition> parts) {

@@ -387,6 +387,10 @@ public class ConfigRepository implements Repository, Serializable {
         log.info("Skipping load of disabled replication {}", repl.getKey());
         continue;
       }
+      boolean readOnly = Optional.ofNullable(replMap.get("read-only"))
+          .map(Object::toString)
+          .map(Boolean::valueOf)
+          .orElse(false);
       String entityName = Optional.ofNullable(replMap.get("entity"))
           .map(Object::toString)
           .orElseThrow(() -> new IllegalArgumentException(
@@ -415,23 +419,25 @@ public class ConfigRepository implements Repository, Serializable {
 
       EntityDescriptor.Builder builder = entity.toBuilder();
       attrs.forEach(a -> {
-        for (String target : targets) {
-          String name = toReplicationTargetName(repl.getKey(), target, a.getName());
+        if (!readOnly) {
+          for (String target : targets) {
+            String name = toReplicationTargetName(repl.getKey(), target, a.getName());
+            builder.addAttribute(
+                AttributeDescriptor.newBuilder(this)
+                    .setEntity(entityName)
+                    .setSchemeURI(a.getSchemeURI())
+                    .setName(name)
+                    .setReplica(true)
+                    .build());
+          }
           builder.addAttribute(
-              AttributeDescriptor.newBuilder(this)
-                  .setEntity(entityName)
-                  .setSchemeURI(a.getSchemeURI())
-                  .setName(name)
-                  .setReplica(true)
-                  .build());
+                AttributeDescriptor.newBuilder(this)
+                    .setEntity(entityName)
+                    .setSchemeURI(a.getSchemeURI())
+                    .setName(toReplicationWriteName(repl.getKey(), a.getName()))
+                    .setReplica(true)
+                    .build());
         }
-        builder.addAttribute(
-              AttributeDescriptor.newBuilder(this)
-                  .setEntity(entityName)
-                  .setSchemeURI(a.getSchemeURI())
-                  .setName(toReplicationWriteName(repl.getKey(), a.getName()))
-                  .setReplica(true)
-                  .build());
         builder.addAttribute(AttributeDescriptor.newBuilder(this)
                   .setEntity(entityName)
                   .setSchemeURI(a.getSchemeURI())
@@ -857,6 +863,11 @@ public class ConfigRepository implements Repository, Serializable {
       if (disabled) {
         continue;
       }
+      boolean readOnly = Optional.ofNullable(replConf.get("read-only"))
+          .map(Object::toString)
+          .map(Boolean::valueOf)
+          .orElse(false);
+
       Map<String, Object> targets = Optional
           .ofNullable(replConf.get("targets"))
           .map(t -> toMap("targets", t))
@@ -905,26 +916,30 @@ public class ConfigRepository implements Repository, Serializable {
             source,
             via,
             targets,
-            sourceFamily);
+            sourceFamily,
+            readOnly);
 
-        // add the following renaming transformations
-        // 1) _<replication_name>_read$attr -> _<replication_name>_replicated$attr
-        // 2) _<replication_name>_write$attr -> _<replication_name>_replicated$attr
-        // 3) _<replication_name>_write$attr -> _<replication_name>_<target>_$attr
-        createReplicationTransformations(
-            replicationName,
-            entity,
-            targets.keySet());
+        if (!readOnly) {
+          // add the following renaming transformations
+          // 1) _<replication_name>_read$attr -> _<replication_name>_replicated$attr
+          // 2) _<replication_name>_write$attr -> _<replication_name>_replicated$attr
+          // 3) _<replication_name>_write$attr -> _<replication_name>_<target>$attr
+          createReplicationTransformations(
+              replicationName,
+              entity,
+              targets.keySet());
+        }
 
         // remove the original attribute and replace it with proxy
-        // 1) on write: write to _<replication_name>_write$attr
+        // 1) on write: write to _<replication_name>_write$attr (or original attribute if readOnly)
         // 2) on read: read from _<replication_name>_replicated$attr, or _<replication_name>_write$attr
         //             if configured to read non-replicated data only
         bindReplicationProxies(
             replicationName,
             entity,
             attrs,
-            false);
+            false,
+            readOnly);
 
       } catch (URISyntaxException ex) {
         throw new RuntimeException(ex);
@@ -939,7 +954,8 @@ public class ConfigRepository implements Repository, Serializable {
       Map<String, Object> source,
       Map<String, Object> via,
       Map<String, Object> targets,
-      AttributeFamilyDescriptor sourceFamily) throws URISyntaxException {
+      AttributeFamilyDescriptor sourceFamily,
+      boolean readOnly) throws URISyntaxException {
 
     // create parent settings for families
     List<String> attrList = attrs
@@ -965,21 +981,6 @@ public class ConfigRepository implements Repository, Serializable {
       loadSingleFamily(String.format("replication_%s_source", name), cfg);
     }
     {
-      Preconditions.checkArgument(
-          !via.isEmpty(),
-          "Missing required settings for replication `via` settings");
-      // create family for writes and replication
-      Map<String, Object> cfg = new HashMap<>(cfgMapTemplate);
-      // this can be overridden
-      cfg.put("access", "commit-log");
-      cfg.putAll(via);
-      cfg.put("attributes", attrList
-          .stream()
-          .map(a -> toReplicationWriteName(name, a))
-          .collect(Collectors.toList()));
-      loadSingleFamily(String.format("replication_%s_write", name), cfg);
-    }
-    {
       AttributeFamilyDescriptor.Builder builder = sourceFamily.toBuilder()
           .setName(String.format("replication_%s_replicated", name))
           .clearAttributes();
@@ -989,16 +990,33 @@ public class ConfigRepository implements Repository, Serializable {
           .forEach(builder::addAttribute);
       insertFamily(builder.build());
     }
-    for (Map.Entry<String, Object> tgt : targets.entrySet()) {
-      Map<String, Object> cfg = new HashMap<>(cfgMapTemplate);
-      cfg.putAll(toMap(tgt.getKey(), tgt.getValue()));
-      cfg.put("access", "write-only");
-      cfg.put("attributes", attrList
-          .stream()
-          .map(a -> toReplicationTargetName(name, tgt.getKey(), a))
-          .collect(Collectors.toList()));
-      loadSingleFamily(String.format(
-          "replication_target_%s_%s", name, tgt.getKey()), cfg);
+    if (!readOnly) {
+      {
+        Preconditions.checkArgument(
+            !via.isEmpty(),
+            "Missing required settings for replication `via` settings");
+        // create family for writes and replication
+        Map<String, Object> cfg = new HashMap<>(cfgMapTemplate);
+        // this can be overridden
+        cfg.put("access", "commit-log");
+        cfg.putAll(via);
+        cfg.put("attributes", attrList
+            .stream()
+            .map(a -> toReplicationWriteName(name, a))
+            .collect(Collectors.toList()));
+        loadSingleFamily(String.format("replication_%s_write", name), cfg);
+      }
+      for (Map.Entry<String, Object> tgt : targets.entrySet()) {
+        Map<String, Object> cfg = new HashMap<>(cfgMapTemplate);
+        cfg.putAll(toMap(tgt.getKey(), tgt.getValue()));
+        cfg.put("access", "write-only");
+        cfg.put("attributes", attrList
+            .stream()
+            .map(a -> toReplicationTargetName(name, tgt.getKey(), a))
+            .collect(Collectors.toList()));
+        loadSingleFamily(String.format(
+            "replication_target_%s_%s", name, tgt.getKey()), cfg);
+      }
     }
 
   }
@@ -1158,14 +1176,15 @@ public class ConfigRepository implements Repository, Serializable {
       String name,
       EntityDescriptor entity,
       Set<AttributeDescriptor<?>> attrs,
-      boolean readNonReplicatedOnly) {
+      boolean readNonReplicatedOnly,
+      boolean readOnly) {
 
     // remove primary family of the original attribute, it will be just proxy
     attrs.forEach(attr -> this.attributeToFamily.put(
         attr,
         this.attributeToFamily.get(attr)
             .stream()
-            .filter(af -> af.getType() != StorageType.PRIMARY)
+            .filter(af -> af.getType() != StorageType.PRIMARY || readOnly)
             .collect(Collectors.toSet())));
     EntityDescriptor.Builder builder = entity.toBuilder();
     for (AttributeDescriptor<?> proxy : attrs) {
@@ -1173,8 +1192,10 @@ public class ConfigRepository implements Repository, Serializable {
           readNonReplicatedOnly
               ? toReplicationWriteName(name, proxy.getName())
               : toReplicationProxyName(name, proxy.getName()), true).get();
-      AttributeDescriptor target = entity.findAttribute(
-          toReplicationWriteName(name, proxy.getName()), true).get();
+      AttributeDescriptor target = readOnly
+          ? proxy
+          : entity.findAttribute(toReplicationWriteName(
+              name, proxy.getName()), true).get();
       builder.addAttribute(
           AttributeDescriptor.newProxy(
               proxy.getName(),
@@ -1264,6 +1285,10 @@ public class ConfigRepository implements Repository, Serializable {
     .forEach((attr, families) -> {
       Set<AttributeFamilyDescriptor> current = attributeToFamily.computeIfAbsent(
           attr, tmp -> new HashSet<>());
+      current.stream()
+          .filter(af -> af.getType() == StorageType.PRIMARY)
+          .collect(Collectors.toList())
+          .forEach(current::remove);
       current.addAll(families);
     });
 

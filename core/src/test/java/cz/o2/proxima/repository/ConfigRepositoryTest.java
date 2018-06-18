@@ -52,15 +52,10 @@ public class ConfigRepositoryTest {
   private final ConfigRepository repo;
 
   public ConfigRepositoryTest() {
-    try {
-      this.repo = ConfigRepository.Builder.of(
-          ConfigFactory.load()
-              .withFallback(ConfigFactory.load("test-reference.conf"))
-              .resolve()).build();
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw new RuntimeException(ex);
-    }
+    this.repo = ConfigRepository.Builder.of(
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve()).build();
   }
 
   @Test
@@ -460,6 +455,57 @@ public class ConfigRepositoryTest {
     Optional<KeyValue<Object>> kv = reader.get("gw", armed);
     assertTrue(kv.isPresent());
     assertEquals(armed, kv.get().getAttrDescriptor());
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test(timeout = 2000)
+  public void testReplicationWriteReadonlyObserve() throws InterruptedException {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            // make the replication read-only
+            .withFallback(ConfigFactory.parseString("replications.gateway-replication.read-only = true"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .resolve());
+    EntityDescriptor gateway = repo
+        .findEntity("gateway")
+        .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<Object> armed = gateway
+        .findAttribute("armed")
+        .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+
+    TimeUnit.MILLISECONDS.sleep(300);
+    CommitLogReader reader = repo.getFamiliesForAttribute(armed)
+        .stream()
+        .filter(af -> af.getAccess().canReadCommitLog())
+        .findAny()
+        .flatMap(af -> af.getCommitLogReader())
+        .orElseThrow(() -> new IllegalStateException("Missing random access reader for armed"));
+    CountDownLatch latch = new CountDownLatch(1);
+    reader.observe("dummy", new LogObserver() {
+      @Override
+      public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter committer) {
+        assertEquals(ingest.getAttributeDescriptor(), armed);
+        latch.countDown();
+        committer.confirm();
+        return true;
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+    });
+    OnlineAttributeWriter writer = repo.getWriter(armed).get();
+    writer.write(
+        StreamElement.update(
+            gateway, armed, "uuid", "gw", armed.getName(),
+            System.currentTimeMillis(), new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+        });
+    latch.await();
   }
 
   private void runTransformation(String name, TransformationDescriptor desc) {

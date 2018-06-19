@@ -125,9 +125,10 @@ public class KafkaLogReader extends AbstractStorage
   public ObserveHandle observeBulk(
       String name,
       Position position,
+      boolean stopAtCurrent,
       BulkLogObserver observer) {
 
-    return observeKafkaBulk(name, null, position, observer);
+    return observeKafkaBulk(name, null, position, stopAtCurrent, observer);
   }
 
   @Override
@@ -135,17 +136,22 @@ public class KafkaLogReader extends AbstractStorage
       String name,
       Collection<Partition> partitions,
       Position position,
+      boolean stopAtCurrent,
       BulkLogObserver observer) {
 
     // name is ignored, because when observing partition the offsets
     // are not committed to kafka
-    return observeKafkaBulk(null, asOffsets(partitions), position, observer);
+    return observeKafkaBulk(
+        null, asOffsets(partitions),
+        position, stopAtCurrent,
+        observer);
   }
 
   @Override
   public ObserveHandle observeBulkOffsets(
       Collection<Offset> offsets, BulkLogObserver observer) {
-    return observeKafkaBulk(null, offsets, Position.CURRENT, observer);
+
+    return observeKafkaBulk(null, offsets, Position.CURRENT, false, observer);
   }
 
   @Override
@@ -246,6 +252,7 @@ public class KafkaLogReader extends AbstractStorage
       @Nullable String name,
       @Nullable Collection<Offset> offsets,
       Position position,
+      boolean stopAtCurrent,
       BulkLogObserver observer) {
 
     Preconditions.checkArgument(
@@ -258,7 +265,7 @@ public class KafkaLogReader extends AbstractStorage
 
     try {
       return processConsumerBulk(
-          name, offsets, position, false,
+          name, offsets, position, stopAtCurrent,
           name != null, observer, context.getExecutorService());
     } catch (InterruptedException ex) {
       log.warn("Interrupted waiting for kafka observer to start", ex);

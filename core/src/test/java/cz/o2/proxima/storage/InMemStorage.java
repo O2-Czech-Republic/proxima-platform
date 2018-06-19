@@ -214,6 +214,7 @@ public class InMemStorage extends StorageDescriptor {
     public ObserveHandle observeBulk(
         String name,
         Position position,
+        boolean stopAtCurrent,
         BulkLogObserver observer) {
 
       if (position != Position.NEWEST) {
@@ -318,6 +319,7 @@ public class InMemStorage extends StorageDescriptor {
         String name,
         Collection<Partition> partitions,
         Position position,
+        boolean stopAtCurrent,
         BulkLogObserver observer) {
 
       return observeBulk(name, position, observer);

@@ -17,7 +17,6 @@ package cz.o2.proxima.view;
 
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.CommitCallback;
@@ -25,6 +24,7 @@ import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
+import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.ObserveHandle;
 import cz.o2.proxima.storage.commitlog.Offset;
 import cz.o2.proxima.storage.commitlog.Position;
@@ -44,7 +44,6 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -58,9 +57,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class LocalCachedPartitionedView implements PartitionedCachedView {
 
-  private final KafkaLogReader reader;
+  private final CommitLogReader reader;
   private final EntityDescriptor entity;
-  private final Factory<ExecutorService> executorFactory;
 
   /**
    * Writer to persist data to.
@@ -80,8 +78,6 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
   private final AtomicReference<ObserveHandle> handle = new AtomicReference<>();
 
   private BiConsumer<StreamElement, Pair<Long, Object>> updateCallback = (e, old) -> { };
-
-  private transient ExecutorService executor;
 
   public LocalCachedPartitionedView(
       EntityDescriptor entity, CommitLogReader reader, OnlineAttributeWriter writer) {
@@ -151,9 +147,6 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
 
     close();
     this.updateCallback = Objects.requireNonNull(updateCallback);
-    if (executor == null) {
-      executor = executorFactory.apply();
-    }
     CountDownLatch latch = new CountDownLatch(1);
     AtomicLong prefetchedCount = new AtomicLong();
 
@@ -188,22 +181,22 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
       }
 
     };
-    KafkaLogObserver observer = new KafkaLogObserver() {
+    BulkLogObserver observer = new BulkLogObserver() {
 
       @Override
       public boolean onNext(
           StreamElement ingest,
-          KafkaLogObserver.ConfirmCallback confirm,
-          Partition partition) {
+          Partition partition,
+          OffsetCommitter confirm) {
 
         try {
           onCache(
               ingest,
               false /* don't overwrite already stored data at the same stamp */);
-          confirm.apply(true, null);
+          confirm.confirm();
           return true;
         } catch (Throwable err) {
-          confirm.apply(false, err);
+          confirm.fail(err);
           return false;
         }
       }
@@ -215,11 +208,6 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
         return false;
       }
 
-      @Override
-      public void onRepartition(Collection<Partition> assigned) {
-        // should not happen
-      }
-
     };
     try {
       // prefetch the data
@@ -227,19 +215,15 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
           "Starting prefetching old topic data for partitions {} with preUpdate {}",
           partitions.stream().map(Partition::getId).collect(Collectors.toList()),
           updateCallback);
-      ObserveHandle h = reader.processConsumerBulk(
-          null, partitions.stream()
-              .map(p -> new TopicOffset(p.getId(), -1L)).collect(Collectors.toList()),
-          Position.OLDEST, true, false, prefetchObserver, executor);
+      ObserveHandle h = reader.observeBulkPartitions(
+          partitions, Position.OLDEST, true, prefetchObserver);
       latch.await();
       log.info(
           "Finished prefetching of data after {} records. Starting consumption of updates.",
           prefetchedCount.get());
       List<Offset> offsets = h.getCommittedOffsets();
       // continue the processing
-      handle.set(reader.processConsumer(
-          null, offsets,
-          Position.CURRENT, false, false, observer, executor));
+      handle.set(reader.observeBulkOffsets(offsets, observer));
       handle.get().waitUntilReady();
     } catch (InterruptedException ex) {
       throw new RuntimeException(ex);

@@ -264,7 +264,7 @@ public class ConfigRepository implements Repository, Serializable {
 
   }
 
-  void reloadConfig(boolean loadFamilies, Config conf) {
+  public final void reloadConfig(boolean loadFamilies, Config conf) {
 
     this.config = conf;
     this.attributeToFamily.clear();
@@ -1277,7 +1277,11 @@ public class ConfigRepository implements Repository, Serializable {
           .stream()
           .map(a -> Pair.of(
               a,
-              AttributeFamilyProxyDescriptor.of(v, k.getFirst(), k.getSecond())));
+              AttributeFamilyProxyDescriptor.of(
+                  findEntity(a.getEntity())
+                      .orElseThrow(() -> new IllegalStateException(
+                          "Entity " + a.getEntity() + " should be present")),
+                  v, k.getFirst(), k.getSecond())));
     })
     .collect(Collectors.groupingBy(
         Pair::getFirst,

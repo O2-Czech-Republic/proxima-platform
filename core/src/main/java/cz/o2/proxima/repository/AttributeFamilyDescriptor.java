@@ -304,5 +304,5 @@ public class AttributeFamilyDescriptor implements Serializable {
     attributes.forEach(ret::addAttribute);
     return ret;
   }
-
+  
 }

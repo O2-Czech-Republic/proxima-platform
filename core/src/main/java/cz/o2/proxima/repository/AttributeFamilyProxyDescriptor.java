@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.repository;
 
-import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.AttributeWriterBase;
@@ -36,6 +35,7 @@ import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.view.LocalCachedPartitionedView;
 import cz.o2.proxima.view.PartitionedCachedView;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
@@ -114,18 +114,21 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
   }
 
   static AttributeFamilyDescriptor of(
+      EntityDescriptor entity,
       List<AttributeProxyDescriptorImpl<?>> attrs,
       AttributeFamilyDescriptor targetFamilyRead,
       AttributeFamilyDescriptor targetFamilyWrite) {
 
 
     return new AttributeFamilyProxyDescriptor(
+        entity,
         new AttrLookup(attrs),
         targetFamilyRead, targetFamilyWrite);
   }
 
   @SuppressWarnings("unchecked")
   private AttributeFamilyProxyDescriptor(
+      EntityDescriptor entity,
       AttrLookup lookup,
       AttributeFamilyDescriptor targetFamilyRead,
       AttributeFamilyDescriptor targetFamilyWrite) {
@@ -139,7 +142,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         getBatchObservable(lookup, targetFamilyRead),
         getRandomAccess(lookup, targetFamilyRead),
         getPartitionedView(lookup, targetFamilyRead),
-        getPartitionedCachedView(lookup, targetFamilyRead, targetFamilyWrite),
+        getPartitionedCachedView(entity, lookup, targetFamilyRead, targetFamilyWrite),
         targetFamilyRead.getType() == StorageType.PRIMARY
             ? targetFamilyRead.getAccess()
             : AccessType.or(targetFamilyRead.getAccess(), AccessType.from("read-only")),
@@ -443,132 +446,15 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
   }
 
   private static PartitionedCachedView getPartitionedCachedView(
+      EntityDescriptor entity,
       AttrLookup lookup,
       AttributeFamilyDescriptor targetFamilyRead,
       AttributeFamilyDescriptor targetFamilyWrite) {
 
-    Optional<PartitionedCachedView> target = targetFamilyRead.getPartitionedCachedView();
-    if (!target.isPresent()) {
-      return null;
-    }
-    final PartitionedCachedView view = target.get();
-    final OnlineAttributeWriter writer = targetFamilyWrite.getWriter().get().online();
-    final URI uri = getProxyURI(view.getURI(), targetFamilyRead);
-
-    return new PartitionedCachedView() {
-
-      @Override
-      public void assign(
-          Collection<Partition> partitions,
-          BiConsumer<StreamElement, Pair<Long, Object>> updateCallback) {
-
-        view.assign(partitions, (elem, pair) -> {
-          lookup.lookupRead(elem.getAttributeDescriptor().getName())
-              .forEach(attr -> updateCallback.accept(
-                  transformToProxy(elem, attr),
-                  pair));
-        });
-      }
-
-      @Override
-      public Collection<Partition> getAssigned() {
-        return view.getAssigned();
-      }
-
-      @Override
-      public RandomOffset fetchOffset(
-          RandomAccessReader.Listing type, String key) {
-
-        if (type == Listing.ATTRIBUTE) {
-          AttributeProxyDescriptorImpl<?> targetAttribute = lookup.lookupProxy(
-              toAttrName(key));
-          return view.fetchOffset(
-              type, targetAttribute.getReadTransform().fromProxy(key));
-        }
-        return view.fetchOffset(type, key);
-      }
-
-      @SuppressWarnings("unchecked")
-      @Override
-      public <T> Optional<KeyValue<T>> get(
-          String key, String attribute, AttributeDescriptor<T> desc) {
-
-        AttributeProxyDescriptorImpl<?> targetAttribute = lookup.lookupProxy(desc.getName());
-        ProxyTransform transform = targetAttribute.getReadTransform();
-        return view.get(key, transform.fromProxy(attribute), desc)
-            .map(kv -> (KeyValue) transformToProxy(kv, targetAttribute));
-      }
-
-      @Override
-      public void scanWildcardAll(
-          String key, RandomOffset offset, int limit,
-          Consumer<KeyValue<?>> consumer) {
-
-        view.scanWildcardAll(key, offset, limit, kv -> {
-          lookup.lookupRead(kv.getAttrDescriptor().getName())
-              .stream()
-              .forEach(attr -> consumer.accept(transformToProxy(kv, attr)));
-        });
-
-      }
-
-      @SuppressWarnings("unchecked")
-      @Override
-      public <T> void scanWildcard(
-          String key, AttributeDescriptor<T> wildcard,
-          RandomOffset offset, int limit, Consumer<KeyValue<T>> consumer) {
-
-        AttributeProxyDescriptorImpl<?> targetAttribute = lookup.lookupProxy(
-            wildcard.getName());
-        if (!targetAttribute.isWildcard()) {
-          throw new IllegalArgumentException(
-              "Proxy target is not wildcard attribute!");
-        }
-        view.scanWildcard(key, targetAttribute.getReadTarget(), offset, limit,
-            kv -> consumer.accept((KeyValue) transformToProxy(kv, targetAttribute)));
-      }
-
-      @Override
-      public void listEntities(
-          RandomOffset offset, int limit,
-          Consumer<Pair<RandomOffset, String>> consumer) {
-
-        view.listEntities(offset, limit, consumer);
-      }
-
-      @Override
-      public void close() throws IOException {
-        view.close();
-      }
-
-      @Override
-      public EntityDescriptor getEntityDescriptor() {
-        return view.getEntityDescriptor();
-      }
-
-      @Override
-      public void write(StreamElement data, CommitCallback statusCallback) {
-        AttributeProxyDescriptorImpl<?> target = lookup.lookupProxy(
-            data.getAttributeDescriptor().getName());
-        view.cache(transformToRawRead(data, target));
-        writer.write(
-            transformToRaw(data, target),
-            statusCallback);
-      }
-
-      @Override
-      public URI getURI() {
-        return uri;
-      }
-
-      @Override
-      public void cache(StreamElement element) {
-        AttributeProxyDescriptorImpl<?> target = lookup.lookupProxy(
-            element.getAttributeDescriptor().getName());
-        view.cache(transformToRawRead(element, target));
-      }
-
-    };
+    return new LocalCachedPartitionedView(
+        entity,
+        getCommitLogReader(lookup, targetFamilyRead),
+        getWriter(lookup, targetFamilyWrite));
   }
 
   @SuppressWarnings("unchecked")
@@ -762,8 +648,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       AttributeProxyDescriptorImpl targetReadDesc) {
 
     return transform(data,
-        targetReadDesc.getWriteTarget(),
-        targetReadDesc.getWriteTransform()::fromProxy);
+        targetReadDesc.getReadTarget(),
+        targetReadDesc.getReadTransform()::fromProxy);
   }
 
   @SuppressWarnings("unchecked")

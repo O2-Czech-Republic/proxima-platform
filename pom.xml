@@ -75,7 +75,7 @@
     <kafka.version>0.11.0.1</kafka.version>
     <proto.version>3.5.1</proto.version>
     <protoc.version>3.5.1-1</protoc.version>
-    <grpc.version>1.9.0</grpc.version>
+    <grpc.version>1.12.0</grpc.version>
     <euphoria.version>0.9-SNAPSHOT</euphoria.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

@@ -253,6 +253,18 @@ public class IngestClient implements AutoCloseable {
       ensureChannel();
     }
 
+    ScheduledFuture<?> scheduled = null;
+    if (timeout > 0) {
+      scheduled = timer.schedule(() -> {
+        inFlightRequests.remove(ingest.getUuid());
+        statusConsumer.accept(Rpc.Status.newBuilder()
+            .setStatus(504)
+            .setStatusMessage(
+                "Timeout while waiting for response of request UUID " + ingest.getUuid())
+            .build());
+      }, timeout, unit);
+    }
+
     while (!isRetry && inFlightRequests.size() >= options.getMaxInflightRequests()) {
       synchronized (inFlightRequests) {
         try {
@@ -266,18 +278,6 @@ public class IngestClient implements AutoCloseable {
           return;
         }
       }
-    }
-
-    ScheduledFuture<?> scheduled = null;
-    if (timeout > 0) {
-      scheduled = timer.schedule(() -> {
-        inFlightRequests.remove(ingest.getUuid());
-        statusConsumer.accept(Rpc.Status.newBuilder()
-            .setStatus(504)
-            .setStatusMessage(
-                "Timeout while waiting for response of request UUID " + ingest.getUuid())
-            .build());
-      }, timeout, unit);
     }
 
     inFlightRequests.putIfAbsent(ingest.getUuid(),
@@ -295,7 +295,7 @@ public class IngestClient implements AutoCloseable {
   }
 
   @VisibleForTesting
-  void createChannelAndStub() {
+  synchronized void createChannelAndStub() {
 
     if (channel == null) {
       channel = ManagedChannelBuilder
@@ -358,9 +358,13 @@ public class IngestClient implements AutoCloseable {
     }
   }
 
-  private void flush() {
+  private synchronized void flush() {
     if (requestObserver != null) {
       requestObserver.onNext(bulkBuilder.build());
+    } else {
+      log.warn(
+          "Cannot send bulk due to null observer. "
+              + "This might suggest bug in code.");
     }
     bulkBuilder.clear();
   }

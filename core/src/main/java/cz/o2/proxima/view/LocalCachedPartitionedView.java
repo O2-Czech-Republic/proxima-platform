@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.storage.kafka;
+package cz.o2.proxima.view;
 
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
@@ -32,8 +32,6 @@ import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.storage.randomaccess.RawOffset;
 import cz.o2.proxima.util.Pair;
-import cz.o2.proxima.view.PartitionedCachedView;
-import cz.o2.proxima.view.PartitionedView;
 import java.net.URI;
 import java.util.Collection;
 import java.util.Collections;
@@ -58,7 +56,7 @@ import lombok.extern.slf4j.Slf4j;
  * A transformation view from {@link PartitionedView} to {@link PartitionedCachedView}.
  */
 @Slf4j
-class LocalCachedPartitionedView implements PartitionedCachedView {
+public class LocalCachedPartitionedView implements PartitionedCachedView {
 
   private final KafkaLogReader reader;
   private final EntityDescriptor entity;
@@ -71,7 +69,7 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
 
   /**
    * Cache for data in memory.
-   * Entity key -> Attribute -> (timestamp, value)
+   * Entity key -&gt; Attribute -&gt; (timestamp, value)
    */
   private final Map<String, NavigableMap<String, Pair<Long, Object>>> cache =
       Collections.synchronizedMap(new HashMap<>());
@@ -86,12 +84,10 @@ class LocalCachedPartitionedView implements PartitionedCachedView {
   private transient ExecutorService executor;
 
   public LocalCachedPartitionedView(
-      KafkaLogReader reader, OnlineAttributeWriter writer,
-      Factory<ExecutorService> executorFactory) {
+      EntityDescriptor entity, CommitLogReader reader, OnlineAttributeWriter writer) {
 
     this.reader = reader;
-    this.entity = reader.getEntityDescriptor();
-    this.executorFactory = executorFactory;
+    this.entity = entity;
     this.writer = writer;
   }
 

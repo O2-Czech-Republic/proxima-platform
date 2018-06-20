@@ -56,7 +56,7 @@ public class KafkaConsumerFactory {
       @Nullable ConsumerRebalanceListener listener) {
 
     log.debug("Creating named consumer with name {} and listener {}", name, listener);
-    Properties props = new Properties(this.props);
+    Properties props = clone(this.props);
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
     props.put(ConsumerConfig.GROUP_ID_CONFIG, name);
     props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 0);
@@ -85,7 +85,7 @@ public class KafkaConsumerFactory {
 
   public KafkaConsumer<String, byte[]> create(Collection<Partition> partitions) {
     log.debug("Creating unnamed consumer for partitions {}", partitions);
-    Properties props = new Properties(this.props);
+    Properties props = clone(this.props);
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
@@ -108,7 +108,7 @@ public class KafkaConsumerFactory {
    */
   public KafkaConsumer<String, byte[]> create() {
     log.debug("Creating unnamed consumer for all partitions of topic {}", topic);
-    Properties props = new Properties(this.props);
+    Properties props = clone(this.props);
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
@@ -122,6 +122,12 @@ public class KafkaConsumerFactory {
         .collect(Collectors.toList());
 
     ret.assign(partitions);
+    return ret;
+  }
+
+  private Properties clone(Properties props) {
+    Properties ret = new Properties();
+    props.forEach(ret::put);
     return ret;
   }
 

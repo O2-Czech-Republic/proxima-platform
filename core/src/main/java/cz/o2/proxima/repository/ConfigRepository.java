@@ -938,7 +938,18 @@ public class ConfigRepository implements Repository, Serializable {
             replicationName,
             entity,
             attrs,
-            false,
+            Optional.ofNullable(replConf.get("read"))
+                .map(Object::toString)
+                .map(s -> {
+                  if (s.equals("local") || s.equals("all")) {
+                    return s;
+                  }
+                  throw new IllegalArgumentException(String.format(
+                      "`read' parameter of %s must be either `local' or `all'",
+                      replicationName));
+                })
+                .map(s -> s.equals("local"))
+                .orElse(false),
             readOnly);
 
       } catch (URISyntaxException ex) {
@@ -1258,9 +1269,10 @@ public class ConfigRepository implements Repository, Serializable {
           AttributeFamilyDescriptor writeFamily = getFamiliesForAttribute(writeTarget)
               .stream()
               .filter(af -> af.getType() == StorageType.PRIMARY)
-              .findAny()
-              .orElseThrow(() -> new IllegalStateException(
-                  "Missing primary storage for " + writeTarget));
+              .findFirst()
+              .orElseThrow(() -> new IllegalStateException(String.format(
+                  "Missing primary storage for %s. Found families %s",
+                  writeTarget, getFamiliesForAttribute(writeTarget))));
           return getFamiliesForAttribute(readTarget)
               .stream()
               .map(af -> Pair.of(p, Pair.of(af, writeFamily)));

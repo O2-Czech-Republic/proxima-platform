@@ -181,7 +181,7 @@ public class AttributeFamilyDescriptor implements Serializable {
 
   @Override
   public String toString() {
-    return "AttributeFamily(" + name + ")";
+    return "AttributeFamily(name=" + name + ", attributes=" + attributes + ")";
   }
 
   @Override
@@ -304,5 +304,5 @@ public class AttributeFamilyDescriptor implements Serializable {
     attributes.forEach(ret::addAttribute);
     return ret;
   }
-  
+
 }

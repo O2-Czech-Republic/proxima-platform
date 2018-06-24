@@ -160,10 +160,11 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
       @Override
       public ObserveHandle observeBulk(
-          String name, Position position,
+          String name, Position position, boolean stopAtCurrent,
           BulkLogObserver observer) {
 
-        return reader.observeBulk(name, position, wrapTransformed(observer));
+        return reader.observeBulk(
+            name, position, stopAtCurrent, wrapTransformed(observer));
       }
 
       @Override
@@ -175,10 +176,11 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       public ObserveHandle observeBulkPartitions(
           Collection<Partition> partitions,
           Position position,
+          boolean stopAtCurrent,
           BulkLogObserver observer) {
 
         return reader.observeBulkPartitions(
-            partitions, position, wrapTransformed(observer));
+            partitions, position, stopAtCurrent, wrapTransformed(observer));
       }
 
       @Override
@@ -186,10 +188,11 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           String name,
           Collection<Partition> partitions,
           Position position,
+          boolean stopAtCurrent,
           BulkLogObserver observer) {
 
         return reader.observeBulkPartitions(
-            name, partitions, position, wrapTransformed(observer));
+            name, partitions, position, stopAtCurrent, wrapTransformed(observer));
       }
 
       @Override

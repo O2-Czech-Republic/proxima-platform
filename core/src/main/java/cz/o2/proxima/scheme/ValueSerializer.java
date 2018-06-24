@@ -40,13 +40,11 @@ public interface ValueSerializer<T> extends Serializable {
    */
   byte[] serialize(T value);
 
-
   /**
    * Retrieve a default value for the type.
    * @return default value of the type
    */
   T getDefault();
-
 
   /**
    * Check if given input is valid by trying to parse it.

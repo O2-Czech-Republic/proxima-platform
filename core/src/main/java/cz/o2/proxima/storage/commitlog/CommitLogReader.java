@@ -164,13 +164,35 @@ public interface CommitLogReader extends Closeable, Serializable {
    * data processing.
    * @param name name of the observer
    * @param position the position to seek to in the partitions
+   * @param stopAtCurrent when {@code true} then stop the observer as soon
+   *                      as it reaches most recent record
    * @param observer the observer to subscribe
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   ObserveHandle observeBulk(
       String name,
       Position position,
+      boolean stopAtCurrent,
       BulkLogObserver observer);
+
+
+  /**
+   * Subscribe to the commit log in a bulk fashion. That implies that elements
+   * are not committed one-by-one, but in a bulks, where all elements in a bulk
+   * are committed at once. This is useful for micro-batching approach of
+   * data processing.
+   * @param name name of the observer
+   * @param position the position to seek to in the partitions
+   * @param observer the observer to subscribe
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  default ObserveHandle observeBulk(
+      String name,
+      Position position,
+      BulkLogObserver observer) {
+
+    return observeBulk(name, position, false, observer);
+  }
 
 
   /**
@@ -197,11 +219,55 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @param observer the observer to subscribe to the partitions
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
+  default ObserveHandle observeBulkPartitions(
+      String name,
+      Collection<Partition> partitions,
+      Position position,
+      BulkLogObserver observer) {
+
+    return observeBulkPartitions(name, partitions, position, false, observer);
+  }
+
+
+  /**
+   * Subscribe to given partitions in a bulk fashion.
+   * @param name name of the observer
+   * @param partitions the partitions to subscribe to
+   * @param position the position to seek to in the partitions
+   * @param stopAtCurrent when {@code true} then stop the observer as soon
+   *                      as it reaches most recent record
+   * @param observer the observer to subscribe to the partitions
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
   ObserveHandle observeBulkPartitions(
       String name,
       Collection<Partition> partitions,
       Position position,
+      boolean stopAtCurrent,
       BulkLogObserver observer);
+
+  /**
+   * Subscribe to given partitions in a bulk fashion.
+   * @param partitions the partitions to subscribe to
+   * @param position the position to seek to in the partitions
+   * @param stopAtCurrent when {@code true} then stop the observer as soon
+   *                      as it reaches most recent record
+   * @param observer the observer to subscribe to the partitions
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  default ObserveHandle observeBulkPartitions(
+      Collection<Partition> partitions,
+      Position position,
+      boolean stopAtCurrent,
+      BulkLogObserver observer) {
+
+    return observeBulkPartitions(
+        "unnamed-proxima-bulk-consumer-" + UUID.randomUUID().toString(),
+        partitions,
+        position,
+        stopAtCurrent,
+        observer);
+  }
 
   /**
    * Subscribe to given partitions in a bulk fashion.
@@ -216,11 +282,12 @@ public interface CommitLogReader extends Closeable, Serializable {
       BulkLogObserver observer) {
 
     return observeBulkPartitions(
-        "unnamed-proxima-bulk-consumer-" + UUID.randomUUID().toString(),
         partitions,
         position,
+        false,
         observer);
   }
+
 
   /**
    * Consume from given offsets in a bulk fashion. A typical use-case for this

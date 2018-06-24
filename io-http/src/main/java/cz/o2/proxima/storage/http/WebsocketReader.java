@@ -120,7 +120,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
   @Override
   public ObserveHandle observeBulk(
-      String name, Position position, BulkLogObserver observer) {
+      String name, Position position, boolean stopAtCurrent, BulkLogObserver observer) {
 
     if (position == Position.OLDEST) {
       throw new UnsupportedOperationException(
@@ -134,7 +134,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   @Override
   public ObserveHandle observeBulkPartitions(
       String name, Collection<Partition> partitions, Position position,
-      BulkLogObserver observer) {
+      boolean stopAtCurrent, BulkLogObserver observer) {
 
     return observeBulk(name, position, observer);
   }

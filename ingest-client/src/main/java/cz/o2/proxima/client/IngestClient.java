@@ -17,6 +17,7 @@ package cz.o2.proxima.client;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.protobuf.TextFormat;
 import cz.o2.proxima.proto.service.IngestServiceGrpc;
 import cz.o2.proxima.proto.service.IngestServiceGrpc.IngestServiceStub;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
@@ -124,7 +125,9 @@ public class IngestClient implements AutoCloseable {
         final String uuid = status.getUuid();
         final Request request = inFlightRequests.remove(uuid);
         if (request == null) {
-          log.warn("Received response for unknown message " + status);
+          log.warn(
+              "Received response for unknown message {}",
+              TextFormat.shortDebugString(status));
         } else {
           synchronized (inFlightRequests) {
             inFlightRequests.notifyAll();
@@ -250,6 +253,18 @@ public class IngestClient implements AutoCloseable {
       ensureChannel();
     }
 
+    ScheduledFuture<?> scheduled = null;
+    if (timeout > 0) {
+      scheduled = timer.schedule(() -> {
+        inFlightRequests.remove(ingest.getUuid());
+        statusConsumer.accept(Rpc.Status.newBuilder()
+            .setStatus(504)
+            .setStatusMessage(
+                "Timeout while waiting for response of request UUID " + ingest.getUuid())
+            .build());
+      }, timeout, unit);
+    }
+
     while (!isRetry && inFlightRequests.size() >= options.getMaxInflightRequests()) {
       synchronized (inFlightRequests) {
         try {
@@ -263,18 +278,6 @@ public class IngestClient implements AutoCloseable {
           return;
         }
       }
-    }
-
-    ScheduledFuture<?> scheduled = null;
-    if (timeout > 0) {
-      scheduled = timer.schedule(() -> {
-        inFlightRequests.remove(ingest.getUuid());
-        statusConsumer.accept(Rpc.Status.newBuilder()
-            .setStatus(504)
-            .setStatusMessage(
-                "Timeout while waiting for response of request UUID " + ingest.getUuid())
-            .build());
-      }, timeout, unit);
     }
 
     inFlightRequests.putIfAbsent(ingest.getUuid(),
@@ -292,7 +295,7 @@ public class IngestClient implements AutoCloseable {
   }
 
   @VisibleForTesting
-  void createChannelAndStub() {
+  synchronized void createChannelAndStub() {
 
     if (channel == null) {
       channel = ManagedChannelBuilder
@@ -355,9 +358,13 @@ public class IngestClient implements AutoCloseable {
     }
   }
 
-  private void flush() {
+  private synchronized void flush() {
     if (requestObserver != null) {
       requestObserver.onNext(bulkBuilder.build());
+    } else {
+      log.warn(
+          "Cannot send bulk due to null observer. "
+              + "This might suggest bug in code.");
     }
     bulkBuilder.clear();
   }

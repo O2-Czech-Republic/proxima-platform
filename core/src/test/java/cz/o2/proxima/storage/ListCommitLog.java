@@ -119,7 +119,8 @@ public class ListCommitLog implements CommitLogReader {
 
   @Override
   public ObserveHandle observeBulk(
-      String name, Position position, BulkLogObserver observer) {
+      String name, Position position, boolean stopAtCurrent,
+      BulkLogObserver observer) {
 
     observer.onRestart(Arrays.asList(() -> () -> 0));
     pushTo(element -> observer.onNext(element, () -> 0, (succ, exc) -> {
@@ -133,7 +134,7 @@ public class ListCommitLog implements CommitLogReader {
   @Override
   public ObserveHandle observeBulkPartitions(
       String name, Collection<Partition> partitions,
-      Position position, BulkLogObserver observer) {
+      Position position, boolean stopAtCurrent, BulkLogObserver observer) {
 
     return observeBulk(name, position, observer);
   }
@@ -141,6 +142,7 @@ public class ListCommitLog implements CommitLogReader {
   @Override
   public ObserveHandle observeBulkOffsets(
       Collection<Offset> offsets, BulkLogObserver observer) {
+
     return observeBulk(null, null, observer);
   }
 

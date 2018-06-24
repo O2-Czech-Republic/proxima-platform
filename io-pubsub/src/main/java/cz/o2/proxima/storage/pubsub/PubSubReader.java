@@ -154,12 +154,20 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
    * messages.
    * @param name name of the observer subscription
    * @param position must be set to NEWEST
+   * @param stopAtCurrent throw {@link UnsupportedOperationException} when {@code true}
    * @param observer the observer of data
    * @return handle to interact with the observation thread
    */
   @Override
   public ObserveHandle observeBulk(
-      @Nullable String name, Position position, BulkLogObserver observer) {
+      @Nullable String name, Position position,
+      boolean stopAtCurrent,
+      BulkLogObserver observer) {
+
+    if (stopAtCurrent) {
+      throw new UnsupportedOperationException(
+          "PubSub can observe only current data.");
+    }
 
     validatePosition(position);
     AtomicReference<List<AckReplyConsumer>> unconfirmed = new AtomicReference<>(
@@ -228,7 +236,13 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       @Nullable String name,
       Collection<Partition> partitions,
       Position position,
+      boolean stopAtCurrent,
       BulkLogObserver observer) {
+
+    if (stopAtCurrent) {
+      throw new UnsupportedOperationException(
+          "PubSub can observe only current data.");
+    }
 
     return observeBulk(name, position, observer);
   }

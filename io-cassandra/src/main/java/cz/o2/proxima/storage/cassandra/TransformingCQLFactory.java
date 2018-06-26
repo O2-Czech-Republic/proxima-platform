@@ -112,7 +112,7 @@ public class TransformingCQLFactory<T extends Serializable> extends CacheableCQL
       StreamElement element, Session session) {
 
     ensureSession(session);
-    if (element.getValue() == null) {
+    if (element.isDelete()) {
       log.warn("Throwing away delete ingest specified for {}", getClass());
       return Optional.empty();
     }
@@ -122,6 +122,10 @@ public class TransformingCQLFactory<T extends Serializable> extends CacheableCQL
       List<Object> values = extractors.stream()
           .map(f -> f.apply(Pair.of(element.getKey(), parsed)))
           .collect(Collectors.toList());
+      if (values.stream().anyMatch(v -> v == null)) {
+        log.warn("Received null value while writing {}. Discarding.", element);
+        return Optional.empty();
+      }
       BoundStatement bound = statement.bind(values.toArray(new Object[values.size()]));
       bound.setLong(values.size(), element.getStamp() * 1000L);
       return Optional.of(bound);

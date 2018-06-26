@@ -34,6 +34,7 @@ public class CassandraStorageDescriptor extends StorageDescriptor {
   @Override
   public CassandraDBAccessor getAccessor(
       EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+
     return new CassandraDBAccessor(entityDesc, uri, cfg);
   }
 

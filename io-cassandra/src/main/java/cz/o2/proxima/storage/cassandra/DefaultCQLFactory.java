@@ -147,11 +147,14 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
     if (ingest.getAttributeDescriptor().isWildcard()) {
       String attr = ingest.getAttribute();
       Object colVal = toColVal(attr);
-      BoundStatement bind = prepared.bind(
-          ingest.getKey(), colVal,
-          ByteBuffer.wrap(ingest.getValue()),
-          ingest.getStamp() * 1000L);
-      return Optional.of(bind);
+      if (colVal != null) {
+        BoundStatement bind = prepared.bind(
+            ingest.getKey(), colVal,
+            ByteBuffer.wrap(ingest.getValue()),
+            ingest.getStamp() * 1000L);
+        return Optional.of(bind);
+      }
+      return Optional.empty();
     }
 
     BoundStatement bind = prepared.bind(
@@ -249,7 +252,7 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
     return secondaryField;
   }
 
-  private Object toColVal(String attr) {
+  private @Nullable Object toColVal(String attr) {
     int dotPos = attr.lastIndexOf(".");
     String colVal = "";
     if (dotPos > 0 && dotPos < attr.length() - 1) {

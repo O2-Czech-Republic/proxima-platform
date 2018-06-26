@@ -18,11 +18,13 @@ package cz.o2.proxima.storage.cassandra;
 import com.google.common.base.Strings;
 import java.util.Date;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Represent a {@link java.util.Date} with {@code String} representation
  * of epoch millis.
  */
+@Slf4j
 public class DateToLongConverter implements StringConverter<Date> {
 
   private static final Date MAX = new Date(Long.MAX_VALUE);
@@ -38,7 +40,12 @@ public class DateToLongConverter implements StringConverter<Date> {
     if (Strings.isNullOrEmpty(what)) {
       return null;
     }
-    return new Date(Long.valueOf(what));
+    try {
+      return new Date(Long.valueOf(what));
+    } catch (Exception ex) {
+      log.error("Error converting {} to long", what, ex);
+      return null;
+    }
   }
 
   @Override

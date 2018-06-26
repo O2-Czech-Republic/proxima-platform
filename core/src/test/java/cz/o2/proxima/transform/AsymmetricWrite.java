@@ -16,7 +16,6 @@
 package cz.o2.proxima.transform;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.ProxyTransform;
 
 public class AsymmetricWrite implements ProxyTransform {
 

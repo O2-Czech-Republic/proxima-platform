@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.transform.Transformation;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.storage.PassthroughFilter;
@@ -82,7 +83,8 @@ public class TransformationDescriptor implements Serializable {
           entity != null,
           "Please specify source entity");
 
-      return new TransformationDescriptor(entity, attrs, transformation, filter);
+      return new TransformationDescriptor(
+          entity, attrs, transformation, filter);
     }
   }
 
@@ -112,4 +114,13 @@ public class TransformationDescriptor implements Serializable {
   public List<AttributeDescriptor<?>> getAttributes() {
     return Collections.unmodifiableList(attributes);
   }
+
+  @Override
+  public String toString() {
+    return "TransformationDescriptor("
+        + "entity=" + entity
+        + ", attributes=" + attributes
+        + ")";
+  }
+
 }

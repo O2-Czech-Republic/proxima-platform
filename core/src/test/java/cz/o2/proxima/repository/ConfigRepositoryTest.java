@@ -20,6 +20,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.PassthroughFilter;
+import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
@@ -27,6 +28,7 @@ import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.transform.EventDataToDummy;
+import cz.o2.proxima.util.DummyFilter;
 import cz.o2.proxima.view.PartitionedCachedView;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -413,8 +415,8 @@ public class ConfigRepositoryTest {
     repo.reloadConfig(
         true,
         ConfigFactory.load()
-            .withFallback(ConfigFactory.load("test-reference.conf"))
             .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
     EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
         () -> new AssertionError("Missing entity gateway"));
@@ -440,8 +442,8 @@ public class ConfigRepositoryTest {
   @Test
   public void testReplicationWriteObserve() throws InterruptedException {
     Config config = ConfigFactory.load()
-        .withFallback(ConfigFactory.load("test-reference.conf"))
         .withFallback(ConfigFactory.load("test-replication.conf"))
+        .withFallback(ConfigFactory.load("test-reference.conf"))
         .resolve();
     repo.reloadConfig(true, config);
     EntityDescriptor gateway = repo
@@ -483,8 +485,8 @@ public class ConfigRepositoryTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.parseString(
                 "replications.gateway-replication.read = local"))
-            .withFallback(ConfigFactory.load("test-reference.conf"))
             .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve(),
         true, true);
   }
@@ -497,10 +499,24 @@ public class ConfigRepositoryTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.parseString(
                 "replications.gateway-replication.read = local"))
-            .withFallback(ConfigFactory.load("test-reference.conf"))
             .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve(),
         false, false);
+  }
+
+  @Test
+  public void testReplicationTransformsHaveFilter() {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve());
+    TransformationDescriptor desc = repo.getTransformations()
+        .get("_dummyReplicationMasterSlave_slave");
+    assertNotNull(desc);
+    assertEquals(DummyFilter.class, desc.getFilter().getClass());
   }
 
   private void testReplicationWriteObserveInternal(
@@ -515,6 +531,7 @@ public class ConfigRepositoryTest {
     AttributeDescriptor<Object> armed = gateway
         .findAttribute("armed")
         .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+
     AttributeDescriptor<Object> armedWrite = gateway
         .findAttribute(localWrite
             ? "_gatewayReplication_write$armed"
@@ -530,6 +547,7 @@ public class ConfigRepositoryTest {
         .flatMap(af -> af.getCommitLogReader())
         .orElseThrow(() -> new IllegalStateException(
             "Missing commit log reader for armed"));
+
     List<StreamElement> observed = new ArrayList<>();
     reader.observe("dummy", new LogObserver() {
       @Override
@@ -566,12 +584,6 @@ public class ConfigRepositoryTest {
   }
 
   @SuppressWarnings("unchecked")
-  private void testReplicationWriteObserveInternal(
-      Config config) throws InterruptedException {
-
-  }
-
-  @SuppressWarnings("unchecked")
   @Test(timeout = 2000)
   public void testReplicationWriteReadonlyObserve() throws InterruptedException {
     repo.reloadConfig(
@@ -580,8 +592,8 @@ public class ConfigRepositoryTest {
             // make the replication read-only
             .withFallback(ConfigFactory.parseString(
                 "replications.gateway-replication.read-only = true"))
-            .withFallback(ConfigFactory.load("test-reference.conf"))
             .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
     EntityDescriptor gateway = repo
         .findEntity("gateway")
@@ -624,7 +636,142 @@ public class ConfigRepositoryTest {
     latch.await();
   }
 
+  @Test(timeout = 2000)
+  public void testObserveReplicatedWithProxy() throws InterruptedException {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve());
+    EntityDescriptor dummy = repo
+        .findEntity("dummy")
+        .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
+    AttributeDescriptor<Object> data = dummy
+        .findAttribute("data")
+        .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+    AttributeDescriptor<Object> dataRead = dummy
+        .findAttribute("_dummyReplicationProxiedSlave_read$data", true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing read source for replicated data"));
+    AttributeDescriptor<Object> dataWrite = dummy
+        .findAttribute("_dummyReplicationProxiedSlave_write$data", true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing read source for replicated data"));
+
+    repo.getTransformations().forEach(this::runTransformation);
+    CommitLogReader reader = repo.getFamiliesForAttribute(data)
+        .stream()
+        .filter(af -> af.getAccess().canReadCommitLog())
+        .findAny()
+        .flatMap(af -> af.getCommitLogReader())
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing random access reader for " + data.getName()));
+    CountDownLatch latch = new CountDownLatch(1);
+    reader.observe("dummy", new LogObserver() {
+      @Override
+      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+        assertEquals(ingest.getAttributeDescriptor(), data);
+        latch.countDown();
+        committer.confirm();
+        return true;
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+    });
+    OnlineAttributeWriter writer = repo.getWriter(dataRead).get();
+    writer.write(
+        StreamElement.update(
+            dummy, data, "uuid", "gw", data.getName(),
+            System.currentTimeMillis(), new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+        });
+    latch.await();
+    assertFalse(
+        repo.getFamiliesForAttribute(dataWrite)
+          .stream()
+          .filter(af -> af.getType() == StorageType.PRIMARY)
+          .findAny()
+          .flatMap(af -> af.getRandomAccessReader())
+          .orElseThrow(() -> new IllegalStateException(
+              "Missing random access for " + dataWrite))
+          .get("gw", dataWrite)
+          .isPresent());
+  }
+
+  @Test(timeout = 2000)
+  public void testIncomingReplicationDontCycle() throws InterruptedException {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve());
+    EntityDescriptor gateway = repo
+        .findEntity("gateway")
+        .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<Object> status = gateway
+        .findAttribute("status")
+        .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
+    AttributeDescriptor<Object> statusRead = gateway
+        .findAttribute("_gatewayReplication_read$status", true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing read source for replicated status"));
+    AttributeDescriptor<Object> statusWrite = gateway
+        .findAttribute("_gatewayReplication_write$status", true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing write target for replicated status"));
+
+
+    repo.getTransformations().forEach(this::runTransformation);
+    CommitLogReader reader = repo.getFamiliesForAttribute(status)
+        .stream()
+        .filter(af -> af.getAccess().canReadCommitLog())
+        .findAny()
+        .flatMap(af -> af.getCommitLogReader())
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing random access reader for " + status.getName()));
+    CountDownLatch latch = new CountDownLatch(1);
+    reader.observe("dummy", new LogObserver() {
+      @Override
+      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+        assertEquals(ingest.getAttributeDescriptor(), status);
+        latch.countDown();
+        committer.confirm();
+        return true;
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+    });
+    OnlineAttributeWriter writer = repo.getWriter(statusRead).get();
+    writer.write(
+        StreamElement.update(
+            gateway, status, "uuid", "gw", status.getName(),
+            System.currentTimeMillis(), new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+        });
+    latch.await();
+    RandomAccessReader localReader = repo.getFamiliesForAttribute(statusWrite)
+        .stream()
+        .filter(af -> af.getType() == StorageType.PRIMARY)
+        .findAny()
+        .flatMap(af -> af.getRandomAccessReader())
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing primary random access family for status write"));
+    assertFalse(localReader.get("gw", statusWrite).isPresent());
+  }
+
+
   private void runTransformation(String name, TransformationDescriptor desc) {
+
     desc.getAttributes().stream()
         .flatMap(attr -> repo.getFamiliesForAttribute(attr)
             .stream()
@@ -632,9 +779,9 @@ public class ConfigRepositoryTest {
         .collect(Collectors.toSet())
         .stream()
         .findAny()
-        .get()
-        .getCommitLogReader()
-        .get()
+        .flatMap(AttributeFamilyDescriptor::getCommitLogReader)
+        .orElseThrow(() -> new IllegalStateException(
+            "No commit log reader for attributes of transformation " + desc))
         .observe(name, new LogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
@@ -652,7 +799,6 @@ public class ConfigRepositoryTest {
           }
 
         });
-
   }
 
 }

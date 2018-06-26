@@ -15,21 +15,33 @@
  */
 package cz.o2.proxima.transform;
 
+import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.StreamElement;
+
 /**
- * Transformation from proxy space (event.*) to raw space (_e.*).
+ * Transform perfoming identity mapping.
  */
-public class EventTransform implements ProxyTransform {
+public class IdentityTransform implements Transformation, ProxyTransform {
+
+  @Override
+  public void setup(Repository repo) {
+
+  }
+
+  @Override
+  public int apply(StreamElement input, Collector<StreamElement> collector) {
+    collector.collect(input);
+    return 1;
+  }
 
   @Override
   public String fromProxy(String proxy) {
-    int pos = proxy.indexOf('.');
-    return "_e." + proxy.substring(pos + 1);
+    return proxy;
   }
 
   @Override
   public String toProxy(String raw) {
-    int pos = raw.indexOf('.');
-    return "event." + raw.substring(pos + 1);
+    return raw;
   }
 
 }

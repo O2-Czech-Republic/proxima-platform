@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.repository;
+package cz.o2.proxima.transform;
 
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.repository.AttributeDescriptor;
 import java.io.Serializable;
 
 /**

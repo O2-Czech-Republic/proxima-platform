@@ -28,7 +28,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.Transformation;
+import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.AttributeWriterBase;

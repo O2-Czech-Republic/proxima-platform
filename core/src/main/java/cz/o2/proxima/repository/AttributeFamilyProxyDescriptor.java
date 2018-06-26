@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.transform.ProxyTransform;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.AttributeWriterBase;
@@ -171,6 +172,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       public void write(StreamElement data, CommitCallback statusCallback) {
         AttributeProxyDescriptorImpl<?> target = lookup.lookupProxy(
             data.getAttributeDescriptor().getName());
+
         writer.write(
                 transformToRaw(data, target),
                 statusCallback);
@@ -329,7 +331,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       public RandomOffset fetchOffset(
           RandomAccessReader.Listing type, String key) {
 
-        if (type == Listing.ATTRIBUTE) {
+        if (type == Listing.ATTRIBUTE && !key.isEmpty()) {
           return reader.fetchOffset(
               type,
               lookup.lookupProxy(toAttrName(key))

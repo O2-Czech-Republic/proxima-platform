@@ -13,15 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.repository;
+package cz.o2.proxima.transform;
 
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
 
 /**
  * A stateless element-wise transformation applied on incoming data
- * converting single {@code StreamElement} to another {@code StreamElement}.
+ * converting single {@code StreamElement} to another {@code StreamElement}(s).
  */
 @Stable
 public interface Transformation extends Serializable {

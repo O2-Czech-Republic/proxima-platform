@@ -13,23 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.transform;
+package cz.o2.proxima.util;
+
+import cz.o2.proxima.storage.PassthroughFilter;
 
 /**
- * Transformation from proxy space (event.*) to raw space (_e.*).
+ * A dummy filter just to be able to test difference from {@link PassthroughFilter}.
  */
-public class EventTransform implements ProxyTransform {
-
-  @Override
-  public String fromProxy(String proxy) {
-    int pos = proxy.indexOf('.');
-    return "_e." + proxy.substring(pos + 1);
-  }
-
-  @Override
-  public String toProxy(String raw) {
-    int pos = raw.indexOf('.');
-    return "event." + raw.substring(pos + 1);
-  }
+public class DummyFilter extends PassthroughFilter {
 
 }

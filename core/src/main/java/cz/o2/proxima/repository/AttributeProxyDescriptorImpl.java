@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.transform.ProxyTransform;
 import lombok.Getter;
 
 /**
@@ -39,9 +40,10 @@ class AttributeProxyDescriptorImpl<T> extends AttributeDescriptorBase<T> {
       AttributeDescriptor<T> readTarget,
       ProxyTransform readTransform,
       AttributeDescriptor<T> writeTarget,
-      ProxyTransform writeTransform) {
+      ProxyTransform writeTransform,
+      boolean replica) {
 
-    super(name, readTarget, writeTarget);
+    super(name, readTarget, writeTarget, replica);
     this.readTarget = readTarget;
     this.readTransform = readTransform;
     this.writeTarget = writeTarget;

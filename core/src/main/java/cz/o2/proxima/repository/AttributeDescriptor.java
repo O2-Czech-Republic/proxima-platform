@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.transform.ProxyTransform;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import java.io.Serializable;
@@ -81,8 +82,20 @@ public interface AttributeDescriptor<T> extends Serializable {
       AttributeDescriptor<T> targetWrite,
       ProxyTransform transformWrite) {
 
+    return newProxy(
+        name, targetRead, transformRead, targetWrite, transformWrite, false);
+  }
+
+  static <T> AttributeDescriptorBase<T> newProxy(
+      String name,
+      AttributeDescriptor<T> targetRead,
+      ProxyTransform transformRead,
+      AttributeDescriptor<T> targetWrite,
+      ProxyTransform transformWrite,
+      boolean replica) {
+
     return new AttributeProxyDescriptorImpl<>(
-        name, targetRead, transformRead, targetWrite, transformWrite);
+        name, targetRead, transformRead, targetWrite, transformWrite, replica);
   }
 
   /**

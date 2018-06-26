@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.transform;
 
-import cz.o2.proxima.repository.ProxyTransform;
-
 public class AsymmetricRead implements ProxyTransform {
 
   @Override

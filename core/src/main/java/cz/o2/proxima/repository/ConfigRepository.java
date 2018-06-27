@@ -482,9 +482,15 @@ public class ConfigRepository implements Repository, Serializable {
 
       String schemeStr = scheme.toString();
       if (schemeStr.indexOf(':') == -1) {
-        // if the scheme does not contain `:' the java.net.URI cannot parse it
-        // we will fix this by adding `:///'
-        schemeStr += ":///";
+        // if the scheme does not contain `:' we need to add class specified for
+        // the primitive type
+        switch (schemeStr) {
+          case "bytes":
+            schemeStr += ":byte[]";
+            break;
+          default:
+            throw new IllegalArgumentException("Scheme " + schemeStr + " is unknown");
+        }
       }
       URI schemeURI = new URI(schemeStr);
       // validate that the scheme serializer doesn't throw exceptions

@@ -31,11 +31,8 @@ import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
+import java.util.ServiceLoader;
 import lombok.extern.slf4j.Slf4j;
-import org.reflections.Configuration;
-import org.reflections.Reflections;
-import org.reflections.util.ClasspathHelper;
-import org.reflections.util.ConfigurationBuilder;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -208,11 +205,6 @@ public class ConfigRepository implements Repository, Serializable {
   private final Map<String, TransformationDescriptor> transformations = new HashMap<>();
 
   /**
-   * Executor to be used for any asynchronous operations.
-   */
-  private final Factory<ExecutorService> executorFactory;
-
-  /**
    * Context passed to serializable data accessors.
    */
   private final Context context;
@@ -245,27 +237,18 @@ public class ConfigRepository implements Repository, Serializable {
       Factory<ExecutorService> executorFactory) {
 
     this.config = cfg;
-    this.executorFactory = executorFactory;
     this.isReadonly = isReadonly;
     this.shouldValidate = shouldValidate;
     this.shouldLoadAccessors = loadAccessors;
     this.context = new Context(executorFactory);
 
     try {
-      final Configuration reflectionConf = ConfigurationBuilder
-          .build(
-              ClasspathHelper.forManifest(),
-              ClasspathHelper.forClassLoader());
-
-      Reflections reflections = new Reflections(reflectionConf);
 
       // First read all storage implementations available to the repository.
-      Collection<StorageDescriptor> storages = findStorageDescriptors(reflections);
-      readStorages(storages);
+      readStorages(ServiceLoader.load(StorageDescriptor.class));
 
       // Next read all scheme serializers.
-      Collection<ValueSerializerFactory> serializers = findSchemeSerializers(reflections);
-      readSchemeSerializers(serializers);
+      readSchemeSerializers(ServiceLoader.load(ValueSerializerFactory.class));
 
       // Read the config and store entity descriptors
       readEntityDescriptors(cfg);
@@ -300,38 +283,6 @@ public class ConfigRepository implements Repository, Serializable {
     return context;
   }
 
-  private Collection<StorageDescriptor> findStorageDescriptors(
-      Reflections reflections) {
-    return findImplementingClasses(StorageDescriptor.class, reflections);
-  }
-
-  private Collection<ValueSerializerFactory> findSchemeSerializers(Reflections reflections) {
-    return findImplementingClasses(ValueSerializerFactory.class, reflections);
-  }
-
-  private <T> Collection<T> findImplementingClasses(
-      Class<T> superCls, Reflections reflections) {
-
-    final Collection<T> ret = reflections.getSubTypesOf(superCls)
-        .stream()
-        .map(c -> {
-          if (!c.isAnonymousClass()) {
-            try {
-              return c.newInstance();
-            } catch (IllegalAccessException | InstantiationException ex) {
-              log.warn("Failed to instantiate class {}", c.getName(), ex);
-            }
-          }
-          return null;
-        })
-        .filter(Objects::nonNull)
-        .collect(Collectors.toList());
-
-    log.info("Found {} classes implementing {}", ret.size(), superCls.getName());
-
-    return ret;
-  }
-
   private <T> T newInstance(String name, Class<T> cls) {
     try {
       Class<T> forName = Classpath.findClass(name, cls);
@@ -341,7 +292,7 @@ public class ConfigRepository implements Repository, Serializable {
     }
   }
 
-  private void readStorages(Collection<StorageDescriptor> storages) {
+  private void readStorages(Iterable<StorageDescriptor> storages) {
     storages.forEach(store ->
         store.getAcceptableSchemes().forEach(s -> {
           log.info("Adding storage descriptor {} for scheme {}://",
@@ -350,7 +301,7 @@ public class ConfigRepository implements Repository, Serializable {
         }));
   }
 
-  private void readSchemeSerializers(Collection<ValueSerializerFactory> serializers) {
+  private void readSchemeSerializers(Iterable<ValueSerializerFactory> serializers) {
     serializers.forEach(v -> {
       log.info("Added scheme serializer {} for scheme {}",
           v.getClass().getName(), v.getAcceptableScheme());

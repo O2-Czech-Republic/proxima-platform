@@ -43,6 +43,7 @@ public class EventDataToDummy implements Transformation {
   @Override
   public int apply(
       StreamElement input, Collector<StreamElement> collector) {
+    
     collector.collect(StreamElement.update(
         target, targetAttr, input.getUuid(),
         input.getKey(), prefix + input.getStamp(),

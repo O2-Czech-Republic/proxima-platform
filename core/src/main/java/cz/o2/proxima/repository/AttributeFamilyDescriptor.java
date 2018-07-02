@@ -305,4 +305,12 @@ public class AttributeFamilyDescriptor implements Serializable {
     return ret;
   }
 
+  /**
+   * Check if this proxied family.
+   * @return {@code true} if proxied family
+   */
+  boolean isProxy() {
+    return false;
+  }
+
 }

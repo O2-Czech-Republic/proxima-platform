@@ -150,6 +150,9 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   }
 
   AttributeProxyDescriptorImpl<T> toProxy() {
+    Preconditions.checkArgument(
+        this instanceof AttributeProxyDescriptorImpl,
+        "Attribute " + this + " is not proxy attribute");
     return (AttributeProxyDescriptorImpl<T>) this;
   }
 

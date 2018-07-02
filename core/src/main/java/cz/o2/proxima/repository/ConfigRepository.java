@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
+import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
@@ -49,6 +50,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -56,6 +58,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -296,6 +299,7 @@ public class ConfigRepository implements Repository, Serializable {
       // Sanity checks.
       validate();
     }
+
   }
 
   /**
@@ -413,7 +417,7 @@ public class ConfigRepository implements Repository, Serializable {
                   repl.getKey())));
       Set<AttributeDescriptor<?>> attrs = attrList
           .stream()
-          .flatMap(a -> searchAttributesMatching(a, entity, false).stream())
+          .flatMap(a -> searchAttributesMatching(a, entity, false, true).stream())
           .collect(Collectors.toSet());
 
       // load targets
@@ -424,10 +428,14 @@ public class ConfigRepository implements Repository, Serializable {
 
       EntityDescriptor.Builder builder = entity.toBuilder();
       attrs.forEach(a -> {
-        boolean isProxy = ((AttributeDescriptorBase<?>) a).isProxy();
+        String writeName = resolveProxyTarget(
+            entity, a.getName(), false, Function.identity()).getName();
+        String readName = resolveProxyTarget(
+            entity, a.getName(), true, Function.identity()).getName();
         if (!readOnly) {
           for (String target : targets) {
-            String name = toReplicationTargetName(repl.getKey(), target, a.getName());
+            String name = toReplicationTargetName(
+                repl.getKey(), target, a.getName());
             builder.addAttribute(
                 AttributeDescriptor.newBuilder(this)
                     .setEntity(entityName)
@@ -440,28 +448,17 @@ public class ConfigRepository implements Repository, Serializable {
                 AttributeDescriptor.newBuilder(this)
                     .setEntity(entityName)
                     .setSchemeURI(a.getSchemeURI())
-                    .setName(toReplicationWriteName(repl.getKey(), a.getName()))
+                    .setName(toReplicationWriteName(repl.getKey(), writeName))
                     .setReplica(true)
                     .build());
         }
-        if (isProxy) {
-          AttributeProxyDescriptorImpl<Object> target;
-          target = ((AttributeDescriptorBase) a).toProxy();
-          builder.addAttribute(AttributeDescriptor.newProxy(
-              toReplicationProxyName(repl.getKey(), a.getName()),
-              target.getReadTarget(),
-              ProxyTransform.IDENTITY,
-              target.getWriteTarget(),
-              ProxyTransform.IDENTITY,
-              true /* replica */));
-        } else {
-          builder.addAttribute(AttributeDescriptor.newBuilder(this)
-                    .setEntity(entityName)
-                    .setSchemeURI(a.getSchemeURI())
-                    .setName(toReplicationProxyName(repl.getKey(), a.getName()))
-                    .setReplica(true)
-                    .build());
-        }
+        builder.addAttribute(
+            AttributeDescriptor.newBuilder(this)
+                  .setEntity(entityName)
+                  .setSchemeURI(a.getSchemeURI())
+                  .setName(toReplicationProxyName(repl.getKey(), readName))
+                  .setReplica(true)
+                  .build());
         Optional.ofNullable(replMap.get("source"))
             .ifPresent(s -> {
               builder.addAttribute(AttributeDescriptor.newBuilder(this)
@@ -839,7 +836,7 @@ public class ConfigRepository implements Repository, Serializable {
     for (String attr : attributes) {
       // attribute descriptors affected by this settings
       final List<AttributeDescriptor<?>> attrDescs;
-      attrDescs = searchAttributesMatching(attr, entDesc, false);
+      attrDescs = searchAttributesMatching(attr, entDesc, false, false);
       allAttributes.addAll(attrDescs);
     }
     if (!filter.isEmpty() && !isReadonly) {
@@ -928,7 +925,8 @@ public class ConfigRepository implements Repository, Serializable {
           .ofNullable(replConf.get("attributes"))
           .map(o -> toList(o)
               .stream()
-              .flatMap(a -> searchAttributesMatching(a, entity, false).stream())
+              .flatMap(a -> searchAttributesMatching(
+                  a, entity, false, true).stream())
               .collect(Collectors.toSet()))
           .orElse(Collections.emptySet());
       Set<AttributeFamilyDescriptor> families = attrs.stream()
@@ -945,6 +943,9 @@ public class ConfigRepository implements Repository, Serializable {
       }
 
       AttributeFamilyDescriptor sourceFamily = Iterables.getOnlyElement(families);
+      List<String> attrNames = attrs.stream()
+          .map(AttributeDescriptor::getName)
+          .collect(Collectors.toList());
 
       try {
         // OK, we have single family for this replication
@@ -963,25 +964,14 @@ public class ConfigRepository implements Repository, Serializable {
             sourceFamily,
             readOnly);
 
-        if (!readOnly) {
-          // add the following renaming transformations
-          // 1) _<replication_name>_read$attr -> _<replication_name>_replicated$attr
-          // 2) _<replication_name>_write$attr -> _<replication_name>_replicated$attr
-          // 3) _<replication_name>_write$attr -> _<replication_name>_<target>$attr
-          createReplicationTransformations(
-              replicationName,
-              entity,
-              targets.keySet());
-        }
-
         // remove the original attribute and replace it with proxy
         // 1) on write: write to _<replication_name>_write$attr (or original attribute if readOnly)
         // 2) on read: read from _<replication_name>_replicated$attr, or _<replication_name>_write$attr
         //             if configured to read non-replicated data only
         bindReplicationProxies(
             replicationName,
-            entity,
-            attrs,
+            entity.getName(),
+            attrNames,
             Optional.ofNullable(replConf.get("read"))
                 .map(Object::toString)
                 .map(s -> {
@@ -995,6 +985,18 @@ public class ConfigRepository implements Repository, Serializable {
                 .map(s -> s.equals("local"))
                 .orElse(false),
             readOnly);
+
+        if (!readOnly) {
+          // add the following renaming transformations
+          // 1) _<replication_name>_read$attr -> _<replication_name>_replicated$attr
+          // 2) _<replication_name>_write$attr -> _<replication_name>_replicated$attr
+          // 3) _<replication_name>_write$attr -> _<replication_name>_<target>$attr
+          createReplicationTransformations(
+              replicationName,
+              entity.getName(),
+              attrNames,
+              targets.keySet());
+        }
 
       } catch (URISyntaxException ex) {
         throw new RuntimeException(ex);
@@ -1047,12 +1049,20 @@ public class ConfigRepository implements Repository, Serializable {
       loadSingleFamily(String.format("replication_%s_source", name), cfg);
     }
     {
-      AttributeFamilyDescriptor.Builder builder = sourceFamily.toBuilder()
+      final AttributeFamilyDescriptor resolvedRead;
+      if (sourceFamily.isProxy()) {
+        resolvedRead = ((AttributeFamilyProxyDescriptor) sourceFamily).getTargetFamilyWrite();
+      } else {
+        resolvedRead = sourceFamily;
+      }
+      AttributeFamilyDescriptor.Builder builder = resolvedRead.toBuilder()
           .setName(String.format("replication_%s_replicated", name))
           .clearAttributes();
       attrList
           .stream()
-          .map(a -> entity.findAttribute(toReplicationProxyName(name, a), true).get())
+          .map(a -> resolveProxyTarget(
+              entity, a, true,
+              orig -> toReplicationProxyName(name, orig)))
           .forEach(builder::addAttribute);
       insertFamily(builder.build());
     }
@@ -1068,7 +1078,9 @@ public class ConfigRepository implements Repository, Serializable {
         cfg.putAll(via);
         cfg.put("attributes", attrList
             .stream()
-            .map(a -> toReplicationWriteName(name, a))
+            .map(a -> resolveProxyTarget(
+                entity, a, false,
+                orig -> toReplicationWriteName(name, orig)).getName())
             .collect(Collectors.toList()));
         loadSingleFamily(String.format("replication_%s_write", name), cfg);
       }
@@ -1084,13 +1096,38 @@ public class ConfigRepository implements Repository, Serializable {
             "replication_target_%s_%s", name, tgt.getKey()), cfg);
       }
     }
+  }
 
+  @SuppressWarnings("unchecked")
+  private static AttributeDescriptor<?> resolveProxyTarget(
+      EntityDescriptor entity, String attr, boolean read,
+      Function<String, String> nameFn) {
+
+    AttributeDescriptor orig = entity.findAttribute(attr).get();
+    orig = ((AttributeDescriptorBase<?>) orig).isProxy()
+        ? read
+            ? ((AttributeDescriptorBase<?>) orig).toProxy().getReadTarget()
+            : ((AttributeDescriptorBase<?>) orig).toProxy().getWriteTarget()
+        : orig;
+    return (AttributeDescriptor) findAttributeRequired(
+        entity,
+        nameFn.apply(orig.getName()));
   }
 
   private void createReplicationTransformations(
       String name,
-      EntityDescriptor entity,
+      String entityName,
+      Collection<String> attrNames,
       Set<String> targets) {
+
+    EntityDescriptor entity = findEntity(entityName)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing entity " + entityName));
+
+    List<AttributeDescriptor<?>> attrs = attrNames
+        .stream()
+        .map(a -> findAttributeRequired(entity, a))
+        .collect(Collectors.toList());
 
     AttributeFamilyDescriptor write = findFamilyRequired(
         String.format("replication_%s_write", name));
@@ -1104,16 +1141,9 @@ public class ConfigRepository implements Repository, Serializable {
       // incoming data
       String transform = CamelCase.apply(String.format("_%s_read", name), false);
       String replPrefix = CamelCase.apply(String.format("_%s_replicated$", name), false);
-      // the attributes are replicated under original name
-      List<AttributeDescriptor<?>> originalAttrs = s.getAttributes().stream()
-          .map(attr -> entity
-              .findAttribute(strippingReplPrefix(attr.getName()), true)
-              .orElseThrow(() -> new IllegalStateException(
-                  "Missing non-replicated attribute " + attr)))
-          .collect(Collectors.toList());
 
       Map<AttributeDescriptor<?>, AttributeDescriptor<?>> sourceMapping;
-      sourceMapping = getReplMapping(entity, originalAttrs, replPrefix, false);
+      sourceMapping = getReplMapping(entity, attrs, replPrefix, false);
 
       this.transformations.put(
           transform,
@@ -1124,7 +1154,14 @@ public class ConfigRepository implements Repository, Serializable {
               .setTransformation(
                   renameTransform(
                       sourceMapping::get,
-                      ConfigRepository::strippingReplPrefix))
+                      (input, desc) -> {
+                        String raw = strippingReplPrefix(input);
+                        // each incoming attribute is proxy
+                        AttributeProxyDescriptorImpl<?> proxyDesc;
+                        proxyDesc = ((AttributeDescriptorBase<?>) desc).toProxy();
+                        return replPrefix + strippingReplPrefix(
+                            proxyDesc.getWriteTransform().fromProxy(raw));
+                      }))
               .build());
     });
 
@@ -1133,7 +1170,8 @@ public class ConfigRepository implements Repository, Serializable {
       String transform = CamelCase.apply(String.format("_%s_replicated", name), false);
       String replPrefix = transform + "$";
       Map<AttributeDescriptor<?>, AttributeDescriptor<?>> sourceMapping;
-      sourceMapping = getReplMapping(entity, write.getAttributes(), replPrefix);
+      sourceMapping = getReplMapping(
+          entity, write.getAttributes(), replPrefix, false);
 
       this.transformations.put(
           transform,
@@ -1144,7 +1182,7 @@ public class ConfigRepository implements Repository, Serializable {
               .setTransformation(
                   renameTransform(
                       sourceMapping::get,
-                      a -> renameReplicated(replPrefix, a)))
+                      (a, desc) -> renameReplicated(replPrefix, a)))
               .build());
     }
 
@@ -1154,8 +1192,24 @@ public class ConfigRepository implements Repository, Serializable {
 
       String transform = CamelCase.apply(String.format("_%s_%s", name, tgt));
       String replPrefix = transform + "$";
-      Map<AttributeDescriptor<?>, AttributeDescriptor<?>> sourceMapping;
-      sourceMapping = getReplMapping(entity, write.getAttributes(), replPrefix);
+      Map<AttributeDescriptor<?>, AttributeDescriptor<?>> sourceMapping = new HashMap<>();
+      Map<AttributeDescriptor<?>, AttributeDescriptor<?>> sourceToOrig = new HashMap<>();
+
+      // store targets using original non-proxied name
+      attrs
+          .stream()
+          .map(a -> findAttributeRequired(entity, a.getName()))
+          .map(a -> ((AttributeDescriptorBase<?>) a).toProxy())
+          .forEach(a -> {
+            String source = toReplicationWriteName(
+                name,
+                strippingReplPrefix(a.getReadTarget().getName()));
+            AttributeDescriptorBase<?> sourceAttr;
+            sourceAttr = findAttributeRequired(entity, source);
+            String renamed = replPrefix + a.getName();
+            sourceMapping.put(sourceAttr, findAttributeRequired(entity, renamed));
+            sourceToOrig.put(sourceAttr, a);
+          });
 
       this.transformations.put(
           transform,
@@ -1166,43 +1220,63 @@ public class ConfigRepository implements Repository, Serializable {
               .setTransformation(
                   renameTransform(
                       sourceMapping::get,
-                      ConfigRepository::strippingReplPrefix))
+                      (input, desc) -> {
+                        String raw = strippingReplPrefix(input);
+                        // each incoming attribute is proxy
+                        AttributeProxyDescriptorImpl<?> proxyDesc;
+                        proxyDesc = ((AttributeDescriptorBase<?>) sourceToOrig
+                            .get(desc)).toProxy();
+                        return strippingReplPrefix(
+                            proxyDesc.getReadTransform().toProxy(raw));
+                      }))
               .build());
     }
 
   }
 
-  private static Map<AttributeDescriptor<?>, AttributeDescriptor<?>> getReplMapping(
-      EntityDescriptor entity,
-      List<AttributeDescriptor<?>> attrs,
-      String mappedPrefix) {
+  @SuppressWarnings("unchecked")
+  private static AttributeDescriptorBase<?> findAttributeRequired(
+      EntityDescriptor entity, String attribute) {
 
-    return getReplMapping(entity, attrs, mappedPrefix, true);
+    return (AttributeDescriptorBase<?>) entity.findAttribute(attribute, true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Entity " + entity + " is missing attribute " + attribute));
   }
 
   private static Map<AttributeDescriptor<?>, AttributeDescriptor<?>> getReplMapping(
       EntityDescriptor entity,
-      List<AttributeDescriptor<?>> attrs,
+      Collection<AttributeDescriptor<?>> attrs,
       String mappedPrefix,
+      boolean read) {
+
+    return getReplMapping(entity, attrs, mappedPrefix, read, false);
+  }
+
+  private static Map<AttributeDescriptor<?>, AttributeDescriptor<?>> getReplMapping(
+      EntityDescriptor entity,
+      Collection<AttributeDescriptor<?>> attrs,
+      String mappedPrefix,
+      boolean read,
       boolean strict) {
 
     return attrs
         .stream()
         .map(a -> {
-          String renamed = renameReplicated(mappedPrefix, a.getName(), strict);
+          AttributeDescriptorBase<?> base = (AttributeDescriptorBase<?>) a;
+          String renamed = renameReplicated(
+              mappedPrefix,
+              base.isProxy()
+                  ? read
+                      ? base.toProxy().getReadTransform().toProxy(a.getName())
+                      : base.toProxy().getWriteTransform().fromProxy(a.getName())
+                  : a.getName(),
+              strict);
           return Pair.of(a, entity
               .findAttribute(renamed, true)
-              .orElseThrow(() -> new IllegalStateException("Missing attribute " + renamed)));
+              .orElseThrow(() -> new IllegalStateException(
+                  "Missing attribute " + renamed)));
         })
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
-  }
-
-  private static String toReplicatedSource(String prefix, String input) {
-    int dollar = input.indexOf('$');
-    if (dollar < 0) {
-      return prefix + input;
-    }
-    return prefix + input.substring(dollar + 1);
   }
 
   private static String renameReplicated(String prefix, String input) {
@@ -1234,7 +1308,7 @@ public class ConfigRepository implements Repository, Serializable {
 
   private static Transformation renameTransform(
       UnaryFunction<AttributeDescriptor<?>, AttributeDescriptor<?>> descTransform,
-      UnaryFunction<String, String> nameTransform) {
+      BiFunction<String, AttributeDescriptor<?>, String> nameTransform) {
 
     return new Transformation() {
 
@@ -1248,27 +1322,30 @@ public class ConfigRepository implements Repository, Serializable {
           StreamElement input,
           Collector<StreamElement> collector) {
 
+        AttributeDescriptor<?> desc = descTransform.apply(
+            input.getAttributeDescriptor());
+
         collector.collect(input.isDelete()
             ? input.isDeleteWildcard()
                 ? StreamElement.deleteWildcard(
                     input.getEntityDescriptor(),
-                    descTransform.apply(input.getAttributeDescriptor()),
+                    desc,
                     input.getUuid(),
                     input.getKey(),
                     input.getStamp())
                 : StreamElement.delete(
                     input.getEntityDescriptor(),
-                    descTransform.apply(input.getAttributeDescriptor()),
+                    desc,
                     input.getUuid(),
                     input.getKey(),
-                    nameTransform.apply(input.getAttribute()),
+                    nameTransform.apply(input.getAttribute(), input.getAttributeDescriptor()),
                     input.getStamp())
             : StreamElement.update(
                 input.getEntityDescriptor(),
-                descTransform.apply(input.getAttributeDescriptor()),
+                desc,
                 input.getUuid(),
                 input.getKey(),
-                nameTransform.apply(input.getAttribute()),
+                nameTransform.apply(input.getAttribute(), input.getAttributeDescriptor()),
                 input.getStamp(),
                 input.getValue()));
         return 1;
@@ -1289,46 +1366,106 @@ public class ConfigRepository implements Repository, Serializable {
             "Missing required family '" + name + "'"));
   }
 
-  @SuppressWarnings("unchecked")
   private void bindReplicationProxies(
       String name,
-      EntityDescriptor entity,
-      Set<AttributeDescriptor<?>> attrs,
+      String entityName,
+      Collection<String> attrNames,
       boolean readNonReplicatedOnly,
       boolean readOnly) {
 
-    EntityDescriptor.Builder builder = entity.toBuilder();
-    for (AttributeDescriptor<?> proxy : attrs) {
-      AttributeDescriptor source = entity.findAttribute(
-          readNonReplicatedOnly
-              ? toReplicationWriteName(name, proxy.getName())
-              : toReplicationProxyName(name, proxy.getName()), true).get();
-      AttributeDescriptor target = readOnly
-          ? proxy
-          : entity.findAttribute(toReplicationWriteName(
-              name, proxy.getName()), true).get();
-      builder.addAttribute(
-          AttributeDescriptor.newProxy(
-              proxy.getName(),
-              source,
-              ProxyTransform.renaming(
-                  proxy.toAttributePrefix(), source.toAttributePrefix()),
-              target,
-              ProxyTransform.renaming(
-                  proxy.toAttributePrefix(), target.toAttributePrefix())));
-    }
-    entitiesByName.put(entity.getName(), builder.build());
+    EntityDescriptor entity = findEntity(entityName)
+        .orElseThrow(() -> new IllegalStateException("Fix code!"));
+
+    List<AttributeDescriptor<?>> attrs = attrNames
+        .stream()
+        .map(a -> findAttributeRequired(entity, a))
+        .collect(Collectors.toList());
+
+    attrs.stream()
+        .filter(a -> !((AttributeDescriptorBase<?>) a).isProxy())
+        .forEach(a -> bindSingleReplicationProxy(
+            name, entityName, a, readNonReplicatedOnly, readOnly));
+
+    buildProxyOrdering(
+        attrs
+            .stream()
+            .flatMap(a -> entity.findAttribute(a.getName(), true)
+                .map(Stream::of).orElse(Stream.empty()))
+            .filter(a -> ((AttributeDescriptorBase<?>) a).isProxy())
+            .map(a -> ((AttributeDescriptorBase<?>) a).toProxy())
+            .collect(Collectors.toList()))
+        .forEach(a -> bindSingleReplicationProxy(
+            name, entityName, a, readNonReplicatedOnly, readOnly));
   }
 
-  private List<AttributeDescriptor<?>> searchAttributesMatching(
-      String attr, EntityDescriptor entDesc, boolean allowReplicated) {
+  @SuppressWarnings("unchecked")
+  private void bindSingleReplicationProxy(
+      String replicationName,
+      String entityName,
+      AttributeDescriptor<?> proxy,
+      boolean readNonReplicatedOnly,
+      boolean readOnly) {
 
-    return searchAttributesMatching(attr, entDesc, allowReplicated, true);
+    final AttributeDescriptor source;
+    final AttributeDescriptor target;
+    EntityDescriptor entity;
+
+    if (((AttributeDescriptorBase<?>) proxy).isProxy()) {
+      // recursively bind targets
+      AttributeProxyDescriptorImpl<?> targetProxy;
+      targetProxy = ((AttributeDescriptorBase<?>) proxy).toProxy();
+      Set<String> toRebind = Stream.of(
+          targetProxy.getReadTarget(), targetProxy.getWriteTarget())
+          .filter(a -> !((AttributeDescriptorBase<?>) a).isReplica())
+          .filter(a -> !a.equals(proxy))
+          .map(AttributeDescriptor::getName)
+          .collect(Collectors.toSet());
+      bindReplicationProxies(
+          replicationName, entityName, toRebind,
+          readNonReplicatedOnly, readOnly);
+      entity = findEntity(entityName)
+        .orElseThrow(() -> new IllegalStateException("Fix code!"));
+      source = findAttributeRequired(entity, targetProxy.getReadTarget().getName());
+      target = findAttributeRequired(entity, targetProxy.getWriteTarget().getName());
+    } else {
+      entity = findEntity(entityName)
+        .orElseThrow(() -> new IllegalStateException("Fix code!"));
+      source = findAttributeRequired(entity,
+          readNonReplicatedOnly
+              ? toReplicationWriteName(replicationName, proxy.getName())
+              : toReplicationProxyName(replicationName, proxy.getName()));
+      target = readOnly
+          ? findAttributeRequired(entity, proxy.getName())
+          : findAttributeRequired(
+              entity,
+              toReplicationWriteName(replicationName, proxy.getName()));
+    }
+    EntityDescriptor.Builder builder = entity.toBuilder();
+    builder.addAttribute(
+        AttributeDescriptor.newProxy(
+            proxy.getName(),
+            source,
+            ProxyTransform.renaming(
+                proxy.toAttributePrefix(), source.toAttributePrefix()),
+            target,
+            ProxyTransform.renaming(
+                proxy.toAttributePrefix(), target.toAttributePrefix())));
+    entitiesByName.put(entityName, builder.build());
   }
 
   private List<AttributeDescriptor<?>> searchAttributesMatching(
       String attr, EntityDescriptor entDesc,
-      boolean allowReplicated, boolean includeProtected) {
+      boolean allowReplicated, boolean allowProxies) {
+
+    return searchAttributesMatching(
+        attr, entDesc, allowReplicated, true, allowProxies);
+  }
+
+  private List<AttributeDescriptor<?>> searchAttributesMatching(
+      String attr, EntityDescriptor entDesc,
+      boolean allowReplicated,
+      boolean includeProtected,
+      boolean allowProxies) {
 
     List<AttributeDescriptor<?>> attrDescs;
     if (attr.equals("*")) {
@@ -1336,6 +1473,7 @@ public class ConfigRepository implements Repository, Serializable {
       attrDescs = entDesc.getAllAttributes(includeProtected)
           .stream()
           .filter(a -> !((AttributeDescriptorBase<?>) a).isReplica()|| allowReplicated)
+          .filter(a -> !((AttributeDescriptorBase<?>) a).isProxy() || allowProxies)
           .collect(Collectors.toList());
     } else {
       attrDescs = Collections.singletonList(
@@ -1356,17 +1494,28 @@ public class ConfigRepository implements Repository, Serializable {
     Map<Pair<AttributeFamilyDescriptor, AttributeFamilyDescriptor>,
         List<AttributeProxyDescriptorImpl<?>>> readWriteToAttr;
 
+    List<AttributeProxyDescriptorImpl<?>> attributes = getAllEntities()
+        .flatMap(e -> e.getAllAttributes(true).stream())
+        .filter(a -> ((AttributeDescriptorBase<?>) a).isProxy())
+        .filter(a -> all || !((AttributeDescriptorBase<?>) a).isReplica())
+        .map(a -> ((AttributeDescriptorBase<?>) a).toProxy())
+        .collect(Collectors.toList());
+
+    // build dependency ordering, because we might have dependency
+    // chain in the families, and we need to rebind them
+    // in the dependency order (bottom-up)
+    Collection<AttributeProxyDescriptorImpl<?>> dependencyOrdered = all
+        ? buildProxyOrdering(attributes)
+        : attributes;
+
     // seek for attributes with the same read-write families
     // and create new family for each such pair containing
     // the attributes involved, thus reducing the number of created
     // families (attributes stored in the same families will be
     // proxied with single family, which will enable efficient
     // reads of such attributes)
-    readWriteToAttr = getAllEntities()
-        .flatMap(e -> e.getAllAttributes(true).stream())
-        .filter(a -> ((AttributeDescriptorBase<?>) a).isProxy())
-        .filter(a -> all || !((AttributeDescriptorBase<?>) a).isReplica())
-        .map(a -> ((AttributeDescriptorBase<?>) a).toProxy())
+    readWriteToAttr = dependencyOrdered
+        .stream()
         .flatMap(p -> {
           AttributeDescriptor<?> writeTarget = p.getWriteTarget();
           AttributeDescriptor<?> readTarget = p.getReadTarget();
@@ -1387,32 +1536,63 @@ public class ConfigRepository implements Repository, Serializable {
                 Pair::getSecond,
                 Collectors.mapping(Pair::getFirst, Collectors.toList())));
 
-    readWriteToAttr.entrySet().stream().flatMap(e -> {
-      List<AttributeProxyDescriptorImpl<?>> v = e.getValue();
-      Pair<AttributeFamilyDescriptor, AttributeFamilyDescriptor> k = e.getKey();
-      return v
-          .stream()
-          .map(a -> Pair.of(
-              a,
-              AttributeFamilyProxyDescriptor.of(
-                  findEntity(a.getEntity())
-                      .orElseThrow(() -> new IllegalStateException(
-                          "Entity " + a.getEntity() + " should be present")),
-                  v, k.getFirst(), k.getSecond())));
-    })
-    .collect(Collectors.groupingBy(
-        Pair::getFirst,
-        Collectors.mapping(Pair::getSecond, Collectors.toSet())))
-    .forEach((attr, families) -> {
-      Set<AttributeFamilyDescriptor> current = attributeToFamily.computeIfAbsent(
-          attr, tmp -> new HashSet<>());
-      current.stream()
-          .filter(af -> af.getType() == StorageType.PRIMARY)
-          .collect(Collectors.toList())
-          .forEach(current::remove);
-      current.addAll(families);
+    dependencyOrdered.forEach(attr -> {
+      readWriteToAttr.entrySet().stream().filter(e -> e.getValue().contains(attr)).flatMap(e -> {
+        List<AttributeProxyDescriptorImpl<?>> v = e.getValue();
+        AttributeFamilyDescriptor read = getPrimaryFamilyFor(attr.getReadTarget());
+        AttributeFamilyDescriptor write = getPrimaryFamilyFor(attr.getWriteTarget());
+        Pair<AttributeFamilyDescriptor, AttributeFamilyDescriptor> k = e.getKey();
+        return v
+            .stream()
+            .map(a -> AttributeFamilyProxyDescriptor.of(
+                    findEntity(a.getEntity())
+                        .orElseThrow(() -> new IllegalStateException(
+                            "Entity " + a.getEntity() + " should be present")),
+                    v, read, write));
+      })
+      .forEach(families -> {
+        Set<AttributeFamilyDescriptor> current = attributeToFamily.computeIfAbsent(
+            attr, tmp -> new HashSet<>());
+        current.stream()
+            .filter(af -> af.getType() == StorageType.PRIMARY)
+            .collect(Collectors.toList())
+            .forEach(current::remove);
+        current.add(families);
+      });
     });
+  }
 
+  private LinkedHashSet<AttributeProxyDescriptorImpl<?>> buildProxyOrdering(
+      Collection<? extends AttributeDescriptor<?>> attributes) {
+
+    LinkedHashSet<AttributeProxyDescriptorImpl<?>> dependencyOrdered = new LinkedHashSet<>();
+    List<AttributeProxyDescriptorImpl<?>> proxies = attributes
+        .stream()
+        .map(a -> ((AttributeDescriptorBase<?>) a).toProxy())
+        .collect(Collectors.toList());
+
+    while (dependencyOrdered.size() != proxies.size()) {
+      boolean modified = proxies.stream()
+          .filter(p -> {
+            return (
+                !((AttributeDescriptorBase<?>) p.getReadTarget()).isProxy()
+                || dependencyOrdered.contains(p.getReadTarget())
+                // the dependency can be self-resolved in case of
+                // read-only replications
+                || p.getReadTarget().equals(p))
+                && (
+                    !((AttributeDescriptorBase<?>) p.getWriteTarget()).isProxy()
+                    || dependencyOrdered.contains(p.getWriteTarget())
+                    || p.getWriteTarget().equals(p));
+          })
+          .map(dependencyOrdered::add)
+          .anyMatch(a -> a);
+      if (!modified) {
+        throw new IllegalStateException(
+            "Cannot determine the proxy ordering. Fix code!");
+      }
+    }
+    return dependencyOrdered;
   }
 
   private void readTransformations(Config cfg) {
@@ -1454,7 +1634,7 @@ public class ConfigRepository implements Repository, Serializable {
 
       List<AttributeDescriptor<?>> attrs = readList("attributes", transformation, name)
           .stream()
-          .flatMap(a -> searchAttributesMatching(a, entity, true).stream())
+          .flatMap(a -> searchAttributesMatching(a, entity, true, true).stream())
           .collect(Collectors.toList());
 
       TransformationDescriptor.Builder desc = TransformationDescriptor.newBuilder()
@@ -1575,9 +1755,20 @@ public class ConfigRepository implements Repository, Serializable {
   public Set<AttributeFamilyDescriptor> getFamiliesForAttribute(
       AttributeDescriptor<?> attr) {
 
-    return Objects.requireNonNull(
-        attributeToFamily.get(attr),
+    Set<AttributeFamilyDescriptor> families = attributeToFamily.get(attr);
+    Preconditions.checkArgument(
+        families != null && !families.isEmpty(),
         "Cannot find any family for attribute " + attr);
+    return families;
+  }
+
+  public AttributeFamilyDescriptor getPrimaryFamilyFor(AttributeDescriptor<?> attr) {
+    return getFamiliesForAttribute(attr)
+        .stream()
+        .filter(af -> af.getType() == StorageType.PRIMARY)
+        .findAny()
+        .orElseThrow(() -> new IllegalStateException(
+            "Attribute " + attr + " has not primary family"));
   }
 
   @Override
@@ -1589,7 +1780,7 @@ public class ConfigRepository implements Repository, Serializable {
             .filter(af -> af.getType() == StorageType.PRIMARY)
             .filter(af -> !af.getAccess().isReadonly())
             .findAny()
-            .flatMap(af -> af.getWriter())
+            .flatMap(AttributeFamilyDescriptor::getWriter)
             .map(w -> w.online())
             .orElse(null);
       }));

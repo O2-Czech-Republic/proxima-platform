@@ -28,6 +28,7 @@ import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.transform.EventDataToDummy;
+import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.DummyFilter;
 import cz.o2.proxima.view.PartitionedCachedView;
 import java.io.ByteArrayInputStream;
@@ -39,18 +40,22 @@ import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
 /**
  * Test repository config parsing.
  */
+@Slf4j
 public class ConfigRepositoryTest {
 
   private final ConfigRepository repo;
@@ -455,24 +460,24 @@ public class ConfigRepositoryTest {
 
     // start replications
     repo.getTransformations().forEach(this::runTransformation);
-    OnlineAttributeWriter writer = repo.getWriter(armed).get();
-    writer.write(
-        StreamElement.update(
-            gateway, armed, "uuid", "gw", armed.getName(),
-            System.currentTimeMillis(), new byte[] { 1, 2 }),
-        (succ, exc) -> {
-          assertTrue(succ);
-        });
+    repo.getWriter(armed).get()
+        .write(
+            StreamElement.update(
+                gateway, armed, "uuid", "gw", armed.getName(),
+                System.currentTimeMillis(), new byte[] { 1, 2 }),
+            (succ, exc) -> {
+              assertTrue(succ);
+            });
     // wait till write propagates
     TimeUnit.MILLISECONDS.sleep(300);
-    RandomAccessReader reader = repo.getFamiliesForAttribute(armed)
+    Optional<KeyValue<Object>> kv = repo.getFamiliesForAttribute(armed)
         .stream()
         .filter(af -> af.getAccess().canRandomRead())
         .findAny()
         .flatMap(af -> af.getRandomAccessReader())
         .orElseThrow(() -> new IllegalStateException(
-            "Missing random access reader for armed"));
-    Optional<KeyValue<Object>> kv = reader.get("gw", armed);
+            "Missing random access reader for armed"))
+        .get("gw", armed);
     assertTrue(kv.isPresent());
     assertEquals(armed, kv.get().getAttrDescriptor());
   }
@@ -637,6 +642,60 @@ public class ConfigRepositoryTest {
   }
 
   @Test(timeout = 2000)
+  public void testWriteIntoReplicatedProxyAttribute() throws InterruptedException {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve());
+    EntityDescriptor dummy = repo
+        .findEntity("dummy")
+        .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
+    AttributeDescriptor<Object> data = dummy
+        .findAttribute("data", true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute data"));
+
+    AttributeDescriptor<Object> dataReplicated = dummy
+        .findAttribute("_dummyReplicationProxiedSlave_replicated$_d", true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing write target for replicated data"));
+
+    CountDownLatch latch = new CountDownLatch(2);
+    CommitLogReader reader = repo.getFamiliesForAttribute(data)
+        .stream()
+        .filter(af -> af.getAccess().canReadCommitLog())
+        .findAny()
+        .flatMap(af -> af.getCommitLogReader())
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing commit log reader for data"));
+    reader.observe("dummy", new LogObserver() {
+      @Override
+      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+        assertEquals(ingest.getAttributeDescriptor(), data);
+        latch.countDown();
+        return true;
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+    });
+    OnlineAttributeWriter writer = repo.getWriter(dataReplicated).get();
+    writer.write(
+        StreamElement.update(
+            dummy, dataReplicated, "uuid", "gw", dataReplicated.getName(),
+            System.currentTimeMillis(), new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+          latch.countDown();
+        });
+    latch.await();
+  }
+
+  @Test(timeout = 2000)
   public void testObserveReplicatedWithProxy() throws InterruptedException {
     repo.reloadConfig(
         true,
@@ -655,7 +714,7 @@ public class ConfigRepositoryTest {
         .orElseThrow(() -> new IllegalStateException(
             "Missing read source for replicated data"));
     AttributeDescriptor<Object> dataWrite = dummy
-        .findAttribute("_dummyReplicationProxiedSlave_write$data", true)
+        .findAttribute("_dummyReplicationProxiedSlave_write$_d", true)
         .orElseThrow(() -> new IllegalStateException(
             "Missing read source for replicated data"));
 
@@ -666,7 +725,7 @@ public class ConfigRepositoryTest {
         .findAny()
         .flatMap(af -> af.getCommitLogReader())
         .orElseThrow(() -> new IllegalStateException(
-            "Missing random access reader for " + data.getName()));
+            "Missing commit log reader for " + data.getName()));
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe("dummy", new LogObserver() {
       @Override
@@ -685,7 +744,7 @@ public class ConfigRepositoryTest {
     OnlineAttributeWriter writer = repo.getWriter(dataRead).get();
     writer.write(
         StreamElement.update(
-            dummy, data, "uuid", "gw", data.getName(),
+            dummy, data, "uuid", "gw", dataRead.getName(),
             System.currentTimeMillis(), new byte[] { 1, 2 }),
         (succ, exc) -> {
           assertTrue(succ);
@@ -703,8 +762,167 @@ public class ConfigRepositoryTest {
           .isPresent());
   }
 
+  @Test
+  public void testReplicationTransformations() {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve());
+
+    EntityDescriptor dummy = repo.findEntity("dummy").orElseThrow(
+        () -> new IllegalStateException("Missing entity dummy"));
+    Map<String, TransformationDescriptor> transformations = repo.getTransformations();
+    assertNotNull(transformations.get("_dummyReplicationMasterSlave_slave"));
+    assertNotNull(transformations.get("_dummyReplicationMasterSlave_replicated"));
+    assertNotNull(transformations.get("_dummyReplicationProxiedSlave_read"));
+
+    // transformation from local writes to slave
+    checkTransformation(
+        dummy,
+        "_dummyReplicationMasterSlave_slave",
+        transformations.get("_dummyReplicationMasterSlave_slave"),
+        "_dummyReplicationMasterSlave_write$wildcard.*",
+        "_dummyReplicationMasterSlave_slave$wildcard.*",
+        "wildcard.*");
+
+    // transformation from local writes to replicated result
+    checkTransformation(
+        dummy,
+        "_dummyReplicationMasterSlave_replicated",
+        transformations.get("_dummyReplicationMasterSlave_replicated"),
+        "_dummyReplicationMasterSlave_write$wildcard.*",
+        "_dummyReplicationMasterSlave_replicated$wildcard.*");
+
+    // transformation from remote writes to local replicated result
+    // with proxy
+    checkTransformation(
+        dummy,
+        "_dummyReplicationProxiedSlave_read",
+        transformations.get("_dummyReplicationProxiedSlave_read"),
+        "data",
+        "_dummyReplicationProxiedSlave_replicated$_d");
+  }
+
+  @Test
+  public void testReplicationTransformationsNonProxied() {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve());
+
+    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
+        () -> new IllegalStateException("Missing entity gateway"));
+    Map<String, TransformationDescriptor> transformations = repo.getTransformations();
+    assertNotNull(transformations.get("_gatewayReplication_read"));
+    assertNotNull(transformations.get("_gatewayReplication_inmemSecond"));
+
+    // transformation from remote writes to local replicated result
+    // without proxy
+    checkTransformation(
+        gateway,
+        "_gatewayReplication_read",
+        transformations.get("_gatewayReplication_read"),
+        "armed",
+        "_gatewayReplication_replicated$armed");
+
+    // transformation from local writes to slave
+    checkTransformation(
+        gateway,
+        "_gatewayReplication_inmemSecond",
+        transformations.get("_gatewayReplication_inmemSecond"),
+        "_gatewayReplication_write$armed",
+        "_gatewayReplication_inmemSecond$armed",
+        "armed");
+  }
+
+  @Test
+  public void testReplicationProxies() {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load("test-replication-proxy.conf")
+            .resolve());
+
+    EntityDescriptor dummy = repo.findEntity("dummy").orElseThrow(
+        () -> new IllegalStateException("Missing entity dummy"));
+
+    // attribute _d should be proxy to
+    // _dummyReplicationMasterSlave_write$_d
+    // and _dummyReplicationMasterSlave_replicated$_d
+    AttributeDescriptor<Object> _d = dummy.findAttribute("_d", true)
+        .orElseThrow(() -> new IllegalStateException("Missing attribute _d"));
+    assertTrue(((AttributeDescriptorBase<?>) _d).isProxy());
+    Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(_d);
+    assertEquals(1, families.size());
+    AttributeFamilyDescriptor primary = Iterables.getOnlyElement(families);
+    assertTrue("Family " + primary + " must be proxy", primary.isProxy());
+    AttributeFamilyProxyDescriptor proxy = (AttributeFamilyProxyDescriptor) primary;
+    assertEquals(
+        "proxy::replication_dummy-replication-proxied-slave_replicated::"
+            + "replication_dummy-replication-proxied-slave_write",
+        primary.getName());
+    assertEquals(
+        "replication_dummy-replication-proxied-slave_replicated",
+        proxy.getTargetFamilyRead().getName());
+    assertEquals(
+        "replication_dummy-replication-proxied-slave_write",
+        proxy.getTargetFamilyWrite().getName());
+    assertFalse(proxy.getTargetFamilyRead().isProxy());
+    assertFalse(proxy.getTargetFamilyWrite().isProxy());
+    assertEquals(1, proxy.getAttributes().size());
+    AttributeProxyDescriptorImpl<?> attr;
+    attr = (AttributeProxyDescriptorImpl<?>) _d;
+    assertEquals(
+        "_dummyReplicationProxiedSlave_write$_d",
+        attr.getWriteTransform().fromProxy("_d"));
+    assertEquals("_d",
+        attr.getWriteTransform().toProxy("_dummyReplicationProxiedSlave_write$_d"));
+    assertEquals(
+        "_dummyReplicationProxiedSlave_replicated$_d",
+        attr.getReadTransform().fromProxy("_d"));
+    assertEquals("_d",
+        attr.getReadTransform().toProxy("_dummyReplicationProxiedSlave_replicated$_d"));
+
+    // attribute dummy.data should be proxy to _d
+    attr = (AttributeProxyDescriptorImpl<?>) dummy.findAttribute("data").get();
+    assertEquals(
+        "data",
+        attr.getWriteTransform().toProxy("_d"));
+    assertEquals(
+        "data",
+        attr.getReadTransform().toProxy("_d"));
+    assertEquals(
+        "_d",
+        attr.getWriteTransform().fromProxy("data"));
+    assertEquals(
+        "_d",
+        attr.getReadTransform().fromProxy("data"));
+    families = repo.getFamiliesForAttribute(attr);
+    assertEquals(1, families.size());
+    primary = Iterables.getOnlyElement(families);
+    assertTrue(primary.isProxy());
+    proxy = (AttributeFamilyProxyDescriptor) primary;
+    assertEquals("proxy::proxy::replication_dummy-replication-proxied-slave_replicated::replication_dummy"
+        + "-replication-proxied-slave_write::proxy::replication_dummy-replication-proxied-slave_replicated::"
+        + "replication_dummy-replication-proxied-slave_write",
+        primary.getName());
+    assertEquals(
+        "proxy::replication_dummy-replication-proxied-slave_replicated::replication_dummy-replication-proxied-slave_write",
+        proxy.getTargetFamilyRead().getName());
+    assertEquals(
+        "proxy::replication_dummy-replication-proxied-slave_replicated::replication_dummy-replication-proxied-slave_write",
+        proxy.getTargetFamilyWrite().getName());
+    assertTrue(proxy.getTargetFamilyRead().isProxy());
+    assertTrue(proxy.getTargetFamilyWrite().isProxy());
+    assertEquals(1, proxy.getAttributes().size());
+  }
+
+
   @Test(timeout = 2000)
-  public void testIncomingReplicationDontCycle() throws InterruptedException {
+  public void testIncomingReplicationDoesntCycle() throws InterruptedException {
     repo.reloadConfig(
         true,
         ConfigFactory.load()
@@ -770,6 +988,36 @@ public class ConfigRepositoryTest {
   }
 
 
+  @Test(timeout = 2000)
+  public void testWriteToSlaveOfProxyReplicatedAttribute() throws InterruptedException {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
+            .resolve());
+    EntityDescriptor dummy = repo
+        .findEntity("dummy2")
+        .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
+    AttributeDescriptor<Object> event = dummy
+        .findAttribute("event.*", true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute event.*"));
+
+    CountDownLatch latch = new CountDownLatch(1);
+    repo.getTransformations().forEach(this::runTransformation);
+    OnlineAttributeWriter writer = repo.getWriter(event).get();
+    writer.write(
+        StreamElement.update(
+            dummy, event, "uuid", "gw", event.toAttributePrefix() + "123",
+            System.currentTimeMillis(), new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+          latch.countDown();
+        });
+    latch.await();
+  }
+
+
   private void runTransformation(String name, TransformationDescriptor desc) {
 
     desc.getAttributes().stream()
@@ -795,10 +1043,61 @@ public class ConfigRepositoryTest {
 
           @Override
           public boolean onError(Throwable error) {
+            log.error("Error in transformer {}", name, error);
             throw new RuntimeException(error);
           }
 
         });
+  }
+
+  // validate that given transformation transforms in the desired way
+  private void checkTransformation(
+      EntityDescriptor entity,
+      String name,
+      TransformationDescriptor transform,
+      String from,
+      String to) {
+
+    checkTransformation(entity, name, transform, from, to, to);
+  }
+
+  private void checkTransformation(
+      EntityDescriptor entity,
+      String name,
+      TransformationDescriptor transform,
+      String from,
+      String to,
+      String toAttrName) {
+
+    assertTrue(
+        "Entity " + entity + " doesn't contain attribute " + from,
+        entity.findAttribute(from, true).isPresent());
+    assertTrue(
+        "Entity " + entity + " doesn't contain attribute " + to,
+        entity.findAttribute(to, true).isPresent());
+    AttributeDescriptor<?> fromAttr = entity.findAttribute(from, true).get();
+    AttributeDescriptor<?> toAttr = entity.findAttribute(to, true).get();
+    assertEquals(transform.getEntity(), entity);
+    assertEquals(
+        toAttrName,
+        collectSingleAttributeUpdate(
+            transform.getTransformation(), entity, from, fromAttr));
+  }
+
+  private static String collectSingleAttributeUpdate(
+      Transformation transform,
+      EntityDescriptor entity,
+      String inputAttribute,
+      AttributeDescriptor<?> inputDesc) {
+
+    AtomicReference<StreamElement> element = new AtomicReference<>();
+    assertEquals(1,
+        transform.apply(
+            StreamElement.update(
+                entity, inputDesc, UUID.randomUUID().toString(), "key",
+                inputAttribute, System.currentTimeMillis(), new byte[] { 1, 2, 3 }),
+            element::set));
+    return element.get().getAttribute();
   }
 
 }

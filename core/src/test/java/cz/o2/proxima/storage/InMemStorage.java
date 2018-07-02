@@ -160,13 +160,13 @@ public class InMemStorage extends StorageDescriptor {
         boolean stopAtCurrent,
         LogObserver observer) {
 
-
       logAndFixPosition(position);
       final int id;
       if (!stopAtCurrent) {
         synchronized (observers) {
           id = observers.isEmpty() ? 0 : observers.lastKey() + 1;
           observers.put(id, elem -> {
+            validateAttributeInEntity(getEntityDescriptor(), elem);
             try {
               observer.onNext(elem, (suc, err) -> { });
             } catch (Exception ex) {
@@ -233,6 +233,7 @@ public class InMemStorage extends StorageDescriptor {
         synchronized (observers) {
           id = observers.isEmpty() ? 0 : observers.lastKey();
           observers.put(id, elem -> {
+            validateAttributeInEntity(getEntityDescriptor(), elem);
             try {
               observer.onNext(elem, () -> 0, (suc, err) -> { });
             } catch (Exception ex) {
@@ -290,7 +291,8 @@ public class InMemStorage extends StorageDescriptor {
         observer.onRepartition(partitions);
         observe("partitionedView-" + flow.getName(), new LogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter confirm) {
+          public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
+            validateAttributeInEntity(getEntityDescriptor(), ingest);
             observer.onNext(ingest, confirm::commit, () -> 0, e -> {
               try {
                 queue.put(e);
@@ -590,6 +592,7 @@ public class InMemStorage extends StorageDescriptor {
     public void write(StreamElement data, CommitCallback statusCallback) {
       cache(data);
       writer.write(data, statusCallback);
+      validateAttributeInEntity(getEntityDescriptor(), data);
     }
 
     @Override
@@ -673,5 +676,19 @@ public class InMemStorage extends StorageDescriptor {
 
     };
   }
+
+  // validate that entity contains required attribute
+  private static void validateAttributeInEntity(
+      EntityDescriptor entity,
+      StreamElement ingest) {
+
+    entity
+        .findAttribute(ingest.getAttribute(), true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Entity " + entity + " is missing attribute "
+                + ingest.getAttribute()));
+  }
+
+
 
 }

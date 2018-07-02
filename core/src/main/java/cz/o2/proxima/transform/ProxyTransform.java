@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.transform;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import java.io.Serializable;
 
@@ -40,6 +40,30 @@ public interface ProxyTransform extends Serializable {
 
   };
 
+  static ProxyTransform composite(ProxyTransform... transforms) {
+
+    return new ProxyTransform() {
+      @Override
+      public String fromProxy(String proxy) {
+        String tmp = proxy;
+        for (int i = transforms.length - 1; i >= 0; i-- ) {
+          tmp = transforms[i].fromProxy(tmp);
+        }
+        return tmp;
+      }
+
+      @Override
+      public String toProxy(String raw) {
+        String tmp = raw;
+        for (ProxyTransform t : transforms) {
+          tmp = t.toProxy(tmp);
+        }
+        return tmp;
+      }
+    };
+
+  }
+
 
   /**
    * Proxy renaming attribute.
@@ -52,10 +76,7 @@ public interface ProxyTransform extends Serializable {
 
       @Override
       public String fromProxy(String s) {
-        if (!s.startsWith(raw)) {
-          Preconditions.checkArgument(
-              s.length() >= proxy.length(),
-              "Invalid proxy attribute " + s + ", required " + proxy);
+        if (s.startsWith(proxy)) {
           return raw + s.substring(proxy.length());
         }
         return s;
@@ -63,10 +84,7 @@ public interface ProxyTransform extends Serializable {
 
       @Override
       public String toProxy(String s) {
-        if (!s.startsWith(proxy)) {
-          Preconditions.checkArgument(
-              s.length() >= raw.length(),
-              "Invalid raw attribute " + s + ", required " + raw);
+        if (s.startsWith(raw)) {
           return proxy + s.substring(raw.length());
         }
         return s;
@@ -92,6 +110,24 @@ public interface ProxyTransform extends Serializable {
         return raw;
       }
 
+    };
+  }
+
+
+  static ProxyTransform from(
+      UnaryFunction<String, String> fromProxy,
+      UnaryFunction<String, String> toProxy) {
+
+    return new ProxyTransform() {
+      @Override
+      public String fromProxy(String proxy) {
+        return fromProxy.apply(proxy);
+      }
+
+      @Override
+      public String toProxy(String raw) {
+        return toProxy.apply(raw);
+      }
     };
   }
 

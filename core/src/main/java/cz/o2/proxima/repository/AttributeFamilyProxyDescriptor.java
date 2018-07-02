@@ -65,7 +65,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
-  private static class AttrLookup implements Serializable {
+   static class AttrLookup implements Serializable {
 
     @Getter
     final List<AttributeProxyDescriptorImpl<?>> attrs;
@@ -120,12 +120,18 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       AttributeFamilyDescriptor targetFamilyRead,
       AttributeFamilyDescriptor targetFamilyWrite) {
 
-
     return new AttributeFamilyProxyDescriptor(
         entity,
         new AttrLookup(attrs),
         targetFamilyRead, targetFamilyWrite);
   }
+
+
+  @Getter
+  private final AttributeFamilyDescriptor targetFamilyRead;
+
+  @Getter
+  private final AttributeFamilyDescriptor targetFamilyWrite;
 
   @SuppressWarnings("unchecked")
   private AttributeFamilyProxyDescriptor(
@@ -149,6 +155,9 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
             : AccessType.or(targetFamilyRead.getAccess(), AccessType.from("read-only")),
         targetFamilyRead.getFilter(),
         null);
+
+    this.targetFamilyRead = targetFamilyRead;
+    this.targetFamilyWrite = targetFamilyWrite;
   }
 
   private static OnlineAttributeWriter getWriter(
@@ -259,7 +268,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           BulkLogObserver observer) {
 
         return reader.observeBulkPartitions(
-            partitions, position, stopAtCurrent, wrapTransformed(lookup, observer));
+            partitions, position, stopAtCurrent,
+            wrapTransformed(lookup, observer));
       }
 
       @Override
@@ -271,7 +281,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           BulkLogObserver observer) {
 
         return reader.observeBulkPartitions(
-            name, partitions, position, stopAtCurrent, wrapTransformed(lookup, observer));
+            name, partitions, position, stopAtCurrent,
+            wrapTransformed(lookup, observer));
       }
 
       @Override
@@ -467,9 +478,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     return new LogObserver() {
 
       @Override
-      public boolean onNext(
-          StreamElement ingest, LogObserver.OffsetCommitter confirm) {
-
+      public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
         try {
           return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
               .stream()
@@ -479,8 +488,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
               .orElse(true);
         } catch (Exception ex) {
           log.error("Failed to transform ingest {}", ingest, ex);
-          confirm.confirm();
-          return true;
+          confirm.fail(ex);
+          return false;
         }
       }
 
@@ -522,7 +531,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       public boolean onNext(
           StreamElement ingest,
           Partition partition,
-          BulkLogObserver.OffsetCommitter confirm) {
+          OffsetCommitter confirm) {
 
         try {
           return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
@@ -718,6 +727,9 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     return key;
   }
 
-
+  @Override
+  boolean isProxy() {
+    return true;
+  }
 
 }

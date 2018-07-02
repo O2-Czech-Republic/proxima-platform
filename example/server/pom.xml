@@ -49,15 +49,10 @@
         <version>2.4.3</version>
         <configuration>
           <transformers>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-             <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
-            </transformer>
+            <transformer
+                implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
           </transformers>
           <relocations>
-            <relocation>
-              <pattern>org.reflections.</pattern>
-              <shadedPattern>cz.o2.proxima.internal.shaded.org.reflections.</shadedPattern>
-            </relocation>
             <relocation>
               <pattern>com.google.common.</pattern>
               <shadedPattern>cz.o2.proxima.internal.shaded.com.google.common.</shadedPattern>

@@ -16,12 +16,15 @@
 package cz.o2.proxima.storage.hdfs;
 
 import com.google.common.collect.Maps;
+import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.util.concurrent.Executors;
+
 import org.apache.hadoop.fs.Path;
 import org.junit.After;
 import static org.junit.Assert.assertEquals;
@@ -29,17 +32,18 @@ import org.junit.Before;
 import org.junit.Test;
 
 /**
- * Simple tests for {@code HdfsAttributeWriter}.
+ * Simple tests for {@code HdfsBulkAttributeWriter}.
  */
-public class HdfsAttributeWriterTest {
+public class HdfsBulkAttributeWriterTest {
 
-  HdfsDataAccessor writer;
+  private HdfsBulkAttributeWriter writer;
 
   @Before
-  public void setUp() throws URISyntaxException, IOException {
-    writer = new HdfsDataAccessor(
+  public void setUp() throws URISyntaxException {
+    writer = new HdfsBulkAttributeWriter(
         EntityDescriptor.newBuilder().setName("dummy").build(),
-        new URI("file://dummy/dir"), Maps.newHashMap());
+        new URI("file://dummy/dir"), Maps.newHashMap(),
+    HdfsDataAccessor.HDFS_MIN_ELEMENTS_TO_FLUSH_DEFAULT, HdfsDataAccessor.HDFS_ROLL_INTERVAL_DEFAULT);
   }
 
   @After
@@ -78,7 +82,7 @@ public class HdfsAttributeWriterTest {
     String part = "part-part-1499999999000_1500000001000-localhost.local";
     assertEquals(
         Maps.immutableEntry(1499999999000L, 1500000001000L),
-        HdfsDataAccessor.getMinMaxStamp(part));
+        HdfsBatchLogObservable.getMinMaxStamp(part));
   }
 
 }

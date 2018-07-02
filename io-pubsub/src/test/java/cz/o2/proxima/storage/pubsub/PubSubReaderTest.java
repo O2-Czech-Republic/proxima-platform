@@ -122,7 +122,7 @@ public class PubSubReaderTest {
     reader = new TestPubSubReader(context);
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 3000)
   public void testObserve() throws InterruptedException {
     long now = System.currentTimeMillis();
     Deque<PubsubMessage> inputs = new LinkedList<>(

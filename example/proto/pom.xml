@@ -31,6 +31,10 @@
      
   <name>${project.groupId}:${project.artifactId}</name>
 
+  <properties>
+    <sonar.jacoco.reportPaths>${project.basedir}/../../target/jacoco.exec</sonar.jacoco.reportPaths>
+  </properties>
+
   <build>
     <extensions>
       <extension>

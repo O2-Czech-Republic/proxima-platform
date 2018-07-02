@@ -10,12 +10,16 @@ addons:
     packages:
       - oracle-java8-installer
       - realpath
+  sonarcloud:
+    organization: datadriven
+    token:
+      secure: $SONAR_TOKEN
 
 install: true
-script: mvn install -B -V -Pallow-snapshots
+script: mvn install sonar:sonar -B -V -Pallow-snapshots,with-coverage -Dsonar.login=$SONAR_TOKEN
 before_cache: rm -rf ~/.m2/repository/cz/o2/proxima || /bin/true
 
 cache:
   directories:
-    - ~/.m2/repository
-
+    - '$HOME/.m2/repository'
+    - '$HOME/.sonar/cache'

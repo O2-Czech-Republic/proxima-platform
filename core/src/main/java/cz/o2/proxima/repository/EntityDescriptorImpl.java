@@ -27,10 +27,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Descriptor of entity.
  */
+@Slf4j
 @Internal
 public class EntityDescriptorImpl implements EntityDescriptor {
 
@@ -116,6 +118,16 @@ public class EntityDescriptorImpl implements EntityDescriptor {
   @Override
   public int hashCode() {
     return name.hashCode();
+  }
+
+  void replaceAttribute(AttributeDescriptor<?> attr) {
+    this.attributes.remove(attr);
+    this.attributes.add(attr);
+    if (attr.isWildcard()) {
+      this.attributesByPattern.put(new NamePattern(attr.getName()), attr);
+    } else {
+      this.attributesByName.put(attr.getName(), attr);
+    }
   }
 
 }

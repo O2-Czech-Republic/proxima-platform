@@ -697,6 +697,28 @@ public class ConfigRepositoryTest {
   }
 
   @Test(timeout = 2000)
+  public void testRandomReadFromReplicatedProxyAttribute() throws InterruptedException {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
+            .resolve());
+    EntityDescriptor dummy = repo
+        .findEntity("dummy")
+        .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
+    AttributeDescriptor<Object> data = dummy
+        .findAttribute("data", true)
+        .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+    assertTrue(repo.getFamiliesForAttribute(data)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(af -> af.getRandomAccessReader())
+        .isPresent());
+  }
+
+
+  @Test(timeout = 2000)
   public void testObserveReplicatedWithProxy() throws InterruptedException {
     repo.reloadConfig(
         true,
@@ -902,8 +924,11 @@ public class ConfigRepositoryTest {
         "_d",
         attr.getReadTransform().fromProxy("data"));
     families = repo.getFamiliesForAttribute(attr);
-    assertEquals(1, families.size());
-    primary = Iterables.getOnlyElement(families);
+    assertEquals(2, families.size());
+    primary = families.stream()
+        .filter(af -> af.getType() == StorageType.PRIMARY).findAny()
+        .orElse(null);
+    assertNotNull(primary);
     assertTrue(primary.isProxy());
     proxy = (AttributeFamilyProxyDescriptor) primary;
     assertEquals("proxy::proxy::replication_dummy-replication-proxied-slave_replicated::replication_dummy"
@@ -1016,7 +1041,7 @@ public class ConfigRepositoryTest {
         });
     latch.await();
   }
-  
+
   // validate that given transformation transforms in the desired way
   private void checkTransformation(
       EntityDescriptor entity,

@@ -106,14 +106,4 @@ public interface EntityDescriptor extends Serializable {
     return getAllAttributes(false);
   }
 
-  /**
-   * Convert this entity descriptor to builder.
-   * @return builder for this entity descriptor
-   */
-  default Builder toBuilder() {
-    Builder ret = new Builder().setName(getName());
-    getAllAttributes(true).forEach(ret::addAttribute);
-    return ret;
-  }
-
 }

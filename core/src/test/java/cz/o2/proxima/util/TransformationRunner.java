@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.util;
 
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.LogObserver;
-import cz.o2.proxima.transform.Transformation;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,19 +36,35 @@ public class TransformationRunner {
    */
   public static void runTransformations(Repository repo) {
     repo.getTransformations()
-        .forEach((name, desc) -> runTransformation(repo, name, desc));
+        .forEach((name, desc) -> runTransformation(repo, name, desc, i -> { }));
   }
+
+  /**
+   * Run all transformations in given repository.
+   * @param repo the repository
+   * @param onReplicate callback to be called before write to replicated target
+   */
+  public static void runTransformations(
+      Repository repo,
+      Consumer<StreamElement> onReplicate) {
+
+    repo.getTransformations()
+        .forEach((name, desc) -> runTransformation(repo, name, desc, onReplicate));
+  }
+
 
   /**
    * Run given transformation in local JVM.
    * @param repo the repository
    * @param name name of the transformation
    * @param desc the transformation to run
+   * @param onReplicate callback to be called before write to replicated target
    */
   public static void runTransformation(
       Repository repo,
       String name,
-      TransformationDescriptor desc) {
+      TransformationDescriptor desc,
+      Consumer<StreamElement> onReplicate) {
 
     desc.getAttributes().stream()
         .flatMap(attr -> repo.getFamiliesForAttribute(attr)
@@ -64,6 +80,7 @@ public class TransformationRunner {
           @Override
           public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter committer) {
             desc.getTransformation().apply(ingest, transformed -> {
+              onReplicate.accept(transformed);
               repo.getWriter(transformed.getAttributeDescriptor())
                   .get()
                   .write(transformed, committer::commit);
@@ -78,10 +95,6 @@ public class TransformationRunner {
           }
 
         });
-  }
-
-  public static void runTransformation(Transformation transformation) {
-
   }
 
   private TransformationRunner() { }

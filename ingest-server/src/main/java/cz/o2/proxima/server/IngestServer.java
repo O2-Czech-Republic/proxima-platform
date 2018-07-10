@@ -674,10 +674,10 @@ public class IngestServer {
     // execute threads to consume the commit log
     familyToCommitLog.forEach((family, logs) -> {
       for (AttributeFamilyDescriptor commitLogFamily : logs) {
-        CommitLogReader commitLog = commitLogFamily.getCommitLogReader()
-            .orElseThrow(() -> new IllegalStateException(
-                "Failed validation on consistency of attribute families. Fix code!"));
         if (!family.getAccess().isReadonly()) {
+          CommitLogReader commitLog = commitLogFamily.getCommitLogReader()
+              .orElseThrow(() -> new IllegalStateException(
+                  "Failed to find commit-log reader in family " + commitLogFamily));
           AttributeWriterBase writer = family.getWriter()
               .orElseThrow(() ->
                   new IllegalStateException(
@@ -686,11 +686,10 @@ public class IngestServer {
           Set<AttributeDescriptor<?>> allowedAttributes =
               new HashSet<>(family.getAttributes());
           final String name = "consumer-" + family.getName();
-          Thread.currentThread().setName(name);
           registerWriterTo(name, commitLog, allowedAttributes, filter,
               writer, retryPolicy);
           log.info(
-              "Started consumer thread {} consuming from log {} with URI {} into {} "
+              "Started consumer {} consuming from log {} with URI {} into {} "
                   + "attributes {}",
               name, commitLog, commitLog.getURI(), writer.getURI(), allowedAttributes);
         } else {

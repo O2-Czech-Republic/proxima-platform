@@ -30,6 +30,7 @@ import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.transform.EventDataToDummy;
 import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.DummyFilter;
+import cz.o2.proxima.util.TransformationRunner;
 import cz.o2.proxima.view.PartitionedCachedView;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -459,7 +460,7 @@ public class ConfigRepositoryTest {
         .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
 
     // start replications
-    repo.getTransformations().forEach(this::runTransformation);
+    TransformationRunner.runTransformations(repo);
     repo.getWriter(armed).get()
         .write(
             StreamElement.update(
@@ -571,7 +572,7 @@ public class ConfigRepositoryTest {
     });
 
     // start replications
-    repo.getTransformations().forEach(this::runTransformation);
+    TransformationRunner.runTransformations(repo);
     OnlineAttributeWriter writer = repo.getWriter(armedWrite).get();
     writer.write(
         StreamElement.update(
@@ -718,7 +719,7 @@ public class ConfigRepositoryTest {
         .orElseThrow(() -> new IllegalStateException(
             "Missing read source for replicated data"));
 
-    repo.getTransformations().forEach(this::runTransformation);
+    TransformationRunner.runTransformations(repo);
     CommitLogReader reader = repo.getFamiliesForAttribute(data)
         .stream()
         .filter(af -> af.getAccess().canReadCommitLog())
@@ -744,7 +745,7 @@ public class ConfigRepositoryTest {
     OnlineAttributeWriter writer = repo.getWriter(dataRead).get();
     writer.write(
         StreamElement.update(
-            dummy, data, "uuid", "gw", dataRead.getName(),
+            dummy, data, "uuid", "gw", data.getName(),
             System.currentTimeMillis(), new byte[] { 1, 2 }),
         (succ, exc) -> {
           assertTrue(succ);
@@ -944,8 +945,7 @@ public class ConfigRepositoryTest {
         .orElseThrow(() -> new IllegalStateException(
             "Missing write target for replicated status"));
 
-
-    repo.getTransformations().forEach(this::runTransformation);
+    TransformationRunner.runTransformations(repo);
     CommitLogReader reader = repo.getFamiliesForAttribute(status)
         .stream()
         .filter(af -> af.getAccess().canReadCommitLog())
@@ -1004,7 +1004,7 @@ public class ConfigRepositoryTest {
             "Missing attribute event.*"));
 
     CountDownLatch latch = new CountDownLatch(1);
-    repo.getTransformations().forEach(this::runTransformation);
+    TransformationRunner.runTransformations(repo);
     OnlineAttributeWriter writer = repo.getWriter(event).get();
     writer.write(
         StreamElement.update(
@@ -1016,40 +1016,7 @@ public class ConfigRepositoryTest {
         });
     latch.await();
   }
-
-
-  private void runTransformation(String name, TransformationDescriptor desc) {
-
-    desc.getAttributes().stream()
-        .flatMap(attr -> repo.getFamiliesForAttribute(attr)
-            .stream()
-            .filter(af -> af.getAccess().canReadCommitLog()))
-        .collect(Collectors.toSet())
-        .stream()
-        .findAny()
-        .flatMap(AttributeFamilyDescriptor::getCommitLogReader)
-        .orElseThrow(() -> new IllegalStateException(
-            "No commit log reader for attributes of transformation " + desc))
-        .observe(name, new LogObserver() {
-          @Override
-          public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
-            desc.getTransformation().apply(ingest, transformed -> {
-              repo.getWriter(transformed.getAttributeDescriptor())
-                  .get()
-                  .write(transformed, committer::commit);
-            });
-            return true;
-          }
-
-          @Override
-          public boolean onError(Throwable error) {
-            log.error("Error in transformer {}", name, error);
-            throw new RuntimeException(error);
-          }
-
-        });
-  }
-
+  
   // validate that given transformation transforms in the desired way
   private void checkTransformation(
       EntityDescriptor entity,

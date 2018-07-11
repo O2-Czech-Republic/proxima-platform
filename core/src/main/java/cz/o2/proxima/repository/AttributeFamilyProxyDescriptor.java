@@ -182,6 +182,10 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         AttributeProxyDescriptorImpl<?> target = lookup.lookupProxy(
             data.getAttributeDescriptor().getName());
 
+        log.debug(
+            "Proxying write of {} to target {} using writer {}",
+            data, target, writer.getURI());
+
         writer.write(
                 transformToRaw(data, target),
                 statusCallback);

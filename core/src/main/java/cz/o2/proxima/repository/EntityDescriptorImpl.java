@@ -120,14 +120,19 @@ public class EntityDescriptorImpl implements EntityDescriptor {
     return name.hashCode();
   }
 
-  void replaceAttribute(AttributeDescriptor<?> attr) {
-    this.attributes.remove(attr);
+  Optional<AttributeDescriptor<?>> replaceAttribute(AttributeDescriptor<?> attr) {
+    Optional<AttributeDescriptor<?>> current;
+    current = this.attributes.stream().filter(a -> a.equals(attr)).findAny();
+    if (current.isPresent()) {
+      this.attributes.remove(attr);
+    }
     this.attributes.add(attr);
     if (attr.isWildcard()) {
       this.attributesByPattern.put(new NamePattern(attr.getName()), attr);
     } else {
       this.attributesByName.put(attr.getName(), attr);
     }
+    return current;
   }
 
 }

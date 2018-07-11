@@ -87,7 +87,13 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
-      log.debug("Writing element {} to {}", data, getURI());
+      if (log.isDebugEnabled()) {
+        synchronized (observers) {
+          log.debug(
+              "Writing element {} to {} with {} observers",
+              data, getURI(), observers.size());
+        }
+      }
       if (data.isDeleteWildcard()) {
         String prefix = getURI().getPath() + "/" + data.getKey()
             + "#" + data.getAttributeDescriptor().toAttributePrefix();
@@ -160,6 +166,7 @@ public class InMemStorage extends StorageDescriptor {
         boolean stopAtCurrent,
         LogObserver observer) {
 
+      log.debug("Observing {} as {}", getURI(), name);
       logAndFixPosition(position);
       final int id;
       if (!stopAtCurrent) {

@@ -302,8 +302,6 @@ public class ConfigRepository implements Repository, Serializable {
       if (shouldLoadAccessors) {
         // Link attribute families for proxied attribute (non replicated)
         loadProxiedFamilies();
-        // Read transformations from one entity to another.
-        readTransformations(config);
         // modify entites based on replications
         Map<String, Replication> replications = parseReplications(config);
         readEntityReplications(replications);
@@ -311,6 +309,8 @@ public class ConfigRepository implements Repository, Serializable {
         createReplicationFamilies(replications);
         // Link attribute families for proxied attribute (replicated)
         loadProxiedFamilies(true);
+        // Read transformations from one entity to another.
+        readTransformations(config);
       }
     }
 
@@ -496,7 +496,8 @@ public class ConfigRepository implements Repository, Serializable {
           for (String target : targets) {
             String name = toReplicationTargetName(
                 e.getKey(), target, a.getName());
-            entity.replaceAttribute(
+            replaceAttribute(
+                entity,
                 AttributeDescriptor.newBuilder(this)
                     .setEntity(entity.getName())
                     .setSchemeURI(a.getSchemeURI())
@@ -504,16 +505,18 @@ public class ConfigRepository implements Repository, Serializable {
                     .setReplica(true)
                     .build());
           }
-          entity.replaceAttribute(
-                AttributeDescriptor.newBuilder(this)
-                    .setEntity(entity.getName())
-                    .setSchemeURI(a.getSchemeURI())
-                    .setName(toReplicationWriteName(e.getKey(), writeName))
-                    .setReplica(true)
-                    .build());
+          replaceAttribute(
+              entity,
+              AttributeDescriptor.newBuilder(this)
+                  .setEntity(entity.getName())
+                  .setSchemeURI(a.getSchemeURI())
+                  .setName(toReplicationWriteName(e.getKey(), writeName))
+                  .setReplica(true)
+                  .build());
         }
         if (!repl.isReadNonReplicated() || !repl.getSource().isEmpty()) {
-          entity.replaceAttribute(
+          replaceAttribute(
+              entity,
               AttributeDescriptor.newBuilder(this)
                     .setEntity(entity.getName())
                     .setSchemeURI(a.getSchemeURI())
@@ -523,15 +526,53 @@ public class ConfigRepository implements Repository, Serializable {
         }
 
         if (!repl.getSource().isEmpty()) {
-          entity.replaceAttribute(AttributeDescriptor.newBuilder(this)
-              .setEntity(entity.getName())
-              .setSchemeURI(a.getSchemeURI())
-              .setName(toReplicationReadName(e.getKey(), a.getName()))
-              .setReplica(true)
-              .build());
+          replaceAttribute(
+              entity,
+              AttributeDescriptor.newBuilder(this)
+                  .setEntity(entity.getName())
+                  .setSchemeURI(a.getSchemeURI())
+                  .setName(toReplicationReadName(e.getKey(), a.getName()))
+                  .setReplica(true)
+                  .build());
           }
       });
       log.info("Loaded replication {}", e.getKey());
+    }
+  }
+
+  private void replaceAttribute(
+      EntityDescriptorImpl entity, AttributeDescriptor<?> attr) {
+
+    Optional<AttributeDescriptor<?>> replaced = entity.replaceAttribute(attr);
+    if (replaced.isPresent()) {
+      // the attribute has changed
+
+      // change existing families appropriately
+      Set<AttributeFamilyDescriptor> currentFamilies = getFamiliesForAttribute(
+          replaced.get());
+      currentFamilies
+          .stream()
+          .map(af -> {
+            AttributeFamilyDescriptor.Builder builder = af.toBuilder().clearAttributes();
+            af.getAttributes()
+                .stream()
+                .map(a -> a.equals(attr) ? attr : a)
+                .forEach(builder::addAttribute);
+            return Pair.of(af, builder.build());
+          })
+          .collect(Collectors.toList())
+          .forEach(p -> {
+            removeFamily(p.getFirst());
+            insertFamily(p.getSecond(), false);
+          });
+
+      // and change transformations
+      getTransformations()
+          .entrySet()
+          .stream()
+          .filter(e -> e.getValue().getAttributes().contains(attr))
+          .collect(Collectors.toList())
+          .forEach(e -> e.getValue().replaceAttribute(attr));
     }
   }
 
@@ -950,6 +991,12 @@ public class ConfigRepository implements Repository, Serializable {
     log.debug(
         "Added family {} of type {} and access {}",
         family, family.getType(), family.getAccess());
+  }
+
+  void removeFamily(AttributeFamilyDescriptor family) {
+    family
+        .getAttributes()
+        .forEach(attr -> getFamiliesForAttribute(attr).remove(family));
   }
 
 
@@ -1443,7 +1490,8 @@ public class ConfigRepository implements Repository, Serializable {
               entity,
               toReplicationWriteName(replicationName, proxy.getName()));
     }
-    entity.replaceAttribute(
+    replaceAttribute(
+        entity,
         AttributeDescriptor.newProxy(
             proxy.getName(),
             source,

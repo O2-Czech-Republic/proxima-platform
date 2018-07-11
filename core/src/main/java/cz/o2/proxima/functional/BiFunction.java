@@ -16,14 +16,15 @@
 package cz.o2.proxima.functional;
 
 import cz.o2.proxima.annotations.Stable;
+import java.io.Serializable;
 
 /**
  * Binary function of two arguments.
  */
 @Stable
 @FunctionalInterface
-public interface BiFunction<A, B, OUT> {
+public interface BiFunction<A, B, OUT> extends Serializable {
 
   OUT apply(A first, B second);
-  
+
 }

@@ -115,6 +115,11 @@ public class TransformationDescriptor implements Serializable {
     return Collections.unmodifiableList(attributes);
   }
 
+  void replaceAttribute(AttributeDescriptor<?> attr) {
+    attributes.remove(attr);
+    attributes.add(attr);
+  }
+
   @Override
   public String toString() {
     return "TransformationDescriptor("

@@ -709,12 +709,27 @@ public class ConfigRepositoryTest {
     AttributeDescriptor<Object> data = dummy
         .findAttribute("data", true)
         .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
-    assertTrue(repo.getFamiliesForAttribute(data)
+    runAttributeReplicas(repo);
+    TransformationRunner.runTransformations(repo);
+    CountDownLatch latch = new CountDownLatch(1);
+    OnlineAttributeWriter writer = repo.getWriter(data).get();
+    writer.write(
+        StreamElement.update(
+            dummy, data, "uuid", "gw", data.getName(),
+            System.currentTimeMillis(), new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+          latch.countDown();
+        });
+    latch.await();
+
+    Optional<RandomAccessReader> reader = repo.getFamiliesForAttribute(data)
         .stream()
         .filter(af -> af.getAccess().canRandomRead())
         .findAny()
-        .flatMap(af -> af.getRandomAccessReader())
-        .isPresent());
+        .flatMap(af -> af.getRandomAccessReader());
+    assertTrue(reader.isPresent());
+    assertTrue(reader.get().get("gw", data).isPresent());
   }
 
 
@@ -1090,6 +1105,44 @@ public class ConfigRepositoryTest {
                 inputAttribute, System.currentTimeMillis(), new byte[] { 1, 2, 3 }),
             element::set));
     return element.get().getAttribute();
+  }
+
+  private void runAttributeReplicas(ConfigRepository repo) {
+    repo.getAllFamilies()
+        .filter(af -> af.getType() == StorageType.REPLICA)
+        .filter(af -> !af.getAccess().isReadonly())
+        .forEach(af -> {
+          List<AttributeDescriptor<?>> attributes = af.getAttributes();
+          OnlineAttributeWriter writer = af.getWriter()
+              .orElseThrow(() -> new IllegalStateException(
+                  "Missing writer of family " + af))
+              .online();
+          attributes
+              .stream()
+              .map(a -> repo.getFamiliesForAttribute(a)
+                  .stream()
+                  .filter(f -> f.getType() == StorageType.PRIMARY)
+                  .findAny()
+                  .get())
+              .collect(Collectors.toSet())
+              .stream()
+              .findFirst()
+              .flatMap(f -> f.getCommitLogReader())
+              .get()
+              .observe(af.getName(), new LogObserver() {
+                @Override
+                public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+                  writer.write(ingest, committer::commit);
+                  return true;
+                }
+
+                @Override
+                public boolean onError(Throwable error) {
+                  throw new RuntimeException(error);
+                }
+              });
+          log.info("Started attribute replica {}", af.getName());
+        });
   }
 
 }

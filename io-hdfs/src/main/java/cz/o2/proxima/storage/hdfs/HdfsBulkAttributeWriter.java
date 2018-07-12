@@ -21,7 +21,6 @@ import cz.o2.proxima.storage.AbstractBulkAttributeWriter;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
@@ -46,8 +45,10 @@ import java.util.Map;
  * Bulk attribute writer to HDFS as {@code SequenceFiles}.
  */
 @Slf4j
+@SuppressWarnings("squid:S2160")
 public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
 
+  @SuppressWarnings("squid:S1948")
   private final Map<String, Object> cfg;
 
   private transient FileSystem fs;
@@ -76,6 +77,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
   }
 
   @Override
+  @SuppressWarnings("squid:S00112")
   public void rollback() {
     if (writer != null) {
       try {
@@ -134,6 +136,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
     return (data.getKey() + "#" + data.getAttribute()).getBytes();
   }
 
+  @SuppressWarnings("squid:S00112")
   private void openWriter(long eventTime) {
     long part = eventTime / rollInterval * rollInterval;
     try {
@@ -166,6 +169,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
   }
 
   @VisibleForTesting
+  @SuppressWarnings("squid:S1075")
   Path toFinalLocation(long part, long minStamp, long maxStamp)
       throws URISyntaxException, UnknownHostException {
 
@@ -215,6 +219,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
     return InetAddress.getLocalHost().getCanonicalHostName();
   }
 
+  @SuppressWarnings("squid:S00112")
   private void flush() {
     try {
       // close the current writer
@@ -222,20 +227,24 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
       Path tmpLocation = toTmpLocation(lastRoll);
       Path target = toFinalLocation(lastRoll, minElementStamp, maxElementStamp);
       // move the .tmp file to final location
-      FileSystem fs = getFs();
-      if (!fs.exists(target.getParent())) {
-        try {
-          fs.mkdirs(target.getParent());
-        } catch (IOException ex) {
-          log.warn("Failed to mkdir {}, proceeding for now", target.getParent(), ex);
-        }
+      FileSystem fileSystem = getFs();
+      if (!fileSystem.exists(target.getParent())) {
+        silentMkdirs(target, fileSystem);
       }
-      fs.rename(tmpLocation, target);
+      fileSystem.rename(tmpLocation, target);
       log.info("Completed chunk {}", target);
       writer = null;
       lastWrittenCallback.commit(true, null);
     } catch (IOException | URISyntaxException ex) {
       throw new RuntimeException(ex);
+    }
+  }
+
+  private void silentMkdirs(Path target, FileSystem fs) {
+    try {
+      fs.mkdirs(target.getParent());
+    } catch (IOException ex) {
+      log.warn("Failed to mkdir {}, proceeding for now", target.getParent(), ex);
     }
   }
 

@@ -53,6 +53,7 @@ public class HdfsDataAccessor implements DataAccessor {
 
   private final EntityDescriptor entityDesc;
   private final URI uri;
+  @SuppressWarnings("squid:S1948")
   private final Map<String, Object> cfg;
 
   private final int minElementsToFlush;
@@ -92,6 +93,7 @@ public class HdfsDataAccessor implements DataAccessor {
     return Optional.ofNullable(cfg.get(name)).map(convert).orElse(defVal);
   }
 
+  @SuppressWarnings("squid:S00112")
   static FileSystem getFs(URI uri, Map<String, Object> cfg) {
     try {
       return FileSystem.get(uri, toHadoopConf(cfg));

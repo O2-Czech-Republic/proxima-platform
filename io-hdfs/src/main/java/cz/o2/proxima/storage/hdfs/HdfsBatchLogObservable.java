@@ -49,6 +49,7 @@ public class HdfsBatchLogObservable implements BatchLogObservable, Serializable 
 
   private final EntityDescriptor entityDesc;
   private final URI uri;
+  @SuppressWarnings("squid:S1948")
   private final Map<String, Object> cfg;
 
   private final long batchProcessSize;
@@ -69,41 +70,39 @@ public class HdfsBatchLogObservable implements BatchLogObservable, Serializable 
   }
 
   @Override
+  @SuppressWarnings("squid:S00112")
   public List<Partition> getPartitions(long startStamp, long endStamp) {
     List<Partition> partitions = new ArrayList<>();
     try {
       RemoteIterator<LocatedFileStatus> it;
       it = HdfsDataAccessor.getFs(uri, cfg).listFiles(new Path(uri.toString()), true);
-      HdfsPartition current = null;
+      HdfsPartition current = new HdfsPartition(partitions.size());
       while (it.hasNext()) {
         LocatedFileStatus file = it.next();
         if (file.isFile()) {
-          if (current == null) {
-            current = new HdfsPartition(partitions.size());
-          }
           Map.Entry<Long, Long> minMaxStamp = getMinMaxStamp(file.getPath().getName());
           long min = minMaxStamp.getKey();
           long max = minMaxStamp.getValue();
           if (max >= startStamp && min <= endStamp) {
             current.add(file);
-            if (current.size() > batchProcessSize) {
-              partitions.add(current);
-              current = null;
-            }
+          }
+          if (current.size() > batchProcessSize) {
+            partitions.add(current);
+            current = new HdfsPartition(partitions.size());
           }
         }
       }
-      if (current != null && current.size() > 0) {
+      if (current.size() > 0) {
         partitions.add(current);
       }
     } catch (IOException ex) {
-      throw new RuntimeException(ex);
+      throw new RuntimeException("Failed to retrieve partitions", ex);
     }
     return partitions;
   }
 
   @Override
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "squid:S1181"})
   public void observe(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
@@ -119,21 +118,7 @@ public class HdfsBatchLogObservable implements BatchLogObservable, Serializable 
         for (Iterator<Partition> it = partitions.iterator(); run && it.hasNext();) {
           HdfsPartition p = (HdfsPartition) it.next();
           for (Path f : p.getFiles()) {
-            try {
-              if (!f.getParent().getName().equals(".tmp")) {
-                long element = 0L;
-                BytesWritable key = new BytesWritable();
-                TimestampedNullableBytesWritable value = new TimestampedNullableBytesWritable();
-                try (SequenceFile.Reader reader = new SequenceFile.Reader(HdfsDataAccessor.toHadoopConf(cfg),
-                    SequenceFile.Reader.file(f))) {
-                  while (reader.next(key, value)) {
-                    observer.onNext(toStreamElement(f, element++, key, value), p);
-                  }
-                }
-              }
-            } catch (IOException ex) {
-              throw new RuntimeException("Failed to read file " + f, ex);
-            }
+            processFile(observer, p, f);
           }
         }
         observer.onCompleted();
@@ -141,6 +126,25 @@ public class HdfsBatchLogObservable implements BatchLogObservable, Serializable 
         observer.onError(err);
       }
     });
+  }
+
+  @SuppressWarnings("squid:S00112")
+  private void processFile(BatchLogObserver observer, HdfsPartition p, Path f) {
+    try {
+      if (!f.getParent().getName().equals(".tmp")) {
+        long element = 0L;
+        BytesWritable key = new BytesWritable();
+        TimestampedNullableBytesWritable value = new TimestampedNullableBytesWritable();
+        try (SequenceFile.Reader reader = new SequenceFile.Reader(HdfsDataAccessor.toHadoopConf(cfg),
+            SequenceFile.Reader.file(f))) {
+          while (reader.next(key, value)) {
+            observer.onNext(toStreamElement(f, element++, key, value), p);
+          }
+        }
+      }
+    } catch (IOException ex) {
+      throw new RuntimeException("Failed to read file " + f, ex);
+    }
   }
 
   private StreamElement toStreamElement(

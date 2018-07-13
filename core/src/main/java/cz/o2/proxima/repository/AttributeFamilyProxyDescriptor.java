@@ -152,9 +152,11 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         getRandomAccess(lookup, targetFamilyRead),
         getPartitionedView(lookup, targetFamilyRead),
         getPartitionedCachedView(entity, lookup, targetFamilyRead, targetFamilyWrite),
-        targetFamilyRead.getType() == StorageType.PRIMARY
-            ? targetFamilyRead.getAccess()
-            : AccessType.or(targetFamilyRead.getAccess(), AccessType.from("read-only")),
+        targetFamilyWrite.getType() ==
+            StorageType.PRIMARY && targetFamilyRead.getType() == StorageType.PRIMARY
+                ? targetFamilyRead.getAccess()
+                : AccessType.or(
+                    targetFamilyRead.getAccess(), AccessType.from("read-only")),
         targetFamilyRead.getFilter(),
         null);
 
@@ -326,7 +328,10 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           BatchLogObserver observer) {
 
         reader.observe(
-            partitions, attributes, wrapTransformed(lookup, observer));
+            partitions, attributes.stream()
+                .map(a -> lookup.lookupProxy(a.getName()))
+                .collect(Collectors.toList()),
+            wrapTransformed(lookup, observer));
       }
 
     };
@@ -357,14 +362,17 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         return reader.fetchOffset(type, key);
       }
 
+      @SuppressWarnings("unchecked")
       @Override
       public <T> Optional<KeyValue<T>> get(
           String key, String attribute, AttributeDescriptor<T> desc) {
 
-        AttributeProxyDescriptorImpl<?> targetAttribute = lookup.lookupProxy(
+        AttributeProxyDescriptorImpl<T> targetAttribute;
+        targetAttribute = (AttributeProxyDescriptorImpl<T>) lookup.lookupProxy(
             desc.getName());
         ProxyTransform transform = targetAttribute.getReadTransform();
-        return reader.get(key, transform.fromProxy(attribute), desc)
+        return reader.get(
+            key, transform.fromProxy(attribute), targetAttribute.getReadTarget())
             .map(kv -> transformToProxy(kv, targetAttribute));
       }
 

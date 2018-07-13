@@ -821,7 +821,7 @@ public class ConfigRepositoryTest {
     OnlineAttributeWriter writer = repo.getWriter(eventSource).get();
     writer.write(
         StreamElement.update(
-            dummy, event, "uuid", "gw", eventSource.toAttributePrefix() + "1",
+            dummy, eventSource, "uuid", "gw", event.toAttributePrefix() + "1",
             System.currentTimeMillis(), new byte[] { 1, 2 }),
         (succ, exc) -> {
           assertTrue(succ);
@@ -829,14 +829,14 @@ public class ConfigRepositoryTest {
         });
     latch.await();
 
-    Optional<RandomAccessReader> reader = repo.getFamiliesForAttribute(eventSource)
+    Optional<RandomAccessReader> reader = repo.getFamiliesForAttribute(event)
         .stream()
         .filter(af -> af.getAccess().canRandomRead())
         .findAny()
         .flatMap(af -> af.getRandomAccessReader());
     assertTrue(reader.isPresent());
     assertTrue(reader.get()
-        .get("gw", eventSource.toAttributePrefix() + "1", eventSource)
+        .get("gw", event.toAttributePrefix() + "1", event)
         .isPresent());
 
     reader = repo.getFamiliesForAttribute(raw)
@@ -957,6 +957,71 @@ public class ConfigRepositoryTest {
         .get("gw", raw.toAttributePrefix() + now, raw)
         .isPresent());
   }
+
+  @Test(timeout = 2000)
+  public void testReplicationFull() throws InterruptedException {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication-full.conf"))
+            .resolve());
+    EntityDescriptor first = repo
+        .findEntity("first")
+        .orElseThrow(() -> new IllegalStateException("Missing entity first"));
+    EntityDescriptor second = repo
+        .findEntity("second")
+        .orElseThrow(() -> new IllegalStateException("Missing entity second"));
+
+    testFullReplication(first, second);
+    testFullReplication(second, first);
+  }
+
+  void testFullReplication(EntityDescriptor first, EntityDescriptor second) {
+    AttributeDescriptor<Object> wildcardFirst = first
+        .findAttribute("wildcard.*")
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute wildcard.* in entity " + first));
+    AttributeDescriptor<Object> wildcardSecond = second
+        .findAttribute("wildcard.*")
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute wildcard.* in entity " + second));
+    runAttributeReplicas(repo);
+    TransformationRunner.runTransformations(repo);
+    long now = System.currentTimeMillis();
+    repo.getWriter(wildcardFirst).get().write(
+        StreamElement.update(
+            first, wildcardFirst, "uuid", "key", wildcardFirst.toAttributePrefix() + "1",
+            now, new byte[] { 1, 2 }),
+        (succ, exc) -> assertTrue(succ));
+
+    Optional<RandomAccessReader> reader = repo.getFamiliesForAttribute(wildcardSecond)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(af -> af.getRandomAccessReader());
+
+    assertTrue(reader.isPresent());
+    assertTrue(reader.get()
+        .get("key", wildcardSecond.toAttributePrefix() + 1, wildcardSecond)
+        .isPresent());
+
+    repo.getWriter(wildcardSecond).get().write(
+        StreamElement.deleteWildcard(
+            first, wildcardSecond, "uuid", "key", now + 1),
+        (succ, exc) -> { });
+
+    reader = repo.getFamiliesForAttribute(wildcardFirst)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(af -> af.getRandomAccessReader());
+
+    assertTrue(reader.isPresent());
+    assertFalse(reader.get()
+        .get("key", wildcardFirst.toAttributePrefix() + 1, wildcardFirst)
+        .isPresent());
+  }
+
 
   @Test(timeout = 2000)
   public void testObserveReplicatedWithProxy() throws InterruptedException {
@@ -1186,7 +1251,6 @@ public class ConfigRepositoryTest {
     assertEquals(1, proxy.getAttributes().size());
   }
 
-
   @Test(timeout = 2000)
   public void testIncomingReplicationDoesntCycle() throws InterruptedException {
     repo.reloadConfig(
@@ -1282,6 +1346,61 @@ public class ConfigRepositoryTest {
     latch.await();
   }
 
+  @Test(timeout = 2000)
+  public void testWildcardDeleteReplication() throws InterruptedException {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
+            .resolve());
+    EntityDescriptor dummy = repo
+        .findEntity("dummy2")
+        .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
+    AttributeDescriptor<Object> event = dummy
+        .findAttribute("event.*", true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute event.*"));
+    AttributeDescriptor<Object> eventRead = dummy
+        .findAttribute("_dummy2Replication_read$event.*", true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing read attribute event.*"));
+
+    TransformationRunner.runTransformations(repo);
+    runAttributeReplicas(repo);
+    OnlineAttributeWriter writer = repo.getWriter(event).get();
+
+    AttributeFamilyDescriptor outputFamily = repo.getAllFamilies()
+        .filter(af -> af.getName().equals("replication_dummy2-replication_source"))
+        .findAny()
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing family replication_dummy2-replication_source"));
+    outputFamily.getWriter()
+        .get()
+        .online()
+        .write(
+            StreamElement.update(
+                dummy, event, "uuid", "gw", "event.1",
+                System.currentTimeMillis(), new byte[] { 1, 2, 3}),
+            (succ, exc) -> { });
+    RandomAccessReader reader = repo.getFamiliesForAttribute(event)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(af -> af.getRandomAccessReader())
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing random access for event.*"));
+    assertTrue(reader.get("gw", "event.1", event).isPresent());
+
+    writer.write(
+        StreamElement.deleteWildcard(
+            dummy, event, "uuid", "gw",  System.currentTimeMillis()),
+        (succ, exc) -> {
+          assertTrue(succ);
+        });
+    assertFalse(reader.get("gw", "event.1", event).isPresent());
+  }
+
+
   // validate that given transformation transforms in the desired way
   private void checkTransformation(
       EntityDescriptor entity,
@@ -1335,7 +1454,7 @@ public class ConfigRepositoryTest {
   private void runAttributeReplicas(ConfigRepository repo) {
     repo.getAllFamilies()
         .filter(af -> af.getType() == StorageType.REPLICA)
-        .filter(af -> !af.getAccess().isReadonly())
+        .filter(af -> !af.getAccess().isReadonly() && !af.isProxy())
         .forEach(af -> {
           List<AttributeDescriptor<?>> attributes = af.getAttributes();
           OnlineAttributeWriter writer = af.getWriter()

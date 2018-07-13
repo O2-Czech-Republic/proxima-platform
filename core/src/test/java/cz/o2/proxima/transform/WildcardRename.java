@@ -15,33 +15,19 @@
  */
 package cz.o2.proxima.transform;
 
-import com.google.common.base.Preconditions;
-
 /**
- * Rename {@code _e.*} to {@code event.*} back and forth.
+ * Rename {@code wildcard.*} to {@code _w.*}.
  */
-public class EventRename implements ProxyTransform {
+public class WildcardRename implements ProxyTransform {
 
   @Override
   public String fromProxy(String proxy) {
-    Preconditions.checkArgument(
-        proxy.startsWith("event."), "Invalid proxy attribute " + proxy);
-    String suffix = proxy.substring(6);
-    if (!suffix.equals("*")) {
-      return "_e." + (Long.valueOf(suffix) + 1);
-    }
-    return "_e.*";
+    return "_w." + proxy.substring(9);
   }
 
   @Override
   public String toProxy(String raw) {
-    Preconditions.checkArgument(
-        raw.startsWith("_e."), "Invalid raw attribute " + raw);
-    String suffix = raw.substring(3);
-    if (!suffix.equals("*")) {
-      return "event." + (Long.valueOf(suffix) - 1);
-    }
-    return "event.*";
+    return "wildcard." + raw.substring(3);
   }
 
 }

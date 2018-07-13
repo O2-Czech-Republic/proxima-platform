@@ -1208,7 +1208,11 @@ public class ConfigRepository implements Repository, Serializable {
               .setFilter(replicated.getFilter())
               .setTransformation(
                   renameTransform(
-                      sourceMapping::get,
+                      source -> Objects.requireNonNull(
+                      sourceMapping.get(source),
+                      () -> String.format(
+                          "Source mapping doesn't contain %s: %s",
+                          source, sourceMapping)),
                       (input, desc) -> {
                         String raw = strippingReplPrefix(input);
                         // each incoming attribute is proxy
@@ -1236,7 +1240,11 @@ public class ConfigRepository implements Repository, Serializable {
               .setFilter(replicated.getFilter())
               .setTransformation(
                   renameTransform(
-                      sourceMapping::get,
+                      source -> Objects.requireNonNull(
+                      sourceMapping.get(source),
+                      () -> String.format(
+                          "Source mapping doesn't contain %s: %s",
+                          source, sourceMapping)),
                       (a, desc) -> renameReplicated(replPrefix, a)))
               .build());
     }
@@ -1273,11 +1281,13 @@ public class ConfigRepository implements Repository, Serializable {
               .setEntity(entity)
               .setFilter(target.getFilter())
               .setTransformation(
-                  renameTransform(
-                      sourceMapping::get,
+                  renameTransform(source -> Objects.requireNonNull(
+                      sourceMapping.get(source),
+                      () -> String.format(
+                          "Source mapping doesn't contain %s: %s",
+                          source, sourceMapping)),
                       (input, desc) -> {
                         String raw = strippingReplPrefix(input);
-                        // each incoming attribute is proxy
                         AttributeProxyDescriptorImpl<?> proxyDesc;
                         proxyDesc = ((AttributeDescriptorBase<?>) sourceToOrig
                             .get(desc)).toProxy();
@@ -1344,7 +1354,8 @@ public class ConfigRepository implements Repository, Serializable {
     int dollar = input.indexOf('$');
     if (dollar < 0) {
       if (strict) {
-        throw new IllegalArgumentException("Invalid input, missing $ separator");
+        throw new IllegalArgumentException(
+            "Invalid input, missing $ separator in `" + input + "'");
       } else {
         return prefix + input;
       }
@@ -1373,37 +1384,43 @@ public class ConfigRepository implements Repository, Serializable {
       }
 
       @Override
-      public int apply(
-          StreamElement input,
-          Collector<StreamElement> collector) {
+      public int apply(StreamElement input, Collector<StreamElement> collector) {
+        try {
+          AttributeDescriptor<?> desc = descTransform.apply(
+              input.getAttributeDescriptor());
 
-        AttributeDescriptor<?> desc = descTransform.apply(
-            input.getAttributeDescriptor());
-
-        collector.collect(input.isDelete()
-            ? input.isDeleteWildcard()
-                ? StreamElement.deleteWildcard(
-                    input.getEntityDescriptor(),
-                    desc,
-                    input.getUuid(),
-                    input.getKey(),
-                    input.getStamp())
-                : StreamElement.delete(
-                    input.getEntityDescriptor(),
-                    desc,
-                    input.getUuid(),
-                    input.getKey(),
-                    nameTransform.apply(input.getAttribute(), input.getAttributeDescriptor()),
-                    input.getStamp())
-            : StreamElement.update(
-                input.getEntityDescriptor(),
-                desc,
-                input.getUuid(),
-                input.getKey(),
-                nameTransform.apply(input.getAttribute(), input.getAttributeDescriptor()),
-                input.getStamp(),
-                input.getValue()));
-        return 1;
+          collector.collect(input.isDelete()
+              ? input.isDeleteWildcard()
+                  ? StreamElement.deleteWildcard(
+                      input.getEntityDescriptor(),
+                      desc,
+                      input.getUuid(),
+                      input.getKey(),
+                      nameTransform.apply(
+                          input.getAttribute(), input.getAttributeDescriptor()),
+                      input.getStamp())
+                  : StreamElement.delete(
+                      input.getEntityDescriptor(),
+                      desc,
+                      input.getUuid(),
+                      input.getKey(),
+                      nameTransform.apply(
+                          input.getAttribute(), input.getAttributeDescriptor()),
+                      input.getStamp())
+              : StreamElement.update(
+                  input.getEntityDescriptor(),
+                  desc,
+                  input.getUuid(),
+                  input.getKey(),
+                  nameTransform.apply(
+                      input.getAttribute(), input.getAttributeDescriptor()),
+                  input.getStamp(),
+                  input.getValue()));
+          return 1;
+        } catch (Exception ex) {
+          log.warn("Failed to apply rename transform on {}", input, ex);
+          return 0;
+        }
       }
     };
   }

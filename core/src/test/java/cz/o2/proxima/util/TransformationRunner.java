@@ -78,7 +78,7 @@ public class TransformationRunner {
             "No commit log reader for attributes of transformation " + desc))
         .observe(name, new LogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter committer) {
+          public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
             desc.getTransformation().apply(ingest, transformed -> {
               log.debug(
                   "Transformation {}: writing original {} transformed {}",

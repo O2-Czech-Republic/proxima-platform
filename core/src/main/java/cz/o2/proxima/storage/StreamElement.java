@@ -86,6 +86,29 @@ public class StreamElement implements Serializable {
    * @param attributeDesc descriptor of attribute
    * @param uuid UUID of the event
    * @param key key of entity
+   * @param attribute string representation of the attribute
+   * @param stamp timestamp of the event
+   * @return {@link StreamElement} to be written to the system
+   */
+  public static StreamElement deleteWildcard(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<?> attributeDesc,
+      String uuid,
+      String key,
+      String attribute,
+      long stamp) {
+
+    return new StreamElement(
+        entityDesc, attributeDesc, uuid,
+        key, attribute, stamp, null);
+  }
+
+  /**
+   * Delete all versions of given wildcard attribute.
+   * @param entityDesc descriptor of entity
+   * @param attributeDesc descriptor of attribute
+   * @param uuid UUID of the event
+   * @param key key of entity
    * @param stamp timestamp of the event
    * @return {@link StreamElement} to be written to the system
    */
@@ -96,9 +119,9 @@ public class StreamElement implements Serializable {
       String key,
       long stamp) {
 
-    return new StreamElement(
-        entityDesc, attributeDesc, uuid,
-        key, attributeDesc.toAttributePrefix() + "*", stamp, null);
+    return deleteWildcard(
+        entityDesc, attributeDesc, uuid, key,
+        attributeDesc.toAttributePrefix() + "*", stamp);
   }
 
   @Getter
@@ -114,7 +137,6 @@ public class StreamElement implements Serializable {
   private final String key;
 
   @Getter
-  @Nullable
   private final String attribute;
 
   @Getter
@@ -129,7 +151,7 @@ public class StreamElement implements Serializable {
       AttributeDescriptor<?> attributeDesc,
       String uuid,
       String key,
-      @Nullable String attribute,
+      String attribute,
       long stamp,
       @Nullable byte[] value) {
 
@@ -137,7 +159,7 @@ public class StreamElement implements Serializable {
     this.attributeDescriptor = Objects.requireNonNull(attributeDesc);
     this.uuid = Objects.requireNonNull(uuid);
     this.key = Objects.requireNonNull(key);
-    this.attribute = attribute;
+    this.attribute = Objects.requireNonNull(attribute);
     this.stamp = stamp;
     this.value = value;
   }

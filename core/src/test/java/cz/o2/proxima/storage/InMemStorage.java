@@ -173,7 +173,7 @@ public class InMemStorage extends StorageDescriptor {
         synchronized (observers) {
           id = observers.isEmpty() ? 0 : observers.lastKey() + 1;
           observers.put(id, elem -> {
-            validateAttributeInEntity(getEntityDescriptor(), elem);
+            elem = cloneAndUpdateAttribute(getEntityDescriptor(), elem);
             try {
               observer.onNext(elem, (suc, err) -> { });
             } catch (Exception ex) {
@@ -240,7 +240,7 @@ public class InMemStorage extends StorageDescriptor {
         synchronized (observers) {
           id = observers.isEmpty() ? 0 : observers.lastKey();
           observers.put(id, elem -> {
-            validateAttributeInEntity(getEntityDescriptor(), elem);
+            elem = cloneAndUpdateAttribute(getEntityDescriptor(), elem);
             try {
               observer.onNext(elem, () -> 0, (suc, err) -> { });
             } catch (Exception ex) {
@@ -299,7 +299,7 @@ public class InMemStorage extends StorageDescriptor {
         observe("partitionedView-" + flow.getName(), new LogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
-            validateAttributeInEntity(getEntityDescriptor(), ingest);
+            ingest = cloneAndUpdateAttribute(getEntityDescriptor(), ingest);
             observer.onNext(ingest, confirm::commit, () -> 0, e -> {
               try {
                 queue.put(e);
@@ -599,7 +599,7 @@ public class InMemStorage extends StorageDescriptor {
     public void write(StreamElement data, CommitCallback statusCallback) {
       cache(data);
       writer.write(data, statusCallback);
-      validateAttributeInEntity(getEntityDescriptor(), data);
+      getAttributeOfEntity(getEntityDescriptor(), data);
     }
 
     @Override
@@ -684,18 +684,29 @@ public class InMemStorage extends StorageDescriptor {
     };
   }
 
-  // validate that entity contains required attribute
-  private static void validateAttributeInEntity(
+  @SuppressWarnings("unchecked")
+  private static <T> AttributeDescriptor<T> getAttributeOfEntity(
       EntityDescriptor entity,
       StreamElement ingest) {
 
-    entity
+    return (AttributeDescriptor<T>) entity
         .findAttribute(ingest.getAttribute(), true)
         .orElseThrow(() -> new IllegalStateException(
-            "Entity " + entity + " is missing attribute "
-                + ingest.getAttribute()));
+            "Missing attribute " + ingest.getAttribute() + " in " + entity));
   }
 
+  private static StreamElement cloneAndUpdateAttribute(
+      EntityDescriptor entity, StreamElement elem) {
+
+    return StreamElement.update(
+        entity,
+        getAttributeOfEntity(entity, elem),
+        elem.getUuid(),
+        elem.getKey(),
+        elem.getAttribute(),
+        elem.getStamp(),
+        elem.getValue());
+  }
 
 
 }

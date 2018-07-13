@@ -643,7 +643,9 @@ public class ConfigRepositoryTest {
   }
 
   @Test(timeout = 2000)
-  public void testWriteIntoReplicatedProxyAttribute() throws InterruptedException {
+  public void testWriteIntoReplicatedProxyAttribute()
+      throws InterruptedException {
+
     repo.reloadConfig(
         true,
         ConfigFactory.load()
@@ -697,7 +699,9 @@ public class ConfigRepositoryTest {
   }
 
   @Test(timeout = 2000)
-  public void testRandomReadFromReplicatedProxyAttribute() throws InterruptedException {
+  public void testRandomReadFromReplicatedProxyAttribute()
+      throws InterruptedException {
+
     repo.reloadConfig(
         true,
         ConfigFactory.load()
@@ -732,6 +736,227 @@ public class ConfigRepositoryTest {
     assertTrue(reader.get().get("gw", data).isPresent());
   }
 
+  @Test(timeout = 2000)
+  public void testRandomReadFromReplicatedProxyAttributeDirect()
+      throws InterruptedException {
+
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
+            .resolve());
+    EntityDescriptor dummy = repo
+        .findEntity("dummy2")
+        .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
+    AttributeDescriptor<Object> event = dummy
+        .findAttribute("event.*", true)
+        .orElseThrow(() -> new IllegalStateException("Missing attribute event.*"));
+    AttributeDescriptor<Object> raw = dummy
+        .findAttribute("_e.*", true)
+        .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
+    runAttributeReplicas(repo);
+    TransformationRunner.runTransformations(repo);
+    CountDownLatch latch = new CountDownLatch(1);
+    OnlineAttributeWriter writer = repo.getWriter(event).get();
+    writer.write(
+        StreamElement.update(
+            dummy, event, "uuid", "gw", event.toAttributePrefix() + "1",
+            System.currentTimeMillis(), new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+          latch.countDown();
+        });
+    latch.await();
+
+    Optional<RandomAccessReader> reader = repo.getFamiliesForAttribute(event)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(af -> af.getRandomAccessReader());
+    assertTrue(reader.isPresent());
+    assertTrue(reader.get()
+        .get("gw", event.toAttributePrefix() + "1", event)
+        .isPresent());
+
+    reader = repo.getFamiliesForAttribute(raw)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(AttributeFamilyDescriptor::getRandomAccessReader);
+    assertTrue(reader.isPresent());
+    assertTrue(reader.get()
+        .get("gw", raw.toAttributePrefix() + "2", event)
+        .isPresent());
+    assertFalse(reader.get()
+        .get("gw", raw.toAttributePrefix() + "1", event)
+        .isPresent());
+  }
+
+  @Test(timeout = 2000)
+  public void testApplicationOfProxyTransformOnIncomingData()
+      throws InterruptedException {
+
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
+            .resolve());
+    EntityDescriptor dummy = repo
+        .findEntity("dummy2")
+        .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
+    AttributeDescriptor<Object> event = dummy
+        .findAttribute("event.*")
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute event.*"));
+    AttributeDescriptor<Object> eventSource = dummy
+        .findAttribute("_dummy2Replication_read$event.*", true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing source attribute for event.*"));
+    AttributeDescriptor<Object> raw = dummy
+        .findAttribute("_e.*", true)
+        .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
+    runAttributeReplicas(repo);
+    TransformationRunner.runTransformations(repo);
+    CountDownLatch latch = new CountDownLatch(1);
+    OnlineAttributeWriter writer = repo.getWriter(eventSource).get();
+    writer.write(
+        StreamElement.update(
+            dummy, event, "uuid", "gw", eventSource.toAttributePrefix() + "1",
+            System.currentTimeMillis(), new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+          latch.countDown();
+        });
+    latch.await();
+
+    Optional<RandomAccessReader> reader = repo.getFamiliesForAttribute(eventSource)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(af -> af.getRandomAccessReader());
+    assertTrue(reader.isPresent());
+    assertTrue(reader.get()
+        .get("gw", eventSource.toAttributePrefix() + "1", eventSource)
+        .isPresent());
+
+    reader = repo.getFamiliesForAttribute(raw)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(AttributeFamilyDescriptor::getRandomAccessReader);
+    assertTrue(reader.isPresent());
+    assertTrue(reader.get()
+        .get("gw", raw.toAttributePrefix() + "2", raw)
+        .isPresent());
+  }
+
+  @Test(timeout = 2000)
+  public void testApplicationOfProxyTransformOnReplicatedData()
+      throws InterruptedException {
+
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
+            .resolve());
+    EntityDescriptor dummy = repo
+        .findEntity("dummy2")
+        .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
+    AttributeDescriptor<Object> event = dummy
+        .findAttribute("event.*")
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute event.*"));
+    AttributeDescriptor<Object> raw = dummy
+        .findAttribute("_e.*", true)
+        .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
+    runAttributeReplicas(repo);
+    TransformationRunner.runTransformations(repo);
+    CountDownLatch latch = new CountDownLatch(1);
+    OnlineAttributeWriter writer = repo.getWriter(event).get();
+    writer.write(
+        StreamElement.update(
+            dummy, event, "uuid", "gw", event.toAttributePrefix() + "1",
+            System.currentTimeMillis(), new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+          latch.countDown();
+        });
+    latch.await();
+
+    Optional<RandomAccessReader> reader = repo.getFamiliesForAttribute(event)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(af -> af.getRandomAccessReader());
+    assertTrue(reader.isPresent());
+    assertTrue(reader.get()
+        .get("gw", event.toAttributePrefix() + "1", event)
+        .isPresent());
+
+    reader = repo.getFamiliesForAttribute(raw)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(AttributeFamilyDescriptor::getRandomAccessReader);
+    assertTrue(reader.isPresent());
+    assertTrue(reader.get()
+        .get("gw", raw.toAttributePrefix() + "2", raw)
+        .isPresent());
+  }
+
+  @Test(timeout = 2000)
+  public void testApplicationOfProxyTransformOnReplicatedDataWithTransform()
+      throws InterruptedException {
+
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
+            .resolve());
+    EntityDescriptor dummy = repo
+        .findEntity("dummy2")
+        .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
+    EntityDescriptor event = repo
+        .findEntity("event")
+        .orElseThrow(() -> new IllegalStateException("Missing entity event"));
+
+    AttributeDescriptor<Object> data = event
+        .findAttribute("data")
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute data"));
+
+    AttributeDescriptor<Object> raw = dummy
+        .findAttribute("_e.*", true)
+        .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
+
+    runAttributeReplicas(repo);
+    TransformationRunner.runTransformations(repo);
+    CountDownLatch latch = new CountDownLatch(1);
+    OnlineAttributeWriter writer = repo.getWriter(data).get();
+    long now = System.currentTimeMillis();
+    writer.write(
+        StreamElement.update(
+            dummy, data, "uuid", "gw", data.getName(),
+            now, new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+          latch.countDown();
+        });
+    latch.await();
+
+    Optional<RandomAccessReader> reader = repo.getFamiliesForAttribute(raw)
+        .stream()
+        .filter(af -> af.getAccess().canRandomRead())
+        .findAny()
+        .flatMap(AttributeFamilyDescriptor::getRandomAccessReader);
+    assertTrue(reader.isPresent());
+    assertTrue(reader.get()
+        .get("gw", raw.toAttributePrefix() + (now + 1), raw)
+        .isPresent());
+    assertFalse(reader.get()
+        .get("gw", raw.toAttributePrefix() + now, raw)
+        .isPresent());
+  }
 
   @Test(timeout = 2000)
   public void testObserveReplicatedWithProxy() throws InterruptedException {
@@ -1132,6 +1357,7 @@ public class ConfigRepositoryTest {
               .observe(af.getName(), new LogObserver() {
                 @Override
                 public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+                  log.debug("Replicating input {} to {}", ingest, writer);
                   writer.write(ingest, committer::commit);
                   return true;
                 }

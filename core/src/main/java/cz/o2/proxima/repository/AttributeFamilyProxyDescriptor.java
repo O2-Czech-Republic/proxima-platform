@@ -142,7 +142,9 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
     super(
         "proxy::" + targetFamilyRead.getName() + "::" + targetFamilyWrite.getName(),
-        targetFamilyRead.getType(),
+        targetFamilyWrite.getType() == targetFamilyRead.getType()
+            ? targetFamilyRead.getType()
+            : StorageType.REPLICA,
         (Collection) lookup.getAttrs(),
         getWriter(lookup, targetFamilyWrite),
         getCommitLogReader(lookup, targetFamilyRead),
@@ -183,7 +185,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
             data.getAttributeDescriptor().getName());
 
         log.debug(
-            "Proxying write of {} to target {} using writer {}",
+            "proxying write of {} to target {} using writer {}",
             data, target, writer.getURI());
 
         writer.write(

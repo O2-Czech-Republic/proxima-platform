@@ -80,6 +80,9 @@ public class TransformationRunner {
           @Override
           public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter committer) {
             desc.getTransformation().apply(ingest, transformed -> {
+              log.debug(
+                  "Transformation {}: writing original {} transformed {}",
+                  name, ingest, transformed);
               onReplicate.accept(transformed);
               repo.getWriter(transformed.getAttributeDescriptor())
                   .get()

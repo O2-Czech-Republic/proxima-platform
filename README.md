@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/datadrivencz/proxima-platform.svg?branch=master)](https://travis-ci.org/datadrivencz/proxima-platform) [![sonar](https://sonarcloud.io/api/project_badges/measure?project=cz.o2.proxima%3Aplatform-parent&metric=alert_status)](https://sonarcloud.io/dashboard?id=cz.o2.proxima%3Aplatform-parent)
+
 # The Proxima platform
 
 The platform is a generic data ingestion, manipulation and retrieval framework.

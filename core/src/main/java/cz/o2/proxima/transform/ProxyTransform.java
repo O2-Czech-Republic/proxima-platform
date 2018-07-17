@@ -26,19 +26,19 @@ import java.io.Serializable;
 @Stable
 public interface ProxyTransform extends Serializable {
 
-  static final ProxyTransform IDENTITY = new ProxyTransform() {
+  static ProxyTransform identity() {
+    return new ProxyTransform() {
+      @Override
+      public String fromProxy(String proxy) {
+        return proxy;
+      }
 
-    @Override
-    public String fromProxy(String proxy) {
-      return proxy;
-    }
-
-    @Override
-    public String toProxy(String raw) {
-      return raw;
-    }
-
-  };
+      @Override
+      public String toProxy(String raw) {
+        return raw;
+      }
+    };
+  }
 
   static ProxyTransform composite(ProxyTransform... transforms) {
 

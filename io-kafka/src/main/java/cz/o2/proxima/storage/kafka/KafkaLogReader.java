@@ -515,11 +515,9 @@ public class KafkaLogReader extends AbstractStorage
           if (!commitMapClone.isEmpty()) {
             kafka.commitSync(commitMapClone);
           }
-          if (stopAtCurrent) {
-            if (endOffsets.isEmpty()) {
-              log.info("Reached end of current data. Terminating consumption.");
-              completed.set(true);
-            }
+          if (stopAtCurrent && endOffsets.isEmpty()) {
+            log.info("Reached end of current data. Terminating consumption.");
+            completed.set(true);
           }
           Throwable errorThrown = error.getAndSet(null);
           if (errorThrown != null) {

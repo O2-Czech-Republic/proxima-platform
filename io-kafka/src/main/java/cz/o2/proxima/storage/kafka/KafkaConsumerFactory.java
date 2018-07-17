@@ -56,16 +56,16 @@ public class KafkaConsumerFactory {
       @Nullable ConsumerRebalanceListener listener) {
 
     log.debug("Creating named consumer with name {} and listener {}", name, listener);
-    Properties props = clone(this.props);
-    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
-    props.put(ConsumerConfig.GROUP_ID_CONFIG, name);
-    props.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 0);
-    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+    Properties cloned = clone(this.props);
+    cloned.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
+    cloned.put(ConsumerConfig.GROUP_ID_CONFIG, name);
+    cloned.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 0);
+    cloned.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+    cloned.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
         Serdes.String().deserializer().getClass());
-    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+    cloned.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         Serdes.ByteArray().deserializer().getClass());
-    KafkaConsumer<String, byte[]> ret = new KafkaConsumer<>(props);
+    KafkaConsumer<String, byte[]> ret = new KafkaConsumer<>(cloned);
     if (listener == null) {
       ret.subscribe(Collections.singletonList(topic));
     } else {
@@ -85,14 +85,14 @@ public class KafkaConsumerFactory {
 
   public KafkaConsumer<String, byte[]> create(Collection<Partition> partitions) {
     log.debug("Creating unnamed consumer for partitions {}", partitions);
-    Properties props = clone(this.props);
-    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
-    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+    Properties cloned = clone(this.props);
+    cloned.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
+    cloned.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+    cloned.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
         Serdes.String().deserializer().getClass());
-    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+    cloned.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         Serdes.ByteArray().deserializer().getClass());
-    KafkaConsumer<String, byte[]> ret = new KafkaConsumer<>(props);
+    KafkaConsumer<String, byte[]> ret = new KafkaConsumer<>(cloned);
     List<TopicPartition> topicPartitions = partitions.stream()
         .map(p -> new TopicPartition(topic, p.getId()))
         .collect(Collectors.toList());
@@ -108,14 +108,14 @@ public class KafkaConsumerFactory {
    */
   public KafkaConsumer<String, byte[]> create() {
     log.debug("Creating unnamed consumer for all partitions of topic {}", topic);
-    Properties props = clone(this.props);
-    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
-    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+    Properties cloned = clone(this.props);
+    cloned.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
+    cloned.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+    cloned.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
         Serdes.String().deserializer().getClass());
-    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+    cloned.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         Serdes.ByteArray().deserializer().getClass());
-    KafkaConsumer<String, byte[]> ret = new KafkaConsumer<>(props);
+    KafkaConsumer<String, byte[]> ret = new KafkaConsumer<>(cloned);
 
     List<TopicPartition> partitions = ret.partitionsFor(topic).stream()
         .map(p -> new TopicPartition(topic, p.partition()))

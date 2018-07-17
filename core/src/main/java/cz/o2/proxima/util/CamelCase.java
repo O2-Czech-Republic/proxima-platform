@@ -15,15 +15,10 @@
  */
 package cz.o2.proxima.util;
 
-import java.nio.charset.Charset;
-
 /**
  * Transform string to camel case.
  */
 public class CamelCase {
-
-  private static final Charset CHARSET = Charset.forName("UTF-8");
-
 
   /**
    * Convert given string to camelCase with first letter upper case.
@@ -59,5 +54,7 @@ public class CamelCase {
     }
     return sb.toString();
   }
+
+  private CamelCase() { }
 
 }

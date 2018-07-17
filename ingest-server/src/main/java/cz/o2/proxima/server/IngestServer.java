@@ -38,7 +38,6 @@ import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.AbstractRetryableLogObserver;
-import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.Offset;
 import cz.o2.proxima.storage.commitlog.RetryableBulkObserver;
@@ -881,46 +880,13 @@ public class IngestServer {
       @Override
       public boolean onNextInternal(
           StreamElement ingest,
-          BulkLogObserver.OffsetCommitter committer) {
-
-        return writeInternal(ingest, committer);
-      }
-
-      private boolean writeInternal(
-          StreamElement ingest, BulkLogObserver.OffsetCommitter committer) {
+          OffsetCommitter committer) {
 
         final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
         log.debug(
             "Consumer {}: received new ingest element {}", consumerName, ingest);
         if (allowed && filter.apply(ingest)) {
-          Failsafe.with(retry).run(() -> {
-            log.debug(
-                "Consumer {}: writing element {} into {}",
-                consumerName, ingest, writer);
-            writer.write(ingest, (success, exc) -> {
-              if (!success) {
-                log.error(
-                    "Consumer {}: failed to write ingest {} to {}",
-                    consumerName, ingest, writer.getURI(), exc);
-                Metrics.NON_COMMIT_WRITES_RETRIES.increment();
-                if (ignoreErrors) {
-                  log.error(
-                      "Consumer {}: retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
-                      consumerName, ingest, writer.getURI());
-                  committer.confirm();
-                } else {
-                  committer.fail(exc);
-                }
-              } else {
-                if (ingest.isDelete()) {
-                  Metrics.NON_COMMIT_LOG_DELETES.increment();
-                } else {
-                  Metrics.NON_COMMIT_LOG_UPDATES.increment();
-                }
-                committer.confirm();
-              }
-            });
-          });
+          Failsafe.with(retry).run(() -> ingestBulkInternal(ingest, committer));
         } else {
           Metrics.COMMIT_UPDATE_DISCARDED.increment();
           log.debug(
@@ -948,6 +914,19 @@ public class IngestServer {
         writer.rollback();
       }
 
+      private void ingestBulkInternal(
+          StreamElement ingest,
+          OffsetCommitter committer) {
+
+        log.debug(
+            "Consumer {}: writing element {} into {}",
+            consumerName, ingest, writer);
+
+        writer.write(ingest, (succ, exc) -> confirmWrite(
+            consumerName, ingest, writer, succ, exc,
+            committer::confirm, committer::fail));
+      }
+
     };
   }
 
@@ -968,34 +947,8 @@ public class IngestServer {
         log.debug(
             "Consumer {}: received new stream element {}", consumerName, ingest);
         if (allowed && filter.apply(ingest)) {
-          Failsafe.with(retryPolicy).run(() -> {
-            log.debug(
-                "Consumer {}: writing element {} into {}",
-                consumerName, ingest, writer);
-            writer.write(ingest, (success, exc) -> {
-              if (!success) {
-                log.error(
-                    "Consumer {}: failed to write ingest {} to {}",
-                    consumerName, ingest, writer.getURI(), exc);
-                Metrics.NON_COMMIT_WRITES_RETRIES.increment();
-                if (ignoreErrors) {
-                  log.error(
-                      "Consumer {}: Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
-                      consumerName, ingest, writer.getURI());
-                  committer.confirm();
-                } else {
-                  committer.fail(exc);
-                }
-              } else {
-                if (ingest.isDelete()) {
-                  Metrics.NON_COMMIT_LOG_DELETES.increment();
-                } else {
-                  Metrics.NON_COMMIT_LOG_UPDATES.increment();
-                }
-                committer.confirm();
-              }
-            });
-          });
+          Failsafe.with(retryPolicy).run(
+              () -> ingestOnlineInternal(ingest, committer));
         } else {
           Metrics.COMMIT_UPDATE_DISCARDED.increment();
           log.debug(
@@ -1016,7 +969,49 @@ public class IngestServer {
             consumerName, commitLog.getURI()));
       }
 
+      private void ingestOnlineInternal(
+          StreamElement ingest, OffsetCommitter committer) {
+
+        log.debug(
+            "Consumer {}: writing element {} into {}",
+            consumerName, ingest, writer);
+        writer.write(ingest, (success, exc) -> confirmWrite(
+            consumerName, ingest, writer, success, exc,
+            committer::confirm, committer::fail));
+      }
+
     };
+  }
+
+  private void confirmWrite(
+      String consumerName,
+      StreamElement ingest,
+      AttributeWriterBase writer,
+      boolean success, Throwable exc,
+      Runnable onSuccess,
+      Consumer<Throwable> onError) {
+
+    if (!success) {
+      log.error(
+          "Consumer {}: failed to write ingest {} to {}",
+          consumerName, ingest, writer.getURI(), exc);
+      Metrics.NON_COMMIT_WRITES_RETRIES.increment();
+      if (ignoreErrors) {
+        log.error(
+            "Consumer {}: retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
+            consumerName, ingest, writer.getURI());
+        onSuccess.run();
+      } else {
+        onError.accept(exc);
+      }
+    } else {
+      if (ingest.isDelete()) {
+        Metrics.NON_COMMIT_LOG_DELETES.increment();
+      } else {
+        Metrics.NON_COMMIT_LOG_UPDATES.increment();
+      }
+      onSuccess.run();
+    }
   }
 
   private void die(String message) {

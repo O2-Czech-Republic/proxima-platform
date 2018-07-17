@@ -94,8 +94,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
             targetRead.getSchemeURI(), targetWrite.getSchemeURI()));
     Preconditions.checkArgument(
         targetRead.isWildcard() == targetWrite.isWildcard(),
-        String.format(
-            "Cannot mix non-wildcard and wildcard attributes in proxy"));
+        "Cannot mix non-wildcard and wildcard attributes in proxy");
     this.entity = targetRead.getEntity();
     this.schemeURI = targetRead.getSchemeURI();
     this.proxy = true;

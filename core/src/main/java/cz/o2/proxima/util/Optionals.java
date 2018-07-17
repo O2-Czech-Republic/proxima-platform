@@ -23,4 +23,5 @@ public class Optionals {
     return optional.orElseThrow(() ->
         new IllegalArgumentException("Provided optional is empty."));
   }
+  
 }

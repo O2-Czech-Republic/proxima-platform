@@ -66,7 +66,7 @@ public interface AttributeDescriptor<T> extends Serializable {
           schemeURI,
           factory == null
               ? null
-              : (ValueSerializer<T>) factory.getValueSerializer(schemeURI),
+              : factory.getValueSerializer(schemeURI),
           replica);
     }
   }

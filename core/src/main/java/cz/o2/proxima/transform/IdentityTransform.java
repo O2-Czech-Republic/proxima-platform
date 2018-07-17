@@ -25,7 +25,7 @@ public class IdentityTransform implements Transformation, ProxyTransform {
 
   @Override
   public void setup(Repository repo) {
-
+    // nop
   }
 
   @Override

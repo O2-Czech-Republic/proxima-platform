@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import lombok.extern.slf4j.Slf4j;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
@@ -44,6 +45,7 @@ import org.junit.Test;
 /**
  * Test suite for {@link PubSubWriter}.
  */
+@Slf4j
 public class PubSubWriterTest {
 
   private final Repository repo = ConfigRepository.of(ConfigFactory.load().resolve());
@@ -55,12 +57,10 @@ public class PubSubWriterTest {
 
   private class TestPubSubWriter extends PubSubWriter {
 
-    private final Context context;
     private Consumer<PubsubMessage> consumer;
 
     public TestPubSubWriter(Context context) {
       super(accessor, context);
-      this.context = context;
     }
 
     void setConsumer(Consumer<PubsubMessage> consumer) {
@@ -101,15 +101,19 @@ public class PubSubWriterTest {
 
   @Before
   public void setUp() {
-    Context context = new Context(() -> Executors.newCachedThreadPool()) { };
-    try {
-      writer = new TestPubSubWriter(context);
-    } catch (Exception ex) {
-      ex.printStackTrace();
-    }
+    Context context = new Context(() -> Executors.newFixedThreadPool(
+        5, runnable -> {
+          Thread t = new Thread(runnable);
+          t.setName(PubSubWriterTest.class.getSimpleName());
+          t.setDaemon(true);
+          t.setUncaughtExceptionHandler(
+              (thr, err) -> log.error("Error in thread {}", thr.getName(), err));
+          return t;
+        })) { };
+    writer = new TestPubSubWriter(context);
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 5000)
   public void testWrite() throws InterruptedException {
     long now = System.currentTimeMillis();
     List<PubsubMessage> written = new ArrayList<>();

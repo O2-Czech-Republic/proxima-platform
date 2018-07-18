@@ -77,7 +77,9 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
   }
 
   @Override
-  public synchronized void write(StreamElement data, CommitCallback statusCallback) {
+  public synchronized void write(
+      StreamElement data, CommitCallback statusCallback) {
+    
     initialize();
     log.debug("Writing data {} to {}", data, getURI());
     try {

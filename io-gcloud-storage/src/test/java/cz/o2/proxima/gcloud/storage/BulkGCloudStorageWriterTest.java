@@ -38,7 +38,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -68,6 +68,7 @@ public class BulkGCloudStorageWriterTest {
   BulkGCloudStorageWriter writer;
   List<String> blobs;
   List<StreamElement> written;
+  AtomicReference<CountDownLatch> latch = new AtomicReference<>();
 
   public BulkGCloudStorageWriterTest() throws URISyntaxException {
     this.wildcard = AttributeDescriptor.newBuilder(repo)
@@ -112,6 +113,9 @@ public class BulkGCloudStorageWriterTest {
         try (BinaryBlob.Reader reader = new BinaryBlob(file).reader(entity)) {
           reader.iterator().forEachRemaining(written::add);
         }
+        if (latch.get() != null) {
+          latch.get().countDown();
+        }
       }
 
     };
@@ -119,7 +123,7 @@ public class BulkGCloudStorageWriterTest {
 
   @Test(timeout = 2000)
   public void testWrite() throws Exception {
-    CountDownLatch latch = new CountDownLatch(1);
+    latch.set(new CountDownLatch(2));
     long now = 1500000000000L;
     StreamElement first = StreamElement.update(entity, attr,
         UUID.randomUUID().toString(),
@@ -135,9 +139,9 @@ public class BulkGCloudStorageWriterTest {
     writer.write(second, (succ, exc) -> {
       assertTrue("Exception " + exc, succ);
       assertNull(exc);
-      latch.countDown();
+      latch.get().countDown();
     });
-    assertTrue(latch.await(500, TimeUnit.MILLISECONDS));
+    latch.get().await();
     assertNotNull(written);
     validate(written, first, second);
     assertEquals(1, blobs.size());
@@ -170,7 +174,7 @@ public class BulkGCloudStorageWriterTest {
   }
 
   private static Context context() {
-    return new Context(() -> Executors.newFixedThreadPool(1)) { };
+    return new Context(() -> Executors.newCachedThreadPool()) { };
   }
 
 }

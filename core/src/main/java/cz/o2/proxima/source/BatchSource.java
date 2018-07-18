@@ -31,35 +31,37 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * Source reading from {@code BatchLogObservable}.
  */
 @Stable
 @Slf4j
-public class BatchSource<T> implements BoundedDataSource<StreamElement> {
+public class BatchSource implements BoundedDataSource<StreamElement> {
 
-  public static <T> BatchSource<T> of(
+  public static BatchSource of(
       BatchLogObservable observable,
       List<AttributeDescriptor<?>> attrs,
       long startStamp,
       long endStamp) {
 
-    return new BatchSource<>(observable, attrs, startStamp, endStamp);
+    return new BatchSource(observable, attrs, startStamp, endStamp);
   }
 
-  public static <T> BatchSource<T> of(
+  public static BatchSource of(
       BatchLogObservable observable,
       AttributeFamilyDescriptor family,
       long startStamp,
       long endStamp) {
 
-    return new BatchSource<>(
+    return new BatchSource(
         observable, family.getAttributes(), startStamp, endStamp);
   }
 
@@ -148,7 +150,10 @@ public class BatchSource<T> implements BoundedDataSource<StreamElement> {
               Observer observer = new Observer();
               observable.observe(Arrays.asList(p), attributes, observer);
               return new BoundedReader<StreamElement>() {
+
+                @Nullable
                 StreamElement current = null;
+
                 @Override
                 public void close() throws IOException {
                   observer.stop();
@@ -157,8 +162,10 @@ public class BatchSource<T> implements BoundedDataSource<StreamElement> {
                 @Override
                 public boolean hasNext() {
                   try {
-                    current = observer.getQueue().take()
-                        .orElse(null);
+                    if (current != null) {
+                      return true;
+                    }
+                    current = observer.getQueue().take().orElse(null);
                   } catch (InterruptedException ex) {
                     log.warn("Interrupted while trying to retrieve next element.");
                     Thread.currentThread().interrupt();
@@ -168,7 +175,12 @@ public class BatchSource<T> implements BoundedDataSource<StreamElement> {
 
                 @Override
                 public StreamElement next() {
-                  return current;
+                  if (!hasNext()) {
+                    throw new NoSuchElementException();
+                  }
+                  StreamElement next = current;
+                  current = null;
+                  return next;
                 }
               };
             }

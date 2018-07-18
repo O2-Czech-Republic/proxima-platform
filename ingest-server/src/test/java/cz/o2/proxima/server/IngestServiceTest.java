@@ -19,6 +19,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.proto.service.Rpc;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.scheme.proto.test.Scheme;
 import cz.o2.proxima.server.test.Test.ExtendedMessage;
 import cz.o2.proxima.storage.InMemBulkStorage;
@@ -389,8 +390,10 @@ public class IngestServiceTest {
     Rpc.Status status = responses.poll();
     assertEquals(200, status.getStatus());
 
-    InMemBulkStorage storage = (InMemBulkStorage) server.repo.getStorageDescriptor("inmem-bulk");
-    Map<String, byte[]> data = storage.getData();
+    Repository repo = server.repo;
+    InMemBulkStorage storage = (InMemBulkStorage) repo.getStorageDescriptor(
+        "inmem-bulk");
+    Map<String, Pair<Long, byte[]>> data = storage.getData();
     assertEquals(1, data.size());
     assertTrue(data.containsKey("/proxima_events/bulk/my-dummy-entity#data"));
   }

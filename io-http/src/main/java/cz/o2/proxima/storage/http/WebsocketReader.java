@@ -74,10 +74,11 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
       }
       name = Iterables.getOnlyElement(entityDescriptor.getAllAttributes()).getName();
     }
+    String attrName = name;
     attr = entityDescriptor
-        .findAttribute(name)
-        // validated by repository
-        .get();
+        .findAttribute(attrName)
+        .orElseThrow(() -> new IllegalStateException(
+            "Attribute " + attrName + " should be present in " + entityDescriptor));
     serializer = attr.getValueSerializer();
     // FIXME: keyExtractor
     keyExtractor = m -> UUID.randomUUID().toString();
@@ -166,7 +167,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
       }
     };
   }
-  
+
   @Override
   public ObserveHandle observePartitions(
       String name, Collection<Partition> partitions, Position position,

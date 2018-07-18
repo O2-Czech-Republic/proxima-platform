@@ -18,18 +18,15 @@ package cz.o2.proxima.storage.kafka;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StorageDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
-import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.PartitionedLogObserver;
-import cz.o2.proxima.view.PartitionedView;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import java.io.IOException;
@@ -506,13 +503,15 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
         int partition = 0;
         for (int written : untilOffsets) {
           int current = partition;
-          if (consumerOffsets.get(Pair.of(name, new AtomicInteger(current)))
+          if (consumerOffsets.get(ConsumerId.of(name, current))
               .stream()
               .filter(off -> off.getFirst() == current)
               .filter(off -> off.getSecond().get() < written)
               .findAny()
-              .isPresent())
+              .isPresent()) {
+            
             return false;
+          }
           partition++;
         }
         return true;
@@ -520,24 +519,11 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     }
 
     @Override
-    public Optional<PartitionedView> getPartitionedView(Context context) {
-      return Optional.of(newReader(context));
-    }
-
-    @Override
-    public Optional<CommitLogReader> getCommitLogReader(Context context) {
-      return Optional.of(newReader(context));
-    }
-
-    @Override
-    public Optional<AttributeWriterBase> getWriter(Context context) {
-      return Optional.of(newWriter());
-    }
-
     LocalKafkaWriter newWriter() {
       return new LocalKafkaWriter(this, numPartitions, descriptorId);
     }
 
+    @Override
     LocalKafkaLogReader newReader(Context context) {
       return new LocalKafkaLogReader(this, context);
     }

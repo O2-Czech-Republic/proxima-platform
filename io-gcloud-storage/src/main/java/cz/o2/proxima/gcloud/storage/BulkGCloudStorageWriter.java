@@ -34,6 +34,8 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -141,8 +143,8 @@ public class BulkGCloudStorageWriter
         final long flushMinStamp = minTimestamp;
         final long flushMaxStamp = maxTimestamp;
         lastFlushStamp = now;
-        flushExecutor.execute(() ->
-            flush(flushFile, flushMinStamp, flushMaxStamp, statusCallback));
+        flushExecutor.execute(
+            () -> flush(flushFile, flushMinStamp, flushMaxStamp, statusCallback));
         writer = null;
         minTimestamp = Long.MAX_VALUE;
         maxTimestamp = Long.MIN_VALUE;
@@ -190,13 +192,13 @@ public class BulkGCloudStorageWriter
           if (f.isDirectory()) {
             remove(f);
           }
-          f.delete();
+          deleteHandlingErrors(f);
         }
       } else {
-        dir.delete();
+        deleteHandlingErrors(dir);
       }
     } else {
-      dir.delete();
+      deleteHandlingErrors(dir);
     }
   }
 
@@ -218,7 +220,7 @@ public class BulkGCloudStorageWriter
       String name = toBlobName(minTimestamp, maxTimestamp);
       Blob blob = createBlob(name);
       flushToBlob(file, blob);
-      file.delete();
+      deleteHandlingErrors(file);
       callback.commit(true, null);
       anyflush = true;
     } catch (Exception ex) {
@@ -258,6 +260,14 @@ public class BulkGCloudStorageWriter
     log.info(
         "Flushed blob {} with size {} KiB", blob.getBlobId().getName(),
         written / 1024.);
+  }
+
+  private void deleteHandlingErrors(File f) {
+    try {
+      Files.deleteIfExists(Paths.get(f.getAbsolutePath()));
+    } catch (IOException ex) {
+      throw new RuntimeException(ex);
+    }
   }
 
 }

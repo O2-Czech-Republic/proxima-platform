@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -90,7 +91,6 @@ public class UnboundedStreamSource
     return () -> {
 
       BlockingQueue<Optional<StreamElement>> queue = new ArrayBlockingQueue<>(100);
-      AtomicReference<StreamElement> current = new AtomicReference<>();
 
       final BlockingQueue<BulkLogObserver.OffsetCommitter> committers;
       committers = new LinkedBlockingDeque<>();
@@ -103,6 +103,9 @@ public class UnboundedStreamSource
 
       return new UnboundedReader<StreamElement, Offset>() {
 
+        @Nullable
+        StreamElement current = null;
+
         @Override
         public void close() throws IOException {
           handle.get().cancel();
@@ -111,9 +114,12 @@ public class UnboundedStreamSource
         @Override
         public boolean hasNext() {
           try {
+            if (current != null) {
+              return true;
+            }
             Optional<StreamElement> elem = queue.take();
             if (elem.isPresent()) {
-              current.set(elem.get());
+              current = elem.get();
               return true;
             }
           } catch (InterruptedException ex) {
@@ -124,7 +130,12 @@ public class UnboundedStreamSource
 
         @Override
         public StreamElement next() {
-          return current.get();
+          if (!hasNext()) {
+            throw new NoSuchElementException();
+          }
+          StreamElement next = current;
+          current = null;
+          return next;
         }
 
         @Override
@@ -156,10 +167,7 @@ public class UnboundedStreamSource
     return new BulkLogObserver() {
 
       @Override
-      public boolean onNext(
-          StreamElement ingest,
-          BulkLogObserver.OffsetCommitter confirm) {
-
+      public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
         try {
           try {
             committers.add(confirm);

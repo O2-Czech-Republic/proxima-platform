@@ -29,12 +29,14 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * A {@code DataSource} reading from a specific attribute of entity with bounded
@@ -64,7 +66,6 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
   private BoundedReader<StreamElement> asBoundedReader(Partition p) {
 
     BlockingQueue<Optional<StreamElement>> queue = new ArrayBlockingQueue<>(100);
-    AtomicReference<StreamElement> current = new AtomicReference<>();
 
     AtomicReference<ObserveHandle> cancel = new AtomicReference<>();
     cancel.set(reader.observePartitions(
@@ -75,6 +76,9 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
 
     return new BoundedReader<StreamElement>() {
 
+      @Nullable
+      StreamElement current = null;
+
       @Override
       public void close() throws IOException {
         cancel.get().cancel();
@@ -83,9 +87,12 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
       @Override
       public boolean hasNext() {
         try {
+          if (current != null) {
+            return true;
+          }
           Optional<StreamElement> elem = queue.take();
           if (elem.isPresent()) {
-            current.set(elem.get());
+            current = elem.get();
             return true;
           }
         } catch (InterruptedException ex) {
@@ -96,7 +103,12 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
 
       @Override
       public StreamElement next() {
-        return current.get();
+        if (!hasNext()) {
+          throw new NoSuchElementException();
+        }
+        StreamElement next = current;
+        current = null;
+        return next;
       }
 
     };
@@ -108,7 +120,7 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
     return new LogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter confirm) {
+      public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
 
         try {
           try {

@@ -55,7 +55,6 @@ import net.jodah.failsafe.RetryPolicy;
 
 import javax.annotation.Nullable;
 import java.io.File;
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
@@ -88,9 +87,9 @@ public class IngestServer {
   /**
    * Run the server.
    * @param args command line arguments
-   * @throws Exception on error
+   * @throws Throwable on error
    */
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) throws Throwable {
     final IngestServer server;
 
     if (args.length == 0) {
@@ -110,12 +109,11 @@ public class IngestServer {
     @Override
     public void ingest(
         Rpc.Ingest request, StreamObserver<Rpc.Status> responseObserver) {
+
       Metrics.INGEST_SINGLE.increment();
       processSingleIngest(request, status -> {
-        synchronized (responseObserver) {
-          responseObserver.onNext(status);
-          responseObserver.onCompleted();
-        }
+        responseObserver.onNext(status);
+        responseObserver.onCompleted();
       });
     }
 
@@ -125,6 +123,7 @@ public class IngestServer {
         StreamObserver<Rpc.Status> responseObserver) {
 
       AtomicInteger inflightRequest = new AtomicInteger(0);
+      final Object responseObserverLock = new Object();
 
       return new StreamObserver<Rpc.Ingest>() {
         @Override
@@ -132,12 +131,12 @@ public class IngestServer {
           Metrics.INGEST_SINGLE.increment();
           inflightRequest.incrementAndGet();
           processSingleIngest(request, status -> {
-            synchronized (responseObserver) {
+            synchronized (responseObserverLock) {
               responseObserver.onNext(status);
             }
             if (inflightRequest.decrementAndGet() == 0) {
               synchronized (inflightRequest) {
-                inflightRequest.notify();
+                inflightRequest.notifyAll();
               }
             }
           });
@@ -146,7 +145,7 @@ public class IngestServer {
         @Override
         public void onError(Throwable thrwbl) {
           log.error("Error on channel", thrwbl);
-          synchronized (responseObserver) {
+          synchronized (responseObserverLock) {
             responseObserver.onError(thrwbl);
           }
         }
@@ -158,13 +157,15 @@ public class IngestServer {
             if (res > 0) {
               synchronized (inflightRequest) {
                 try {
-                  inflightRequest.wait();
+                  while (inflightRequest.get() > 0) {
+                    inflightRequest.wait();
+                  }
                 } catch (InterruptedException ex) {
                   Thread.currentThread().interrupt();
                 }
               }
             }
-            synchronized (responseObserver) {
+            synchronized (responseObserverLock) {
               responseObserver.onCompleted();
             }
             return res;
@@ -190,17 +191,17 @@ public class IngestServer {
         final AtomicInteger inflightRequests = new AtomicInteger();
         final AtomicLong lastFlushNanos = new AtomicLong(System.nanoTime());
         final Rpc.StatusBulk.Builder builder = Rpc.StatusBulk.newBuilder();
-        final long maxSleepNanos = 100000000L;
-        final int maxQueuedStatuses = 500;
+        static final long MAX_SLEEP_NANOS = 100000000L;
+        static final int MAX_QUEUED_STATUSES = 500;
 
         Runnable flushTask = () -> {
           try {
             synchronized (builder) {
-              while (statusQueue.size() > maxQueuedStatuses) {
+              while (statusQueue.size() > MAX_QUEUED_STATUSES) {
                 peekQueueToBuilderAndFlush();
               }
               long now = System.nanoTime();
-              if (now - lastFlushNanos.get() >= maxSleepNanos) {
+              if (now - lastFlushNanos.get() >= MAX_SLEEP_NANOS) {
                 while (!statusQueue.isEmpty()) {
                   peekQueueToBuilderAndFlush();
                 }
@@ -209,7 +210,8 @@ public class IngestServer {
                 responseObserver.onNext(builder.build());
                 builder.clear();
               }
-              if (completed.get() && inflightRequests.get() == 0
+              if (completed.get()
+                  && inflightRequests.get() == 0
                   && statusQueue.isEmpty()) {
 
                 responseObserver.onCompleted();
@@ -222,7 +224,7 @@ public class IngestServer {
 
         // schedule the flush periodically
         ScheduledFuture<?> flushFuture = scheduler.scheduleAtFixedRate(
-            flushTask, maxSleepNanos, maxSleepNanos, TimeUnit.NANOSECONDS);
+            flushTask, MAX_SLEEP_NANOS, MAX_SLEEP_NANOS, TimeUnit.NANOSECONDS);
 
         private void peekQueueToBuilderAndFlush() {
           synchronized (builder) {
@@ -253,14 +255,14 @@ public class IngestServer {
           bulk.getIngestList().stream()
               .forEach(r -> processSingleIngest(r, status -> {
                 statusQueue.add(status);
-                if (statusQueue.size() >= maxQueuedStatuses) {
+                if (statusQueue.size() >= MAX_QUEUED_STATUSES) {
                   // enqueue flush
                   scheduler.execute(flushTask);
                 }
                 if (inflightRequests.decrementAndGet() == 0) {
-                  // there is no more infligt requests
+                  // there is no more inflight requests
                   synchronized (inflightRequests) {
-                    inflightRequests.notify();
+                    inflightRequests.notifyAll();
                   }
                 }
               }));
@@ -284,11 +286,12 @@ public class IngestServer {
           flushFuture.cancel(true);
           // flush all responses to the observer
           synchronized (inflightRequests) {
-            while (inflightRequests.get() != 0) {
+            while (inflightRequests.get() > 0) {
               try {
                 inflightRequests.wait(100);
               } catch (InterruptedException ex) {
-                log.warn("Interrupted while waiting to send responses to client");
+                log.warn("Interrupted while waiting to send responses to client", ex);
+                Thread.currentThread().interrupt();
               }
             }
           }
@@ -307,13 +310,13 @@ public class IngestServer {
   public class RetrieveService extends RetrieveServiceImplBase {
 
     private class Status extends Exception {
-      final int status;
+      final int statusCode;
       final String message;
-      Status(int status, String message) {
-        this.status = status;
+      Status(int statusCode, String message) {
+        this.statusCode = statusCode;
         this.message = message;
       }
-    };
+    }
 
     @Override
     public void listAttributes(
@@ -361,7 +364,7 @@ public class IngestServer {
         responseObserver.onCompleted();
       } catch (Status s) {
         responseObserver.onNext(Rpc.ListResponse.newBuilder()
-              .setStatus(s.status)
+              .setStatus(s.statusCode)
               .setStatusMessage(s.message)
               .build());
         responseObserver.onCompleted();
@@ -421,7 +424,7 @@ public class IngestServer {
         responseObserver.onCompleted();
       } catch (Status s) {
         responseObserver.onNext(Rpc.GetResponse.newBuilder()
-              .setStatus(s.status)
+              .setStatus(s.statusCode)
               .setStatusMessage(s.message)
               .build());
         responseObserver.onCompleted();
@@ -439,11 +442,11 @@ public class IngestServer {
   }
 
   @Getter
-  final int minCores = 2;
+  static final int MIN_CORES = 2;
   @Getter
   final Executor executor = new ThreadPoolExecutor(
-            minCores,
-            10 * minCores,
+      MIN_CORES,
+            10 * MIN_CORES,
             10, TimeUnit.SECONDS,
             new SynchronousQueue<>());
 
@@ -514,7 +517,7 @@ public class IngestServer {
    */
   private boolean writeRequest(
       Rpc.Ingest request,
-      Consumer<Rpc.Status> consumer) throws IOException {
+      Consumer<Rpc.Status> consumer) {
 
     if (Strings.isNullOrEmpty(request.getKey())
         || Strings.isNullOrEmpty(request.getEntity())
@@ -1036,7 +1039,8 @@ public class IngestServer {
       // sleep random time between zero to 10 seconds to break ties
       Thread.sleep((long) (Math.random() * 10000));
     } catch (InterruptedException ex) {
-      // nop, already going to die
+      // just for making sonar happy :-)
+      Thread.currentThread().interrupt();
     }
     if (error == null) {
       log.error(message);

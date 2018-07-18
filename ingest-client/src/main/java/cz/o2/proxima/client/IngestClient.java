@@ -291,8 +291,8 @@ public class IngestClient implements AutoCloseable {
     synchronized (this) {
       bulkBuilder.addIngest(ingest);
       if (bulkBuilder.getIngestCount() >= options.getMaxFlushRecords()) {
-        synchronized (flushThread) {
-          flushThread.notify();
+        synchronized (bulkBuilder) {
+          bulkBuilder.notifyAll();
         }
       }
     }
@@ -305,7 +305,7 @@ public class IngestClient implements AutoCloseable {
     if (channel == null) {
       channel = ManagedChannelBuilder
           .forAddress(host, port)
-          .usePlaintext(true)
+          .usePlaintext()
           .executor(options.getExecutor())
           .build();
     }
@@ -355,7 +355,9 @@ public class IngestClient implements AutoCloseable {
 
       flushThread.interrupt();
       try {
-        closedLatch.await(1, TimeUnit.SECONDS);
+        if (!closedLatch.await(1, TimeUnit.SECONDS)) {
+          log.warn("Unable to await for flushThreads");
+        }
       } catch (InterruptedException ex) {
         Thread.currentThread().interrupt();
       }

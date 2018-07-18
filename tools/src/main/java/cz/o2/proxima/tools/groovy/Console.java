@@ -29,7 +29,6 @@ import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
-import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.Position;
@@ -66,7 +65,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
@@ -394,14 +392,9 @@ public class Console {
         TextFormat.merge(textFormat, builder);
         payload = builder.build().toByteArray();
       }
-      Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(attrDesc);
-      OnlineAttributeWriter writer = families.stream()
-          .filter(af -> af.getType() == StorageType.PRIMARY)
-          .findAny()
-          .orElse(families.stream().findAny().get())
-          .getWriter()
-          .get()
-          .online();
+      OnlineAttributeWriter writer = repo.getWriter(attrDesc)
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Missing writer for " + attrDesc));
       CountDownLatch latch = new CountDownLatch(1);
       AtomicReference<Throwable> exc = new AtomicReference<>();
       writer.write(StreamElement.update(
@@ -428,14 +421,9 @@ public class Console {
       EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc,
       String key, String attribute) throws InterruptedException {
 
-    Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(attrDesc);
-    OnlineAttributeWriter writer = families.stream()
-        .filter(af -> af.getType() == StorageType.PRIMARY)
-        .findAny()
-        .orElse(families.stream().findAny().get())
-        .getWriter()
-        .get()
-        .online();
+    OnlineAttributeWriter writer = repo.getWriter(attrDesc)
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Missing writer for " + attrDesc));
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Throwable> exc = new AtomicReference<>();
     writer.write(StreamElement.update(
@@ -465,7 +453,7 @@ public class Console {
     Channel channel = ManagedChannelBuilder
         .forAddress(host, port)
         .directExecutor()
-        .usePlaintext(true)
+        .usePlaintext()
         .build();
 
     RetrieveServiceBlockingStub stub = RetrieveServiceGrpc.newBlockingStub(channel);
@@ -484,7 +472,7 @@ public class Console {
     Channel channel = ManagedChannelBuilder
         .forAddress(host, port)
         .directExecutor()
-        .usePlaintext(true)
+        .usePlaintext()
         .build();
 
     RetrieveServiceBlockingStub stub = RetrieveServiceGrpc.newBlockingStub(channel);

@@ -15,21 +15,33 @@
  */
 package cz.o2.proxima.transform;
 
+import com.google.common.base.Preconditions;
+
 /**
- * Transformation from proxy space (event.*) to raw space (_e.*).
+ * Rename {@code _e.*} to {@code event.*} back and forth.
  */
-public class EventTransform implements ProxyTransform {
+public class EventRename implements ProxyTransform {
 
   @Override
   public String fromProxy(String proxy) {
-    int pos = proxy.indexOf('.');
-    return "_e." + proxy.substring(pos + 1);
+    Preconditions.checkArgument(
+        proxy.startsWith("event."), "Invalid proxy attribute " + proxy);
+    String suffix = proxy.substring(6);
+    if (!suffix.equals("*")) {
+      return "_e." + (Long.valueOf(suffix) + 1);
+    }
+    return "_e.*";
   }
 
   @Override
   public String toProxy(String raw) {
-    int pos = raw.indexOf('.');
-    return "event." + raw.substring(pos + 1);
+    Preconditions.checkArgument(
+        raw.startsWith("_e."), "Invalid raw attribute " + raw);
+    String suffix = raw.substring(3);
+    if (!suffix.equals("*")) {
+      return "event." + (Long.valueOf(suffix) - 1);
+    }
+    return "event.*";
   }
 
 }

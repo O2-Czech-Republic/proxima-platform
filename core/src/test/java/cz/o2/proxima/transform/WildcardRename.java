@@ -13,15 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.util;
+package cz.o2.proxima.transform;
 
-import java.util.Optional;
+/**
+ * Rename {@code wildcard.*} to {@code _w.*}.
+ */
+public class WildcardRename implements ProxyTransform {
 
-public class Optionals {
-
-  public static <T> T get(Optional<T> optional) {
-    return optional.orElseThrow(() ->
-        new IllegalArgumentException("Provided optional is empty."));
+  @Override
+  public String fromProxy(String proxy) {
+    return "_w." + proxy.substring(9);
   }
-  
+
+  @Override
+  public String toProxy(String raw) {
+    return "wildcard." + raw.substring(3);
+  }
+
 }

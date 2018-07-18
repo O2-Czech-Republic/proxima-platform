@@ -59,7 +59,12 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
       producer.send(
           new ProducerRecord(topic, partition, data.getStamp(), data.getKey()
               + "#" + data.getAttribute(), data.getValue()),
-              (metadata, exception) -> callback.commit(exception == null, exception));
+              (metadata, exception) -> {
+                log.debug(
+                    "Written {} to topic {} offset {} and partition {}",
+                    data, metadata.topic(), metadata.offset(), metadata.partition());
+                callback.commit(exception == null, exception);
+              });
     } catch (Exception ex) {
       log.warn("Failed to write ingest {}", data, ex);
       callback.commit(false, ex);

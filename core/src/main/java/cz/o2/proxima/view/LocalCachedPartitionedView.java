@@ -88,7 +88,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
   }
 
   @SuppressWarnings("unchecked")
-  private void onCache(StreamElement ingest, boolean overwrite) throws Exception {
+  protected void onCache(StreamElement ingest, boolean overwrite) {
 
     final Optional<Object> parsed = ingest.isDelete()
         ? Optional.empty()
@@ -159,7 +159,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
 
         try {
           prefetchedCount.incrementAndGet();
-          onCache(ingest, true /* use tha latest value stored in the topic */);
+          onCache(ingest, true /* use the latest value stored in the topic */);
           committer.confirm();
           return true;
         } catch (Throwable ex) {
@@ -306,7 +306,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
 
     NavigableMap<String, Pair<Long, Object>> m = cache.get(key);
     log.debug(
-        "Scanning prefix {} of key {} with map.size {}",
+        "Scanning prefix `{}' of key {} with map.size {}",
         prefix, key, m == null ? -1 : m.size());
     if (m != null) {
       String prefixName = null;
@@ -322,7 +322,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
         log.trace("Scanned entry {} with prefix '{}'", e, prefix);
         if (e.getKey().length() > prefix.length()) {
           Optional<AttributeDescriptor<Object>> attr;
-          attr = getEntityDescriptor().findAttribute(e.getKey());
+          attr = getEntityDescriptor().findAttribute(e.getKey(), true);
           if (attr.isPresent()) {
             if (attr.get().isWildcard()) {
               if (prefixName == null || !attr.get().getName().startsWith(prefixName)) {
@@ -370,7 +370,8 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
   private @Nullable <T> KeyValue<T> toKv(
       String key, String attribute, @Nullable Pair<Long, Object> p) {
 
-    Optional<AttributeDescriptor<Object>> attrDesc = entity.findAttribute(attribute);
+    Optional<AttributeDescriptor<Object>> attrDesc = entity.findAttribute(
+        attribute, true);
     if (attrDesc.isPresent()) {
       return toKv(key, attribute, attrDesc.get(), p);
     }
@@ -400,7 +401,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
   @Override
   public void write(StreamElement data, CommitCallback statusCallback) {
     try {
-      onCache(data, true);
+      cache(data);
       writer.write(data, statusCallback);
     } catch (Exception ex) {
       statusCallback.commit(false, ex);
@@ -410,6 +411,11 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
   @Override
   public URI getURI() {
     return reader.getURI();
+  }
+
+  @Override
+  public void cache(StreamElement element) {
+    onCache(element, true);
   }
 
 }

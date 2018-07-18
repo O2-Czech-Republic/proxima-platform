@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.scheme.ValueSerializer;
 import java.net.URI;
@@ -43,11 +44,15 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   @Getter
   protected final boolean wildcard;
 
+  @Getter
+  protected final boolean replica;
+
   protected @Nullable final ValueSerializer<T> valueSerializer;
 
   public AttributeDescriptorBase(
       String name, String entity, URI schemeURI,
-      @Nullable ValueSerializer<T> valueSerializer) {
+      @Nullable ValueSerializer<T> valueSerializer,
+      boolean replica) {
 
     this.name = Objects.requireNonNull(name);
     this.entity = Objects.requireNonNull(entity);
@@ -55,6 +60,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
     this.wildcard = this.name.endsWith(".*");
     this.proxy = false;
     this.valueSerializer = valueSerializer;
+    this.replica = replica;
     if (this.wildcard) {
       if (name.length() < 3
           || name.substring(0, name.length() - 1).contains("*")
@@ -69,13 +75,32 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
     }
   }
 
-  public AttributeDescriptorBase(String name, AttributeDescriptorBase<T> target) {
+  public AttributeDescriptorBase(
+      String name,
+      AttributeDescriptor<T> targetRead,
+      AttributeDescriptor<T> targetWrite,
+      boolean replica) {
+
     this.name = Objects.requireNonNull(name);
-    this.entity = target.getEntity();
-    this.schemeURI = target.getSchemeURI();
+    Preconditions.checkArgument(
+        targetRead.getEntity().equals(targetWrite.getEntity()),
+        String.format(
+            "Cannot mix entities in proxies, got %s and %s",
+            targetRead.getEntity(), targetWrite.getEntity()));
+    Preconditions.checkArgument(
+        targetRead.getSchemeURI().equals(targetWrite.getSchemeURI()),
+        String.format(
+            "Cannot mix attributes with different schemes, got %s and %s",
+            targetRead.getSchemeURI(), targetWrite.getSchemeURI()));
+    Preconditions.checkArgument(
+        targetRead.isWildcard() == targetWrite.isWildcard(),
+        "Cannot mix non-wildcard and wildcard attributes in proxy");
+    this.entity = targetRead.getEntity();
+    this.schemeURI = targetRead.getSchemeURI();
     this.proxy = true;
-    this.wildcard = target.isWildcard();
-    this.valueSerializer = target.getValueSerializer();
+    this.replica = replica;
+    this.wildcard = targetRead.isWildcard();
+    this.valueSerializer = targetRead.getValueSerializer();
   }
 
   @Override
@@ -121,6 +146,13 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
         .setName(getName())
         .setEntity(getEntity())
         .setSchemeURI(getSchemeURI());
+  }
+
+  AttributeProxyDescriptorImpl<T> toProxy() {
+    Preconditions.checkArgument(
+        this instanceof AttributeProxyDescriptorImpl,
+        "Attribute " + this + " is not proxy attribute");
+    return (AttributeProxyDescriptorImpl<T>) this;
   }
 
 }

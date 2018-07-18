@@ -13,15 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.util;
+package cz.o2.proxima.transform;
 
-import java.util.Optional;
+import cz.o2.proxima.repository.AttributeDescriptor;
 
-public class Optionals {
+public class AsymmetricWrite implements ProxyTransform {
 
-  public static <T> T get(Optional<T> optional) {
-    return optional.orElseThrow(() ->
-        new IllegalArgumentException("Provided optional is empty."));
+  private String target;
+
+  @Override
+  public void setup(AttributeDescriptor<?> target) {
+    this.target = target.toAttributePrefix();
   }
-  
+
+  @Override
+  public String fromProxy(String proxy) {
+    int pos = proxy.indexOf('.');
+    return "_e." + proxy.substring(pos + 1);
+  }
+
+  @Override
+  public String toProxy(String raw) {
+    int pos = raw.indexOf('.');
+    return target + raw.substring(pos + 1);
+  }
+
 }

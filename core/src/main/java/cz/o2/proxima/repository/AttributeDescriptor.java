@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.transform.ProxyTransform;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import java.io.Serializable;
@@ -49,6 +50,9 @@ public interface AttributeDescriptor<T> extends Serializable {
     @Setter
     private URI schemeURI;
 
+    @Setter
+    private boolean replica = false;
+
     @SuppressWarnings("unchecked")
     public <T> AttributeDescriptorImpl<T> build() {
       Objects.requireNonNull(name, "Please specify name");
@@ -57,8 +61,13 @@ public interface AttributeDescriptor<T> extends Serializable {
 
       ValueSerializerFactory factory = repo.getValueSerializerFactory(schemeURI.getScheme());
 
-      return new AttributeDescriptorImpl<>(name, entity, schemeURI,
-          factory == null ? null : (ValueSerializer<T>) factory.getValueSerializer(schemeURI));
+      return new AttributeDescriptorImpl<>(
+          name, entity,
+          schemeURI,
+          factory == null
+              ? null
+              : factory.getValueSerializer(schemeURI),
+          replica);
     }
   }
 
@@ -68,9 +77,25 @@ public interface AttributeDescriptor<T> extends Serializable {
 
   static <T> AttributeDescriptorBase<T> newProxy(
       String name,
-      AttributeDescriptorBase<T> target,
-      ProxyTransform transform) {
-    return new AttributeProxyDescriptorImpl<>(name, target, transform);
+      AttributeDescriptor<T> targetRead,
+      ProxyTransform transformRead,
+      AttributeDescriptor<T> targetWrite,
+      ProxyTransform transformWrite) {
+
+    return newProxy(
+        name, targetRead, transformRead, targetWrite, transformWrite, false);
+  }
+
+  static <T> AttributeDescriptorBase<T> newProxy(
+      String name,
+      AttributeDescriptor<T> targetRead,
+      ProxyTransform transformRead,
+      AttributeDescriptor<T> targetWrite,
+      ProxyTransform transformWrite,
+      boolean replica) {
+
+    return new AttributeProxyDescriptorImpl<>(
+        name, targetRead, transformRead, targetWrite, transformWrite, replica);
   }
 
   /**

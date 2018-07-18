@@ -13,15 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.util;
+package cz.o2.proxima.transform;
 
-import java.util.Optional;
+import com.google.common.base.Preconditions;
 
-public class Optionals {
+/**
+ * Rename dummy.data to dummy._d.
+ */
+public class DummyDataRename implements ProxyTransform {
 
-  public static <T> T get(Optional<T> optional) {
-    return optional.orElseThrow(() ->
-        new IllegalArgumentException("Provided optional is empty."));
+  @Override
+  public String fromProxy(String proxy) {
+    Preconditions.checkArgument(
+        proxy.equals("data"),
+        "Invalid proxy input " + proxy);
+    return "_d";
   }
-  
+
+  @Override
+  public String toProxy(String raw) {
+    Preconditions.checkArgument(raw.equals("_d"), "Invalid raw input " + raw);
+    return "data";
+  }
+
 }

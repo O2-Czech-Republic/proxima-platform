@@ -13,15 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.util;
+package cz.o2.proxima.transform;
 
-import java.util.Optional;
+public class AsymmetricRead implements ProxyTransform {
 
-public class Optionals {
-
-  public static <T> T get(Optional<T> optional) {
-    return optional.orElseThrow(() ->
-        new IllegalArgumentException("Provided optional is empty."));
+  @Override
+  public String fromProxy(String proxy) {
+    int pos = proxy.indexOf('.');
+    return "raw." + proxy.substring(pos + 1);
   }
-  
+
+  @Override
+  public String toProxy(String raw) {
+    int pos = raw.indexOf('.');
+    return "asymmetric." + raw.substring(pos + 1);
+  }
+
 }

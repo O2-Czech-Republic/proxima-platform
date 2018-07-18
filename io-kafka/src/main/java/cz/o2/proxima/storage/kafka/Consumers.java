@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.kafka;
 
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.storage.StreamElement;
@@ -183,7 +184,9 @@ class Consumers {
 
       return (succ, err) -> {
         if (succ) {
-          committed.compute(tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
+          committed.compute(
+              tp.partition(),
+              (k, v) -> Math.max(MoreObjects.firstNonNull(v, 0L), offset + 1));
           commit.accept(tp, offset);
         } else {
           errorHandler.accept(err);

@@ -15,13 +15,24 @@
  */
 package cz.o2.proxima.util;
 
-import java.util.Optional;
+import static org.junit.Assert.assertEquals;
+import org.junit.Test;
 
-public class Optionals {
+/**
+ * Test suite for {@link CamelCase}.
+ */
+public class CamelCaseTest {
 
-  public static <T> T get(Optional<T> optional) {
-    return optional.orElseThrow(() ->
-        new IllegalArgumentException("Provided optional is empty."));
+  @Test
+  public void testCamelCaseWithFirstLower() {
+    String input = "gateway-replication_test-123";
+    assertEquals("gatewayReplication_test123", CamelCase.apply(input, false));
   }
-  
+
+  @Test
+  public void testCamelCaseWithFirstUpper() {
+    String input = "gateway-replication_test-123";
+    assertEquals("GatewayReplication_test123", CamelCase.apply(input));
+  }
+
 }

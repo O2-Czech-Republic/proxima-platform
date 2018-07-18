@@ -18,7 +18,9 @@ package cz.o2.proxima.storage.randomaccess;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import java.util.Objects;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import lombok.Getter;
 
 /**
@@ -55,7 +57,9 @@ public class KeyValue<T> {
     Optional<T> value = attrDesc.getValueSerializer().deserialize(valueBytes);
 
     if (!value.isPresent()) {
-      throw new IllegalArgumentException("Cannot parse given bytes to value");
+      throw new IllegalArgumentException(
+          "Cannot parse given bytes of length " + valueBytes.length
+              + " to value with serializer " + attrDesc.getValueSerializer());
     }
 
     return new KeyValue<>(
@@ -128,6 +132,7 @@ public class KeyValue<T> {
   private final T value;
 
   @Getter
+  @Nullable
   private final byte[] valueBytes;
 
   @Getter
@@ -147,13 +152,13 @@ public class KeyValue<T> {
       byte[] valueBytes,
       long stamp) {
 
-    this.entityDescriptor = entityDesc;
-    this.attrDescriptor = attrDesc;
-    this.key = key;
-    this.attribute = attribute;
-    this.value = value;
+    this.entityDescriptor = Objects.requireNonNull(entityDesc);
+    this.attrDescriptor = Objects.requireNonNull(attrDesc);
+    this.key = Objects.requireNonNull(key);
+    this.attribute = Objects.requireNonNull(attribute);
+    this.value = Objects.requireNonNull(value);
     this.valueBytes = valueBytes;
-    this.offset = offset;
+    this.offset = Objects.requireNonNull(offset);
     this.stamp = stamp;
   }
 

@@ -509,10 +509,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     // rebalanced
     assertEquals(1, c1.assignment().size());
     assertEquals(1, c2.assignment().size());
-
-
   }
-
 
   @Test
   public void testSinglePartitionTwoConsumersRebalance() {
@@ -588,7 +585,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       @Override
       public boolean onNext(
           StreamElement ingest,
-          PartitionedLogObserver.ConfirmCallback confirm,
+          ConfirmCallback confirm,
           Partition partition,
           Consumer<Void> collector) {
 
@@ -658,7 +655,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       @Override
       public boolean onNext(
           StreamElement ingest,
-          PartitionedLogObserver.ConfirmCallback confirm,
+          ConfirmCallback confirm,
           Partition partition,
           Consumer<Void> collector) {
 
@@ -724,8 +721,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     ObserveHandle handle = reader.observeBulk("test", Position.NEWEST, new BulkLogObserver() {
 
       @Override
-      public boolean onNext(
-          StreamElement ingest, BulkLogObserver.OffsetCommitter confirm) {
+      public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
         restarts.incrementAndGet();
         throw new RuntimeException("FAIL!");
       }
@@ -777,7 +773,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
       @Override
       protected boolean onNextInternal(
-          StreamElement ingest, BulkLogObserver.OffsetCommitter confirm) {
+          StreamElement ingest, OffsetCommitter confirm) {
+
         restarts.incrementAndGet();
         throw new RuntimeException("FAIL!");
       }
@@ -824,8 +821,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       }
 
       @Override
-      public boolean onNext(
-          StreamElement ingest, BulkLogObserver.OffsetCommitter context) {
+      public boolean onNext(StreamElement ingest, OffsetCommitter context) {
         input.set(ingest);
         context.confirm();
         latch.countDown();
@@ -882,8 +878,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       }
 
       @Override
-      public boolean onNext(
-          StreamElement ingest, BulkLogObserver.OffsetCommitter context) {
+      public boolean onNext(StreamElement ingest, OffsetCommitter context) {
         input.set(ingest);
         context.confirm();
         latch.countDown();
@@ -935,14 +930,12 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     BulkLogObserver observer = new BulkLogObserver() {
 
       @Override
-      public boolean onNext(
-          StreamElement ingest, BulkLogObserver.OffsetCommitter context) {
-
+      public boolean onNext(StreamElement ingest, OffsetCommitter context) {
         input.add((KafkaStreamElement) ingest);
         context.confirm();
         latch.get().countDown();
-        // terminate after reading first record when running first time
-        return !currentOffsets.isEmpty();
+        // terminate after reading first record
+        return false;
       }
 
       @Override

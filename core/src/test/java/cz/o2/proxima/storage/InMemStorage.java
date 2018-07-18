@@ -54,6 +54,7 @@ import cz.o2.proxima.storage.commitlog.ObserveHandle;
 import cz.o2.proxima.storage.randomaccess.RawOffset;
 import cz.o2.proxima.view.PartitionedCachedView;
 import java.util.ArrayList;
+import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -86,7 +87,13 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
-      log.debug("Writing element {} to {}", data, getURI());
+      if (log.isDebugEnabled()) {
+        synchronized (observers) {
+          log.debug(
+              "Writing element {} to {} with {} observers",
+              data, getURI(), observers.size());
+        }
+      }
       if (data.isDeleteWildcard()) {
         String prefix = getURI().getPath() + "/" + data.getKey()
             + "#" + data.getAttributeDescriptor().toAttributePrefix();
@@ -150,20 +157,33 @@ public class InMemStorage extends StorageDescriptor {
         Position position,
         LogObserver observer) {
 
-      if (position != Position.NEWEST) {
-        throw new UnsupportedOperationException(
-            "Cannot read from position " + position);
-      }
+      return observe(name, position, false, observer);
+    }
+
+    private ObserveHandle observe(
+        String name,
+        Position position,
+        boolean stopAtCurrent,
+        LogObserver observer) {
+
+      log.debug("Observing {} as {}", getURI(), name);
+      logAndFixPosition(position);
       final int id;
-      synchronized (observers) {
-        id = observers.isEmpty() ? 0 : observers.lastKey() + 1;
-        observers.put(id, elem -> {
-          try {
-            observer.onNext(elem, (suc, err) -> { });
-          } catch (Exception ex) {
-            observer.onError(ex);
-          }
-        });
+      if (!stopAtCurrent) {
+        synchronized (observers) {
+          id = observers.isEmpty() ? 0 : observers.lastKey() + 1;
+          observers.put(id, elem -> {
+            elem = cloneAndUpdateAttribute(getEntityDescriptor(), elem);
+            try {
+              observer.onNext(elem, (suc, err) -> { });
+            } catch (Exception ex) {
+              observer.onError(ex);
+            }
+          });
+        }
+      } else {
+        observer.onCompleted();
+        id = -1;
       }
       return new ObserveHandle() {
 
@@ -175,17 +195,17 @@ public class InMemStorage extends StorageDescriptor {
 
         @Override
         public List<Offset> getCommittedOffsets() {
-          throw new UnsupportedOperationException("Not supported.");
+          return Arrays.asList(() -> () -> 0);
         }
 
         @Override
         public void resetOffsets(List<Offset> offsets) {
-          throw new UnsupportedOperationException("Not supported.");
+          // nop
         }
 
         @Override
         public List<Offset> getCurrentOffsets() {
-          throw new UnsupportedOperationException("Not supported.");
+          return getCommittedOffsets();
         }
 
         @Override
@@ -204,10 +224,7 @@ public class InMemStorage extends StorageDescriptor {
         boolean stopAtCurrent,
         LogObserver observer) {
 
-      if (stopAtCurrent) {
-        throw new UnsupportedOperationException("Cannot stop at current with this reader");
-      }
-      return observe(null, position, observer);
+      return observe(null, position, stopAtCurrent, observer);
     }
 
     @Override
@@ -217,20 +234,23 @@ public class InMemStorage extends StorageDescriptor {
         boolean stopAtCurrent,
         BulkLogObserver observer) {
 
-      if (position != Position.NEWEST) {
-        throw new UnsupportedOperationException(
-            "Cannot read from position " + position);
-      }
+      logAndFixPosition(position);
       final int id;
-      synchronized (observers) {
-        id = observers.isEmpty() ? 0 : observers.lastKey();
-        observers.put(id, elem -> {
-          try {
-            observer.onNext(elem, () -> 0, (suc, err) -> { });
-          } catch (Exception ex) {
-            observer.onError(ex);
-          }
-        });
+      if (!stopAtCurrent) {
+        synchronized (observers) {
+          id = observers.isEmpty() ? 0 : observers.lastKey();
+          observers.put(id, elem -> {
+            elem = cloneAndUpdateAttribute(getEntityDescriptor(), elem);
+            try {
+              observer.onNext(elem, () -> 0, (suc, err) -> { });
+            } catch (Exception ex) {
+              observer.onError(ex);
+            }
+          });
+        }
+      } else {
+        id = -1;
+        observer.onCompleted();
       }
       return new ObserveHandle() {
         @Override
@@ -241,17 +261,17 @@ public class InMemStorage extends StorageDescriptor {
 
         @Override
         public List<Offset> getCommittedOffsets() {
-          throw new UnsupportedOperationException("Not supported ");
+          return Arrays.asList(() -> () -> 0);
         }
 
         @Override
         public void resetOffsets(List<Offset> offsets) {
-          throw new UnsupportedOperationException("Not supported.");
+          // nop
         }
 
         @Override
         public List<Offset> getCurrentOffsets() {
-          throw new UnsupportedOperationException("Not supported.");
+          return getCommittedOffsets();
         }
 
         @Override
@@ -278,7 +298,8 @@ public class InMemStorage extends StorageDescriptor {
         observer.onRepartition(partitions);
         observe("partitionedView-" + flow.getName(), new LogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter confirm) {
+          public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
+            ingest = cloneAndUpdateAttribute(getEntityDescriptor(), ingest);
             observer.onNext(ingest, confirm::commit, () -> 0, e -> {
               try {
                 queue.put(e);
@@ -322,16 +343,26 @@ public class InMemStorage extends StorageDescriptor {
         boolean stopAtCurrent,
         BulkLogObserver observer) {
 
-      return observeBulk(name, position, observer);
+      return observeBulk(name, position, stopAtCurrent, observer);
     }
 
     @Override
     public ObserveHandle observeBulkOffsets(
         Collection<Offset> offsets, BulkLogObserver observer) {
+
       return observeBulkPartitions(
           offsets.stream().map(Offset::getPartition).collect(Collectors.toList()),
           Position.NEWEST,
           observer);
+    }
+
+    private Position logAndFixPosition(Position position) {
+      if (position != Position.NEWEST) {
+        log.warn(
+            "InMemStorage cannot observe data other than NEWEST, got {}, fixing.",
+            position);
+      }
+      return Position.NEWEST;
     }
 
   }
@@ -475,11 +506,17 @@ public class InMemStorage extends StorageDescriptor {
   private static class CachedView implements PartitionedCachedView {
 
     private final RandomAccessReader reader;
+    private final CommitLogReader commitLogReader;
     private final OnlineAttributeWriter writer;
     private BiConsumer<StreamElement, Pair<Long, Object>> updateCallback;
 
-    CachedView(RandomAccessReader reader, OnlineAttributeWriter writer) {
+    CachedView(
+        RandomAccessReader reader,
+        CommitLogReader commitLogReader,
+        OnlineAttributeWriter writer) {
+
       this.reader = reader;
+      this.commitLogReader = commitLogReader;
       this.writer = writer;
     }
 
@@ -489,6 +526,27 @@ public class InMemStorage extends StorageDescriptor {
         BiConsumer<StreamElement, Pair<Long, Object>> updateCallback) {
 
       this.updateCallback = updateCallback;
+      if (updateCallback != null) {
+        this.commitLogReader.observe(
+            UUID.randomUUID().toString(),
+            new LogObserver() {
+              @Override
+              public boolean onNext(
+                  StreamElement ingest,
+                  LogObserver.OffsetCommitter committer) {
+
+                cache(ingest);
+                committer.confirm();
+                return true;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
+      }
+
     }
 
     @Override
@@ -539,12 +597,9 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
-      updateCallback.accept(
-          data,
-          Pair.of(-1L, get(
-              data.getKey(), data.getAttribute(),
-              data.getAttributeDescriptor()).orElse(null)));
+      cache(data);
       writer.write(data, statusCallback);
+      getAttributeOfEntity(getEntityDescriptor(), data);
     }
 
     @Override
@@ -558,6 +613,15 @@ public class InMemStorage extends StorageDescriptor {
         int limit, Consumer<KeyValue<?>> consumer) {
 
       reader.scanWildcardAll(key, offset, limit, consumer);
+    }
+
+    @Override
+    public void cache(StreamElement element) {
+      updateCallback.accept(
+          element,
+          Pair.of(-1L, get(
+              element.getKey(), element.getAttribute(),
+              element.getAttributeDescriptor()).orElse(null)));
     }
 
   }
@@ -584,7 +648,7 @@ public class InMemStorage extends StorageDescriptor {
     InMemCommitLogReader commitLogReader = new InMemCommitLogReader(
         entityDesc, uri, uriObservers);
     Reader reader = new Reader(entityDesc, uri, data);
-    CachedView cachedView = new CachedView(reader, writer);
+    CachedView cachedView = new CachedView(reader, commitLogReader, writer);
 
     return new DataAccessor() {
       @Override
@@ -619,5 +683,30 @@ public class InMemStorage extends StorageDescriptor {
 
     };
   }
+
+  @SuppressWarnings("unchecked")
+  private static <T> AttributeDescriptor<T> getAttributeOfEntity(
+      EntityDescriptor entity,
+      StreamElement ingest) {
+
+    return (AttributeDescriptor<T>) entity
+        .findAttribute(ingest.getAttribute(), true)
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute " + ingest.getAttribute() + " in " + entity));
+  }
+
+  private static StreamElement cloneAndUpdateAttribute(
+      EntityDescriptor entity, StreamElement elem) {
+
+    return StreamElement.update(
+        entity,
+        getAttributeOfEntity(entity, elem),
+        elem.getUuid(),
+        elem.getKey(),
+        elem.getAttribute(),
+        elem.getStamp(),
+        elem.getValue());
+  }
+
 
 }

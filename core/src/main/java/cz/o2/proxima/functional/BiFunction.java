@@ -13,29 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.repository;
+package cz.o2.proxima.functional;
 
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
 /**
- * A transformation of attribute name applied both on reading and writing attribute.
+ * Binary function of two arguments.
  */
 @Stable
-public interface ProxyTransform extends Serializable {
+@FunctionalInterface
+public interface BiFunction<A, B, OUT> extends Serializable {
 
-  /**
-   * Apply transformation to attribute name from proxy naming.
-   * @param proxy name of the attribute in proxy namespace
-   * @return the raw attribute
-   */
-  String fromProxy(String proxy);
-
-  /**
-   * Apply transformation to attribute name to proxy naming.
-   * @param raw the raw attribute name
-   * @return the proxy attribute name
-   */
-  String toProxy(String raw);
+  OUT apply(A first, B second);
 
 }

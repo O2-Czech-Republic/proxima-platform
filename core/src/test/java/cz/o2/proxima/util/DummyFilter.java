@@ -15,13 +15,11 @@
  */
 package cz.o2.proxima.util;
 
-import java.util.Optional;
+import cz.o2.proxima.storage.PassthroughFilter;
 
-public class Optionals {
+/**
+ * A dummy filter just to be able to test difference from {@link PassthroughFilter}.
+ */
+public class DummyFilter extends PassthroughFilter {
 
-  public static <T> T get(Optional<T> optional) {
-    return optional.orElseThrow(() ->
-        new IllegalArgumentException("Provided optional is empty."));
-  }
-  
 }

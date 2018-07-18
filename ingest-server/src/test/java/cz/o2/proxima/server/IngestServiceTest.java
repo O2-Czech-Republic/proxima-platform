@@ -459,6 +459,16 @@ public class IngestServiceTest {
     assertTrue(value != null);
   }
 
+  @Test
+  public void testConfigReadWithReplicatedProxy() {
+    // just verify this doesn't throw exceptions
+    IngestServer dummy = new IngestServer(
+        ConfigFactory.load("test-replication.conf")
+        .withFallback(ConfigFactory.load("test-reference.conf"))
+        .resolve());
+    dummy.startConsumerThreads();
+  }
+
   private void flushToIngest(Rpc.Ingest request) throws InterruptedException {
 
     ingest.ingest(request, new StreamObserver<Rpc.Status>() {

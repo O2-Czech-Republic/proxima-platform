@@ -31,9 +31,10 @@ public class AttributeDescriptorImpl<T>
 
   AttributeDescriptorImpl(
       String name, String entity,
-      URI schemeURI, @Nullable ValueSerializer<T> serializer) {
+      URI schemeURI, @Nullable ValueSerializer<T> serializer,
+      boolean replica) {
 
-    super(name, entity, schemeURI, serializer);
+    super(name, entity, schemeURI, serializer, replica);
   }
 
 

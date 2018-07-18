@@ -17,8 +17,10 @@ package cz.o2.proxima.repository;
 
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
-import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -36,21 +38,20 @@ public interface EntityDescriptor extends Serializable {
     @Accessors(chain = true)
     private String name;
 
-    private final List<AttributeDescriptorBase<?>> attributes = new ArrayList<>();
+    private final Map<String, AttributeDescriptor<?>> attributes = new HashMap<>();
 
-    public Builder addAttribute(AttributeDescriptorBase<?> attr) {
-      attributes.add(attr);
+    public Builder addAttribute(AttributeDescriptor<?> attr) {
+      attributes.put(attr.getName(), attr);
       return this;
     }
 
     @SuppressWarnings("unchecked")
     public EntityDescriptor build() {
-      return new EntityDescriptorImpl(name, (List) attributes);
+      return new EntityDescriptorImpl(name, (Collection) attributes.values());
     }
 
-    AttributeDescriptorBase<?> findAttribute(String attr) {
-      return attributes.stream().filter(a -> a.getName()
-          .equals(attr)).findAny()
+    AttributeDescriptor<?> findAttribute(String attr) {
+      return Optional.ofNullable(attributes.get(attr))
           .orElseThrow(() -> new IllegalArgumentException(
               "Cannot find attribute " + attr + " of entity " + this.name));
     }
@@ -75,7 +76,8 @@ public interface EntityDescriptor extends Serializable {
    * @param includeProtected {@code true} to allow search for protected fields (prefixed by _).
    * @return optional found attribute descriptor
    */
-  <T> Optional<AttributeDescriptor<T>> findAttribute(String name, boolean includeProtected);
+  <T> Optional<AttributeDescriptor<T>> findAttribute(
+      String name, boolean includeProtected);
 
   /**
    * Find attribute by name.

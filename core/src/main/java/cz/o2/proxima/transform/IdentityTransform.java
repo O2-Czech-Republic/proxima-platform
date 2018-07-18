@@ -13,15 +13,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.util;
+package cz.o2.proxima.transform;
 
-import java.util.Optional;
+import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.StreamElement;
 
-public class Optionals {
+/**
+ * Transform perfoming identity mapping.
+ */
+public class IdentityTransform implements Transformation, ProxyTransform {
 
-  public static <T> T get(Optional<T> optional) {
-    return optional.orElseThrow(() ->
-        new IllegalArgumentException("Provided optional is empty."));
+  @Override
+  public void setup(Repository repo) {
+    // nop
   }
-  
+
+  @Override
+  public int apply(StreamElement input, Collector<StreamElement> collector) {
+    collector.collect(input);
+    return 1;
+  }
+
+  @Override
+  public String fromProxy(String proxy) {
+    return proxy;
+  }
+
+  @Override
+  public String toProxy(String raw) {
+    return raw;
+  }
+
 }

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.transform.ProxyTransform;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.AccessType;
@@ -35,6 +36,7 @@ import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.storage.randomaccess.RandomOffset;
+import cz.o2.proxima.storage.randomaccess.RawOffset;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.LocalCachedPartitionedView;
 import cz.o2.proxima.view.PartitionedCachedView;
@@ -382,7 +384,17 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
           throw new IllegalArgumentException(
               "Proxy target is not wildcard attribute!");
         }
-        reader.scanWildcard(key, targetAttribute.getReadTarget(), offset, limit,
+        Preconditions.checkArgument(
+            offset == null || offset instanceof RawOffset,
+            "Scanning through proxy can be done with RawOffests only, got %s",
+            offset);
+        reader.scanWildcard(
+            key, targetAttribute.getReadTarget(),
+            offset == null
+                ? null
+                : new RawOffset(targetAttribute.getReadTransform()
+                    .fromProxy(((RawOffset) offset).getOffset())),
+            limit,
             kv -> consumer.accept((KeyValue) transformToProxy(kv, targetAttribute)));
       }
 

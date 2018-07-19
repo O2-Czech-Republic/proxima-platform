@@ -21,6 +21,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.storage.randomaccess.RandomOffset;
+import cz.o2.proxima.storage.randomaccess.RawOffset;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.net.URI;
@@ -48,20 +49,6 @@ public class RandomHBaseReader extends HBaseClientWrapper
   private static final int KEYS_SCANNER_CACHING_DEFAULT = 1000;
   private static final Charset UTF8 = Charset.forName("UTF-8");
 
-  private static class ByteOffset implements RandomOffset {
-
-    static ByteOffset following(byte[] what) {
-      return new ByteOffset(what);
-    }
-
-    private final byte[] off;
-    private ByteOffset(byte[] off) {
-      this.off = new byte[off.length + 1];
-      System.arraycopy(off, 0, this.off, 0, off.length);
-      this.off[off.length] = 0x00;
-    }
-  }
-
   private final EntityDescriptor entity;
   private final int keyCaching;
 
@@ -78,7 +65,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
   @Override
   public RandomOffset fetchOffset(Listing type, String key) {
-    return ByteOffset.following(key.getBytes(UTF8));
+    return asOffset(key);
   }
 
   @SuppressWarnings("unchecked")
@@ -109,7 +96,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
     try {
       ensureClient();
-      ByteOffset stroff = (ByteOffset) offset;
+      RawOffset stroff = (RawOffset) offset;
       Get get = new Get(key.getBytes(UTF8));
       get.addFamily(family);
       get.setFilter(new ColumnPrefixFilter(
@@ -120,7 +107,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
       }
       scan.setBatch(limit);
       if (stroff != null) {
-        scan.setFilter(new ColumnPaginationFilter(limit, stroff.off));
+        scan.setFilter(new ColumnPaginationFilter(limit, stroff.getOffset().getBytes(UTF8)));
       }
 
       int accepted = 0;
@@ -149,7 +136,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
     ensureClient();
     Scan s = offset == null
         ? new Scan()
-        : new Scan(((ByteOffset) offset).off);
+        : new Scan(((RawOffset) offset).getOffset().getBytes(UTF8));
     s.addFamily(family);
     s.setFilter(new KeyOnlyFilter());
 
@@ -160,7 +147,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
         Result res = scanner.next();
         if (res != null) {
           String key = new String(res.getRow());
-          consumer.accept(Pair.of(ByteOffset.following(key.getBytes(UTF8)), key));
+          consumer.accept(Pair.of(asOffset(key), key));
         } else {
           break;
         }
@@ -189,7 +176,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
     return KeyValue.of(
         entity, desc, key,
-        attribute, ByteOffset.following(attribute.getBytes(UTF8)),
+        attribute, asOffset(attribute),
         cell.getValue(),
         cell.getTimestamp());
   }
@@ -205,6 +192,10 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
     throw new UnsupportedOperationException(
         "Unsupported. See https://github.com/O2-Czech-Republic/proxima-platform/issues/68");
+  }
+
+  static RawOffset asOffset(String what) {
+    return new RawOffset(what + '\00');
   }
 
 }

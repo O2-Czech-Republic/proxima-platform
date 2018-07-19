@@ -23,13 +23,14 @@ public class EventTransform implements ProxyTransform {
   @Override
   public String fromProxy(String proxy) {
     int pos = proxy.indexOf('.');
-    return "_e." + proxy.substring(pos + 1);
+    // apply some transformation to the suffix so that we test it correctly
+    return "_e.raw-" + proxy.substring(pos + 1);
   }
 
   @Override
   public String toProxy(String raw) {
     int pos = raw.indexOf('.');
-    return "event." + raw.substring(pos + 1);
+    return "event." + raw.substring(pos + 5);
   }
 
 }

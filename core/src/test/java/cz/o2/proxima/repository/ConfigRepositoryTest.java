@@ -174,9 +174,9 @@ public class ConfigRepositoryTest {
     latch.await();
 
     KeyValue<?> kv = families.iterator().next()
-        .getRandomAccessReader().get().get("key", "_e.abc", target)
+        .getRandomAccessReader().get().get("key", "_e.raw-abc", target)
         .orElseGet(() -> {
-          fail("Missing _e.abc stored");
+          fail("Missing _e.raw-abc stored");
           return null;
         });
 
@@ -282,7 +282,7 @@ public class ConfigRepositoryTest {
         "key", "event.def", System.currentTimeMillis(), "test2".getBytes("UTF-8"));
     assertFalse(reader.get("key", target.toAttributePrefix() + "def", target).isPresent());
     view.write(update, (succ, exc) -> { });
-    assertTrue(reader.get("key", target.toAttributePrefix() + "def", target).isPresent());
+    assertTrue(reader.get("key", target.toAttributePrefix() + "raw-def", target).isPresent());
     assertTrue(view.get("key", source.toAttributePrefix() + "def", source).isPresent());
   }
 

@@ -66,4 +66,8 @@ public class UriUtil {
     return p;
   }
 
+  private UriUtil() {
+    
+  }
+
 }

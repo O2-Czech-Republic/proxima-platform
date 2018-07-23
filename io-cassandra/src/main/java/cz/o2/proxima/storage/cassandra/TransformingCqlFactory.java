@@ -20,6 +20,7 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.google.common.base.Joiner;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
@@ -29,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -42,27 +42,27 @@ import java.util.stream.Collectors;
 public class TransformingCqlFactory<T extends Serializable> extends CacheableCqlFactory {
 
   /** Parser of ingest to any intermediate type. */
-  private final Function<StreamElement, T> parser;
+  private final UnaryFunction<StreamElement, T> parser;
   /** Name of the the primary key column .*/
   private final List<String> columns;
   /** Extract name value of key from ingest. */
-  private final List<Function<Pair<String, T>, Object>> extractors;
+  private final List<UnaryFunction<Pair<String, T>, Object>> extractors;
   /** Filter for bad messages. */
-  private final Function<T, Boolean> filter;
+  private final UnaryFunction<T, Boolean> filter;
 
   protected TransformingCqlFactory(
-      Function<StreamElement, T> parser,
+      UnaryFunction<StreamElement, T> parser,
       List<String> columns,
-      List<Function<Pair<String, T>, Object>> extractors) {
+      List<UnaryFunction<Pair<String, T>, Object>> extractors) {
 
     this(parser, columns, extractors, e -> true);
   }
 
   protected TransformingCqlFactory(
-      Function<StreamElement, T> parser,
+      UnaryFunction<StreamElement, T> parser,
       List<String> columns,
-      List<Function<Pair<String, T>, Object>> extractors,
-      Function<T, Boolean> filter) {
+      List<UnaryFunction<Pair<String, T>, Object>> extractors,
+      UnaryFunction<T, Boolean> filter) {
 
     this.parser = Objects.requireNonNull(parser);
     this.columns = Objects.requireNonNull(columns);
@@ -122,7 +122,7 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
       List<Object> values = extractors.stream()
           .map(f -> f.apply(Pair.of(element.getKey(), parsed)))
           .collect(Collectors.toList());
-      if (values.stream().anyMatch(v -> v == null)) {
+      if (values.stream().anyMatch(Objects::isNull)) {
         log.warn("Received null value while writing {}. Discarding.", element);
         return Optional.empty();
       }

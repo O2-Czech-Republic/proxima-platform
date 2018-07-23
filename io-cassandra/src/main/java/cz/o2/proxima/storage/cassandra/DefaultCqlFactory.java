@@ -259,7 +259,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
   }
 
   private @Nullable Object toColVal(String attr) {
-    int dotPos = attr.lastIndexOf(".");
+    int dotPos = attr.lastIndexOf('.');
     String colVal = "";
     if (dotPos > 0 && dotPos < attr.length() - 1) {
       colVal = attr.substring(dotPos + 1);

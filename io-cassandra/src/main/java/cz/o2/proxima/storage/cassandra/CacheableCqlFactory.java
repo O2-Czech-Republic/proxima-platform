@@ -52,7 +52,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   /** The connection session in use. */
   @Getter
   @Nullable
-  Session current = null;
+  transient Session current = null;
 
   /**
    * A TTL value in seconds associated with each update or insert.
@@ -64,12 +64,15 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   private final Map<AttributeDescriptor, PreparedStatement> deleteWildcardCache;
   private final Map<AttributeDescriptor, PreparedStatement> getCache;
   private final Map<AttributeDescriptor, PreparedStatement> listCache;
+
   @Nullable
-  private PreparedStatement listEntities;
+  private transient PreparedStatement listEntities;
+
   @Nullable
-  private PreparedStatement fetchToken;
+  private transient PreparedStatement fetchToken;
+
   @Nullable
-  private PreparedStatement listAllAttributes;
+  private transient PreparedStatement listAllAttributes;
 
   private static Map<AttributeDescriptor, PreparedStatement> createCache(long maxSize) {
 
@@ -144,8 +147,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
    */
   protected void setup(
       Map<String, String> query,
-      StringConverter<?> converter)
-      throws IllegalArgumentException {
+      StringConverter<?> converter) {
 
   }
 
@@ -196,13 +198,14 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   protected PreparedStatement getPreparedGetStatement(
       Session session, String attribute, AttributeDescriptor desc) {
 
-    PreparedStatement cached = getCache.get(desc);
-    if (cached == null) {
-      cached = prepare(session, createGetStatement(attribute, desc));
-      log.info("Prepared statement {}", cached);
-      getCache.put(desc, cached);
-    }
-    return cached;
+    return getCache.computeIfAbsent(
+        desc,
+        k -> {
+          PreparedStatement prepared = prepare(
+              session, createGetStatement(attribute, desc));
+          log.info("Prepared statement {}", prepared);
+          return prepared;
+        });
   }
 
 
@@ -217,13 +220,9 @@ public abstract class CacheableCqlFactory implements CqlFactory {
       Session session,
       AttributeDescriptor wildcardAttribute) {
 
-    PreparedStatement cached = listCache.get(wildcardAttribute);
-    if (cached == null) {
-      cached = prepare(session, createListStatement(wildcardAttribute));
-
-      listCache.put(wildcardAttribute, cached);
-    }
-    return cached;
+    return listCache.computeIfAbsent(
+        wildcardAttribute,
+        k ->  prepare(session, createListStatement(wildcardAttribute)));
   }
 
   protected PreparedStatement getPreparedListAllStatement(Session session) {
@@ -232,7 +231,6 @@ public abstract class CacheableCqlFactory implements CqlFactory {
     }
     return listAllAttributes;
   }
-
 
   /**
    * Create statement to be prepared for given ingest.

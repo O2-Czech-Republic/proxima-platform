@@ -475,9 +475,8 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
     Closure<Integer> dehydrated = toComparable.dehydrate();
     return descendant(() -> {
       return ReduceWindow.of((Dataset<S>) dataset.build())
-          .reduceBy((java.util.stream.Stream<S> in, Collector<S> ctx) -> {
-            in.forEach(ctx::collect);
-          })
+          .reduceBy((java.util.stream.Stream<S> in, Collector<S> ctx) ->
+              in.forEach(ctx::collect))
           .withSortedValues((a, b) -> dehydrated.call(a, b))
           .output();
     });

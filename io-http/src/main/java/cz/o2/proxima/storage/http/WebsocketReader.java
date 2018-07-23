@@ -68,7 +68,8 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
     if (name.equals("*")) {
       if (entityDescriptor.getAllAttributes().size() != 1) {
         throw new IllegalArgumentException(
-            "When specifying wildcard attribute, entity has to have only single attribute, got "
+            "When specifying wildcard attribute, entity has to have "
+                + "only single attribute, got "
                 + entityDescriptor.getAllAttributes());
       }
       name = Iterables.getOnlyElement(entityDescriptor.getAllAttributes()).getName();
@@ -104,58 +105,11 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
         err -> observer.onError(err));
   }
 
-  @Override
-  public ObserveHandle observePartitions(
-      String name, Collection<Partition> partitions, Position position,
-      boolean stopAtCurrent, LogObserver observer) {
-
-    if (position == Position.OLDEST) {
-      throw new UnsupportedOperationException(
-          "Cannot read OLDEST data from websocket");
-    }
-    return observe(
-        element -> observer.onNext(element, nullCommitter()),
-        err -> observer.onError(err));
-  }
-
-  @Override
-  public ObserveHandle observeBulk(
-      String name, Position position, boolean stopAtCurrent, BulkLogObserver observer) {
-
-    if (position == Position.OLDEST) {
-      throw new UnsupportedOperationException(
-          "Cannot read OLDEST data from websocket");
-    }
-    return observe(
-        element -> observer.onNext(element, PARTITION, nullBulkCommitter()),
-        err -> observer.onError(err));
-  }
-
-  @Override
-  public ObserveHandle observeBulkPartitions(
-      String name, Collection<Partition> partitions, Position position,
-      boolean stopAtCurrent, BulkLogObserver observer) {
-
-    return observeBulk(name, position, observer);
-  }
-
-  @Override
-  public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, BulkLogObserver observer) {
-
-    return observeBulk(null, Position.NEWEST, observer);
-  }
-
-  @Override
-  public void close() throws IOException {
-
-  }
-
   private ObserveHandle observe(
       Consumer<StreamElement> onNext,
       Consumer<Throwable> onError) {
 
-    WebSocketClient client = new WebSocketClient(getURI()) {
+    WebSocketClient client = new WebSocketClient(getUri()) {
 
       @Override
       public void onOpen(ServerHandshake sh) {
@@ -211,6 +165,53 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
         // nop
       }
     };
+  }
+  
+  @Override
+  public ObserveHandle observePartitions(
+      String name, Collection<Partition> partitions, Position position,
+      boolean stopAtCurrent, LogObserver observer) {
+
+    if (position == Position.OLDEST) {
+      throw new UnsupportedOperationException(
+          "Cannot read OLDEST data from websocket");
+    }
+    return observe(
+        element -> observer.onNext(element, nullCommitter()),
+        err -> observer.onError(err));
+  }
+
+  @Override
+  public ObserveHandle observeBulk(
+      String name, Position position, boolean stopAtCurrent, BulkLogObserver observer) {
+
+    if (position == Position.OLDEST) {
+      throw new UnsupportedOperationException(
+          "Cannot read OLDEST data from websocket");
+    }
+    return observe(
+        element -> observer.onNext(element, PARTITION, nullBulkCommitter()),
+        err -> observer.onError(err));
+  }
+
+  @Override
+  public ObserveHandle observeBulkPartitions(
+      String name, Collection<Partition> partitions, Position position,
+      boolean stopAtCurrent, BulkLogObserver observer) {
+
+    return observeBulk(name, position, observer);
+  }
+
+  @Override
+  public ObserveHandle observeBulkOffsets(
+      Collection<Offset> offsets, BulkLogObserver observer) {
+
+    return observeBulk(null, Position.NEWEST, observer);
+  }
+
+  @Override
+  public void close() throws IOException {
+
   }
 
   private LogObserver.OffsetCommitter nullCommitter() {

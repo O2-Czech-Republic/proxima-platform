@@ -41,7 +41,7 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
   private KafkaProducer<String, byte[]> producer;
 
   KafkaWriter(KafkaAccessor accessor) {
-    super(accessor.getEntityDescriptor(), accessor.getURI());
+    super(accessor.getEntityDescriptor(), accessor.getUri());
     this.accessor = accessor;
     this.partitioner = accessor.getPartitioner();
     this.topic = accessor.getTopic();
@@ -57,14 +57,15 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
       int partition = (partitioner.getPartitionId(data) & Integer.MAX_VALUE)
           % producer.partitionsFor(topic).size();
       producer.send(
-          new ProducerRecord(topic, partition, data.getStamp(), data.getKey()
-              + "#" + data.getAttribute(), data.getValue()),
-              (metadata, exception) -> {
-                log.debug(
-                    "Written {} to topic {} offset {} and partition {}",
-                    data, metadata.topic(), metadata.offset(), metadata.partition());
-                callback.commit(exception == null, exception);
-              });
+          new ProducerRecord(
+              topic, partition, data.getStamp(),
+              data.getKey() + "#" + data.getAttribute(), data.getValue()),
+          (metadata, exception) -> {
+            log.debug(
+                "Written {} to topic {} offset {} and partition {}",
+                data, metadata.topic(), metadata.offset(), metadata.partition());
+            callback.commit(exception == null, exception);
+          });
     } catch (Exception ex) {
       log.warn("Failed to write ingest {}", data, ex);
       callback.commit(false, ex);
@@ -75,7 +76,7 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
   private KafkaProducer<String, byte[]> createProducer() {
     Properties props = accessor.createProps();
     props.put(ProducerConfig.ACKS_CONFIG, "all");
-    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, getURI().getAuthority());
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, getUri().getAuthority());
     props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
     return new KafkaProducer<>(
         props, Serdes.String().serializer(), Serdes.ByteArray().serializer());

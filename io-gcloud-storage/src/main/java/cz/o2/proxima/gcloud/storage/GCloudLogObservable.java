@@ -57,7 +57,8 @@ public class GCloudLogObservable
     extends GCloudClient
     implements BatchLogObservable {
 
-  private static final Pattern BLOB_NAME_PATTERN = Pattern.compile("[^-]+-([0-9]+)_([0-9]+)\\.blob.*");
+  private static final Pattern BLOB_NAME_PATTERN = Pattern.compile(
+      "[^-]+-([0-9]+)_([0-9]+)\\.blob.*");
 
   private static class GCloudStoragePartition implements Partition {
 
@@ -167,7 +168,10 @@ public class GCloudLogObservable
 
     executor.execute(() -> {
       try {
-        Set<AttributeDescriptor<?>> attrs = attributes.stream().collect(Collectors.toSet());
+        Set<AttributeDescriptor<?>> attrs = attributes
+            .stream()
+            .collect(Collectors.toSet());
+
         partitions.forEach(p -> {
           GCloudStoragePartition part = (GCloudStoragePartition) p;
           part.getBlobs().forEach(blob -> {

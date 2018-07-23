@@ -24,7 +24,8 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 
 /**
- * Base class for {@link AttributeDescriptorImpl} and {@link AttributeProxyDescriptorImpl}.
+ * Base class for {@link AttributeDescriptorImpl}
+ * and {@link AttributeProxyDescriptorImpl}.
  */
 @Internal
 public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<T> {
@@ -36,7 +37,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   protected final String name;
 
   @Getter
-  protected final URI schemeURI;
+  protected final URI schemeUri;
 
   @Getter
   protected final boolean proxy;
@@ -50,13 +51,13 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   protected @Nullable final ValueSerializer<T> valueSerializer;
 
   public AttributeDescriptorBase(
-      String name, String entity, URI schemeURI,
+      String name, String entity, URI schemeUri,
       @Nullable ValueSerializer<T> valueSerializer,
       boolean replica) {
 
     this.name = Objects.requireNonNull(name);
     this.entity = Objects.requireNonNull(entity);
-    this.schemeURI = Objects.requireNonNull(schemeURI);
+    this.schemeUri = Objects.requireNonNull(schemeUri);
     this.wildcard = this.name.endsWith(".*");
     this.proxy = false;
     this.valueSerializer = valueSerializer;
@@ -88,15 +89,15 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
             "Cannot mix entities in proxies, got %s and %s",
             targetRead.getEntity(), targetWrite.getEntity()));
     Preconditions.checkArgument(
-        targetRead.getSchemeURI().equals(targetWrite.getSchemeURI()),
+        targetRead.getSchemeUri().equals(targetWrite.getSchemeUri()),
         String.format(
             "Cannot mix attributes with different schemes, got %s and %s",
-            targetRead.getSchemeURI(), targetWrite.getSchemeURI()));
+            targetRead.getSchemeUri(), targetWrite.getSchemeUri()));
     Preconditions.checkArgument(
         targetRead.isWildcard() == targetWrite.isWildcard(),
         "Cannot mix non-wildcard and wildcard attributes in proxy");
     this.entity = targetRead.getEntity();
-    this.schemeURI = targetRead.getSchemeURI();
+    this.schemeUri = targetRead.getSchemeUri();
     this.proxy = true;
     this.replica = replica;
     this.wildcard = targetRead.isWildcard();
@@ -145,7 +146,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
     return AttributeDescriptor.newBuilder(repo)
         .setName(getName())
         .setEntity(getEntity())
-        .setSchemeURI(getSchemeURI());
+        .setSchemeUri(getSchemeUri());
   }
 
   AttributeProxyDescriptorImpl<T> toProxy() {

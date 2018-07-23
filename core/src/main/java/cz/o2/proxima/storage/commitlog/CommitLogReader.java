@@ -40,7 +40,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    * Retrieve URI representing this resource.
    * @return URI representing this resource
    */
-  URI getURI();
+  URI getUri();
 
   /**
    * Retrieve list of partitions of this commit log.
@@ -291,7 +291,8 @@ public interface CommitLogReader extends Closeable, Serializable {
 
   /**
    * Consume from given offsets in a bulk fashion. A typical use-case for this
-   * type of consumption is to first use {@link CommitLogReader#observeBulkPartitions}, observe
+   * type of consumption is to first use
+   * {@link CommitLogReader#observeBulkPartitions}, observe
    * for some time, than interrupt the consumption, store associated offsets
    * and resume the consumption from these offsets later
    * @param offsets the @{link Offset}s to subscribe to

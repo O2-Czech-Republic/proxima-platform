@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 /**
  * A factory CQL queries for data access.
  */
-public interface CQLFactory extends Serializable {
+public interface CqlFactory extends Serializable {
 
   /**
    * Interface for iteration over returned results returning {@link KeyValue}s.

@@ -156,18 +156,17 @@ public class MultiAccessBuilder implements Serializable {
               .forEach(ra -> m.put(ra, null));
           current.set(new SequentialOffset(m));
         }
-        for (Map.Entry<RandomAccessReader, RandomOffset> e : current.get().offsetMap.entrySet()) {
-          e.getKey().scanWildcardAll(key, e.getValue(), missing.get(), kv -> {
-            missing.decrementAndGet();
-            current.set(new SequentialOffset(current.get())
-                .update(e.getKey(), kv.getOffset()));
-            KeyValue mapped = KeyValue.of(
-                kv.getEntityDescriptor(), (AttributeDescriptor) kv.getAttrDescriptor(),
-                kv.getKey(), kv.getAttribute(),
-                current.get(), (Object) kv.getValue(), kv.getValueBytes(), kv.getStamp());
-            consumer.accept(mapped);
-          });
-        }
+        current.get().offsetMap.entrySet().forEach(e ->
+            e.getKey().scanWildcardAll(key, e.getValue(), missing.get(), kv -> {
+              missing.decrementAndGet();
+              current.set(new SequentialOffset(current.get())
+                  .update(e.getKey(), kv.getOffset()));
+              KeyValue mapped = KeyValue.of(
+                  kv.getEntityDescriptor(), (AttributeDescriptor) kv.getAttrDescriptor(),
+                  kv.getKey(), kv.getAttribute(),
+                  current.get(), kv.getValue(), kv.getValueBytes(), kv.getStamp());
+              consumer.accept(mapped);
+            }));
       }
 
       @Override
@@ -193,7 +192,8 @@ public class MultiAccessBuilder implements Serializable {
           return entity;
         }
         throw new IllegalArgumentException(
-            "Multiple options. This is compound reader that can work on multiple entities.");
+            "Multiple options. This is compound reader that can work "
+                + "on multiple entities.");
       }
 
       @Override

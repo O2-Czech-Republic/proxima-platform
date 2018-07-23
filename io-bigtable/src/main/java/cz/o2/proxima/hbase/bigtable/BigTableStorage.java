@@ -48,7 +48,8 @@ public class BigTableStorage extends StorageDescriptor {
       String[] parts = authority.split(":");
       if (parts.length != 2) {
         throw new IllegalArgumentException(
-            "Invalid authority " + u.getAuthority() + ", expected <projectId>:<instanceId>");
+            "Invalid authority " + u.getAuthority()
+                + ", expected <projectId>:<instanceId>");
       }
       ret.set("google.bigtable.project.id", parts[0]);
       ret.set("google.bigtable.instance.id", parts[1]);

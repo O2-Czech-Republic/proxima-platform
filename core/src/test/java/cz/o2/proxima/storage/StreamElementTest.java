@@ -44,14 +44,14 @@ public class StreamElementTest {
             .newBuilder(repo)
             .setEntity("entity")
             .setName("attr")
-            .setSchemeURI(new URI("bytes:///"))
+            .setSchemeUri(new URI("bytes:///"))
             .build();
 
       attrWildcard = AttributeDescriptor
             .newBuilder(repo)
             .setEntity("entity")
             .setName("wildcard.*")
-            .setSchemeURI(new URI("bytes:///"))
+            .setSchemeUri(new URI("bytes:///"))
             .build();
 
       entity = EntityDescriptor.newBuilder()

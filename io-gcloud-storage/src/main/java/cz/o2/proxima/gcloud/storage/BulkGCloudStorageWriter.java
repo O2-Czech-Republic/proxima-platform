@@ -54,7 +54,8 @@ public class BulkGCloudStorageWriter
     extends GCloudClient
     implements BulkAttributeWriter {
 
-  private final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/");
+  private static final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern(
+      "yyyy/MM/");
 
   @VisibleForTesting
   static final String PREFIX;
@@ -141,8 +142,7 @@ public class BulkGCloudStorageWriter
         final long flushMaxStamp = maxTimestamp;
         lastFlushStamp = now;
         flushExecutor.execute(() ->
-          flush(flushFile, flushMinStamp, flushMaxStamp, statusCallback)
-        );
+            flush(flushFile, flushMinStamp, flushMaxStamp, statusCallback));
         writer = null;
         minTimestamp = Long.MAX_VALUE;
         maxTimestamp = Long.MIN_VALUE;

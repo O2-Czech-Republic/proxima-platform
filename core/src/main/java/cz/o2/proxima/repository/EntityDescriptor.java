@@ -73,7 +73,8 @@ public interface EntityDescriptor extends Serializable {
    * Find attribute by name.
    * @param <T> value type
    * @param name name of the attribute to search for
-   * @param includeProtected {@code true} to allow search for protected fields (prefixed by _).
+   * @param includeProtected {@code true} to allow search for protected fields
+   *                         (prefixed by _).
    * @return optional found attribute descriptor
    */
   <T> Optional<AttributeDescriptor<T>> findAttribute(

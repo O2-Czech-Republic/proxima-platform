@@ -91,11 +91,11 @@ public class InMemStorage extends StorageDescriptor {
         synchronized (observers) {
           log.debug(
               "Writing element {} to {} with {} observers",
-              data, getURI(), observers.size());
+              data, getUri(), observers.size());
         }
       }
       if (data.isDeleteWildcard()) {
-        String prefix = getURI().getPath() + "/" + data.getKey()
+        String prefix = getUri().getPath() + "/" + data.getKey()
             + "#" + data.getAttributeDescriptor().toAttributePrefix();
         for (Map.Entry<String, Pair<Long, byte[]>> e
             : this.data.tailMap(prefix).entrySet()) {
@@ -112,7 +112,7 @@ public class InMemStorage extends StorageDescriptor {
         }
       } else {
         this.data.compute(
-            getURI().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
+            getUri().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
             (key, old) -> {
               if (old != null && old.getFirst() > data.getStamp()) {
                 return old;
@@ -166,7 +166,7 @@ public class InMemStorage extends StorageDescriptor {
         boolean stopAtCurrent,
         LogObserver observer) {
 
-      log.debug("Observing {} as {}", getURI(), name);
+      log.debug("Observing {} as {}", getUri(), name);
       logAndFixPosition(position);
       final int id;
       if (!stopAtCurrent) {
@@ -387,7 +387,7 @@ public class InMemStorage extends StorageDescriptor {
         String attribute,
         AttributeDescriptor<T> desc) {
 
-      String mapKey = getURI().getPath() + "/" + key + "#" + attribute;
+      String mapKey = getUri().getPath() + "/" + key + "#" + attribute;
       return Optional.ofNullable(data.get(mapKey))
           .filter(p -> p.getSecond() != null)
           .map(b -> {
@@ -436,7 +436,7 @@ public class InMemStorage extends StorageDescriptor {
         Consumer<KeyValue<Object>> consumer) {
 
       String off = offset == null ? "" : ((RawOffset) offset).getOffset();
-      String start = getURI().getPath() + "/" + key + "#" + prefix;
+      String start = getUri().getPath() + "/" + key + "#" + prefix;
       int count = 0;
       for (Map.Entry<String, Pair<Long, byte[]>> e : data.tailMap(start).entrySet()) {
         if (e.getKey().startsWith(start)) {
@@ -603,8 +603,8 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
-    public URI getURI() {
-      return writer.getURI();
+    public URI getUri() {
+      return writer.getUri();
     }
 
     @Override

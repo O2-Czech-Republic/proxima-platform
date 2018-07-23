@@ -44,7 +44,7 @@ import static org.mockito.Mockito.when;
 /**
  * Test for default CQL factory.
  */
-public class DefaultCQLFactoryTest {
+public class DefaultCqlFactoryTest {
 
   final Config cfg = ConfigFactory.defaultApplication();
   final Repository repo = ConfigRepository.Builder.ofTest(cfg).build();
@@ -54,19 +54,19 @@ public class DefaultCQLFactoryTest {
   final PreparedStatement statement = mock(PreparedStatement.class);
   final Session session = mock(Session.class);
 
-  CQLFactory factory;
+  CqlFactory factory;
   List<String> preparedStatement;
 
-  public DefaultCQLFactoryTest() throws URISyntaxException {
+  public DefaultCqlFactoryTest() throws URISyntaxException {
     this.attr = AttributeDescriptor.newBuilder(repo)
         .setEntity("dummy")
         .setName("myAttribute")
-        .setSchemeURI(new URI("bytes:///"))
+        .setSchemeUri(new URI("bytes:///"))
         .build();
     this.attrWildcard = AttributeDescriptor.newBuilder(repo)
         .setEntity("dummy")
         .setName("device.*")
-        .setSchemeURI(new URI("bytes:///"))
+        .setSchemeUri(new URI("bytes:///"))
         .build();
     this.entity = EntityDescriptor.newBuilder()
         .setName("dummy")
@@ -78,7 +78,7 @@ public class DefaultCQLFactoryTest {
   @Before
   public void setup() throws URISyntaxException {
     preparedStatement = new ArrayList<>();
-    factory = new DefaultCQLFactory() {
+    factory = new DefaultCqlFactory() {
 
       // store the generated statements for inspection
 

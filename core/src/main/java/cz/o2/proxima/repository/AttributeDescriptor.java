@@ -48,7 +48,7 @@ public interface AttributeDescriptor<T> extends Serializable {
     private String name;
 
     @Setter
-    private URI schemeURI;
+    private URI schemeUri;
 
     @Setter
     private boolean replica = false;
@@ -57,16 +57,17 @@ public interface AttributeDescriptor<T> extends Serializable {
     public <T> AttributeDescriptorImpl<T> build() {
       Objects.requireNonNull(name, "Please specify name");
       Objects.requireNonNull(entity, "Please specify entity");
-      Objects.requireNonNull(schemeURI, "Please specify scheme URI");
+      Objects.requireNonNull(schemeUri, "Please specify scheme URI");
 
-      ValueSerializerFactory factory = repo.getValueSerializerFactory(schemeURI.getScheme());
+      ValueSerializerFactory factory = repo.getValueSerializerFactory(
+          schemeUri.getScheme());
 
       return new AttributeDescriptorImpl<>(
           name, entity,
-          schemeURI,
+          schemeUri,
           factory == null
               ? null
-              : factory.getValueSerializer(schemeURI),
+              : factory.getValueSerializer(schemeUri),
           replica);
     }
   }
@@ -114,7 +115,7 @@ public interface AttributeDescriptor<T> extends Serializable {
    * Retrieve URI of the scheme of this attribute.
    * @return scheme URI of this attribute
    */
-  URI getSchemeURI();
+  URI getSchemeUri();
 
   /**
    * Retrieve name of the associated entity.

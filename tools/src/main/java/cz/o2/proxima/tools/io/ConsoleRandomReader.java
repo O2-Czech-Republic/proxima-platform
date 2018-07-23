@@ -126,8 +126,8 @@ public class ConsoleRandomReader implements Closeable {
   public void listKeys(Consumer<Pair<RandomOffset, String>> consumer) {
     RandomAccessReader reader = attrToReader.values().stream()
         .findAny().orElseThrow(
-        () -> new IllegalStateException(
-            "Have no random readers for entity " + entityDesc));
+            () -> new IllegalStateException(
+                "Have no random readers for entity " + entityDesc));
 
     reader.listEntities(p -> {
       RandomOffset off = p.getFirst();
@@ -140,8 +140,8 @@ public class ConsoleRandomReader implements Closeable {
   public List<Pair<RandomOffset, String>> listKeys(String start, int limit) {
     RandomAccessReader reader = attrToReader.values().stream()
         .findAny().orElseThrow(
-        () -> new IllegalStateException(
-            "Have no random readers for entity " + entityDesc));
+            () -> new IllegalStateException(
+                "Have no random readers for entity " + entityDesc));
     List<Pair<RandomOffset, String>> ret = new ArrayList<>();
     reader.listEntities(listEntityOffsets.get(start), limit, p -> {
       listEntityOffsets.put(p.getSecond(), p.getFirst());

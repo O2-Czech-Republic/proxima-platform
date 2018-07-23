@@ -84,7 +84,7 @@ public class ListCommitLog implements CommitLogReader {
   }
 
   @Override
-  public URI getURI() {
+  public URI getUri() {
     try {
       return new URI("list://" + this);
     } catch (URISyntaxException ex) {

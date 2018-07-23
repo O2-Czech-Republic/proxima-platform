@@ -89,9 +89,11 @@ class PartitionedPubSubAccessor extends PubSubAccessor implements DataAccessor {
         .map(Duration::ofMillis)
         .orElse(Duration.ZERO);
 
-    Preconditions.checkArgument(orderingLateness.isZero() == orderingWindow.isZero(),
-        "Please provide either both " + CFG_ORDERING_LATENESS + " and " + CFG_ORDERING_WINDOW
-        + " or neither of them");
+    Preconditions.checkArgument(
+        orderingLateness.isZero() == orderingWindow.isZero(),
+        "Please provide either both "
+            + CFG_ORDERING_LATENESS
+            + " and " + CFG_ORDERING_WINDOW + " or neither of them");
   }
 
   @Override

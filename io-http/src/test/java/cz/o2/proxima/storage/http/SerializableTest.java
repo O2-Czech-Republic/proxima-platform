@@ -38,7 +38,7 @@ public class SerializableTest {
   AttributeDescriptor<byte[]> attr = AttributeDescriptor.newBuilder(repo)
       .setName("attr")
       .setEntity("entity")
-      .setSchemeURI(new URI("bytes:///"))
+      .setSchemeUri(new URI("bytes:///"))
       .build();
   EntityDescriptor entity = EntityDescriptor.newBuilder()
       .setName("entity")

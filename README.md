@@ -110,7 +110,7 @@ First, let's introduce some glossary:
          attributes: [ "data" ]
          storage: "cassandra://"${cassandra.seed}/${cassandra.user-event-table}/
          # this class defines how we transform incoming event to CQL
-         cqlFactory: cz.o2.proxima.example.EventHistoryCQLFactory
+         cqlFactory: cz.o2.proxima.example.EventHistoryCqlFactory
          # this is filtering condition, we want to select only some events
          filter: cz.o2.proxima.example.EventHistoryFilter
          type: replica

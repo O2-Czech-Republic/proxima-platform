@@ -16,7 +16,7 @@
 package cz.o2.proxima.storage.kafka;
 
 import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.storage.URIUtil;
+import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.storage.commitlog.Offset;
 import java.net.URI;
 import java.util.Collection;
@@ -39,7 +39,7 @@ class Utils {
    * @return topic name
    */
   static String topic(URI uri) {
-    String topic = URIUtil.getPathNormalized(uri);
+    String topic = UriUtil.getPathNormalized(uri);
     if (topic.isEmpty()) {
       throw new IllegalArgumentException("Invalid path in URI " + uri);
     }

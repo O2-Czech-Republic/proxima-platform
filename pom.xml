@@ -86,6 +86,8 @@
     <sonar.jacoco.reportPaths>${project.basedir}/../target/jacoco.exec</sonar.jacoco.reportPaths>
     <sonar.organization>datadriven</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+    <!-- checkstyle config -->
+    <checkstyle.config.location>checkstyle.xml</checkstyle.config.location>
   </properties>
 
   <profiles>
@@ -303,6 +305,28 @@
             <id>attach-javadocs</id>
             <goals>
               <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- checkstyle -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.0.0</version>
+        <executions>
+          <execution>
+            <id>validate</id>
+            <phase>validate</phase>
+            <configuration>
+              <encoding>UTF-8</encoding>
+              <consoleOutput>true</consoleOutput>
+              <failsOnError>true</failsOnError>
+              <linkXRef>false</linkXRef>
+            </configuration>
+            <goals>
+              <goal>check</goal>
             </goals>
           </execution>
         </executions>

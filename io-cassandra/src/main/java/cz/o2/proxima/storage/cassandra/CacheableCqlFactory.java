@@ -23,7 +23,7 @@ import com.google.common.base.Strings;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.URIUtil;
+import cz.o2.proxima.storage.UriUtil;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
@@ -38,7 +38,7 @@ import lombok.Getter;
  * A cache for prepared CQL statements.
  */
 @Slf4j
-public abstract class CacheableCQLFactory implements CQLFactory {
+public abstract class CacheableCqlFactory implements CqlFactory {
 
   @Getter
   private EntityDescriptor entity;
@@ -52,7 +52,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   /** The connection session in use. */
   @Getter
   @Nullable
-  Session current = null;
+  transient Session current = null;
 
   /**
    * A TTL value in seconds associated with each update or insert.
@@ -64,12 +64,15 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   private final Map<AttributeDescriptor, PreparedStatement> deleteWildcardCache;
   private final Map<AttributeDescriptor, PreparedStatement> getCache;
   private final Map<AttributeDescriptor, PreparedStatement> listCache;
+
   @Nullable
-  private PreparedStatement listEntities;
+  private transient PreparedStatement listEntities;
+
   @Nullable
-  private PreparedStatement fetchToken;
+  private transient PreparedStatement fetchToken;
+
   @Nullable
-  private PreparedStatement listAllAttributes;
+  private transient PreparedStatement listAllAttributes;
 
   private static Map<AttributeDescriptor, PreparedStatement> createCache(long maxSize) {
 
@@ -95,7 +98,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
 
   }
 
-  protected CacheableCQLFactory() {
+  protected CacheableCqlFactory() {
     this.listCache = createCache(1000);
     this.getCache = createCache(1000);
     this.deleteWildcardCache = createCache(1000);
@@ -105,7 +108,9 @@ public abstract class CacheableCQLFactory implements CQLFactory {
 
 
   @Override
-  public final void setup(EntityDescriptor entity, URI uri, StringConverter<?> converter) {
+  public final void setup(
+      EntityDescriptor entity, URI uri, StringConverter<?> converter) {
+
     this.entity = entity;
     String path = uri.getPath();
     this.tableName = path;
@@ -119,7 +124,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
     this.tableName = tableName.substring(1);
     final Map<String, String> parsed;
     if (!Strings.isNullOrEmpty(uri.getQuery())) {
-      parsed = URIUtil.parseQuery(uri);
+      parsed = UriUtil.parseQuery(uri);
       payloadCol = parsed.get("data");
     } else {
       parsed = Collections.emptyMap();
@@ -135,6 +140,16 @@ public abstract class CacheableCQLFactory implements CQLFactory {
     }
   }
 
+  /**
+   * Setup the factory from URI parameters passed in.
+   * @param query the parsed URI query parameters
+   * @param converter converter of payload to string
+   */
+  protected void setup(
+      Map<String, String> query,
+      StringConverter<?> converter) {
+
+  }
 
   /**
    * Retrieve cached prepared statement for writing given data.
@@ -183,13 +198,14 @@ public abstract class CacheableCQLFactory implements CQLFactory {
   protected PreparedStatement getPreparedGetStatement(
       Session session, String attribute, AttributeDescriptor desc) {
 
-    PreparedStatement cached = getCache.get(desc);
-    if (cached == null) {
-      cached = prepare(session, createGetStatement(attribute, desc));
-      log.info("Prepared statement {}", cached);
-      getCache.put(desc, cached);
-    }
-    return cached;
+    return getCache.computeIfAbsent(
+        desc,
+        k -> {
+          PreparedStatement prepared = prepare(
+              session, createGetStatement(attribute, desc));
+          log.info("Prepared statement {}", prepared);
+          return prepared;
+        });
   }
 
 
@@ -204,13 +220,9 @@ public abstract class CacheableCQLFactory implements CQLFactory {
       Session session,
       AttributeDescriptor wildcardAttribute) {
 
-    PreparedStatement cached = listCache.get(wildcardAttribute);
-    if (cached == null) {
-      cached = prepare(session, createListStatement(wildcardAttribute));
-
-      listCache.put(wildcardAttribute, cached);
-    }
-    return cached;
+    return listCache.computeIfAbsent(
+        wildcardAttribute,
+        k ->  prepare(session, createListStatement(wildcardAttribute)));
   }
 
   protected PreparedStatement getPreparedListAllStatement(Session session) {
@@ -219,7 +231,6 @@ public abstract class CacheableCQLFactory implements CQLFactory {
     }
     return listAllAttributes;
   }
-
 
   /**
    * Create statement to be prepared for given ingest.
@@ -331,19 +342,6 @@ public abstract class CacheableCQLFactory implements CQLFactory {
       return payloadCol;
     }
     return attr.toAttributePrefix(false);
-  }
-
-
-  /**
-   * Setup the factory from URI parameters passed in.
-   * @param query the parsed URI query parameters
-   * @param converter converter of payload to string
-   */
-  protected void setup(
-      Map<String, String> query,
-      StringConverter<?> converter)
-      throws IllegalArgumentException {
-
   }
 
 

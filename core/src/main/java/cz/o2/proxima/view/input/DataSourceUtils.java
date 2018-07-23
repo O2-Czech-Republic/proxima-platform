@@ -60,7 +60,8 @@ public class DataSourceUtils {
    * @return the single {@code UnboundedPartition}.
    *
    */
-  public static <T, OFF extends Serializable> UnboundedPartition<T, List<OFF>> fromBlockingQueue(
+  public static <T, OFF extends Serializable> UnboundedPartition<T, List<OFF>>
+      fromBlockingQueue(
       BlockingQueue<T> queue,
       Producer producer,
       Factory<List<OFF>> offsetProducer,

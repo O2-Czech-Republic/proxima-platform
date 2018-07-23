@@ -28,7 +28,7 @@ import java.util.List;
 public interface StorageFilter extends Serializable {
 
   /** Filter consisting of several filters with applied function. */
-  public static abstract class CompoundFilter implements StorageFilter {
+  public abstract static class CompoundFilter implements StorageFilter {
 
     protected final List<StorageFilter> filters = new ArrayList<>();
 

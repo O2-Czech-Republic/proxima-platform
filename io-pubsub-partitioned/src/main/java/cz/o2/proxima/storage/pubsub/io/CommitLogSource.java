@@ -56,7 +56,8 @@ public class CommitLogSource extends UnboundedSource<
     return new CommitLogSource(reader, name, allowedLatenessMs);
   }
 
-  public static class WatermarkCommitCheckpoint implements UnboundedSource.CheckpointMark {
+  public static class WatermarkCommitCheckpoint
+      implements UnboundedSource.CheckpointMark {
 
     static WatermarkCommitCheckpoint of(long watermark) {
       return new WatermarkCommitCheckpoint(watermark);
@@ -78,7 +79,9 @@ public class CommitLogSource extends UnboundedSource<
   private final String name;
   private final CommitLogReader reader;
   private final long allowedLatenessMs;
-  private final BlockingQueue<Pair<BulkLogObserver.OffsetCommitter, AttributeData>> batch;
+  private final BlockingQueue<
+      Pair<BulkLogObserver.OffsetCommitter,
+      AttributeData>> batch;
 
   private CommitLogSource(
       CommitLogReader reader, String name, long allowedLatenessMs) {
@@ -94,8 +97,8 @@ public class CommitLogSource extends UnboundedSource<
   }
 
   @Override
-  public List<? extends UnboundedSource<AttributeData, WatermarkCommitCheckpoint>> split(
-      int desiredCount, PipelineOptions po) throws Exception {
+  public List<? extends UnboundedSource<AttributeData, WatermarkCommitCheckpoint>>
+      split(int desiredCount, PipelineOptions po) throws Exception {
 
     return IntStream.range(0, desiredCount)
         .mapToObj(i -> new CommitLogSource(this))
@@ -115,9 +118,11 @@ public class CommitLogSource extends UnboundedSource<
     handle = reader.observeBulk(name, new BulkLogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, BulkLogObserver.OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
         try {
-          if (!batch.offer(Pair.of(committer, toData(ingest)), 200, TimeUnit.MILLISECONDS)) {
+          if (!batch.offer(
+              Pair.of(committer, toData(ingest)), 200, TimeUnit.MILLISECONDS)) {
+
             log.warn("Nacking incoming element {} due to write timeout.", ingest);
             committer.nack();
           }
@@ -170,7 +175,8 @@ public class CommitLogSource extends UnboundedSource<
           current = poll.getSecond();
           emptyPolls.set(0);
           return true;
-        } else if (initialized.get() && emptyPolls.updateAndGet(old -> ++old >= 20 ? 0 : old) == 0) {
+        } else if (initialized.get()
+            && emptyPolls.updateAndGet(old -> ++old >= 20 ? 0 : old) == 0) {
           watermark.set(System.currentTimeMillis() - allowedLatenessMs);
         }
         current = null;

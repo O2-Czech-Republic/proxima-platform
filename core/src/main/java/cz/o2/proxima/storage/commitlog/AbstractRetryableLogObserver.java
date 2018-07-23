@@ -62,7 +62,7 @@ public abstract class AbstractRetryableLogObserver implements LogObserverBase {
     numFailures++;
     log.error(
         "Error in observing commit log {} by {}, retries so far {}, maxRetries {}",
-        commitLog.getURI(), name, numFailures, maxRetries, error);
+        commitLog.getUri(), name, numFailures, maxRetries, error);
     if (numFailures < maxRetries) {
       return true;
     } else {

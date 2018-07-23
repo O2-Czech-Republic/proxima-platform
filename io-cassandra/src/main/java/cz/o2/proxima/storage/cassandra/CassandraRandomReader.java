@@ -23,7 +23,7 @@ import com.datastax.driver.core.Token;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
-import cz.o2.proxima.storage.cassandra.CQLFactory.KvIterable;
+import cz.o2.proxima.storage.cassandra.CqlFactory.KvIterable;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.storage.randomaccess.RandomOffset;
@@ -44,7 +44,7 @@ class CassandraRandomReader
   private final CassandraDBAccessor accessor;
 
   CassandraRandomReader(CassandraDBAccessor accessor) {
-    super(accessor.getEntityDescriptor(), accessor.getURI());
+    super(accessor.getEntityDescriptor(), accessor.getUri());
     this.accessor = accessor;
   }
 
@@ -96,7 +96,8 @@ class CassandraRandomReader
     try {
       Offsets.Raw off = (Offsets.Raw) offset;
       Session session = accessor.ensureSession();
-      KvIterable iter = accessor.getCqlFactory().getListAllStatement(key, off, limit, session);
+      KvIterable iter = accessor.getCqlFactory().getListAllStatement(
+          key, off, limit, session);
       for (KeyValue<?> kv : iter.iterable(accessor)) {
         if (kv.getAttribute().compareTo(off.getRaw()) > 0) {
           if (limit-- == 0) {
@@ -135,8 +136,8 @@ class CassandraRandomReader
         if (val != null) {
           byte[] rowValue = val.array();
           // by convention
-          String name = wildcard.toAttributePrefix() + accessor.getConverter().asString(attribute);
-
+          String name = wildcard.toAttributePrefix() + accessor.getConverter().asString(
+              attribute);
 
           Optional parsed = wildcard.getValueSerializer().deserialize(rowValue);
 
@@ -206,11 +207,14 @@ class CassandraRandomReader
             return new Offsets.Token(Long.MIN_VALUE);
           }
           return new Offsets.Token(res.one().getLong(0));
+          
+        default:
+          throw new IllegalArgumentException("Unknown type of listing: " + type);
       }
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
-    throw new IllegalArgumentException("Unknown type of listing: " + type);
+
   }
 
 }

@@ -41,16 +41,16 @@ public class HttpAccessor extends AbstractStorage implements DataAccessor {
 
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
-    if (getURI().getScheme().startsWith("http")) {
-      return Optional.of(new HttpWriter(getEntityDescriptor(), getURI(), cfg));
+    if (getUri().getScheme().startsWith("http")) {
+      return Optional.of(new HttpWriter(getEntityDescriptor(), getUri(), cfg));
     }
     return Optional.empty();
   }
 
   @Override
   public Optional<CommitLogReader> getCommitLogReader(Context context) {
-    if (getURI().getScheme().startsWith("ws")) {
-      return Optional.of(new WebsocketReader(getEntityDescriptor(), getURI(), cfg));
+    if (getUri().getScheme().startsWith("ws")) {
+      return Optional.of(new WebsocketReader(getEntityDescriptor(), getUri(), cfg));
     }
     return Optional.empty();
   }

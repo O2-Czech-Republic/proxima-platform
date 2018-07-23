@@ -76,12 +76,13 @@ public class EntityDescriptorImpl implements EntityDescriptor {
 
     AttributeDescriptor found = attributesByName.get(name);
     if (found == null) {
-      for (Map.Entry<NamePattern, AttributeDescriptor<?>> e : attributesByPattern.entrySet()) {
-        if (e.getKey().matches(name)) {
-          found = e.getValue();
-          break;
-        }
-      }
+      found = attributesByPattern
+          .entrySet()
+          .stream()
+          .filter(e -> e.getKey().matches(name))
+          .findFirst()
+          .map(Map.Entry::getValue)
+          .orElse(null);
     }
     if (found != null && (includeProtected || found.isPublic())) {
       return Optional.of(found);

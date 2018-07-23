@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
  * Utilities related to URIs.
  */
 @Internal
-public class URIUtil {
+public class UriUtil {
 
   public static Map<String, String> parseQuery(URI uri) {
     String query = uri.getQuery();
@@ -43,7 +43,7 @@ public class URIUtil {
   private static String decode(final String encoded) {
     try {
       return encoded == null ? null : URLDecoder.decode(encoded, "UTF-8");
-    } catch(final UnsupportedEncodingException e) {
+    } catch (UnsupportedEncodingException e) {
       throw new IllegalStateException("UTF-8 is a required encoding", e);
     }
   }
@@ -64,6 +64,10 @@ public class URIUtil {
       p = p.substring(0, p.length() - 1);
     }
     return p;
+  }
+
+  private UriUtil() {
+    
   }
 
 }

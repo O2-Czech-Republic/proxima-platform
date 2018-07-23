@@ -22,7 +22,7 @@ import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.util.JsonFormat;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
-import cz.o2.proxima.storage.URIUtil;
+import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.util.Classpath;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -63,10 +63,11 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
     return new ValueSerializer() {
 
       final String protoClass = uri.getSchemeSpecificPart();
-      final AbstractMessage defVal = ProtoSerializerFactory.getDefaultInstance(protoClass);
+      final AbstractMessage defVal = ProtoSerializerFactory.getDefaultInstance(
+          protoClass);
       final JsonProtoSerializerFactory factory = JsonProtoSerializerFactory.this;
       final boolean strictScheme = Optional
-          .ofNullable(URIUtil.parseQuery(uri).get("strictScheme"))
+          .ofNullable(UriUtil.parseQuery(uri).get("strictScheme"))
           .map(Boolean::valueOf)
           .orElse(false);
       transient Method builder = null;
@@ -138,7 +139,9 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
   static AbstractMessage.Builder newBuilder(Method newBuilder) {
     try {
       return (AbstractMessage.Builder) newBuilder.invoke(null);
-    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
+    } catch (IllegalAccessException | IllegalArgumentException
+        | InvocationTargetException ex) {
+      
       throw new RuntimeException(ex);
     }
   }

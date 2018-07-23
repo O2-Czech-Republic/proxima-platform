@@ -86,7 +86,8 @@ public class OffsetCommitter<ID> {
    * Register number of actions to be performed before offset can be committed.
    * @param id id of the consumer
    * @param offset the registered offset
-   * @param numActions how many times {@link confirm} should be called to consider the action as done
+   * @param numActions how many times {@link confirm} should be called to
+   *                   consider the action as done
    * @param commit {@link Callback} to call to commit
    */
   public void register(ID id, long offset, int numActions, Callback commit) {

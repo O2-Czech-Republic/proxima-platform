@@ -34,11 +34,10 @@ class TimeWindowedStream<T> extends WindowedStream<T, Windowing> {
       Executor executor, DatasetBuilder<T> dataset, long millis, long slide,
       Runnable terminatingOperationCall) {
 
-    super(
-        executor, dataset,
-        (Windowing)  (slide > 0
+    super(executor, dataset,
+        slide > 0
             ? TimeSliding.of(Duration.ofMillis(millis), Duration.ofMillis(slide))
-            : Time.of(Duration.ofMillis(millis))),
+            : Time.of(Duration.ofMillis(millis)),
         terminatingOperationCall,
         (w, d) -> {
           if (slide > 0) {

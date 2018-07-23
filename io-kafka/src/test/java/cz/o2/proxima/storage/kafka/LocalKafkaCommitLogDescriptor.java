@@ -169,7 +169,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     @Override
     public KafkaConsumerFactory createConsumerFactory() {
 
-      return new KafkaConsumerFactory(getURI(), new Properties()) {
+      return new KafkaConsumerFactory(getUri(), new Properties()) {
 
         @Override
         public KafkaConsumer<String, byte[]> create() {
@@ -552,7 +552,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     private void readObject(ObjectInputStream ois) throws ClassNotFoundException, IOException {
       // default deserialization
       ois.defaultReadObject();
-      Accessor original = ACCESSORS.get(this.descriptorId).get(getURI());
+      Accessor original = ACCESSORS.get(this.descriptorId).get(getUri());
       this.committedOffsets = original.committedOffsets;
       this.consumerGroups = original.consumerGroups;
       this.consumerOffsets = original.consumerOffsets;
@@ -580,7 +580,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
           name, partitions, position, stopAtCurrent, observer);
       log.debug(
           "Started to observe partitions {} of LocalKafkaCommitLog URI {}",
-          partitions, getURI());
+          partitions, getUri());
       return ret;
     }
 
@@ -589,7 +589,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       ObserveHandle ret = super.observe(name, position, observer);
       log.debug(
           "Started to observe LocalKafkaCommitLog with URI {} by consumer {}",
-          getURI(), name);
+          getUri(), name);
       return ret;
     }
 
@@ -603,7 +603,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
           name, partitions, position, stopAtCurrent, observer);
       log.debug(
           "Started to observe partitions {} of LocalKafkaCommitLog with URI {} by consumer {}",
-          partitions, getURI(), name);
+          partitions, getUri(), name);
       return ret;
     }
 
@@ -614,7 +614,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       Dataset<T> ret = super.observe(flow, name, observer);
       log.debug(
           "Started to observe view of LocalKafkaCommitLog with URI {} by consumer name {}",
-          getURI(), name);
+          getUri(), name);
       return ret;
     }
 
@@ -627,7 +627,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       log.debug(
           "Started to observe partitions {} of view of LocalKafkaCommitLog with URI {}",
           partitions.stream().map(Partition::getId).collect(Collectors.toList()),
-          getURI());
+          getUri());
       return ret;
     }
 
@@ -637,7 +637,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
       ObserveHandle ret = super.observeBulk(name, position, observer);
       log.debug("Started to bulk observe LocalKafkaCommitLog with URI {} by {}",
-          getURI(), name);
+          getUri(), name);
       return ret;
     }
 
@@ -671,7 +671,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       long offset = local.written.get(partition).size() - 1;
       log.debug(
           "Written data {} to LocalKafkaCommitLog descriptorId {} URI {}, partition {} at offset {}",
-          data, descriptorId, getURI(), partition, offset);
+          data, descriptorId, getUri(), partition, offset);
 
       callback.commit(true, null);
     }

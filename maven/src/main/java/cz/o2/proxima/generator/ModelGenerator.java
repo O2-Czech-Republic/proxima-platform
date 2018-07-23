@@ -52,8 +52,12 @@ public class ModelGenerator {
   public ModelGenerator(
       String javaPackage, String className, String sourceConfigPath, String outputPath) {
 
-    Preconditions.checkArgument(StringUtils.isNotBlank(javaPackage), "Java package name is missing");
-    Preconditions.checkArgument(StringUtils.isNotBlank(className), "Class name is missing");
+    Preconditions.checkArgument(
+        StringUtils.isNotBlank(javaPackage),
+        "Java package name is missing");
+    Preconditions.checkArgument(
+        StringUtils.isNotBlank(className),
+        "Class name is missing");
 
     this.javaPackage = javaPackage;
     this.className = className;
@@ -61,11 +65,13 @@ public class ModelGenerator {
     this.outputPath = new File(outputPath);
 
     if (!this.sourceConfigPath.exists()) {
-      throw new IllegalArgumentException("Source config not found at [ " + sourceConfigPath + " ]");
+      throw new IllegalArgumentException(
+          "Source config not found at [ " + sourceConfigPath + " ]");
     }
 
     if (!this.outputPath.isAbsolute()) {
-      throw new IllegalArgumentException("Output path must be absolute [ " + outputPath + " ]");
+      throw new IllegalArgumentException(
+          "Output path must be absolute [ " + outputPath + " ]");
     }
   }
 
@@ -93,7 +99,8 @@ public class ModelGenerator {
     Map<String, Object> root = new HashMap<>();
 
     List<Map<String, Object>> entities = getEntities(repo);
-    try (FileOutputStream out = new FileOutputStream(new File(output, className + ".java"))) {
+    final File outputFile = new File(output, className + ".java");
+    try (FileOutputStream out = new FileOutputStream(outputFile)) {
       root.put("input_path", sourceConfigPath.getAbsoluteFile());
       root.put("input_config", readFileToString(sourceConfigPath));
       root.put("java_package", javaPackage);
@@ -141,7 +148,7 @@ public class ModelGenerator {
           attrMap.put("nameCamel", CamelCase.apply(nameModified));
           attrMap.put("nameUpper", nameModified.toUpperCase());
           // FIXME: this is working just for protobufs
-          attrMap.put("type", attr.getSchemeURI().getSchemeSpecificPart());
+          attrMap.put("type", attr.getSchemeUri().getSchemeSpecificPart());
           return attrMap;
         })
         .collect(Collectors.toList());
@@ -156,7 +163,8 @@ public class ModelGenerator {
   private String readFileToString(File path) throws IOException {
     return Joiner.on("\n + ").join(
         IOUtils.readLines(new FileInputStream(path), "UTF-8")
-            .stream().map(s -> "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\\n\"")
+            .stream()
+            .map(s -> "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\\n\"")
             .collect(Collectors.toList()));
   }
 }

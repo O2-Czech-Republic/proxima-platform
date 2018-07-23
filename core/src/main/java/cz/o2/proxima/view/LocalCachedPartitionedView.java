@@ -111,7 +111,8 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
           boolean wildcardDeleted = false;
           if (ingest.getAttributeDescriptor().isWildcard()) {
             Pair<Long, Object> wildcardRec;
-            wildcardRec = attrMap.get(ingest.getAttributeDescriptor().toAttributePrefix());
+            wildcardRec = attrMap.get(ingest.getAttributeDescriptor()
+                .toAttributePrefix());
             if (wildcardRec != null) {
               c = c == null
                   ? wildcardRec
@@ -219,7 +220,8 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
           partitions, Position.OLDEST, true, prefetchObserver);
       latch.await();
       log.info(
-          "Finished prefetching of data after {} records. Starting consumption of updates.",
+          "Finished prefetching of data after {} records. Starting consumption"
+              + "of updates.",
           prefetchedCount.get());
       List<Offset> offsets = h.getCommittedOffsets();
       // continue the processing
@@ -409,8 +411,8 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
   }
 
   @Override
-  public URI getURI() {
-    return reader.getURI();
+  public URI getUri() {
+    return reader.getUri();
   }
 
   @Override

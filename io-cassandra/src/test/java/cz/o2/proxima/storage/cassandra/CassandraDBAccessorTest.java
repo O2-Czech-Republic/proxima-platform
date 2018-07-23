@@ -88,7 +88,7 @@ public class CassandraDBAccessorTest {
 
   }
 
-  static final class TestCQLFactory implements CQLFactory {
+  static final class TestCqlFactory implements CqlFactory {
 
     @Override
     public Optional<BoundStatement> getWriteStatement(
@@ -146,13 +146,13 @@ public class CassandraDBAccessorTest {
     @Override
     public KvIterable getListAllStatement(
         String key, Offsets.Raw offset, int limit, Session session) {
-      
+
       return mock(KvIterable.class);
     }
 
   }
 
-  static final class ThrowingTestCQLFactory implements CQLFactory {
+  static final class ThrowingTestCqlFactory implements CqlFactory {
 
     @Override
     public Optional<BoundStatement> getWriteStatement(StreamElement ingest, Session session) {
@@ -225,12 +225,12 @@ public class CassandraDBAccessorTest {
     this.attr = AttributeDescriptor.newBuilder(repo)
         .setEntity("dummy")
         .setName("dummy")
-        .setSchemeURI(new URI("bytes:///"))
+        .setSchemeUri(new URI("bytes:///"))
         .build();
     this.attrWildcard = AttributeDescriptor.newBuilder(repo)
         .setEntity("dmmy")
         .setName("device.*")
-        .setSchemeURI(new URI("bytes:///"))
+        .setSchemeUri(new URI("bytes:///"))
         .build();
     this.entity = EntityDescriptor.newBuilder()
       .setName("dummy")
@@ -251,7 +251,7 @@ public class CassandraDBAccessorTest {
 
     CassandraDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
-        getCfg(TestCQLFactory.class));
+        getCfg(TestCqlFactory.class));
     CassandraWriter writer = accessor.newWriter();
 
     AtomicBoolean success = new AtomicBoolean(false);
@@ -270,7 +270,7 @@ public class CassandraDBAccessorTest {
   public void testWriteFailed() throws Exception {
     CassandraDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
-        getCfg(ThrowingTestCQLFactory.class));
+        getCfg(ThrowingTestCqlFactory.class));
     CassandraWriter writer = accessor.newWriter();
 
     AtomicBoolean success = new AtomicBoolean(true);
@@ -293,7 +293,7 @@ public class CassandraDBAccessorTest {
 
     CassandraDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
-        getCfg(TestCQLFactory.class));
+        getCfg(TestCqlFactory.class));
     CassandraWriter writer = accessor.newWriter();
 
     AtomicBoolean success = new AtomicBoolean(false);
@@ -312,7 +312,7 @@ public class CassandraDBAccessorTest {
   public void testDeleteFailed() throws Exception {
     CassandraDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
-        getCfg(ThrowingTestCQLFactory.class));
+        getCfg(ThrowingTestCqlFactory.class));
     CassandraWriter writer = accessor.newWriter();
 
     AtomicBoolean success = new AtomicBoolean(true);
@@ -343,7 +343,7 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
-        getCfg(TestCQLFactory.class));
+        getCfg(TestCqlFactory.class));
     RandomAccessReader db = accessor.newRandomReader();
 
     accessor.setRes(res);
@@ -375,7 +375,7 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
-        getCfg(ThrowingTestCQLFactory.class));
+        getCfg(ThrowingTestCqlFactory.class));
     CassandraRandomReader db = accessor.newRandomReader();
 
     accessor.setRes(res);
@@ -404,7 +404,7 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
-        getCfg(TestCQLFactory.class));
+        getCfg(TestCqlFactory.class));
     CassandraRandomReader db = accessor.newRandomReader();
 
     accessor.setRes(res);
@@ -441,7 +441,7 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
-        getCfg(TestCQLFactory.class, DateToLongConverter.class));
+        getCfg(TestCqlFactory.class, DateToLongConverter.class));
     CassandraRandomReader db = accessor.newRandomReader();
 
     accessor.setRes(res);
@@ -478,7 +478,7 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
-        getCfg(ThrowingTestCQLFactory.class));
+        getCfg(ThrowingTestCqlFactory.class));
     CassandraRandomReader db = accessor.newRandomReader();
 
     accessor.setRes(res);
@@ -498,7 +498,7 @@ public class CassandraDBAccessorTest {
 
     CassandraDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
-        getCfg(TestCQLFactory.class, 13));
+        getCfg(TestCqlFactory.class, 13));
     CassandraLogObservable observable = new CassandraLogObservable(accessor,
         Executors.newCachedThreadPool());
 
@@ -530,7 +530,7 @@ public class CassandraDBAccessorTest {
         .build();
 
     TestDBAccessor accessor = new TestDBAccessor(entity, URI.create("cassandra://localhost/"),
-        getCfg(TestCQLFactory.class, 2));
+        getCfg(TestCqlFactory.class, 2));
     CassandraLogObservable observable = new CassandraLogObservable(accessor,
         Executors.newCachedThreadPool());
 
@@ -555,7 +555,7 @@ public class CassandraDBAccessorTest {
 
     TestDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
-        getCfg(TestCQLFactory.class, 2));
+        getCfg(TestCqlFactory.class, 2));
 
     CassandraLogObservable observable = new CassandraLogObservable(accessor,
         Executors.newCachedThreadPool());

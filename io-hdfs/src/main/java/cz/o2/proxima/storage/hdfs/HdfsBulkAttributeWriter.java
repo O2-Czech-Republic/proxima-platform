@@ -176,9 +176,11 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
     Instant d = Instant.ofEpochMilli(part);
     // place the final file in directory of (YYYY/MM)
     return new Path(
-        new URI(getURI().toString() + HdfsDataAccessor.DIR_FORMAT.format(LocalDateTime.ofInstant(
-            d, ZoneId.ofOffset("UTC", ZoneOffset.ofHours(0))))
-            + "/" + toFinalName(minStamp, maxStamp)));
+        new URI(
+            getUri().toString() + HdfsDataAccessor.DIR_FORMAT.format(
+                LocalDateTime.ofInstant(d, ZoneId.ofOffset(
+                    "UTC", ZoneOffset.ofHours(0))))
+                + "/" + toFinalName(minStamp, maxStamp)));
   }
 
   @VisibleForTesting
@@ -187,7 +189,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
 
     // place the final file in directory /.tmp/
     return new Path(
-        new URI(getURI().toString() + "/.tmp/"
+        new URI(getUri().toString() + "/.tmp/"
             + toPartName(part)));
   }
 
@@ -195,7 +197,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
 
   private void clearTmpDir() {
     try {
-      Path tmpDir = new Path(getURI().toString() + "/.tmp/");
+      Path tmpDir = new Path(getUri().toString() + "/.tmp/");
       if (getFs().exists(tmpDir)) {
         RemoteIterator<LocatedFileStatus> files = getFs().listFiles(tmpDir, false);
         String localhost = getLocalhost();
@@ -250,7 +252,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
 
   private FileSystem getFs() {
     if (fs == null) {
-      fs = HdfsDataAccessor.getFs(getURI(), cfg);
+      fs = HdfsDataAccessor.getFs(getUri(), cfg);
     }
     return fs;
   }

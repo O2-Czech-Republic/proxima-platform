@@ -51,7 +51,7 @@ public class HttpWriter implements OnlineAttributeWriter, DataAccessor {
   }
 
   @Override
-  public URI getURI() {
+  public URI getUri() {
     return uri;
   }
 

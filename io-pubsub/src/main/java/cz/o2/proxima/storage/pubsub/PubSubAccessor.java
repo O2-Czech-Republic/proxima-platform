@@ -22,7 +22,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.DataAccessor;
-import cz.o2.proxima.storage.URIUtil;
+import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import java.net.URI;
 import java.util.Map;
@@ -35,8 +35,10 @@ import lombok.Getter;
 class PubSubAccessor extends AbstractStorage implements DataAccessor {
 
   public static final String CFG_MAX_ACK_DEADLINE = "pubsub.deadline-max-ms";
-  public static final String CFG_SUBSCRIPTION_AUTOCREATE = "pubsub.subscription.auto-create";
-  public static final String CFG_SUBSCRIPTION_ACK_DEADLINE = "pubsub.subscription.ack-deadline";
+  public static final String CFG_SUBSCRIPTION_AUTOCREATE =
+      "pubsub.subscription.auto-create";
+  public static final String CFG_SUBSCRIPTION_ACK_DEADLINE =
+      "pubsub.subscription.ack-deadline";
 
   @Getter
   private final String project;
@@ -56,7 +58,7 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
   PubSubAccessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
     super(entity, uri);
     project = uri.getAuthority();
-    topic = URIUtil.getPathNormalized(uri);
+    topic = UriUtil.getPathNormalized(uri);
     maxAckDeadline = Optional.ofNullable(cfg.get(CFG_MAX_ACK_DEADLINE))
         .map(Object::toString)
         .map(Integer::valueOf)
@@ -70,8 +72,10 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
         .map(Integer::valueOf)
         .orElse(10);
 
-    Preconditions.checkArgument(!Strings.isNullOrEmpty(project), "Authority cannot be empty");
-    Preconditions.checkArgument(!Strings.isNullOrEmpty(topic), "Path has to represent topic");
+    Preconditions.checkArgument(
+        !Strings.isNullOrEmpty(project), "Authority cannot be empty");
+    Preconditions.checkArgument(
+        !Strings.isNullOrEmpty(topic), "Path has to represent topic");
   }
 
   @Override

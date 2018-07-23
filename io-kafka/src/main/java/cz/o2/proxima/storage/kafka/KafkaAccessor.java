@@ -99,7 +99,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
     log.info(
         "Using consumerPollInterval {} and partitionerClass {} for URI {}",
-        consumerPollInterval, partitioner.getClass(), getURI());
+        consumerPollInterval, partitioner.getClass(), getUri());
   }
 
 
@@ -120,7 +120,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
    * @return {@link KafkaConsumerFactory} for creating consumers
    */
   public KafkaConsumerFactory createConsumerFactory() {
-    return new KafkaConsumerFactory(getURI(), createProps());
+    return new KafkaConsumerFactory(getUri(), createProps());
   }
 
   @Override

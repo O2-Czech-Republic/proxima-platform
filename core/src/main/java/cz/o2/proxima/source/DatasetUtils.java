@@ -75,7 +75,8 @@ public class DatasetUtils {
       AttributeFamilyDescriptor afd = repo.getFamiliesForAttribute(a).stream()
           .filter(af -> af.getAccess().canReadBatchUpdates())
           .findAny()
-          .orElseThrow(() -> new IllegalArgumentException("Attribute " + a + " has no batch observable"));
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Attribute " + a + " has no batch observable"));
       readers.compute(afd.getBatchObservable().get(), (k, current) -> {
         current = current == null ? new ArrayList<>() : current;
         if (!current.contains(a)) {
@@ -110,7 +111,8 @@ public class DatasetUtils {
           .filter(af -> af.getAccess().canReadCommitLog())
           .map(af -> af.getCommitLogReader().get())
           .findAny()
-          .orElseThrow(() -> new IllegalArgumentException("Attribute " + a + " has no commit log")));
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Attribute " + a + " has no commit log")));
     }
     List<Dataset<StreamElement>> inputs = readers.stream()
         .map(r -> stopAtCurrent

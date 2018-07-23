@@ -209,7 +209,9 @@ public class IngestServer {
                 responseObserver.onNext(builder.build());
                 builder.clear();
               }
-              if (completed.get() && inflightRequests.get() == 0 && statusQueue.isEmpty()) {
+              if (completed.get() && inflightRequests.get() == 0
+                  && statusQueue.isEmpty()) {
+
                 responseObserver.onCompleted();
               }
             }
@@ -404,9 +406,12 @@ public class IngestServer {
             .orElseThrow(() -> new Status(400, "Attribute " + attribute
                 + " has no random reader"));
 
-        KeyValue<Object> kv = reader.get(request.getKey(), request.getAttribute(), attribute)
-            .orElseThrow(() -> new Status(404, "Key " + request.getKey() + " and/or attribute "
-                + request.getAttribute() + " not found"));
+        KeyValue<Object> kv = reader
+            .get(request.getKey(), request.getAttribute(), attribute)
+            .orElseThrow(() -> new Status(
+                404,
+                "Key " + request.getKey() + " and/or attribute "
+                    + request.getAttribute() + " not found"));
 
         responseObserver.onNext(Rpc.GetResponse.newBuilder()
             .setStatus(200)
@@ -604,7 +609,7 @@ public class IngestServer {
 
     Metrics.COMMIT_LOG_APPEND.increment();
     // write the ingest into the commit log and confirm to the client
-    log.debug("Writing {} to commit log {}", ingest, writer.getURI());
+    log.debug("Writing {} to commit log {}", ingest, writer.getUri());
     writer.write(ingest, (s, exc) -> {
       if (s) {
         responseConsumer.accept(ok(uuid));
@@ -695,7 +700,7 @@ public class IngestServer {
           log.info(
               "Started consumer {} consuming from log {} with URI {} into {} "
                   + "attributes {}",
-              name, commitLog, commitLog.getURI(), writer.getURI(), allowedAttributes);
+              name, commitLog, commitLog.getUri(), writer.getUri(), allowedAttributes);
         } else {
           log.debug("Not starting thread for read-only family {}", family);
         }
@@ -789,7 +794,7 @@ public class IngestServer {
     }.start();
     log.info(
         "Started transformer {} reading from {} using {}",
-        consumer, reader.getURI(), t.getClass());
+        consumer, reader.getUri(), t.getClass());
   }
 
   /**
@@ -799,10 +804,11 @@ public class IngestServer {
    */
   @SuppressWarnings("unchecked")
   private Map<AttributeFamilyDescriptor, Set<AttributeFamilyDescriptor>>
-  indexFamilyToCommitLogs() {
+      indexFamilyToCommitLogs() {
 
     // each attribute and its associated primary family
-    Map<AttributeDescriptor, AttributeFamilyDescriptor> attrToCommitLog = repo.getAllFamilies()
+    final Map<AttributeDescriptor, AttributeFamilyDescriptor> attrToCommitLog;
+    attrToCommitLog = repo.getAllFamilies()
         .filter(af -> af.getType() == StorageType.PRIMARY)
         // take pair of attribute to associated commit log
         .flatMap(af -> af.getAttributes()
@@ -830,7 +836,8 @@ public class IngestServer {
                   AttributeFamilyDescriptor commitFamily = attrToCommitLog.get(attr);
                   Optional<OnlineAttributeWriter> writer = repo.getWriter(attr);
                   if (commitFamily == null && writer.isPresent()) {
-                    throw new IllegalStateException("Missing source commit log family for " + attr);
+                    throw new IllegalStateException(
+                        "Missing source commit log family for " + attr);
                   }
                   return commitFamily;
                 })
@@ -851,7 +858,7 @@ public class IngestServer {
     AbstractRetryableLogObserver observer;
     log.info(
         "Registering {} writer to {} from commit log {}",
-        writerBase.getType(), writerBase.getURI(), commitLog.getURI());
+        writerBase.getType(), writerBase.getUri(), commitLog.getUri());
 
     if (writerBase.getType() == AttributeWriterBase.Type.ONLINE) {
       OnlineAttributeWriter writer = writerBase.online();
@@ -882,7 +889,8 @@ public class IngestServer {
           StreamElement ingest,
           OffsetCommitter committer) {
 
-        final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
+        final boolean allowed = allowedAttributes.contains(
+            ingest.getAttributeDescriptor());
         log.debug(
             "Consumer {}: received new ingest element {}", consumerName, ingest);
         if (allowed && filter.apply(ingest)) {
@@ -892,7 +900,7 @@ public class IngestServer {
           log.debug(
               "Consumer {]: discarding write of {} to {} because of {}, "
                   + "with allowedAttributes {} and filter class {}",
-              consumerName, ingest, writer.getURI(),
+              consumerName, ingest, writer.getUri(),
               allowed ? "applied filter" : "invalid attribute",
               allowedAttributes, filter.getClass());
         }
@@ -902,15 +910,17 @@ public class IngestServer {
       @Override
       protected void failure() {
         die(String.format(
-            "Consumer %s: too many errors retrying the consumption of commit log %s. Killing self.",
-            consumerName, commitLog.getURI()));
+            "Consumer %s: too many errors retrying the consumption of "
+                + "commit log %s. Killing self.",
+            consumerName, commitLog.getUri()));
       }
 
       @Override
       public void onRestart(List<Offset> offsets) {
         log.info(
-            "Consumer {}: restarting bulk processing of {} from {}, rollbacking the writer",
-            consumerName, writer.getURI(), offsets);
+            "Consumer {}: restarting bulk processing of {} from {}, "
+                + "rollbacking the writer",
+            consumerName, writer.getUri(), offsets);
         writer.rollback();
       }
 
@@ -943,7 +953,8 @@ public class IngestServer {
       public boolean onNextInternal(
           StreamElement ingest, OffsetCommitter committer) {
 
-        final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
+        final boolean allowed = allowedAttributes.contains(
+            ingest.getAttributeDescriptor());
         log.debug(
             "Consumer {}: received new stream element {}", consumerName, ingest);
         if (allowed && filter.apply(ingest)) {
@@ -954,7 +965,7 @@ public class IngestServer {
           log.debug(
               "Consumer {}: discarding write of {} to {} because of {}, "
                   + "with allowedAttributes {} and filter class {}",
-              consumerName, ingest, writer.getURI(),
+              consumerName, ingest, writer.getUri(),
               allowed ? "applied filter" : "invalid attribute",
               allowedAttributes, filter.getClass());
           committer.confirm();
@@ -965,8 +976,9 @@ public class IngestServer {
       @Override
       protected void failure() {
         die(String.format(
-            "Consumer %s: too many errors retrying the consumption of commit log %s. Killing self.",
-            consumerName, commitLog.getURI()));
+            "Consumer %s: too many errors retrying the consumption of commit "
+                + "log %s. Killing self.",
+            consumerName, commitLog.getUri()));
       }
 
       private void ingestOnlineInternal(
@@ -994,12 +1006,13 @@ public class IngestServer {
     if (!success) {
       log.error(
           "Consumer {}: failed to write ingest {} to {}",
-          consumerName, ingest, writer.getURI(), exc);
+          consumerName, ingest, writer.getUri(), exc);
       Metrics.NON_COMMIT_WRITES_RETRIES.increment();
       if (ignoreErrors) {
         log.error(
-            "Consumer {}: retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
-            consumerName, ingest, writer.getURI());
+            "Consumer {}: retries exhausted trying to ingest {} to {}. "
+                + "Configured to ignore. Skipping.",
+            consumerName, ingest, writer.getUri());
         onSuccess.run();
       } else {
         onError.accept(exc);

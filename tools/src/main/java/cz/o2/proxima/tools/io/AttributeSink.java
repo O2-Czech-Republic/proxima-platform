@@ -68,14 +68,14 @@ public class AttributeSink implements DataSink<Triple<String, byte[], Long>> {
             .setStamp(elem.getThird())
             .build();
         client.send(ingest, status -> {
-              if (status.getStatus() != 200) {
-                log.warn(
-                    "Failed to send ingest {}: {} {}",
-                    TextFormat.shortDebugString(ingest),
-                    status.getStatus(), status.getStatusMessage());
-              }
-              latch.countDown();
-            });
+          if (status.getStatus() != 200) {
+            log.warn(
+                "Failed to send ingest {}: {} {}",
+                TextFormat.shortDebugString(ingest),
+                status.getStatus(), status.getStatusMessage());
+          }
+          latch.countDown();
+        });
       }
 
       @Override

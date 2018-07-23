@@ -86,7 +86,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   private transient ExecutorService executor;
 
   PubSubReader(PubSubAccessor accessor, Context context) {
-    super(accessor.getEntityDescriptor(), accessor.getURI());
+    super(accessor.getEntityDescriptor(), accessor.getUri());
     this.context = context;
     this.project = accessor.getProject();
     this.topic = accessor.getTopic();
@@ -175,60 +175,63 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     Object lock = new Object();
     Object listLock = new Object();
     AtomicLong globalOffset = new AtomicLong();
-    return consume(name, (e, c) -> {
-      AtomicLong confirmUntil = new AtomicLong();
-      synchronized (listLock) {
-        List<AckReplyConsumer> list = unconfirmed.get();
-        list.add(c);
-        confirmUntil.set(list.size() + globalOffset.get());
-      }
-      BulkLogObserver.OffsetCommitter committer = (succ, exc) -> {
-        // the implementation can use some other
-        // thread for this, so we need to synchronize this
-        synchronized (listLock) {
-          int confirmCount = (int) (confirmUntil.get() - globalOffset.get());
-          if (confirmCount > 0) {
-            final Consumer<AckReplyConsumer> apply;
-            if (succ) {
-              log.debug("Bulk confirming {} messages", confirmCount);
-              apply = AckReplyConsumer::ack;
-            } else {
-              if (exc != null) {
-                log.warn("Error during processing of last bulk", exc);
-              } else {
-                log.info("Nacking last bulk by request");
-              }
-              apply = AckReplyConsumer::nack;
-            }
+    return consume(
+        name,
+        (e, c) -> {
+          AtomicLong confirmUntil = new AtomicLong();
+          synchronized (listLock) {
             List<AckReplyConsumer> list = unconfirmed.get();
-            for (int i = 0; i < confirmCount; i++) {
-                apply.accept(list.get(i));
+            list.add(c);
+            confirmUntil.set(list.size() + globalOffset.get());
+          }
+          BulkLogObserver.OffsetCommitter committer = (succ, exc) -> {
+            // the implementation can use some other
+            // thread for this, so we need to synchronize this
+            synchronized (listLock) {
+              int confirmCount = (int) (confirmUntil.get() - globalOffset.get());
+              if (confirmCount > 0) {
+                final Consumer<AckReplyConsumer> apply;
+                if (succ) {
+                  log.debug("Bulk confirming {} messages", confirmCount);
+                  apply = AckReplyConsumer::ack;
+                } else {
+                  if (exc != null) {
+                    log.warn("Error during processing of last bulk", exc);
+                  } else {
+                    log.info("Nacking last bulk by request");
+                  }
+                  apply = AckReplyConsumer::nack;
+                }
+                List<AckReplyConsumer> list = unconfirmed.get();
+                for (int i = 0; i < confirmCount; i++) {
+                  apply.accept(list.get(i));
+                }
+                globalOffset.addAndGet(confirmCount);
+                unconfirmed.set(Lists.newArrayList(
+                    list.subList(confirmCount, list.size())));
+              }
             }
-            globalOffset.addAndGet(confirmCount);
-            unconfirmed.set(Lists.newArrayList(list.subList(confirmCount, list.size())));
-          }
-        }
-      };
+          };
 
-      // our observers are not supposed to be thread safe, so we must
-      // ensure explicit synchronization here
-      synchronized (lock) {
-        try {
-          if (!observer.onNext(e, () -> 0, committer)) {
-            observer.onCompleted();
-            return false;
+          // our observers are not supposed to be thread safe, so we must
+          // ensure explicit synchronization here
+          synchronized (lock) {
+            try {
+              if (!observer.onNext(e, () -> 0, committer)) {
+                observer.onCompleted();
+                return false;
+              }
+              return true;
+            } catch (Exception ex) {
+              log.error("Error calling on next", ex);
+              committer.fail(ex);
+              throw new RuntimeException(ex);
+            }
           }
-          return true;
-        } catch (Exception ex) {
-          log.error("Error calling on next", ex);
-          committer.fail(ex);
-          throw new RuntimeException(ex);
-        }
-      }
-    }, observer::onError,
-    () -> observer.onRestart(Arrays.asList(() -> () -> 0)),
-    () -> observer.onRestart(Arrays.asList(() -> () -> 0)),
-    observer::onCancelled);
+        }, observer::onError,
+        () -> observer.onRestart(Arrays.asList(() -> () -> 0)),
+        () -> observer.onRestart(Arrays.asList(() -> () -> 0)),
+        observer::onCancelled);
   }
 
   @Override
@@ -262,7 +265,9 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   }
 
   @VisibleForTesting
-  Subscriber newSubscriber(ProjectSubscriptionName subscription, MessageReceiver receiver) {
+  Subscriber newSubscriber(
+      ProjectSubscriptionName subscription, MessageReceiver receiver) {
+    
     if (subscriptionAutoCreate) {
       try (SubscriptionAdminClient client = SubscriptionAdminClient.create()) {
         try {

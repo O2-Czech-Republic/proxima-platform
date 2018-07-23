@@ -73,12 +73,12 @@ public class BulkGCloudStorageWriterTest {
   public BulkGCloudStorageWriterTest() throws URISyntaxException {
     this.wildcard = AttributeDescriptor.newBuilder(repo)
         .setEntity("dummy")
-        .setSchemeURI(new URI("bytes:///"))
+        .setSchemeUri(new URI("bytes:///"))
         .setName("wildcard.*")
         .build();
     this.attr = AttributeDescriptor.newBuilder(repo)
         .setEntity("dummy")
-        .setSchemeURI(new URI("bytes:///"))
+        .setSchemeUri(new URI("bytes:///"))
         .setName("attr")
         .build();
     this.entity = EntityDescriptor.newBuilder()

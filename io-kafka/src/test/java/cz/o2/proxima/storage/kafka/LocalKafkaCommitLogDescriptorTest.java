@@ -107,7 +107,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         .newBuilder(repo)
         .setEntity("entity")
         .setName("attr")
-        .setSchemeURI(new URI("bytes:///"))
+        .setSchemeUri(new URI("bytes:///"))
         .build();
 
 
@@ -115,7 +115,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         .newBuilder(repo)
         .setEntity("entity")
         .setName("wildcard.*")
-        .setSchemeURI(new URI("bytes:///"))
+        .setSchemeUri(new URI("bytes:///"))
         .build();
 
     this.entity = EntityDescriptor.newBuilder()

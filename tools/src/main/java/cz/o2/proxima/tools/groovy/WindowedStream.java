@@ -50,7 +50,8 @@ import javax.annotation.Nullable;
 public class WindowedStream<T, W extends Windowing> extends Stream<T> {
 
   @SuppressWarnings("unchecked")
-  private static class JoinedWindowing<L, R, W extends Window<W>> implements Windowing<Either<L, R>, W> {
+  private static class JoinedWindowing<L, R, W extends Window<W>>
+      implements Windowing<Either<L, R>, W> {
 
     private final  Windowing left;
     private final Windowing right;
@@ -130,7 +131,8 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
             Trigger.TriggerResult leftTrigger,
             Trigger.TriggerResult rightTrigger) {
 
-          if ((leftTrigger.isFlush() || rightTrigger.isFlush()) && (leftTrigger.isPurge() || rightTrigger.isPurge())) {
+          if ((leftTrigger.isFlush() || rightTrigger.isFlush())
+              && (leftTrigger.isPurge() || rightTrigger.isPurge())) {
             return Trigger.TriggerResult.FLUSH_AND_PURGE;
           }
           if (leftTrigger.isFlush() || rightTrigger.isFlush()) {
@@ -268,7 +270,8 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
   @SuppressWarnings("unchecked")
   public <T> WindowedStream<TypedStreamElement<T>, W> reduceToLatest() {
     return descendant(() -> {
-      Dataset<TypedStreamElement<T>> input = (Dataset<TypedStreamElement<T>>) dataset.build();
+      final Dataset<TypedStreamElement<T>> input;
+      input = (Dataset<TypedStreamElement<T>>) dataset.build();
       return ReduceByKey.of(input)
           .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
           .combineBy(values ->
@@ -290,7 +293,7 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
     Closure<V> reducerDehydrated = listReduce.dehydrate();
 
     return descendant(() -> {
-        return ReduceByKey.of(dataset.build())
+      return ReduceByKey.of(dataset.build())
           .keyBy(keyDehydrated::call)
           .reduceBy((java.util.stream.Stream<T> in, Collector<V> ctx) -> {
             List<V> ret = (List<V>) reducerDehydrated.call(
@@ -299,7 +302,7 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
           })
           .windowBy(withEmitting())
           .output();
-        });
+    });
   }
 
   @SuppressWarnings("unchecked")
@@ -392,7 +395,9 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
           .windowBy(withEmitting())
           .output();
       return MapElements.of(intermediate)
-          .using(p -> Pair.of(p.getFirst(), p.getSecond().getFirst() / p.getSecond().getSecond()))
+          .using(p -> Pair.of(
+              p.getFirst(),
+              p.getSecond().getFirst() / p.getSecond().getSecond()))
           .output();
     });
   }
@@ -407,26 +412,27 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
     Closure<?> leftKeyDehydrated = leftKey.dehydrate();
     Closure<?> rightKeyDehydrated = rightKey.dehydrate();
     JoinedWindowing windowing = new JoinedWindowing<>(this, right);
-    return descendant(() -> {
-      Dataset<Pair<Object, Pair<T, RIGHT>>> joined;
-      joined = Join.of(dataset.build(), right.dataset.build())
-          .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
-          .using((T l, RIGHT r, Collector<Pair<T, RIGHT>> ctx) -> {
-            ctx.collect(Pair.of(l, r));
-          })
-          .windowBy(windowing)
-          .output();
-      return MapElements.of(joined)
-          .using(Pair::getSecond)
-          .output();
-    },
-    windowing,
-    (w, d) -> {
-      this.setEarlyEmitting(d);
-      right.setEarlyEmitting(d);
-      w.setEarlyEmitting(d);
-      return w;
-    });
+    return descendant(
+        () -> {
+          Dataset<Pair<Object, Pair<T, RIGHT>>> joined;
+          joined = Join.of(dataset.build(), right.dataset.build())
+              .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
+              .using((T l, RIGHT r, Collector<Pair<T, RIGHT>> ctx) -> {
+                ctx.collect(Pair.of(l, r));
+              })
+              .windowBy(windowing)
+              .output();
+          return MapElements.of(joined)
+              .using(Pair::getSecond)
+              .output();
+        },
+        windowing,
+        (w, d) -> {
+          this.setEarlyEmitting(d);
+          right.setEarlyEmitting(d);
+          w.setEarlyEmitting(d);
+          return w;
+        });
   }
 
   @SuppressWarnings("unchecked")
@@ -438,34 +444,38 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
     Closure<?> leftKeyDehydrated = leftKey.dehydrate();
     Closure<?> rightKeyDehydrated = rightKey.dehydrate();
     JoinedWindowing windowing = new JoinedWindowing<>(this, right);
-    return descendant(() -> {
-      Dataset<Pair<Object, Pair<T, RIGHT>>> joined = LeftJoin.of(dataset.build(), right.dataset.build())
-          .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
-          .using((T l, Optional<RIGHT> r, Collector<Pair<T, RIGHT>> ctx) -> {
-            ctx.collect(Pair.of(l, r.orElse(null)));
-          })
-          .windowBy(windowing)
-          .output();
-      return MapElements.of(joined)
-          .using(Pair::getSecond)
-          .output();
-    },
-    windowing,
-    (w, d) -> {
-      this.setEarlyEmitting(d);
-      right.setEarlyEmitting(d);
-      w.setEarlyEmitting(d);
-      return w;
-    });
+    return descendant(
+        () -> {
+          final Dataset<Pair<Object, Pair<T, RIGHT>>> joined;
+          joined = LeftJoin.of(dataset.build(), right.dataset.build())
+              .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
+              .using((T l, Optional<RIGHT> r, Collector<Pair<T, RIGHT>> ctx) -> {
+                ctx.collect(Pair.of(l, r.orElse(null)));
+              })
+              .windowBy(windowing)
+              .output();
+          return MapElements.of(joined)
+              .using(Pair::getSecond)
+              .output();
+        },
+        windowing,
+        (w, d) -> {
+          this.setEarlyEmitting(d);
+          right.setEarlyEmitting(d);
+          w.setEarlyEmitting(d);
+          return w;
+        });
   }
 
 
   @SuppressWarnings("unchecked")
-  public <S extends Comparable<S>> WindowedStream<S, W> sorted(Closure<Integer> toComparable) {
+  public <S extends Comparable<S>> WindowedStream<S, W> sorted(
+      Closure<Integer> toComparable) {
+
     Closure<Integer> dehydrated = toComparable.dehydrate();
     return descendant(() -> {
       return ReduceWindow.of((Dataset<S>) dataset.build())
-          .reduceBy((java.util.stream.Stream<S> in, cz.seznam.euphoria.core.client.io.Collector<S> ctx) -> {
+          .reduceBy((java.util.stream.Stream<S> in, Collector<S> ctx) -> {
             in.forEach(ctx::collect);
           })
           .withSortedValues((a, b) -> dehydrated.call(a, b))

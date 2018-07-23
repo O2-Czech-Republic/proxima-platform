@@ -25,6 +25,8 @@ import java.util.Optional;
 @Stable
 public class BytesSerializer implements ValueSerializerFactory {
 
+  private static final byte[] DEFAULT = new byte[] { };
+
   @Override
   public String getAcceptableScheme() {
     return "bytes";
@@ -33,8 +35,6 @@ public class BytesSerializer implements ValueSerializerFactory {
   @Override
   public ValueSerializer<byte[]> getValueSerializer(URI scheme) {
     return new ValueSerializer<byte[]>() {
-
-      private final byte[] DEFAULT = new byte[] { };
 
       @Override
       public Optional<byte[]> deserialize(byte[] input) {

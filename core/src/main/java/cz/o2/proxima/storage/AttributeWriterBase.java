@@ -34,7 +34,7 @@ public interface AttributeWriterBase extends Serializable {
    * Retrieve URI of this writer.
    * @return URI of this writer
    */
-  URI getURI();
+  URI getUri();
 
   /**
    * Retrieve type of the writer.

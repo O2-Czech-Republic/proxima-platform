@@ -17,7 +17,7 @@ package cz.o2.proxima.storage.hbase;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import cz.o2.proxima.storage.URIUtil;
+import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Optional;
 import org.apache.hadoop.conf.Configuration;
@@ -48,7 +48,7 @@ class Util {
   }
 
   static byte[] getFamily(URI uri) {
-    return Optional.ofNullable(URIUtil.parseQuery(uri).get(FAMILY_QUERY))
+    return Optional.ofNullable(UriUtil.parseQuery(uri).get(FAMILY_QUERY))
         .map(String::getBytes)
         .orElseThrow(() -> new IllegalArgumentException(
             "Query " + FAMILY_QUERY + " is missing!"));

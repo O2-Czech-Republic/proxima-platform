@@ -40,23 +40,23 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Test suite for {@code TransformingCQLFactory}.
+ * Test suite for {@code TransformingCqlFactory}.
  */
-public class TransformingCQLFactoryTest {
+public class TransformingCqlFactoryTest {
 
   Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.defaultApplication()).build();
   AttributeDescriptorBase<?> attr;
   EntityDescriptor entity;
 
   final List<String> statements = new ArrayList<>();
-  CQLFactory factory;
+  CqlFactory factory;
 
-  public TransformingCQLFactoryTest() throws URISyntaxException {
+  public TransformingCqlFactoryTest() throws URISyntaxException {
     attr = AttributeDescriptor.newBuilder(repo)
         .setEntity("dummy")
         .setName("first")
         .setName("second")
-        .setSchemeURI(new URI("bytes:///"))
+        .setSchemeUri(new URI("bytes:///"))
         .build();
     entity = EntityDescriptor.newBuilder()
         .addAttribute(attr)
@@ -67,7 +67,7 @@ public class TransformingCQLFactoryTest {
   @Before
   public void setup() throws URISyntaxException {
     statements.clear();
-    factory = new TransformingCQLFactory<String>(
+    factory = new TransformingCqlFactory<String>(
         i -> new String(i.getValue()),
         Arrays.asList("a", "b"),
         Arrays.asList(
@@ -88,7 +88,7 @@ public class TransformingCQLFactoryTest {
   }
 
   /**
-   * Test of getWriteStatement method, of class TransformingCQLFactory.
+   * Test of getWriteStatement method, of class TransformingCqlFactory.
    */
   @Test
   public void testApply() {
@@ -112,7 +112,7 @@ public class TransformingCQLFactoryTest {
   }
 
   /**
-   * Test of getWriteStatement method, of class TransformingCQLFactory.
+   * Test of getWriteStatement method, of class TransformingCqlFactory.
    */
   @Test
   public void testApplyWithTTL() throws URISyntaxException {
@@ -140,7 +140,7 @@ public class TransformingCQLFactoryTest {
 
 
   /**
-   * Test of getWriteStatement method, of class TransformingCQLFactory.
+   * Test of getWriteStatement method, of class TransformingCqlFactory.
    */
   @Test
   public void testApplyWithDelete() {

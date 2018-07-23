@@ -54,7 +54,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   static final String CQL_PARALLEL_SCANS = "scanParallelism";
 
   @Getter(AccessLevel.PACKAGE)
-  private final CQLFactory cqlFactory;
+  private final CqlFactory cqlFactory;
 
   /** Converter between string and native cassandra type used for wildcard types. */
   @Getter(AccessLevel.PACKAGE)
@@ -75,7 +75,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
     Object factoryName = cfg.get(CQL_FACTORY_CFG);
     String cqlFactoryName = factoryName == null
-        ? DefaultCQLFactory.class.getName()
+        ? DefaultCqlFactory.class.getName()
         : factoryName.toString();
 
     Object tmp = cfg.get(CQL_PARALLEL_SCANS);
@@ -103,7 +103,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
 
     try {
-      cqlFactory = Classpath.findClass(cqlFactoryName, CQLFactory.class).newInstance();
+      cqlFactory = Classpath.findClass(cqlFactoryName, CqlFactory.class).newInstance();
       cqlFactory.setup(entityDesc, uri, converter);
     } catch (InstantiationException | IllegalAccessException ex) {
       throw new IllegalArgumentException(
@@ -118,7 +118,8 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
       if (statement instanceof BoundStatement) {
         BoundStatement s = (BoundStatement) statement;
         log.debug(
-            "Executing BoundStatement {} prepared from PreparedStatement {} with payload {}",
+            "Executing BoundStatement {} prepared from PreparedStatement "
+                + "{} with payload {}",
             s, s.preparedStatement(), s.getOutgoingPayload());
       } else {
         log.debug(
@@ -157,7 +158,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
         if (cluster != null) {
           cluster.close();
         }
-        cluster = getCluster(getURI());
+        cluster = getCluster(getUri());
       }
       if (session != null) {
         session.close();

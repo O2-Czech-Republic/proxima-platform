@@ -124,13 +124,13 @@ public class ConfigRepository implements Repository, Serializable {
     private Builder(Config config, boolean test) {
       this.config = Objects.requireNonNull(config);
       this.executorFactory = () -> Executors.newCachedThreadPool(r -> {
-          Thread t = new Thread(r);
-          t.setName("ProximaRepositoryPool");
-          t.setUncaughtExceptionHandler((thr, exc) -> {
-            log.error("Error running task in thread {}", thr.getName(), exc);
-          });
-          return t;
+        Thread t = new Thread(r);
+        t.setName("ProximaRepositoryPool");
+        t.setUncaughtExceptionHandler((thr, exc) -> {
+          log.error("Error running task in thread {}", thr.getName(), exc);
         });
+        return t;
+      });
 
       if (test) {
         this.readOnly = true;
@@ -179,14 +179,14 @@ public class ConfigRepository implements Repository, Serializable {
    */
   @Value
   private static class Replication {
-      boolean readOnly;
-      Map<String, Object> targets;
-      Map<String, Object> source;
-      Map<String, Object> via;
-      EntityDescriptorImpl entity;
-      Collection<String> attrs;
-      AttributeFamilyDescriptor family;
-      boolean readNonReplicated;
+    boolean readOnly;
+    Map<String, Object> targets;
+    Map<String, Object> source;
+    Map<String, Object> via;
+    EntityDescriptorImpl entity;
+    Collection<String> attrs;
+    AttributeFamilyDescriptor family;
+    boolean readNonReplicated;
   }
 
   /**
@@ -244,8 +244,9 @@ public class ConfigRepository implements Repository, Serializable {
    * This need not be synchronized because it is only written in constructor
    * and then it is read-only.
    */
-  private final Map<AttributeDescriptor<?>, Set<AttributeFamilyDescriptor>> attributeToFamily =
-      new HashMap<>();
+  private final Map<
+      AttributeDescriptor<?>,
+      Set<AttributeFamilyDescriptor>> attributeToFamily = new HashMap<>();
 
   /**
    * Map of transformation name to transformation descriptor.
@@ -518,7 +519,7 @@ public class ConfigRepository implements Repository, Serializable {
                 entity,
                 AttributeDescriptor.newBuilder(this)
                     .setEntity(entity.getName())
-                    .setSchemeURI(a.getSchemeURI())
+                    .setSchemeUri(a.getSchemeUri())
                     .setName(name)
                     .setReplica(true)
                     .build());
@@ -527,7 +528,7 @@ public class ConfigRepository implements Repository, Serializable {
               entity,
               AttributeDescriptor.newBuilder(this)
                   .setEntity(entity.getName())
-                  .setSchemeURI(a.getSchemeURI())
+                  .setSchemeUri(a.getSchemeUri())
                   .setName(toReplicationWriteName(e.getKey(), writeName))
                   .setReplica(true)
                   .build());
@@ -537,7 +538,7 @@ public class ConfigRepository implements Repository, Serializable {
               entity,
               AttributeDescriptor.newBuilder(this)
                     .setEntity(entity.getName())
-                    .setSchemeURI(a.getSchemeURI())
+                    .setSchemeUri(a.getSchemeUri())
                     .setName(toReplicationProxyName(e.getKey(), readName))
                     .setReplica(true)
                     .build());
@@ -548,11 +549,11 @@ public class ConfigRepository implements Repository, Serializable {
               entity,
               AttributeDescriptor.newBuilder(this)
                   .setEntity(entity.getName())
-                  .setSchemeURI(a.getSchemeURI())
+                  .setSchemeUri(a.getSchemeUri())
                   .setName(toReplicationReadName(e.getKey(), a.getName()))
                   .setReplica(true)
                   .build());
-          }
+        }
       });
       log.info("Loaded replication {}", e.getKey());
     }
@@ -713,7 +714,8 @@ public class ConfigRepository implements Repository, Serializable {
       // loaded (must contain `scheme`)
       original = Objects.requireNonNull(
           entityBuilder.findAttribute(attrName),
-          "Proxy attribute have to be either full (containing both `read` and `write` sides) "
+          "Proxy attribute have to be either full "
+              + "(containing both `read` and `write` sides) "
               + "or declare `scheme`.");
     }
     if (read != null) {
@@ -780,23 +782,23 @@ public class ConfigRepository implements Repository, Serializable {
             throw new IllegalArgumentException("Scheme " + schemeStr + " is unknown");
         }
       }
-      URI schemeURI = new URI(schemeStr);
+      URI schemeUri = new URI(schemeStr);
       // validate that the scheme serializer doesn't throw exceptions
       // ignore the return value
       try {
         if (shouldValidate) {
-          getValueSerializerFactory(schemeURI.getScheme())
-              .getValueSerializer(schemeURI)
+          getValueSerializerFactory(schemeUri.getScheme())
+              .getValueSerializer(schemeUri)
               .isValid(new byte[] { });
         }
       } catch (Exception ex) {
-        throw new IllegalStateException("Cannot use serializer for URI " + schemeURI, ex);
+        throw new IllegalStateException("Cannot use serializer for URI " + schemeUri, ex);
       }
       entityBuilder.addAttribute(
           AttributeDescriptor.newBuilder(this)
               .setEntity(entityName)
               .setName(attrName)
-              .setSchemeURI(schemeURI)
+              .setSchemeUri(schemeUri)
               .build());
     } catch (URISyntaxException ex) {
       throw new RuntimeException(ex);
@@ -888,22 +890,22 @@ public class ConfigRepository implements Repository, Serializable {
       log.info("Skipping load of disabled family {}", name);
       return;
     }
-    String entity = Objects.requireNonNull(cfg.get(ENTITY)).toString();
-    String filter = toString(cfg.get(FILTER));
+    final String entity = Objects.requireNonNull(cfg.get(ENTITY)).toString();
+    final String filter = toString(cfg.get(FILTER));
     // type is one of the following:
     // * commit (stream commit log)
     // * append (append-only stream or batch)
     // * random-access (random-access read-write)
-    StorageType type = StorageType.of((String) cfg.get(TYPE));
-    AccessType access = AccessType.from(Optional.ofNullable(cfg.get(ACCESS))
+    final StorageType type = StorageType.of((String) cfg.get(TYPE));
+    final AccessType access = AccessType.from(Optional.ofNullable(cfg.get(ACCESS))
             .map(Object::toString)
             .orElse(READ_ONLY));
-    List<String> attributes = toList(
+    final List<String> attributes = toList(
         Objects.requireNonNull(cfg.get(ATTRIBUTES),
             () -> String.format(
                 "Missing required field `%s' in attributeFamily %s",
                 ATTRIBUTES, name)));
-    URI storageURI = new URI(Objects.requireNonNull(
+    final URI storageUri = new URI(Objects.requireNonNull(
         cfg.get(STORAGE),
         () -> String.format(
             "Missing required field `%s' in attribute family %s", STORAGE, name))
@@ -911,22 +913,23 @@ public class ConfigRepository implements Repository, Serializable {
     final StorageDescriptor storageDesc = isReadonly
         ? asReadOnly(Objects.requireNonNull(
             schemeToStorage.get(
-                storageURI.getScheme()),
-                "Missing storage descriptor for scheme " + storageURI.getScheme()))
-        : schemeToStorage.get(storageURI.getScheme());
-    EntityDescriptor entDesc = findEntityRequired(entity);
+                storageUri.getScheme()),
+                "Missing storage descriptor for scheme " + storageUri.getScheme()))
+        : schemeToStorage.get(storageUri.getScheme());
+    final EntityDescriptor entDesc = findEntityRequired(entity);
     if (storageDesc == null) {
       throw new IllegalArgumentException(
-          "No storage for scheme " + storageURI.getScheme());
+          "No storage for scheme " + storageUri.getScheme());
     }
-    AttributeFamilyDescriptor.Builder family = AttributeFamilyDescriptor.newBuilder()
+    AttributeFamilyDescriptor.Builder family = AttributeFamilyDescriptor
+        .newBuilder()
         .setName(name)
         .setType(type)
         .setAccess(access)
         .setSource((String) cfg.get(FROM));
     if (shouldLoadAccessors) {
       loadFamilyAccessors(
-          name, entDesc, storageURI, cfg, storageDesc, access, family);
+          name, entDesc, storageUri, cfg, storageDesc, access, family);
     }
     Collection<AttributeDescriptor<?>> allAttributes = new HashSet<>();
     for (String attr : attributes) {
@@ -971,13 +974,13 @@ public class ConfigRepository implements Repository, Serializable {
   private void loadFamilyAccessors(
       String familyName,
       EntityDescriptor entDesc,
-      URI storageURI,
+      URI storageUri,
       Map<String, Object> cfg,
       StorageDescriptor storageDesc,
       AccessType access,
       AttributeFamilyDescriptor.Builder family) {
 
-    DataAccessor accessor = storageDesc.getAccessor(entDesc, storageURI, cfg);
+    DataAccessor accessor = storageDesc.getAccessor(entDesc, storageUri, cfg);
 
     if (!isReadonly && !access.isReadonly()) {
       family.setWriter(accessor.getWriter(context)
@@ -1090,8 +1093,10 @@ public class ConfigRepository implements Repository, Serializable {
             readOnly);
 
         // remove the original attribute and replace it with proxy
-        // 1) on write: write to _<replication_name>_write$attr (or original attribute if readOnly)
-        // 2) on read: read from _<replication_name>_replicated$attr, or _<replication_name>_write$attr
+        // 1) on write: write to _<replication_name>_write$attr
+        //              (or original attribute if readOnly)
+        // 2) on read: read from _<replication_name>_replicated$attr,
+        //             or _<replication_name>_write$attr
         //             if configured to read non-replicated data only
         bindReplicationProxies(
             replicationName,
@@ -1140,9 +1145,9 @@ public class ConfigRepository implements Repository, Serializable {
         attr,
         (tmp, current) -> {
           Set<AttributeFamilyDescriptor> updated = current
-            .stream()
-            .filter(af -> !af.getName().equals(sourceFamily.getName()) || readOnly)
-            .collect(Collectors.toSet());
+              .stream()
+              .filter(af -> !af.getName().equals(sourceFamily.getName()) || readOnly)
+              .collect(Collectors.toSet());
           return updated.isEmpty() ? null : updated;
         }));
 
@@ -1165,7 +1170,8 @@ public class ConfigRepository implements Repository, Serializable {
     if (!readNonReplicated || !source.isEmpty()) {
       final AttributeFamilyDescriptor resolvedRead;
       if (sourceFamily.isProxy()) {
-        resolvedRead = ((AttributeFamilyProxyDescriptor) sourceFamily).getTargetFamilyWrite();
+        resolvedRead = ((AttributeFamilyProxyDescriptor) sourceFamily)
+            .getTargetFamilyWrite();
       } else {
         resolvedRead = sourceFamily;
       }
@@ -1228,9 +1234,9 @@ public class ConfigRepository implements Repository, Serializable {
 
     AttributeDescriptor result = findAttributeRequired(entity, attr);
     while (((AttributeDescriptorBase<?>) result).isProxy()) {
-        result = read
-            ? ((AttributeDescriptorBase<?>) result).toProxy().getReadTarget()
-            : ((AttributeDescriptorBase<?>) result).toProxy().getWriteTarget();
+      result = read
+          ? ((AttributeDescriptorBase<?>) result).toProxy().getReadTarget()
+          : ((AttributeDescriptorBase<?>) result).toProxy().getWriteTarget();
     }
     return result;
   }
@@ -1361,7 +1367,8 @@ public class ConfigRepository implements Repository, Serializable {
       AttributeFamilyDescriptor replicated) {
 
     // local writes
-    String transform = CamelCase.apply(String.format("_%s_replicated", replicationName), false);
+    String transform = CamelCase.apply(
+        String.format("_%s_replicated", replicationName), false);
     String replPrefix = transform + "$";
     Map<AttributeDescriptor<?>, AttributeDescriptor<?>> sourceMapping;
     sourceMapping = getReplMapping(
@@ -1630,7 +1637,7 @@ public class ConfigRepository implements Repository, Serializable {
       // this means all attributes of entity
       attrDescs = entDesc.getAllAttributes(includeProtected)
           .stream()
-          .filter(a -> !((AttributeDescriptorBase<?>) a).isReplica()|| allowReplicated)
+          .filter(a -> !((AttributeDescriptorBase<?>) a).isReplica() || allowReplicated)
           .filter(a -> !((AttributeDescriptorBase<?>) a).isProxy() || allowProxies)
           .collect(Collectors.toList());
     } else {
@@ -1698,23 +1705,26 @@ public class ConfigRepository implements Repository, Serializable {
       // prevent ConcurrentModificationException
       List<AttributeFamilyDescriptor> createdFamilies = new ArrayList<>();
 
-      readWriteToAttr.entrySet().stream().filter(e -> e.getValue().contains(attr)).forEach(e -> {
-        List<AttributeProxyDescriptorImpl<?>> proxyList = e.getValue();
-        // cartesian product of read x write families
-        for (AttributeFamilyDescriptor read
-            : getFamiliesForAttribute(attr.getReadTarget())) {
-          for (AttributeFamilyDescriptor write
-              : getFamiliesForAttribute(attr.getWriteTarget())) {
+      readWriteToAttr.entrySet()
+          .stream()
+          .filter(e -> e.getValue().contains(attr))
+          .forEach(e -> {
+            List<AttributeProxyDescriptorImpl<?>> proxyList = e.getValue();
+            // cartesian product of read x write families
+            for (AttributeFamilyDescriptor read
+                : getFamiliesForAttribute(attr.getReadTarget())) {
+              for (AttributeFamilyDescriptor write
+                  : getFamiliesForAttribute(attr.getWriteTarget())) {
 
-            for (AttributeProxyDescriptorImpl<?> a : proxyList) {
-              createdFamilies.add(
-                  AttributeFamilyProxyDescriptor.of(
-                      findEntityRequired(a.getEntity()),
-                      proxyList, read, write));
+                for (AttributeProxyDescriptorImpl<?> a : proxyList) {
+                  createdFamilies.add(
+                      AttributeFamilyProxyDescriptor.of(
+                          findEntityRequired(a.getEntity()),
+                          proxyList, read, write));
+                }
+              }
             }
-          }
-        }
-      });
+          });
       createdFamilies.forEach(family -> insertFamily(family, true));
     }
 
@@ -1723,7 +1733,8 @@ public class ConfigRepository implements Repository, Serializable {
   private LinkedHashSet<AttributeProxyDescriptorImpl<?>> buildProxyOrdering(
       Collection<? extends AttributeDescriptor<?>> attributes) {
 
-    LinkedHashSet<AttributeProxyDescriptorImpl<?>> dependencyOrdered = new LinkedHashSet<>();
+    LinkedHashSet<AttributeProxyDescriptorImpl<?>> dependencyOrdered;
+    dependencyOrdered = new LinkedHashSet<>();
     List<AttributeProxyDescriptorImpl<?>> proxies = attributes
         .stream()
         .map(a -> ((AttributeDescriptorBase<?>) a).toProxy())
@@ -1826,7 +1837,9 @@ public class ConfigRepository implements Repository, Serializable {
 
     return Optional.ofNullable(map.get(key))
         .map(v -> {
-          if (v instanceof List) return (List<Object>) v;
+          if (v instanceof List) {
+            return (List<Object>) v;
+          }
           throw new IllegalArgumentException(
               String.format("Key `%s` in `%s` must be list", key, name));
         })
@@ -1865,8 +1878,8 @@ public class ConfigRepository implements Repository, Serializable {
         })
         .findAny()
         .ifPresent(a -> {
-            throw new IllegalArgumentException("Attribute " + a.getName()
-                + " of entity " + a.getEntity() + " has no storage");
+          throw new IllegalArgumentException("Attribute " + a.getName()
+              + " of entity " + a.getEntity() + " has no storage");
         });
 
     // check that no attribute has two primary families

@@ -22,7 +22,7 @@ import com.google.cloud.storage.StorageClass;
 import com.google.cloud.storage.StorageOptions;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
-import cz.o2.proxima.storage.URIUtil;
+import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
@@ -59,7 +59,7 @@ class GCloudClient extends AbstractStorage {
 
   // normalize path to not start and to end with slash
   private static String toPath(URI uri) {
-    return URIUtil.getPathNormalized(uri) + "/";
+    return UriUtil.getPathNormalized(uri) + "/";
   }
 
   Blob createBlob(String name) {

@@ -51,7 +51,7 @@ class HBaseClientWrapper implements AutoCloseable, Serializable {
     this.serializedConf = serialize(HBaseConfiguration.create(conf));
   }
 
-  public URI getURI() {
+  public URI getUri() {
     return uri;
   }
 

@@ -23,7 +23,7 @@ import com.google.common.base.Strings;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.URIUtil;
+import cz.o2.proxima.storage.UriUtil;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nullable;
@@ -38,7 +38,7 @@ import lombok.Getter;
  * A cache for prepared CQL statements.
  */
 @Slf4j
-public abstract class CacheableCQLFactory implements CQLFactory {
+public abstract class CacheableCqlFactory implements CqlFactory {
 
   @Getter
   private EntityDescriptor entity;
@@ -95,7 +95,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
 
   }
 
-  protected CacheableCQLFactory() {
+  protected CacheableCqlFactory() {
     this.listCache = createCache(1000);
     this.getCache = createCache(1000);
     this.deleteWildcardCache = createCache(1000);
@@ -105,7 +105,9 @@ public abstract class CacheableCQLFactory implements CQLFactory {
 
 
   @Override
-  public final void setup(EntityDescriptor entity, URI uri, StringConverter<?> converter) {
+  public final void setup(
+      EntityDescriptor entity, URI uri, StringConverter<?> converter) {
+
     this.entity = entity;
     String path = uri.getPath();
     this.tableName = path;
@@ -119,7 +121,7 @@ public abstract class CacheableCQLFactory implements CQLFactory {
     this.tableName = tableName.substring(1);
     final Map<String, String> parsed;
     if (!Strings.isNullOrEmpty(uri.getQuery())) {
-      parsed = URIUtil.parseQuery(uri);
+      parsed = UriUtil.parseQuery(uri);
       payloadCol = parsed.get("data");
     } else {
       parsed = Collections.emptyMap();
@@ -135,6 +137,17 @@ public abstract class CacheableCQLFactory implements CQLFactory {
     }
   }
 
+  /**
+   * Setup the factory from URI parameters passed in.
+   * @param query the parsed URI query parameters
+   * @param converter converter of payload to string
+   */
+  protected void setup(
+      Map<String, String> query,
+      StringConverter<?> converter)
+      throws IllegalArgumentException {
+
+  }
 
   /**
    * Retrieve cached prepared statement for writing given data.
@@ -331,19 +344,6 @@ public abstract class CacheableCQLFactory implements CQLFactory {
       return payloadCol;
     }
     return attr.toAttributePrefix(false);
-  }
-
-
-  /**
-   * Setup the factory from URI parameters passed in.
-   * @param query the parsed URI query parameters
-   * @param converter converter of payload to string
-   */
-  protected void setup(
-      Map<String, String> query,
-      StringConverter<?> converter)
-      throws IllegalArgumentException {
-
   }
 
 

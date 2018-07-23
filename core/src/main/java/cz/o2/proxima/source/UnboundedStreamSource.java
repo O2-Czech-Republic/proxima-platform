@@ -92,7 +92,8 @@ public class UnboundedStreamSource
       BlockingQueue<Optional<StreamElement>> queue = new ArrayBlockingQueue<>(100);
       AtomicReference<StreamElement> current = new AtomicReference<>();
 
-      BlockingQueue<BulkLogObserver.OffsetCommitter> committers = new LinkedBlockingDeque<>();
+      final BlockingQueue<BulkLogObserver.OffsetCommitter> committers;
+      committers = new LinkedBlockingDeque<>();
       AtomicReference<ObserveHandle> handle = new AtomicReference<>();
       handle.set(reader.observeBulkPartitions(
           consumer,

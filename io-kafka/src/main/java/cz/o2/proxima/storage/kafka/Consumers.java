@@ -39,7 +39,7 @@ import org.apache.kafka.common.TopicPartition;
 @Slf4j
 class Consumers {
 
-  private static abstract class ConsumerBase implements ElementConsumer {
+  private abstract static class ConsumerBase implements ElementConsumer {
 
     final Map<Integer, Long> committed = Collections.synchronizedMap(new HashMap<>());
     final Map<Integer, Long> processing = Collections.synchronizedMap(new HashMap<>());
@@ -100,14 +100,18 @@ class Consumers {
       if (element != null) {
         return observer.onNext(element, (succ, exc) -> {
           if (succ) {
-            committed.compute(tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
+            committed.compute(
+                tp.partition(),
+                (k, v) -> v == null || v <= offset ? offset + 1 : v);
             committer.confirm(tp, offset);
           } else {
             errorHandler.accept(exc);
           }
         }, tp::partition);
       }
-      committed.compute(tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
+      committed.compute(
+          tp.partition(),
+          (k, v) -> v == null || v <= offset ? offset + 1 : v);
       committer.confirm(tp, offset);
       return true;
     }

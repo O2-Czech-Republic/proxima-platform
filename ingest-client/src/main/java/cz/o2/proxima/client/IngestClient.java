@@ -104,7 +104,7 @@ public class IngestClient implements AutoCloseable {
   private final Options options;
 
   /** Map of UUID of message to the consumer of the message status. */
-  private final Map<String, Request> inFlightRequests = Collections.synchronizedMap(new HashMap<>());
+  private final Map<String, Request> inFlightRequests;
 
   @VisibleForTesting
   Channel channel = null;
@@ -117,49 +117,7 @@ public class IngestClient implements AutoCloseable {
   private final CountDownLatch closedLatch = new CountDownLatch(1);
 
   @VisibleForTesting
-  final StreamObserver<Rpc.StatusBulk> statusObserver = new StreamObserver<Rpc.StatusBulk>() {
-
-    @Override
-    public void onNext(Rpc.StatusBulk bulk) {
-      for (Rpc.Status status : bulk.getStatusList()) {
-        final String uuid = status.getUuid();
-        final Request request = inFlightRequests.remove(uuid);
-        if (request == null) {
-          log.warn(
-              "Received response for unknown message {}",
-              TextFormat.shortDebugString(status));
-        } else {
-          synchronized (inFlightRequests) {
-            inFlightRequests.notifyAll();
-          }
-          request.setStatus(status);
-        }
-      }
-    }
-
-    @Override
-    public void onError(Throwable thrwbl) {
-      log.warn("Error on channel, closing stub", thrwbl);
-      synchronized (IngestClient.this) {
-        stub = null;
-        try {
-          TimeUnit.SECONDS.sleep(1);
-        } catch (InterruptedException ex) {
-          log.warn("Interrupted while waiting before channel open retry.", ex);
-          Thread.currentThread().interrupt();
-        }
-        createChannelAndStub();
-      }
-    }
-
-    @Override
-    public void onCompleted() {
-      synchronized (inFlightRequests) {
-        inFlightRequests.clear();
-      }
-      closedLatch.countDown();
-    }
-  };
+  final StreamObserver<Rpc.StatusBulk> statusObserver = newStatusObserver();
 
   private final Thread flushThread;
 
@@ -173,6 +131,7 @@ public class IngestClient implements AutoCloseable {
     this.host = host;
     this.port = port;
     this.options = options;
+    this.inFlightRequests = Collections.synchronizedMap(new HashMap<>());
     this.flushThread = new Thread(() -> {
       long flushTimeNanos = options.getFlushUsec() * 1_000L;
       long lastFlush = System.nanoTime();
@@ -199,6 +158,52 @@ public class IngestClient implements AutoCloseable {
 
     this.flushThread.setDaemon(true);
     this.flushThread.setName(getClass().getSimpleName() + "-flushThread");
+  }
+
+  private StreamObserver<Rpc.StatusBulk> newStatusObserver() {
+
+    return new StreamObserver<Rpc.StatusBulk>() {
+      @Override
+      public void onNext(Rpc.StatusBulk bulk) {
+        for (Rpc.Status status : bulk.getStatusList()) {
+          final String uuid = status.getUuid();
+          final Request request = inFlightRequests.remove(uuid);
+          if (request == null) {
+            log.warn(
+                "Received response for unknown message {}",
+                TextFormat.shortDebugString(status));
+          } else {
+            synchronized (inFlightRequests) {
+              inFlightRequests.notifyAll();
+            }
+            request.setStatus(status);
+          }
+        }
+      }
+
+      @Override
+      public void onError(Throwable thrwbl) {
+        log.warn("Error on channel, closing stub", thrwbl);
+        synchronized (IngestClient.this) {
+          stub = null;
+          try {
+            TimeUnit.SECONDS.sleep(1);
+          } catch (InterruptedException ex) {
+            log.warn("Interrupted while waiting before channel open retry.", ex);
+            Thread.currentThread().interrupt();
+          }
+          createChannelAndStub();
+        }
+      }
+
+      @Override
+      public void onCompleted() {
+        synchronized (inFlightRequests) {
+          inFlightRequests.clear();
+        }
+        closedLatch.countDown();
+      }
+    };
   }
 
   /**
@@ -230,8 +235,8 @@ public class IngestClient implements AutoCloseable {
    * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.GetResponse}.
    */
   public Rpc.GetResponse get(Rpc.GetRequest request) {
-     ensureChannel();
-     return getStub.get(request);
+    ensureChannel();
+    return getStub.get(request);
   }
 
   /** Send the request with timeout. */

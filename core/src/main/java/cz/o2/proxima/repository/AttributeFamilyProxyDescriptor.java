@@ -66,7 +66,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
-   static class AttrLookup implements Serializable {
+  static class AttrLookup implements Serializable {
 
     @Getter
     private final List<AttributeProxyDescriptorImpl<?>> attrs;
@@ -148,8 +148,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         getRandomAccess(lookup, targetFamilyRead),
         getPartitionedView(lookup, targetFamilyRead),
         getPartitionedCachedView(entity, lookup, targetFamilyRead, targetFamilyWrite),
-        targetFamilyWrite.getType() ==
-            StorageType.PRIMARY && targetFamilyRead.getType() == StorageType.PRIMARY
+        targetFamilyWrite.getType()
+            == StorageType.PRIMARY && targetFamilyRead.getType() == StorageType.PRIMARY
                 ? targetFamilyRead.getAccess()
                 : AccessType.or(
                     targetFamilyRead.getAccess(), AccessType.from("read-only")),
@@ -169,7 +169,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       return null;
     }
     OnlineAttributeWriter writer = w.get().online();
-    final URI uri = getProxyURI(writer.getURI(), targetFamily);
+    final URI uri = getProxyUri(writer.getUri(), targetFamily);
     return new OnlineAttributeWriter() {
 
       @Override
@@ -184,7 +184,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
         log.debug(
             "proxying write of {} to target {} using writer {}",
-            data, target, writer.getURI());
+            data, target, writer.getUri());
 
         writer.write(
                 transformToRaw(data, target),
@@ -192,7 +192,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       }
 
       @Override
-      public URI getURI() {
+      public URI getUri() {
         return uri;
       }
 
@@ -211,8 +211,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     return new CommitLogReader() {
 
       @Override
-      public URI getURI() {
-        return reader.getURI();
+      public URI getUri() {
+        return reader.getUri();
       }
 
       @Override
@@ -554,7 +554,8 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         try {
           return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
               .stream()
-              .map(attr -> observer.onNext(transformToProxy(ingest, attr), partition, confirm))
+              .map(attr -> observer.onNext(
+                  transformToProxy(ingest, attr), partition, confirm))
               .filter(c -> !c)
               .findFirst()
               .orElse(true);
@@ -726,7 +727,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         data.getStamp(), data.getValue());
   }
 
-  private static URI getProxyURI(
+  private static URI getProxyUri(
       URI uri, AttributeFamilyDescriptor targetFamily) {
     try {
       return new URI(String.format(

@@ -211,8 +211,10 @@ public class BinaryBlob {
     }
 
     private AttributeDescriptor<?> getAttr(Serialization.Element parsed) {
-      return entity.findAttribute(parsed.getAttribute()).orElseThrow(
-          () -> new IllegalArgumentException("Unknown attribute " + parsed.getAttribute()));
+      return entity
+          .findAttribute(parsed.getAttribute())
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Unknown attribute " + parsed.getAttribute()));
     }
 
     @Override
@@ -232,8 +234,14 @@ public class BinaryBlob {
    * @return writer
    * @throws IOException on IO errors
    */
-  public static Writer writer(boolean gzip, OutputStream out) throws IOException {
+  public static Writer writer(
+      boolean gzip, OutputStream out) throws IOException {
+
     return new Writer(gzip, out);
+  }
+
+  public Writer writer(boolean gzip) throws IOException {
+    return new Writer(gzip, new FileOutputStream(path));
   }
 
   /**
@@ -243,9 +251,14 @@ public class BinaryBlob {
    * @return reader
    * @throws IOException on IO errors
    */
-  public static Reader reader(EntityDescriptor entity, InputStream in)
-      throws IOException {
+  public static Reader reader(
+      EntityDescriptor entity, InputStream in) throws IOException {
+
     return new Reader(entity, in);
+  }
+
+  public Reader reader(EntityDescriptor entity) throws IOException {
+    return new Reader(entity, new FileInputStream(path));
   }
 
   @Getter
@@ -253,14 +266,6 @@ public class BinaryBlob {
 
   public BinaryBlob(File path) {
     this.path = path;
-  }
-
-  public Writer writer(boolean gzip) throws IOException {
-    return new Writer(gzip, new FileOutputStream(path));
-  }
-
-  public Reader reader(EntityDescriptor entity) throws IOException {
-    return new Reader(entity, new FileInputStream(path));
   }
 
 }

@@ -38,7 +38,7 @@ public class AbstractStorage implements Serializable {
     this.uri = uri;
   }
 
-  public URI getURI() {
+  public URI getUri() {
     return uri;
   }
 
@@ -46,7 +46,7 @@ public class AbstractStorage implements Serializable {
   public boolean equals(Object obj) {
     if (obj instanceof AttributeWriterBase) {
       AttributeWriterBase other = (AttributeWriterBase) obj;
-      return other.getURI().equals(uri);
+      return other.getUri().equals(uri);
     }
     return false;
   }

@@ -55,7 +55,7 @@ public abstract class RetryableBulkObserver<OFF extends Serializable>
   protected final ObserveHandle startInternal(Position position) {
     log.info(
         "Starting to process commitlog {} as {} from {}",
-        getCommitLog().getURI(), getName(), getPosition());
+        getCommitLog().getUri(), getName(), getPosition());
     return getCommitLog().observeBulk(getName(), getPosition(), this);
   }
 

@@ -52,9 +52,9 @@ public class StdoutStorage extends StorageDescriptor {
           @Override
           public void write(StreamElement data, CommitCallback callback) {
             System.out.println(String.format(
-              "Writing entity %s to attribute %s with key %s and value of size %d",
-              data.getEntityDescriptor(), data.getAttributeDescriptor(), data.getKey(),
-              data.getValue().length));
+                "Writing entity %s to attribute %s with key %s and value of size %d",
+                data.getEntityDescriptor(), data.getAttributeDescriptor(), data.getKey(),
+                data.getValue().length));
             callback.commit(true, null);
           }
         });

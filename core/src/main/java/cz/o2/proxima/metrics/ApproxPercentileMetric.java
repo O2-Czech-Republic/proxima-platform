@@ -59,7 +59,9 @@ public class ApproxPercentileMetric
     super(group, name);
     Preconditions.checkArgument(window > 0, "Window must be non-zero length");
     this.maxDigests = (int) (duration / window);
-    Preconditions.checkArgument(maxDigests > 0, "Duration must be at least of length of the window");
+    Preconditions.checkArgument(
+        maxDigests > 0,
+        "Duration must be at least of length of the window");
     this.windowNs = window * 1_000_000L;
     _reset();
   }

@@ -31,20 +31,22 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * A {@code CQLFactory} used by default. The default behavior is to
+ * A {@link CqlFactory} used by default. The default behavior is to
  * take name of the attribute and change it from camelCase to underscore_case.
  * The cassandra URI looks like this:
  * <pre>{@code
- *  cassandra://<authority>/<table>/?primary=<primaryField>&secondary=<secondaryKeyField>&data=<dataField>&reversed=true*
+ *  cassandra://<authority>/<table>/?primary=<primaryField>
+ *      &secondary=<secondaryKeyField>&data=<dataField>&reversed=true*
  * }</pre>
  * where:
- *  * primaryField is the column where primary key (or first part of composite key) is stored
+ *  * primaryField is the column where primary key
+ *    (or first part of composite key) is stored
  *  * secondaryField is the second part of composite key (optional)
  *  * dataField is the name of data field for wildcard attributes (optional)
  *  * reversed might by {@code true} if the composite key is sorted in descending order
  */
 @Slf4j
-public class DefaultCQLFactory extends CacheableCQLFactory {
+public class DefaultCqlFactory extends CacheableCqlFactory {
 
   /**
    * The name of the field used as primary key or first part of composite
@@ -77,7 +79,8 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
     if (primaryField == null) {
       throw new IllegalArgumentException("Query does not contain `primary' "
           + "parameter in query. This parameter specifies name of the "
-          + "field that is being used as primary key (or first part of a composite key).");
+          + "field that is being used as primary key (or first part "
+          + "of a composite key).");
     }
     String tmp = query.get("reversed");
     if (tmp != null) {
@@ -171,7 +174,8 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
       if (ingest.getAttributeDescriptor().isWildcard()) {
         String attr = ingest.getAttribute();
         Object colVal = toColVal(attr);
-        return Optional.of(prepared.bind(ingest.getStamp() * 1000L, colVal, ingest.getKey()));
+        return Optional.of(
+            prepared.bind(ingest.getStamp() * 1000L, colVal, ingest.getKey()));
       }
       return Optional.of(prepared.bind(ingest.getStamp() * 1000L, ingest.getKey()));
     }
@@ -184,12 +188,14 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
     if (element.getAttributeDescriptor().isWildcard()) {
       // use the first part of the attribute name
       String colName = toColName(element.getAttributeDescriptor());
-      return String.format("INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?) USING TIMESTAMP ?%s",
+      return String.format(
+          "INSERT INTO %s (%s, %s, %s) VALUES (?, ?, ?) USING TIMESTAMP ?%s",
           getTableName(), primaryField, toUnderScore(colName),
           toPayloadCol(element.getAttributeDescriptor()),
           ttl > 0 ? (" AND TTL " + ttl) : "");
     } else {
-      return String.format("INSERT INTO %s (%s, %s) VALUES (?, ?) USING TIMESTAMP ?%s",
+      return String.format(
+          "INSERT INTO %s (%s, %s) VALUES (?, ?) USING TIMESTAMP ?%s",
           getTableName(), primaryField, toUnderScore(element.getAttribute()),
           ttl > 0 ? (" AND TTL " + ttl) : "");
     }
@@ -278,7 +284,8 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
   @Override
   protected String createListAllStatement(Session session) {
     throw new UnsupportedOperationException(
-        "Unsupported. See https://github.com/O2-Czech-Republic/proxima-platform/issues/67");
+        "Unsupported. "
+            + "See https://github.com/O2-Czech-Republic/proxima-platform/issues/67");
   }
 
   @Override
@@ -316,7 +323,8 @@ public class DefaultCQLFactory extends CacheableCQLFactory {
       int limit, Session session) {
 
     throw new UnsupportedOperationException(
-        "Unsupported. See https://github.com/O2-Czech-Republic/proxima-platform/issues/67");
+        "Unsupported. "
+            + "See https://github.com/O2-Czech-Republic/proxima-platform/issues/67");
   }
 
 }

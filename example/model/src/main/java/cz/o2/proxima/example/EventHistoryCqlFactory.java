@@ -17,7 +17,7 @@
 package cz.o2.proxima.example;
 
 import cz.o2.proxima.example.event.Event.BaseEvent;
-import cz.o2.proxima.storage.cassandra.TransformingCQLFactory;
+import cz.o2.proxima.storage.cassandra.TransformingCqlFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -36,24 +36,22 @@ import java.util.Date;
  *   )
  * </pre>
  */
-public class EventHistoryCQLFactory extends TransformingCQLFactory<BaseEvent> {
-  public EventHistoryCQLFactory() {
-    super(
-        i -> {
-          try {
-            return BaseEvent.parseFrom(i.getValue());
-          } catch (IOException ex) {
-            throw new IllegalArgumentException(ex);
-          }
-        },
-        Arrays.asList(
-            "user" /* primary key */,
-            "stamp" /* secondary key */,
-            "event" /* payload */),
-        Arrays.asList(
-            p -> p.getSecond().getUserName(),
-            p -> new Date(p.getSecond().getStamp()),
-            p -> ByteBuffer.wrap(p.getSecond().toByteArray())),
+public class EventHistoryCqlFactory extends TransformingCqlFactory<BaseEvent> {
+  public EventHistoryCqlFactory() {
+    super(ingest -> {
+      try {
+        return BaseEvent.parseFrom(ingest.getValue());
+      } catch (IOException ex) {
+        throw new IllegalArgumentException(ex);
+      }
+    }, Arrays.asList(
+          "user" /* primary key */,
+          "stamp" /* secondary key */,
+          "event" /* payload */),
+      Arrays.asList(
+        p -> p.getSecond().getUserName(),
+        p -> new Date(p.getSecond().getStamp()),
+        p -> ByteBuffer.wrap(p.getSecond().toByteArray())),
         e -> !e.getUserName().isEmpty());
   }
 }

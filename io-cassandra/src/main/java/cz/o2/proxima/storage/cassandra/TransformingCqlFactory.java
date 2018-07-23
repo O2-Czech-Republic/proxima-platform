@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
  * provided extractors. The ingest is first modified by provided parser.
  */
 @Slf4j
-public class TransformingCQLFactory<T extends Serializable> extends CacheableCQLFactory {
+public class TransformingCqlFactory<T extends Serializable> extends CacheableCqlFactory {
 
   /** Parser of ingest to any intermediate type. */
   private final Function<StreamElement, T> parser;
@@ -50,7 +50,7 @@ public class TransformingCQLFactory<T extends Serializable> extends CacheableCQL
   /** Filter for bad messages. */
   private final Function<T, Boolean> filter;
 
-  protected TransformingCQLFactory(
+  protected TransformingCqlFactory(
       Function<StreamElement, T> parser,
       List<String> columns,
       List<Function<Pair<String, T>, Object>> extractors) {
@@ -58,7 +58,7 @@ public class TransformingCQLFactory<T extends Serializable> extends CacheableCQL
     this(parser, columns, extractors, e -> true);
   }
 
-  protected TransformingCQLFactory(
+  protected TransformingCqlFactory(
       Function<StreamElement, T> parser,
       List<String> columns,
       List<Function<Pair<String, T>, Object>> extractors,

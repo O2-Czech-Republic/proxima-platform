@@ -125,13 +125,6 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
   }
 
   @Override
-  public <T> Dataset<T> observe(String name, PartitionedLogObserver<T> observer) {
-    return observe(
-        BeamFlow.create(Pipeline.create(options)),
-        name, observer);
-  }
-
-  @Override
   public <T> Dataset<T> observePartitions(
       Flow flow,
       Collection<Partition> partitions,
@@ -150,6 +143,13 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
     throw new UnsupportedOperationException(
         "This view cooperates only with BeamFlow. Use euphoria-beam as executor "
       + "and construct flow by BeamFlow#create");
+  }
+
+  @Override
+  public <T> Dataset<T> observe(String name, PartitionedLogObserver<T> observer) {
+    return observe(
+        BeamFlow.create(Pipeline.create(options)),
+        name, observer);
   }
 
   @Override
@@ -186,11 +186,14 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
 
     PCollection<KV<Integer, AttributeData>> parts = msgs
         .apply(MapElements
-            .into(TypeDescriptors.kvs(TypeDescriptors.integers(), new TypeDescriptor<AttributeData>() { }))
-            .via((AttributeData input) -> {
+            .into(TypeDescriptors.kvs(
+                TypeDescriptors.integers(),
+                new TypeDescriptor<AttributeData>() { }))
+            .via(input -> {
               int partition = toElement(entity, input)
-                .map(el -> (partitioner.getPartitionId(el) & Integer.MAX_VALUE) % numPartitions)
-                .orElse(0);
+                  .map(el -> (partitioner.getPartitionId(el) & Integer.MAX_VALUE)
+                      % numPartitions)
+                  .orElse(0);
               return KV.of(partition, input);
             }))
         .setCoder(KvCoder.of(VarIntCoder.of(), new KryoCoder<>()));
@@ -257,10 +260,10 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
         AttributeData data = context.element().getValue();
         toElement(entity, data)
             .ifPresent(elem -> observer.onNext(elem, (succ, exc) -> {
-                if (!succ) {
-                  throw new RuntimeException(exc);
-                }
-              }, () -> partitionId, context::output));
+              if (!succ) {
+                throw new RuntimeException(exc);
+              }
+            }, () -> partitionId, context::output));
       }
     };
   }
@@ -278,7 +281,8 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
       final StateSpec<ValueState<Integer>> partitionSpec = StateSpecs.value();
 
       @StateId("heap")
-      final StateSpec<BagState<AttributeData>> heapSpec = StateSpecs.bag(new KryoCoder<>());
+      final StateSpec<BagState<AttributeData>> heapSpec = StateSpecs.bag(
+          new KryoCoder<>());
 
       @StateId("watermark")
       final StateSpec<ValueState<Long>> watermark = StateSpecs.value();
@@ -287,7 +291,8 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
       final TimerSpec fireEventTimeSpec = TimerSpecs.timer(TimeDomain.EVENT_TIME);
 
       @TimerId("fire-processing")
-      final TimerSpec fireProcessingTimeSpec = TimerSpecs.timer(TimeDomain.PROCESSING_TIME);
+      final TimerSpec fireProcessingTimeSpec = TimerSpecs.timer(
+          TimeDomain.PROCESSING_TIME);
 
       @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
       @ProcessElement
@@ -374,10 +379,10 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
               } else {
                 toElement(entity, data)
                     .ifPresent(el -> observer.onNext(el, (succ, exc) -> {
-                        if (!succ) {
-                          throw new RuntimeException(exc);
-                        }
-                      }, () -> partitionId.read(), consumer));
+                      if (!succ) {
+                        throw new RuntimeException(exc);
+                      }
+                    }, () -> partitionId.read(), consumer));
               }
             });
         if (!toFlush.isEmpty()) {
@@ -385,7 +390,8 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
           heap.clear();
           toKeep.forEach(heap::add);
         }
-        fire.offset(org.joda.time.Duration.millis(fireInterval.toMillis())).setRelative();
+        fire.offset(org.joda.time.Duration.millis(fireInterval.toMillis()))
+            .setRelative();
       }
     };
   }
@@ -395,7 +401,8 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
 
     long stamp = data.getStamp();
     String uuid = UUID.randomUUID().toString();
-    Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(data.getAttribute());
+    Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(
+        data.getAttribute());
     if (attr.isPresent()) {
       if (data.isDeleteWildcard()) {
         return Optional.of(StreamElement.deleteWildcard(

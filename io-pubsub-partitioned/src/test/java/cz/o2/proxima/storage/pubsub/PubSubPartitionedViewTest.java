@@ -186,7 +186,7 @@ public class PubSubPartitionedViewTest implements Serializable {
   private final AttributeDescriptorBase<byte[]> attr = AttributeDescriptor.newBuilder(repo)
       .setEntity("entity")
       .setName("attr")
-      .setSchemeURI(new URI("bytes:///"))
+      .setSchemeUri(new URI("bytes:///"))
       .build();
 
   private final EntityDescriptor entity = EntityDescriptor.newBuilder()

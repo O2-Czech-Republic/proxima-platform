@@ -135,8 +135,10 @@ public class HdfsBatchLogObservable implements BatchLogObservable, Serializable 
         long element = 0L;
         BytesWritable key = new BytesWritable();
         TimestampedNullableBytesWritable value = new TimestampedNullableBytesWritable();
-        try (SequenceFile.Reader reader = new SequenceFile.Reader(HdfsDataAccessor.toHadoopConf(cfg),
+        try (SequenceFile.Reader reader = new SequenceFile.Reader(
+            HdfsDataAccessor.toHadoopConf(cfg),
             SequenceFile.Reader.file(f))) {
+
           while (reader.next(key, value)) {
             observer.onNext(toStreamElement(f, element++, key, value), p);
           }
@@ -164,7 +166,8 @@ public class HdfsBatchLogObservable implements BatchLogObservable, Serializable 
     AttributeDescriptor attributeDesc;
     attributeDesc = entityDesc.findAttribute(attribute).orElseThrow(
         () -> new IllegalArgumentException(
-            "Attribute " + attribute + " does not exist in entity " + entityDesc.getName()));
+            "Attribute " + attribute + " does not exist in entity "
+                + entityDesc.getName()));
     String uuid = file + ":" + number;
     if (value.hasValue()) {
       return StreamElement.update(entityDesc, attributeDesc,
@@ -178,7 +181,9 @@ public class HdfsBatchLogObservable implements BatchLogObservable, Serializable 
   static Map.Entry<Long, Long> getMinMaxStamp(String name) {
     Matcher matched = HdfsDataAccessor.PART_FILE_PARSER.matcher(name);
     if (matched.find()) {
-      return Maps.immutableEntry(Long.valueOf(matched.group(1)), Long.valueOf(matched.group(2)));
+      return Maps.immutableEntry(
+          Long.valueOf(matched.group(1)),
+          Long.valueOf(matched.group(2)));
     }
     return Maps.immutableEntry(-1L, -1L);
   }

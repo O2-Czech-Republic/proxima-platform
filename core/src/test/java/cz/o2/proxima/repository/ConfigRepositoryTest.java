@@ -78,17 +78,17 @@ public class ConfigRepositoryTest {
     EntityDescriptor event = repo.findEntity("event").get();
     assertEquals("event", event.getName());
     assertEquals("data", event.findAttribute("data").get().getName());
-    assertEquals("bytes", event.findAttribute("data").get().getSchemeURI().getScheme());
+    assertEquals("bytes", event.findAttribute("data").get().getSchemeUri().getScheme());
     assertNotNull(event.findAttribute("data").get().getValueSerializer());
 
     EntityDescriptor gateway = repo.findEntity("gateway").get();
     assertEquals("gateway", gateway.getName());
     assertEquals("bytes:byte[]",
-        gateway.findAttribute("armed").get().getSchemeURI().toString());
+        gateway.findAttribute("armed").get().getSchemeUri().toString());
     assertEquals("fail:whenever",
-        gateway.findAttribute("fail").get().getSchemeURI().toString());
+        gateway.findAttribute("fail").get().getSchemeUri().toString());
     assertEquals("bytes:byte[]",
-        gateway.findAttribute("bytes").get().getSchemeURI().toString());
+        gateway.findAttribute("bytes").get().getSchemeUri().toString());
 
     assertEquals(1, repo.getTransformations().size());
     TransformationDescriptor transform = Iterables.getFirst(

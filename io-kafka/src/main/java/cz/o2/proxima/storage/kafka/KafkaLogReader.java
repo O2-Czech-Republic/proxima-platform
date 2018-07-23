@@ -80,7 +80,7 @@ public class KafkaLogReader extends AbstractStorage
   private final String topic;
 
   KafkaLogReader(KafkaAccessor accessor, Context context) {
-    super(accessor.getEntityDescriptor(), accessor.getURI());
+    super(accessor.getEntityDescriptor(), accessor.getUri());
     this.accessor = accessor;
     this.context = context;
     this.consumerPollInterval = accessor.getConsumerPollInterval();
@@ -107,6 +107,35 @@ public class KafkaLogReader extends AbstractStorage
         new KafkaLogObserver.LogObserverKafkaLogObserver(observer));
   }
 
+  @Override
+  public <T> Dataset<T> observe(
+      Flow flow, String name, PartitionedLogObserver<T> observer) {
+
+    BlockingQueue<T> queue = new ArrayBlockingQueue<>(100);
+    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+
+    DataSourceUtils.Producer producer = () -> {
+      handle.set(observeKafka(name, null, Position.NEWEST, false,
+          KafkaLogObserver.PartitionedLogObserverKafkaLogObserver.of(
+              observer, Utils.unchecked(queue::put))));
+    };
+
+    Serializable lock = new Serializable() { };
+    DataSource<T> source = DataSourceUtils.fromPartitions(
+        DataSourceUtils.fromBlockingQueue(
+            queue, producer, () -> handle.get().getCurrentOffsets(),
+            off -> {
+              synchronized (lock) {
+                Optional.ofNullable(handle.get()).ifPresent(h -> h.resetOffsets(off));
+              }
+            }));
+
+    // we need to remap the input here to be able to directly persist it again
+    return MapElements.of(
+        flow.createInput(source))
+        .using(e -> e)
+        .output();
+  }
 
   @Override
   public ObserveHandle observePartitions(
@@ -120,39 +149,6 @@ public class KafkaLogReader extends AbstractStorage
         null, partitions, position, stopAtCurrent,
         new KafkaLogObserver.LogObserverKafkaLogObserver(observer));
 
-  }
-
-  @Override
-  public ObserveHandle observeBulk(
-      String name,
-      Position position,
-      boolean stopAtCurrent,
-      BulkLogObserver observer) {
-
-    return observeKafkaBulk(name, null, position, stopAtCurrent, observer);
-  }
-
-  @Override
-  public ObserveHandle observeBulkPartitions(
-      String name,
-      Collection<Partition> partitions,
-      Position position,
-      boolean stopAtCurrent,
-      BulkLogObserver observer) {
-
-    // name is ignored, because when observing partition the offsets
-    // are not committed to kafka
-    return observeKafkaBulk(
-        null, asOffsets(partitions),
-        position, stopAtCurrent,
-        observer);
-  }
-
-  @Override
-  public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, BulkLogObserver observer) {
-
-    return observeKafkaBulk(null, offsets, Position.CURRENT, false, observer);
   }
 
   @Override
@@ -188,33 +184,36 @@ public class KafkaLogReader extends AbstractStorage
   }
 
   @Override
-  public <T> Dataset<T> observe(
-      Flow flow, String name, PartitionedLogObserver<T> observer) {
+  public ObserveHandle observeBulk(
+      String name,
+      Position position,
+      boolean stopAtCurrent,
+      BulkLogObserver observer) {
 
-    BlockingQueue<T> queue = new ArrayBlockingQueue<>(100);
-    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+    return observeKafkaBulk(name, null, position, stopAtCurrent, observer);
+  }
 
-    DataSourceUtils.Producer producer = () -> {
-      handle.set(observeKafka(name, null, Position.NEWEST, false,
-          KafkaLogObserver.PartitionedLogObserverKafkaLogObserver.of(
-              observer, Utils.unchecked(queue::put))));
-    };
+  @Override
+  public ObserveHandle observeBulkPartitions(
+      String name,
+      Collection<Partition> partitions,
+      Position position,
+      boolean stopAtCurrent,
+      BulkLogObserver observer) {
 
-    Serializable lock = new Serializable() { };
-    DataSource<T> source = DataSourceUtils.fromPartitions(
-        DataSourceUtils.fromBlockingQueue(
-            queue, producer, () -> handle.get().getCurrentOffsets(),
-            off -> {
-              synchronized (lock) {
-                Optional.ofNullable(handle.get()).ifPresent(h -> h.resetOffsets(off));
-              }
-            }));
+    // name is ignored, because when observing partition the offsets
+    // are not committed to kafka
+    return observeKafkaBulk(
+        null, asOffsets(partitions),
+        position, stopAtCurrent,
+        observer);
+  }
 
-    // we need to remap the input here to be able to directly persist it again
-    return MapElements.of(
-        flow.createInput(source))
-        .using(e -> e)
-        .output();
+  @Override
+  public ObserveHandle observeBulkOffsets(
+      Collection<Offset> offsets, BulkLogObserver observer) {
+
+    return observeKafkaBulk(null, offsets, Position.CURRENT, false, observer);
   }
 
   @Override
@@ -302,13 +301,13 @@ public class KafkaLogReader extends AbstractStorage
     OffsetCommitter<TopicPartition> offsetCommitter = new OffsetCommitter<>();
 
     BiConsumer<TopicPartition, ConsumerRecord<String, byte[]>> preWrite = (tp, r) ->
-      offsetCommitter.register(tp, r.offset(), 1,
-          () -> {
-            OffsetAndMetadata mtd = new OffsetAndMetadata(r.offset() + 1);
-            if (commitToKafka) {
-              kafkaCommitMap.put(tp, mtd);
-            }
-          });
+        offsetCommitter.register(tp, r.offset(), 1,
+            () -> {
+              OffsetAndMetadata mtd = new OffsetAndMetadata(r.offset() + 1);
+              if (commitToKafka) {
+                kafkaCommitMap.put(tp, mtd);
+              }
+            });
 
     OnlineConsumer onlineConsumer = new OnlineConsumer(observer, offsetCommitter, () -> {
       synchronized (kafkaCommitMap) {
@@ -350,12 +349,14 @@ public class KafkaLogReader extends AbstractStorage
     kafkaCommitMap = Collections.synchronizedMap(new HashMap<>());
 
     BulkConsumer bulkConsumer = new BulkConsumer(
-        topic, observer, (tp, o) -> {
+        topic, observer,
+        (tp, o) -> {
           if (commitToKafka) {
             OffsetAndMetadata off = new OffsetAndMetadata(o);
             kafkaCommitMap.put(tp, off);
           }
-        }, () -> {
+        },
+        () -> {
           synchronized (kafkaCommitMap) {
             Map<TopicPartition, OffsetAndMetadata> clone = new HashMap<>(kafkaCommitMap);
             kafkaCommitMap.clear();
@@ -414,7 +415,8 @@ public class KafkaLogReader extends AbstractStorage
         }
 
       });
-      AtomicReference<KafkaConsumer<String, byte[]>> consumerRef = new AtomicReference<>();
+      final AtomicReference<KafkaConsumer<String, byte[]>> consumerRef;
+      consumerRef = new AtomicReference<>();
       try (KafkaConsumer<String, byte[]> kafka = createConsumer(
           name, offsets, listener(name, consumerRef, consumer), position)) {
         consumerRef.set(kafka);
@@ -493,7 +495,8 @@ public class KafkaLogReader extends AbstractStorage
                 ingest = new KafkaStreamElement(
                     getEntityDescriptor(), attr.get(),
                     String.valueOf(r.topic() + "#" + r.partition() + "#" + r.offset()),
-                    entityKey, attribute, r.timestamp(), value, r.partition(), r.offset());
+                    entityKey, attribute, r.timestamp(), value, r.partition(),
+                    r.offset());
               }
             }
             boolean cont = consumer.consumeWithConfirm(
@@ -524,7 +527,9 @@ public class KafkaLogReader extends AbstractStorage
             throw new RuntimeException(errorThrown);
           }
           poll = kafka.poll(consumerPollInterval);
-        } while (!shutdown.get() && !completed.get() && !Thread.currentThread().isInterrupted());
+        } while (!shutdown.get() && !completed.get()
+            && !Thread.currentThread().isInterrupted());
+
         if (!Thread.currentThread().isInterrupted()) {
           consumer.onCompleted();
         } else {

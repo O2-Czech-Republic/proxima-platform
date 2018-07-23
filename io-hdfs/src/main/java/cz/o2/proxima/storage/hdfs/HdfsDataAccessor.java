@@ -61,7 +61,9 @@ public class HdfsDataAccessor implements DataAccessor {
   private final long batchProcessSize;
 
 
-  public HdfsDataAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public HdfsDataAccessor(
+      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+
     this.entityDesc = entityDesc;
     this.uri = uri;
     this.cfg = cfg;
@@ -81,15 +83,20 @@ public class HdfsDataAccessor implements DataAccessor {
 
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
-    return Optional.of(new HdfsBulkAttributeWriter(entityDesc, uri, cfg, minElementsToFlush, rollInterval));
+    return Optional.of(new HdfsBulkAttributeWriter(
+        entityDesc, uri, cfg, minElementsToFlush, rollInterval));
   }
 
   @Override
   public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-    return Optional.of(new HdfsBatchLogObservable(entityDesc, uri, cfg, context, batchProcessSize));
+    return Optional.of(new HdfsBatchLogObservable(
+        entityDesc, uri, cfg, context, batchProcessSize));
   }
 
-  private <T> T getCfg(String name, Map<String, Object> cfg, Function<Object, T> convert, T defVal) {
+  private <T> T getCfg(
+      String name, Map<String, Object> cfg,
+      Function<Object, T> convert, T defVal) {
+    
     return Optional.ofNullable(cfg.get(name)).map(convert).orElse(defVal);
   }
 

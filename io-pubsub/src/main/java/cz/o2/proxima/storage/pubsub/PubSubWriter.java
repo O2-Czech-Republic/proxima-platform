@@ -51,7 +51,7 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
   private transient Executor executor;
 
   PubSubWriter(PubSubAccessor accessor, Context context) {
-    super(accessor.getEntityDescriptor(), accessor.getURI());
+    super(accessor.getEntityDescriptor(), accessor.getUri());
     this.accessor = accessor;
     this.context = context;
   }
@@ -81,7 +81,7 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
       StreamElement data, CommitCallback statusCallback) {
     
     initialize();
-    log.debug("Writing data {} to {}", data, getURI());
+    log.debug("Writing data {} to {}", data, getUri());
     try {
       ApiFuture<String> future = publisher.publish(PubsubMessage.newBuilder()
           .setMessageId(data.getUuid())

@@ -96,18 +96,19 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
     try {
       ensureClient();
-      RawOffset stroff = (RawOffset) offset;
-      Get get = new Get(key.getBytes(UTF8));
+      final RawOffset stroff = (RawOffset) offset;
+      final Get get = new Get(key.getBytes(UTF8));
       get.addFamily(family);
       get.setFilter(new ColumnPrefixFilter(
           wildcard.toAttributePrefix().getBytes(UTF8)));
-      Scan scan = new Scan(get);
+      final Scan scan = new Scan(get);
       if (limit <= 0) {
         limit = Integer.MAX_VALUE;
       }
       scan.setBatch(limit);
       if (stroff != null) {
-        scan.setFilter(new ColumnPaginationFilter(limit, stroff.getOffset().getBytes(UTF8)));
+        scan.setFilter(new ColumnPaginationFilter(
+            limit, stroff.getOffset().getBytes(UTF8)));
       }
 
       int accepted = 0;

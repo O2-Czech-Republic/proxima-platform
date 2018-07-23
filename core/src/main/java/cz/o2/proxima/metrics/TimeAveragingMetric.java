@@ -73,7 +73,9 @@ public class TimeAveragingMetric extends ScalarMetric {
   @Override
   public synchronized Double getValue() {
     long now = System.nanoTime();
-    if (now - startNanos < windowLengthNanos) return 0.0;
+    if (now - startNanos < windowLengthNanos) {
+      return 0.0;
+    }
     storeCheckpoints(now);
     applyCheckpoints(now);
     if (checkpoints.isEmpty()) {

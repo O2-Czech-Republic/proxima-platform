@@ -28,12 +28,14 @@ import lombok.extern.slf4j.Slf4j;
  * A {@link OnlineAttributeWriter} implementation for Cassandra.
  */
 @Slf4j
-class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAttributeWriter {
+class CassandraWriter
+    extends AbstractOnlineAttributeWriter
+    implements OnlineAttributeWriter {
 
   private final CassandraDBAccessor accessor;
 
   CassandraWriter(CassandraDBAccessor accessor) {
-    super(accessor.getEntityDescriptor(), accessor.getURI());
+    super(accessor.getEntityDescriptor(), accessor.getUri());
     this.accessor = accessor;
   }
 
@@ -44,7 +46,8 @@ class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAtt
 
     try {
       Session session = accessor.ensureSession();
-      Optional<BoundStatement> cql = accessor.getCqlFactory().getWriteStatement(data, session);
+      Optional<BoundStatement> cql = accessor.getCqlFactory()
+          .getWriteStatement(data, session);
       if (cql.isPresent()) {
         accessor.execute(cql.get());
       } else {

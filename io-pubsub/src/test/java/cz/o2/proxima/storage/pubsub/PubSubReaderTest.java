@@ -99,12 +99,12 @@ public class PubSubReaderTest {
     this.attr = AttributeDescriptor.newBuilder(repo)
         .setEntity("entity")
         .setName("attr")
-        .setSchemeURI(new URI("bytes:///"))
+        .setSchemeUri(new URI("bytes:///"))
         .build();
     this.wildcard = AttributeDescriptor.newBuilder(repo)
         .setEntity("entity")
         .setName("wildcard.*")
-        .setSchemeURI(new URI("bytes:///"))
+        .setSchemeUri(new URI("bytes:///"))
         .build();
     this.entity = EntityDescriptor.newBuilder()
         .setName("entity")

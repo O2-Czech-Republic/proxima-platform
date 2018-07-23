@@ -84,7 +84,9 @@ public class Console {
    * main method.
    * @return the singleton instance
    */
-  public static final Console get() { return INSTANCE; }
+  public static final Console get() {
+    return INSTANCE;
+  }
 
   public static Console get(String[] args) throws Exception {
     if (INSTANCE == null) {
@@ -253,7 +255,8 @@ public class Console {
             .map(af -> af.getCommitLogReader().get())
             .findAny()
             .orElseThrow(() -> new IllegalStateException(
-                "Cannot create batch snapshot, missing random access family and state commit log for " + attrDesc));
+                "Cannot create batch snapshot, missing random access family "
+                    + "and state commit log for " + attrDesc));
         Dataset<StreamElement> stream = flow.get().createInput(
             UnboundedStreamSource.of(reader, Position.OLDEST));
 
@@ -262,7 +265,8 @@ public class Console {
             .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
             .output();
 
-        Dataset<Pair<Pair<String, String>, StreamElement>> reduced = ReduceByKey.of(stream)
+        final Dataset<Pair<Pair<String, String>, StreamElement>> reduced;
+        reduced = ReduceByKey.of(stream)
             .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
             .combineBy(values -> {
               StreamElement res = null;
@@ -277,7 +281,10 @@ public class Console {
             .output();
 
         input = FlatMap.of(reduced)
-            .using((Pair<Pair<String, String>, StreamElement> e, Collector<StreamElement> ctx) -> {
+            .using((
+                Pair<Pair<String, String>, StreamElement> e,
+                Collector<StreamElement> ctx) -> {
+
               if (e.getSecond().getValue() != null) {
                 ctx.collect(e.getSecond());
               }
@@ -377,8 +384,8 @@ public class Console {
           ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
           TextFormat.ParseException {
 
-    if (attrDesc.getSchemeURI().getScheme().equals("proto")) {
-      String protoClass = attrDesc.getSchemeURI().getSchemeSpecificPart();
+    if (attrDesc.getSchemeUri().getScheme().equals("proto")) {
+      String protoClass = attrDesc.getSchemeUri().getSchemeSpecificPart();
       Class<AbstractMessage> cls = Classpath.findClass(protoClass, AbstractMessage.class);
       byte[] payload = null;
       if (textFormat != null) {
@@ -412,7 +419,7 @@ public class Console {
     } else {
       throw new IllegalArgumentException(
           "Don't know how to make builder for "
-          + attrDesc.getSchemeURI());
+          + attrDesc.getSchemeUri());
     }
 
   }
@@ -421,28 +428,28 @@ public class Console {
       EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc,
       String key, String attribute) throws InterruptedException {
 
-      Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(attrDesc);
-      OnlineAttributeWriter writer = families.stream()
-          .filter(af -> af.getType() == StorageType.PRIMARY)
-          .findAny()
-          .orElse(families.stream().findAny().get())
-          .getWriter()
-          .get()
-          .online();
-      CountDownLatch latch = new CountDownLatch(1);
-      AtomicReference<Throwable> exc = new AtomicReference<>();
-      writer.write(StreamElement.update(
-          entityDesc, attrDesc, UUID.randomUUID().toString(),
-          key, attribute, System.currentTimeMillis(), null), (success, ex) -> {
-            if (!success) {
-              exc.set(ex);
-            }
-            latch.countDown();
-          });
-      latch.await();
-      if (exc.get() != null) {
-        throw new RuntimeException(exc.get());
-      }
+    Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(attrDesc);
+    OnlineAttributeWriter writer = families.stream()
+        .filter(af -> af.getType() == StorageType.PRIMARY)
+        .findAny()
+        .orElse(families.stream().findAny().get())
+        .getWriter()
+        .get()
+        .online();
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Throwable> exc = new AtomicReference<>();
+    writer.write(StreamElement.update(
+        entityDesc, attrDesc, UUID.randomUUID().toString(),
+        key, attribute, System.currentTimeMillis(), null), (success, ex) -> {
+          if (!success) {
+            exc.set(ex);
+          }
+          latch.countDown();
+        });
+    latch.await();
+    if (exc.get() != null) {
+      throw new RuntimeException(exc.get());
+    }
   }
 
   public EntityDescriptor findEntityDescriptor(String entity) {

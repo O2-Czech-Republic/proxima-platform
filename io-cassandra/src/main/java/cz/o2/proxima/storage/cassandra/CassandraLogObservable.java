@@ -78,7 +78,8 @@ class CassandraLogObservable implements BatchLogObservable {
           CassandraPartition p = (CassandraPartition) it.next();
           ResultSet result;
           Session session = accessor.ensureSession();
-          result = accessor.execute(accessor.getCqlFactory().scanPartition(attributes, p, session));
+          result = accessor.execute(
+              accessor.getCqlFactory().scanPartition(attributes, p, session));
           AtomicLong position = new AtomicLong();
           Iterator<Row> rowIter = result.iterator();
           while (rowIter.hasNext() && cont) {
@@ -108,7 +109,7 @@ class CassandraLogObservable implements BatchLogObservable {
                 }
               }
             }
-          };
+          }
         }
         observer.onCompleted();
       } catch (Throwable err) {

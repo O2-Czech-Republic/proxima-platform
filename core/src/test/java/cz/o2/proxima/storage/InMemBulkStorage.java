@@ -42,7 +42,7 @@ public class InMemBulkStorage extends StorageDescriptor {
     public void write(StreamElement data, CommitCallback statusCallback) {
       // store the data, commit after each 10 elements
       InMemBulkStorage.this.data.put(
-          getURI().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
+          getUri().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
           data.getValue());
       if (++writtenSinceLastCommit >= 10) {
         statusCallback.commit(true, null);

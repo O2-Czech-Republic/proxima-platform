@@ -50,6 +50,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -93,8 +94,14 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
             "Fallbacking to lookup of proxy attribute with name {}. "
                 + "This can happen when switching to and from replicated modes.",
             name);
-
-        return Arrays.asList(lookupProxy(name));
+        try {
+          return Arrays.asList(lookupProxy(name));
+        } catch (Exception ex) {
+          log.warn(
+              "Error during lookup of {}. This might indicate serious problem.",
+              name, ex);
+          return Collections.emptyList();
+        }
       }
       return read;
     }

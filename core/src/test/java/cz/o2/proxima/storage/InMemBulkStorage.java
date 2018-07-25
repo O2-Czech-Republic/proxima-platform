@@ -15,14 +15,25 @@
  */
 package cz.o2.proxima.storage;
 
+import com.google.common.base.Preconditions;
+import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.storage.batch.BatchLogObservable;
+import cz.o2.proxima.storage.batch.BatchLogObserver;
+import cz.o2.proxima.util.Pair;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import lombok.Getter;
 
 /**
@@ -43,7 +54,7 @@ public class InMemBulkStorage extends StorageDescriptor {
       // store the data, commit after each 10 elements
       InMemBulkStorage.this.data.put(
           getUri().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
-          data.getValue());
+          Pair.of(data.getStamp(), data.getValue()));
       if (++writtenSinceLastCommit >= 10) {
         statusCallback.commit(true, null);
         writtenSinceLastCommit = 0;
@@ -53,6 +64,67 @@ public class InMemBulkStorage extends StorageDescriptor {
     @Override
     public void rollback() {
       // nop
+    }
+
+  }
+
+  private class BatchObservable extends AbstractStorage implements BatchLogObservable {
+
+    private final Factory<ExecutorService> executorFactory;
+    private transient ExecutorService executor;
+
+    private BatchObservable(
+        EntityDescriptor entityDesc,
+        URI uri,
+        Factory<ExecutorService> executorFactory) {
+
+      super(entityDesc, uri);
+      this.executorFactory = executorFactory;
+    }
+
+    @Override
+    public List<Partition> getPartitions(long startStamp, long endStamp) {
+      return Arrays.asList(() -> 0);
+    }
+
+    @Override
+    public void observe(
+        List<Partition> partitions,
+        List<AttributeDescriptor<?>> attributes,
+        BatchLogObserver observer) {
+
+      Preconditions.checkArgument(
+          partitions.size() == 1,
+          "This observable works on single partition only, got " + partitions);
+      int prefix = getUri().getPath().length() + 1;
+      executor().execute(() -> {
+        try {
+          InMemBulkStorage.this.data.forEach((k, v) -> {
+            String[] parts = k.substring(prefix).split("#");
+            String key = parts[0];
+            String attribute = parts[1];
+            getEntityDescriptor().findAttribute(attribute, true)
+                .flatMap(desc -> attributes.contains(desc)
+                    ? Optional.of(desc) : Optional.empty())
+                .ifPresent(desc -> {
+                  observer.onNext(StreamElement.update(
+                      getEntityDescriptor(), desc, UUID.randomUUID().toString(), key,
+                      attribute, v.getFirst(), v.getSecond()));
+                });
+          });
+          observer.onCompleted();
+        } catch (Throwable err) {
+          observer.onError(err);
+        }
+      });
+
+    }
+
+    private Executor executor() {
+      if (executor == null) {
+        executor = executorFactory.apply();
+      }
+      return executor;
     }
 
   }
@@ -72,10 +144,16 @@ public class InMemBulkStorage extends StorageDescriptor {
       return Optional.of(new Writer(entityDesc, uri));
     }
 
+    @Override
+    public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
+      return Optional.of(new BatchObservable(
+          entityDesc, uri, () -> context.getExecutorService()));
+    }
+
   }
 
   @Getter
-  private final NavigableMap<String, byte[]> data = new TreeMap<>();
+  private final NavigableMap<String, Pair<Long, byte[]>> data = new TreeMap<>();
 
   public InMemBulkStorage() {
     super(Collections.singletonList("inmem-bulk"));

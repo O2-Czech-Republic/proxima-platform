@@ -27,7 +27,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.concurrent.BlockingQueue;
+import javax.annotation.Nullable;
 
 /**
  * Utils for creating and managing {@code DataSource}s.
@@ -35,6 +37,10 @@ import java.util.concurrent.BlockingQueue;
 @Internal
 @Slf4j
 public class DataSourceUtils {
+
+  private DataSourceUtils() {
+    throw new IllegalStateException("Utility class");
+  }
 
   /**
    * Function to be called to start the producer of data.
@@ -50,7 +56,7 @@ public class DataSourceUtils {
   }
 
   /**
-   * Create unbounded {@code DataSource} from {@code BlockingQueue}.
+   * Create {@link UnboundedPartition} from {@link BlockingQueue}.
    * @param <T> data type to read
    * @param <OFF> type of the offset
    * @param queue the blocking queue to read
@@ -62,14 +68,16 @@ public class DataSourceUtils {
    */
   public static <T, OFF extends Serializable> UnboundedPartition<T, List<OFF>>
       fromBlockingQueue(
-      BlockingQueue<T> queue,
-      Producer producer,
-      Factory<List<OFF>> offsetProducer,
-      Consumer<List<OFF>> offsetReset) {
+          BlockingQueue<T> queue,
+          Producer producer,
+          Factory<List<OFF>> offsetProducer,
+          Consumer<List<OFF>> offsetReset) {
 
     return () -> {
       producer.run();
       return new UnboundedReader<T, List<OFF>>() {
+
+        @Nullable
         T next = null;
 
         @Override
@@ -90,6 +98,9 @@ public class DataSourceUtils {
         @Override
         public boolean hasNext() {
           try {
+            if (next != null) {
+              return true;
+            }
             next = queue.take();
             return true;
           } catch (InterruptedException ex) {
@@ -100,7 +111,12 @@ public class DataSourceUtils {
 
         @Override
         public T next() {
-          return next;
+          if (!hasNext()) {
+            throw new NoSuchElementException();
+          }
+          T current = next;
+          next = null;
+          return current;
         }
 
         @Override

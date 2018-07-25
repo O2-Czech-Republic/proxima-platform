@@ -72,12 +72,13 @@ public class DatasetUtils {
     long now = System.currentTimeMillis();
     Map<BatchLogObservable, List<AttributeDescriptor<?>>> readers = new HashMap<>();
     for (AttributeDescriptor a : attrs) {
-      AttributeFamilyDescriptor afd = repo.getFamiliesForAttribute(a).stream()
+      BatchLogObservable observable = repo.getFamiliesForAttribute(a).stream()
           .filter(af -> af.getAccess().canReadBatchUpdates())
           .findAny()
+          .flatMap(AttributeFamilyDescriptor::getBatchObservable)
           .orElseThrow(() -> new IllegalArgumentException(
               "Attribute " + a + " has no batch observable"));
-      readers.compute(afd.getBatchObservable().get(), (k, current) -> {
+      readers.compute(observable, (k, current) -> {
         current = current == null ? new ArrayList<>() : current;
         if (!current.contains(a)) {
           current.add(a);

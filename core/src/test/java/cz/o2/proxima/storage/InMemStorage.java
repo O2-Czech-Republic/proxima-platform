@@ -15,11 +15,15 @@
  */
 package cz.o2.proxima.storage;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.storage.batch.BatchLogObservable;
+import cz.o2.proxima.storage.batch.BatchLogObserver;
 import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.LogObserver;
@@ -55,6 +59,9 @@ import cz.o2.proxima.storage.randomaccess.RawOffset;
 import cz.o2.proxima.view.PartitionedCachedView;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -132,12 +139,15 @@ public class InMemStorage extends StorageDescriptor {
       implements CommitLogReader, PartitionedView {
 
     private final NavigableMap<Integer, InMemIngestWriter> observers;
+    private final NavigableMap<String, Pair<Long, byte[]>> data;
 
     private InMemCommitLogReader(
         EntityDescriptor entityDesc, URI uri,
+        NavigableMap<String, Pair<Long, byte[]>> data,
         NavigableMap<Integer, InMemIngestWriter> observers) {
 
       super(entityDesc, uri);
+      this.data = data;
       this.observers = observers;
     }
 
@@ -167,7 +177,15 @@ public class InMemStorage extends StorageDescriptor {
         LogObserver observer) {
 
       log.debug("Observing {} as {}", getUri(), name);
-      logAndFixPosition(position);
+      try {
+        flushBasedOnPosition(
+            position,
+            (el, committer) -> observer.onNext(el, committer::accept));
+      } catch (InterruptedException ex) {
+        log.warn("Interrupted while reading old data.", ex);
+        Thread.currentThread().interrupt();
+        stopAtCurrent = true;
+      }
       final int id;
       if (!stopAtCurrent) {
         synchronized (observers) {
@@ -234,7 +252,15 @@ public class InMemStorage extends StorageDescriptor {
         boolean stopAtCurrent,
         BulkLogObserver observer) {
 
-      logAndFixPosition(position);
+      try {
+        flushBasedOnPosition(
+            position,
+            (el, committer) -> observer.onNext(el, committer::accept));
+      } catch (InterruptedException ex) {
+        log.warn("Interrupted while reading old data", ex);
+        Thread.currentThread().interrupt();
+        stopAtCurrent = true;
+      }
       final int id;
       if (!stopAtCurrent) {
         synchronized (observers) {
@@ -295,18 +321,21 @@ public class InMemStorage extends StorageDescriptor {
 
       SynchronousQueue<T> queue = new SynchronousQueue<>();
       DataSourceUtils.Producer producer = () -> {
-        observer.onRepartition(partitions);
-        observe("partitionedView-" + flow.getName(), new LogObserver() {
+        Object lock = new Object();
+        ObserveHandle handle = observe("partitionedView-" + flow.getName(), new LogObserver() {
+
           @Override
           public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
-            ingest = cloneAndUpdateAttribute(getEntityDescriptor(), ingest);
-            observer.onNext(ingest, confirm::commit, () -> 0, e -> {
-              try {
-                queue.put(e);
-              } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-              }
-            });
+            synchronized (lock) {
+              ingest = cloneAndUpdateAttribute(getEntityDescriptor(), ingest);
+              observer.onNext(ingest, confirm::commit, () -> 0, e -> {
+                try {
+                  queue.put(e);
+                } catch (InterruptedException ex) {
+                  Thread.currentThread().interrupt();
+                }
+              });
+            }
             return true;
           }
 
@@ -316,6 +345,15 @@ public class InMemStorage extends StorageDescriptor {
           }
 
         });
+        synchronized (lock) {
+          try {
+            handle.waitUntilReady();
+          } catch (InterruptedException ex) {
+            throw new RuntimeException(ex);
+          }
+          observer.onRepartition(partitions);
+        }
+
       };
 
       return flow.createInput(
@@ -356,22 +394,53 @@ public class InMemStorage extends StorageDescriptor {
           observer);
     }
 
-    private Position logAndFixPosition(Position position) {
-      if (position != Position.NEWEST) {
-        log.warn(
-            "InMemStorage cannot observe data other than NEWEST, got {}, fixing.",
-            position);
+    private void flushBasedOnPosition(
+        Position position,
+        BiConsumer<StreamElement, BiConsumer<Boolean, Throwable>> consumer)
+        throws InterruptedException {
+
+      if (position == Position.OLDEST) {
+        synchronized (data) {
+          int prefix = getUri().getPath().length() + 1;
+          CountDownLatch latch = new CountDownLatch(data.size());
+          data.entrySet()
+              .stream()
+              .sorted((a, b) ->
+                  Long.compare(a.getValue().getFirst(), b.getValue().getFirst()))
+              .forEach(e -> {
+                String[] parts = e.getKey().substring(prefix).split("#");
+                String key = parts[0];
+                String attribute = parts[1];
+                AttributeDescriptor<?> desc = getEntityDescriptor()
+                    .findAttribute(attribute, true)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                        "Missing attribute " + attribute));
+                byte[] value = e.getValue().getSecond();
+                StreamElement element = StreamElement.update(
+                    getEntityDescriptor(), desc, UUID.randomUUID().toString(),
+                    key, attribute, e.getValue().getFirst(), value);
+                consumer.accept(element, (succ, exc) -> {
+                  if (!succ) {
+                    throw new IllegalStateException("Error in observing old data", exc);
+                  }
+                  latch.countDown();
+                });
+              });
+          latch.await();
+        }
       }
-      return Position.NEWEST;
     }
 
   }
 
   private static final class Reader
       extends AbstractStorage
-      implements RandomAccessReader {
+      implements RandomAccessReader, BatchLogObservable {
 
     private final NavigableMap<String, Pair<Long, byte[]>> data;
+    @Setter
+    private Factory<Executor> executorFactory;
+    private transient Executor executor;
 
     private Reader(
         EntityDescriptor entityDesc, URI uri,
@@ -499,6 +568,50 @@ public class InMemStorage extends StorageDescriptor {
     @Override
     public RandomOffset fetchOffset(Listing type, String key) {
       return new RawOffset(key);
+    }
+
+    @Override
+    public List<Partition> getPartitions(long startStamp, long endStamp) {
+      return Arrays.asList(() -> 0);
+    }
+
+    @Override
+    public void observe(
+        List<Partition> partitions,
+        List<AttributeDescriptor<?>> attributes,
+        BatchLogObserver observer) {
+
+      Preconditions.checkArgument(
+          partitions.size() == 1,
+          "This observable works on single partition only, got " + partitions);
+      int prefix = getUri().getPath().length() + 1;
+      executor().execute(() -> {
+        try {
+          data.forEach((k, v) -> {
+            String[] parts = k.substring(prefix).split("#");
+            String key = parts[0];
+            String attribute = parts[1];
+            getEntityDescriptor().findAttribute(attribute, true)
+                .flatMap(desc -> attributes.contains(desc)
+                    ? Optional.of(desc) : Optional.empty())
+                .ifPresent(desc -> {
+                  observer.onNext(StreamElement.update(
+                      getEntityDescriptor(), desc, UUID.randomUUID().toString(), key,
+                      attribute, v.getFirst(), v.getSecond()));
+                });
+          });
+          observer.onCompleted();
+        } catch (Throwable err) {
+          observer.onError(err);
+        }
+      });
+    }
+
+    private Executor executor() {
+      if (executor == null) {
+        executor = executorFactory.apply();
+      }
+      return executor;
     }
 
   }
@@ -646,7 +759,7 @@ public class InMemStorage extends StorageDescriptor {
     NavigableMap<Integer, InMemIngestWriter> uriObservers = observers.get(uri);
     Writer writer = new Writer(entityDesc, uri, data, uriObservers);
     InMemCommitLogReader commitLogReader = new InMemCommitLogReader(
-        entityDesc, uri, uriObservers);
+        entityDesc, uri, data, uriObservers);
     Reader reader = new Reader(entityDesc, uri, data);
     CachedView cachedView = new CachedView(reader, commitLogReader, writer);
 
@@ -679,6 +792,13 @@ public class InMemStorage extends StorageDescriptor {
       public Optional<PartitionedCachedView> getCachedView(Context context) {
         Objects.requireNonNull(context);
         return Optional.of(cachedView);
+      }
+
+      @Override
+      public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
+        Objects.requireNonNull(context);
+        reader.setExecutorFactory(() -> context.getExecutorService());
+        return Optional.of(reader);
       }
 
     };

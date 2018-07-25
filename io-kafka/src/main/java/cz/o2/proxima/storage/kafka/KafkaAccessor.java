@@ -125,25 +125,32 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
-    return Optional.of(new KafkaWriter(this));
+    return Optional.of(newWriter());
   }
 
   @Override
   public Optional<CommitLogReader> getCommitLogReader(Context context) {
-    return Optional.of(new KafkaLogReader(this, context));
+    return Optional.of(newReader(context));
   }
 
   @Override
   public Optional<PartitionedView> getPartitionedView(Context context) {
-    return Optional.of(new KafkaLogReader(this, context));
+    return Optional.of(newReader(context));
   }
 
   @Override
   public Optional<PartitionedCachedView> getCachedView(Context context) {
     return Optional.of(new LocalCachedPartitionedView(
-        getEntityDescriptor(),
-        new KafkaLogReader(this, context),
-        getWriter(context).get().online()));
+        getEntityDescriptor(), newReader(context),
+        newWriter()));
+  }
+
+  KafkaWriter newWriter() {
+    return new KafkaWriter(this);
+  }
+
+  KafkaLogReader newReader(Context context) {
+    return new KafkaLogReader(this, context);
   }
 
 }

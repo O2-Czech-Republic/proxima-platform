@@ -244,6 +244,7 @@ public class KafkaLogReader extends AbstractStorage
           name != null, observer, context.getExecutorService());
     } catch (InterruptedException ex) {
       log.warn("Interrupted waiting for kafka observer to start", ex);
+      Thread.currentThread().interrupt();
       throw new RuntimeException(ex);
     }
   }
@@ -269,6 +270,7 @@ public class KafkaLogReader extends AbstractStorage
           name != null, observer, context.getExecutorService());
     } catch (InterruptedException ex) {
       log.warn("Interrupted waiting for kafka observer to start", ex);
+      Thread.currentThread().interrupt();
       throw new RuntimeException(ex);
     }
 
@@ -544,6 +546,7 @@ public class KafkaLogReader extends AbstractStorage
                 preWrite, consumer, executor, handle);
           } catch (InterruptedException ex) {
             log.warn("Interrupted while restarting observer");
+            Thread.currentThread().interrupt();
             throw new RuntimeException(ex);
           }
         }

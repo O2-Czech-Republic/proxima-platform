@@ -101,7 +101,9 @@ public class OffsetCommitter<ID> {
     }
     current.put(offset, new OffsetMeta(numActions, commit));
     if (numActions == 0) {
-      checkCommitable(id, current);
+      synchronized (current) {
+        checkCommitable(id, current);
+      }
     }
   }
 
@@ -118,31 +120,31 @@ public class OffsetCommitter<ID> {
       if (meta != null) {
         meta.decrement();
       }
-      checkCommitable(id, current);
+      synchronized (current) {
+        checkCommitable(id, current);
+      }
     }
   }
 
   private void checkCommitable(ID id, Map<Long, OffsetMeta> current) {
-    synchronized (current) {
-      List<Map.Entry<Long, OffsetMeta>> commitable = new ArrayList<>();
-      for (Map.Entry<Long, OffsetMeta> e : current.entrySet()) {
-        if (e.getValue().getActions() <= 0) {
-          log.debug(
-              "Adding offset {} of ID {} to committable map.",
-              e.getKey(), id);
-          commitable.add(e);
-        } else {
-          log.debug(
-              "Waiting for still non-committed offset {}, {} actions missing",
-              e.getKey(), e.getValue().getActions());
-          break;
-        }
+    List<Map.Entry<Long, OffsetMeta>> commitable = new ArrayList<>();
+    for (Map.Entry<Long, OffsetMeta> e : current.entrySet()) {
+      if (e.getValue().getActions() <= 0) {
+        log.debug(
+            "Adding offset {} of ID {} to committable map.",
+            e.getKey(), id);
+        commitable.add(e);
+      } else {
+        log.debug(
+            "Waiting for still non-committed offset {}, {} actions missing",
+            e.getKey(), e.getValue().getActions());
+        break;
       }
-      if (!commitable.isEmpty()) {
-        Map.Entry<Long, OffsetMeta> toCommit = commitable.get(commitable.size() - 1);
-        toCommit.getValue().getCommit().apply();
-        commitable.forEach(e -> current.remove(e.getKey()));
-      }
+    }
+    if (!commitable.isEmpty()) {
+      Map.Entry<Long, OffsetMeta> toCommit = commitable.get(commitable.size() - 1);
+      toCommit.getValue().getCommit().apply();
+      commitable.forEach(e -> current.remove(e.getKey()));
     }
   }
 

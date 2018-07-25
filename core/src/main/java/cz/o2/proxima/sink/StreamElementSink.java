@@ -68,7 +68,7 @@ public class StreamElementSink<T> implements DataSink<StreamElement> {
 
       @Override
       public void commit() throws IOException {
-
+        // nop
       }
 
       @Override

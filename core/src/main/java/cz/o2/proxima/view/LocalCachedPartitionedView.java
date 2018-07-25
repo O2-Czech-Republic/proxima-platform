@@ -228,6 +228,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
       handle.set(reader.observeBulkOffsets(offsets, observer));
       handle.get().waitUntilReady();
     } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
       throw new RuntimeException(ex);
     }
   }

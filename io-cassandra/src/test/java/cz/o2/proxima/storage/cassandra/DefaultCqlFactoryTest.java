@@ -128,7 +128,7 @@ public class DefaultCqlFactoryTest {
     factory.setup(
         entity,
         new URI("cassandra://wherever/my_table?data=my_col&primary=hgw"),
-        StringConverter.DEFAULT);
+        StringConverter.getDefault());
   }
 
 
@@ -137,7 +137,7 @@ public class DefaultCqlFactoryTest {
     factory.setup(
         entity,
         new URI("cassandra://wherever/my_table"),
-        StringConverter.DEFAULT);
+        StringConverter.getDefault());
   }
 
 
@@ -146,7 +146,7 @@ public class DefaultCqlFactoryTest {
     factory.setup(
         entity,
         new URI("cassandra://wherever/my_table?primary=hgw"),
-        StringConverter.DEFAULT);
+        StringConverter.getDefault());
   }
 
 
@@ -155,7 +155,7 @@ public class DefaultCqlFactoryTest {
     factory.setup(
         entity,
         new URI("cassandra://wherever/"),
-        StringConverter.DEFAULT);
+        StringConverter.getDefault());
   }
 
   @Test
@@ -186,7 +186,7 @@ public class DefaultCqlFactoryTest {
     factory.setup(
         entity,
         new URI("cassandra://wherever/my_table?data=my_col&primary=hgw&ttl=86400"),
-        StringConverter.DEFAULT);
+        StringConverter.getDefault());
     StreamElement ingest = StreamElement.update(
         entity, attr, "", "key", "myAttribute",
         now, "value".getBytes());
@@ -390,7 +390,7 @@ public class DefaultCqlFactoryTest {
         entity,
         new URI("cassandra://wherever/my_table?data=my_col"
             + "&primary=hgw&secondary=stamp"),
-        StringConverter.DEFAULT);
+        StringConverter.getDefault());
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", "", Integer.MAX_VALUE)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);

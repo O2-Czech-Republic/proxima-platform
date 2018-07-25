@@ -20,6 +20,7 @@ import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.StreamElement;
 import java.util.Properties;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -38,7 +39,8 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
   private final Partitioner partitioner;
   private final String topic;
 
-  private KafkaProducer<String, byte[]> producer;
+  @Nullable
+  private transient KafkaProducer<String, byte[]> producer;
 
   KafkaWriter(KafkaAccessor accessor) {
     super(accessor.getEntityDescriptor(), accessor.getUri());

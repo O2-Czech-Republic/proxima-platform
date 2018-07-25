@@ -19,6 +19,7 @@ import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.Blob;
 import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.BulkAttributeWriter;
@@ -74,16 +75,17 @@ public class BulkGCloudStorageWriter
     }
   }
 
+  private final Factory<Executor> executorFactory;
   private final File tmpDir;
   private final long rollPeriod;
   private final boolean gzip;
   private final int bufferSize;
-  private final Executor flushExecutor;
+  private transient Executor flushExecutor;
+  private transient BinaryBlob localBlob = null;
+  private transient BinaryBlob.Writer writer = null;
   private boolean anyflush = false;
   private long minTimestamp = Long.MAX_VALUE;
   private long maxTimestamp = Long.MIN_VALUE;
-  private BinaryBlob localBlob = null;
-  private BinaryBlob.Writer writer = null;
   private long lastFlushStamp;
   private boolean forceFlush = false;
 
@@ -113,7 +115,7 @@ public class BulkGCloudStorageWriter
         .map(Integer::valueOf)
         .orElse(1024 * 1024);
 
-    flushExecutor = context.getExecutorService();
+    executorFactory = context::getExecutorService;
     lastFlushStamp = System.currentTimeMillis() / rollPeriod * rollPeriod;
 
     init();
@@ -143,7 +145,7 @@ public class BulkGCloudStorageWriter
         final long flushMinStamp = minTimestamp;
         final long flushMaxStamp = maxTimestamp;
         lastFlushStamp = now;
-        flushExecutor.execute(
+        flushExecutor().execute(
             () -> flush(flushFile, flushMinStamp, flushMaxStamp, statusCallback));
         writer = null;
         minTimestamp = Long.MAX_VALUE;
@@ -203,7 +205,7 @@ public class BulkGCloudStorageWriter
   }
 
   @VisibleForTesting
-  void createLocalBlob() throws IOException {
+  void createLocalBlob() {
     localBlob = new BinaryBlob(new File(tmpDir, UUID.randomUUID().toString()));
   }
 
@@ -233,10 +235,7 @@ public class BulkGCloudStorageWriter
   String toBlobName(long min, long max) {
     String date = DIR_FORMAT.format(LocalDateTime.ofInstant(
         Instant.ofEpochMilli(min), ZoneId.ofOffset("UTC", ZoneOffset.UTC)));
-    String name = String.format(
-        "%s%s-%d_%d_%s.blob", date, PREFIX, min, max,
-        uuid());
-    return name;
+    return String.format("%s%s-%d_%d_%s.blob", date, PREFIX, min, max, uuid());
   }
 
   @VisibleForTesting
@@ -247,14 +246,14 @@ public class BulkGCloudStorageWriter
   @VisibleForTesting
   void flushToBlob(File file, Blob blob) throws IOException {
     int written = 0;
-    try (final WriteChannel writer = this.client.writer(blob);
+    try (final WriteChannel channel = client().writer(blob);
         final FileInputStream fin = new FileInputStream(file)) {
 
       byte[] buffer = new byte[bufferSize];
       while (fin.available() > 0) {
         int read = fin.read(buffer);
         written += read;
-        writer.write(ByteBuffer.wrap(buffer, 0, read));
+        channel.write(ByteBuffer.wrap(buffer, 0, read));
       }
     }
     log.info(
@@ -268,6 +267,13 @@ public class BulkGCloudStorageWriter
     } catch (IOException ex) {
       throw new RuntimeException(ex);
     }
+  }
+
+  Executor flushExecutor() {
+    if (flushExecutor == null) {
+      flushExecutor = executorFactory.apply();
+    }
+    return flushExecutor;
   }
 
 }

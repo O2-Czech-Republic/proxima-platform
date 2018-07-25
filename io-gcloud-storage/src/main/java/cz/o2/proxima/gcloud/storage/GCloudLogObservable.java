@@ -19,6 +19,7 @@ import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
@@ -48,6 +49,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * {@link BatchLogObservable} for gcloud storage.
@@ -95,24 +97,47 @@ public class GCloudLogObservable
   }
 
   private final long partitionMinSize;
-  private final Executor executor;
+  private final Factory<Executor> executorFactory;
+  @Nullable
+  private transient Executor executor = null;
 
   public GCloudLogObservable(
       EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg,
-      Executor executor) {
+      Factory<Executor> executorFactory) {
 
     super(entityDesc, uri, cfg);
     this.partitionMinSize = Optional.ofNullable(cfg.get("partition.size"))
         .map(Object::toString)
         .map(Long::valueOf)
         .orElse(100 * 1024 * 1024L);
-    this.executor = executor;
+    this.executorFactory = executorFactory;
   }
 
   @Override
   public List<Partition> getPartitions(long startStamp, long endStamp) {
-    DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy/MM");
     List<Partition> ret = new ArrayList<>();
+    Set<String> prefixes = convertStampsToPrefixes(startStamp, endStamp);
+    AtomicInteger id = new AtomicInteger();
+    AtomicReference<GCloudStoragePartition> current = new AtomicReference<>();
+    prefixes.forEach(prefix -> {
+      Page<Blob> p = client().list(this.bucket, BlobListOption.prefix(prefix));
+      for (Blob b : p.iterateAll()) {
+        if (isInRange(b.getName(), startStamp, endStamp)) {
+          if (current.get() == null) {
+            current.set(new GCloudStoragePartition(id.getAndIncrement()));
+          }
+          current.get().add(b);
+          if (current.get().size() >= partitionMinSize) {
+            ret.add(current.getAndSet(null));
+          }
+        }
+      }
+    });
+    return ret;
+  }
+
+  private Set<String> convertStampsToPrefixes(long startStamp, long endStamp) {
+    DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy/MM");
     Set<String> prefixes = new HashSet<>();
     long t = startStamp;
     if (startStamp > Long.MIN_VALUE && endStamp < Long.MAX_VALUE) {
@@ -129,23 +154,7 @@ public class GCloudLogObservable
     } else {
       prefixes.add(this.path) ;
     }
-    AtomicInteger id = new AtomicInteger();
-    AtomicReference<GCloudStoragePartition> current = new AtomicReference<>();
-    prefixes.forEach(prefix -> {
-      Page<Blob> p = this.client.list(this.bucket, BlobListOption.prefix(prefix));
-      for (Blob b : p.iterateAll()) {
-        if (isInRange(b.getName(), startStamp, endStamp)) {
-          if (current.get() == null) {
-            current.set(new GCloudStoragePartition(id.getAndIncrement()));
-          }
-          current.get().add(b);
-          if (current.get().size() >= partitionMinSize) {
-            ret.add(current.getAndSet(null));
-          }
-        }
-      }
-    });
-    return ret;
+    return prefixes;
   }
 
   @VisibleForTesting
@@ -166,7 +175,7 @@ public class GCloudLogObservable
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor.execute(() -> {
+    executor().execute(() -> {
       try {
         Set<AttributeDescriptor<?>> attrs = attributes
             .stream()
@@ -193,6 +202,13 @@ public class GCloudLogObservable
         observer.onError(ex);
       }
     });
+  }
+
+  private Executor executor() {
+    if (executor == null) {
+      executor = executorFactory.apply();
+    }
+    return executor;
   }
 
 }

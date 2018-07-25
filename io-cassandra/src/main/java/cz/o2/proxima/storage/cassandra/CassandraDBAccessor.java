@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
 
@@ -63,9 +64,11 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   @Getter(AccessLevel.PACKAGE)
   private final int batchParallelism;
   /** Our cassandra cluster. */
-  private Cluster cluster;
+  @Nullable
+  private transient Cluster cluster;
   /** Session we are connected to. */
-  private Session session;
+  @Nullable
+  private transient Session session;
 
   @SuppressWarnings({ "unchecked", "rawtypes" })
   public CassandraDBAccessor(
@@ -91,7 +94,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
     }
 
     tmp = cfg.get(CQL_STRING_CONVERTER);
-    StringConverter c = StringConverter.DEFAULT;
+    StringConverter c = StringConverter.getDefault();
     if (tmp != null) {
       try {
         c = (StringConverter) Class.forName(tmp.toString()).newInstance();
@@ -201,7 +204,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
   @VisibleForTesting
   CassandraLogObservable newLogObservable(Context context) {
-    return new CassandraLogObservable(this, context.getExecutorService());
+    return new CassandraLogObservable(this, context::getExecutorService);
   }
 
   @VisibleForTesting

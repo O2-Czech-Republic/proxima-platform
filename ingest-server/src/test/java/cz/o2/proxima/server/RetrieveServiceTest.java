@@ -52,10 +52,11 @@ public class RetrieveServiceTest {
   @Test
   public void testGetWithMissingFields() {
 
-    Rpc.GetRequest request = Rpc.GetRequest.newBuilder().build();
-    List<Rpc.GetResponse> responses = new ArrayList<>();
-    AtomicBoolean finished = new AtomicBoolean(false);
-    StreamObserver<Rpc.GetResponse> responseObserver = new StreamObserver<Rpc.GetResponse>() {
+    final Rpc.GetRequest request = Rpc.GetRequest.newBuilder().build();
+    final List<Rpc.GetResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.GetResponse> responseObserver;
+    responseObserver = new StreamObserver<Rpc.GetResponse>() {
       @Override
       public void onNext(Rpc.GetResponse res) {
         responses.add(res);
@@ -84,10 +85,11 @@ public class RetrieveServiceTest {
   @Test
   public void testListWithMissingFields() {
 
-    Rpc.ListRequest request = Rpc.ListRequest.newBuilder().build();
-    List<Rpc.ListResponse> responses = new ArrayList<>();
-    AtomicBoolean finished = new AtomicBoolean(false);
-    StreamObserver<Rpc.ListResponse> responseObserver = new StreamObserver<Rpc.ListResponse>() {
+    final Rpc.ListRequest request = Rpc.ListRequest.newBuilder().build();
+    final List<Rpc.ListResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.ListResponse> responseObserver;
+    responseObserver = new StreamObserver<Rpc.ListResponse>() {
       @Override
       public void onNext(Rpc.ListResponse res) {
         responses.add(res);
@@ -131,9 +133,10 @@ public class RetrieveServiceTest {
         .setKey(key)
         .build();
 
-    List<Rpc.GetResponse> responses = new ArrayList<>();
-    AtomicBoolean finished = new AtomicBoolean(false);
-    StreamObserver<Rpc.GetResponse> responseObserver = new StreamObserver<Rpc.GetResponse>() {
+    final List<Rpc.GetResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.GetResponse> responseObserver;
+    responseObserver = new StreamObserver<Rpc.GetResponse>() {
       @Override
       public void onNext(Rpc.GetResponse res) {
         responses.add(res);
@@ -163,14 +166,15 @@ public class RetrieveServiceTest {
 
   @Test
   public void testGetNotFound() throws InterruptedException {
-    Rpc.GetRequest request = Rpc.GetRequest.newBuilder()
+    final Rpc.GetRequest request = Rpc.GetRequest.newBuilder()
         .setEntity("dummy")
         .setAttribute("dummy")
         .setKey("some-not-existing-key")
         .build();
-    List<Rpc.GetResponse> responses = new ArrayList<>();
-    AtomicBoolean finished = new AtomicBoolean(false);
-    StreamObserver<Rpc.GetResponse> responseObserver = new StreamObserver<Rpc.GetResponse>() {
+    final List<Rpc.GetResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.GetResponse> responseObserver;
+    responseObserver = new StreamObserver<Rpc.GetResponse>() {
       @Override
       public void onNext(Rpc.GetResponse res) {
         responses.add(res);
@@ -225,7 +229,8 @@ public class RetrieveServiceTest {
 
     List<Rpc.ListResponse> responses = new ArrayList<>();
     AtomicBoolean finished = new AtomicBoolean(false);
-    StreamObserver<Rpc.ListResponse> responseObserver = new StreamObserver<Rpc.ListResponse>() {
+    final StreamObserver<Rpc.ListResponse> responseObserver;
+    responseObserver = new StreamObserver<Rpc.ListResponse>() {
       @Override
       public void onNext(Rpc.ListResponse res) {
         responses.add(res);
@@ -287,9 +292,10 @@ public class RetrieveServiceTest {
         .setOffset("wildcard.1")
         .build();
 
-    List<Rpc.ListResponse> responses = new ArrayList<>();
-    AtomicBoolean finished = new AtomicBoolean(false);
-    StreamObserver<Rpc.ListResponse> responseObserver = new StreamObserver<Rpc.ListResponse>() {
+    final List<Rpc.ListResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.ListResponse> responseObserver;
+    responseObserver = new StreamObserver<Rpc.ListResponse>() {
       @Override
       public void onNext(Rpc.ListResponse res) {
         responses.add(res);
@@ -347,9 +353,10 @@ public class RetrieveServiceTest {
         .setLimit(1)
         .build();
 
-    List<Rpc.ListResponse> responses = new ArrayList<>();
-    AtomicBoolean finished = new AtomicBoolean(false);
-    StreamObserver<Rpc.ListResponse> responseObserver = new StreamObserver<Rpc.ListResponse>() {
+    final List<Rpc.ListResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.ListResponse> responseObserver;
+    responseObserver = new StreamObserver<Rpc.ListResponse>() {
       @Override
       public void onNext(Rpc.ListResponse res) {
         responses.add(res);
@@ -400,9 +407,10 @@ public class RetrieveServiceTest {
         .setKey(key)
         .build();
 
-    List<Rpc.GetResponse> responses = new ArrayList<>();
-    AtomicBoolean finished = new AtomicBoolean(false);
-    StreamObserver<Rpc.GetResponse> responseObserver = new StreamObserver<Rpc.GetResponse>() {
+    final List<Rpc.GetResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.GetResponse> responseObserver;
+    responseObserver = new StreamObserver<Rpc.GetResponse>() {
       @Override
       public void onNext(Rpc.GetResponse res) {
         responses.add(res);

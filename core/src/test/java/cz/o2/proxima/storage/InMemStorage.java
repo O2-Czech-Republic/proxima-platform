@@ -235,6 +235,15 @@ public class InMemStorage extends StorageDescriptor {
     }
 
     @Override
+    public <T> Dataset<T> observe(
+        Flow flow,
+        String name,
+        PartitionedLogObserver<T> observer) {
+
+      return observePartitions(flow, getPartitions(), observer);
+    }
+
+    @Override
     public ObserveHandle observePartitions(
         String name,
         Collection<Partition> partitions,
@@ -243,6 +252,64 @@ public class InMemStorage extends StorageDescriptor {
         LogObserver observer) {
 
       return observe(null, position, stopAtCurrent, observer);
+    }
+
+    @Override
+    public <T> Dataset<T> observePartitions(
+        Flow flow,
+        Collection<Partition> partitions,
+        PartitionedLogObserver<T> observer) {
+
+      if (partitions.size() != 1 || partitions.stream().findFirst().get().getId() != 0) {
+        throw new IllegalArgumentException(
+            "This fake implementation has only single partition");
+      }
+
+      SynchronousQueue<T> queue = new SynchronousQueue<>();
+      DataSourceUtils.Producer producer = () -> {
+        Object lock = new Object();
+        ObserveHandle handle = observe(
+            "partitionedView-" + flow.getName(),
+            new LogObserver() {
+
+              @Override
+              public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
+                synchronized (lock) {
+                  ingest = cloneAndUpdateAttribute(getEntityDescriptor(), ingest);
+                  observer.onNext(ingest, confirm::commit, () -> 0, e -> {
+                    try {
+                      queue.put(e);
+                    } catch (InterruptedException ex) {
+                      Thread.currentThread().interrupt();
+                    }
+                  });
+                }
+                return true;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+
+            });
+        synchronized (lock) {
+          try {
+            handle.waitUntilReady();
+          } catch (InterruptedException ex) {
+            throw new RuntimeException(ex);
+          }
+          observer.onRepartition(partitions);
+        }
+
+      };
+
+      return flow.createInput(
+          DataSourceUtils.fromPartitions(
+              DataSourceUtils.fromBlockingQueue(queue, producer,
+                  () -> new ArrayList<>(),
+                  l -> { })));
+
     }
 
     @Override
@@ -306,71 +373,6 @@ public class InMemStorage extends StorageDescriptor {
         }
 
       };
-    }
-
-    @Override
-    public <T> Dataset<T> observePartitions(
-        Flow flow,
-        Collection<Partition> partitions,
-        PartitionedLogObserver<T> observer) {
-
-      if (partitions.size() != 1 || partitions.stream().findFirst().get().getId() != 0) {
-        throw new IllegalArgumentException(
-            "This fake implementation has only single partition");
-      }
-
-      SynchronousQueue<T> queue = new SynchronousQueue<>();
-      DataSourceUtils.Producer producer = () -> {
-        Object lock = new Object();
-        ObserveHandle handle = observe("partitionedView-" + flow.getName(), new LogObserver() {
-
-          @Override
-          public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
-            synchronized (lock) {
-              ingest = cloneAndUpdateAttribute(getEntityDescriptor(), ingest);
-              observer.onNext(ingest, confirm::commit, () -> 0, e -> {
-                try {
-                  queue.put(e);
-                } catch (InterruptedException ex) {
-                  Thread.currentThread().interrupt();
-                }
-              });
-            }
-            return true;
-          }
-
-          @Override
-          public boolean onError(Throwable error) {
-            throw new RuntimeException(error);
-          }
-
-        });
-        synchronized (lock) {
-          try {
-            handle.waitUntilReady();
-          } catch (InterruptedException ex) {
-            throw new RuntimeException(ex);
-          }
-          observer.onRepartition(partitions);
-        }
-
-      };
-
-      return flow.createInput(
-          DataSourceUtils.fromPartitions(
-              DataSourceUtils.fromBlockingQueue(queue, producer,
-                  () -> new ArrayList<>(),
-                  l -> { })));
-
-    }
-
-    @Override
-    public <T> Dataset<T> observe(
-        Flow flow,
-        String name,
-        PartitionedLogObserver<T> observer) {
-
-      return observePartitions(flow, getPartitions(), observer);
     }
 
     @Override
@@ -523,8 +525,10 @@ public class InMemStorage extends StorageDescriptor {
                 key,
                 attribute,
                 new RawOffset(attribute),
-                attr.get().getValueSerializer().deserialize(e.getValue().getSecond()).get(),
+                attr.get().getValueSerializer().deserialize(
+                    e.getValue().getSecond()).get(),
                 e.getValue().getSecond()));
+            
             if (++count == limit) {
               break;
             }

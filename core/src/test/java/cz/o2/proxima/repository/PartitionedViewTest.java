@@ -43,10 +43,11 @@ public class PartitionedViewTest implements Serializable {
       ConfigFactory.load()
           .withFallback(ConfigFactory.load("test-reference.conf"))
           .resolve()).build();
-  
+
   private transient LocalExecutor executor;
   private final transient EntityDescriptor entity = repo.findEntity("event").get();
-  private final transient AttributeDescriptor<?> attr = entity.findAttribute("data").get();
+  private final transient AttributeDescriptor<?> attr = entity
+      .findAttribute("data").get();
 
   private transient PartitionedView view;
   private transient AttributeWriterBase writer;
@@ -74,31 +75,30 @@ public class PartitionedViewTest implements Serializable {
     SerializableCountDownLatch latch = new SerializableCountDownLatch(1);
     SerializableCountDownLatch start = new SerializableCountDownLatch(1);
 
-    Dataset<String> result = view.observePartitions(view.getPartitions(), new PartitionedLogObserver<String>() {
+    Dataset<String> result = view.observePartitions(view.getPartitions(),
+        new PartitionedLogObserver<String>() {
 
-      @Override
-      public void onRepartition(Collection<Partition> assigned) {
-        start.countDown();
-      }
+          @Override
+          public void onRepartition(Collection<Partition> assigned) {
+            start.countDown();
+          }
 
-      @Override
-      public boolean onNext(
-          StreamElement ingest,
-          PartitionedLogObserver.ConfirmCallback confirm,
-          Partition partition,
-          Consumer<String> collector) {
+          @Override
+          public boolean onNext(
+              StreamElement ingest, ConfirmCallback confirm,
+              Partition partition, Consumer<String> collector) {
 
-        collector.accept(ingest.getKey());
-        confirm.confirm();
-        return true;
-      }
+            collector.accept(ingest.getKey());
+            confirm.confirm();
+            return true;
+          }
 
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
 
-    });
+        });
 
     MapElements.of(result)
         .using(e -> {

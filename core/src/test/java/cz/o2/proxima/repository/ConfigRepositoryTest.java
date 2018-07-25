@@ -147,21 +147,21 @@ public class ConfigRepositoryTest {
         .getCommitLogReader().get()
         .observe("dummy", new LogObserver() {
 
-      @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
-        assertEquals("test", new String(ingest.getValue()));
-        assertEquals("event.abc", ingest.getAttribute());
-        assertEquals(source, ingest.getAttributeDescriptor());
-        latch.countDown();
-        return false;
-      }
+          @Override
+          public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
+            assertEquals("test", new String(ingest.getValue()));
+            assertEquals("event.abc", ingest.getAttribute());
+            assertEquals(source, ingest.getAttributeDescriptor());
+            latch.countDown();
+            return false;
+          }
 
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
 
-    });
+        });
 
     repo.getWriter(source).get().write(StreamElement.update(
         proxied,
@@ -280,9 +280,11 @@ public class ConfigRepositoryTest {
         proxied,
         source, UUID.randomUUID().toString(),
         "key", "event.def", System.currentTimeMillis(), "test2".getBytes("UTF-8"));
-    assertFalse(reader.get("key", target.toAttributePrefix() + "def", target).isPresent());
+    assertFalse(
+        reader.get("key", target.toAttributePrefix() + "def", target).isPresent());
     view.write(update, (succ, exc) -> { });
-    assertTrue(reader.get("key", target.toAttributePrefix() + "raw-def", target).isPresent());
+    assertTrue(
+        reader.get("key", target.toAttributePrefix() + "raw-def", target).isPresent());
     assertTrue(view.get("key", source.toAttributePrefix() + "def", source).isPresent());
   }
 
@@ -745,13 +747,13 @@ public class ConfigRepositoryTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
             .resolve());
-    EntityDescriptor dummy = repo
+    final EntityDescriptor dummy = repo
         .findEntity("dummy2")
         .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
-    AttributeDescriptor<Object> event = dummy
+    final AttributeDescriptor<Object> event = dummy
         .findAttribute("event.*", true)
         .orElseThrow(() -> new IllegalStateException("Missing attribute event.*"));
-    AttributeDescriptor<Object> raw = dummy
+    final AttributeDescriptor<Object> raw = dummy
         .findAttribute("_e.*", true)
         .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
     runAttributeReplicas(repo);
@@ -801,18 +803,18 @@ public class ConfigRepositoryTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
             .resolve());
-    EntityDescriptor dummy = repo
+    final EntityDescriptor dummy = repo
         .findEntity("dummy2")
         .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
-    AttributeDescriptor<Object> event = dummy
+    final AttributeDescriptor<Object> event = dummy
         .findAttribute("event.*")
         .orElseThrow(() -> new IllegalStateException(
             "Missing attribute event.*"));
-    AttributeDescriptor<Object> eventSource = dummy
+    final AttributeDescriptor<Object> eventSource = dummy
         .findAttribute("_dummy2Replication_read$event.*", true)
         .orElseThrow(() -> new IllegalStateException(
             "Missing source attribute for event.*"));
-    AttributeDescriptor<Object> raw = dummy
+    final AttributeDescriptor<Object> raw = dummy
         .findAttribute("_e.*", true)
         .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
     runAttributeReplicas(repo);
@@ -859,14 +861,14 @@ public class ConfigRepositoryTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
             .resolve());
-    EntityDescriptor dummy = repo
+    final EntityDescriptor dummy = repo
         .findEntity("dummy2")
         .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
-    AttributeDescriptor<Object> event = dummy
+    final AttributeDescriptor<Object> event = dummy
         .findAttribute("event.*")
         .orElseThrow(() -> new IllegalStateException(
             "Missing attribute event.*"));
-    AttributeDescriptor<Object> raw = dummy
+    final AttributeDescriptor<Object> raw = dummy
         .findAttribute("_e.*", true)
         .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
     runAttributeReplicas(repo);
@@ -913,19 +915,19 @@ public class ConfigRepositoryTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
             .resolve());
-    EntityDescriptor dummy = repo
+    final EntityDescriptor dummy = repo
         .findEntity("dummy2")
         .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
-    EntityDescriptor event = repo
+    final EntityDescriptor event = repo
         .findEntity("event")
         .orElseThrow(() -> new IllegalStateException("Missing entity event"));
 
-    AttributeDescriptor<Object> data = event
+    final AttributeDescriptor<Object> data = event
         .findAttribute("data")
         .orElseThrow(() -> new IllegalStateException(
             "Missing attribute data"));
 
-    AttributeDescriptor<Object> raw = dummy
+    final AttributeDescriptor<Object> raw = dummy
         .findAttribute("_e.*", true)
         .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
 
@@ -977,11 +979,11 @@ public class ConfigRepositoryTest {
   }
 
   void testFullReplication(EntityDescriptor first, EntityDescriptor second) {
-    AttributeDescriptor<Object> wildcardFirst = first
+    final AttributeDescriptor<Object> wildcardFirst = first
         .findAttribute("wildcard.*")
         .orElseThrow(() -> new IllegalStateException(
             "Missing attribute wildcard.* in entity " + first));
-    AttributeDescriptor<Object> wildcardSecond = second
+    final AttributeDescriptor<Object> wildcardSecond = second
         .findAttribute("wildcard.*")
         .orElseThrow(() -> new IllegalStateException(
             "Missing attribute wildcard.* in entity " + second));
@@ -1031,17 +1033,17 @@ public class ConfigRepositoryTest {
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
-    EntityDescriptor dummy = repo
+    final EntityDescriptor dummy = repo
         .findEntity("dummy")
         .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
-    AttributeDescriptor<Object> data = dummy
+    final AttributeDescriptor<Object> data = dummy
         .findAttribute("data")
         .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
-    AttributeDescriptor<Object> dataRead = dummy
+    final AttributeDescriptor<Object> dataRead = dummy
         .findAttribute("_dummyReplicationProxiedSlave_read$data", true)
         .orElseThrow(() -> new IllegalStateException(
             "Missing read source for replicated data"));
-    AttributeDescriptor<Object> dataWrite = dummy
+    final AttributeDescriptor<Object> dataWrite = dummy
         .findAttribute("_dummyReplicationProxiedSlave_write$_d", true)
         .orElseThrow(() -> new IllegalStateException(
             "Missing read source for replicated data"));
@@ -1099,7 +1101,7 @@ public class ConfigRepositoryTest {
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
 
-    EntityDescriptor dummy = repo.findEntity("dummy").orElseThrow(
+    final EntityDescriptor dummy = repo.findEntity("dummy").orElseThrow(
         () -> new IllegalStateException("Missing entity dummy"));
     Map<String, TransformationDescriptor> transformations = repo.getTransformations();
     assertNotNull(transformations.get("_dummyReplicationMasterSlave_slave"));
@@ -1236,15 +1238,19 @@ public class ConfigRepositoryTest {
     assertNotNull(primary);
     assertTrue(primary.isProxy());
     proxy = (AttributeFamilyProxyDescriptor) primary;
-    assertEquals("proxy::proxy::replication_dummy-replication-proxied-slave_replicated::replication_dummy"
-        + "-replication-proxied-slave_write::proxy::replication_dummy-replication-proxied-slave_replicated::"
-        + "replication_dummy-replication-proxied-slave_write",
+    assertEquals(
+        "proxy::proxy::replication_dummy-replication-proxied-slave_replicated"
+            + "::replication_dummy-replication-proxied-slave_write::proxy"
+            + "::replication_dummy-replication-proxied-slave_replicated"
+            + "::replication_dummy-replication-proxied-slave_write",
         primary.getName());
     assertEquals(
-        "proxy::replication_dummy-replication-proxied-slave_replicated::replication_dummy-replication-proxied-slave_write",
+        "proxy::replication_dummy-replication-proxied-slave_replicated::"
+            + "replication_dummy-replication-proxied-slave_write",
         proxy.getTargetFamilyRead().getName());
     assertEquals(
-        "proxy::replication_dummy-replication-proxied-slave_replicated::replication_dummy-replication-proxied-slave_write",
+        "proxy::replication_dummy-replication-proxied-slave_replicated::"
+            + "replication_dummy-replication-proxied-slave_write",
         proxy.getTargetFamilyWrite().getName());
     assertTrue(proxy.getTargetFamilyRead().isProxy());
     assertTrue(proxy.getTargetFamilyWrite().isProxy());
@@ -1259,17 +1265,17 @@ public class ConfigRepositoryTest {
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
-    EntityDescriptor gateway = repo
+    final EntityDescriptor gateway = repo
         .findEntity("gateway")
         .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<Object> status = gateway
+    final AttributeDescriptor<Object> status = gateway
         .findAttribute("status")
         .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
-    AttributeDescriptor<Object> statusRead = gateway
+    final AttributeDescriptor<Object> statusRead = gateway
         .findAttribute("_gatewayReplication_read$status", true)
         .orElseThrow(() -> new IllegalStateException(
             "Missing read source for replicated status"));
-    AttributeDescriptor<Object> statusWrite = gateway
+    final AttributeDescriptor<Object> statusWrite = gateway
         .findAttribute("_gatewayReplication_write$status", true)
         .orElseThrow(() -> new IllegalStateException(
             "Missing write target for replicated status"));

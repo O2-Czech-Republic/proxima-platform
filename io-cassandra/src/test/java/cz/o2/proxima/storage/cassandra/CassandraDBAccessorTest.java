@@ -155,7 +155,8 @@ public class CassandraDBAccessorTest {
   static final class ThrowingTestCqlFactory implements CqlFactory {
 
     @Override
-    public Optional<BoundStatement> getWriteStatement(StreamElement ingest, Session session) {
+    public Optional<BoundStatement> getWriteStatement(
+        StreamElement ingest, Session session) {
       throw new RuntimeException("Fail");
     }
 
@@ -216,7 +217,8 @@ public class CassandraDBAccessorTest {
   }
 
 
-  Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.defaultApplication()).build();
+  final Repository repo = ConfigRepository.Builder.ofTest(
+      ConfigFactory.defaultApplication()).build();
   AttributeDescriptorBase<byte[]> attr;
   AttributeDescriptorBase<byte[]> attrWildcard;
   EntityDescriptor entity;
@@ -529,10 +531,12 @@ public class CassandraDBAccessorTest {
         .setName("dummy")
         .build();
 
-    TestDBAccessor accessor = new TestDBAccessor(entity, URI.create("cassandra://localhost/"),
+    TestDBAccessor accessor = new TestDBAccessor(
+        entity,
+        URI.create("cassandra://localhost/"),
         getCfg(TestCqlFactory.class, 2));
-    CassandraLogObservable observable = new CassandraLogObservable(accessor,
-        Executors.newCachedThreadPool());
+    CassandraLogObservable observable = new CassandraLogObservable(
+        accessor, Executors.newCachedThreadPool());
 
     List<Partition> partitions = observable.getPartitions();
     assertEquals(2, partitions.size());
@@ -562,17 +566,19 @@ public class CassandraDBAccessorTest {
 
 
     CountDownLatch latch = new CountDownLatch(1);
-    observable.observe(observable.getPartitions(), Arrays.asList(attr), new BatchLogObserver() {
-      @Override
-      public boolean onNext(StreamElement element) {
-        return true;
-      }
+    observable.observe(
+        observable.getPartitions(), Arrays.asList(attr),
+        new BatchLogObserver() {
+          @Override
+          public boolean onNext(StreamElement element) {
+            return true;
+          }
 
-      @Override
-      public void onCompleted() {
-        latch.countDown();
-      }
-    });
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+        });
 
     latch.await();
 

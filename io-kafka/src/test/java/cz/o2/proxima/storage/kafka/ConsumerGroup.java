@@ -120,7 +120,8 @@ public class ConsumerGroup implements Serializable {
     this.topic = topic;
     this.numPartitions = numPartitions;
     if (numPartitions <= 0) {
-      throw new IllegalArgumentException("Number of partitions must be strictly positive");
+      throw new IllegalArgumentException(
+          "Number of partitions must be strictly positive");
     }
   }
 
@@ -196,6 +197,14 @@ public class ConsumerGroup implements Serializable {
     }
   }
 
+  /**
+   * Manually assign given partitions to given consumer ID.
+   */
+  synchronized void assign(int id, List<Partition> assignment) {
+    Assignment current = this.assignments.get(id);
+    current.drop();
+    current.assign(assignment);
+  }
 
   /**
    * Retrieve partitions for given consumer ID.
@@ -206,15 +215,6 @@ public class ConsumerGroup implements Serializable {
       return assignment.getPartitions();
     }
     return Collections.emptyList();
-  }
-
-  /**
-   * Manually assign given partitions to given consumer ID.
-   */
-  synchronized void assign(int id, List<Partition> assignment) {
-    Assignment current = this.assignments.get(id);
-    current.drop();
-    current.assign(assignment);
   }
 
 

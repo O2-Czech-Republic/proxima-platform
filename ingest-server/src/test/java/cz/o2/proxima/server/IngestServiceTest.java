@@ -261,7 +261,8 @@ public class IngestServiceTest {
 
     latch = new CountDownLatch(1);
 
-    StreamObserver<Rpc.Ingest> result = ingest.ingestSingle(new StreamObserver<Rpc.Status>() {
+    final StreamObserver<Rpc.Ingest> result;
+    result = ingest.ingestSingle(new StreamObserver<Rpc.Status>() {
 
       @Override
       public void onNext(Rpc.Status status) {
@@ -305,7 +306,8 @@ public class IngestServiceTest {
 
     latch = new CountDownLatch(1);
 
-    StreamObserver<Rpc.Ingest> result = ingest.ingestSingle(new StreamObserver<Rpc.Status>() {
+    final StreamObserver<Rpc.Ingest> result;
+    result = ingest.ingestSingle(new StreamObserver<Rpc.Status>() {
 
       @Override
       public void onNext(Rpc.Status status) {

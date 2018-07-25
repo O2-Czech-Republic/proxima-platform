@@ -132,7 +132,7 @@ public class DefaultCqlFactoryTest {
   }
 
 
-  @Test(expected=IllegalStateException.class)
+  @Test(expected = IllegalStateException.class)
   public void testSetupWithNoQuery() throws URISyntaxException {
     factory.setup(
         entity,
@@ -165,11 +165,14 @@ public class DefaultCqlFactoryTest {
         entity, attr, "", "key", "myAttribute",
         now, "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind("key", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
+    when(statement.bind(
+        "key",
+        ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
-    verify(statement).bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
+    verify(statement)
+        .bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
     assertEquals(
@@ -178,7 +181,7 @@ public class DefaultCqlFactoryTest {
   }
 
   @Test
-  public void testIngestWithTTL() throws URISyntaxException {
+  public void testIngestWithTtl() throws URISyntaxException {
     long now = System.currentTimeMillis();
     factory.setup(
         entity,
@@ -188,12 +191,15 @@ public class DefaultCqlFactoryTest {
         entity, attr, "", "key", "myAttribute",
         now, "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind("key", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
+    when(statement.bind(
+        "key",
+        ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
     when(bound.setBytes(eq(1), any())).thenReturn(bound);
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
-    verify(statement).bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
+    verify(statement)
+        .bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
     assertEquals(
@@ -209,11 +215,16 @@ public class DefaultCqlFactoryTest {
         entity, attrWildcard, "", "key", "device.1",
         now, "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind("key", "1", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
+    when(statement.bind(
+        "key", "1",
+        ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
-    Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
-    verify(statement).bind(eq("key"), eq("1"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
+    Optional<BoundStatement> boundStatement = factory
+        .getWriteStatement(ingest, session);
+    verify(statement).bind(
+        eq("key"), eq("1"),
+        eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
     assertEquals(
@@ -230,7 +241,8 @@ public class DefaultCqlFactoryTest {
     when(statement.bind(now * 1000L, "key")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
-    Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
+    Optional<BoundStatement> boundStatement = factory
+        .getWriteStatement(ingest, session);
     verify(statement).bind(eq(now * 1000L), eq("key"));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
@@ -282,7 +294,8 @@ public class DefaultCqlFactoryTest {
     when(statement.bind("key")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
-    BoundStatement boundStatement = factory.getReadStatement("key", attr.getName(), attr, session);
+    BoundStatement boundStatement = factory.getReadStatement(
+        "key", attr.getName(), attr, session);
     verify(statement).bind(eq("key"));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
@@ -375,7 +388,8 @@ public class DefaultCqlFactoryTest {
   public void testListWildcardWithExplicitSecondaryField() throws URISyntaxException {
     factory.setup(
         entity,
-        new URI("cassandra://wherever/my_table?data=my_col&primary=hgw&secondary=stamp"),
+        new URI("cassandra://wherever/my_table?data=my_col"
+            + "&primary=hgw&secondary=stamp"),
         StringConverter.DEFAULT);
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", "", Integer.MAX_VALUE)).thenReturn(bound);

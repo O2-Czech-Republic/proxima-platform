@@ -199,9 +199,10 @@ public class PubSubReaderTest {
       }
       return inputs.pop();
     });
-    AtomicBoolean cancelled = new AtomicBoolean();
-    CountDownLatch latch = new CountDownLatch(3);
-    ObserveHandle handle = reader.observe("dummy", new LogObserver() {
+    final AtomicBoolean cancelled = new AtomicBoolean();
+    final CountDownLatch latch = new CountDownLatch(3);
+    final ObserveHandle handle = reader.observe("dummy", new LogObserver() {
+      
       @Override
       public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
         throw new RuntimeException("Fail");

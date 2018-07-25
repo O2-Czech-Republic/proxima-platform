@@ -44,7 +44,8 @@ import static org.mockito.Mockito.when;
  */
 public class TransformingCqlFactoryTest {
 
-  Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.defaultApplication()).build();
+  final Repository repo = ConfigRepository.Builder.ofTest(
+      ConfigFactory.defaultApplication()).build();
   AttributeDescriptorBase<?> attr;
   EntityDescriptor entity;
 
@@ -115,13 +116,14 @@ public class TransformingCqlFactoryTest {
    * Test of getWriteStatement method, of class TransformingCqlFactory.
    */
   @Test
-  public void testApplyWithTTL() throws URISyntaxException {
-    long now = System.currentTimeMillis();
-    StreamElement ingest = StreamElement.update(
+  public void testApplyWithTtl() throws URISyntaxException {
+    final long now = System.currentTimeMillis();
+    final StreamElement ingest = StreamElement.update(
         entity, attr, "", "123", "first",
         now, "value".getBytes());
-    Session session = mock(Session.class);
-    PreparedStatement statement = mock(PreparedStatement.class);
+    final Session session = mock(Session.class);
+    final PreparedStatement statement = mock(PreparedStatement.class);
+    
     when(session.prepare((String) any())).thenReturn(statement);
     when(statement.bind(any(), any())).thenReturn(mock(BoundStatement.class));
     factory.setup(

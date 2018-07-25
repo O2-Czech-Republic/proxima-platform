@@ -178,7 +178,7 @@ public class CommitLogReaderTest {
     reader.observeBulk("test", new BulkLogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, BulkLogObserver.OffsetCommitter context) {
+      public boolean onNext(StreamElement ingest, OffsetCommitter context) {
         received.add(ingest);
         latch.countDown();
         if (received.size() == 2) {

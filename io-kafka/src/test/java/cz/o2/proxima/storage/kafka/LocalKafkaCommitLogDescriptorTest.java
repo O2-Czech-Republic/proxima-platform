@@ -98,7 +98,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   private final AttributeDescriptorBase<byte[]> attr;
   private final AttributeDescriptorBase<byte[]> attrWildcard;
   private final EntityDescriptor entity;
-  private final URI storageURI;
+  private final URI storageUri;
 
   private LocalKafkaCommitLogDescriptor kafka;
 
@@ -124,7 +124,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         .addAttribute(attrWildcard)
         .build();
 
-    this.storageURI = new URI("kafka-test://dummy/topic");
+    this.storageUri = new URI("kafka-test://dummy/topic");
   }
 
   @Before
@@ -136,7 +136,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testSinglePartitionWriteAndConsumeBySingleConsumerRunAfterWrite()
       throws InterruptedException {
 
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(1));
+    Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(1));
     LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
     CountDownLatch latch = new CountDownLatch(1);
@@ -144,10 +144,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(),
         emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-      latch.countDown();
-    });
+          assertTrue(succ);
+          assertNull(exc);
+          latch.countDown();
+        });
     latch.await();
     ConsumerRecords<String, byte[]> polled = consumer.poll(1000);
     assertEquals(1, polled.count());
@@ -169,26 +169,28 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testTwoPartitionsTwoWritesAndConsumeBySingleConsumerRunAfterWrite()
       throws InterruptedException {
 
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
-    LocalKafkaWriter writer = accessor.newWriter();
-    KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
-    CountDownLatch latch = new CountDownLatch(2);
+    final Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(2));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final KafkaConsumer<String, byte[]> consumer;
+    final CountDownLatch latch = new CountDownLatch(2);
+
+    consumer = accessor.createConsumerFactory().create();
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-      latch.countDown();
-    });
+          assertTrue(succ);
+          assertNull(exc);
+          latch.countDown();
+        });
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-      latch.countDown();
-    });
+          assertTrue(succ);
+          assertNull(exc);
+          latch.countDown();
+        });
     latch.await();
     ConsumerRecords<String, byte[]> polled = consumer.poll(1000);
     assertEquals(2, polled.count());
@@ -214,7 +216,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test
   public void testEmptyPoll() {
     LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(2));
     KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
     assertTrue(consumer.poll(100).isEmpty());
   }
@@ -222,7 +224,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test
   public void testWriteNull() {
     LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(2));
     OnlineAttributeWriter writer = accessor.getWriter(context()).get().online();
     long now = 1234567890000L;
     KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
@@ -239,7 +241,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       if (r.timestamp() == now) {
         assertEquals(1, r.value().length);
         matched++;
-      } if (r.timestamp() == now + 1000) {
+      } else if (r.timestamp() == now + 1000) {
         assertNull(r.value());
         matched++;
       }
@@ -251,23 +253,23 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testTwoPartitionsTwoWritesAndConsumeBySingleConsumerRunBeforeWrite()
       throws InterruptedException {
 
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
+    Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(2));
     LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-    });
+          assertTrue(succ);
+          assertNull(exc);
+        });
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-    });
+          assertTrue(succ);
+          assertNull(exc);
+        });
 
     ConsumerRecords<String, byte[]> polled = consumer.poll(1000);
     assertEquals(2, polled.count());
@@ -294,16 +296,18 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testTwoPartitionsTwoWritesAndTwoReads()
       throws InterruptedException {
 
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
-    LocalKafkaWriter writer = accessor.newWriter();
-    KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
+    final Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(2));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final KafkaConsumer<String, byte[]> consumer;
+
+    consumer = accessor.createConsumerFactory().create();
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-    });
+          assertTrue(succ);
+          assertNull(exc);
+        });
 
     ConsumerRecords<String, byte[]> polled = consumer.poll(1000);
     assertEquals(1, polled.count());
@@ -313,9 +317,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-    });
+          assertTrue(succ);
+          assertNull(exc);
+        });
 
     polled = consumer.poll(1000);
     assertEquals(1, polled.count());
@@ -325,27 +329,28 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 4000)
   @SuppressWarnings("unchecked")
   public void testTwoIdependentConsumers() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(1));
-    LocalKafkaWriter writer = accessor.newWriter();
-    KafkaConsumer<String, byte[]>[] consumers = new KafkaConsumer[] {
+    final Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(1));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final KafkaConsumer<String, byte[]>[] consumers = new KafkaConsumer[] {
       accessor.createConsumerFactory().create("dummy1"),
       accessor.createConsumerFactory().create("dummy2"),
     };
-    CountDownLatch latch = new CountDownLatch(1);
+    final CountDownLatch latch = new CountDownLatch(1);
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-      latch.countDown();
-    });
+          assertTrue(succ);
+          assertNull(exc);
+          latch.countDown();
+        });
     latch.await();
     for (KafkaConsumer<String, byte[]> consumer : consumers) {
       ConsumerRecords<String, byte[]> polled = consumer.poll(1000);
       assertEquals(1, polled.count());
       assertEquals(1, polled.partitions().size());
-      TopicPartition partition = Iterators.getOnlyElement(polled.partitions().iterator());
+      TopicPartition partition = Iterators.getOnlyElement(
+          polled.partitions().iterator());
       assertEquals(0, partition.partition());
       assertEquals("topic", partition.topic());
       int tested = 0;
@@ -361,27 +366,28 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 2000)
   public void testManualPartitionAssignment() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
-    LocalKafkaWriter writer = accessor.newWriter();
-    KafkaConsumer<String, byte[]> consumer = accessor
+    final Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(2));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final KafkaConsumer<String, byte[]> consumer = accessor
         .createConsumerFactory().create(Arrays.asList((Partition) () -> 0));
-    CountDownLatch latch = new CountDownLatch(2);
+    final CountDownLatch latch = new CountDownLatch(2);
+
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-      latch.countDown();
-    });
+          assertTrue(succ);
+          assertNull(exc);
+          latch.countDown();
+        });
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-      latch.countDown();
-    });
+          assertTrue(succ);
+          assertNull(exc);
+          latch.countDown();
+        });
     latch.await();
     ConsumerRecords<String, byte[]> polled = consumer.poll(1000);
     assertEquals(1, polled.count());
@@ -404,25 +410,25 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 2000)
   public void testPollAfterWrite() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(1));
-    LocalKafkaWriter writer = accessor.newWriter();
-    CountDownLatch latch = new CountDownLatch(2);
+    final Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(1));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final CountDownLatch latch = new CountDownLatch(2);
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-      latch.countDown();
-    });
+          assertTrue(succ);
+          assertNull(exc);
+          latch.countDown();
+        });
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-      latch.countDown();
-    });
+          assertTrue(succ);
+          assertNull(exc);
+          latch.countDown();
+        });
     latch.await();
     KafkaConsumer<String, byte[]> consumer = accessor
         .createConsumerFactory().create(Arrays.asList((Partition) () -> 0));
@@ -433,25 +439,25 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 2000)
   public void testPollWithSeek() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(1));
-    LocalKafkaWriter writer = accessor.newWriter();
-    CountDownLatch latch = new CountDownLatch(2);
+    final Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(1));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final CountDownLatch latch = new CountDownLatch(2);
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-      latch.countDown();
-    });
+          assertTrue(succ);
+          assertNull(exc);
+          latch.countDown();
+        });
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
         System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-      assertTrue(succ);
-      assertNull(exc);
-      latch.countDown();
-    });
+          assertTrue(succ);
+          assertNull(exc);
+          latch.countDown();
+        });
     latch.await();
     KafkaConsumer<String, byte[]> consumer = accessor
         .createConsumerFactory().create(Arrays.asList((Partition) () -> 0));
@@ -463,15 +469,16 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test
   public void testTwoPartitionsTwoConsumersRebalance() {
-    String name = "consumer";
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(2));
-    LocalKafkaWriter writer = accessor.newWriter();
-    KafkaConsumer<String, byte[]> c1 = accessor.createConsumerFactory().create(name);
+    final String name = "consumer";
+    final Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(2));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final KafkaConsumer<String, byte[]> c1 = accessor.createConsumerFactory()
+        .create(name);
+
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
-        System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-    });
+        System.currentTimeMillis(), emptyValue()), (succ, exc) -> { });
 
     ConsumerRecords<String, byte[]> poll = c1.poll(1000);
     assertEquals(2, c1.assignment().size());
@@ -480,17 +487,18 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
-        System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-    });
+        System.currentTimeMillis(), emptyValue()), (succ, exc) -> { });
 
     poll = c1.poll(1000);
     assertEquals(1, poll.count());
 
     // commit already processed offsets
-    c1.commitSync(new HashMap<TopicPartition, OffsetAndMetadata>() {{
-      put(new TopicPartition("topic", 0), new OffsetAndMetadata(1));
-      put(new TopicPartition("topic", 1), new OffsetAndMetadata(1));
-    }});
+    c1.commitSync(new HashMap<TopicPartition, OffsetAndMetadata>() {
+      {
+        put(new TopicPartition("topic", 0), new OffsetAndMetadata(1));
+        put(new TopicPartition("topic", 1), new OffsetAndMetadata(1));
+      }
+    });
 
     // create another consumer
     KafkaConsumer<String, byte[]> c2 = accessor.createConsumerFactory().create(name);
@@ -498,8 +506,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
-        System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-    });
+        System.currentTimeMillis(), emptyValue()), (succ, exc) -> { });
 
     poll = c2.poll(1000);
     assertEquals(1, poll.count());
@@ -514,14 +521,13 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test
   public void testSinglePartitionTwoConsumersRebalance() {
     String name = "consumer";
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(1));
+    Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(1));
     LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<String, byte[]> c1 = accessor.createConsumerFactory().create(name);
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key1", attr.getName(),
-        System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-    });
+        System.currentTimeMillis(), emptyValue()), (succ, exc) -> { });
 
     ConsumerRecords<String, byte[]> poll = c1.poll(1000);
     assertEquals(1, c1.assignment().size());
@@ -530,16 +536,17 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
-        System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-    });
+        System.currentTimeMillis(), emptyValue()), (succ, exc) -> { });
 
     poll = c1.poll(1000);
     assertEquals(1, poll.count());
 
     // commit already processed offsets
-    c1.commitSync(new HashMap<TopicPartition, OffsetAndMetadata>() {{
-      put(new TopicPartition("topic", 0), new OffsetAndMetadata(2));
-    }});
+    c1.commitSync(new HashMap<TopicPartition, OffsetAndMetadata>() {
+      {
+        put(new TopicPartition("topic", 0), new OffsetAndMetadata(2));
+      }
+    });
 
     // create another consumer
     KafkaConsumer<String, byte[]> c2 = accessor.createConsumerFactory().create(name);
@@ -547,8 +554,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key2", attr.getName(),
-        System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
-    });
+        System.currentTimeMillis(), emptyValue()), (succ, exc) -> { });
 
     poll = c2.poll(1000);
     assertEquals(1, poll.count());
@@ -564,7 +570,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 5000)
   public void testPartitionedViewSinglePartition() throws InterruptedException {
     Accessor accessor = kafka.getAccessor(
-        entity, storageURI, partitionsCfg(3, FirstPartitionPartitioner.class));
+        entity, storageUri, partitionsCfg(3, FirstPartitionPartitioner.class));
     LocalKafkaWriter writer = accessor.newWriter();
     PartitionedView view = accessor.getPartitionedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing partitioned view"));
@@ -637,7 +643,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 2000)
   public void testPartitionedView() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     PartitionedView view = accessor.getPartitionedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing partitioned view"));
@@ -706,39 +712,41 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 2000)
   public void testBulkObserveWithException() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
 
-    AtomicInteger restarts = new AtomicInteger();
-    AtomicReference<Throwable> exc = new AtomicReference<>();
-    CountDownLatch latch = new CountDownLatch(2);
-    StreamElement update = StreamElement.update(
+    final AtomicInteger restarts = new AtomicInteger();
+    final AtomicReference<Throwable> exc = new AtomicReference<>();
+    final CountDownLatch latch = new CountDownLatch(2);
+    final StreamElement update = StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
 
-    ObserveHandle handle = reader.observeBulk("test", Position.NEWEST, new BulkLogObserver() {
+    final ObserveHandle handle = reader.observeBulk(
+        "test", Position.NEWEST,
+        new BulkLogObserver() {
 
-      @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
-        restarts.incrementAndGet();
-        throw new RuntimeException("FAIL!");
-      }
+          @Override
+          public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
+            restarts.incrementAndGet();
+            throw new RuntimeException("FAIL!");
+          }
 
-      @Override
-      public void onCompleted() {
-        fail("This should not be called");
-      }
+          @Override
+          public void onCompleted() {
+            fail("This should not be called");
+          }
 
-      @Override
-      public boolean onError(Throwable error) {
-        exc.set(error);
-        latch.countDown();
-        throw new RuntimeException(error);
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            exc.set(error);
+            latch.countDown();
+            throw new RuntimeException(error);
+          }
 
-    });
+        });
 
     writer.write(update, (succ, e) -> {
       assertTrue(succ);
@@ -754,7 +762,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 2000)
   public void testBulkObserveWithExceptionAndRetry() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -800,46 +808,48 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 2000)
   public void testBulkObserveSuccess() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
 
-    AtomicInteger restarts = new AtomicInteger();
-    AtomicReference<Throwable> exc = new AtomicReference<>();
-    AtomicReference<StreamElement> input = new AtomicReference<>();
-    CountDownLatch latch = new CountDownLatch(2);
-    StreamElement update = StreamElement.update(
+    final AtomicInteger restarts = new AtomicInteger();
+    final AtomicReference<Throwable> exc = new AtomicReference<>();
+    final AtomicReference<StreamElement> input = new AtomicReference<>();
+    final CountDownLatch latch = new CountDownLatch(2);
+    final StreamElement update = StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
 
-    ObserveHandle handle = reader.observeBulk("test", Position.NEWEST, new BulkLogObserver() {
+    final ObserveHandle handle = reader.observeBulk(
+        "test", Position.NEWEST,
+        new BulkLogObserver() {
 
-      @Override
-      public void onRestart(List<Offset> offsets) {
-        restarts.incrementAndGet();
-      }
+          @Override
+          public void onRestart(List<Offset> offsets) {
+            restarts.incrementAndGet();
+          }
 
-      @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter context) {
-        input.set(ingest);
-        context.confirm();
-        latch.countDown();
-        return true;
-      }
+          @Override
+          public boolean onNext(StreamElement ingest, OffsetCommitter context) {
+            input.set(ingest);
+            context.confirm();
+            latch.countDown();
+            return true;
+          }
 
-      @Override
-      public void onCompleted() {
-        fail("This should not be called");
-      }
+          @Override
+          public void onCompleted() {
+            fail("This should not be called");
+          }
 
-      @Override
-      public boolean onError(Throwable error) {
-        exc.set(error);
-        throw new RuntimeException(error);
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            exc.set(error);
+            throw new RuntimeException(error);
+          }
 
-    });
+        });
 
     writer.write(update, (succ, e) -> {
       assertTrue(succ);
@@ -857,7 +867,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 2000)
   public void testBulkObservePartitionsSuccess() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
+    Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -870,33 +880,35 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
 
-    ObserveHandle handle = reader.observeBulkPartitions(reader.getPartitions(), Position.NEWEST, new BulkLogObserver() {
+    final ObserveHandle handle = reader.observeBulkPartitions(
+        reader.getPartitions(),
+        Position.NEWEST, new BulkLogObserver() {
 
-      @Override
-      public void onRestart(List<Offset> offsets) {
-        restarts.incrementAndGet();
-      }
+          @Override
+          public void onRestart(List<Offset> offsets) {
+            restarts.incrementAndGet();
+          }
 
-      @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter context) {
-        input.set(ingest);
-        context.confirm();
-        latch.countDown();
-        return true;
-      }
+          @Override
+          public boolean onNext(StreamElement ingest, OffsetCommitter context) {
+            input.set(ingest);
+            context.confirm();
+            latch.countDown();
+            return true;
+          }
 
-      @Override
-      public void onCompleted() {
-        fail("This should not be called");
-      }
+          @Override
+          public void onCompleted() {
+            fail("This should not be called");
+          }
 
-      @Override
-      public boolean onError(Throwable error) {
-        exc.set(error);
-        throw new RuntimeException(error);
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            exc.set(error);
+            throw new RuntimeException(error);
+          }
 
-    });
+        });
 
     writer.write(update, (succ, e) -> {
       assertTrue(succ);
@@ -914,20 +926,21 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 2000)
   public void testBulkObserveOffsets() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
-    LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+    final Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(3));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
 
-    List<KafkaStreamElement> input = new ArrayList<>();
-    AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(3));
-    StreamElement update = StreamElement.update(
+    final List<KafkaStreamElement> input = new ArrayList<>();
+    final AtomicReference<CountDownLatch> latch = new AtomicReference<>(
+        new CountDownLatch(3));
+    final StreamElement update = StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
 
-    Map<Integer, Offset> currentOffsets = new HashMap<>();
+    final Map<Integer, Offset> currentOffsets = new HashMap<>();
 
-    BulkLogObserver observer = new BulkLogObserver() {
+    final BulkLogObserver observer = new BulkLogObserver() {
 
       @Override
       public boolean onNext(StreamElement ingest, OffsetCommitter context) {
@@ -944,7 +957,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       }
 
     };
-    ObserveHandle handle = reader.observeBulkPartitions(
+    final ObserveHandle handle = reader.observeBulkPartitions(
         reader.getPartitions(), Position.NEWEST, observer);
 
     // write two elements
@@ -957,7 +970,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     latch.get().await();
     latch.set(new CountDownLatch(1));
 
-    handle.getCommittedOffsets().forEach(o -> currentOffsets.put(o.getPartition().getId(), o));
+    handle.getCommittedOffsets().forEach(o ->
+        currentOffsets.put(o.getPartition().getId(), o));
     handle.cancel();
 
     // each partitions has a record here
@@ -967,28 +981,30 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         .collect(Collectors.summingLong(o -> ((TopicOffset) o).getOffset())));
 
     // restart from old offset
-    handle = reader.observeBulkOffsets(
+    final ObserveHandle handle2 = reader.observeBulkOffsets(
         Lists.newArrayList(currentOffsets.values()), observer);
     latch.get().await();
     assertEquals(2, input.size());
     assertEquals(0, input.get(0).getOffset());
     assertEquals(1, input.get(1).getOffset());
     // committed offset 1 and 2
-    assertEquals(2L, (long) handle.getCommittedOffsets()
+    assertEquals(2L, (long) handle2.getCommittedOffsets()
         .stream()
         .collect(Collectors.summingLong(o -> ((TopicOffset) o).getOffset())));
   }
 
   @Test(timeout = 2000)
   public void testCachedView() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(entity, storageURI, partitionsCfg(3));
-    LocalKafkaWriter writer = accessor.newWriter();
-    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    final Accessor accessor = kafka.getAccessor(entity, storageUri, partitionsCfg(3));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
-    AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
+    final AtomicReference<CountDownLatch> latch = new AtomicReference<>(
+        new CountDownLatch(1));
     StreamElement update = StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
+
     writer.write(update, (succ, exc) -> {
       assertTrue(succ);
       latch.get().countDown();
@@ -1013,19 +1029,20 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 2000)
   public void testCachedViewReload() throws InterruptedException {
-    Accessor accessor = kafka.getAccessor(
-        entity, storageURI, partitionsCfg(3, FirstBytePartitioner.class));
-    LocalKafkaWriter writer = accessor.newWriter();
-    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    final Accessor accessor = kafka.getAccessor(
+        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
-    AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(2));
-    List<StreamElement> updates = Arrays.asList(
-      StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key1", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
-      StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key2", attr.getName(), System.currentTimeMillis(), new byte[] { 2, 3 }));
+    final AtomicReference<CountDownLatch> latch = new AtomicReference<>(
+        new CountDownLatch(2));
+    final List<StreamElement> updates = Arrays.asList(
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            "key1", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            "key2", attr.getName(), System.currentTimeMillis(), new byte[] { 2, 3 }));
     updates.forEach(update -> writer.write(update, (succ, exc) -> {
       assertTrue(succ);
       latch.get().countDown();
@@ -1056,16 +1073,16 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 2000)
   public void testCachedViewWrite() throws InterruptedException {
     Accessor accessor = kafka.getAccessor(
-        entity, storageURI, partitionsCfg(3, FirstBytePartitioner.class));
+        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     List<StreamElement> updates = Arrays.asList(
-      StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key1", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
-      StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key2", attr.getName(), System.currentTimeMillis(), new byte[] { 2, 3 }));
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            "key1", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            "key2", attr.getName(), System.currentTimeMillis(), new byte[] { 2, 3 }));
     CountDownLatch latch = new CountDownLatch(2);
     updates.forEach(update -> view.write(update, (succ, exc) -> {
       assertTrue("Exception: " + exc, succ);
@@ -1084,17 +1101,17 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 2000)
   public void testCachedViewWriteAndDelete() throws InterruptedException {
     Accessor accessor = kafka.getAccessor(
-        entity, storageURI, partitionsCfg(3, FirstBytePartitioner.class));
+        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     List<StreamElement> updates = Arrays.asList(
-      StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key1", attr.getName(), now - 1000, new byte[] { 1, 2 }),
-      StreamElement.delete(
-          entity, attr, UUID.randomUUID().toString(),
-          "key1", attr.getName(), now));
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            "key1", attr.getName(), now - 1000, new byte[] { 1, 2 }),
+        StreamElement.delete(
+            entity, attr, UUID.randomUUID().toString(),
+            "key1", attr.getName(), now));
     CountDownLatch latch = new CountDownLatch(2);
     updates.forEach(update -> view.write(update, (succ, exc) -> {
       assertTrue("Exception: " + exc, succ);
@@ -1112,26 +1129,26 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 2000)
   public void testCachedViewWriteAndDeleteWildcard() throws InterruptedException {
     Accessor accessor = kafka.getAccessor(
-        entity, storageURI, partitionsCfg(3, FirstBytePartitioner.class));
+        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
     Stream.of(
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.1", now - 1000, new byte[] { 1, 2 }),
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.2", now - 500, new byte[] { 1, 2 }),
-      StreamElement.deleteWildcard(
-          entity, attrWildcard, UUID.randomUUID().toString(), "key1", now),
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.1", now + 500, new byte[] { 2, 3 }),
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.3", now - 500, new byte[] { 3, 4 })
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.1", now - 1000, new byte[] { 1, 2 }),
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.2", now - 500, new byte[] { 1, 2 }),
+        StreamElement.deleteWildcard(
+            entity, attrWildcard, UUID.randomUUID().toString(), "key1", now),
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.1", now + 500, new byte[] { 2, 3 }),
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.3", now - 500, new byte[] { 3, 4 })
     ).forEach(update -> view.write(update, (succ, exc) -> {
       assertTrue("Exception: " + exc, succ);
       latch.countDown();
@@ -1157,26 +1174,26 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 2000)
   public void testCachedViewWriteAndList() throws InterruptedException {
     Accessor accessor = kafka.getAccessor(
-        entity, storageURI, partitionsCfg(3, FirstBytePartitioner.class));
+        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
     Stream.of(
-      StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key1", attr.getName(), now - 1000, new byte[] { 1, 2 }),
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.1", now - 1000, new byte[] { 1, 2 }),
-      StreamElement.deleteWildcard(
-          entity, attrWildcard, UUID.randomUUID().toString(), "key1", now - 500),
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.2", now, new byte[] { 1, 2 }),
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.3", now - 499, new byte[] { 3, 4 })
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            "key1", attr.getName(), now - 1000, new byte[] { 1, 2 }),
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.1", now - 1000, new byte[] { 1, 2 }),
+        StreamElement.deleteWildcard(
+            entity, attrWildcard, UUID.randomUUID().toString(), "key1", now - 500),
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.2", now, new byte[] { 1, 2 }),
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.3", now - 499, new byte[] { 3, 4 })
     ).forEach(update -> view.write(update, (succ, exc) -> {
       assertTrue("Exception: ", succ);
       latch.countDown();
@@ -1196,26 +1213,26 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 2000)
   public void testCachedViewWriteAndListAll() throws InterruptedException {
     Accessor accessor = kafka.getAccessor(
-        entity, storageURI, partitionsCfg(3, FirstBytePartitioner.class));
+        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
     Stream.of(
-      StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key1", attr.getName(), now - 2000, new byte[] { 0 }),
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.1", now - 1000, new byte[] { 1, 2 }),
-      StreamElement.deleteWildcard(
-          entity, attrWildcard, UUID.randomUUID().toString(), "key1", now - 500),
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.2", now, new byte[] { 1, 2 }),
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.3", now - 499, new byte[] { 3, 4 })
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            "key1", attr.getName(), now - 2000, new byte[] { 0 }),
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.1", now - 1000, new byte[] { 1, 2 }),
+        StreamElement.deleteWildcard(
+            entity, attrWildcard, UUID.randomUUID().toString(), "key1", now - 500),
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.2", now, new byte[] { 1, 2 }),
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.3", now - 499, new byte[] { 3, 4 })
     ).forEach(update -> view.write(update, (succ, exc) -> {
       assertTrue("Exception: ", succ);
       latch.countDown();
@@ -1235,16 +1252,16 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 2000)
   public void testCachedViewWritePreUpdate() throws InterruptedException {
     Accessor accessor = kafka.getAccessor(
-        entity, storageURI, partitionsCfg(3, FirstBytePartitioner.class));
+        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     List<StreamElement> updates = Arrays.asList(
-      StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key1", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
-      StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key2", attr.getName(), System.currentTimeMillis(), new byte[] { 2, 3 }));
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            "key1", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            "key2", attr.getName(), System.currentTimeMillis(), new byte[] { 2, 3 }));
     CountDownLatch latch = new CountDownLatch(updates.size());
     updates.forEach(update -> view.write(update, (succ, exc) -> {
       assertTrue("Exception: " + exc, succ);
@@ -1260,22 +1277,24 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test(timeout = 2000)
-  public void testCachedViewWritePreUpdateAndDeleteWildcard() throws InterruptedException {
+  public void testCachedViewWritePreUpdateAndDeleteWildcard()
+      throws InterruptedException {
+
     Accessor accessor = kafka.getAccessor(
-        entity, storageURI, partitionsCfg(3, KeyPartitioner.class));
+        entity, storageUri, partitionsCfg(3, KeyPartitioner.class));
     PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     List<StreamElement> updates = Arrays.asList(
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.1", now, new byte[] { 1, 2 }),
-      StreamElement.deleteWildcard(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", now + 1000L),
-      StreamElement.update(
-          entity, attrWildcard, UUID.randomUUID().toString(),
-          "key1", "wildcard.2", now + 500L, new byte[] { 2, 3 }));
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.1", now, new byte[] { 1, 2 }),
+        StreamElement.deleteWildcard(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", now + 1000L),
+        StreamElement.update(
+            entity, attrWildcard, UUID.randomUUID().toString(),
+            "key1", "wildcard.2", now + 500L, new byte[] { 2, 3 }));
     CountDownLatch latch = new CountDownLatch(updates.size());
     updates.forEach(update -> view.write(update, (succ, exc) -> {
       assertTrue("Exception: " + exc, succ);
@@ -1293,19 +1312,19 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test
   public void testRewriteAndPrefetch() throws InterruptedException, IOException {
     Accessor accessor = kafka.getAccessor(
-        entity, storageURI, partitionsCfg(3, KeyPartitioner.class));
+        entity, storageUri, partitionsCfg(3, KeyPartitioner.class));
     PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     List<StreamElement> updates = Arrays.asList(
-      // store first value
-      StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key1", attr.getName(), now, new byte[] { 1, 2 }),
-      // update the value at the same stamp
-      StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key1", attr.getName(), now, new byte[] { 2, 3 }));
+        // store first value
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            "key1", attr.getName(), now, new byte[] { 1, 2 }),
+        // update the value at the same stamp
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(),
+            "key1", attr.getName(), now, new byte[] { 2, 3 }));
     CountDownLatch latch = new CountDownLatch(updates.size());
     updates.forEach(update -> view.write(update, (succ, exc) -> {
       assertTrue("Exception: " + exc, succ);

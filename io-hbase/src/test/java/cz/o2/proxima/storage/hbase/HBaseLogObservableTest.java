@@ -24,7 +24,6 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
-import static cz.o2.proxima.storage.hbase.TestUtil.b;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
@@ -45,6 +44,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import static cz.o2.proxima.storage.hbase.TestUtil.bytes;
 
 /**
  * Test suite for {@link HBaseLogObservable}.
@@ -56,10 +56,12 @@ public class HBaseLogObservableTest {
 
   private static MiniHBaseCluster cluster;
 
-  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.load()).build();
+  private final Repository repo = ConfigRepository.Builder.ofTest(
+      ConfigFactory.load()).build();
   private final EntityDescriptor entity = repo.findEntity("test").get();
   private final AttributeDescriptor<?> attr = entity.findAttribute("dummy").get();
-  private final AttributeDescriptor<?> wildcard = entity.findAttribute("wildcard.*").get();
+  private final AttributeDescriptor<?> wildcard = entity.findAttribute(
+      "wildcard.*").get();
 
   private HBaseLogObservable reader;
   private Connection conn;
@@ -80,7 +82,9 @@ public class HBaseLogObservableTest {
   @Before
   public void setUp() throws Exception {
     util.deleteTableIfAny(tableName);
-    util.createTable(tableName, b("u"), new byte[][] { b("first"), b("second") });
+    util.createTable(tableName, bytes("u"), new byte[][] {
+        bytes("first"), bytes("second")
+    });
     conn = ConnectionFactory.createConnection(util.getConfiguration());
     client = conn.getTable(tableName);
     reader = new HBaseLogObservable(
@@ -127,21 +131,23 @@ public class HBaseLogObservableTest {
     List<Partition> partitions = reader.getPartitions();
     List<String> keys = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
-    reader.observe(partitions.subList(0, 1), Lists.newArrayList(attr), new BatchLogObserver() {
+    reader.observe(
+        partitions.subList(0, 1), Lists.newArrayList(attr),
+        new BatchLogObserver() {
 
-      @Override
-      public boolean onNext(StreamElement element) {
-        assertEquals(now, element.getStamp());
-        keys.add(element.getKey());
-        return true;
-      }
+          @Override
+          public boolean onNext(StreamElement element) {
+            assertEquals(now, element.getStamp());
+            keys.add(element.getKey());
+            return true;
+          }
 
-      @Override
-      public void onCompleted() {
-        latch.countDown();
-      }
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
 
-    });
+        });
     latch.await();
 
     assertEquals(Lists.newArrayList("a", "fir"), keys);
@@ -158,21 +164,23 @@ public class HBaseLogObservableTest {
     List<Partition> partitions = reader.getPartitions();
     List<String> keys = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
-    reader.observe(partitions.subList(2, 3), Lists.newArrayList(attr), new BatchLogObserver() {
+    reader.observe(
+        partitions.subList(2, 3), Lists.newArrayList(attr),
+        new BatchLogObserver() {
 
-      @Override
-      public boolean onNext(StreamElement element) {
-        assertEquals(now, element.getStamp());
-        keys.add(element.getKey());
-        return true;
-      }
+          @Override
+          public boolean onNext(StreamElement element) {
+            assertEquals(now, element.getStamp());
+            keys.add(element.getKey());
+            return true;
+          }
 
-      @Override
-      public void onCompleted() {
-        latch.countDown();
-      }
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
 
-    });
+        });
     latch.await();
 
     assertEquals(Lists.newArrayList("second", "third"), keys);

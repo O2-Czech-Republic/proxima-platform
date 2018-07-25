@@ -59,10 +59,12 @@ public class SerializableTest {
   @Test
   public void testWebsocketReader() throws Exception {
     WebsocketReader reader = new WebsocketReader(
-        entity, new URI("ws://test"), new HashMap<String, Object>() {{
-          put("hello", "hi");
-          put("attributes", Lists.newArrayList("*"));
-        }});
+        entity, new URI("ws://test"), new HashMap<String, Object>() {
+          {
+            put("hello", "hi");
+            put("attributes", Lists.newArrayList("*"));
+          }
+        });
     checkSerializable(reader);
   }
 

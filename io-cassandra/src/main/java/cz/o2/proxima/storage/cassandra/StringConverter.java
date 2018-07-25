@@ -55,7 +55,9 @@ public interface StringConverter<T> extends Serializable {
 
   }
 
-  public static final StringConverter<String> DEFAULT = new DefaultConverter();
+  public static StringConverter<String> getDefault() {
+    return new DefaultConverter();
+  }
 
   /**
    * Convert type to string.

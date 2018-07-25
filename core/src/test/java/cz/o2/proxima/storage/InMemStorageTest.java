@@ -51,7 +51,7 @@ public class InMemStorageTest implements Serializable {
       .findEntity("dummy")
       .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
 
-  @Test(timeout = 2000)
+  @Test(timeout = 5000)
   public void testObservePartitions()
       throws URISyntaxException, InterruptedException {
 

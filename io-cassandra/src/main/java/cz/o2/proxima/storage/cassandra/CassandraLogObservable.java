@@ -18,6 +18,7 @@ package cz.o2.proxima.storage.cassandra;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
@@ -29,6 +30,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.Nullable;
 
 /**
  * A {@link BatchLogObservable} implementation for cassandra.
@@ -37,12 +39,15 @@ class CassandraLogObservable implements BatchLogObservable {
 
   private final CassandraDBAccessor accessor;
   private final int parallelism;
-  private final Executor executor;
+  private final Factory<Executor> executorFactory;
+  @Nullable
+  private transient Executor executor;
 
-  CassandraLogObservable(CassandraDBAccessor accessor, Executor executor) {
+  CassandraLogObservable(
+      CassandraDBAccessor accessor, Factory<Executor> executorFactory) {
     this.accessor = accessor;
     this.parallelism = accessor.getBatchParallelism();
-    this.executor = executor;
+    this.executorFactory = executorFactory;
   }
 
   @Override
@@ -70,7 +75,7 @@ class CassandraLogObservable implements BatchLogObservable {
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor.execute(() -> {
+    executor().execute(() -> {
       boolean cont = true;
       Iterator<Partition> it = partitions.iterator();
       try {
@@ -82,7 +87,7 @@ class CassandraLogObservable implements BatchLogObservable {
               accessor.getCqlFactory().scanPartition(attributes, p, session));
           AtomicLong position = new AtomicLong();
           Iterator<Row> rowIter = result.iterator();
-          while (rowIter.hasNext() && cont) {
+          while (cont && rowIter.hasNext()) {
             Row row = rowIter.next();
             String key = row.getString(0);
             int field = 1;
@@ -116,6 +121,13 @@ class CassandraLogObservable implements BatchLogObservable {
         observer.onError(err);
       }
     });
+  }
+
+  private Executor executor() {
+    if (executor == null) {
+      executor = executorFactory.apply();
+    }
+    return executor;
   }
 
 }

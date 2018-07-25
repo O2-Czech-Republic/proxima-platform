@@ -106,95 +106,87 @@ public class IngestServer {
    **/
   public class IngestService extends IngestServiceImplBase {
 
-    @Override
-    public void ingest(
-        Rpc.Ingest request, StreamObserver<Rpc.Status> responseObserver) {
+    private class IngestObserver implements StreamObserver<Rpc.Ingest> {
 
-      Metrics.INGEST_SINGLE.increment();
-      processSingleIngest(request, status -> {
-        responseObserver.onNext(status);
-        responseObserver.onCompleted();
-      });
-    }
-
-
-    @Override
-    public StreamObserver<Rpc.Ingest> ingestSingle(
-        StreamObserver<Rpc.Status> responseObserver) {
-
-      AtomicInteger inflightRequest = new AtomicInteger(0);
+      final StreamObserver<Rpc.Status> responseObserver;
+      final AtomicInteger inflightRequests = new AtomicInteger(0);
       final Object responseObserverLock = new Object();
 
-      return new StreamObserver<Rpc.Ingest>() {
-        @Override
-        public void onNext(Rpc.Ingest request) {
-          Metrics.INGEST_SINGLE.increment();
-          inflightRequest.incrementAndGet();
-          processSingleIngest(request, status -> {
-            synchronized (responseObserverLock) {
-              responseObserver.onNext(status);
-            }
-            if (inflightRequest.decrementAndGet() == 0) {
-              synchronized (inflightRequest) {
-                inflightRequest.notifyAll();
-              }
-            }
-          });
-        }
+      IngestObserver(StreamObserver<Rpc.Status> responseObserver) {
+        this.responseObserver = responseObserver;
+      }
 
-        @Override
-        public void onError(Throwable thrwbl) {
-          log.error("Error on channel", thrwbl);
+      @Override
+      public void onNext(Rpc.Ingest request) {
+        Metrics.INGEST_SINGLE.increment();
+        inflightRequests.incrementAndGet();
+        processSingleIngest(request, status -> {
           synchronized (responseObserverLock) {
-            responseObserver.onError(thrwbl);
+            responseObserver.onNext(status);
           }
-        }
+          if (inflightRequests.decrementAndGet() == 0) {
+            synchronized (inflightRequests) {
+              inflightRequests.notifyAll();
+            }
+          }
+        });
+      }
 
-        @Override
-        public void onCompleted() {
-          inflightRequest.accumulateAndGet(0, (a, b) -> {
-            int res = a + b;
-            if (res > 0) {
-              synchronized (inflightRequest) {
-                try {
-                  while (inflightRequest.get() > 0) {
-                    inflightRequest.wait();
-                  }
-                } catch (InterruptedException ex) {
-                  Thread.currentThread().interrupt();
+      @Override
+      public void onError(Throwable thrwbl) {
+        log.error("Error on channel", thrwbl);
+        synchronized (responseObserverLock) {
+          responseObserver.onError(thrwbl);
+        }
+      }
+
+      @Override
+      public void onCompleted() {
+        inflightRequests.accumulateAndGet(0, (a, b) -> {
+          int res = a + b;
+          if (res > 0) {
+            synchronized (inflightRequests) {
+              try {
+                while (inflightRequests.get() > 0) {
+                  inflightRequests.wait();
                 }
+              } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
               }
             }
-            synchronized (responseObserverLock) {
-              responseObserver.onCompleted();
-            }
-            return res;
-          });
-        }
+          }
+          synchronized (responseObserverLock) {
+            responseObserver.onCompleted();
+          }
+          return res;
+        });
+      }
 
-      };
     }
 
+    private class IngestBulkObserver implements StreamObserver<Rpc.IngestBulk> {
 
-    @Override
-    public StreamObserver<Rpc.IngestBulk> ingestBulk(
-        StreamObserver<Rpc.StatusBulk> responseObserver) {
+      final StreamObserver<Rpc.StatusBulk> responseObserver;
+      final Queue<Rpc.Status> statusQueue = new ConcurrentLinkedQueue<>();
+      final AtomicBoolean completed = new AtomicBoolean(false);
+      final AtomicInteger inflightRequests = new AtomicInteger();
+      final AtomicLong lastFlushNanos = new AtomicLong(System.nanoTime());
+      final Rpc.StatusBulk.Builder builder = Rpc.StatusBulk.newBuilder();
+      static final long MAX_SLEEP_NANOS = 100000000L;
+      static final int MAX_QUEUED_STATUSES = 500;
 
-      // the responseObserver doesn't have to be synchronized in this
-      // case, because the communication with the observer is done
-      // in single flush thread
+      Runnable flushTask = createFlushTask();
 
-      return new StreamObserver<Rpc.IngestBulk>() {
+      // schedule the flush periodically
+      ScheduledFuture<?> flushFuture = scheduler.scheduleAtFixedRate(
+          flushTask, MAX_SLEEP_NANOS, MAX_SLEEP_NANOS, TimeUnit.NANOSECONDS);
 
-        final Queue<Rpc.Status> statusQueue = new ConcurrentLinkedQueue<>();
-        final AtomicBoolean completed = new AtomicBoolean(false);
-        final AtomicInteger inflightRequests = new AtomicInteger();
-        final AtomicLong lastFlushNanos = new AtomicLong(System.nanoTime());
-        final Rpc.StatusBulk.Builder builder = Rpc.StatusBulk.newBuilder();
-        static final long MAX_SLEEP_NANOS = 100000000L;
-        static final int MAX_QUEUED_STATUSES = 500;
+      IngestBulkObserver(StreamObserver<Rpc.StatusBulk> responseObserver) {
+        this.responseObserver = responseObserver;
+      }
 
-        Runnable flushTask = () -> {
+      private Runnable createFlushTask() {
+        return () -> {
           try {
             synchronized (builder) {
               while (statusQueue.size() > MAX_QUEUED_STATUSES) {
@@ -221,88 +213,115 @@ public class IngestServer {
             log.error("Failed to send bulk status", ex);
           }
         };
+      }
 
-        // schedule the flush periodically
-        ScheduledFuture<?> flushFuture = scheduler.scheduleAtFixedRate(
-            flushTask, MAX_SLEEP_NANOS, MAX_SLEEP_NANOS, TimeUnit.NANOSECONDS);
-
-        private void peekQueueToBuilderAndFlush() {
-          synchronized (builder) {
-            builder.addStatus(statusQueue.poll());
-            if (builder.getStatusCount() >= 1000) {
-              flush();
-            }
+      private void peekQueueToBuilderAndFlush() {
+        synchronized (builder) {
+          builder.addStatus(statusQueue.poll());
+          if (builder.getStatusCount() >= 1000) {
+            flush();
           }
         }
+      }
 
-        /** Flush response(s) to the observer. */
-        private void flush() {
-          synchronized (builder) {
-            lastFlushNanos.set(System.nanoTime());
-            Rpc.StatusBulk bulk = builder.build();
-            if (bulk.getStatusCount() > 0) {
-              responseObserver.onNext(bulk);
-            }
-            builder.clear();
+      /** Flush response(s) to the observer. */
+      private void flush() {
+        synchronized (builder) {
+          lastFlushNanos.set(System.nanoTime());
+          Rpc.StatusBulk bulk = builder.build();
+          if (bulk.getStatusCount() > 0) {
+            responseObserver.onNext(bulk);
           }
+          builder.clear();
         }
+      }
 
-        @Override
-        public void onNext(Rpc.IngestBulk bulk) {
-          Metrics.INGEST_BULK.increment();
-          Metrics.BULK_SIZE.increment(bulk.getIngestCount());
-          inflightRequests.addAndGet(bulk.getIngestCount());
-          bulk.getIngestList().stream()
-              .forEach(r -> processSingleIngest(r, status -> {
-                statusQueue.add(status);
-                if (statusQueue.size() >= MAX_QUEUED_STATUSES) {
-                  // enqueue flush
-                  scheduler.execute(flushTask);
-                }
-                if (inflightRequests.decrementAndGet() == 0) {
-                  // there is no more inflight requests
-                  synchronized (inflightRequests) {
-                    inflightRequests.notifyAll();
-                  }
-                }
-              }));
-        }
-
-        @Override
-        public void onError(Throwable error) {
-          log.error("Error from client", error);
-          // close the connection
-          responseObserver.onError(error);
-          flushFuture.cancel(true);
-        }
-
-        @SuppressFBWarnings(
-            value = "JLM_JSR166_UTILCONCURRENT_MONITORENTER",
-            justification = "The synchronization on `inflighRequests` is used only for "
-                + "waiting before the flush thread finishes (wait() - notify())")
-        @Override
-        public void onCompleted() {
-          completed.set(true);
-          flushFuture.cancel(true);
-          // flush all responses to the observer
-          synchronized (inflightRequests) {
-            while (inflightRequests.get() > 0) {
-              try {
-                inflightRequests.wait(100);
-              } catch (InterruptedException ex) {
-                log.warn("Interrupted while waiting to send responses to client", ex);
-                Thread.currentThread().interrupt();
+      @Override
+      public void onNext(Rpc.IngestBulk bulk) {
+        Metrics.INGEST_BULK.increment();
+        Metrics.BULK_SIZE.increment(bulk.getIngestCount());
+        inflightRequests.addAndGet(bulk.getIngestCount());
+        bulk.getIngestList().stream()
+            .forEach(r -> processSingleIngest(r, status -> {
+              statusQueue.add(status);
+              if (statusQueue.size() >= MAX_QUEUED_STATUSES) {
+                // enqueue flush
+                scheduler.execute(flushTask);
               }
+              if (inflightRequests.decrementAndGet() == 0) {
+                // there is no more inflight requests
+                synchronized (inflightRequests) {
+                  inflightRequests.notifyAll();
+                }
+              }
+            }));
+      }
+
+      @Override
+      public void onError(Throwable error) {
+        log.error("Error from client", error);
+        // close the connection
+        responseObserver.onError(error);
+        flushFuture.cancel(true);
+      }
+
+      @SuppressFBWarnings(
+          value = "JLM_JSR166_UTILCONCURRENT_MONITORENTER",
+          justification = "The synchronization on `inflighRequests` is used only for "
+              + "waiting before the flush thread finishes (wait() - notify())")
+      @Override
+      public void onCompleted() {
+        completed.set(true);
+        flushFuture.cancel(true);
+        // flush all responses to the observer
+        synchronized (inflightRequests) {
+          while (inflightRequests.get() > 0) {
+            try {
+              inflightRequests.wait(100);
+            } catch (InterruptedException ex) {
+              log.warn("Interrupted while waiting to send responses to client", ex);
+              Thread.currentThread().interrupt();
             }
           }
-          while (!statusQueue.isEmpty()) {
-            peekQueueToBuilderAndFlush();
-          }
-          flush();
-          responseObserver.onCompleted();
         }
+        while (!statusQueue.isEmpty()) {
+          peekQueueToBuilderAndFlush();
+        }
+        flush();
+        responseObserver.onCompleted();
+      }
 
-      };
+
+    }
+
+    @Override
+    public void ingest(
+        Rpc.Ingest request, StreamObserver<Rpc.Status> responseObserver) {
+
+      Metrics.INGEST_SINGLE.increment();
+      processSingleIngest(request, status -> {
+        responseObserver.onNext(status);
+        responseObserver.onCompleted();
+      });
+    }
+
+
+    @Override
+    public StreamObserver<Rpc.Ingest> ingestSingle(
+        StreamObserver<Rpc.Status> responseObserver) {
+
+      return new IngestObserver(responseObserver);
+    }
+
+    @Override
+    public StreamObserver<Rpc.IngestBulk> ingestBulk(
+        StreamObserver<Rpc.StatusBulk> responseObserver) {
+
+      // the responseObserver doesn't have to be synchronized in this
+      // case, because the communication with the observer is done
+      // in single flush thread
+
+      return new IngestBulkObserver(responseObserver);
     }
 
   }
@@ -739,18 +758,30 @@ public class IngestServer {
             new IllegalStateException(
                 "Unable to get reader for family " + family.getName() + "."));
 
+    startTransformationObserver(consumer, reader, t, f, name);
+    log.info(
+        "Started transformer {} reading from {} using {}",
+        consumer, reader.getUri(), t.getClass());
+  }
+
+  private void startTransformationObserver(
+      String consumer, CommitLogReader reader,
+      Transformation transformation, StorageFilter filter, String name) {
+
     new RetryableLogObserver(3, consumer, reader) {
 
       @Override
       protected void failure() {
-        die(String.format("Failed to transform using %s. Bailing out.", t));
+        die(String.format(
+            "Failed to transform using %s. Bailing out.",
+            transformation));
       }
 
       @Override
       public boolean onNextInternal(
           StreamElement ingest, OffsetCommitter committer) {
 
-        if (!f.apply(ingest)) {
+        if (!filter.apply(ingest)) {
           log.debug(
               "Transformation {}: skipping transformation of {} by filter",
               name,  ingest);
@@ -783,7 +814,7 @@ public class IngestServer {
             }
           };
 
-          if (toConfirm.addAndGet(t.apply(ingest, collector)) == 0) {
+          if (toConfirm.addAndGet(transformation.apply(ingest, collector)) == 0) {
             committer.confirm();
           }
         } catch (Exception ex) {
@@ -795,9 +826,6 @@ public class IngestServer {
 
 
     }.start();
-    log.info(
-        "Started transformer {} reading from {} using {}",
-        consumer, reader.getUri(), t.getClass());
   }
 
   /**

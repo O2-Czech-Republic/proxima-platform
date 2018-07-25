@@ -117,12 +117,12 @@ public class Stream<T> {
 
           @Override
           public void commit() throws IOException {
-
+            // nop
           }
 
           @Override
           public void close() throws IOException {
-
+            // nop
           }
 
         };

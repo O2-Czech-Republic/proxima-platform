@@ -26,15 +26,13 @@ import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import lombok.Getter;
 
 class GCloudClient extends AbstractStorage {
 
   @Getter
   final Map<String, Object> cfg;
-
-  @Getter
-  final Storage client;
 
   @Getter
   final String bucket;
@@ -45,10 +43,13 @@ class GCloudClient extends AbstractStorage {
   @Getter
   final StorageClass storageClass;
 
+  @Nullable
+  @Getter
+  private transient Storage client;
+
   GCloudClient(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
     super(entityDesc, uri);
     this.cfg = cfg;
-    this.client = StorageOptions.getDefaultInstance().getService();
     this.bucket = uri.getAuthority();
     this.path = toPath(uri);
     this.storageClass = Optional.ofNullable(cfg.get("storage-class"))
@@ -63,11 +64,18 @@ class GCloudClient extends AbstractStorage {
   }
 
   Blob createBlob(String name) {
-    return client.create(
+    return client().create(
         BlobInfo.newBuilder(bucket, path + name)
             .setStorageClass(storageClass)
             .build(),
         Storage.BlobTargetOption.doesNotExist());
+  }
+
+  Storage client() {
+    if (client == null) {
+      client = StorageOptions.getDefaultInstance().getService();
+    }
+    return client;
   }
 
 }

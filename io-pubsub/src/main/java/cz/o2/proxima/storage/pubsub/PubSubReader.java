@@ -139,10 +139,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       @Nullable String name, Collection<Partition> partitions, Position position,
       boolean stopAtCurrent, LogObserver observer) {
 
-    if (stopAtCurrent) {
-      throw new UnsupportedOperationException(
-          "PubSub can observe only current data.");
-    }
+    validateNotStopAtCurrent(stopAtCurrent);
     return observe(name, position, observer);
   }
 
@@ -164,10 +161,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       boolean stopAtCurrent,
       BulkLogObserver observer) {
 
-    if (stopAtCurrent) {
-      throw new UnsupportedOperationException(
-          "PubSub can observe only current data.");
-    }
+    validateNotStopAtCurrent(stopAtCurrent);
 
     validatePosition(position);
     AtomicReference<List<AckReplyConsumer>> unconfirmed = new AtomicReference<>(
@@ -242,10 +236,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       boolean stopAtCurrent,
       BulkLogObserver observer) {
 
-    if (stopAtCurrent) {
-      throw new UnsupportedOperationException(
-          "PubSub can observe only current data.");
-    }
+    validateNotStopAtCurrent(stopAtCurrent);
 
     return observeBulk(name, position, observer);
   }
@@ -267,7 +258,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   @VisibleForTesting
   Subscriber newSubscriber(
       ProjectSubscriptionName subscription, MessageReceiver receiver) {
-    
+
     if (subscriptionAutoCreate) {
       try (SubscriptionAdminClient client = SubscriptionAdminClient.create()) {
         try {
@@ -291,10 +282,21 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         .build();
   }
 
-  private void validatePosition(Position position) throws UnsupportedOperationException {
+  private void validatePosition(Position position) {
     if (position == Position.OLDEST) {
-      throw new UnsupportedOperationException("PubSub can observe only current data.");
+      failUnsupported();
     }
+  }
+
+  private void validateNotStopAtCurrent(boolean stopAtCurrent) {
+    if (stopAtCurrent) {
+      failUnsupported();
+    }
+  }
+
+  private void failUnsupported() {
+    throw new UnsupportedOperationException(
+        "PubSub can observe only current data.");
   }
 
   private ObserveHandle consume(

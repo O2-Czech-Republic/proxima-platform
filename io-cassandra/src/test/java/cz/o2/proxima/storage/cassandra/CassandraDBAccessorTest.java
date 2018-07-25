@@ -501,8 +501,9 @@ public class CassandraDBAccessorTest {
     CassandraDBAccessor accessor = new TestDBAccessor(
         entity, URI.create("cassandra://localhost/"),
         getCfg(TestCqlFactory.class, 13));
-    CassandraLogObservable observable = new CassandraLogObservable(accessor,
-        Executors.newCachedThreadPool());
+    CassandraLogObservable observable = new CassandraLogObservable(
+        accessor,
+        () -> Executors.newCachedThreadPool());
 
 
     List<Partition> partitions = observable.getPartitions();
@@ -536,7 +537,8 @@ public class CassandraDBAccessorTest {
         URI.create("cassandra://localhost/"),
         getCfg(TestCqlFactory.class, 2));
     CassandraLogObservable observable = new CassandraLogObservable(
-        accessor, Executors.newCachedThreadPool());
+        accessor,
+        () -> Executors.newCachedThreadPool());
 
     List<Partition> partitions = observable.getPartitions();
     assertEquals(2, partitions.size());
@@ -561,8 +563,9 @@ public class CassandraDBAccessorTest {
         entity, URI.create("cassandra://localhost/"),
         getCfg(TestCqlFactory.class, 2));
 
-    CassandraLogObservable observable = new CassandraLogObservable(accessor,
-        Executors.newCachedThreadPool());
+    CassandraLogObservable observable = new CassandraLogObservable(
+        accessor,
+        () -> Executors.newCachedThreadPool());
 
 
     CountDownLatch latch = new CountDownLatch(1);

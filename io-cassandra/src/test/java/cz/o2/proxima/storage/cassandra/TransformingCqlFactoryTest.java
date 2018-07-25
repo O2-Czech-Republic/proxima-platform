@@ -85,7 +85,7 @@ public class TransformingCqlFactoryTest {
     factory.setup(
         entity,
         new URI("cassandra://wherever/my_table/"),
-        StringConverter.DEFAULT);
+        StringConverter.getDefault());
   }
 
   /**
@@ -129,7 +129,7 @@ public class TransformingCqlFactoryTest {
     factory.setup(
         entity,
         new URI("cassandra://wherever/my_table/?ttl=86400"),
-        StringConverter.DEFAULT);
+        StringConverter.getDefault());
 
     factory.getWriteStatement(ingest, session);
     assertEquals(1, statements.size());

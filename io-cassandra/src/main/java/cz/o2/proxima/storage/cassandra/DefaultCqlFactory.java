@@ -65,7 +65,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
    * Converter between type stored in cassandra and string used
    * as a specifier in wildcard attributes.
    */
-  StringConverter<?> converter = StringConverter.DEFAULT;
+  StringConverter<?> converter = StringConverter.getDefault();
 
   /**
    * {@code true} if the secondary key sorting reversed (DESC).

@@ -32,6 +32,7 @@ import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -63,14 +64,16 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
     return new ValueSerializer() {
 
       final String protoClass = uri.getSchemeSpecificPart();
-      final AbstractMessage defVal = ProtoSerializerFactory.getDefaultInstance(
-          protoClass);
       final JsonProtoSerializerFactory factory = JsonProtoSerializerFactory.this;
       final boolean strictScheme = Optional
           .ofNullable(UriUtil.parseQuery(uri).get("strictScheme"))
           .map(Boolean::valueOf)
           .orElse(false);
+      @Nullable
+      transient AbstractMessage defVal = null;
+      @Nullable
       transient Method builder = null;
+      @Nullable
       transient JsonFormat.Parser parser = null;
 
       @Override
@@ -102,6 +105,9 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
 
       @Override
       public Object getDefault() {
+        if (defVal == null) {
+          defVal = ProtoSerializerFactory.getDefaultInstance(protoClass);
+        }
         return defVal;
       }
 
@@ -141,7 +147,7 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
       return (AbstractMessage.Builder) newBuilder.invoke(null);
     } catch (IllegalAccessException | IllegalArgumentException
         | InvocationTargetException ex) {
-      
+
       throw new RuntimeException(ex);
     }
   }

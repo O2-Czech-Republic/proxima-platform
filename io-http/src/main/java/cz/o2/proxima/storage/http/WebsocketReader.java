@@ -97,10 +97,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   public ObserveHandle observe(
       String name, Position position, LogObserver observer) {
 
-    if (position == Position.OLDEST) {
-      throw new UnsupportedOperationException(
-          "Cannot read OLDEST data from websocket");
-    }
+    checkSupportedPosition(position);
     return observe(
         element -> observer.onNext(element, nullCommitter()),
         err -> observer.onError(err));
@@ -173,10 +170,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
       String name, Collection<Partition> partitions, Position position,
       boolean stopAtCurrent, LogObserver observer) {
 
-    if (position == Position.OLDEST) {
-      throw new UnsupportedOperationException(
-          "Cannot read OLDEST data from websocket");
-    }
+    checkSupportedPosition(position);
     return observe(
         element -> observer.onNext(element, nullCommitter()),
         err -> observer.onError(err));
@@ -186,10 +180,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   public ObserveHandle observeBulk(
       String name, Position position, boolean stopAtCurrent, BulkLogObserver observer) {
 
-    if (position == Position.OLDEST) {
-      throw new UnsupportedOperationException(
-          "Cannot read OLDEST data from websocket");
-    }
+    checkSupportedPosition(position);
     return observe(
         element -> observer.onNext(element, PARTITION, nullBulkCommitter()),
         err -> observer.onError(err));
@@ -212,7 +203,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
   @Override
   public void close() throws IOException {
-
+    // nop
   }
 
   private LogObserver.OffsetCommitter nullCommitter() {
@@ -221,6 +212,13 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
   private BulkLogObserver.OffsetCommitter nullBulkCommitter() {
     return (succ, err) -> { };
+  }
+
+  private void checkSupportedPosition(Position position) {
+    if (position == Position.OLDEST) {
+      throw new UnsupportedOperationException(
+          "Cannot read OLDEST data from websocket");
+    }
   }
 
 }

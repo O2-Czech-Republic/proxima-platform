@@ -20,7 +20,6 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import static cz.o2.proxima.storage.hbase.TestUtil.b;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.util.Pair;
@@ -42,18 +41,22 @@ import org.junit.After;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
+import static cz.o2.proxima.storage.hbase.TestUtil.bytes;
 
 /**
  * Testing suite for {@link RandomHBaseReader}.
  */
 public class RandomHBaseReaderTest {
 
-  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.load()).build();
+  private final Repository repo = ConfigRepository.Builder.ofTest(
+      ConfigFactory.load()).build();
   private final EntityDescriptor entity = repo.findEntity("test").get();
   @SuppressWarnings("unchecked")
-  private final AttributeDescriptor<byte[]> attr = (AttributeDescriptor) entity.findAttribute("dummy").get();
+  private final AttributeDescriptor<byte[]> attr = (AttributeDescriptor) entity
+      .findAttribute("dummy").get();
   @SuppressWarnings("unchecked")
-  private final AttributeDescriptor<byte[]> wildcard = (AttributeDescriptor) entity.findAttribute("wildcard.*").get();
+  private final AttributeDescriptor<byte[]> wildcard = (AttributeDescriptor) entity
+      .findAttribute("wildcard.*").get();
   private final TableName tableName = TableName.valueOf("test");
 
   private HBaseTestingUtility util;
@@ -66,7 +69,7 @@ public class RandomHBaseReaderTest {
   public void setUp() throws Exception {
     util = HBaseTestingUtility.createLocalHTU();
     cluster = util.startMiniCluster();
-    util.createTable(tableName, b("u"));
+    util.createTable(tableName, bytes("u"));
     conn = ConnectionFactory.createConnection(util.getConfiguration());
     client = conn.getTable(tableName);
 
@@ -90,7 +93,7 @@ public class RandomHBaseReaderTest {
     Optional<KeyValue<byte[]>> res = reader.get("key", attr);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
-    assertArrayEquals(b("value"), res.get().getValueBytes());
+    assertArrayEquals(bytes("value"), res.get().getValueBytes());
     assertEquals(attr, res.get().getAttrDescriptor());
     assertEquals(now, res.get().getStamp());
   }
@@ -102,7 +105,7 @@ public class RandomHBaseReaderTest {
     Optional<KeyValue<byte[]>> res = reader.get("key", "wildcard.12345", wildcard);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
-    assertArrayEquals(b("value"), res.get().getValueBytes());
+    assertArrayEquals(bytes("value"), res.get().getValueBytes());
     assertEquals("wildcard.12345", res.get().getAttribute());
     assertEquals(wildcard, res.get().getAttrDescriptor());
     assertEquals(now, res.get().getStamp());

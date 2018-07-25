@@ -509,7 +509,7 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
               .filter(off -> off.getSecond().get() < written)
               .findAny()
               .isPresent()) {
-            
+
             return false;
           }
           partition++;
@@ -535,7 +535,9 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       oos.defaultWriteObject();
     }
 
-    private void readObject(ObjectInputStream ois) throws ClassNotFoundException, IOException {
+    private void readObject(ObjectInputStream ois)
+        throws ClassNotFoundException, IOException {
+
       // default deserialization
       ois.defaultReadObject();
       Accessor original = ACCESSORS.get(this.descriptorId).get(getUri());
@@ -571,10 +573,35 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
     }
 
     @Override
+    public <T> Dataset<T> observePartitions(
+        Flow flow, Collection<Partition> partitions,
+        PartitionedLogObserver<T> observer) {
+
+      Dataset<T> ret = super.observePartitions(flow, partitions, observer);
+      log.debug(
+          "Started to observe partitions {} of view of LocalKafkaCommitLog with URI {}",
+          partitions.stream().map(Partition::getId).collect(Collectors.toList()),
+          getUri());
+      return ret;
+    }
+
+    @Override
     public ObserveHandle observe(String name, Position position, LogObserver observer) {
       ObserveHandle ret = super.observe(name, position, observer);
       log.debug(
           "Started to observe LocalKafkaCommitLog with URI {} by consumer {}",
+          getUri(), name);
+      return ret;
+    }
+
+    @Override
+    public <T> Dataset<T> observe(
+        Flow flow, String name, PartitionedLogObserver<T> observer) {
+
+      Dataset<T> ret = super.observe(flow, name, observer);
+      log.debug(
+          "Started to observe view of LocalKafkaCommitLog with URI {} "
+              + "by consumer name {}",
           getUri(), name);
       return ret;
     }
@@ -588,32 +615,9 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       ObserveHandle ret = super.observeKafka(
           name, partitions, position, stopAtCurrent, observer);
       log.debug(
-          "Started to observe partitions {} of LocalKafkaCommitLog with URI {} by consumer {}",
+          "Started to observe partitions {} of LocalKafkaCommitLog "
+              + "with URI {} by consumer {}",
           partitions, getUri(), name);
-      return ret;
-    }
-
-    @Override
-    public <T> Dataset<T> observe(
-        Flow flow, String name, PartitionedLogObserver<T> observer) {
-
-      Dataset<T> ret = super.observe(flow, name, observer);
-      log.debug(
-          "Started to observe view of LocalKafkaCommitLog with URI {} by consumer name {}",
-          getUri(), name);
-      return ret;
-    }
-
-    @Override
-    public <T> Dataset<T> observePartitions(
-        Flow flow, Collection<Partition> partitions,
-        PartitionedLogObserver<T> observer) {
-
-      Dataset<T> ret = super.observePartitions(flow, partitions, observer);
-      log.debug(
-          "Started to observe partitions {} of view of LocalKafkaCommitLog with URI {}",
-          partitions.stream().map(Partition::getId).collect(Collectors.toList()),
-          getUri());
       return ret;
     }
 
@@ -656,7 +660,8 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
       local.written.get(partition).add(data);
       long offset = local.written.get(partition).size() - 1;
       log.debug(
-          "Written data {} to LocalKafkaCommitLog descriptorId {} URI {}, partition {} at offset {}",
+          "Written data {} to LocalKafkaCommitLog descriptorId {} URI {}, "
+              + "partition {} at offset {}",
           data, descriptorId, getUri(), partition, offset);
 
       callback.commit(true, null);

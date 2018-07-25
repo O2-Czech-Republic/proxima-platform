@@ -183,7 +183,8 @@ public class PubSubPartitionedViewTest implements Serializable {
   }
 
   private final transient Repository repo = ConfigRepository.of(ConfigFactory.empty());
-  private final AttributeDescriptorBase<byte[]> attr = AttributeDescriptor.newBuilder(repo)
+  private final AttributeDescriptorBase<byte[]> attr = AttributeDescriptor
+      .newBuilder(repo)
       .setEntity("entity")
       .setName("attr")
       .setSchemeUri(new URI("bytes:///"))
@@ -278,8 +279,8 @@ public class PubSubPartitionedViewTest implements Serializable {
   @Test
   @Ignore(
       "This test fails for unknown reasons. "
-    + "It seems related to coder used to store elements in BagState. "
-    + "This suggest further debug is needed.")
+          + "It seems related to coder used to store elements in BagState. "
+          + "This suggest further debug is needed.")
   public void testViewUnamedObserveSorted() {
     long now = 1234567890000L;
     PubSubPartitionedView view = createView(

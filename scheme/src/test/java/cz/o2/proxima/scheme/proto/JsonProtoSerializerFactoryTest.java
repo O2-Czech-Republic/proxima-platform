@@ -32,6 +32,8 @@ import org.junit.Test;
 @SuppressWarnings("unchecked")
 public class JsonProtoSerializerFactoryTest {
 
+  private static final Charset UTF8 = Charset.forName("UTF-8");
+
   ValueSerializerFactory factory = new JsonProtoSerializerFactory();
 
   @Test
@@ -42,8 +44,10 @@ public class JsonProtoSerializerFactoryTest {
         .build();
     ValueSerializer serializer = factory.getValueSerializer(
         new URI("json-proto:" + Event.class.getName()));
-    String json = new String(serializer.serialize(event), Charset.forName("UTF-8"));
-    assertEquals("{\n  \"gatewayId\": \"gateway\",\n  \"payload\": \"AQID\"\n}", json);
+    String json = new String(serializer.serialize(event), UTF8);
+    assertEquals(
+        "{\n  \"gatewayId\": \"gateway\",\n  \"payload\": \"AQID\"\n}",
+        json);
   }
 
   @Test
@@ -55,7 +59,7 @@ public class JsonProtoSerializerFactoryTest {
         .build();
     ValueSerializer serializer = factory.getValueSerializer(
         new URI("json-proto:" + Event.class.getName()));
-    Optional<Event> deserialized = serializer.deserialize(json.getBytes(Charset.forName("UTF-8")));
+    Optional<Event> deserialized = serializer.deserialize(json.getBytes(UTF8));
     assertTrue(deserialized.isPresent());
     assertEquals(event, deserialized.get());
   }
@@ -68,7 +72,7 @@ public class JsonProtoSerializerFactoryTest {
         .build();
     ValueSerializer serializer = factory.getValueSerializer(
         new URI("json-proto:" + Event.class.getName()));
-    Optional<Event> deserialized = serializer.deserialize(json.getBytes(Charset.forName("UTF-8")));
+    Optional<Event> deserialized = serializer.deserialize(json.getBytes(UTF8));
     assertTrue(deserialized.isPresent());
     assertEquals(event, deserialized.get());
   }
@@ -81,7 +85,7 @@ public class JsonProtoSerializerFactoryTest {
         .build();
     ValueSerializer serializer = factory.getValueSerializer(
         new URI("json-proto:" + Event.class.getName()));
-    Optional<Event> deserialized = serializer.deserialize(json.getBytes(Charset.forName("UTF-8")));
+    Optional<Event> deserialized = serializer.deserialize(json.getBytes(UTF8));
     assertTrue(deserialized.isPresent());
     assertEquals(event, deserialized.get());
   }

@@ -50,7 +50,8 @@ import org.junit.Test;
 public class CommitLogSourceTest {
 
   private final transient Repository repo = Repository.of(ConfigFactory.empty());
-  private final AttributeDescriptorBase<byte[]> attr = AttributeDescriptor.newBuilder(repo)
+  private final AttributeDescriptorBase<byte[]> attr = AttributeDescriptor
+      .newBuilder(repo)
       .setEntity("entity")
       .setName("attr")
       .setSchemeUri(new URI("bytes:///"))

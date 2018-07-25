@@ -74,7 +74,8 @@ public class MultiAccessBuilderTest {
         .filter(af -> af.getName().equals("gateway-storage-stream"))
         .findAny()
         .flatMap(AttributeFamilyDescriptor::getRandomAccessReader)
-        .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
+        .orElseThrow(() -> new IllegalStateException(
+            "Cannot get random access reader"));
     reader = RandomAccessReader.newBuilder()
         .addAttributes(base, armed, device)
         .build();
@@ -84,7 +85,8 @@ public class MultiAccessBuilderTest {
         gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
         now, new byte[] { 1, 2 }), (succ, exc) -> { });
     repo.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
+        gateway, device, UUID.randomUUID().toString(),
+        "gw", device.toAttributePrefix() + "1",
         now, new byte[] { 2, 3 }), (succ, exc) -> { });
     Optional<? extends KeyValue<?>> kv = reader.get("gw", armed);
     assertTrue(kv.isPresent());
@@ -117,8 +119,9 @@ public class MultiAccessBuilderTest {
         gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
         now, new byte[] { 1, 2 }), (succ, exc) -> { });
     repo.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
-        now, new byte[] { 2, 3 }), (succ, exc) -> { });
+        gateway, device, UUID.randomUUID().toString(), "gw",
+        device.toAttributePrefix() + "1", now, new byte[] { 2, 3 }),
+        (succ, exc) -> { });
     Optional<? extends KeyValue<?>> kv = reader.get("gw", armed);
     assertTrue(kv.isPresent());
     assertArrayEquals(new byte[] { 1, 2 }, kv.get().getValueBytes());
@@ -159,8 +162,9 @@ public class MultiAccessBuilderTest {
         gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
         now, new byte[] { 1, 2 }), (succ, exc) -> { });
     repo.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
-        now, new byte[] { 2, 3 }), (succ, exc) -> { });
+        gateway, device, UUID.randomUUID().toString(), "gw",
+        device.toAttributePrefix() + "1", now, new byte[] { 2, 3 }),
+        (succ, exc) -> { });
     repo.getWriter(data).get().write(StreamElement.update(
         dummy, data, UUID.randomUUID().toString(), "dummy", data.getName(),
         now, new byte[] { 3, 4 }), (succ, exc) -> { });
@@ -194,11 +198,13 @@ public class MultiAccessBuilderTest {
 
     // write some data
     repo.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
-        now, new byte[] { 2, 3 }), (succ, exc) -> { });
+        gateway, device, UUID.randomUUID().toString(), "gw",
+        device.toAttributePrefix() + "1", now, new byte[] { 2, 3 }),
+        (succ, exc) -> { });
     repo.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "2",
-        now, new byte[] { 2, 3 }), (succ, exc) -> { });
+        gateway, device, UUID.randomUUID().toString(), "gw",
+        device.toAttributePrefix() + "2", now, new byte[] { 2, 3 }),
+        (succ, exc) -> { });
     List<KeyValue<?>> kvs = new ArrayList<>();
     reader.scanWildcard("gw", device, kvs::add);
     assertEquals(2, kvs.size());
@@ -228,9 +234,11 @@ public class MultiAccessBuilderTest {
         gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
         now, new byte[] { 1, 2 }), (succ, exc) -> { });
     repo.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
-        now, new byte[] { 2, 3 }), (succ, exc) -> { });
-    Set<KeyValue<?>> kvs = new TreeSet<>((k1, k2) -> k1.getAttribute().compareTo(k2.getAttribute()));
+        gateway, device, UUID.randomUUID().toString(), "gw",
+        device.toAttributePrefix() + "1", now, new byte[] { 2, 3 }),
+        (succ, exc) -> { });
+    Set<KeyValue<?>> kvs = new TreeSet<>((k1, k2) ->
+        k1.getAttribute().compareTo(k2.getAttribute()));
     reader.scanWildcardAll("gw", kvs::add);
     assertEquals(2, kvs.size());
     List<KeyValue<?>> ordered = new ArrayList<>(kvs);
@@ -250,7 +258,8 @@ public class MultiAccessBuilderTest {
         .filter(af -> af.getName().equals("gateway-storage-stream"))
         .findAny()
         .flatMap(AttributeFamilyDescriptor::getRandomAccessReader)
-        .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
+        .orElseThrow(() -> new IllegalStateException(
+            "Cannot get random access reader"));
     reader = RandomAccessReader.newBuilder()
         .addAttributes(base, armed, device)
         .build();
@@ -260,10 +269,12 @@ public class MultiAccessBuilderTest {
         gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
         now, new byte[] { 1, 2 }), (succ, exc) -> { });
     repo.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw", device.toAttributePrefix() + "1",
-        now, new byte[] { 2, 3 }), (succ, exc) -> { });
+        gateway, device, UUID.randomUUID().toString(), "gw",
+        device.toAttributePrefix() + "1", now, new byte[] { 2, 3 }),
+        (succ, exc) -> { });
 
-    RandomOffset off = reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, armed.getName());
+    RandomOffset off = reader.fetchOffset(
+        RandomAccessReader.Listing.ATTRIBUTE, armed.getName());
     List<KeyValue<?>> kvs = new ArrayList<>();
     reader.scanWildcardAll("gw", off, -1, kvs::add);
     assertEquals(1, kvs.size());

@@ -80,8 +80,8 @@ abstract class BoundedSourceTest {
       String key, AttributeDescriptor<byte[]> attr, String attribute, long stamp) {
 
 
-    return StreamElement.update(entity, attr, UUID.randomUUID().toString(), key, attribute,
-        stamp, new byte[] { 1, 2, 3});
+    return StreamElement.update(entity, attr, UUID.randomUUID().toString(),
+        key, attribute, stamp, new byte[] { 1, 2, 3});
   }
 
   public void testSimpleConsume(

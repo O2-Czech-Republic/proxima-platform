@@ -15,14 +15,9 @@
  */
 package cz.o2.proxima.server;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.TextFormat;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.proto.service.IngestServiceGrpc.IngestServiceImplBase;
-import cz.o2.proxima.proto.service.RetrieveServiceGrpc.RetrieveServiceImplBase;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
@@ -42,12 +37,8 @@ import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.Offset;
 import cz.o2.proxima.storage.commitlog.RetryableBulkObserver;
 import cz.o2.proxima.storage.commitlog.RetryableLogObserver;
-import cz.o2.proxima.storage.randomaccess.KeyValue;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Pair;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.grpc.ServerBuilder;
-import io.grpc.stub.StreamObserver;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.jodah.failsafe.Failsafe;
@@ -62,19 +53,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -101,364 +86,6 @@ public class IngestServer {
     server.run();
   }
 
-  /**
-   * The ingestion service.
-   **/
-  public class IngestService extends IngestServiceImplBase {
-
-    private class IngestObserver implements StreamObserver<Rpc.Ingest> {
-
-      final StreamObserver<Rpc.Status> responseObserver;
-      final AtomicInteger inflightRequests = new AtomicInteger(0);
-      final Object responseObserverLock = new Object();
-
-      IngestObserver(StreamObserver<Rpc.Status> responseObserver) {
-        this.responseObserver = responseObserver;
-      }
-
-      @Override
-      public void onNext(Rpc.Ingest request) {
-        Metrics.INGEST_SINGLE.increment();
-        inflightRequests.incrementAndGet();
-        processSingleIngest(request, status -> {
-          synchronized (responseObserverLock) {
-            responseObserver.onNext(status);
-          }
-          if (inflightRequests.decrementAndGet() == 0) {
-            synchronized (inflightRequests) {
-              inflightRequests.notifyAll();
-            }
-          }
-        });
-      }
-
-      @Override
-      public void onError(Throwable thrwbl) {
-        log.error("Error on channel", thrwbl);
-        synchronized (responseObserverLock) {
-          responseObserver.onError(thrwbl);
-        }
-      }
-
-      @Override
-      public void onCompleted() {
-        inflightRequests.accumulateAndGet(0, (a, b) -> {
-          int res = a + b;
-          if (res > 0) {
-            synchronized (inflightRequests) {
-              try {
-                while (inflightRequests.get() > 0) {
-                  inflightRequests.wait();
-                }
-              } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-              }
-            }
-          }
-          synchronized (responseObserverLock) {
-            responseObserver.onCompleted();
-          }
-          return res;
-        });
-      }
-
-    }
-
-    private class IngestBulkObserver implements StreamObserver<Rpc.IngestBulk> {
-
-      final StreamObserver<Rpc.StatusBulk> responseObserver;
-      final Queue<Rpc.Status> statusQueue = new ConcurrentLinkedQueue<>();
-      final AtomicBoolean completed = new AtomicBoolean(false);
-      final AtomicInteger inflightRequests = new AtomicInteger();
-      final AtomicLong lastFlushNanos = new AtomicLong(System.nanoTime());
-      final Rpc.StatusBulk.Builder builder = Rpc.StatusBulk.newBuilder();
-      static final long MAX_SLEEP_NANOS = 100000000L;
-      static final int MAX_QUEUED_STATUSES = 500;
-
-      Runnable flushTask = createFlushTask();
-
-      // schedule the flush periodically
-      ScheduledFuture<?> flushFuture = scheduler.scheduleAtFixedRate(
-          flushTask, MAX_SLEEP_NANOS, MAX_SLEEP_NANOS, TimeUnit.NANOSECONDS);
-
-      IngestBulkObserver(StreamObserver<Rpc.StatusBulk> responseObserver) {
-        this.responseObserver = responseObserver;
-      }
-
-      private Runnable createFlushTask() {
-        return () -> {
-          try {
-            synchronized (builder) {
-              while (statusQueue.size() > MAX_QUEUED_STATUSES) {
-                peekQueueToBuilderAndFlush();
-              }
-              long now = System.nanoTime();
-              if (now - lastFlushNanos.get() >= MAX_SLEEP_NANOS) {
-                while (!statusQueue.isEmpty()) {
-                  peekQueueToBuilderAndFlush();
-                }
-              }
-              if (builder.getStatusCount() > 0) {
-                responseObserver.onNext(builder.build());
-                builder.clear();
-              }
-              if (completed.get()
-                  && inflightRequests.get() == 0
-                  && statusQueue.isEmpty()) {
-
-                responseObserver.onCompleted();
-              }
-            }
-          } catch (Exception ex) {
-            log.error("Failed to send bulk status", ex);
-          }
-        };
-      }
-
-      private void peekQueueToBuilderAndFlush() {
-        synchronized (builder) {
-          builder.addStatus(statusQueue.poll());
-          if (builder.getStatusCount() >= 1000) {
-            flush();
-          }
-        }
-      }
-
-      /** Flush response(s) to the observer. */
-      private void flush() {
-        synchronized (builder) {
-          lastFlushNanos.set(System.nanoTime());
-          Rpc.StatusBulk bulk = builder.build();
-          if (bulk.getStatusCount() > 0) {
-            responseObserver.onNext(bulk);
-          }
-          builder.clear();
-        }
-      }
-
-      @Override
-      public void onNext(Rpc.IngestBulk bulk) {
-        Metrics.INGEST_BULK.increment();
-        Metrics.BULK_SIZE.increment(bulk.getIngestCount());
-        inflightRequests.addAndGet(bulk.getIngestCount());
-        bulk.getIngestList().stream()
-            .forEach(r -> processSingleIngest(r, status -> {
-              statusQueue.add(status);
-              if (statusQueue.size() >= MAX_QUEUED_STATUSES) {
-                // enqueue flush
-                scheduler.execute(flushTask);
-              }
-              if (inflightRequests.decrementAndGet() == 0) {
-                // there is no more inflight requests
-                synchronized (inflightRequests) {
-                  inflightRequests.notifyAll();
-                }
-              }
-            }));
-      }
-
-      @Override
-      public void onError(Throwable error) {
-        log.error("Error from client", error);
-        // close the connection
-        responseObserver.onError(error);
-        flushFuture.cancel(true);
-      }
-
-      @SuppressFBWarnings(
-          value = "JLM_JSR166_UTILCONCURRENT_MONITORENTER",
-          justification = "The synchronization on `inflighRequests` is used only for "
-              + "waiting before the flush thread finishes (wait() - notify())")
-      @Override
-      public void onCompleted() {
-        completed.set(true);
-        flushFuture.cancel(true);
-        // flush all responses to the observer
-        synchronized (inflightRequests) {
-          while (inflightRequests.get() > 0) {
-            try {
-              inflightRequests.wait(100);
-            } catch (InterruptedException ex) {
-              log.warn("Interrupted while waiting to send responses to client", ex);
-              Thread.currentThread().interrupt();
-            }
-          }
-        }
-        while (!statusQueue.isEmpty()) {
-          peekQueueToBuilderAndFlush();
-        }
-        flush();
-        responseObserver.onCompleted();
-      }
-
-
-    }
-
-    @Override
-    public void ingest(
-        Rpc.Ingest request, StreamObserver<Rpc.Status> responseObserver) {
-
-      Metrics.INGEST_SINGLE.increment();
-      processSingleIngest(request, status -> {
-        responseObserver.onNext(status);
-        responseObserver.onCompleted();
-      });
-    }
-
-
-    @Override
-    public StreamObserver<Rpc.Ingest> ingestSingle(
-        StreamObserver<Rpc.Status> responseObserver) {
-
-      return new IngestObserver(responseObserver);
-    }
-
-    @Override
-    public StreamObserver<Rpc.IngestBulk> ingestBulk(
-        StreamObserver<Rpc.StatusBulk> responseObserver) {
-
-      // the responseObserver doesn't have to be synchronized in this
-      // case, because the communication with the observer is done
-      // in single flush thread
-
-      return new IngestBulkObserver(responseObserver);
-    }
-
-  }
-
-  public class RetrieveService extends RetrieveServiceImplBase {
-
-    private class Status extends Exception {
-      final int statusCode;
-      final String message;
-      Status(int statusCode, String message) {
-        this.statusCode = statusCode;
-        this.message = message;
-      }
-    }
-
-    @Override
-    public void listAttributes(
-        Rpc.ListRequest request,
-        StreamObserver<Rpc.ListResponse> responseObserver) {
-
-      try {
-        Metrics.LIST_REQUESTS.increment();
-        log.info("Processing listAttributes {}", TextFormat.shortDebugString(request));
-        if (request.getEntity().isEmpty() || request.getKey().isEmpty()
-            || request.getWildcardPrefix().isEmpty()) {
-          throw new Status(400, "Missing some required fields");
-        }
-
-        EntityDescriptor entity = repo.findEntity(request.getEntity())
-            .orElseThrow(() -> new Status(
-                404, "Entity " + request.getEntity() + " not found"));
-
-        AttributeDescriptor<Object> wildcard = entity.findAttribute(
-            request.getWildcardPrefix() + ".*").orElseThrow(
-                () -> new Status(404, "Entity " + request.getEntity()
-                    + " does not have wildcard attribute "
-                    + request.getWildcardPrefix()));
-
-        RandomAccessReader reader = repo.getFamiliesForAttribute(wildcard).stream()
-            .filter(af -> af.getRandomAccessReader().isPresent())
-            .map(af -> af.getRandomAccessReader().get())
-            .findAny()
-            .orElseThrow(() -> new Status(400, "Attribute " + wildcard
-                + " has no random reader"));
-
-        Rpc.ListResponse.Builder response = Rpc.ListResponse.newBuilder()
-            .setStatus(200);
-
-        reader.scanWildcard(
-            request.getKey(), wildcard,
-            reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, request.getOffset()),
-            request.getLimit() > 0 ? request.getLimit() : -1,
-            kv -> response.addValue(
-                Rpc.ListResponse.AttrValue.newBuilder()
-                    .setAttribute(kv.getAttribute())
-                    .setValue(ByteString.copyFrom(kv.getValueBytes()))));
-
-        responseObserver.onNext(response.build());
-        responseObserver.onCompleted();
-      } catch (Status s) {
-        responseObserver.onNext(Rpc.ListResponse.newBuilder()
-              .setStatus(s.statusCode)
-              .setStatusMessage(s.message)
-              .build());
-        responseObserver.onCompleted();
-      } catch (Exception ex) {
-        log.error("Failed to process request {}", request, ex);
-        responseObserver.onNext(Rpc.ListResponse.newBuilder()
-            .setStatus(500)
-            .setStatusMessage(ex.getMessage())
-            .build());
-        responseObserver.onCompleted();
-      }
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public void get(
-        Rpc.GetRequest request,
-        StreamObserver<Rpc.GetResponse> responseObserver) {
-
-      Metrics.GET_REQUESTS.increment();
-      log.info("Processing get {}", TextFormat.shortDebugString(request));
-      try {
-        if (request.getEntity().isEmpty() || request.getKey().isEmpty()
-            || request.getAttribute().isEmpty()) {
-          throw new Status(400, "Missing some required fields");
-        }
-
-        EntityDescriptor entity = repo.findEntity(request.getEntity())
-            .orElseThrow(() -> new Status(
-                404, "Entity " + request.getEntity() + " not found"));
-
-        AttributeDescriptor<Object> attribute = entity.findAttribute(
-            request.getAttribute()).orElseThrow(
-                () -> new Status(404, "Entity " + request.getEntity()
-                    + " does not have attribute "
-                    + request.getAttribute()));
-
-        RandomAccessReader reader = repo.getFamiliesForAttribute(attribute).stream()
-            .filter(af -> af.getRandomAccessReader().isPresent())
-            .map(af -> af.getRandomAccessReader().get())
-            .findAny()
-            .orElseThrow(() -> new Status(400, "Attribute " + attribute
-                + " has no random reader"));
-
-        KeyValue<Object> kv = reader
-            .get(request.getKey(), request.getAttribute(), attribute)
-            .orElseThrow(() -> new Status(
-                404,
-                "Key " + request.getKey() + " and/or attribute "
-                    + request.getAttribute() + " not found"));
-
-        responseObserver.onNext(Rpc.GetResponse.newBuilder()
-            .setStatus(200)
-            .setValue(ByteString.copyFrom(kv.getValueBytes()))
-            .build());
-
-        responseObserver.onCompleted();
-      } catch (Status s) {
-        responseObserver.onNext(Rpc.GetResponse.newBuilder()
-              .setStatus(s.statusCode)
-              .setStatusMessage(s.message)
-              .build());
-        responseObserver.onCompleted();
-      } catch (Exception ex) {
-        log.error("Failed to process request {}", request, ex);
-        responseObserver.onNext(Rpc.GetResponse.newBuilder()
-            .setStatus(500)
-            .setStatusMessage(ex.getMessage())
-            .build());
-        responseObserver.onCompleted();
-      }
-
-    }
-
-  }
 
   @Getter
   static final int MIN_CORES = 2;
@@ -497,99 +124,14 @@ public class IngestServer {
       throw new IllegalArgumentException(
           "No valid entities found in provided config!");
     }
-    this.ignoreErrors = cfg.hasPath(Constants.CFG_IGNORE_ERRORS)
-        ? cfg.getBoolean(Constants.CFG_IGNORE_ERRORS)
-        : false;
+    this.ignoreErrors =
+        cfg.hasPath(Constants.CFG_IGNORE_ERRORS)
+            && cfg.getBoolean(Constants.CFG_IGNORE_ERRORS);
   }
 
 
-
-  private void processSingleIngest(
-      Rpc.Ingest request,
-      Consumer<Rpc.Status> consumer) {
-
-    if (log.isDebugEnabled()) {
-      log.debug("Processing input ingest {}", TextFormat.shortDebugString(request));
-    }
-    Consumer<Rpc.Status> loggingConsumer = rpc -> {
-      log.info(
-          "Input ingest {}: {}, {}",
-          TextFormat.shortDebugString(request),
-          rpc.getStatus(),
-          rpc.getStatus() == 200 ? "OK" : rpc.getStatusMessage());
-      consumer.accept(rpc);
-    };
-    Metrics.INGESTS.increment();
-    try {
-      if (!writeRequest(request, loggingConsumer)) {
-        Metrics.INVALID_REQUEST.increment();
-      }
-    } catch (Exception err) {
-      log.error("Error processing user request {}", request, err);
-      loggingConsumer.accept(status(request.getUuid(), 500, err.getMessage()));
-    }
-  }
-
-  /**
-   * Ingest the given request and return {@code true} if successfully
-   * ingested and {@code false} if the request is invalid.
-   */
-  private boolean writeRequest(
-      Rpc.Ingest request,
-      Consumer<Rpc.Status> consumer) {
-
-    if (Strings.isNullOrEmpty(request.getKey())
-        || Strings.isNullOrEmpty(request.getEntity())
-        || Strings.isNullOrEmpty(request.getAttribute())) {
-      consumer.accept(status(request.getUuid(),
-          400, "Missing required fields in input message"));
-      return false;
-    }
-    Optional<EntityDescriptor> entity = repo.findEntity(request.getEntity());
-
-    if (!entity.isPresent()) {
-      consumer.accept(notFound(request.getUuid(),
-          "Entity " + request.getEntity() + " not found"));
-      return false;
-    }
-    Optional<AttributeDescriptor<Object>> attr = entity.get().findAttribute(
-        request.getAttribute());
-    if (!attr.isPresent()) {
-      consumer.accept(notFound(request.getUuid(),
-          "Attribute " + request.getAttribute() + " of entity "
-              + entity.get().getName() + " not found"));
-      return false;
-    }
-    return ingestRequest(
-        toStreamElement(request, entity.get(), attr.get()),
-        request.getUuid(), consumer);
-  }
-
-  private static StreamElement toStreamElement(
-      Rpc.Ingest request, EntityDescriptor entity,
-      AttributeDescriptor attr) {
-
-    long stamp = request.getStamp() == 0
-        ? System.currentTimeMillis()
-        : request.getStamp();
-
-    if (request.getDelete()) {
-      return attr.isWildcard() && attr.getName().equals(request.getAttribute())
-        ? StreamElement.deleteWildcard(
-            entity, attr, request.getUuid(),
-            request.getKey(), stamp)
-        : StreamElement.delete(
-            entity, attr, request.getUuid(),
-            request.getKey(), request.getAttribute(), stamp);
-    }
-    return StreamElement.update(
-            entity, attr, request.getUuid(),
-            request.getKey(), request.getAttribute(),
-            stamp,
-            request.getValue().toByteArray());
-  }
-
-  private boolean ingestRequest(
+  static boolean ingestRequest(
+      Repository repo,
       StreamElement ingest, String uuid,
       Consumer<Rpc.Status> responseConsumer) {
 
@@ -642,7 +184,7 @@ public class IngestServer {
     return true;
   }
 
-  private Rpc.Status notFound(String uuid, String what) {
+  static Rpc.Status notFound(String uuid, String what) {
     return Rpc.Status.newBuilder()
         .setUuid(uuid)
         .setStatus(404)
@@ -650,14 +192,14 @@ public class IngestServer {
         .build();
   }
 
-  private Rpc.Status ok(String uuid) {
+  static Rpc.Status ok(String uuid) {
     return Rpc.Status.newBuilder()
         .setStatus(200)
         .setUuid(uuid)
         .build();
   }
 
-  private Rpc.Status status(String uuid, int status, String message) {
+  static Rpc.Status status(String uuid, int status, String message) {
     return Rpc.Status.newBuilder()
         .setUuid(uuid)
         .setStatus(status)
@@ -672,8 +214,8 @@ public class IngestServer {
         : Constants.DEFALT_PORT;
     io.grpc.Server server = ServerBuilder.forPort(port)
         .executor(executor)
-        .addService(new IngestService())
-        .addService(new RetrieveService())
+        .addService(new IngestService(repo, scheduler))
+        .addService(new RetrieveService(repo))
         .build();
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       log.info("Gracefully shuting down server.");
@@ -768,64 +310,9 @@ public class IngestServer {
       String consumer, CommitLogReader reader,
       Transformation transformation, StorageFilter filter, String name) {
 
-    new RetryableLogObserver(3, consumer, reader) {
-
-      @Override
-      protected void failure() {
-        die(String.format(
-            "Failed to transform using %s. Bailing out.",
-            transformation));
-      }
-
-      @Override
-      public boolean onNextInternal(
-          StreamElement ingest, OffsetCommitter committer) {
-
-        if (!filter.apply(ingest)) {
-          log.debug(
-              "Transformation {}: skipping transformation of {} by filter",
-              name,  ingest);
-          committer.confirm();
-          return true;
-        }
-        AtomicInteger toConfirm = new AtomicInteger(0);
-        try {
-          Transformation.Collector<StreamElement> collector = elem -> {
-            try {
-              log.debug(
-                  "Transformation {}: writing transformed element {}",
-                  name, elem);
-              ingestRequest(
-                  elem, elem.getUuid(), rpc -> {
-                    if (rpc.getStatus() == 200) {
-                      if (toConfirm.decrementAndGet() == 0) {
-                        committer.confirm();
-                      }
-                    } else {
-                      toConfirm.set(-1);
-                      committer.fail(new RuntimeException(
-                          String.format("Received invalid status %d:%s",
-                              rpc.getStatus(), rpc.getStatusMessage())));
-                    }
-                  });
-            } catch (Exception ex) {
-              toConfirm.set(-1);
-              committer.fail(ex);
-            }
-          };
-
-          if (toConfirm.addAndGet(transformation.apply(ingest, collector)) == 0) {
-            committer.confirm();
-          }
-        } catch (Exception ex) {
-          toConfirm.set(-1);
-          committer.fail(ex);
-        }
-        return true;
-      }
-
-
-    }.start();
+    new TransformationObserver(
+        3, consumer, reader, repo,
+        name, transformation, filter).start();
   }
 
   /**
@@ -1058,11 +545,11 @@ public class IngestServer {
     }
   }
 
-  private void die(String message) {
+  static void die(String message) {
     die(message, null);
   }
 
-  private void die(String message, @Nullable Throwable error) {
+  static void die(String message, @Nullable Throwable error) {
     try {
       // sleep random time between zero to 10 seconds to break ties
       Thread.sleep((long) (Math.random() * 10000));

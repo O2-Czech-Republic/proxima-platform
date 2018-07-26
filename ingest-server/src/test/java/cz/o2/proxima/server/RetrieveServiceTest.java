@@ -37,14 +37,14 @@ import org.junit.Before;
 public class RetrieveServiceTest {
 
   IngestServer server;
-  IngestServer.RetrieveService retrieve;
+  RetrieveService retrieve;
 
   @Before
   public void setup() throws InterruptedException {
     server = new IngestServer(ConfigFactory.load("test-reference.conf")
         .withFallback(ConfigFactory.load())
         .resolve());
-    retrieve = server.new RetrieveService();
+    retrieve = new RetrieveService(server.repo);
     server.startConsumerThreads();
   }
 

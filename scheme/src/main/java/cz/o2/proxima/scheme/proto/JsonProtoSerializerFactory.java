@@ -54,8 +54,7 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   @Override
   public ValueSerializer getValueSerializer(URI specifier) {
-    return (ValueSerializer) serializers.computeIfAbsent(
-        specifier, this::createSerializer);
+    return serializers.computeIfAbsent(specifier, this::createSerializer);
   }
 
   @SuppressWarnings("unchecked")

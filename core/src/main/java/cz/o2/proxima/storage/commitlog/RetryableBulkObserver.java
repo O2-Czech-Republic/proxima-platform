@@ -20,7 +20,6 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.Serializable;
 
 /**
  * {@code BulkObserver} which is able to retry the observation on error.
@@ -28,7 +27,7 @@ import java.io.Serializable;
  */
 @Stable
 @Slf4j
-public abstract class RetryableBulkObserver<OFF extends Serializable>
+public abstract class RetryableBulkObserver
     extends AbstractRetryableLogObserver
     implements BulkLogObserver {
 

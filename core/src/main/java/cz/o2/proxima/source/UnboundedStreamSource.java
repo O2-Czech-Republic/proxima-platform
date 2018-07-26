@@ -152,7 +152,7 @@ public class UnboundedStreamSource
         public void commitOffset(Offset offset) {
           List<BulkLogObserver.OffsetCommitter> toCommit = new ArrayList<>();
           committers.drainTo(toCommit);
-          toCommit.forEach(c -> c.confirm());
+          toCommit.forEach(BulkLogObserver.OffsetCommitter::confirm);
         }
 
       };
@@ -169,14 +169,7 @@ public class UnboundedStreamSource
       @Override
       public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
         try {
-          try {
-            committers.add(confirm);
-            queue.put(Optional.of(ingest));
-          } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            return false;
-          }
-          return true;
+          return enqueue(queue, committers, confirm, ingest);
         } catch (Exception ex) {
           confirm.fail(ex);
           throw new RuntimeException(ex);
@@ -199,6 +192,23 @@ public class UnboundedStreamSource
       }
 
     };
+  }
+
+  private boolean enqueue(
+      BlockingQueue<Optional<StreamElement>> queue,
+      BlockingQueue<BulkLogObserver.OffsetCommitter> committers,
+      BulkLogObserver.OffsetCommitter confirm,
+      StreamElement ingest) {
+
+    try {
+      committers.add(confirm);
+      queue.put(Optional.of(ingest));
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      confirm.fail(ex);
+      return false;
+    }
+    return true;
   }
 
 }

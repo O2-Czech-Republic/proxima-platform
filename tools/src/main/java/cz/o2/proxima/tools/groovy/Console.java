@@ -86,7 +86,7 @@ public class Console {
     return INSTANCE;
   }
 
-  public static Console get(String[] args) throws Exception {
+  public static Console get(String[] args) {
     if (INSTANCE == null) {
       synchronized (Console.class) {
         if (INSTANCE == null) {
@@ -99,11 +99,9 @@ public class Console {
 
   AtomicReference<Flow> flow = new AtomicReference<>(createFlow());
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     Console console = Console.get(args);
-    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-      console.close();
-    }));
+    Runtime.getRuntime().addShutdownHook(new Thread(console::close));
 
     Groovysh shell = new Groovysh();
     shell.run("env = " + Console.class.getName() + ".get().getEnv()");
@@ -115,7 +113,7 @@ public class Console {
   List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;
 
-  Console(String[] paths) throws Exception {
+  Console(String[] paths) {
     ClassLoader old = Thread.currentThread().getContextClassLoader();
     Thread.currentThread().setContextClassLoader(new GroovyClassLoader(old));
     repo = getRepo(paths);
@@ -211,12 +209,11 @@ public class Console {
     };
     return Stream.wrap(
         new LocalExecutor()
-            .setTriggeringSchedulerSupplier(() -> {
-              return eventTime
-                  ? new WatermarkTriggerScheduler(500)
-                  : new ProcessingTimeTriggerScheduler();
-            })
-            .setWatermarkEmitStrategySupplier(() -> new WatermarkEmitStrategy.Default()),
+            .setTriggeringSchedulerSupplier(() ->
+                eventTime
+                    ? new WatermarkTriggerScheduler(500)
+                    : new ProcessingTimeTriggerScheduler())
+            .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new),
         (DatasetBuilder) builder,
         this::resetFlow);
   }
@@ -246,49 +243,7 @@ public class Console {
           .orElse(null);
 
       if (family == null || fromStamp > Long.MIN_VALUE || toStamp < Long.MAX_VALUE) {
-        // create the data by reducing stream updates
-        CommitLogReader reader = repo.getFamiliesForAttribute(attrDesc)
-            .stream()
-            .filter(af -> af.getAccess().isStateCommitLog())
-            .map(af -> af.getCommitLogReader().get())
-            .findAny()
-            .orElseThrow(() -> new IllegalStateException(
-                "Cannot create batch snapshot, missing random access family "
-                    + "and state commit log for " + attrDesc));
-        Dataset<StreamElement> stream = flow.get().createInput(
-            UnboundedStreamSource.of(reader, Position.OLDEST));
-
-        // filter by stamp
-        stream = Filter.of(stream)
-            .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
-            .output();
-
-        final Dataset<Pair<Pair<String, String>, StreamElement>> reduced;
-        reduced = ReduceByKey.of(stream)
-            .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
-            .combineBy(values -> {
-              StreamElement res = null;
-              Iterable<StreamElement> iter = () -> values.iterator();
-              for (StreamElement v : iter) {
-                if (res == null || v.getStamp() > res.getStamp()) {
-                  res = v;
-                }
-              }
-              return res;
-            })
-            .output();
-
-        input = FlatMap.of(reduced)
-            .using((
-                Pair<Pair<String, String>, StreamElement> e,
-                Collector<StreamElement> ctx) -> {
-
-              if (e.getSecond().getValue() != null) {
-                ctx.collect(e.getSecond());
-              }
-            })
-            .output();
-
+        input = reduceUpdatesToSnapshot(attrDesc, fromStamp, toStamp);
       } else {
         Dataset<StreamElement> raw = flow.get().createInput(BatchSource.of(
             family.getBatchObservable().get(),
@@ -315,6 +270,52 @@ public class Console {
         (DatasetBuilder) builder,
         this::resetFlow).windowAll();
 
+  }
+
+  private Dataset<StreamElement> reduceUpdatesToSnapshot(
+      AttributeDescriptor<?> attrDesc,
+      long fromStamp,
+      long toStamp) {
+
+    // create the data by reducing stream updates
+    CommitLogReader reader = repo.getFamiliesForAttribute(attrDesc)
+        .stream()
+        .filter(af -> af.getAccess().isStateCommitLog())
+        .map(af -> af.getCommitLogReader().get())
+        .findAny()
+        .orElseThrow(() -> new IllegalStateException(
+            "Cannot create batch snapshot, missing random access family "
+                + "and state commit log for " + attrDesc));
+    Dataset<StreamElement> stream = flow.get().createInput(
+        UnboundedStreamSource.of(reader, Position.OLDEST));
+    // filter by stamp
+    stream = Filter.of(stream)
+        .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
+        .output();
+    final Dataset<Pair<Pair<String, String>, StreamElement>> reduced;
+    reduced = ReduceByKey.of(stream)
+        .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
+        .combineBy(values -> {
+          StreamElement res = null;
+          Iterable<StreamElement> iter = () -> values.iterator();
+          for (StreamElement v : iter) {
+            if (res == null || v.getStamp() > res.getStamp()) {
+              res = v;
+            }
+          }
+          return res;
+        })
+        .output();
+    return FlatMap.of(reduced)
+        .using((
+            Pair<Pair<String, String>, StreamElement> e,
+            Collector<StreamElement> ctx) -> {
+
+          if (e.getSecond().getValue() != null) {
+            ctx.collect(e.getSecond());
+          }
+        })
+        .output();
   }
 
 

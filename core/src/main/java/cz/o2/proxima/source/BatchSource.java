@@ -102,7 +102,7 @@ public class BatchSource implements BoundedDataSource<StreamElement> {
       throw new RuntimeException(error);
     }
 
-  };
+  }
 
   final transient BatchLogObservable observable;
   final transient List<AttributeDescriptor<?>> attributes;
@@ -137,56 +137,54 @@ public class BatchSource implements BoundedDataSource<StreamElement> {
   public List<BoundedDataSource<StreamElement>> split(long desiredSplitBytes) {
     return observable.getPartitions(startStamp, endStamp)
         .stream()
-        .map(p -> {
+        .map(p ->
+            new UnsplittableBoundedSource<StreamElement>() {
+              @Override
+              public Set<String> getLocations() {
+                return Collections.singleton("unknown");
+              }
 
-          return new UnsplittableBoundedSource<StreamElement>() {
-            @Override
-            public Set<String> getLocations() {
-              return Collections.singleton("unknown");
-            }
+              @Override
+              public BoundedReader<StreamElement> openReader() throws IOException {
+                Observer observer = new Observer();
+                observable.observe(Arrays.asList(p), attributes, observer);
+                return new BoundedReader<StreamElement>() {
 
-            @Override
-            public BoundedReader<StreamElement> openReader() throws IOException {
-              Observer observer = new Observer();
-              observable.observe(Arrays.asList(p), attributes, observer);
-              return new BoundedReader<StreamElement>() {
+                  @Nullable
+                  StreamElement current = null;
 
-                @Nullable
-                StreamElement current = null;
+                  @Override
+                  public void close() throws IOException {
+                    observer.stop();
+                  }
 
-                @Override
-                public void close() throws IOException {
-                  observer.stop();
-                }
-
-                @Override
-                public boolean hasNext() {
-                  try {
-                    if (current != null) {
-                      return true;
+                  @Override
+                  public boolean hasNext() {
+                    try {
+                      if (current != null) {
+                        return true;
+                      }
+                      current = observer.getQueue().take().orElse(null);
+                    } catch (InterruptedException ex) {
+                      log.warn("Interrupted while trying to retrieve next element.");
+                      Thread.currentThread().interrupt();
                     }
-                    current = observer.getQueue().take().orElse(null);
-                  } catch (InterruptedException ex) {
-                    log.warn("Interrupted while trying to retrieve next element.");
-                    Thread.currentThread().interrupt();
+                    return current != null;
                   }
-                  return current != null;
-                }
 
-                @Override
-                public StreamElement next() {
-                  if (!hasNext()) {
-                    throw new NoSuchElementException();
+                  @Override
+                  public StreamElement next() {
+                    if (!hasNext()) {
+                      throw new NoSuchElementException();
+                    }
+                    StreamElement next = current;
+                    current = null;
+                    return next;
                   }
-                  StreamElement next = current;
-                  current = null;
-                  return next;
-                }
-              };
-            }
+                };
+              }
 
-          };
-        })
+            })
         .collect(Collectors.toList());
   }
 

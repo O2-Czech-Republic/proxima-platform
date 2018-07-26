@@ -54,4 +54,8 @@ class Util {
             "Query " + FAMILY_QUERY + " is missing!"));
   }
 
+  private Util() {
+    // nop
+  }
+
 }

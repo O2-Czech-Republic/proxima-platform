@@ -56,7 +56,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
       Map<String, Object> cfg,
       EntityDescriptor entity) {
 
-    super(uri, conf, cfg);
+    super(uri, conf);
     this.entity = entity;
     this.keyCaching = Integer.valueOf(
         Optional.ofNullable(cfg.get(KEYS_SCANNER_CACHING))

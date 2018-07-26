@@ -46,7 +46,6 @@ import net.jodah.failsafe.RetryPolicy;
 
 import javax.annotation.Nullable;
 import java.io.File;
-import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -400,7 +399,7 @@ public class IngestServer {
       BulkAttributeWriter writer,
       RetryPolicy retry) {
 
-    return new RetryableBulkObserver<Serializable>(3, consumerName, commitLog) {
+    return new RetryableBulkObserver(3, consumerName, commitLog) {
 
       @Override
       public boolean onNextInternal(

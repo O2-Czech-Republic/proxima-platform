@@ -30,9 +30,4 @@ public abstract class AbstractAttributeWriter extends AbstractStorage
     super(entityDesc, uri);
   }
 
-  @Override
-  public URI getUri() {
-    return super.getUri();
-  }
-
 }

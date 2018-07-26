@@ -29,6 +29,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 /**
  * Serializer from protobuffers.
@@ -48,8 +49,9 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     return new ValueSerializer<M>() {
 
       final String protoClass = uri.getSchemeSpecificPart();
-      final M defVal = getDefaultInstance(protoClass);
       final ProtoSerializerFactory factory = ProtoSerializerFactory.this;
+      @Nullable
+      transient M defVal = null;
 
       transient Parser<?> parser = null;
 
@@ -68,6 +70,9 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
 
       @Override
       public M getDefault() {
+        if (defVal == null) {
+          defVal = getDefaultInstance(protoClass);
+        }
         return defVal;
       }
 

@@ -27,7 +27,6 @@ import cz.o2.proxima.storage.batch.BatchLogObserver;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -90,7 +89,6 @@ public class HBaseLogObservableTest {
     reader = new HBaseLogObservable(
         new URI("hbase://localhost:2181/test?family=u"),
         cluster.getConfiguration(),
-        Collections.emptyMap(),
         entity,
         () -> Executors.newCachedThreadPool());
   }

@@ -41,7 +41,7 @@ import org.junit.Test;
 public class IngestServiceTest {
 
   IngestServer server;
-  IngestServer.IngestService ingest;
+  IngestService ingest;
 
   BlockingQueue<Rpc.Status> responses;
   StreamObserver<Rpc.StatusBulk> responseObserver;
@@ -52,7 +52,7 @@ public class IngestServiceTest {
     server = new IngestServer(ConfigFactory.load()
         .withFallback(ConfigFactory.load("test-reference.conf"))
         .resolve());
-    ingest = server.new IngestService();
+    ingest = new IngestService(server.repo, server.scheduler);
     server.startConsumerThreads();
     latch = new CountDownLatch(1);
 

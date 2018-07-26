@@ -26,7 +26,6 @@ import cz.seznam.euphoria.beam.io.KryoCoder;
 import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import java.io.IOException;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -203,12 +202,12 @@ public class CommitLogSource extends UnboundedSource<
       }
 
       @Override
-      public AttributeData getCurrent() throws NoSuchElementException {
+      public AttributeData getCurrent() {
         return current;
       }
 
       @Override
-      public Instant getCurrentTimestamp() throws NoSuchElementException {
+      public Instant getCurrentTimestamp() {
         if (current == null) {
           return new Instant(Long.MIN_VALUE);
         }

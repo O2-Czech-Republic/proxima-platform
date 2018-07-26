@@ -80,11 +80,9 @@ public class ModelGenerator {
     Configuration conf = getConf();
 
     File output = getOutputDirForPackage(outputPath, javaPackage);
-    if (!output.exists()) {
-      if (!output.mkdirs()) {
-        throw new RuntimeException(
-            "Failed to create directories for [ " + output.getAbsolutePath() + " ]");
-      }
+    if (!output.exists() && !output.mkdirs()) {
+      throw new RuntimeException(
+          "Failed to create directories for [ " + output.getAbsolutePath() + " ]");
     }
 
     final Repository repo = ConfigRepository.Builder

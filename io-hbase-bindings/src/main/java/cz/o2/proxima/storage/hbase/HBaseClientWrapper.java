@@ -30,7 +30,6 @@ import org.apache.hadoop.hbase.client.Table;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
-import java.util.Map;
 import org.apache.hadoop.io.Writable;
 
 /**
@@ -45,7 +44,7 @@ class HBaseClientWrapper implements AutoCloseable, Serializable {
   transient Connection conn;
   transient Table client;
 
-  HBaseClientWrapper(URI uri, Configuration conf, Map<String, Object> cfg) {
+  HBaseClientWrapper(URI uri, Configuration conf) {
     this.uri = uri;
     this.family = Util.getFamily(uri);
     this.serializedConf = serialize(HBaseConfiguration.create(conf));

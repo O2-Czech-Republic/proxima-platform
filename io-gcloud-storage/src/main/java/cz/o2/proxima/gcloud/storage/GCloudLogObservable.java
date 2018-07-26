@@ -161,8 +161,8 @@ public class GCloudLogObservable
   static boolean isInRange(String name, long startStamp, long endStamp) {
     Matcher matcher = BLOB_NAME_PATTERN.matcher(name);
     if (matcher.matches()) {
-      long min = Long.valueOf(matcher.group(1));
-      long max = Long.valueOf(matcher.group(2));
+      long min = Long.parseLong(matcher.group(1));
+      long max = Long.parseLong(matcher.group(2));
       return max >= startStamp && min <= endStamp;
     }
     log.debug("Skipping unparseable name {}", name);

@@ -19,7 +19,6 @@ import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.internal.shaded.com.google.common.collect.Iterables;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
@@ -51,7 +50,6 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   private static final Partition PARTITION = () -> 0;
 
   private final AttributeDescriptor<?> attr;
-  private final ValueSerializer<?> serializer;
   private final UnaryFunction<String, String> keyExtractor;
   private final String hello;
 
@@ -79,7 +77,6 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
         .findAttribute(attrName)
         .orElseThrow(() -> new IllegalStateException(
             "Attribute " + attrName + " should be present in " + entityDescriptor));
-    serializer = attr.getValueSerializer();
     // FIXME: keyExtractor
     keyExtractor = m -> UUID.randomUUID().toString();
     hello = Optional.ofNullable(cfg.get("hello"))
@@ -100,7 +97,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
     checkSupportedPosition(position);
     return observe(
         element -> observer.onNext(element, nullCommitter()),
-        err -> observer.onError(err));
+        observer::onError);
   }
 
   private ObserveHandle observe(
@@ -173,7 +170,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
     checkSupportedPosition(position);
     return observe(
         element -> observer.onNext(element, nullCommitter()),
-        err -> observer.onError(err));
+        observer::onError);
   }
 
   @Override
@@ -183,7 +180,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
     checkSupportedPosition(position);
     return observe(
         element -> observer.onNext(element, PARTITION, nullBulkCommitter()),
-        err -> observer.onError(err));
+        observer::onError);
   }
 
   @Override

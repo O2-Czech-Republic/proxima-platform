@@ -73,7 +73,7 @@ public class SerializationTest {
     ObjectOutputStream oos = new ObjectOutputStream(baos);
     HBaseLogObservable observable = new HBaseLogObservable(
         new URI("hbase://dummy/dummy?family=x"), new Configuration(),
-        new HashMap<>(), entity, () -> Executors.newCachedThreadPool());
+        entity, () -> Executors.newCachedThreadPool());
     oos.writeObject(observable);
     oos.flush();
     ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());

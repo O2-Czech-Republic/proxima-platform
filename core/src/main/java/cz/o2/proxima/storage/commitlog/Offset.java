@@ -31,5 +31,5 @@ public interface Offset extends Serializable {
    */
   Partition getPartition();
 
-};
+}
 

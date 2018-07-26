@@ -35,7 +35,7 @@ public interface StringConverter<T> extends Serializable {
 
     @Override
     public String asString(String what) {
-      return (String) what;
+      return what;
     }
 
     @Override

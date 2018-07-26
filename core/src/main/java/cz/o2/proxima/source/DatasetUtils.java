@@ -17,22 +17,17 @@ package cz.o2.proxima.source;
 
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import cz.seznam.euphoria.core.client.operator.Filter;
 import cz.seznam.euphoria.core.client.operator.Union;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -63,42 +58,6 @@ public class DatasetUtils {
   }
 
   @SuppressWarnings("unchecked")
-  private static Dataset<StreamElement> batch(
-      Flow flow,
-      Repository repo,
-      Position position,
-      Set<AttributeDescriptor> attrs) {
-
-    long now = System.currentTimeMillis();
-    Map<BatchLogObservable, List<AttributeDescriptor<?>>> readers = new HashMap<>();
-    for (AttributeDescriptor a : attrs) {
-      BatchLogObservable observable = repo.getFamiliesForAttribute(a).stream()
-          .filter(af -> af.getAccess().canReadBatchUpdates())
-          .findAny()
-          .flatMap(AttributeFamilyDescriptor::getBatchObservable)
-          .orElseThrow(() -> new IllegalArgumentException(
-              "Attribute " + a + " has no batch observable"));
-      readers.compute(observable, (k, current) -> {
-        current = current == null ? new ArrayList<>() : current;
-        if (!current.contains(a)) {
-          current.add(a);
-        }
-        return current;
-      });
-    }
-    attrs.stream().collect(Collectors.toList());
-    List<Dataset<StreamElement>> inputs = readers.entrySet().stream()
-        .map(e -> BatchSource.of(e.getKey(), e.getValue(), Long.MIN_VALUE, now))
-        .map(s -> flow.createInput(s))
-        .collect(Collectors.toList());
-    Dataset<StreamElement> united = Union.of(inputs)
-        .output();
-    return Filter.of(united)
-        .by(e -> attrs.contains(e.getAttributeDescriptor()))
-        .output();
-  }
-
-  @SuppressWarnings("unchecked")
   private static Dataset<StreamElement> stream(
       Flow flow,
       Repository repo,
@@ -119,7 +78,7 @@ public class DatasetUtils {
         .map(r -> stopAtCurrent
             ? BoundedStreamSource.of(r, position)
             : UnboundedStreamSource.of(r, position))
-        .map(s -> flow.createInput(s))
+        .map(flow::createInput)
         .collect(Collectors.toList());
     final Dataset<StreamElement> united;
     if (inputs.size() > 1) {

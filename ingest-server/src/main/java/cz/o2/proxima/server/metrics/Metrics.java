@@ -116,4 +116,8 @@ public class Metrics {
       throw new RuntimeException(ex);
     }
   }
+
+  private Metrics() {
+    // nop
+  }
 }

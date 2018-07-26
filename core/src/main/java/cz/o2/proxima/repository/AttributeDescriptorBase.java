@@ -48,7 +48,8 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   @Getter
   protected final boolean replica;
 
-  protected @Nullable final ValueSerializer<T> valueSerializer;
+  @Nullable
+  protected final ValueSerializer<T> valueSerializer;
 
   public AttributeDescriptorBase(
       String name, String entity, URI schemeUri,
@@ -62,17 +63,16 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
     this.proxy = false;
     this.valueSerializer = valueSerializer;
     this.replica = replica;
-    if (this.wildcard) {
-      if (name.length() < 3
+    if (this.wildcard
+        && (name.length() < 3
           || name.substring(0, name.length() - 1).contains("*")
-          || name.charAt(name.length() - 2) != '.') {
+          || name.charAt(name.length() - 2) != '.')) {
 
-        throw new IllegalArgumentException(
-            "Please specify wildcard attributes only in the format `<name>.*; for now. "
-                + "That is - wildcard attributes can contain only single asterisk "
-                + "right after a dot at the end of the attribute name. "
-                + "This is implementation constraint for now.");
-      }
+      throw new IllegalArgumentException(
+          "Please specify wildcard attributes only in the format `<name>.*; for now. "
+              + "That is - wildcard attributes can contain only single asterisk "
+              + "right after a dot at the end of the attribute name. "
+              + "This is implementation constraint for now.");
     }
   }
 

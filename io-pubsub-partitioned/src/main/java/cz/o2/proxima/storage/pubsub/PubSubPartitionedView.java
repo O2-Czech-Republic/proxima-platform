@@ -90,8 +90,6 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
   }
 
   private final transient PipelineOptions options;
-  private final String projectId;
-  private final String topic;
   private final Partitioner partitioner;
   private final int numPartitions;
   private final Duration orderingLateness;
@@ -99,8 +97,6 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
 
   PubSubPartitionedView(PartitionedPubSubAccessor accessor, Context context) {
     super(accessor, context);
-    this.projectId = accessor.getProject();
-    this.topic = accessor.getTopic();
     this.partitioner = accessor.getPartitioner();
     this.options = accessor.getOptions();
     this.numPartitions = accessor.getNumPartitions();
@@ -268,132 +264,153 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
     };
   }
 
+
+  private static class TimedDoFn<T> extends DoFn<KV<Integer, AttributeData>, T> {
+
+    private final EntityDescriptor entity;
+    private final PartitionedLogObserver<T> observer;
+    private final Duration fireInterval;
+    private final long allowedLatenessMs;
+
+    TimedDoFn(
+        EntityDescriptor entity,
+        PartitionedLogObserver<T> observer,
+        Duration fireInterval,
+        Duration allowedLateness) {
+
+      this.entity = entity;
+      this.observer = observer;
+      this.fireInterval = fireInterval;
+      this.allowedLatenessMs = allowedLateness.toMillis();
+    }
+
+
+    @StateId("partition")
+    final StateSpec<ValueState<Integer>> partitionSpec = StateSpecs.value();
+
+    @StateId("heap")
+    final StateSpec<BagState<AttributeData>> heapSpec = StateSpecs.bag(
+        new KryoCoder<>());
+
+    @StateId("watermark")
+    final StateSpec<ValueState<Long>> watermark = StateSpecs.value();
+
+    @TimerId("fire-event")
+    final TimerSpec fireEventTimeSpec = TimerSpecs.timer(TimeDomain.EVENT_TIME);
+
+    @TimerId("fire-processing")
+    final TimerSpec fireProcessingTimeSpec = TimerSpecs.timer(
+        TimeDomain.PROCESSING_TIME);
+
+    @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
+    @ProcessElement
+    public void process(
+        ProcessContext context,
+        @StateId("heap") BagState<AttributeData> heap,
+        @StateId("partition") ValueState<Integer> partition,
+        @TimerId("fire-event") Timer fire) {
+
+      int partitionId = context.element().getKey();
+      if (repartitioned.add(partitionId)) {
+        observer.onRepartition(Arrays.asList(() -> partitionId));
+        partition.write(partitionId);
+        Instant now = Instant.now();
+        fire.set(now);
+        log.info(
+            "Going to start processing time flushing after watermark reaches {}",
+            now);
+      }
+      heap.add(context.element().getValue());
+    }
+
+    @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
+    @OnTimer("fire-event")
+    public synchronized void onTimerEvent(
+        OnTimerContext context,
+        @StateId("heap") BagState<AttributeData> heap,
+        @StateId("watermark") ValueState<Long> watermark,
+        @StateId("partition") ValueState<Integer> partition,
+        @TimerId("fire-event") Timer fireEvent,
+        @TimerId("fire-processing") Timer fireProcessing) {
+
+      long timeBound = context.timestamp().getMillis() - allowedLatenessMs;
+      flushSorted(
+          heap.readLater(), watermark.readLater(), new Instant(timeBound),
+          partition.readLater(), fireProcessing, context::output);
+      fireEvent
+          .offset(org.joda.time.Duration.millis(fireInterval.toMillis()))
+          .setRelative();
+    }
+
+    @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
+    @OnTimer("fire-processing")
+    public synchronized void onTimerProcessing(
+        OnTimerContext context,
+        @StateId("heap") BagState<AttributeData> heap,
+        @StateId("watermark") ValueState<Long> watermark,
+        @StateId("partition") ValueState<Integer> partition,
+        @TimerId("fire-processing") Timer fire) {
+
+      long timeBound = System.currentTimeMillis() - allowedLatenessMs;
+      flushSorted(
+          heap.readLater(), watermark.readLater(), new Instant(timeBound),
+          partition.readLater(), fire, context::output);
+    }
+
+
+    void flushSorted(
+        BagState<AttributeData> heap,
+        ValueState<Long> watermark,
+        Instant timestamp,
+        ValueState<Integer> partitionId,
+        Timer fire,
+        Consumer<T> consumer) {
+
+      Iterable<AttributeData> elements = heap.read();
+      List<AttributeData> toKeep = new ArrayList<>();
+      List<AttributeData> toFlush = new ArrayList<>();
+      elements.forEach(el -> {
+        if (timestamp.isAfter(el.getStamp())) {
+          toFlush.add(el);
+        } else {
+          toKeep.add(el);
+        }
+      });
+      long lastWatermark = firstNonNull(watermark.read(), Long.MIN_VALUE);
+      toFlush.stream()
+          .sorted((a, b) -> Long.compare(a.getStamp(), b.getStamp()))
+          .forEach(data -> {
+            if (data.getStamp() < lastWatermark) {
+              log.warn(
+                  "Dropping after-watermark data {}, watermark is {}",
+                  data, lastWatermark);
+            } else {
+              toElement(entity, data)
+                  .ifPresent(el -> observer.onNext(el, (succ, exc) -> {
+                    if (!succ) {
+                      throw new RuntimeException(exc);
+                    }
+                  }, partitionId::read, consumer));
+            }
+          });
+      if (!toFlush.isEmpty()) {
+        watermark.write(timestamp.getMillis());
+        heap.clear();
+        toKeep.forEach(heap::add);
+      }
+      fire.offset(org.joda.time.Duration.millis(fireInterval.toMillis()))
+          .setRelative();
+    }
+
+  }
+
   private static <T> DoFn<KV<Integer, AttributeData>, T> toTimedDoFn(
       EntityDescriptor entity,
       PartitionedLogObserver<T> observer,
       Duration fireInterval,
       Duration allowedLateness) {
 
-    long allowedLatenessMs = allowedLateness.toMillis();
-    return new DoFn<KV<Integer, AttributeData>, T>() {
-
-      @StateId("partition")
-      final StateSpec<ValueState<Integer>> partitionSpec = StateSpecs.value();
-
-      @StateId("heap")
-      final StateSpec<BagState<AttributeData>> heapSpec = StateSpecs.bag(
-          new KryoCoder<>());
-
-      @StateId("watermark")
-      final StateSpec<ValueState<Long>> watermark = StateSpecs.value();
-
-      @TimerId("fire-event")
-      final TimerSpec fireEventTimeSpec = TimerSpecs.timer(TimeDomain.EVENT_TIME);
-
-      @TimerId("fire-processing")
-      final TimerSpec fireProcessingTimeSpec = TimerSpecs.timer(
-          TimeDomain.PROCESSING_TIME);
-
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @ProcessElement
-      public void process(
-          ProcessContext context,
-          @StateId("heap") BagState<AttributeData> heap,
-          @StateId("partition") ValueState<Integer> partition,
-          @TimerId("fire-event") Timer fire) {
-
-        int partitionId = context.element().getKey();
-        if (repartitioned.add(partitionId)) {
-          observer.onRepartition(Arrays.asList(() -> partitionId));
-          partition.write(partitionId);
-          Instant now = Instant.now();
-          fire.set(now);
-          log.info(
-              "Going to start processing time flushing after watermark reaches {}",
-              now);
-        }
-        heap.add(context.element().getValue());
-      }
-
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @OnTimer("fire-event")
-      public synchronized void onTimerEvent(
-          OnTimerContext context,
-          @StateId("heap") BagState<AttributeData> heap,
-          @StateId("watermark") ValueState<Long> watermark,
-          @StateId("partition") ValueState<Integer> partition,
-          @TimerId("fire-event") Timer fireEvent,
-          @TimerId("fire-processing") Timer fireProcessing) {
-
-        long timeBound = context.timestamp().getMillis() - allowedLatenessMs;
-        flushSorted(
-            heap.readLater(), watermark.readLater(), new Instant(timeBound),
-            partition.readLater(), fireProcessing, context::output);
-        fireEvent
-            .offset(org.joda.time.Duration.millis(fireInterval.toMillis()))
-            .setRelative();
-      }
-
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @OnTimer("fire-processing")
-      public synchronized void onTimerProcessing(
-          OnTimerContext context,
-          @StateId("heap") BagState<AttributeData> heap,
-          @StateId("watermark") ValueState<Long> watermark,
-          @StateId("partition") ValueState<Integer> partition,
-          @TimerId("fire-processing") Timer fire) {
-
-        long timeBound = System.currentTimeMillis() - allowedLatenessMs;
-        flushSorted(
-            heap.readLater(), watermark.readLater(), new Instant(timeBound),
-            partition.readLater(), fire, context::output);
-      }
-
-
-      void flushSorted(
-          BagState<AttributeData> heap,
-          ValueState<Long> watermark,
-          Instant timestamp,
-          ValueState<Integer> partitionId,
-          Timer fire,
-          Consumer<T> consumer) {
-
-        Iterable<AttributeData> elements = heap.read();
-        List<AttributeData> toKeep = new ArrayList<>();
-        List<AttributeData> toFlush = new ArrayList<>();
-        elements.forEach(el -> {
-          if (timestamp.isAfter(el.getStamp())) {
-            toFlush.add(el);
-          } else {
-            toKeep.add(el);
-          }
-        });
-        long lastWatermark = firstNonNull(watermark.read(), Long.MIN_VALUE);
-        toFlush.stream()
-            .sorted((a, b) -> Long.compare(a.getStamp(), b.getStamp()))
-            .forEach(data -> {
-              if (data.getStamp() < lastWatermark) {
-                log.warn(
-                    "Dropping after-watermark data {}, watermark is {}",
-                    data, lastWatermark);
-              } else {
-                toElement(entity, data)
-                    .ifPresent(el -> observer.onNext(el, (succ, exc) -> {
-                      if (!succ) {
-                        throw new RuntimeException(exc);
-                      }
-                    }, () -> partitionId.read(), consumer));
-              }
-            });
-        if (!toFlush.isEmpty()) {
-          watermark.write(timestamp.getMillis());
-          heap.clear();
-          toKeep.forEach(heap::add);
-        }
-        fire.offset(org.joda.time.Duration.millis(fireInterval.toMillis()))
-            .setRelative();
-      }
-    };
+    return new TimedDoFn<>(entity, observer, fireInterval, allowedLateness);
   }
 
   static Optional<StreamElement> toElement(

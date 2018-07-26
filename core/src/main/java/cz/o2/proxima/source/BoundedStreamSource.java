@@ -123,14 +123,7 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
       public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
 
         try {
-          try {
-            queue.put(Optional.of(ingest));
-            confirm.confirm();
-          } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            return false;
-          }
-          return true;
+          return enqueue(queue, ingest, confirm);
         } catch (Exception ex) {
           confirm.fail(ex);
           throw new RuntimeException(ex);
@@ -155,23 +148,37 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
     };
   }
 
+  private boolean enqueue(
+      BlockingQueue<Optional<StreamElement>> queue,
+      StreamElement ingest, LogObserver.OffsetCommitter confirm) {
+
+    try {
+      queue.put(Optional.of(ingest));
+      confirm.confirm();
+      return true;
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      confirm.fail(ex);
+      return false;
+    }
+  }
+
   @Override
   public List<BoundedDataSource<StreamElement>> split(long desiredSplitBytes) {
-    return reader.getPartitions().stream().map(p -> {
-      return new UnsplittableBoundedSource<StreamElement>() {
+    return reader.getPartitions().stream().map(p ->
+        new UnsplittableBoundedSource<StreamElement>() {
 
-        @Override
-        public Set<String> getLocations() {
-          return Collections.singleton("unknown");
-        }
+          @Override
+          public Set<String> getLocations() {
+            return Collections.singleton("unknown");
+          }
 
-        @Override
-        public BoundedReader<StreamElement> openReader() throws IOException {
-          return asBoundedReader(p);
-        }
+          @Override
+          public BoundedReader<StreamElement> openReader() throws IOException {
+            return asBoundedReader(p);
+          }
 
-      };
-    })
+        })
     .collect(Collectors.toList());
   }
 

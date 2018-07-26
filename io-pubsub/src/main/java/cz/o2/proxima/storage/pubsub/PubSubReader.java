@@ -169,8 +169,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     Object lock = new Object();
     Object listLock = new Object();
     AtomicLong globalOffset = new AtomicLong();
-    return consume(
-        name,
+    return consume(name,
         (e, c) -> {
           AtomicLong confirmUntil = new AtomicLong();
           synchronized (listLock) {
@@ -178,34 +177,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
             list.add(c);
             confirmUntil.set(list.size() + globalOffset.get());
           }
-          BulkLogObserver.OffsetCommitter committer = (succ, exc) -> {
-            // the implementation can use some other
-            // thread for this, so we need to synchronize this
-            synchronized (listLock) {
-              int confirmCount = (int) (confirmUntil.get() - globalOffset.get());
-              if (confirmCount > 0) {
-                final Consumer<AckReplyConsumer> apply;
-                if (succ) {
-                  log.debug("Bulk confirming {} messages", confirmCount);
-                  apply = AckReplyConsumer::ack;
-                } else {
-                  if (exc != null) {
-                    log.warn("Error during processing of last bulk", exc);
-                  } else {
-                    log.info("Nacking last bulk by request");
-                  }
-                  apply = AckReplyConsumer::nack;
-                }
-                List<AckReplyConsumer> list = unconfirmed.get();
-                for (int i = 0; i < confirmCount; i++) {
-                  apply.accept(list.get(i));
-                }
-                globalOffset.addAndGet(confirmCount);
-                unconfirmed.set(Lists.newArrayList(
-                    list.subList(confirmCount, list.size())));
-              }
-            }
-          };
+          BulkLogObserver.OffsetCommitter committer = createBulkCommitter(
+              listLock, confirmUntil, globalOffset, unconfirmed);
 
           // our observers are not supposed to be thread safe, so we must
           // ensure explicit synchronization here
@@ -226,6 +199,42 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         () -> observer.onRestart(Arrays.asList(() -> () -> 0)),
         () -> observer.onRestart(Arrays.asList(() -> () -> 0)),
         observer::onCancelled);
+  }
+
+  private BulkLogObserver.OffsetCommitter createBulkCommitter(
+      Object listLock,
+      AtomicLong confirmUntil,
+      AtomicLong globalOffset,
+      AtomicReference<List<AckReplyConsumer>> unconfirmed) {
+
+    return (succ, exc) -> {
+      // the implementation can use some other
+      // thread for this, so we need to synchronize this
+      synchronized (listLock) {
+        int confirmCount = (int) (confirmUntil.get() - globalOffset.get());
+        if (confirmCount > 0) {
+          final Consumer<AckReplyConsumer> apply;
+          if (succ) {
+            log.debug("Bulk confirming {} messages", confirmCount);
+            apply = AckReplyConsumer::ack;
+          } else {
+            if (exc != null) {
+              log.warn("Error during processing of last bulk", exc);
+            } else {
+              log.info("Nacking last bulk by request");
+            }
+            apply = AckReplyConsumer::nack;
+          }
+          List<AckReplyConsumer> list = unconfirmed.get();
+          for (int i = 0; i < confirmCount; i++) {
+            apply.accept(list.get(i));
+          }
+          globalOffset.addAndGet(confirmCount);
+          unconfirmed.set(Lists.newArrayList(
+              list.subList(confirmCount, list.size())));
+        }
+      }
+    };
   }
 
   @Override
@@ -310,39 +319,11 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     name = name != null ? name : "unnamed-consumer-" + UUID.randomUUID().toString();
     ProjectSubscriptionName subscription = ProjectSubscriptionName.of(project, name);
     AtomicReference<Subscriber> subscriber = new AtomicReference<>();
-    AtomicReference<MessageReceiver> receiver = new AtomicReference<>();
     AtomicBoolean stopProcessing = new AtomicBoolean();
-    receiver.set((m, c) -> {
-      try {
-        if (stopProcessing.get()) {
-          log.debug("Returning rejected message {}", m);
-          c.nack();
-          return;
-        }
-        Optional<StreamElement> elem = toElement(getEntityDescriptor(), m);
-        if (elem.isPresent()) {
-          if (!consumer.apply(elem.get(), c)) {
-            log.info("Terminating consumption by request.");
-            stopAsync(subscriber);
-          }
-        } else {
-          log.warn("Skipping unparseable element {}", m);
-          c.ack();
-        }
-      } catch (Throwable ex) {
-        log.error("Failed to consume element {}", m, ex);
-        if (errorHandler.apply(ex)) {
-          log.info("Restarting consumption by request.");
-          stopAsync(subscriber).awaitTerminated();
-          onRestart.run();
-          subscriber.set(newSubscriber(subscription, receiver.get()));
-          subscriber.get().startAsync().awaitRunning();
-        } else {
-          log.info("Terminating consumption after error.");
-          stopAsync(subscriber);
-        }
-      }
-    });
+    AtomicReference<MessageReceiver> receiver = new AtomicReference<>();
+    receiver.set(createMessageReceiver(
+        subscription, subscriber, stopProcessing, consumer,
+        errorHandler, onRestart, receiver));
 
     subscriber.set(newSubscriber(subscription, receiver.get()));
     subscriber.get().startAsync();
@@ -384,6 +365,48 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       @Override
       public void waitUntilReady() throws InterruptedException {
         subscriber.get().awaitRunning();
+      }
+    };
+  }
+
+  private MessageReceiver createMessageReceiver(
+      ProjectSubscriptionName subscription,
+      AtomicReference<Subscriber> subscriber,
+      AtomicBoolean stopProcessing,
+      BiFunction<StreamElement, AckReplyConsumer, Boolean> consumer,
+      Function<Throwable, Boolean> errorHandler,
+      Runnable onRestart,
+      AtomicReference<MessageReceiver> receiver) {
+
+    return (m, c) -> {
+      try {
+        if (stopProcessing.get()) {
+          log.debug("Returning rejected message {}", m);
+          c.nack();
+          return;
+        }
+        Optional<StreamElement> elem = toElement(getEntityDescriptor(), m);
+        if (elem.isPresent()) {
+          if (!consumer.apply(elem.get(), c)) {
+            log.info("Terminating consumption by request.");
+            stopAsync(subscriber);
+          }
+        } else {
+          log.warn("Skipping unparseable element {}", m);
+          c.ack();
+        }
+      } catch (Throwable ex) {
+        log.error("Failed to consume element {}", m, ex);
+        if (errorHandler.apply(ex)) {
+          log.info("Restarting consumption by request.");
+          stopAsync(subscriber).awaitTerminated();
+          onRestart.run();
+          subscriber.set(newSubscriber(subscription, receiver.get()));
+          subscriber.get().startAsync().awaitRunning();
+        } else {
+          log.info("Terminating consumption after error.");
+          stopAsync(subscriber);
+        }
       }
     };
   }

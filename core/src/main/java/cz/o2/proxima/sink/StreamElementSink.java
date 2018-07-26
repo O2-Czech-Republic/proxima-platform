@@ -16,8 +16,6 @@
 package cz.o2.proxima.sink;
 
 import cz.o2.proxima.annotations.Experimental;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.seznam.euphoria.core.client.io.DataSink;
@@ -28,30 +26,21 @@ import java.io.IOException;
  * A {@link DataSink} created from {@link OnlineAttributeWriter}.
  */
 @Experimental("Not well tested")
-public class StreamElementSink<T> implements DataSink<StreamElement> {
+public class StreamElementSink implements DataSink<StreamElement> {
 
   /**
    * Create sink for given attribute.
-   * @param <T> type parameter
-   * @param attribute attribute to create writer for
    * @param writer the writer for attribute
    * @return sink
    */
-  public static <T> StreamElementSink<T> of(
-      AttributeDescriptor<T> attribute,
-      OnlineAttributeWriter writer) {
-
-    return new StreamElementSink<>(attribute, writer);
+  public static StreamElementSink of(OnlineAttributeWriter writer) {
+    return new StreamElementSink(writer);
   }
 
-  private final AttributeDescriptor<T> attr;
   private final OnlineAttributeWriter writer;
-  private final ValueSerializer<T> serializer;
 
-  private StreamElementSink(AttributeDescriptor<T> attr, OnlineAttributeWriter writer) {
-    this.attr = attr;
+  private StreamElementSink(OnlineAttributeWriter writer) {
     this.writer = writer;
-    this.serializer = attr.getValueSerializer();
   }
 
   @Override

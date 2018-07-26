@@ -39,7 +39,7 @@ public enum StorageType {
   public static StorageType of(String name) {
     Objects.requireNonNull(name);
     for (StorageType t : StorageType.values()) {
-      if (t.cfgName.equals(name.toLowerCase())) {
+      if (t.cfgName.equalsIgnoreCase(name)) {
         return t;
       }
     }

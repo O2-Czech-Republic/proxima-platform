@@ -98,7 +98,7 @@ public class EntityDescriptorImpl implements EntityDescriptor {
       return Collections.unmodifiableList(attributes);
     }
     return attributes.stream()
-        .filter(a -> a.isPublic())
+        .filter(AttributeDescriptor::isPublic)
         .collect(Collectors.toList());
   }
 

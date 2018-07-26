@@ -67,7 +67,7 @@ class Consumers {
       committed.clear();
       committed.putAll(offsets.stream().collect(Collectors.toMap(
           o -> o.getPartition().getId(),
-          o -> o.getOffset())));
+          TopicOffset::getOffset)));
     }
 
     abstract LogObserverBase observer();
@@ -230,6 +230,11 @@ class Consumers {
       Utils.seekToOffsets(topic, (List) offsets, consumer);
     }
 
+  }
+
+
+  private Consumers() {
+    // nop
   }
 
 }

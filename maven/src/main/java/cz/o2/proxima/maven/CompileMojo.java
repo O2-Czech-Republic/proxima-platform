@@ -16,7 +16,6 @@
 package cz.o2.proxima.maven;
 
 import cz.o2.proxima.generator.ModelGenerator;
-import freemarker.template.Configuration;
 import java.io.File;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -45,8 +44,6 @@ public class CompileMojo extends AbstractMojo {
 
   @Parameter(defaultValue = "${project}")
   private MavenProject project;
-
-  private Configuration conf;
 
   @Override
   public void execute() throws MojoExecutionException, MojoFailureException {

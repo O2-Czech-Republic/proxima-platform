@@ -114,11 +114,10 @@ public class KafkaLogReader extends AbstractStorage
     BlockingQueue<T> queue = new ArrayBlockingQueue<>(100);
     AtomicReference<ObserveHandle> handle = new AtomicReference<>();
 
-    DataSourceUtils.Producer producer = () -> {
-      handle.set(observeKafka(name, null, Position.NEWEST, false,
-          KafkaLogObserver.PartitionedLogObserverKafkaLogObserver.of(
-              observer, Utils.unchecked(queue::put))));
-    };
+    DataSourceUtils.Producer producer = () ->
+        handle.set(observeKafka(name, null, Position.NEWEST, false,
+            KafkaLogObserver.PartitionedLogObserverKafkaLogObserver.of(
+                observer, Utils.unchecked(queue::put))));
 
     Serializable lock = new Serializable() { };
     DataSource<T> source = DataSourceUtils.fromPartitions(
@@ -159,12 +158,11 @@ public class KafkaLogReader extends AbstractStorage
     BlockingQueue<T> queue = new ArrayBlockingQueue<>(100);
     AtomicReference<ObserveHandle> handle = new AtomicReference<>();
 
-    DataSourceUtils.Producer producer = () -> {
-      handle.set(observeKafka(
-          null, partitions, Position.NEWEST, false,
-          KafkaLogObserver.PartitionedLogObserverKafkaLogObserver.of(
-              observer, Utils.unchecked(queue::put))));
-    };
+    DataSourceUtils.Producer producer = () ->
+        handle.set(observeKafka(
+            null, partitions, Position.NEWEST, false,
+            KafkaLogObserver.PartitionedLogObserverKafkaLogObserver.of(
+                observer, Utils.unchecked(queue::put))));
 
     final Serializable lock = new Serializable() { };
     DataSource<T> source = DataSourceUtils.fromPartitions(
@@ -482,7 +480,7 @@ public class KafkaLogReader extends AbstractStorage
             TopicPartition tp = new TopicPartition(r.topic(), r.partition());
             preWrite.accept(tp, r);
             // in kafka, each entity attribute is separated by `#' from entity key
-            int hashPos = key.lastIndexOf("#");
+            int hashPos = key.lastIndexOf('#');
             KafkaStreamElement ingest = null;
             if (hashPos < 0 || hashPos >= key.length()) {
               log.error("Invalid key in kafka topic: {}", key);
@@ -502,7 +500,7 @@ public class KafkaLogReader extends AbstractStorage
               }
             }
             boolean cont = consumer.consumeWithConfirm(
-                ingest, tp, r.offset(), exc -> error.set(exc));
+                ingest, tp, r.offset(), error::set);
             if (!cont) {
               log.info("Terminating consumption by request");
               completed.set(true);
@@ -670,11 +668,10 @@ public class KafkaLogReader extends AbstractStorage
 
       @Override
       public void onPartitionsAssigned(Collection<TopicPartition> parts) {
-        Optional.ofNullable(kafka.get()).ifPresent(c -> {
-          consumer.onAssign(c, c.assignment().stream()
-              .map(tp -> new TopicOffset(tp.partition(), c.position(tp)))
-              .collect(Collectors.toList()));
-        });
+        Optional.ofNullable(kafka.get()).ifPresent(c ->
+            consumer.onAssign(c, c.assignment().stream()
+                .map(tp -> new TopicOffset(tp.partition(), c.position(tp)))
+                .collect(Collectors.toList())));
       }
     };
   }

@@ -27,6 +27,7 @@ import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
+import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StorageDescriptor;
@@ -126,9 +127,8 @@ public class ConfigRepository implements Repository, Serializable {
       this.executorFactory = () -> Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r);
         t.setName("ProximaRepositoryPool");
-        t.setUncaughtExceptionHandler((thr, exc) -> {
-          log.error("Error running task in thread {}", thr.getName(), exc);
-        });
+        t.setUncaughtExceptionHandler((thr, exc) ->
+            log.error("Error running task in thread {}", thr.getName(), exc));
         return t;
       });
 
@@ -659,9 +659,8 @@ public class ConfigRepository implements Repository, Serializable {
 
     EntityDescriptor.Builder builder = EntityDescriptor.newBuilder()
         .setName(entityName);
-    from.getAllAttributes().forEach(attr -> {
-      builder.addAttribute(attr.toBuilder(this).setEntity(entityName).build());
-    });
+    from.getAllAttributes().forEach(attr ->
+        builder.addAttribute(attr.toBuilder(this).setEntity(entityName).build()));
     return builder.build();
   }
 
@@ -774,26 +773,14 @@ public class ConfigRepository implements Repository, Serializable {
       if (schemeStr.indexOf(':') == -1) {
         // if the scheme does not contain `:' we need to add class specified for
         // the primitive type
-        switch (schemeStr) {
-          case "bytes":
-            schemeStr += ":byte[]";
-            break;
-          default:
-            throw new IllegalArgumentException("Scheme " + schemeStr + " is unknown");
+        if (schemeStr.equals("bytes")) {
+          schemeStr += ":byte[]";
+        } else {
+          throw new IllegalArgumentException("Scheme " + schemeStr + " is unknown");
         }
       }
       URI schemeUri = new URI(schemeStr);
-      // validate that the scheme serializer doesn't throw exceptions
-      // ignore the return value
-      try {
-        if (shouldValidate) {
-          getValueSerializerFactory(schemeUri.getScheme())
-              .getValueSerializer(schemeUri)
-              .isValid(new byte[] { });
-        }
-      } catch (Exception ex) {
-        throw new IllegalStateException("Cannot use serializer for URI " + schemeUri, ex);
-      }
+      validateSerializerFactory(schemeUri);
       entityBuilder.addAttribute(
           AttributeDescriptor.newBuilder(this)
               .setEntity(entityName)
@@ -802,6 +789,21 @@ public class ConfigRepository implements Repository, Serializable {
               .build());
     } catch (URISyntaxException ex) {
       throw new RuntimeException(ex);
+    }
+  }
+
+  private void validateSerializerFactory(URI schemeUri) {
+    // validate that the scheme serializer doesn't throw exceptions
+    // ignore the return value
+    try {
+      if (shouldValidate) {
+        getValueSerializerFactory(schemeUri.getScheme())
+            .getValueSerializer(schemeUri)
+            .isValid(new byte[] { });
+      }
+    } catch (Exception ex) {
+      throw new IllegalStateException(
+          "Cannot use serializer for URI " + schemeUri, ex);
     }
   }
 
@@ -1768,17 +1770,17 @@ public class ConfigRepository implements Repository, Serializable {
       // no loaded entities, no more stuff to read
       return;
     }
-    Map<String, Object> transformations = Optional
+    Map<String, Object> cfgTransforms = Optional
         .ofNullable(cfg.root().get("transformations"))
         .map(v -> toMap("transformations", v.unwrapped()))
         .orElse(null);
 
-    if (transformations == null) {
+    if (cfgTransforms == null) {
       log.info("Skipping empty transformations configuration.");
       return;
     }
 
-    transformations.forEach((name, v) -> {
+    cfgTransforms.forEach((name, v) -> {
       Map<String, Object> transformation = toMap(name, v);
 
       boolean disabled = Optional
@@ -1854,8 +1856,9 @@ public class ConfigRepository implements Repository, Serializable {
   @SuppressWarnings("unchecked")
   private List<String> toList(Object in) {
     if (in instanceof List) {
-      return (List) ((List) in).stream()
-          .map(Object::toString).collect(Collectors.toList());
+      return ((List<Object>) in).stream()
+          .map(Object::toString)
+          .collect(Collectors.toList());
     }
     return Collections.singletonList(in.toString());
   }
@@ -1952,16 +1955,15 @@ public class ConfigRepository implements Repository, Serializable {
   @Override
   public Optional<OnlineAttributeWriter> getWriter(AttributeDescriptor<?> attr) {
     synchronized (writers) {
-      return Optional.ofNullable(writers.computeIfAbsent(attr, a -> {
-        return getFamiliesForAttribute(a)
-            .stream()
-            .filter(af -> af.getType() == StorageType.PRIMARY)
-            .filter(af -> !af.getAccess().isReadonly())
-            .findAny()
-            .flatMap(AttributeFamilyDescriptor::getWriter)
-            .map(w -> w.online())
-            .orElse(null);
-      }));
+      return Optional.ofNullable(writers.computeIfAbsent(attr, a ->
+          getFamiliesForAttribute(a)
+              .stream()
+              .filter(af -> af.getType() == StorageType.PRIMARY)
+              .filter(af -> !af.getAccess().isReadonly())
+              .findAny()
+              .flatMap(AttributeFamilyDescriptor::getWriter)
+              .map(AttributeWriterBase::online)
+              .orElse(null)));
     }
   }
 

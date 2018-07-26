@@ -16,7 +16,6 @@
 package cz.o2.proxima.storage.cassandra;
 
 import cz.o2.proxima.storage.randomaccess.RandomOffset;
-import lombok.Getter;
 
 /**
  * Offset based on {@code token} function.
@@ -28,11 +27,14 @@ public class Offsets {
    */
   public static class Token implements RandomOffset {
 
-    @Getter
-    final long token;
+    final long tkn;
 
     Token(long token) {
-      this.token = token;
+      this.tkn = token;
+    }
+
+    public long getToken() {
+      return tkn;
     }
 
   }
@@ -42,14 +44,20 @@ public class Offsets {
    */
   public static class Raw implements RandomOffset {
 
-    @Getter
-    final String raw;
+    final String str;
 
-    Raw(String s) {
-      this.raw = s;
+    Raw(String str) {
+      this.str = str;
+    }
+
+    public String getRaw() {
+      return str;
     }
 
   }
 
+  private Offsets() {
+    // nop
+  }
 
 }

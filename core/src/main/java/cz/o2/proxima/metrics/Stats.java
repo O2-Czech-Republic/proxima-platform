@@ -24,54 +24,54 @@ import java.util.Arrays;
 @Stable
 public class Stats implements StatsMBean {
 
-  private final double[] stats;
+  private final double[] raw;
 
-  Stats(double[] stats) {
-    this.stats = stats;
+  Stats(double[] raw) {
+    this.raw = raw;
   }
 
   @Override
   public double get1() {
-    return stats[0];
+    return raw[0];
   }
 
   @Override
   public double get10() {
-    return stats[1];
+    return raw[1];
   }
 
   @Override
   public double get30() {
-    return stats[2];
+    return raw[2];
   }
 
   @Override
   public double get50() {
-    return stats[3];
+    return raw[3];
   }
 
   @Override
   public double get70() {
-    return stats[4];
+    return raw[4];
   }
 
   @Override
   public double get90() {
-    return stats[5];
+    return raw[5];
   }
 
   @Override
   public double get99() {
-    return stats[6];
+    return raw[6];
   }
 
   @Override
   public String toString() {
-    return Arrays.toString(stats);
+    return Arrays.toString(raw);
   }
 
   double[] getRaw() {
-    return stats;
+    return raw;
   }
 
 }

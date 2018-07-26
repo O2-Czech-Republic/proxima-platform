@@ -41,7 +41,6 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executor;
 
 /**
@@ -50,17 +49,19 @@ import java.util.concurrent.Executor;
 @Slf4j
 class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservable {
 
-  private static Charset UTF8 = Charset.forName("UTF-8");
+  private static final Charset UTF8 = Charset.forName("UTF-8");
 
   private final EntityDescriptor entity;
   private final VoidFunction<Executor> executorFactory;
   private transient Executor executor;
 
   public HBaseLogObservable(
-      URI uri, Configuration conf, Map<String, Object> cfg,
-      EntityDescriptor entity, VoidFunction<Executor> executorFactory) {
+      URI uri,
+      Configuration conf,
+      EntityDescriptor entity,
+      VoidFunction<Executor> executorFactory) {
 
-    super(uri, conf, cfg);
+    super(uri, conf);
     this.entity = entity;
     this.executorFactory = executorFactory;
   }
@@ -94,7 +95,6 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
     executor().execute(() -> {
       ensureClient();
       try {
-        outer:
         for (Partition p : partitions) {
           HBasePartition hp = (HBasePartition) p;
           Scan scan = new Scan(hp.getStartKey(), hp.getEndKey());
@@ -102,15 +102,20 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
           scan.setTimeRange(hp.getStartStamp(), hp.getEndStamp());
           scan.setFilter(toFilter(attributes));
 
+          boolean finish = false;
           try (ResultScanner scanner = client.getScanner(scan)) {
             Result next;
             while (((next = scanner.next()) != null)
                 && !Thread.currentThread().isInterrupted()) {
 
               if (!consume(next, attributes, hp, observer)) {
-                break outer;
+                finish = true;
+                break;
               }
             }
+          }
+          if (finish) {
+            break;
           }
         }
         observer.onCompleted();

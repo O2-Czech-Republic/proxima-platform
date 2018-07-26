@@ -45,12 +45,12 @@ import lombok.extern.slf4j.Slf4j;
  * The ingestion service.
  **/
 @Slf4j
-class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
+public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
 
   private final Repository repo;
   private final ScheduledExecutorService scheduler;
 
-  IngestService(
+  public IngestService(
       Repository repo,
       ScheduledExecutorService scheduler) {
 

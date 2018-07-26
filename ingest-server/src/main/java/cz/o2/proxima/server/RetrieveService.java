@@ -32,11 +32,11 @@ import lombok.extern.slf4j.Slf4j;
  * Service for reading data.
  */
 @Slf4j
-class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase {
+public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase {
 
   private final Repository repo;
 
-  RetrieveService(Repository repo) {
+  public RetrieveService(Repository repo) {
     this.repo = repo;
   }
 

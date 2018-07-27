@@ -73,7 +73,7 @@ public class CommitLogReaderTest {
     executor.abort();
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testObserveSimple() throws InterruptedException {
     List<StreamElement> received = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
@@ -104,7 +104,7 @@ public class CommitLogReaderTest {
     assertEquals(1, received.size());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testObserveWithError() throws InterruptedException {
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Throwable> caught = new AtomicReference<>();
@@ -134,7 +134,7 @@ public class CommitLogReaderTest {
     assertNotNull(caught.get());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testObserveWithRetry() throws InterruptedException {
     List<StreamElement> received = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
@@ -171,7 +171,7 @@ public class CommitLogReaderTest {
     assertEquals(1, received.size());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testBulkObserve() throws InterruptedException {
     List<StreamElement> received = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(2);

@@ -80,7 +80,7 @@ public class IngestServiceTest {
   }
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestBulkInvalidScheme() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -98,7 +98,7 @@ public class IngestServiceTest {
     assertEquals(412, status.getStatus());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestBulkInvalidEntity() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -117,7 +117,7 @@ public class IngestServiceTest {
     assertEquals(404, status.getStatus());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestBulkInvalidEntityAttribute() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -136,7 +136,7 @@ public class IngestServiceTest {
     assertEquals(404, status.getStatus());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestBulkMissingKey() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -157,7 +157,7 @@ public class IngestServiceTest {
   }
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestBulkValid() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -183,7 +183,7 @@ public class IngestServiceTest {
         new byte[0], data.get("/proxima/dummy/my-dummy-entity#data").getSecond());
   }
 
-  @Test(timeout = 5000)
+  @Test(timeout = 10000)
   public void testIngestBulkWildcardEntityAttribute() throws Exception {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -228,7 +228,7 @@ public class IngestServiceTest {
         .getPayload().toStringUtf8());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestWildcardEntityInvalidScheme() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -256,7 +256,7 @@ public class IngestServiceTest {
   }
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestSingleValid() throws InterruptedException {
 
     latch = new CountDownLatch(1);
@@ -301,7 +301,7 @@ public class IngestServiceTest {
     assertTrue(data.containsKey("/proxima/dummy/my-dummy-entity#data"));
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestSingleValidButFilteredOut() throws InterruptedException {
 
     latch = new CountDownLatch(1);
@@ -351,7 +351,7 @@ public class IngestServiceTest {
 
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestValid() throws InterruptedException {
 
     Rpc.Ingest request = Rpc.Ingest.newBuilder()
@@ -375,7 +375,7 @@ public class IngestServiceTest {
   }
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestValidBulk() throws InterruptedException {
 
     Rpc.Ingest request = Rpc.Ingest.newBuilder()
@@ -400,7 +400,7 @@ public class IngestServiceTest {
     assertTrue(data.containsKey("/proxima_events/bulk/my-dummy-entity#data"));
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestValidExtendedScheme()
       throws InterruptedException, InvalidProtocolBufferException {
 
@@ -433,7 +433,7 @@ public class IngestServiceTest {
     assertEquals(payload, ExtendedMessage.parseFrom(value));
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testTransform() throws InterruptedException {
     // write event.data and check that we receive write to dummy.wildcard.<stamp>
     long now = System.currentTimeMillis();

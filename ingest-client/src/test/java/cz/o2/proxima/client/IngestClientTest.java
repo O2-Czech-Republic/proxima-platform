@@ -60,7 +60,7 @@ public class IngestClientTest {
         .build(), s -> { });
   }
 
-  @Test(timeout = 5000)
+  @Test(timeout = 10000)
   public void testSingleRequest() throws InterruptedException {
     IngestClient client = create(new Options());
     CountDownLatch latch = new CountDownLatch(1);
@@ -81,7 +81,7 @@ public class IngestClientTest {
     assertEquals(200, status.get().getStatus());
   }
 
-  @Test(timeout = 5000)
+  @Test(timeout = 10000)
   public void testMultiRequests() throws InterruptedException {
     IngestClient client = create(new Options());
     CountDownLatch latch = new CountDownLatch(2);
@@ -114,7 +114,7 @@ public class IngestClientTest {
   }
 
 
-  @Test(timeout = 5000)
+  @Test(timeout = 10000)
   public void testTimeoutRequest() throws InterruptedException {
     IngestClient client = create(new Options());
     CountDownLatch latch = new CountDownLatch(1);

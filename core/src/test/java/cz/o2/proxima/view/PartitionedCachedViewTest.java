@@ -58,13 +58,13 @@ public class PartitionedCachedViewTest {
         .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testCommitLogCaching() throws InterruptedException {
     testStatusReadWrite(repo);
     testScanWildcardAll(repo);
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testCommitLogCachingReplicated() throws InterruptedException {
     repo.reloadConfig(true, replicated);
     testStatusReadWrite(repo);

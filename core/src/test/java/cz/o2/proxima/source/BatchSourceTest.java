@@ -26,12 +26,12 @@ import org.junit.Test;
  */
 public class BatchSourceTest extends BoundedSourceTest {
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testSimpleConsume() throws InterruptedException {
     testSimpleConsume(getWriter(attr), createSource(attr));
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testSimpleConsumeWildcard() throws InterruptedException {
     testSimpleConsumeWildcard(getWriter(wildcard), createSource(wildcard));
   }

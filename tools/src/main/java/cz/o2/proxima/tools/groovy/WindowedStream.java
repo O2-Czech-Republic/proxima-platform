@@ -290,17 +290,16 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
     Closure<K> keyDehydrated = keyExtractor.dehydrate();
     Closure<V> reducerDehydrated = listReduce.dehydrate();
 
-    return descendant(() -> {
-      return ReduceByKey.of(dataset.build())
-          .keyBy(keyDehydrated::call)
-          .reduceBy((java.util.stream.Stream<T> in, Collector<V> ctx) -> {
-            List<V> ret = (List<V>) reducerDehydrated.call(
-                ctx.getWindow(), in.collect(Collectors.toList()));
-            ret.forEach(ctx::collect);
-          })
-          .windowBy(withEmitting())
-          .output();
-    });
+    return descendant(() ->
+        ReduceByKey.of(dataset.build())
+            .keyBy(keyDehydrated::call)
+            .reduceBy((java.util.stream.Stream<T> in, Collector<V> ctx) -> {
+              List<V> ret = (List<V>) reducerDehydrated.call(
+                  ctx.getWindow(), in.collect(Collectors.toList()));
+              ret.forEach(ctx::collect);
+            })
+            .windowBy(withEmitting())
+            .output());
   }
 
   @SuppressWarnings("unchecked")
@@ -435,7 +434,7 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
 
     Closure<LEFT> leftKeyDehydrated = leftKey.dehydrate();
     Closure<RIGHT> rightKeyDehydrated = rightKey.dehydrate();
-    JoinedWindowing windowing = new JoinedWindowing<>(this, right);
+    JoinedWindowing joinedWindowing = new JoinedWindowing<>(this, right);
     return descendant(
         () -> {
           final Dataset<Pair<Object, Pair<T, RIGHT>>> joined;
@@ -443,13 +442,13 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
               .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
               .using((T l, Optional<RIGHT> r, Collector<Pair<T, RIGHT>> ctx) ->
                   ctx.collect(Pair.of(l, r.orElse(null))))
-              .windowBy(windowing)
+              .windowBy(joinedWindowing)
               .output();
           return MapElements.of(joined)
               .using(Pair::getSecond)
               .output();
         },
-        windowing,
+        joinedWindowing,
         (w, d) -> {
           this.setEarlyEmitting(d);
           right.setEarlyEmitting(d);

@@ -79,7 +79,7 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
   @Override
   public synchronized void write(
       StreamElement data, CommitCallback statusCallback) {
-    
+
     initialize();
     log.debug("Writing data {} to {}", data, getUri());
     try {
@@ -87,7 +87,7 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
           .setMessageId(data.getUuid())
           .setPublishTime(Timestamp.newBuilder()
               .setSeconds(data.getStamp() / 1000)
-              .setNanos((int) ((data.getStamp() % 1000)) * 1_000_000))
+              .setNanos((int) (data.getStamp() % 1000) * 1_000_000))
           .setData(PubSub.KeyValue.newBuilder()
               .setKey(data.getKey())
               .setAttribute(data.getAttribute())

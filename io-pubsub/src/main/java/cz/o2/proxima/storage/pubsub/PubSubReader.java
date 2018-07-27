@@ -270,16 +270,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
     if (subscriptionAutoCreate) {
       try (SubscriptionAdminClient client = SubscriptionAdminClient.create()) {
-        try {
-          client.createSubscription(
-              subscription, ProjectTopicName.of(project, topic),
-              PushConfig.newBuilder().build(), this.subscriptionAckDeadline);
-          log.info(
-              "Automatically creating subscription {} for topic {} as requested",
-              subscription, topic);
-        } catch (AlreadyExistsException ex) {
-          log.debug("Subscription {} already exists. Skipping creation.", subscription);
-        }
+        createSubscription(client, subscription);
       } catch (IOException ex) {
         log.error("Failed to close SubscriptionAdminClient", ex);
       } catch (Exception ex) {
@@ -289,6 +280,21 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     return Subscriber.newBuilder(subscription, receiver)
         .setMaxAckExtensionPeriod(Duration.ofMillis(maxAckDeadline))
         .build();
+  }
+
+  private void createSubscription(
+      SubscriptionAdminClient client, ProjectSubscriptionName subscription) {
+    
+    try {
+      client.createSubscription(
+          subscription, ProjectTopicName.of(project, topic),
+          PushConfig.newBuilder().build(), this.subscriptionAckDeadline);
+      log.info(
+          "Automatically creating subscription {} for topic {} as requested",
+          subscription, topic);
+    } catch (AlreadyExistsException ex) {
+      log.debug("Subscription {} already exists. Skipping creation.", subscription);
+    }
   }
 
   private void validatePosition(Position position) {

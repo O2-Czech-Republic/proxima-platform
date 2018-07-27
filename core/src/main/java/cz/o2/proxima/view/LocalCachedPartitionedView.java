@@ -108,16 +108,17 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
         }
         final Map<String, Pair<Long, Object>> attrMap = m;
         m.compute(attrName, (k, c) -> {
-          boolean wildcardDeleted = false;
           if (ingest.getAttributeDescriptor().isWildcard()) {
             Pair<Long, Object> wildcardRec;
             wildcardRec = attrMap.get(ingest.getAttributeDescriptor()
                 .toAttributePrefix());
             if (wildcardRec != null) {
-              c = c == null
-                  ? wildcardRec
-                  : c.getFirst() < wildcardRec.getFirst()
+              if (c == null) {
+                c = wildcardRec;
+              } else {
+                c = c.getFirst() < wildcardRec.getFirst()
                       ? wildcardRec : c;
+              }
             }
           }
           if (c == null || c.getFirst() < ingest.getStamp()
@@ -327,13 +328,12 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
           Optional<AttributeDescriptor<Object>> attr;
           attr = getEntityDescriptor().findAttribute(e.getKey(), true);
           if (attr.isPresent()) {
-            if (attr.get().isWildcard()) {
-              if (prefixName == null || !attr.get().getName().startsWith(prefixName)) {
-                // need to fetch new prefixName
-                prefixName = attr.get().toAttributePrefix();
-                prefixRecord = m.get(prefixName);
-                log.trace("Fetched prefixRecord {} for attr", prefixRecord, attr);
-              }
+            if (attr.get().isWildcard() && (
+                prefixName == null || !attr.get().getName().startsWith(prefixName))) {
+              // need to fetch new prefixName
+              prefixName = attr.get().toAttributePrefix();
+              prefixRecord = m.get(prefixName);
+              log.trace("Fetched prefixRecord {} for attr", prefixRecord, attr);
             }
             KeyValue kv = toKv(
                 key, e.getKey(),

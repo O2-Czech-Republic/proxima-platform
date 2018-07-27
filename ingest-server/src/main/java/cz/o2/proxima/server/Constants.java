@@ -24,4 +24,8 @@ public class Constants {
   public static final String CFG_PORT = "ingest.server.port";
   public static final int DEFALT_PORT = 4001;
 
+  private Constants() {
+    // nop
+  }
+
 }

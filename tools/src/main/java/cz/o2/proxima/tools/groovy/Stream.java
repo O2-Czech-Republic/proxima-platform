@@ -95,9 +95,8 @@ public class Stream<T> {
   public Stream<Pair<Object, T>> withWindow() {
     return descendant(() ->
         FlatMap.of(dataset.build())
-            .using((T in, Collector<Pair<Object, T>> ctx) -> {
-              ctx.collect(Pair.of(ctx.getWindow(), in));
-            })
+            .using((T in, Collector<Pair<Object, T>> ctx) ->
+                ctx.collect(Pair.of(ctx.getWindow(), in)))
             .output());
   }
 
@@ -143,7 +142,7 @@ public class Stream<T> {
     runFlow(datasetBuilt.getFlow());
   }
 
-  private void runFlow(Flow flow) throws RuntimeException {
+  private void runFlow(Flow flow) {
     try {
       executor.submit(flow).get();
     } catch (Exception ex) {
@@ -216,9 +215,8 @@ public class Stream<T> {
   }
 
   public Stream<T> union(Stream<T> other) {
-    return descendant(() -> {
-      return Union.of(dataset.build(), other.dataset.build()).output();
-    });
+    return descendant(() -> Union.of(
+        dataset.build(), other.dataset.build()).output());
   }
 
 }

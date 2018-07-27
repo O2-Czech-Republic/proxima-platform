@@ -41,7 +41,6 @@ class TimeWindowedStream<T> extends WindowedStream<T, Windowing> {
         terminatingOperationCall,
         (w, d) -> {
           if (slide > 0) {
-            TimeSliding s = (TimeSliding) w;
             // FIXME: https://github.com/seznam/euphoria/issues/245
             throw new UnsupportedOperationException("Euphoria issue #245");
           } else {

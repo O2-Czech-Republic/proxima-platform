@@ -90,4 +90,8 @@ public class GroovyEnv {
     return new String(charArray);
   }
 
+  private GroovyEnv() {
+    // nop
+  }
+
 }

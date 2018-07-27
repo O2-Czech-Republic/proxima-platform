@@ -81,7 +81,7 @@ public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
   public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
     return Optional.of(new HBaseLogObservable(
         getUri(), getConf(), getEntityDescriptor(),
-        () -> context.getExecutorService()));
+        context::getExecutorService));
   }
 
   private Configuration getConf() {

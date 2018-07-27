@@ -263,10 +263,8 @@ public class Console {
 
     return Stream.wrap(
         new LocalExecutor()
-            .setTriggeringSchedulerSupplier(() -> {
-              return new ProcessingTimeTriggerScheduler();
-            })
-            .setWatermarkEmitStrategySupplier(() -> new WatermarkEmitStrategy.Default()),
+            .setTriggeringSchedulerSupplier(ProcessingTimeTriggerScheduler::new)
+            .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new),
         (DatasetBuilder) builder,
         this::resetFlow).windowAll();
 
@@ -297,7 +295,7 @@ public class Console {
         .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
         .combineBy(values -> {
           StreamElement res = null;
-          Iterable<StreamElement> iter = () -> values.iterator();
+          Iterable<StreamElement> iter = values::iterator;
           for (StreamElement v : iter) {
             if (res == null || v.getStamp() > res.getStamp()) {
               res = v;
@@ -310,7 +308,6 @@ public class Console {
         .using((
             Pair<Pair<String, String>, StreamElement> e,
             Collector<StreamElement> ctx) -> {
-
           if (e.getSecond().getValue() != null) {
             ctx.collect(e.getSecond());
           }
@@ -355,10 +352,8 @@ public class Console {
 
     return Stream.wrap(
         new LocalExecutor()
-            .setTriggeringSchedulerSupplier(() -> {
-              return new ProcessingTimeTriggerScheduler();
-            })
-            .setWatermarkEmitStrategySupplier(() -> new WatermarkEmitStrategy.Default()),
+            .setTriggeringSchedulerSupplier(ProcessingTimeTriggerScheduler::new)
+            .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new),
         (DatasetBuilder) builder,
         this::resetFlow).windowAll();
 
@@ -378,8 +373,7 @@ public class Console {
       EntityDescriptor entityDesc,
       AttributeDescriptor attrDesc,
       String key, String attribute, String textFormat)
-      throws NoSuchMethodException, IllegalAccessException,
-          IllegalArgumentException, InvocationTargetException,
+      throws NoSuchMethodException, IllegalAccessException, InvocationTargetException,
           ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
           TextFormat.ParseException {
 

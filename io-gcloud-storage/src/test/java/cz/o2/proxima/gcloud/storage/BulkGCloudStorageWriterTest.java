@@ -121,7 +121,7 @@ public class BulkGCloudStorageWriterTest {
     };
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public synchronized void testWrite() throws Exception {
     latch.set(new CountDownLatch(2));
     long now = 1500000000000L;

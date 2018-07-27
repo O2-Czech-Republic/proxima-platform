@@ -122,7 +122,7 @@ public class PubSubReaderTest {
     reader = new TestPubSubReader(context);
   }
 
-  @Test(timeout = 3000)
+  @Test(timeout = 10000)
   public void testObserve() throws InterruptedException {
     long now = System.currentTimeMillis();
     Deque<PubsubMessage> inputs = new LinkedList<>(
@@ -185,7 +185,7 @@ public class PubSubReaderTest {
     assertEquals(Sets.newHashSet(0, 1, 2), reader.acked);
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testObserveError() throws InterruptedException {
     long now = System.currentTimeMillis();
     Deque<PubsubMessage> inputs = new LinkedList<>(
@@ -226,7 +226,7 @@ public class PubSubReaderTest {
     handle.cancel();
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testObserveBulk() throws InterruptedException {
     long now = System.currentTimeMillis();
     Deque<PubsubMessage> inputs = new LinkedList<>(

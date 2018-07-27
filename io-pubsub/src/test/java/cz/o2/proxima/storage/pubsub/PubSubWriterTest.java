@@ -113,7 +113,7 @@ public class PubSubWriterTest {
     writer = new TestPubSubWriter(context);
   }
 
-  @Test(timeout = 5000)
+  @Test(timeout = 10000)
   public void testWrite() throws InterruptedException {
     long now = System.currentTimeMillis();
     List<PubsubMessage> written = new ArrayList<>();
@@ -161,7 +161,7 @@ public class PubSubWriterTest {
     assertEquals(now, elem.getStamp());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testWriteFail() throws InterruptedException {
     long now = System.currentTimeMillis();
     writer.setConsumer(e -> {

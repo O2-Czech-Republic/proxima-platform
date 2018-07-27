@@ -69,7 +69,7 @@ public class PartitionedViewTest implements Serializable {
     executor.abort();
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testViewConsumption() throws InterruptedException {
     assertEquals(1, view.getPartitions().size());
     SerializableCountDownLatch latch = new SerializableCountDownLatch(1);

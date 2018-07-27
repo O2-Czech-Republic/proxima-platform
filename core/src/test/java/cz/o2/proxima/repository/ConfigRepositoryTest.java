@@ -122,7 +122,7 @@ public class ConfigRepositoryTest {
           .resolve()).build();
   }
 
-  @Test(timeout = 5000)
+  @Test(timeout = 10000)
   public void testProxyWrite()
       throws UnsupportedEncodingException, InterruptedException {
 
@@ -592,7 +592,7 @@ public class ConfigRepositoryTest {
   }
 
   @SuppressWarnings("unchecked")
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testReplicationWriteReadonlyObserve() throws InterruptedException {
     repo.reloadConfig(
         true,
@@ -644,7 +644,7 @@ public class ConfigRepositoryTest {
     latch.await();
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testWriteIntoReplicatedProxyAttribute()
       throws InterruptedException {
 
@@ -700,7 +700,7 @@ public class ConfigRepositoryTest {
     latch.await();
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testRandomReadFromReplicatedProxyAttribute()
       throws InterruptedException {
 
@@ -738,7 +738,7 @@ public class ConfigRepositoryTest {
     assertTrue(reader.get().get("gw", data).isPresent());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testRandomReadFromReplicatedProxyAttributeDirect()
       throws InterruptedException {
 
@@ -794,7 +794,7 @@ public class ConfigRepositoryTest {
         .isPresent());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testApplicationOfProxyTransformOnIncomingData()
       throws InterruptedException {
 
@@ -852,7 +852,7 @@ public class ConfigRepositoryTest {
         .isPresent());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testApplicationOfProxyTransformOnReplicatedData()
       throws InterruptedException {
 
@@ -906,7 +906,7 @@ public class ConfigRepositoryTest {
         .isPresent());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testApplicationOfProxyTransformOnReplicatedDataWithTransform()
       throws InterruptedException {
 
@@ -960,7 +960,7 @@ public class ConfigRepositoryTest {
         .isPresent());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testReplicationFull() throws InterruptedException {
     repo.reloadConfig(
         true,
@@ -1025,7 +1025,7 @@ public class ConfigRepositoryTest {
   }
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testObserveReplicatedWithProxy() throws InterruptedException {
     repo.reloadConfig(
         true,
@@ -1257,7 +1257,7 @@ public class ConfigRepositoryTest {
     assertEquals(1, proxy.getAttributes().size());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIncomingReplicationDoesntCycle() throws InterruptedException {
     repo.reloadConfig(
         true,
@@ -1323,7 +1323,7 @@ public class ConfigRepositoryTest {
   }
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testWriteToSlaveOfProxyReplicatedAttribute() throws InterruptedException {
     repo.reloadConfig(
         true,
@@ -1352,7 +1352,7 @@ public class ConfigRepositoryTest {
     latch.await();
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testWildcardDeleteReplication() throws InterruptedException {
     repo.reloadConfig(
         true,

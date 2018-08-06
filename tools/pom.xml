@@ -150,6 +150,16 @@
       <artifactId>ingest-client</artifactId>
       <version>${project.version}</version>
     </dependency>
+
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>core</artifactId>
+      <version>${project.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
 </project>

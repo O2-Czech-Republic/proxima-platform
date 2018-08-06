@@ -57,9 +57,11 @@ class Environment {
           def cz.o2.proxima.scheme.ValueSerializer serializer() {
             return serializer
           }
+
           def Stream<${attribute.type}> stream() {
             return stream(false);
           }
+
           def Stream<${attribute.type}> stream(boolean eventTime) {
             return console.getStream(
                 ${entity.classname}Descriptor.this.desc, desc,
@@ -67,29 +69,39 @@ class Environment {
                 false,
                 eventTime);
           }
+
           def WindowedStream<${attribute.type}, GlobalWindowing> streamFromOldest() {
+            return streamFromOldest(true)
+          }
+
+          def WindowedStream<${attribute.type}, GlobalWindowing> streamFromOldest(boolean stopAtCurrent) {
             return console.getStream(
                 ${entity.classname}Descriptor.this.desc, desc,
                 Position.OLDEST,
-                true,
+                stopAtCurrent,
                 true).windowAll();
           }
+
           def WindowedStream<${attribute.type}, GlobalWindowing> batchSnapshot() {
             return console.getBatchSnapshot(
                 ${entity.classname}Descriptor.this.desc, desc);
           }
+
           def WindowedStream<${attribute.type}, GlobalWindowing> batchSnapshot(long start, long end) {
             return console.getBatchSnapshot(
                 ${entity.classname}Descriptor.this.desc, desc, start, end);
           }
+
           def WindowedStream<${attribute.type}, GlobalWindowing> batchUpdates() {
             return console.getBatchUpdates(
                 ${entity.classname}Descriptor.this.desc, desc, Long.MIN_VALUE, Long.MAX_VALUE);
           }
+
           def WindowedStream<${attribute.type}, GlobalWindowing> batchUpdates(long startStamp) {
             return console.getBatchUpdates(
                 ${entity.classname}Descriptor.this.desc, desc, startStamp, Long.MAX_VALUE);
           }
+
           def WindowedStream<${attribute.type}, GlobalWindowing> batchUpdates(long startStamp, long endStamp) {
             return console.getBatchUpdates(
                 ${entity.classname}Descriptor.this.desc, desc, startStamp, endStamp);

@@ -459,15 +459,28 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
 
 
   @SuppressWarnings("unchecked")
-  public <S extends Comparable<S>> WindowedStream<S, W> sorted(
-      Closure<Integer> toComparable) {
+  public WindowedStream<T, W> sorted(Closure<Integer> compareFn) {
 
-    Closure<Integer> dehydrated = toComparable.dehydrate();
+    Closure<Integer> dehydrated = compareFn.dehydrate();
     return descendant(() ->
-        ReduceWindow.of((Dataset<S>) dataset.build())
-            .reduceBy((java.util.stream.Stream<S> in, Collector<S> ctx) ->
+        ReduceWindow
+            .of((Dataset<T>) dataset.build())
+            .reduceBy((java.util.stream.Stream<T> in, Collector<T> ctx) ->
                 in.forEach(ctx::collect))
             .withSortedValues(dehydrated::call)
+            .output());
+  }
+
+  @SuppressWarnings("unchecked")
+  public WindowedStream<Comparable<T>, W> sorted() {
+    return descendant(() ->
+        ReduceWindow
+            .of((Dataset<Comparable<T>>) dataset.build())
+            .reduceBy((
+                java.util.stream.Stream<Comparable<T>> in,
+                Collector<Comparable<T>> ctx) ->
+                    in.forEach(ctx::collect))
+            .withSortedValues((l, r) -> l.compareTo((T) r))
             .output());
   }
 

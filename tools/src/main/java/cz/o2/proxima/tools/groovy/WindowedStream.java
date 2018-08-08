@@ -40,6 +40,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
@@ -187,9 +188,10 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
       DatasetBuilder<T> dataset,
       W windowing,
       Runnable terminatingOperationCall,
+      Supplier<Boolean> unboundedStreamTerminateSignal,
       BinaryFunction<W, Duration, W> earlyEmitting) {
 
-    super(executor, dataset, terminatingOperationCall);
+    super(executor, dataset, terminatingOperationCall, unboundedStreamTerminateSignal);
     this.windowing = Objects.requireNonNull(windowing);
     this.earlyEmittingConsumer = Objects.requireNonNull(earlyEmitting);
   }
@@ -204,6 +206,7 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
         dataset,
         windowing,
         terminatingOperationCall,
+        unboundedStreamTerminateSignal,
         earlyEmittingConsumer);
   }
 
@@ -217,6 +220,7 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
         dataset,
         windowing,
         terminatingOperationCall,
+        unboundedStreamTerminateSignal,
         earlyEmitting);
   }
 

@@ -43,6 +43,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 /**
  * A stream abstraction with fluent style methods.
@@ -54,22 +56,35 @@ public class Stream<T> {
       Executor executor, DatasetBuilder<T> dataset,
       Runnable terminatingOperationCall) {
 
-    return new Stream<>(executor, dataset, terminatingOperationCall);
+    return wrap(executor, dataset, terminatingOperationCall, () -> false);
+  }
+
+  public static <T> Stream<T> wrap(
+      Executor executor, DatasetBuilder<T> dataset,
+      Runnable terminatingOperationCall,
+      Supplier<Boolean> unboundedStreamTerminateSignal) {
+
+    return new Stream<>(
+        executor, dataset, terminatingOperationCall,
+        unboundedStreamTerminateSignal);
   }
 
   final ExecutorService poolExecutor = Executors.newCachedThreadPool();
   final Executor executor;
   final DatasetBuilder<T> dataset;
   final Runnable terminatingOperationCall;
+  final Supplier<Boolean> unboundedStreamTerminateSignal;
 
   Stream(
       Executor executor,
       DatasetBuilder<T> dataset,
-      Runnable terminatingOperationCall) {
+      Runnable terminatingOperationCall,
+      Supplier<Boolean> unboundedStreamTerminateSignal) {
 
     this.executor = executor;
     this.dataset = dataset;
     this.terminatingOperationCall = terminatingOperationCall;
+    this.unboundedStreamTerminateSignal = unboundedStreamTerminateSignal;
   }
 
   @SuppressWarnings("unchecked")
@@ -150,6 +165,7 @@ public class Stream<T> {
   private void runFlow(Flow flow) {
     try {
       CountDownLatch latch = new CountDownLatch(1);
+      AtomicReference<Thread> interruptThread = new AtomicReference<>();
       poolExecutor.execute(() -> {
         try {
           executor.submit(flow).get();
@@ -157,19 +173,21 @@ public class Stream<T> {
           Thread.currentThread().interrupt();
         } catch (ExecutionException ex) {
           throw new RuntimeException(ex);
+        } finally {
+          Thread thread = interruptThread.get();
+          if (thread != null && thread.isAlive()) {
+            thread.interrupt();
+          }
+          latch.countDown();
         }
-        latch.countDown();
       });
       poolExecutor.execute(() -> {
+        interruptThread.set(Thread.currentThread());
         for (;;) {
-          try {
-            if (System.in.read() == 'q') {
-              executor.shutdown();
-              poolExecutor.shutdownNow();
-              break;
-            }
-          } catch (IOException ex) {
-            log.warn("Error reading input stream", ex);
+          if (unboundedStreamTerminateSignal.get()) {
+            executor.shutdown();
+            poolExecutor.shutdownNow();
+            break;
           }
         }
       });
@@ -212,12 +230,14 @@ public class Stream<T> {
 
   public TimeWindowedStream<T> timeWindow(long millis) {
     return new TimeWindowedStream<>(
-        executor, dataset, millis, terminatingOperationCall);
+        executor, dataset, millis, terminatingOperationCall,
+        unboundedStreamTerminateSignal);
   }
 
   public TimeWindowedStream<T> timeSlidingWindow(long millis, long slide) {
     return new TimeWindowedStream<>(
-        executor, dataset, millis, slide, terminatingOperationCall);
+        executor, dataset, millis, slide, terminatingOperationCall,
+        unboundedStreamTerminateSignal);
   }
 
   @SuppressWarnings("unchecked")
@@ -226,6 +246,7 @@ public class Stream<T> {
         executor, dataset,
         Session.of(Duration.ofMillis(gapDuration)),
         terminatingOperationCall,
+        unboundedStreamTerminateSignal,
         (w, d) -> w.earlyTriggering(d));
   }
 
@@ -234,13 +255,16 @@ public class Stream<T> {
     return new WindowedStream<>(
         executor, dataset, GlobalWindowing.get(),
         terminatingOperationCall,
+        unboundedStreamTerminateSignal,
         (w, d) -> {
           throw new UnsupportedOperationException("Euphoria issue #246");
         });
   }
 
   <X> Stream<X> descendant(DatasetBuilder<X> dataset) {
-    return new Stream<>(executor, dataset, terminatingOperationCall);
+    return new Stream<>(
+        executor, dataset,
+        terminatingOperationCall, unboundedStreamTerminateSignal);
   }
 
   public Stream<T> union(Stream<T> other) {

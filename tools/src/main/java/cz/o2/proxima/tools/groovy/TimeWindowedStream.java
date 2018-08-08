@@ -20,6 +20,7 @@ import cz.seznam.euphoria.core.client.dataset.windowing.TimeSliding;
 import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
 import cz.seznam.euphoria.core.executor.Executor;
 import java.time.Duration;
+import java.util.function.Supplier;
 
 /**
  * A stream that is windowed by time.
@@ -32,13 +33,15 @@ class TimeWindowedStream<T> extends WindowedStream<T, Windowing> {
   @SuppressWarnings("unchecked")
   TimeWindowedStream(
       Executor executor, DatasetBuilder<T> dataset, long millis, long slide,
-      Runnable terminatingOperationCall) {
+      Runnable terminatingOperationCall,
+      Supplier<Boolean> unboundedStreamTerminateSignal) {
 
     super(executor, dataset,
         slide > 0
             ? TimeSliding.of(Duration.ofMillis(millis), Duration.ofMillis(slide))
             : Time.of(Duration.ofMillis(millis)),
         terminatingOperationCall,
+        unboundedStreamTerminateSignal,
         (w, d) -> {
           if (slide > 0) {
             // FIXME: https://github.com/seznam/euphoria/issues/245
@@ -56,18 +59,18 @@ class TimeWindowedStream<T> extends WindowedStream<T, Windowing> {
 
   TimeWindowedStream(
       Executor executor, DatasetBuilder<T> dataset, long millis,
-      Runnable terminatingOperationCall) {
+      Runnable terminatingOperationCall,
+      Supplier<Boolean> unboundedStreamTerminateSignal) {
 
-    this(
-        executor, dataset, millis, -1L,
-        terminatingOperationCall);
+    this(executor, dataset, millis, -1L,
+        terminatingOperationCall, unboundedStreamTerminateSignal);
   }
 
   @Override
   <X> WindowedStream<X, Windowing> descendant(DatasetBuilder<X> dataset) {
     return new TimeWindowedStream<>(
         executor, dataset, millis, slide,
-        terminatingOperationCall);
+        terminatingOperationCall, unboundedStreamTerminateSignal);
   }
 
 }

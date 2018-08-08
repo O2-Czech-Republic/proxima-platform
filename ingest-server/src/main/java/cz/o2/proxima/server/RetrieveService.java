@@ -20,12 +20,16 @@ import com.google.protobuf.TextFormat;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import io.grpc.stub.StreamObserver;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -34,10 +38,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase {
 
+  private final Map<AttributeDescriptor<?>, RandomAccessReader> readerMap;
   private final Repository repo;
 
   public RetrieveService(Repository repo) {
     this.repo = repo;
+    this.readerMap = Collections.synchronizedMap(new HashMap<>());
   }
 
   private class Status extends Exception {
@@ -72,12 +78,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
                   + " does not have wildcard attribute "
                   + request.getWildcardPrefix()));
 
-      RandomAccessReader reader = repo.getFamiliesForAttribute(wildcard).stream()
-          .filter(af -> af.getRandomAccessReader().isPresent())
-          .map(af -> af.getRandomAccessReader().get())
-          .findAny()
-          .orElseThrow(() -> new Status(400, "Attribute " + wildcard
-              + " has no random reader"));
+      RandomAccessReader reader = instantiateReader(wildcard);
 
       Rpc.ListResponse.Builder response = Rpc.ListResponse.newBuilder()
           .setStatus(200);
@@ -133,13 +134,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
                   + " does not have attribute "
                   + request.getAttribute()));
 
-      RandomAccessReader reader = repo.getFamiliesForAttribute(attribute)
-          .stream()
-          .filter(af -> af.getRandomAccessReader().isPresent())
-          .map(af -> af.getRandomAccessReader().get())
-          .findAny()
-          .orElseThrow(() -> new Status(400, "Attribute " + attribute
-              + " has no random reader"));
+      RandomAccessReader reader = instantiateReader(attribute);
 
       KeyValue<Object> kv = reader
           .get(request.getKey(), request.getAttribute(), attribute)
@@ -167,6 +162,33 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
           .setStatusMessage(ex.getMessage())
           .build());
       responseObserver.onCompleted();
+    }
+
+  }
+
+  private RandomAccessReader instantiateReader(
+      AttributeDescriptor<?> attr) throws Status {
+
+    synchronized (readerMap) {
+
+      RandomAccessReader reader = readerMap.get(attr);
+      if (reader == null) {
+        AttributeFamilyDescriptor family = repo.getFamiliesForAttribute(attr)
+            .stream()
+            .filter(af -> af.getAccess().canRandomRead())
+            .findAny()
+            .orElseThrow(() -> new Status(400, "Attribute " +  attr
+                + " has no random access family"));
+
+        RandomAccessReader newReader = family
+            .getRandomAccessReader()
+            .orElseThrow(() -> new Status(500, "Random access family "
+                + family + " has no reader"));
+        family.getAttributes().forEach(a -> readerMap.put(a, newReader));
+        return newReader;
+      }
+      return reader;
+
     }
 
   }

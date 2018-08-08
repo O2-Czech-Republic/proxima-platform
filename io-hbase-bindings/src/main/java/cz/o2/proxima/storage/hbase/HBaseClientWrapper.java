@@ -55,17 +55,17 @@ class HBaseClientWrapper implements AutoCloseable, Serializable {
   }
 
   void ensureClient() {
-    if (this.conn == null || this.conn.isClosed()) {
+    if (conn == null || conn.isClosed()) {
       try {
-        if (this.client != null) {
-          this.client.close();
+        if (client != null) {
+          client.close();
         }
-        if (this.conn != null) {
-          this.conn.close();
+        if (conn != null && !conn.isClosed()) {
+          conn.close();
         }
-        this.conn = ConnectionFactory.createConnection(
+        conn = ConnectionFactory.createConnection(
             deserialize(serializedConf, new Configuration()));
-        this.client = conn.getTable(tableName());
+        client = conn.getTable(tableName());
       } catch (IOException ex) {
         log.error("Error connecting to cluster", ex);
         throw new RuntimeException(ex);

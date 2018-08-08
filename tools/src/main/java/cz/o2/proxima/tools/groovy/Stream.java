@@ -39,6 +39,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * A stream abstraction with fluent style methods.
@@ -53,6 +57,7 @@ public class Stream<T> {
     return new Stream<>(executor, dataset, terminatingOperationCall);
   }
 
+  final ExecutorService poolExecutor = Executors.newCachedThreadPool();
   final Executor executor;
   final DatasetBuilder<T> dataset;
   final Runnable terminatingOperationCall;
@@ -144,7 +149,31 @@ public class Stream<T> {
 
   private void runFlow(Flow flow) {
     try {
-      executor.submit(flow).get();
+      CountDownLatch latch = new CountDownLatch(1);
+      poolExecutor.execute(() -> {
+        try {
+          executor.submit(flow).get();
+        } catch (InterruptedException ex) {
+          Thread.currentThread().interrupt();
+        } catch (ExecutionException ex) {
+          throw new RuntimeException(ex);
+        }
+        latch.countDown();
+      });
+      poolExecutor.execute(() -> {
+        for (;;) {
+          try {
+            if (System.in.read() == 'q') {
+              executor.shutdown();
+              poolExecutor.shutdownNow();
+              break;
+            }
+          } catch (IOException ex) {
+            log.warn("Error reading input stream", ex);
+          }
+        }
+      });
+      latch.await();
     } catch (Exception ex) {
       log.error("Error in executing the flow", ex);
       throw new RuntimeException(ex);

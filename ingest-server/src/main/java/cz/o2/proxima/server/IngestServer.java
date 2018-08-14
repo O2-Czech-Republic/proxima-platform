@@ -53,10 +53,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -87,13 +87,13 @@ public class IngestServer {
 
 
   @Getter
-  static final int MIN_CORES = 2;
+  static final int CORES = Math.max(2, Runtime.getRuntime().availableProcessors());
   @Getter
   final Executor executor = new ThreadPoolExecutor(
-      MIN_CORES,
-            10 * MIN_CORES,
-            10, TimeUnit.SECONDS,
-            new SynchronousQueue<>());
+      CORES,
+      10 * CORES,
+      10, TimeUnit.SECONDS,
+      new ArrayBlockingQueue<>(10 * CORES));
 
   @Getter
   final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(5);

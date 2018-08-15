@@ -168,6 +168,7 @@ public class BatchSource implements BoundedDataSource<StreamElement> {
                     } catch (InterruptedException ex) {
                       log.warn("Interrupted while trying to retrieve next element.");
                       Thread.currentThread().interrupt();
+                      current = null;
                     }
                     return current != null;
                   }

@@ -97,6 +97,7 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
           }
         } catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
+          current = null;
         }
         return false;
       }

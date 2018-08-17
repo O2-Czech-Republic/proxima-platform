@@ -106,6 +106,7 @@ public class DataSourceUtils {
           } catch (InterruptedException ex) {
             log.warn("Interrupted while waiting for next queue element.");
             Thread.currentThread().interrupt();
+            next = null;
             return false;
           }
         }

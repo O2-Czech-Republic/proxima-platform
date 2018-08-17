@@ -60,19 +60,28 @@ import groovy.lang.GroovyObject;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import lombok.extern.slf4j.Slf4j;
 import org.codehaus.groovy.tools.shell.Groovysh;
+import org.codehaus.groovy.tools.shell.IO;
 
 /**
  * This is the groovysh based console.
  */
+@Slf4j
 public class Console {
 
   private static volatile Console INSTANCE = null;
@@ -97,21 +106,31 @@ public class Console {
     return INSTANCE;
   }
 
-  AtomicReference<Flow> flow = new AtomicReference<>(createFlow());
-
   public static void main(String[] args) {
     Console console = Console.get(args);
     Runtime.getRuntime().addShutdownHook(new Thread(console::close));
 
-    Groovysh shell = new Groovysh();
+    console.runInputForwarding();
+    Groovysh shell = new Groovysh(new IO(
+        console.getInputStream(), System.out, System.err));
     shell.run("env = " + Console.class.getName() + ".get().getEnv()");
     System.out.println();
     console.close();
   }
 
-  Repository repo;
-  List<ConsoleRandomReader> readers = new ArrayList<>();
+  final AtomicReference<Flow> flow = new AtomicReference<>(createFlow());
+  final BlockingQueue<Byte> input = new ArrayBlockingQueue<>(1000);
+  final Repository repo;
+  final List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;
+  final ExecutorService executor = Executors.newCachedThreadPool(r -> {
+    Thread t = new Thread(r);
+    t.setName("input-forwarder");
+    t.setDaemon(true);
+    t.setUncaughtExceptionHandler((thrd, err) ->
+        log.error("Error in thread {}", thrd.getName(), err));
+    return t;
+  });
 
   Console(String[] paths) {
     ClassLoader old = Thread.currentThread().getContextClassLoader();
@@ -192,15 +211,15 @@ public class Console {
         source = UnboundedStreamSource.of(reader, position);
       }
 
-      Dataset<StreamElement> input = flow.get().createInput(source);
+      Dataset<StreamElement> ds = flow.get().createInput(source);
 
       String prefix = attrDesc.toAttributePrefix();
       if (eventTime) {
-        input = AssignEventTime.of(input)
+        ds = AssignEventTime.of(ds)
             .using(StreamElement::getStamp)
             .output();
       }
-      Dataset<StreamElement> filtered = Filter.of(input)
+      Dataset<StreamElement> filtered = Filter.of(ds)
           .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
           .output();
       return MapElements.of(filtered)
@@ -215,7 +234,8 @@ public class Console {
                     : new ProcessingTimeTriggerScheduler())
             .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new),
         (DatasetBuilder) builder,
-        this::resetFlow);
+        this::resetFlow,
+        this::unboundedStreamInterrupt);
   }
 
   public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
@@ -234,7 +254,7 @@ public class Console {
       long toStamp) {
 
     DatasetBuilder<StreamElement> builder = () -> {
-      final Dataset<StreamElement> input;
+      final Dataset<StreamElement> ds;
       AttributeFamilyDescriptor family = repo.getFamiliesForAttribute(attrDesc)
           .stream()
           .filter(af -> af.getAccess().canReadBatchSnapshot())
@@ -243,20 +263,20 @@ public class Console {
           .orElse(null);
 
       if (family == null || fromStamp > Long.MIN_VALUE || toStamp < Long.MAX_VALUE) {
-        input = reduceUpdatesToSnapshot(attrDesc, fromStamp, toStamp);
+        ds = reduceUpdatesToSnapshot(attrDesc, fromStamp, toStamp);
       } else {
         Dataset<StreamElement> raw = flow.get().createInput(BatchSource.of(
             family.getBatchObservable().get(),
             family,
             fromStamp,
             toStamp));
-        input = Filter.of(raw)
+        ds = Filter.of(raw)
             .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
             .output();
       }
 
       String prefix = attrDesc.toAttributePrefix();
-      return Filter.of(input)
+      return Filter.of(ds)
           .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
           .output();
     };
@@ -266,7 +286,8 @@ public class Console {
             .setTriggeringSchedulerSupplier(ProcessingTimeTriggerScheduler::new)
             .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new),
         (DatasetBuilder) builder,
-        this::resetFlow).windowAll();
+        this::resetFlow,
+        this::unboundedStreamInterrupt).windowAll();
 
   }
 
@@ -332,17 +353,17 @@ public class Console {
             + attrDesc.getName() + " has no random access reader"));
 
     DatasetBuilder<StreamElement> builder = () -> {
-      Dataset<StreamElement> input = flow.get().createInput(BatchSource.of(
+      Dataset<StreamElement> ds = flow.get().createInput(BatchSource.of(
           family.getBatchObservable().get(),
           family,
           startStamp, endStamp));
 
-      input = Filter.of(input)
+      ds = Filter.of(ds)
           .by(i -> i.getStamp() >= startStamp && i.getStamp() < endStamp)
           .output();
 
       String prefix = attrDesc.toAttributePrefix();
-      Dataset<StreamElement> filtered = Filter.of(input)
+      Dataset<StreamElement> filtered = Filter.of(ds)
           .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
           .output();
       return AssignEventTime.of(filtered)
@@ -355,7 +376,8 @@ public class Console {
             .setTriggeringSchedulerSupplier(ProcessingTimeTriggerScheduler::new)
             .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new),
         (DatasetBuilder) builder,
-        this::resetFlow).windowAll();
+        this::resetFlow,
+        this::unboundedStreamInterrupt).windowAll();
 
   }
 
@@ -480,6 +502,50 @@ public class Console {
 
   private void close() {
     readers.forEach(ConsoleRandomReader::close);
+  }
+
+  private boolean unboundedStreamInterrupt() {
+    try {
+      return takeInputChar() == 'q';
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      return true;
+    }
+  }
+
+  private void runInputForwarding() {
+    executor.execute(() -> {
+      while (!Thread.currentThread().isInterrupted()) {
+        try {
+          byte next = (byte) System.in.read();
+          while (!input.offer(next)) {
+            input.remove();
+          }
+        } catch (IOException ex) {
+          throw new RuntimeException(ex);
+        }
+      }
+    });
+  }
+
+  private InputStream getInputStream() {
+    return new InputStream() {
+
+      @Override
+      public int read() throws IOException {
+        try {
+          return input.take();
+        } catch (InterruptedException ex) {
+          Thread.currentThread().interrupt();
+          return -1;
+        }
+      }
+
+    };
+  }
+
+  private int takeInputChar() throws InterruptedException {
+    return input.take();
   }
 
 }

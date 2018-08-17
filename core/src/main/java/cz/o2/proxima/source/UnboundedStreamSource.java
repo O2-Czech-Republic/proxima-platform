@@ -124,6 +124,7 @@ public class UnboundedStreamSource
             }
           } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+            current = null;
           }
           return false;
         }

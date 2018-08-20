@@ -27,7 +27,6 @@ import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
-import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StorageDescriptor;
@@ -1955,15 +1954,22 @@ public class ConfigRepository implements Repository, Serializable {
   @Override
   public Optional<OnlineAttributeWriter> getWriter(AttributeDescriptor<?> attr) {
     synchronized (writers) {
-      return Optional.ofNullable(writers.computeIfAbsent(attr, a ->
-          getFamiliesForAttribute(a)
-              .stream()
-              .filter(af -> af.getType() == StorageType.PRIMARY)
-              .filter(af -> !af.getAccess().isReadonly())
-              .findAny()
-              .flatMap(AttributeFamilyDescriptor::getWriter)
-              .map(AttributeWriterBase::online)
-              .orElse(null)));
+      OnlineAttributeWriter writer = writers.get(attr);
+      if (writer == null) {
+        getFamiliesForAttribute(attr)
+            .stream()
+            .filter(af -> af.getType() == StorageType.PRIMARY)
+            .filter(af -> !af.getAccess().isReadonly())
+            .findAny()
+            .ifPresent(af ->
+              // store writer of this family to all attributes
+              af.getWriter()
+                  .ifPresent(w ->
+                      af.getAttributes().forEach(a -> writers.put(a, w.online()))));
+
+        return Optional.ofNullable(writers.get(attr));
+      }
+      return Optional.of(writer);
     }
   }
 

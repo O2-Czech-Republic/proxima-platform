@@ -1516,7 +1516,9 @@ public class ConfigRepository implements Repository, Serializable {
           }
           return 1;
         } catch (Exception ex) {
-          log.warn("Failed to apply rename transform on {}", input, ex);
+          log.warn(
+              "Failed to apply rename transform {} on {}",
+              nameTransform, input, ex);
           return 0;
         }
       }

@@ -197,8 +197,10 @@ public class Console {
     CommitLogReader reader = repo.getFamiliesForAttribute(attrDesc)
         .stream()
         .filter(af -> af.getAccess().canReadCommitLog())
+        // sort primary families on top
+        .sorted((l, r) -> l.getType().ordinal() - r.getType().ordinal())
         .map(af -> af.getCommitLogReader().get())
-        .findAny()
+        .findFirst()
         .orElseThrow(() -> new IllegalArgumentException(
             "Attribute " + attrDesc + " has no commit log"));
 
@@ -300,8 +302,9 @@ public class Console {
     CommitLogReader reader = repo.getFamiliesForAttribute(attrDesc)
         .stream()
         .filter(af -> af.getAccess().isStateCommitLog())
+        .sorted((l, r) -> l.getType().ordinal() - r.getType().ordinal())
         .map(af -> af.getCommitLogReader().get())
-        .findAny()
+        .findFirst()
         .orElseThrow(() -> new IllegalStateException(
             "Cannot create batch snapshot, missing random access family "
                 + "and state commit log for " + attrDesc));

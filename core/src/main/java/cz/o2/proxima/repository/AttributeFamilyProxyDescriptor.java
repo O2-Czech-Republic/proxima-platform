@@ -73,8 +73,13 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     private final List<AttributeProxyDescriptorImpl<?>> attrs;
     private final Map<String, AttributeProxyDescriptorImpl<?>> proxyNameToDesc;
     private final Map<String, List<AttributeProxyDescriptorImpl<?>>> readNameToDesc;
+    private final String familyName;
 
-    AttrLookup(List<AttributeProxyDescriptorImpl<?>> attrs) {
+    AttrLookup(
+        String familyName,
+        List<AttributeProxyDescriptorImpl<?>> attrs) {
+
+      this.familyName = familyName;
       this.attrs = attrs;
       proxyNameToDesc = attrs
           .stream()
@@ -91,15 +96,16 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       List<AttributeProxyDescriptorImpl<?>> read = readNameToDesc.get(name);
       if (read == null) {
         log.debug(
-            "Fallbacking to lookup of proxy attribute with name {}. "
+            "Fallbacking to lookup of proxy attribute with name {} in family {}. "
                 + "This can happen when switching to and from replicated modes.",
-            name);
+            name, familyName);
         try {
           return Arrays.asList(lookupProxy(name));
         } catch (Exception ex) {
           log.warn(
-              "Error during lookup of {}. This might indicate serious problem.",
-              name, ex);
+              "Error during lookup of {} in family {}."
+                  + "This might indicate serious problem.",
+              name, familyName, ex);
           return Collections.emptyList();
         }
       }
@@ -113,7 +119,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     private <T> T lookup(Map<String, T> map, String name) {
       return Objects.requireNonNull(
           map.get(name),
-          "Missing name " + name + " in " + map);
+          "Missing name " + name + " in " + map + " for family " + familyName);
     }
   }
 
@@ -125,7 +131,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
     return new AttributeFamilyProxyDescriptor(
         entity,
-        new AttrLookup(attrs),
+        new AttrLookup(getFamilyName(targetFamilyRead, targetFamilyWrite), attrs),
         targetFamilyRead, targetFamilyWrite);
   }
 
@@ -144,7 +150,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       AttributeFamilyDescriptor targetFamilyWrite) {
 
     super(
-        "proxy::" + targetFamilyRead.getName() + "::" + targetFamilyWrite.getName(),
+        getFamilyName(targetFamilyRead, targetFamilyWrite),
         targetFamilyWrite.getType() == targetFamilyRead.getType()
             ? targetFamilyRead.getType()
             : StorageType.REPLICA,
@@ -165,6 +171,13 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
 
     this.targetFamilyRead = targetFamilyRead;
     this.targetFamilyWrite = targetFamilyWrite;
+  }
+
+  private static String getFamilyName(
+      AttributeFamilyDescriptor targetFamilyRead,
+      AttributeFamilyDescriptor targetFamilyWrite) {
+
+    return "proxy::" + targetFamilyRead.getName() + "::" + targetFamilyWrite.getName();
   }
 
   private static OnlineAttributeWriter getWriter(

@@ -1299,6 +1299,7 @@ public class ConfigRepository implements Repository, Serializable {
             .setFilter(replicated.getFilter())
             .setTransformation(
                 renameTransform(
+                    transform,
                     sourceMapping::get,
                     (input, desc) -> {
                       String raw = strippingReplPrefix(input);
@@ -1349,6 +1350,7 @@ public class ConfigRepository implements Repository, Serializable {
             .setFilter(targetFamily.getFilter())
             .setTransformation(
                 renameTransform(
+                    transform,
                     sourceMapping::get,
                     (input, desc) -> {
                       String raw = strippingReplPrefix(input);
@@ -1383,6 +1385,7 @@ public class ConfigRepository implements Repository, Serializable {
             .setFilter(replicated.getFilter())
             .setTransformation(
                 renameTransform(
+                    transform,
                     sourceMapping::get,
                     (a, desc) -> renameReplicated(replPrefix, a)))
             .build());
@@ -1468,6 +1471,7 @@ public class ConfigRepository implements Repository, Serializable {
   }
 
   private static Transformation renameTransform(
+      String transformName,
       UnaryFunction<AttributeDescriptor<?>, AttributeDescriptor<?>> descTransform,
       BiFunction<String, AttributeDescriptor<?>, String> nameTransform) {
 
@@ -1518,7 +1522,7 @@ public class ConfigRepository implements Repository, Serializable {
         } catch (Exception ex) {
           log.warn(
               "Failed to apply rename transform {} on {}",
-              nameTransform, input, ex);
+              transformName, input, ex);
           return 0;
         }
       }

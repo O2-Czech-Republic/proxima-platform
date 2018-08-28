@@ -284,7 +284,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
     };
     Set<Object> result = new HashSet<>();
     intoSingleWindow(stream1)
-        .join(    intoSingleWindow(stream2), keyExtractor, keyExtractor)
+        .join(intoSingleWindow(stream2), keyExtractor, keyExtractor)
         .forEach(new Closure<Void>(this) {
           @Override
           public Void call(Object argument) {

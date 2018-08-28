@@ -16,8 +16,9 @@
 package cz.o2.proxima.tools.groovy;
 
 import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
+import cz.seznam.euphoria.executor.local.LocalExecutor;
+import cz.seznam.euphoria.executor.local.WatermarkTriggerScheduler;
 import groovy.lang.Closure;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Test suite for {@link TimeWindowedStream}.
@@ -27,14 +28,19 @@ public class TimeWindowedStreamTest extends AbstractWindowedStreamTest {
   @SuppressWarnings("unchecked")
   @Override
   <T, W extends Windowing<T, ?>> WindowedStream<T, W> intoSingleWindow(Stream<T> stream) {
-    AtomicLong pos = new AtomicLong();
     return (WindowedStream) stream.assignEventTime(new Closure<Long>(this) {
       @Override
       public Long call(Object argument) {
-        return pos.incrementAndGet();
+        return 1L;
       }
 
     }).timeWindow(1000L);
+  }
+
+  @Override
+  LocalExecutor executor() {
+    return super.executor()
+        .setTriggeringSchedulerSupplier(() -> new WatermarkTriggerScheduler(100L));
   }
 
 }

@@ -48,10 +48,10 @@ for f in $(ls -1 *); do
   sed -i.bak "s/^${PATTERN}/${SHADED}/" $f
   rm $f.bak
 done
-rename "s/${PATTERN}/${SHADED}/" * -v -n
+rename "s/${PATTERN}/${SHADED}/" * -v
 cd ../../
 jar cf $JAR .
 cd $DIR
-#rm -rf $TMP
+rm -rf $TMP
 
 

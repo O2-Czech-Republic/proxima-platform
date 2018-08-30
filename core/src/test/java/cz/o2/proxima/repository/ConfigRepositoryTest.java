@@ -486,6 +486,54 @@ public class ConfigRepositoryTest {
   }
 
   @Test
+  public void testReplicationGloballyDisabled() throws InterruptedException {
+    Config config = ConfigFactory.parseString("replications.disabled = true")
+        .withFallback(ConfigFactory.load("test-replication.conf"))
+        .withFallback(ConfigFactory.load("test-reference.conf"))
+        .resolve();
+    repo.reloadConfig(true, config);
+    // we have only single explicitly defined transformation left, others were
+    // switched off
+    assertEquals(1, repo.getTransformations().size());
+    assertNotNull(repo.getTransformations().get("event-data-to-dummy-wildcard"));
+  }
+
+  @Test
+  public void testReplicationGloballyReadOnly() throws InterruptedException {
+    Config config = ConfigFactory.parseString("replications.read-only = true")
+        .withFallback(ConfigFactory.load("test-replication.conf"))
+        .withFallback(ConfigFactory.load("test-reference.conf"))
+        .resolve();
+    repo.reloadConfig(true, config);
+    // we have only single explicitly defined transformation left, others were
+    // switched off
+    assertEquals(1, repo.getTransformations().size());
+    assertNotNull(repo.getTransformations().get("event-data-to-dummy-wildcard"));
+  }
+
+  @Test
+  public void testReplicationGloballyReadLocal() throws InterruptedException {
+    Config config = ConfigFactory.parseString("replications.read = local")
+        .withFallback(ConfigFactory.load("test-replication.conf"))
+        .withFallback(ConfigFactory.load("test-reference.conf"))
+        .resolve();
+    repo.reloadConfig(true, config);
+    // we have only single explicitly defined transformation left, others were
+    // switched off
+    assertEquals(1, repo.getTransformations().size());
+    assertNotNull(repo.getTransformations().get("event-data-to-dummy-wildcard"));
+
+    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
+        () -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
+        () -> new IllegalStateException("Missing attribute armed"));
+    assertTrue(armed instanceof AttributeProxyDescriptorImpl);
+    assertEquals(
+        "_gatewayReplication_write$armed",
+        ((AttributeProxyDescriptorImpl) armed).getReadTarget().getName());
+  }
+
+  @Test
   public void testReplicationWriteObserveReadLocal()
       throws InterruptedException {
 

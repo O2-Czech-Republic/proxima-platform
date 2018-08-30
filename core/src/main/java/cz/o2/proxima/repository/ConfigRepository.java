@@ -422,78 +422,120 @@ public class ConfigRepository implements Repository, Serializable {
     }
     ConfigObject replications = config.getObject(REPLICATIONS);
     Map<String, Replication> ret = new HashMap<>();
-    for (Map.Entry<String, ConfigValue> e : replications.entrySet()) {
-      String replicationName = e.getKey();
-      Map<String, Object> replConf = toMap(e.getKey(), e.getValue().unwrapped());
-      boolean disabled = Optional.ofNullable(replConf.get(DISABLED))
-          .map(Object::toString)
-          .map(Boolean::valueOf)
-          .orElse(false);
-      if (disabled) {
-        continue;
-      }
-      boolean readOnly = Optional.ofNullable(replConf.get(READ_ONLY))
-          .map(Object::toString)
-          .map(Boolean::valueOf)
-          .orElse(false);
-
-      Map<String, Object> targets = Optional
-          .ofNullable(replConf.get(TARGETS))
-          .map(t -> toMap(TARGETS, t))
-          .orElse(Collections.emptyMap());
-      Map<String, Object> source = Optional
-          .ofNullable(replConf.get(SOURCE))
-          .map(s -> toMap(SOURCE, s))
-          .orElse(Collections.emptyMap());
-      Map<String, Object> via = toMap(VIA, replConf.get(VIA));
-      EntityDescriptorImpl entity = Optional
-          .ofNullable(replConf.get(ENTITY))
-          .map(ent -> findEntityRequired(ent.toString()))
-          .orElseThrow(() -> new IllegalArgumentException(
-              String.format("Missing required field `%s'", ENTITY)));
-      Set<AttributeDescriptor<?>> attrs = Optional
-          .ofNullable(replConf.get(ATTRIBUTES))
-          .map(o -> toList(o)
-              .stream()
-              .flatMap(a -> searchAttributesMatching(
-                  a, entity, false, true).stream())
-              .collect(Collectors.toSet()))
-          .orElse(Collections.emptySet());
-      Set<AttributeFamilyDescriptor> families = attrs.stream()
-          .flatMap(a -> getFamiliesForAttribute(a)
-              .stream()
-              .filter(af -> af.getType() == StorageType.PRIMARY))
-          .collect(Collectors.toSet());
-
-      if (families.size() != 1) {
-        throw new IllegalArgumentException(
-            "Each replication has to work on exactly single family. "
-                + "Got " + families + " for " + replicationName
-                + " with attributes " + attrs);
-      }
-
-      AttributeFamilyDescriptor sourceFamily = Iterables.getOnlyElement(families);
-      List<String> attrNames = attrs.stream()
-          .map(AttributeDescriptor::getName)
-          .collect(Collectors.toList());
-
-      boolean readNonReplicated = Optional.ofNullable(replConf.get(READ))
-          .map(Object::toString)
-          .map(s -> {
-            if (s.equals(LOCAL) || s.equals(ALL)) {
-              return s;
+    boolean disabledDefault = Optional
+        .ofNullable(replications.get(DISABLED))
+        .map(ConfigValue::unwrapped)
+        .map(Object::toString)
+        .map(Boolean::valueOf)
+        .orElse(false);
+    boolean readOnlyDefault = Optional
+        .ofNullable(replications.get(READ_ONLY))
+        .map(ConfigValue::unwrapped)
+        .map(Object::toString)
+        .map(Boolean::valueOf)
+        .orElse(false);
+    boolean readLocalDefault = getReadNonReplicated(replications, "GLOBAL", false);
+    replications
+        .entrySet()
+        .stream()
+        .forEach(e -> {
+          Map<String, Object> replConf = toMap(
+              e.getKey(), e.getValue().unwrapped(), false);
+          if (replConf != null) {
+            Replication parsed = parseSingleReplication(
+                e.getKey(), replConf, disabledDefault,
+                readOnlyDefault, readLocalDefault);
+            if (parsed != null) {
+              ret.put(e.getKey(), parsed);
             }
-            throw new IllegalArgumentException(String.format(
-                "`%s' parameter of %s must be either `%s' or `%s'",
-                READ, replicationName, LOCAL, ALL));
-          })
-          .map(s -> s.equals(LOCAL))
-          .orElse(false);
-      ret.put(replicationName, new Replication(
-          readOnly, targets, source, via, entity, attrNames,
-          sourceFamily, readNonReplicated));
-    }
+          }
+        });
     return ret;
+  }
+
+  private Replication parseSingleReplication(
+      String replicationName,
+      Map<String, Object> replConf,
+      boolean disabledDefault,
+      boolean readOnlyDefault,
+      boolean readLocalDefault) {
+
+    boolean disabled = Optional.ofNullable(replConf.get(DISABLED))
+        .map(Object::toString)
+        .map(Boolean::valueOf)
+        .orElse(disabledDefault);
+    if (disabled) {
+      return null;
+    }
+    boolean readOnly = Optional.ofNullable(replConf.get(READ_ONLY))
+        .map(Object::toString)
+        .map(Boolean::valueOf)
+        .orElse(readOnlyDefault);
+
+    Map<String, Object> targets = Optional
+        .ofNullable(replConf.get(TARGETS))
+        .map(t -> toMap(TARGETS, t))
+        .orElse(Collections.emptyMap());
+    Map<String, Object> source = Optional
+        .ofNullable(replConf.get(SOURCE))
+        .map(s -> toMap(SOURCE, s))
+        .orElse(Collections.emptyMap());
+    Map<String, Object> via = toMap(VIA, replConf.get(VIA));
+    EntityDescriptorImpl entity = Optional
+        .ofNullable(replConf.get(ENTITY))
+        .map(ent -> findEntityRequired(ent.toString()))
+        .orElseThrow(() -> new IllegalArgumentException(
+            String.format("Missing required field `%s'", ENTITY)));
+    Set<AttributeDescriptor<?>> attrs = Optional
+        .ofNullable(replConf.get(ATTRIBUTES))
+        .map(o -> toList(o)
+            .stream()
+            .flatMap(a -> searchAttributesMatching(
+                a, entity, false, true).stream())
+            .collect(Collectors.toSet()))
+        .orElse(Collections.emptySet());
+    Set<AttributeFamilyDescriptor> families = attrs.stream()
+        .flatMap(a -> getFamiliesForAttribute(a)
+            .stream()
+            .filter(af -> af.getType() == StorageType.PRIMARY))
+        .collect(Collectors.toSet());
+
+    if (families.size() != 1) {
+      throw new IllegalArgumentException(
+          "Each replication has to work on exactly single family. "
+              + "Got " + families + " for " + replicationName
+              + " with attributes " + attrs);
+    }
+
+    AttributeFamilyDescriptor sourceFamily = Iterables.getOnlyElement(families);
+    List<String> attrNames = attrs.stream()
+        .map(AttributeDescriptor::getName)
+        .collect(Collectors.toList());
+
+    boolean readNonReplicated = getReadNonReplicated(
+        replConf, replicationName, readLocalDefault);
+    return new Replication(
+        readOnly, targets, source, via, entity, attrNames,
+        sourceFamily, readNonReplicated);
+  }
+
+  private boolean getReadNonReplicated(
+      Map<String, ?> conf, String replicationName,
+      boolean defVal) {
+
+    return Optional.ofNullable(conf.get(READ))
+        .map(o -> o instanceof ConfigValue ? ((ConfigValue) o).unwrapped() : o)
+        .map(Object::toString)
+        .map(s -> {
+          if (s.equals(LOCAL) || s.equals(ALL)) {
+            return s;
+          }
+          throw new IllegalArgumentException(String.format(
+              "`%s' parameter of %s must be either `%s' or `%s'",
+              READ, replicationName, LOCAL, ALL));
+        })
+        .map(s -> s.equals(LOCAL))
+        .orElse(defVal);
   }
 
   @SuppressWarnings("unchecked")
@@ -808,12 +850,20 @@ public class ConfigRepository implements Repository, Serializable {
 
   @SuppressWarnings("unchecked")
   private Map<String, Object> toMap(String key, Object value) {
+    return toMap(key, value, true);
+  }
+
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> toMap(String key, Object value, boolean required) {
     if (!(value instanceof Map)) {
-      throw new IllegalArgumentException(
-          "Key " + key + " must be object got "
-          + (value != null
-              ? value.getClass().getName()
-              : "(null)"));
+      if (required) {
+        throw new IllegalArgumentException(
+            "Key " + key + " must be object got "
+            + (value != null
+                ? value.getClass().getName()
+                : "(null)"));
+      }
+      return null;
     }
     return (Map<String, Object>) value;
   }
@@ -1106,7 +1156,7 @@ public class ConfigRepository implements Repository, Serializable {
             readNonReplicated,
             readOnly);
 
-        if (!readOnly) {
+        if (!readOnly && !repl.isReadNonReplicated()) {
           // add the following renaming transformations
           // 1) _<replication_name>_read$attr -> _<replication_name>_replicated$attr
           // 2) _<replication_name>_write$attr -> _<replication_name>_replicated$attr
@@ -1116,6 +1166,10 @@ public class ConfigRepository implements Repository, Serializable {
               entity.getName(),
               attrNames,
               targets.keySet());
+        } else {
+          log.info("Skipping creation of transformations for {}: readOnly: "
+              + "{}, readNonReplicated: {}", replicationName, readOnly,
+              repl.isReadNonReplicated());
         }
 
       } catch (URISyntaxException ex) {

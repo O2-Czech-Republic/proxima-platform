@@ -1658,7 +1658,7 @@ public class ConfigRepository implements Repository, Serializable {
       final AttributeDescriptor<?> source;
       final AttributeDescriptor<?> target;
       source = findAttributeRequired(entity,
-          readNonReplicatedOnly
+          readNonReplicatedOnly && !readOnly
               ? toReplicationWriteName(replicationName, proxy.getName())
               : toReplicationProxyName(replicationName, proxy.getName()));
       target = readOnly

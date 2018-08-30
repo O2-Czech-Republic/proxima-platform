@@ -692,6 +692,60 @@ public class ConfigRepositoryTest {
     latch.await();
   }
 
+  @SuppressWarnings("unchecked")
+  @Test(timeout = 10000)
+  public void testReplicationWriteReadonlyObserveLocal() throws InterruptedException {
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            // make the replication read-only
+            .withFallback(ConfigFactory.parseString(
+                "replications.gateway-replication.read-only = true"))
+            .withFallback(ConfigFactory.parseString(
+                "replications.gateway-replication.read = local"))
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf")));
+    EntityDescriptor gateway = repo
+        .findEntity("gateway")
+        .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<Object> armed = gateway
+        .findAttribute("armed")
+        .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+
+    TimeUnit.MILLISECONDS.sleep(300);
+    CommitLogReader reader = repo.getFamiliesForAttribute(armed)
+        .stream()
+        .filter(af -> af.getAccess().canReadCommitLog())
+        .findAny()
+        .flatMap(af -> af.getCommitLogReader())
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing random access reader for armed"));
+    CountDownLatch latch = new CountDownLatch(1);
+    reader.observe("dummy", new LogObserver() {
+      @Override
+      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+        assertEquals(ingest.getAttributeDescriptor(), armed);
+        latch.countDown();
+        committer.confirm();
+        return true;
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+    });
+    OnlineAttributeWriter writer = repo.getWriter(armed).get();
+    writer.write(
+        StreamElement.update(
+            gateway, armed, "uuid", "gw", armed.getName(),
+            System.currentTimeMillis(), new byte[] { 1, 2 }),
+        (succ, exc) -> {
+          assertTrue(succ);
+        });
+    latch.await();
+  }
+
   @Test(timeout = 10000)
   public void testWriteIntoReplicatedProxyAttribute()
       throws InterruptedException {

@@ -21,6 +21,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc.RetrieveServiceBlockingStub;
 import cz.o2.proxima.proto.service.Rpc;
@@ -49,6 +50,7 @@ import cz.seznam.euphoria.core.client.operator.FlatMap;
 import cz.seznam.euphoria.core.client.operator.MapElements;
 import cz.seznam.euphoria.core.client.operator.ReduceByKey;
 import cz.seznam.euphoria.core.client.util.Pair;
+import cz.seznam.euphoria.core.executor.Executor;
 import cz.seznam.euphoria.executor.local.LocalExecutor;
 import cz.seznam.euphoria.executor.local.ProcessingTimeTriggerScheduler;
 import cz.seznam.euphoria.executor.local.WatermarkEmitStrategy;
@@ -83,6 +85,9 @@ import org.codehaus.groovy.tools.shell.IO;
  */
 @Slf4j
 public class Console {
+
+  private static final String EXECUTOR_CONF_PREFIX = "console.executor";
+  private static final String EXECUTOR_FACTORY = "factory";
 
   private static volatile Console INSTANCE = null;
 
@@ -123,6 +128,8 @@ public class Console {
   final Repository repo;
   final List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;
+  final Config config;
+  final BiFunction<Config, Boolean, Executor> executorFactory;
   final ExecutorService executor = Executors.newCachedThreadPool(r -> {
     Thread t = new Thread(r);
     t.setName("input-forwarder");
@@ -135,12 +142,15 @@ public class Console {
   Console(String[] paths) {
     ClassLoader old = Thread.currentThread().getContextClassLoader();
     Thread.currentThread().setContextClassLoader(new GroovyClassLoader(old));
-    repo = getRepo(paths);
+    config = getConfig(paths);
+    repo = Repository.of(config);
     conf = new Configuration(Configuration.VERSION_2_3_23);
     conf.setDefaultEncoding("utf-8");
     conf.setClassForTemplateLoading(getClass(), "/");
     conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
     conf.setLogTemplateExceptions(false);
+
+    executorFactory = getExecutorFactory(config);
   }
 
   public GroovyObject getEnv() throws Exception {
@@ -149,16 +159,16 @@ public class Console {
         repo);
   }
 
-  private Repository getRepo(String[] paths) {
-    Config config;
+  private Config getConfig(String[] paths) {
+    Config ret;
     if (paths.length > 0) {
-      config = Arrays.stream(paths)
-        .map(p -> ConfigFactory.parseFile(new File(p)))
-        .reduce(ConfigFactory.empty(), (a, b) -> b.withFallback(a));
+      ret = Arrays.stream(paths)
+          .map(p -> ConfigFactory.parseFile(new File(p)))
+          .reduce(ConfigFactory.empty(), (a, b) -> b.withFallback(a));
     } else {
-      config = ConfigFactory.load();
+      ret = ConfigFactory.load();
     }
-    return Repository.of(config.resolve());
+    return ret.resolve();
   }
 
   Flow createFlow() {
@@ -229,12 +239,7 @@ public class Console {
           .output();
     };
     return Stream.wrap(
-        new LocalExecutor()
-            .setTriggeringSchedulerSupplier(() ->
-                eventTime
-                    ? new WatermarkTriggerScheduler(500)
-                    : new ProcessingTimeTriggerScheduler())
-            .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new),
+        createExecutor(eventTime),
         (DatasetBuilder) builder,
         this::resetFlow,
         this::unboundedStreamInterrupt);
@@ -284,9 +289,7 @@ public class Console {
     };
 
     return Stream.wrap(
-        new LocalExecutor()
-            .setTriggeringSchedulerSupplier(ProcessingTimeTriggerScheduler::new)
-            .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new),
+        createExecutor(false),
         (DatasetBuilder) builder,
         this::resetFlow,
         this::unboundedStreamInterrupt).windowAll();
@@ -375,9 +378,7 @@ public class Console {
     };
 
     return Stream.wrap(
-        new LocalExecutor()
-            .setTriggeringSchedulerSupplier(ProcessingTimeTriggerScheduler::new)
-            .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new),
+        createExecutor(false),
         (DatasetBuilder) builder,
         this::resetFlow,
         this::unboundedStreamInterrupt).windowAll();
@@ -549,6 +550,30 @@ public class Console {
 
   private int takeInputChar() throws InterruptedException {
     return input.take();
+  }
+
+  private Executor createExecutor(boolean eventTime) {
+    Config executorConfig = config.atPath(EXECUTOR_CONF_PREFIX);
+    return executorFactory.apply(executorConfig, eventTime);
+  }
+
+  private static LocalExecutor createLocalExecutor(boolean eventTime) {
+    return new LocalExecutor()
+        .setTriggeringSchedulerSupplier(() ->
+            eventTime
+                ? new WatermarkTriggerScheduler(500)
+                : new ProcessingTimeTriggerScheduler())
+        .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new);
+  }
+
+  @SuppressWarnings("unchecked")
+  private BiFunction<Config, Boolean, Executor> getExecutorFactory(Config config) {
+    String path = EXECUTOR_CONF_PREFIX + "." + EXECUTOR_FACTORY;
+    if (config.hasPath(path)) {
+      return Classpath.newInstance(
+          Classpath.findClass(config.getString(path), BiFunction.class));
+    }
+    return (cfg, eventTime) -> Console.createLocalExecutor(eventTime);
   }
 
 }

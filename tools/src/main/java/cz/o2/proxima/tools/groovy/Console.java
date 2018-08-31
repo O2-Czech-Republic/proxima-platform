@@ -21,7 +21,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.functional.BiFunction;
+import cz.o2.proxima.functional.TriFunction;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc.RetrieveServiceBlockingStub;
 import cz.o2.proxima.proto.service.Rpc;
@@ -129,7 +129,7 @@ public class Console {
   final List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;
   final Config config;
-  final BiFunction<Config, Boolean, Executor> executorFactory;
+  final TriFunction<Repository, Config, Boolean, Executor> executorFactory;
   final ExecutorService executor = Executors.newCachedThreadPool(r -> {
     Thread t = new Thread(r);
     t.setName("input-forwarder");
@@ -554,7 +554,7 @@ public class Console {
 
   private Executor createExecutor(boolean eventTime) {
     Config executorConfig = config.atPath(EXECUTOR_CONF_PREFIX);
-    return executorFactory.apply(executorConfig, eventTime);
+    return executorFactory.apply(repo, executorConfig, eventTime);
   }
 
   private static LocalExecutor createLocalExecutor(boolean eventTime) {
@@ -567,13 +567,15 @@ public class Console {
   }
 
   @SuppressWarnings("unchecked")
-  private BiFunction<Config, Boolean, Executor> getExecutorFactory(Config config) {
+  private TriFunction<Repository, Config, Boolean, Executor> getExecutorFactory(
+      Config config) {
+
     String path = EXECUTOR_CONF_PREFIX + "." + EXECUTOR_FACTORY;
     if (config.hasPath(path)) {
       return Classpath.newInstance(
-          Classpath.findClass(config.getString(path), BiFunction.class));
+          Classpath.findClass(config.getString(path), TriFunction.class));
     }
-    return (cfg, eventTime) -> Console.createLocalExecutor(eventTime);
+    return (repository, cfg, eventTime) -> Console.createLocalExecutor(eventTime);
   }
 
 }

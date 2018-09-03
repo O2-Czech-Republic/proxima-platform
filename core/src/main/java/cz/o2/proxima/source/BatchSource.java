@@ -104,10 +104,10 @@ public class BatchSource implements BoundedDataSource<StreamElement> {
 
   }
 
-  final transient BatchLogObservable observable;
-  final transient List<AttributeDescriptor<?>> attributes;
-  final long startStamp;
-  final long endStamp;
+  private final BatchLogObservable observable;
+  private final List<AttributeDescriptor<?>> attributes;
+  private final long startStamp;
+  private final long endStamp;
 
   private BatchSource(
       BatchLogObservable observable,

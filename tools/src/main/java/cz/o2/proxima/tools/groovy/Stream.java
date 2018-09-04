@@ -123,7 +123,13 @@ public class Stream<T> {
   public void forEach(Closure<?> consumer) {
     Closure<?> dehydrated = consumer.dehydrate();
     Dataset<T> datasetBuilt = dataset.build();
-    datasetBuilt.persist(new DataSink<T>() {
+    datasetBuilt.persist(newOutputSink(dehydrated));
+
+    runFlow(datasetBuilt.getFlow());
+  }
+
+  private static <T> DataSink<T> newOutputSink(Closure<?> writeFn) {
+    return new DataSink<T>() {
       @Override
       public Writer<T> openWriter(int i) {
 
@@ -131,7 +137,7 @@ public class Stream<T> {
 
           @Override
           public void write(T elem) throws IOException {
-            dehydrated.call(elem);
+            writeFn.call(elem);
           }
 
           @Override
@@ -157,9 +163,7 @@ public class Stream<T> {
         // nop
       }
 
-    });
-
-    runFlow(datasetBuilt.getFlow());
+    };
   }
 
   private void runFlow(Flow flow) {

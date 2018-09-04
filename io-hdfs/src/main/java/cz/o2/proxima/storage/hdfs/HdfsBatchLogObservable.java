@@ -117,8 +117,8 @@ public class HdfsBatchLogObservable implements BatchLogObservable, Serializable 
       try {
         for (Iterator<Partition> it = partitions.iterator(); run && it.hasNext();) {
           HdfsPartition p = (HdfsPartition) it.next();
-          for (Path f : p.getFiles()) {
-            processFile(observer, p, f);
+          for (URI f : p.getFiles()) {
+            processFile(observer, p, new Path(f));
           }
         }
         observer.onCompleted();

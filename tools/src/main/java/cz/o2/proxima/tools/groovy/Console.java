@@ -76,6 +76,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.codehaus.groovy.tools.shell.Groovysh;
 import org.codehaus.groovy.tools.shell.IO;
@@ -125,6 +126,7 @@ public class Console {
 
   final AtomicReference<Flow> flow = new AtomicReference<>(createFlow());
   final BlockingQueue<Byte> input = new ArrayBlockingQueue<>(1000);
+  @Getter
   final Repository repo;
   final List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;

@@ -198,6 +198,9 @@ public class StreamElement implements Serializable {
    */
   @SuppressWarnings("unchecked")
   public <T> Optional<T> getParsed() {
+    if (value == null) {
+      return Optional.empty();
+    }
     return (Optional<T>) attributeDescriptor.getValueSerializer().deserialize(value);
   }
 

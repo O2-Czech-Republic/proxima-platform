@@ -64,8 +64,6 @@ public class StreamElementTest {
     }
   }
 
-
-
   @Test
   public void testUpdate() {
     long now = System.currentTimeMillis();
@@ -80,6 +78,7 @@ public class StreamElementTest {
     assertEquals(entity, update.getEntityDescriptor());
     assertArrayEquals(new byte[] { 1, 2 }, update.getValue());
     assertEquals(now, update.getStamp());
+    assertTrue(update.getParsed().isPresent());
   }
 
   @Test
@@ -96,6 +95,7 @@ public class StreamElementTest {
     assertEquals(entity, delete.getEntityDescriptor());
     assertNull(delete.getValue());
     assertEquals(now, delete.getStamp());
+    assertFalse(delete.getParsed().isPresent());
   }
 
   @Test
@@ -112,6 +112,7 @@ public class StreamElementTest {
     assertEquals(entity, delete.getEntityDescriptor());
     assertNull(delete.getValue());
     assertEquals(now, delete.getStamp());
+    assertFalse(delete.getParsed().isPresent());
   }
 
 }

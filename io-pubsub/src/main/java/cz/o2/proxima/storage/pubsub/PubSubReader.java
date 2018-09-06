@@ -28,6 +28,7 @@ import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PushConfig;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -55,7 +56,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -284,7 +284,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
   private void createSubscription(
       SubscriptionAdminClient client, ProjectSubscriptionName subscription) {
-    
+
     try {
       client.createSubscription(
           subscription, ProjectTopicName.of(project, topic),
@@ -317,7 +317,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   private ObserveHandle consume(
       @Nullable String name,
       BiFunction<StreamElement, AckReplyConsumer, Boolean> consumer,
-      Function<Throwable, Boolean> errorHandler,
+      UnaryFunction<Throwable, Boolean> errorHandler,
       @Nullable Runnable onInit,
       Runnable onRestart,
       Runnable onCancel) {
@@ -380,7 +380,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       AtomicReference<Subscriber> subscriber,
       AtomicBoolean stopProcessing,
       BiFunction<StreamElement, AckReplyConsumer, Boolean> consumer,
-      Function<Throwable, Boolean> errorHandler,
+      UnaryFunction<Throwable, Boolean> errorHandler,
       Runnable onRestart,
       AtomicReference<MessageReceiver> receiver) {
 

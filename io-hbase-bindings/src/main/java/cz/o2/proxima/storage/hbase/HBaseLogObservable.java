@@ -15,13 +15,13 @@
  */
 package cz.o2.proxima.storage.hbase;
 
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
-import cz.seznam.euphoria.core.client.functional.VoidFunction;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
@@ -52,14 +52,14 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
   private static final Charset UTF8 = Charset.forName("UTF-8");
 
   private final EntityDescriptor entity;
-  private final VoidFunction<Executor> executorFactory;
+  private final Factory<Executor> executorFactory;
   private transient Executor executor;
 
   public HBaseLogObservable(
       URI uri,
       Configuration conf,
       EntityDescriptor entity,
-      VoidFunction<Executor> executorFactory) {
+      Factory<Executor> executorFactory) {
 
     super(uri, conf);
     this.entity = entity;

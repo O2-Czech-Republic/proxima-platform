@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.hdfs;
 
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AttributeWriterBase;
@@ -30,7 +31,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.regex.Pattern;
 
 /**
@@ -95,9 +95,9 @@ public class HdfsDataAccessor implements DataAccessor {
 
   private <T> T getCfg(
       String name, Map<String, Object> cfg,
-      Function<Object, T> convert, T defVal) {
-    
-    return Optional.ofNullable(cfg.get(name)).map(convert).orElse(defVal);
+      UnaryFunction<Object, T> convert, T defVal) {
+
+    return Optional.ofNullable(cfg.get(name)).map(convert::apply).orElse(defVal);
   }
 
   @SuppressWarnings("squid:S00112")

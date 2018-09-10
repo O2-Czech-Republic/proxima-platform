@@ -276,16 +276,18 @@ public class ConfigRepositoryTest {
         .orElseThrow(() -> new IllegalStateException(
             "Missing random reader for " + target));
     view.assign(Arrays.asList(() -> 0));
+    long now = System.currentTimeMillis();
     StreamElement update = StreamElement.update(
         proxied,
         source, UUID.randomUUID().toString(),
-        "key", "event.def", System.currentTimeMillis(), "test2".getBytes("UTF-8"));
-    assertFalse(
-        reader.get("key", target.toAttributePrefix() + "def", target).isPresent());
+        "key", "event.def", now, "test2".getBytes("UTF-8"));
+    assertFalse(reader.get(
+        "key", target.toAttributePrefix() + "def", target, now).isPresent());
     view.write(update, (succ, exc) -> { });
-    assertTrue(
-        reader.get("key", target.toAttributePrefix() + "raw-def", target).isPresent());
-    assertTrue(view.get("key", source.toAttributePrefix() + "def", source).isPresent());
+    assertTrue(reader.get(
+        "key", target.toAttributePrefix() + "raw-def", target, now).isPresent());
+    assertTrue(view.get(
+        "key", source.toAttributePrefix() + "def", source, now).isPresent());
   }
 
   @Test
@@ -1499,13 +1501,14 @@ public class ConfigRepositoryTest {
             "Missing random access for event.*"));
     assertTrue(reader.get("gw", "event.1", event).isPresent());
 
+    long now = System.currentTimeMillis();
     writer.write(
         StreamElement.deleteWildcard(
-            dummy, event, "uuid", "gw",  System.currentTimeMillis()),
+            dummy, event, "uuid", "gw",  now),
         (succ, exc) -> {
           assertTrue(succ);
         });
-    assertFalse(reader.get("gw", "event.1", event).isPresent());
+    assertFalse(reader.get("gw", "event.1", event, now).isPresent());
   }
 
 

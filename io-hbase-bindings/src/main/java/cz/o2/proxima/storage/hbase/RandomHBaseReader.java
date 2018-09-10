@@ -71,7 +71,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
   @SuppressWarnings("unchecked")
   @Override
   public <T> Optional<KeyValue<T>> get(
-      String key, String attribute, AttributeDescriptor<T> desc) {
+      String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
     ensureClient();
     byte[] qualifier = attribute.getBytes(UTF8);
@@ -92,7 +92,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
   @Override
   public <T> void scanWildcard(
       String key, AttributeDescriptor<T> wildcard, RandomOffset offset,
-      int limit, Consumer<KeyValue<T>> consumer) {
+      long stamp, int limit, Consumer<KeyValue<T>> consumer) {
 
     try {
       ensureClient();
@@ -189,7 +189,8 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
   @Override
   public void scanWildcardAll(
-      String key, RandomOffset offset, int limit, Consumer<KeyValue<?>> consumer) {
+      String key, RandomOffset offset, long stamp,
+      int limit, Consumer<KeyValue<?>> consumer) {
 
     throw new UnsupportedOperationException(
         "Unsupported. See https://github.com/O2-Czech-Republic/proxima-platform/issues/68");

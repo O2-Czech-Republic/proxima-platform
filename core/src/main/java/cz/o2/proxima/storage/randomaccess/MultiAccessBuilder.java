@@ -127,10 +127,10 @@ public class MultiAccessBuilder implements Serializable {
 
       @Override
       public <T> Optional<KeyValue<T>> get(
-          String key, String attribute, AttributeDescriptor<T> desc) {
+          String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
         return Optional.ofNullable(attrMap.get(desc))
-            .map(ra -> ra.get(key, attribute, desc))
+            .map(ra -> ra.get(key, attribute, desc, stamp))
             .orElseGet(() -> {
               log.warn("Missing family for attribute {} in MultiAccessBuilder", desc);
               return Optional.empty();
@@ -140,7 +140,7 @@ public class MultiAccessBuilder implements Serializable {
       @SuppressWarnings("unchecked")
       @Override
       public void scanWildcardAll(
-          String key, RandomOffset offset, int limit,
+          String key, RandomOffset offset, long stamp, int limit,
           Consumer<KeyValue<?>> consumer) {
 
         AtomicInteger missing = new AtomicInteger(limit);
@@ -157,7 +157,7 @@ public class MultiAccessBuilder implements Serializable {
           current.set(new SequentialOffset(m));
         }
         current.get().offsetMap.entrySet().forEach(e ->
-            e.getKey().scanWildcardAll(key, e.getValue(), missing.get(), kv -> {
+            e.getKey().scanWildcardAll(key, e.getValue(), stamp, missing.get(), kv -> {
               missing.decrementAndGet();
               current.set(new SequentialOffset(current.get())
                   .update(e.getKey(), kv.getOffset()));
@@ -172,10 +172,11 @@ public class MultiAccessBuilder implements Serializable {
       @Override
       public <T> void scanWildcard(
           String key, AttributeDescriptor<T> wildcard,
-          RandomOffset offset, int limit, Consumer<KeyValue<T>> consumer) {
+          RandomOffset offset, long stamp, int limit, Consumer<KeyValue<T>> consumer) {
 
         Optional.ofNullable(attrMap.get(wildcard))
-            .ifPresent(ra -> ra.scanWildcard(key, wildcard, offset, limit, consumer));
+            .ifPresent(ra -> ra.scanWildcard(
+                key, wildcard, offset, stamp, limit, consumer));
       }
 
       @Override

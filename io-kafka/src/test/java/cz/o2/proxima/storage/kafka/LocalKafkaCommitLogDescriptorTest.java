@@ -1154,21 +1154,21 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       latch.countDown();
     }));
     latch.await();
-    assertTrue(view.get("key1", "wildcard.1", attrWildcard).isPresent());
-    assertFalse(view.get("key1", "wildcard.2", attrWildcard).isPresent());
-    assertFalse(view.get("key1", "wildcard.3", attrWildcard).isPresent());
+    assertTrue(view.get("key1", "wildcard.1", attrWildcard, now + 500).isPresent());
+    assertFalse(view.get("key1", "wildcard.2", attrWildcard, now + 500).isPresent());
+    assertFalse(view.get("key1", "wildcard.3", attrWildcard, now + 500).isPresent());
     assertArrayEquals(
         new byte[] { 2, 3 },
-        view.get("key1", "wildcard.1", attrWildcard).get().getValue());
+        view.get("key1", "wildcard.1", attrWildcard, now + 500).get().getValue());
     view.assign(IntStream.range(0, 3)
         .mapToObj(i -> (Partition) () -> i)
         .collect(Collectors.toList()));
-    assertTrue(view.get("key1", "wildcard.1", attrWildcard).isPresent());
-    assertFalse(view.get("key1", "wildcard.2", attrWildcard).isPresent());
-    assertFalse(view.get("key1", "wildcard.3", attrWildcard).isPresent());
+    assertTrue(view.get("key1", "wildcard.1", attrWildcard, now + 500).isPresent());
+    assertFalse(view.get("key1", "wildcard.2", attrWildcard, now + 500).isPresent());
+    assertFalse(view.get("key1", "wildcard.3", attrWildcard, now + 500).isPresent());
     assertArrayEquals(
         new byte[] { 2, 3 },
-        view.get("key1", "wildcard.1", attrWildcard).get().getValue());
+        view.get("key1", "wildcard.1", attrWildcard, now + 500).get().getValue());
   }
 
   @Test(timeout = 10000)
@@ -1234,7 +1234,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             entity, attrWildcard, UUID.randomUUID().toString(),
             "key1", "wildcard.3", now - 499, new byte[] { 3, 4 })
     ).forEach(update -> view.write(update, (succ, exc) -> {
-      assertTrue("Exception: ", succ);
+      assertTrue("Exception: " + exc, succ);
       latch.countDown();
     }));
     latch.await();
@@ -1297,7 +1297,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             "key1", "wildcard.2", now + 500L, new byte[] { 2, 3 }));
     CountDownLatch latch = new CountDownLatch(updates.size());
     updates.forEach(update -> view.write(update, (succ, exc) -> {
-      assertTrue("Exception: " + exc, succ);
+      assertTrue("Ex1ception: " + exc, succ);
       latch.countDown();
     }));
     latch.await();
@@ -1306,7 +1306,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         .mapToObj(i -> (Partition) () -> i)
         .collect(Collectors.toList()),
         (e, c) -> calls.incrementAndGet());
-    assertEquals(2, calls.get());
+    assertEquals(3, calls.get());
   }
 
   @Test

@@ -54,8 +54,8 @@ public interface PartitionedCachedView
    * @param partitions the partitions to cache locally
    * @param updateCallback function that is called when cache gets updated
    *                       the function takes the new ingest element and pair of
-   *                       old object that was associated with the key and timestamp
-   *                       of the old record
+   *                       the most recent object that was associated with the key
+   *                       and it's currently associated stamp
    */
   void assign(
       Collection<Partition> partitions,

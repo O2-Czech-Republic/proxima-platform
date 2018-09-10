@@ -35,16 +35,11 @@ import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -67,10 +62,8 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
 
   /**
    * Cache for data in memory.
-   * Entity key -&gt; Attribute -&gt; (timestamp, value)
    */
-  private final Map<String, NavigableMap<String, Pair<Long, Object>>> cache =
-      Collections.synchronizedMap(new HashMap<>());
+  private final TimeBoundedVersionedCache cache;
 
   /**
    * Handle of the observation thread (if any running).
@@ -82,6 +75,14 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
   public LocalCachedPartitionedView(
       EntityDescriptor entity, CommitLogReader reader, OnlineAttributeWriter writer) {
 
+    this(entity, reader, writer, 60_000L);
+  }
+
+  public LocalCachedPartitionedView(
+      EntityDescriptor entity, CommitLogReader reader, OnlineAttributeWriter writer,
+      long keepCachedDuration) {
+
+    this.cache = new TimeBoundedVersionedCache(keepCachedDuration);
     this.reader = reader;
     this.entity = entity;
     this.writer = writer;
@@ -100,43 +101,13 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
       } else {
         attrName = ingest.getAttribute();
       }
-      AtomicBoolean updated = new AtomicBoolean();
-      AtomicReference<Pair<Long, Object>> oldVal = new AtomicReference<>();
-      cache.compute(ingest.getKey(), (key, m) -> {
-        if (m == null) {
-          m = new TreeMap<>();
-        }
-        final Map<String, Pair<Long, Object>> attrMap = m;
-        m.compute(attrName, (k, c) -> {
-          if (ingest.getAttributeDescriptor().isWildcard()) {
-            Pair<Long, Object> wildcardRec;
-            wildcardRec = attrMap.get(ingest.getAttributeDescriptor()
-                .toAttributePrefix());
-            if (wildcardRec != null) {
-              if (c == null) {
-                c = wildcardRec;
-              } else {
-                c = c.getFirst() < wildcardRec.getFirst()
-                      ? wildcardRec : c;
-              }
-            }
-          }
-          if (c == null || c.getFirst() < ingest.getStamp()
-              || overwrite && c.getFirst() == ingest.getStamp()) {
-            log.debug("Caching update {}", ingest);
-            oldVal.set(c);
-            updated.set(true);
-            return Pair.of(
-                ingest.getStamp(),
-                ingest.isDelete() ? null : parsed.get());
-          }
-          log.debug("Ignoring old arrival ingest {}, current {}", ingest, c);
-          return c;
-        });
-        return m;
-      });
-      if (updated.get()) {
-        updateCallback.accept(ingest, oldVal.get());
+      Pair<Long, Object> oldVal = cache.get(
+          ingest.getKey(), attrName, Long.MAX_VALUE);
+      boolean updated = cache.put(
+          ingest.getKey(), attrName, ingest.getStamp(),
+          overwrite, ingest.isDelete() ? null : parsed.get());
+      if (updated) {
+        updateCallback.accept(ingest, oldVal);
       }
     }
   }
@@ -157,11 +128,11 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
       public boolean onNext(
           StreamElement ingest,
           Partition partition,
-          BulkLogObserver.OffsetCommitter committer) {
+          OffsetCommitter committer) {
 
         try {
           prefetchedCount.incrementAndGet();
-          onCache(ingest, true /* use the latest value stored in the topic */);
+          onCache(ingest, false);
           committer.confirm();
           return true;
         } catch (Throwable ex) {
@@ -192,9 +163,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
           OffsetCommitter confirm) {
 
         try {
-          onCache(
-              ingest,
-              false /* don't overwrite already stored data at the same stamp */);
+          onCache(ingest, false);
           confirm.confirm();
           return true;
         } catch (Throwable err) {
@@ -253,35 +222,32 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
   public <T> Optional<KeyValue<T>> get(
       String key,
       String attribute,
-      AttributeDescriptor<T> desc) {
+      AttributeDescriptor<T> desc,
+      long stamp) {
 
-    Optional<NavigableMap<String, Pair<Long, Object>>> keyMap;
-    keyMap = Optional.ofNullable(cache.get(key));
-    if (keyMap.isPresent()) {
-      NavigableMap<String, Pair<Long, Object>> m = keyMap.get();
-      return Optional.ofNullable(m.get(attribute))
-          .flatMap(p -> {
-            if (desc.isWildcard()) {
-              // verify if we don't have later wildcard record
-              Pair<Long, Object> wildcard = m.get(desc.toAttributePrefix());
-              if (wildcard == null || wildcard.getFirst() < p.getFirst()) {
-                return Optional.ofNullable(toKv(key, attribute, p));
-              }
-              return Optional.ofNullable(toKv(key, attribute, wildcard));
-            }
-            return Optional.ofNullable(toKv(key, attribute, p));
-          });
+    long deleteStamp = Long.MIN_VALUE;
+    if (desc.isWildcard()) {
+      // check there is not wildcard delete
+      Pair<Long, Object> wildcard = cache.get(key, desc.toAttributePrefix(), stamp);
+      if (wildcard != null && wildcard.getSecond() == null) {
+        // this is delete
+        // move the required stamp after the delete
+        deleteStamp = wildcard.getFirst();
+      }
     }
-    return Optional.empty();
+    final long filterStamp = deleteStamp;
+    return Optional.ofNullable(cache.get(key, attribute, stamp))
+        .filter(e -> e.getFirst() >= filterStamp)
+        .flatMap(e -> Optional.ofNullable(toKv(key, attribute, e)));
   }
 
   @Override
   public void scanWildcardAll(
-      String key, RandomOffset offset,
+      String key, RandomOffset offset, long stamp,
       int limit, Consumer<KeyValue<?>> consumer) {
 
     String off = offset == null ? "" : ((RawOffset) offset).getOffset();
-    scanWildcardPrefix(key, "", off, limit, consumer);
+    scanWildcardPrefix(key, "", off, stamp, limit, consumer);
   }
 
   @SuppressWarnings("unchecked")
@@ -290,6 +256,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
       String key,
       AttributeDescriptor<T> wildcard,
       RandomOffset offset,
+      long stamp,
       int limit,
       Consumer<KeyValue<T>> consumer) {
 
@@ -297,7 +264,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
         ? wildcard.toAttributePrefix()
         : ((RawOffset) offset).getOffset();
     scanWildcardPrefix(
-        key, wildcard.toAttributePrefix(), off, limit, (Consumer) consumer);
+        key, wildcard.toAttributePrefix(), off, stamp, limit, (Consumer) consumer);
   }
 
   @SuppressWarnings("unchecked")
@@ -305,52 +272,32 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
       String key,
       String prefix,
       String offset,
+      long stamp,
       int limit,
       Consumer<KeyValue<?>> consumer) {
 
-    NavigableMap<String, Pair<Long, Object>> m = cache.get(key);
-    log.debug(
-        "Scanning prefix `{}' of key {} with map.size {}",
-        prefix, key, m == null ? -1 : m.size());
-    if (m != null) {
-      String prefixName = null;
-      Pair<Long, Object> prefixRecord = null;
-      SortedMap<String, Pair<Long, Object>> tail = m.tailMap(offset);
-      for (Map.Entry<String, Pair<Long, Object>> e : tail.entrySet()) {
-        if (e.getKey().compareTo(offset) <= 0) {
-          continue;
-        }
-        if (limit == 0 || !e.getKey().startsWith(prefix)) {
-          break;
-        }
-        log.trace("Scanned entry {} with prefix '{}'", e, prefix);
-        if (e.getKey().length() > prefix.length()) {
-          Optional<AttributeDescriptor<Object>> attr;
-          attr = getEntityDescriptor().findAttribute(e.getKey(), true);
-          if (attr.isPresent()) {
-            if (attr.get().isWildcard() && (
-                prefixName == null || !attr.get().getName().startsWith(prefixName))) {
-              // need to fetch new prefixName
-              prefixName = attr.get().toAttributePrefix();
-              prefixRecord = m.get(prefixName);
-              log.trace("Fetched prefixRecord {} for attr", prefixRecord, attr);
-            }
-            KeyValue kv = toKv(
-                key, e.getKey(),
-                prefixRecord == null || prefixRecord.getFirst() < e.getValue().getFirst()
-                    ? e.getValue()
-                    : prefixRecord);
-            if (kv != null) {
-              limit--;
-              consumer.accept(kv);
-            }
-            log.trace("Scanned KeyValue {} for key {}", kv, key);
-          } else {
-            log.warn("Unknown attribute {} in {}", e.getKey(), getEntityDescriptor());
+    AtomicInteger missing = new AtomicInteger(limit);
+    cache.scan(key, prefix, offset, stamp,
+        attr -> {
+          AttributeDescriptor<?> desc = entity.findAttribute(attr)
+              .orElseThrow(() -> new IllegalStateException(
+                  "Missing attribute " + attr + " in " + entity));
+          if (desc.isWildcard()) {
+            return desc.toAttributePrefix();
           }
-        }
-      }
-    }
+          return null;
+        },
+        (attr, e) -> {
+          KeyValue<Object> kv = toKv(key, attr, e);
+          if (kv != null) {
+            if (missing.decrementAndGet() != 0) {
+              consumer.accept(kv);
+            } else {
+              return false;
+            }
+          }
+          return true;
+        });
   }
 
   @Override

@@ -456,7 +456,8 @@ public class InMemStorage extends StorageDescriptor {
     public <T> Optional<KeyValue<T>> get(
         String key,
         String attribute,
-        AttributeDescriptor<T> desc) {
+        AttributeDescriptor<T> desc,
+        long stamp) {
 
       String mapKey = getUri().getPath() + "/" + key + "#" + attribute;
       return Optional.ofNullable(data.get(mapKey))
@@ -479,10 +480,10 @@ public class InMemStorage extends StorageDescriptor {
     @SuppressWarnings("unchecked")
     @Override
     public void scanWildcardAll(
-        String key, RandomOffset offset,
+        String key, RandomOffset offset, long stamp,
         int limit, Consumer<KeyValue<?>> consumer) {
 
-      scanWildcardPrefix(key, "", offset, limit, (Consumer) consumer);
+      scanWildcardPrefix(key, "", offset, stamp, limit, (Consumer) consumer);
     }
 
     @Override
@@ -491,11 +492,12 @@ public class InMemStorage extends StorageDescriptor {
         String key,
         AttributeDescriptor<T> wildcard,
         @Nullable RandomOffset offset,
+        long stamp,
         int limit,
         Consumer<KeyValue<T>> consumer) {
 
       String prefix = wildcard.toAttributePrefix();
-      scanWildcardPrefix(key, prefix, offset, limit, (Consumer) consumer);
+      scanWildcardPrefix(key, prefix, offset, stamp, limit, (Consumer) consumer);
     }
 
     @SuppressWarnings("unchecked")
@@ -503,6 +505,7 @@ public class InMemStorage extends StorageDescriptor {
         String key,
         String prefix,
         @Nullable RandomOffset offset,
+        long stamp,
         int limit,
         Consumer<KeyValue<Object>> consumer) {
 
@@ -528,7 +531,7 @@ public class InMemStorage extends StorageDescriptor {
                 attr.get().getValueSerializer().deserialize(
                     e.getValue().getSecond()).get(),
                 e.getValue().getSecond()));
-            
+
             if (++count == limit) {
               break;
             }
@@ -678,19 +681,20 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public <T> Optional<KeyValue<T>> get(
-        String key, String attribute, AttributeDescriptor<T> desc) {
+        String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
-      return reader.get(key, attribute, desc);
+      return reader.get(key, attribute, desc, stamp);
     }
 
     @Override
     public <T> void scanWildcard(
         String key, AttributeDescriptor<T> wildcard,
         RandomOffset offset,
+        long stamp,
         int limit,
         Consumer<KeyValue<T>> consumer) {
 
-      reader.scanWildcard(key, wildcard, offset, limit, consumer);
+      reader.scanWildcard(key, wildcard, offset, stamp, limit, consumer);
     }
 
     @Override
@@ -726,10 +730,10 @@ public class InMemStorage extends StorageDescriptor {
 
     @Override
     public void scanWildcardAll(
-        String key, RandomOffset offset,
+        String key, RandomOffset offset, long stamp,
         int limit, Consumer<KeyValue<?>> consumer) {
 
-      reader.scanWildcardAll(key, offset, limit, consumer);
+      reader.scanWildcardAll(key, offset, stamp, limit, consumer);
     }
 
     @Override

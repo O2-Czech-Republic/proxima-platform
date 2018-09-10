@@ -72,9 +72,24 @@ public interface RandomAccessReader extends Closeable, Serializable {
       String key,
       AttributeDescriptor<T> desc) {
 
-    return get(key, desc.getName(), desc);
+    return get(key, desc.getName(), desc, System.currentTimeMillis());
   }
 
+  /**
+   * Retrieve data stored under given (key, attribute) pair (if any).
+   * @param <T> value type
+   * @param key key of the entity
+   * @param desc the attribute to search for (not wildcard)
+   * @param stamp timestamp to relatively to which retrieve the data
+   * @return optional {@link KeyValue} if present
+   */
+  default <T> Optional<KeyValue<T>> get(
+      String key,
+      AttributeDescriptor<T> desc,
+      long stamp) {
+
+    return get(key, desc.getName(), desc, stamp);
+  }
 
   /**
    * Retrieve data stored under given (key, attribute) pair (if any).
@@ -84,11 +99,28 @@ public interface RandomAccessReader extends Closeable, Serializable {
    * @param desc the attribute to search for
    * @return optional {@link KeyValue} if present
    */
+  default <T> Optional<KeyValue<T>> get(
+      String key,
+      String attribute,
+      AttributeDescriptor<T> desc) {
+
+    return get(key, attribute, desc, System.currentTimeMillis());
+  }
+
+  /**
+   * Retrieve data stored under given (key, attribute) pair (if any).
+   * @param <T> value type
+   * @param key key of the entity
+   * @param attribute name of the attribute
+   * @param desc the attribute to search for
+   * @param stamp timestamp to relatively to which retrieve the data
+   * @return optional {@link KeyValue} if present
+   */
   <T> Optional<KeyValue<T>> get(
       String key,
       String attribute,
-      AttributeDescriptor<T> desc);
-
+      AttributeDescriptor<T> desc,
+      long stamp);
 
   /**
    * Scan all data stored per given key.
@@ -99,9 +131,22 @@ public interface RandomAccessReader extends Closeable, Serializable {
       String key,
       Consumer<KeyValue<?>> consumer) {
 
-    scanWildcardAll(key, null, -1, consumer);
+    scanWildcardAll(key, System.currentTimeMillis(), consumer);
   }
 
+  /**
+   * Scan all data stored per given key.
+   * @param key the key whose {@link KeyValue}s to scan
+   * @param stamp timestamp to relatively to which retrieve the data
+   * @param consumer consumer to use for scanning
+   */
+  default void scanWildcardAll(
+      String key,
+      long stamp,
+      Consumer<KeyValue<?>> consumer) {
+
+    scanWildcardAll(key, null, stamp, -1, consumer);
+  }
 
   /**
    * Scan all data stored per given key.
@@ -110,9 +155,27 @@ public interface RandomAccessReader extends Closeable, Serializable {
    * @param limit how many elements to process at most
    * @param consumer consumer to use for scanning
    */
+  default void scanWildcardAll(
+      String key,
+      @Nullable RandomOffset offset,
+      int limit,
+      Consumer<KeyValue<?>> consumer) {
+
+    scanWildcardAll(key, offset, System.currentTimeMillis(), limit, consumer);
+  }
+
+  /**
+   * Scan all data stored per given key.
+   * @param key the key whose {@link KeyValue}s to scan
+   * @param offset offset to start from (next key value will be returned)
+   * @param stamp timestamp to relatively to which retrieve the data
+   * @param limit how many elements to process at most
+   * @param consumer consumer to use for scanning
+   */
   void scanWildcardAll(
       String key,
       @Nullable RandomOffset offset,
+      long stamp,
       int limit,
       Consumer<KeyValue<?>> consumer);
 
@@ -129,9 +192,25 @@ public interface RandomAccessReader extends Closeable, Serializable {
       AttributeDescriptor<T> wildcard,
       Consumer<KeyValue<T>> consumer) {
 
-    scanWildcard(key, wildcard, null, -1, consumer);
+    scanWildcard(key, wildcard, null, System.currentTimeMillis(), -1, consumer);
   }
 
+  /**
+   * List data stored for a particular wildcard attribute.
+   * @param <T> value type
+   * @param key key of the entity
+   * @param wildcard wildcard attribute to scan
+   * @param stamp timestamp to relatively to which retrieve the data
+   * @param consumer the consumer to stream data to
+   */
+  default <T> void scanWildcard(
+      String key,
+      AttributeDescriptor<T> wildcard,
+      long stamp,
+      Consumer<KeyValue<T>> consumer) {
+
+    scanWildcard(key, wildcard, null, stamp, -1, consumer);
+  }
 
   /**
    * List data stored for a particular wildcard attribute.
@@ -139,13 +218,35 @@ public interface RandomAccessReader extends Closeable, Serializable {
    * @param key key of the entity
    * @param wildcard wildcard attribute to scan
    * @param offset name of attribute (including the prefix) to start from
-   * @param limit maximal number of items to consume
+   * @param limit maximal number of items to consume  *
+   * @param consumer the consumer to stream data to
+   */
+  default <T> void scanWildcard(
+      String key,
+      AttributeDescriptor<T> wildcard,
+      @Nullable RandomOffset offset,
+      int limit,
+      Consumer<KeyValue<T>> consumer) {
+
+    scanWildcard(
+        key, wildcard, offset, System.currentTimeMillis(), limit, consumer);
+  }
+
+  /**
+   * List data stored for a particular wildcard attribute.
+   * @param <T> value type
+   * @param key key of the entity
+   * @param wildcard wildcard attribute to scan
+   * @param offset name of attribute (including the prefix) to start from
+   * @param stamp timestamp to relatively to which retrieve the data
+   * @param limit maximal number of items to consume  *
    * @param consumer the consumer to stream data to
    */
   <T> void scanWildcard(
       String key,
       AttributeDescriptor<T> wildcard,
       @Nullable RandomOffset offset,
+      long stamp,
       int limit,
       Consumer<KeyValue<T>> consumer);
 

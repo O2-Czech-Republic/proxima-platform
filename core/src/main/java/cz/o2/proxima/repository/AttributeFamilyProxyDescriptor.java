@@ -18,6 +18,7 @@ package cz.o2.proxima.repository;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.transform.ProxyTransform;
 import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.CommitCallback;
@@ -381,14 +382,15 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       @SuppressWarnings("unchecked")
       @Override
       public <T> Optional<KeyValue<T>> get(
-          String key, String attribute, AttributeDescriptor<T> desc) {
+          String key, String attribute, AttributeDescriptor<T> desc,
+          long stamp) {
 
         AttributeProxyDescriptorImpl<T> targetAttribute;
         targetAttribute = (AttributeProxyDescriptorImpl<T>) lookup.lookupProxy(
             desc.getName());
         ProxyTransform transform = targetAttribute.getReadTransform();
         return reader.get(
-            key, transform.fromProxy(attribute), targetAttribute.getReadTarget())
+            key, transform.fromProxy(attribute), targetAttribute.getReadTarget(), stamp)
             .map(kv -> transformToProxy(kv, targetAttribute));
       }
 
@@ -396,7 +398,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       @Override
       public <T> void scanWildcard(
           String key, AttributeDescriptor<T> wildcard,
-          RandomOffset offset, int limit, Consumer<KeyValue<T>> consumer) {
+          RandomOffset offset, long stamp, int limit, Consumer<KeyValue<T>> consumer) {
 
         AttributeProxyDescriptorImpl<?> targetAttribute = lookup.lookupProxy(
             wildcard.getName());
@@ -414,17 +416,18 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
                 ? null
                 : new RawOffset(targetAttribute.getReadTransform()
                     .fromProxy(((RawOffset) offset).getOffset())),
+            stamp,
             limit,
             kv -> consumer.accept((KeyValue) transformToProxy(kv, targetAttribute)));
       }
 
       @Override
       public void scanWildcardAll(
-          String key, RandomOffset offset,
+          String key, RandomOffset offset, long stamp,
           int limit, Consumer<KeyValue<?>> consumer) {
 
         reader.scanWildcardAll(
-            key, offset, limit,
+            key, offset, stamp, limit,
             kv -> lookup.lookupRead(kv.getAttrDescriptor().getName())
                   .stream()
                   .forEach(attr -> consumer.accept(transformToProxy(kv, attr))));
@@ -726,7 +729,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
   private static StreamElement transform(
       StreamElement data,
       AttributeDescriptor target,
-      Function<String, String> transform) {
+      UnaryFunction<String, String> transform) {
 
     if (data.isDelete()) {
       if (data.isDeleteWildcard()) {

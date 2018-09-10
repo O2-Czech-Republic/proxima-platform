@@ -52,7 +52,8 @@ class CassandraRandomReader
   public synchronized <T> Optional<KeyValue<T>> get(
       String key,
       String attribute,
-      AttributeDescriptor<T> desc) {
+      AttributeDescriptor<T> desc,
+      long stamp) {
 
     Session session = accessor.ensureSession();
     BoundStatement statement = accessor.getCqlFactory()
@@ -90,6 +91,7 @@ class CassandraRandomReader
   public void scanWildcardAll(
       String key,
       RandomOffset offset,
+      long stamp,
       int limit,
       Consumer<KeyValue<?>> consumer) {
 
@@ -119,6 +121,7 @@ class CassandraRandomReader
       String key,
       AttributeDescriptor<T> wildcard,
       @Nullable RandomOffset offset,
+      long stamp,
       int limit,
       Consumer<KeyValue<T>> consumer) {
 
@@ -207,7 +210,7 @@ class CassandraRandomReader
             return new Offsets.Token(Long.MIN_VALUE);
           }
           return new Offsets.Token(res.one().getLong(0));
-          
+
         default:
           throw new IllegalArgumentException("Unknown type of listing: " + type);
       }

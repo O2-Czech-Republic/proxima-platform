@@ -256,4 +256,18 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
     }
     return fs;
   }
+
+  @Override
+  public void close() {
+    if (writer != null) {
+      try {
+        writer.close();
+      } catch (Exception ex) {
+        log.warn("Failed to close writer {}. Ignoring", writer, ex);
+      }
+      writer = null;
+    }
+  }
+
+
 }

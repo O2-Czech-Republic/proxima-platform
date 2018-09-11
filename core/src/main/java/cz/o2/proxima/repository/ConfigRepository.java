@@ -2103,4 +2103,13 @@ public class ConfigRepository implements Repository, Serializable {
     };
   }
 
+  @Override
+  public void close() {
+    synchronized (writers) {
+      writers.entrySet().stream().map(Map.Entry::getValue)
+          .distinct()
+          .forEach(OnlineAttributeWriter::close);
+      writers.clear();
+    }
+  }
 }

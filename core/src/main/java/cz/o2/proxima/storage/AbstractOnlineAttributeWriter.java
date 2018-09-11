@@ -18,16 +18,27 @@ package cz.o2.proxima.storage;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Abstract implementation of the {@code OnlineAttributeWriter}.
  */
 @Internal
+@Slf4j
 public abstract class AbstractOnlineAttributeWriter
     extends AbstractAttributeWriter implements OnlineAttributeWriter {
 
   protected AbstractOnlineAttributeWriter(EntityDescriptor entityDesc, URI uri) {
     super(entityDesc, uri);
   }
+
+  @Override
+  public void close() {
+    log.warn(
+        "Fallback to empty close() method in {}.. This should be addressed.",
+        getClass().getName());
+  }
+
+
 
 }

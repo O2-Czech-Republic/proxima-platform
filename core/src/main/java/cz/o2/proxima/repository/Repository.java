@@ -31,7 +31,7 @@ import java.util.stream.Stream;
  * Repository of all entities configured in the system.
  */
 @Evolving("Affected by #66")
-public interface Repository {
+public interface Repository extends AutoCloseable {
 
   static Repository of(Config config) {
     return ConfigRepository.of(config);
@@ -106,5 +106,10 @@ public interface Repository {
    * @return the attribute writer
    */
   Optional<OnlineAttributeWriter> getWriter(AttributeDescriptor<?> attr);
+
+  /**
+   * Close all allocated resources.
+   */
+  public void close();
 
 }

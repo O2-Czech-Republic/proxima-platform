@@ -46,6 +46,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 
 /**
@@ -140,17 +141,7 @@ public class BulkGCloudStorageWriter
       }
       long now = System.currentTimeMillis();
       if (now - lastFlushStamp >= rollPeriod || forceFlush) {
-        writer.close();
-        final File flushFile = localBlob.getPath();
-        final long flushMinStamp = minTimestamp;
-        final long flushMaxStamp = maxTimestamp;
-        lastFlushStamp = now;
-        flushExecutor().execute(
-            () -> flush(flushFile, flushMinStamp, flushMaxStamp, statusCallback));
-        writer = null;
-        minTimestamp = Long.MAX_VALUE;
-        maxTimestamp = Long.MIN_VALUE;
-        forceFlush = false;
+        flushWriter(now, statusCallback);
       }
     } catch (Exception ex) {
       log.warn("Exception writing data {}", data, ex);
@@ -275,5 +266,39 @@ public class BulkGCloudStorageWriter
     }
     return flushExecutor;
   }
+
+  @Override
+  public void close() {
+    try {
+      CountDownLatch latch = new CountDownLatch(1);
+      flushWriter(System.currentTimeMillis(), (succ, exc) -> {
+        if (!succ) {
+          log.warn("Failed to close writer {}", writer, exc);
+        }
+        latch.countDown();
+      });
+      latch.await();
+    } catch (Exception ex) {
+      log.warn("Failed to close writer {}", writer, ex);
+    }
+  }
+
+  private void flushWriter(long now, CommitCallback statusCallback) throws IOException {
+    if (writer != null) {
+      writer.close();
+      final File flushFile = localBlob.getPath();
+      final long flushMinStamp = minTimestamp;
+      final long flushMaxStamp = maxTimestamp;
+      lastFlushStamp = now;
+      flushExecutor().execute(
+          () -> flush(flushFile, flushMinStamp, flushMaxStamp, statusCallback));
+      writer = null;
+      minTimestamp = Long.MAX_VALUE;
+      maxTimestamp = Long.MIN_VALUE;
+      forceFlush = false;
+    }
+  }
+
+
 
 }

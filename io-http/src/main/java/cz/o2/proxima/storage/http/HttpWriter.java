@@ -91,4 +91,9 @@ public class HttpWriter
     return Optional.of(this);
   }
 
+  @Override
+  public void close() {
+    // nop
+  }
+
 }

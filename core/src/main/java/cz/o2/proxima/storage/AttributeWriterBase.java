@@ -23,7 +23,7 @@ import java.net.URI;
  * Base interface for {@code OnlineAttributeWriter} and {@code BulkAttributeWriter}.
  */
 @Stable
-public interface AttributeWriterBase extends Serializable {
+public interface AttributeWriterBase extends Serializable, AutoCloseable {
 
   enum Type {
     ONLINE,
@@ -64,5 +64,12 @@ public interface AttributeWriterBase extends Serializable {
   default BulkAttributeWriter bulk() {
     return (BulkAttributeWriter) this;
   }
+
+  /**
+   * Close allocated resources of this writer.
+   * This is supposed to be idempotent.
+   */
+  @Override
+  void close();
 
 }

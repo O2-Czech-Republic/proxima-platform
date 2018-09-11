@@ -217,6 +217,11 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         return uri;
       }
 
+      @Override
+      public void close() {
+        writer.close();
+      }
+
     };
   }
 

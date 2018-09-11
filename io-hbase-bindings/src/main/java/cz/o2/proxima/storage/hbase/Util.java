@@ -20,6 +20,7 @@ import com.google.common.base.Strings;
 import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
@@ -27,6 +28,7 @@ import org.apache.hadoop.hbase.HConstants;
 /**
  * Various utils.
  */
+@Slf4j
 class Util {
 
   private static final String FAMILY_QUERY = "family";
@@ -52,6 +54,14 @@ class Util {
         .map(String::getBytes)
         .orElseThrow(() -> new IllegalArgumentException(
             "Query " + FAMILY_QUERY + " is missing!"));
+  }
+
+  static void closeQuietly(AutoCloseable closeable) {
+    try {
+      closeable.close();
+    } catch (Exception ex) {
+      log.warn("Failed to close {}. Ignored.", closeable, ex);
+    }
   }
 
   private Util() {

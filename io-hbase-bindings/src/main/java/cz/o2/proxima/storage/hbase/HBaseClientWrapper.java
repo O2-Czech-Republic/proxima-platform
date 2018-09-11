@@ -78,15 +78,14 @@ class HBaseClientWrapper implements AutoCloseable, Serializable {
   }
 
   @Override
-  public void close() throws Exception {
-    try {
-      if (client != null) {
-        client.close();
-      }
-    } finally {
-      if (conn != null) {
-        conn.close();
-      }
+  public void close() {
+    if (client != null) {
+      Util.closeQuietly(client);
+      client = null;
+    }
+    if (conn != null) {
+      Util.closeQuietly(conn);
+      conn = null;
     }
   }
 

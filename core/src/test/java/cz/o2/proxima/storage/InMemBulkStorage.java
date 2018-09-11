@@ -66,6 +66,11 @@ public class InMemBulkStorage extends StorageDescriptor {
       // nop
     }
 
+    @Override
+    public void close() {
+      // nop
+    }
+
   }
 
   private class BatchObservable extends AbstractStorage implements BatchLogObservable {

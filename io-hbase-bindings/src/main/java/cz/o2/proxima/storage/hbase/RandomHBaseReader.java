@@ -159,9 +159,9 @@ public class RandomHBaseReader extends HBaseClientWrapper
   }
 
   @Override
-  public void close() throws IOException {
+  public void close() {
     if (client != null) {
-      client.close();
+      Util.closeQuietly(client);
       client = null;
     }
   }

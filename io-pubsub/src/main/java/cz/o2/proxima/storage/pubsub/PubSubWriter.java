@@ -33,7 +33,8 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.pubsub.proto.PubSub;
 import cz.seznam.euphoria.core.util.ExceptionUtils;
 import java.io.IOException;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -48,7 +49,7 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
   private final Context context;
   private transient boolean initialized = false;
   private transient Publisher publisher;
-  private transient Executor executor;
+  private transient ExecutorService executor;
 
   PubSubWriter(PubSubAccessor accessor, Context context) {
     super(accessor.getEntityDescriptor(), accessor.getUri());
@@ -119,6 +120,21 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
     } catch (Throwable err) {
       log.warn("Failed to publish {} to pubsub", data, err);
       statusCallback.commit(false, err);
+    }
+  }
+
+  @Override
+  public synchronized void close() {
+    if (publisher != null) {
+      try {
+        executor.shutdown();
+        executor.awaitTermination(10, TimeUnit.SECONDS);
+        publisher.shutdown();
+      } catch (Exception ex) {
+        log.warn("Failed to shutdown publisher {}", publisher, ex);
+      }
+      publisher = null;
+      initialized = false;
     }
   }
 

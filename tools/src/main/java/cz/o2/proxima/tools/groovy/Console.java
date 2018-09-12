@@ -358,7 +358,7 @@ public class Console {
         .filter(af -> af.getBatchObservable().isPresent())
         .findAny()
         .orElseThrow(() -> new IllegalStateException("Attribute "
-            + attrDesc.getName() + " has no random access reader"));
+            + attrDesc.getName() + " has no batch log observable reader"));
 
     DatasetBuilder<StreamElement> builder = () -> {
       Dataset<StreamElement> ds = flow.get().createInput(BatchSource.of(

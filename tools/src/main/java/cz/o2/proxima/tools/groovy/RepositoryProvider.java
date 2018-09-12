@@ -13,32 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.functional;
+package cz.o2.proxima.tools.groovy;
 
-import cz.o2.proxima.annotations.Stable;
-import java.io.Serializable;
+import cz.o2.proxima.repository.Repository;
 
 /**
- * Function of single argument.
+ * Provider of repository.
  */
-@Stable
 @FunctionalInterface
-public interface UnaryFunction<IN, OUT> extends Serializable {
+public interface RepositoryProvider {
 
-  /**
-   * Return identity function.
-   * @param <T> the type of input
-   * @return the identity function
-   */
-  public static <T> UnaryFunction<T, T> identity() {
-    return e -> e;
-  }
-
-  /**
-   * Apply function and return result.
-   * @param input input of the function
-   * @return result
-   */
-  OUT apply(IN input);
+  Repository getRepo();
 
 }

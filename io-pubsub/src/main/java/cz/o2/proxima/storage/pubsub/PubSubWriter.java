@@ -33,8 +33,10 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.pubsub.proto.PubSub;
 import cz.seznam.euphoria.core.util.ExceptionUtils;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -47,6 +49,9 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
 
   private final PubSubAccessor accessor;
   private final Context context;
+  private final AtomicInteger inflight = new AtomicInteger();
+  private final Serializable flightLock = new Serializable() { };
+  private volatile boolean closed = false;
   private transient boolean initialized = false;
   private transient Publisher publisher;
   private transient ExecutorService executor;
@@ -63,6 +68,7 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
         publisher = newPublisher(accessor.getProject(), accessor.getTopic());
         executor = context.getExecutorService();
         initialized = true;
+        closed = false;
       } catch (IOException ex) {
         if (publisher != null) {
           ExceptionUtils.unchecked(() -> publisher.shutdown());
@@ -84,36 +90,52 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
     initialize();
     log.debug("Writing data {} to {}", data, getUri());
     try {
+      if (inflight.incrementAndGet() >= 1000) {
+        while (inflight.get() >= 1000) {
+          synchronized (flightLock) {
+            flightLock.wait(1000);
+          }
+        }
+      }
       ApiFuture<String> future = publisher.publish(PubsubMessage.newBuilder()
-          .setMessageId(data.getUuid())
-          .setPublishTime(Timestamp.newBuilder()
-              .setSeconds(data.getStamp() / 1000)
-              .setNanos((int) (data.getStamp() % 1000) * 1_000_000))
-          .setData(PubSub.KeyValue.newBuilder()
-              .setKey(data.getKey())
-              .setAttribute(data.getAttribute())
-              .setDelete(data.isDelete())
-              .setDeleteWildcard(data.isDeleteWildcard())
-              .setValue(data.isDelete()
-                  ? ByteString.EMPTY
-                  : ByteString.copyFrom(data.getValue()))
-              .setStamp(data.getStamp())
-              .build()
-              .toByteString())
+              .setMessageId(data.getUuid())
+              .setPublishTime(Timestamp.newBuilder()
+                  .setSeconds(data.getStamp() / 1000)
+                  .setNanos((int) (data.getStamp() % 1000) * 1_000_000))
+              .setData(PubSub.KeyValue.newBuilder()
+                  .setKey(data.getKey())
+                  .setAttribute(data.getAttribute())
+                  .setDelete(data.isDelete())
+                  .setDeleteWildcard(data.isDeleteWildcard())
+                  .setValue(data.isDelete()
+                      ? ByteString.EMPTY
+                      : ByteString.copyFrom(data.getValue()))
+                  .setStamp(data.getStamp())
+                  .build()
+                  .toByteString())
           .build());
 
       ApiFutures.addCallback(future, new ApiFutureCallback<String>() {
 
+        private void handle(boolean success, Throwable thrwbl) {
+          statusCallback.commit(success, thrwbl);
+          if (inflight.getAndDecrement() >= 1000 || closed) {
+            synchronized (flightLock) {
+              flightLock.notifyAll();
+            }
+          }
+        }
+
         @Override
         public void onFailure(Throwable thrwbl) {
-          log.warn("Failed to publish elemet {} to pubsub", data, thrwbl);
-          statusCallback.commit(false, thrwbl);
+          log.warn("Failed to publish element {} to pubsub", data, thrwbl);
+          handle(false, thrwbl);
         }
 
         @Override
         public void onSuccess(String v) {
           log.debug("Committing processing of {} with success", data);
-          statusCallback.commit(true, null);
+          handle(true, null);
         }
 
       }, executor);
@@ -127,6 +149,12 @@ class PubSubWriter extends AbstractOnlineAttributeWriter
   public synchronized void close() {
     if (publisher != null) {
       try {
+        closed = true;
+        while (inflight.get() != 0) {
+          synchronized (flightLock) {
+            flightLock.wait(100);
+          }
+        }
         executor.shutdown();
         executor.awaitTermination(10, TimeUnit.SECONDS);
         publisher.shutdown();

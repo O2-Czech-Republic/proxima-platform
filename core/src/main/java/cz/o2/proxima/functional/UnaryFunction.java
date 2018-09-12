@@ -26,6 +26,15 @@ import java.io.Serializable;
 public interface UnaryFunction<IN, OUT> extends Serializable {
 
   /**
+   * Return identity function.
+   * @param <T> the type of input
+   * @return the identity function
+   */
+  public static <T> UnaryFunction<T, T> identity() {
+    return e -> e;
+  }
+
+  /**
    * Apply function and return result.
    * @param input input of the function
    * @return result

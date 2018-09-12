@@ -3,17 +3,18 @@
  * AUTO GENERATED! DO NOT EDIT!
  */
 
+import cz.o2.proxima.repository.Repository
 import cz.o2.proxima.storage.commitlog.Position
 import cz.o2.proxima.tools.groovy.Console
+import cz.o2.proxima.tools.groovy.RepositoryProvider
 import cz.o2.proxima.tools.groovy.Stream
 import cz.o2.proxima.tools.groovy.WindowedStream
 import cz.o2.proxima.tools.io.ConsoleRandomReader
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing
 
-class Environment {
+class Environment implements RepositoryProvider {
 
   private final Console console = Console.get()
-
 
   <#list entities as entity>
 
@@ -160,5 +161,9 @@ class Environment {
 
 
   </#list>
+
+  def Repository getRepo() {
+    return console.getRepo();
+  }
 
 }

@@ -17,8 +17,11 @@ package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.scheme.ValueSerializer;
+import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.tools.io.AttributeSink;
+import cz.o2.proxima.tools.io.DirectAttributeSink;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
 import cz.seznam.euphoria.core.client.dataset.windowing.Session;
@@ -39,6 +42,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -202,6 +207,79 @@ public class Stream<T> {
     } finally {
       terminatingOperationCall.run();
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  public void persistIntoTargetReplica(
+      RepositoryProvider repoProvider,
+      String replicationName,
+      String target) {
+
+    Dataset<StreamElement> output;
+    Repository repo = repoProvider.getRepo();
+    output = FlatMap.of((Dataset<StreamElement>) dataset.build())
+        .using((StreamElement in, Collector<StreamElement> ctx) -> {
+          String key = in.getKey();
+          String attribute = in.getAttribute();
+          EntityDescriptor entity = in.getEntityDescriptor();
+          String replicatedName = String.format(
+              "_%s_%s$%s", replicationName, target, attribute);
+          Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(
+              replicatedName, true);
+          if (attr.isPresent()) {
+            long stamp = in.getStamp();
+            byte[] value = in.getValue();
+            ctx.collect(StreamElement.update(
+                entity, attr.get(),
+                UUID.randomUUID().toString(),
+                key, replicatedName, stamp, value));
+          } else {
+            log.warn("Cannot find attribute {} in {}", replicatedName, entity);
+          }
+        })
+        .output();
+
+    output.persist(DirectAttributeSink.of(repo));
+
+    runFlow(output.getFlow());
+  }
+
+  @SuppressWarnings("unchecked")
+  public void persist(
+      RepositoryProvider repoProvider,
+      EntityDescriptor entity,
+      Closure<String> keyExtractor,
+      Closure<String> attributeExtractor,
+      Closure<T> valueExtractor,
+      Closure<Long> timeExtractor) {
+
+    Closure<String> keyDehydrated = keyExtractor.dehydrate();
+    Closure<String> attributeDehydrated = attributeExtractor.dehydrate();
+    Closure<T> valueDehydrated = valueExtractor.dehydrate();
+    Closure<Long> timeDehydrated = timeExtractor.dehydrate();
+    Dataset<StreamElement> output;
+    output = FlatMap.of((Dataset<Object>) dataset.build())
+        .using((Object in, Collector<StreamElement> ctx) -> {
+          String key = keyDehydrated.call(in);
+          String attribute = attributeDehydrated.call(in);
+          Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(attribute);
+          if (attr.isPresent()) {
+            long stamp = timeDehydrated.call(in);
+            final ValueSerializer<Object> serializer = attr.get().getValueSerializer();
+            byte[] value = serializer.serialize(valueDehydrated.call(in));
+            ctx.collect(StreamElement.update(
+                entity, attr.get(),
+                UUID.randomUUID().toString(),
+                key, attribute, stamp, value));
+          } else {
+            log.warn("Cannot find attribute {} in {}", attribute, entity);
+          }
+        })
+        .output();
+
+    output.persist(DirectAttributeSink.of(repoProvider.getRepo()));
+
+    runFlow(output.getFlow());
   }
 
   @SuppressWarnings("unchecked")

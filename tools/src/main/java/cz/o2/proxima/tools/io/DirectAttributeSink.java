@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.tools.io;
 
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.seznam.euphoria.core.client.io.DataSink;
@@ -32,10 +33,25 @@ public class DirectAttributeSink implements DataSink<StreamElement> {
     return new DirectAttributeSink(repo);
   }
 
+  public static DataSink<StreamElement> of(
+      Repository repo, UnaryFunction<StreamElement, StreamElement> transformFn) {
+
+    return new DirectAttributeSink(repo, transformFn);
+  }
+
   private final Repository repo;
+  private final UnaryFunction<StreamElement, StreamElement> transformFn;
 
   private DirectAttributeSink(Repository repo) {
+    this(repo, UnaryFunction.identity());
+  }
+
+  private DirectAttributeSink(
+      Repository repo,
+      UnaryFunction<StreamElement, StreamElement> transformFn) {
+
     this.repo = repo;
+    this.transformFn = transformFn;
   }
 
   @Override
@@ -47,7 +63,7 @@ public class DirectAttributeSink implements DataSink<StreamElement> {
         repo.getWriter(elem.getAttributeDescriptor())
             .orElseThrow(() -> new IllegalStateException(
                 "Missing writer for " + elem.getAttributeDescriptor()))
-            .write(elem, (succ, exc) -> {
+            .write(transformFn.apply(elem), (succ, exc) -> {
               if (!succ) {
                 throw new IllegalStateException(exc);
               }

@@ -239,7 +239,16 @@ public class Stream<T> {
         })
         .output();
 
-    output.persist(DirectAttributeSink.of(repo));
+    int prefixLength = replicationName.length() + target.length() + 3;
+    output.persist(DirectAttributeSink.of(repo, e ->
+        StreamElement.update(
+            e.getEntityDescriptor(),
+            e.getAttributeDescriptor(),
+            e.getUuid(),
+            e.getKey(),
+            e.getAttribute().substring(prefixLength),
+            e.getStamp(),
+            e.getValue())));
 
     runFlow(output.getFlow());
   }

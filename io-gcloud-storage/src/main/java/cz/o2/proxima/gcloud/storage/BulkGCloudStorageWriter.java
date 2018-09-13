@@ -237,6 +237,9 @@ public class BulkGCloudStorageWriter
 
   private void init(boolean force) {
     if (force) {
+      maxSeenTimestamp = Long.MIN_VALUE;
+      lastFlushAttempt = Long.MIN_VALUE;
+      buckets.clear();
       initialized = false;
     }
     init();

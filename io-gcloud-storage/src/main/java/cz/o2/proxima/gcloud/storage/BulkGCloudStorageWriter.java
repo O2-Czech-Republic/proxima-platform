@@ -25,6 +25,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.BulkAttributeWriter;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.StreamElement;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Hex;
 
@@ -43,11 +44,18 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 /**
  * {@link BulkAttributeWriter} for gcloud storage.
@@ -76,19 +84,44 @@ public class BulkGCloudStorageWriter
     }
   }
 
+  @ToString
+  class BucketData {
+    @Getter
+    final BinaryBlob blob;
+    @Getter
+    final BinaryBlob.Writer writer;
+    @Getter
+    @Setter
+    @Nullable
+    CommitCallback committer = null;
+
+    BucketData() {
+      try {
+        blob = createLocalBlob();
+        writer = blob.writer(gzip);
+      } catch (IOException ex) {
+        throw new RuntimeException(ex);
+      }
+    }
+  }
+
   private final Factory<Executor> executorFactory;
   private final File tmpDir;
   private final long rollPeriod;
   private final boolean gzip;
   private final int bufferSize;
+  private final long allowedLateness;
+  private final long flushAttemptDelay;
+  @SuppressFBWarnings(
+      value = "SE_BAD_FIELD",
+      justification = "Serialized empty. After first write the writer is not "
+          + "considered serializable anymore.")
+  // key is bucket end stamp
+  private final NavigableMap<Long, BucketData> buckets = new TreeMap<>();
+  private long maxSeenTimestamp = Long.MIN_VALUE;
+  private long lastFlushAttempt = Long.MIN_VALUE;
   private transient Executor flushExecutor;
-  private transient BinaryBlob localBlob = null;
-  private transient BinaryBlob.Writer writer = null;
-  private boolean anyflush = false;
-  private long minTimestamp = Long.MAX_VALUE;
-  private long maxTimestamp = Long.MIN_VALUE;
-  private long lastFlushStamp;
-  private boolean forceFlush = false;
+  private transient boolean initialized;
 
   public BulkGCloudStorageWriter(
       EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg,
@@ -111,37 +144,52 @@ public class BulkGCloudStorageWriter
         .map(Boolean::valueOf)
         .orElse(false);
 
-    bufferSize = Optional.ofNullable(cfg.get("buffer.size"))
+    bufferSize = Optional.ofNullable(cfg.get("buffer-size"))
         .map(Object::toString)
         .map(Integer::valueOf)
         .orElse(1024 * 1024);
 
-    executorFactory = context::getExecutorService;
-    lastFlushStamp = System.currentTimeMillis() / rollPeriod * rollPeriod;
+    allowedLateness = Optional.ofNullable(cfg.get("allowed-lateness-ms"))
+        .map(Object::toString)
+        .map(Long::valueOf)
+        .orElse(5 * 60000L);
 
-    init();
+    flushAttemptDelay = Optional.ofNullable(cfg.get("flush-delay-ms"))
+        .map(Object::toString)
+        .map(Long::valueOf)
+        .orElse(5000L);
+
+    executorFactory = context::getExecutorService;
   }
 
+  /*
+   * Data might (and will) arrive out-of-order here, so we
+   * must make sure the flushing mechanism is robust enough to
+   * incorporate this.
+   * It works as follows:
+   * - no element can be present in a blob with other element
+   *   that belongs to different month
+   * - flushing is done in event time, but multiple writers
+   *   can be opened in single time frame, each writer is flushed
+   *   when a allowed lateness passes
+   */
   @Override
   public void write(StreamElement data, CommitCallback statusCallback) {
     try {
-      if (writer == null) {
-        createLocalBlob();
-        writer = localBlob.writer(gzip);
-      }
-      writer.write(data);
-      long floorStamp = anyflush
-          ? data.getStamp()
-          : data.getStamp() - (data.getStamp() % rollPeriod);
-      if (minTimestamp > floorStamp) {
-        minTimestamp = floorStamp;
-      }
-      if (maxTimestamp < data.getStamp()) {
-        maxTimestamp = data.getStamp();
-      }
-      long now = System.currentTimeMillis();
-      if (now - lastFlushStamp >= rollPeriod || forceFlush) {
-        flushWriter(now, statusCallback);
+      init();
+      long stamp = data.getStamp();
+      BucketData bucketData = getOrCreateWriterFor(stamp);
+      bucketData.setCommitter(statusCallback);
+      bucketData.getWriter().write(data);
+      // update watermark
+      if (maxSeenTimestamp < stamp) {
+        maxSeenTimestamp = stamp;
+        if (lastFlushAttempt == Long.MIN_VALUE
+            || stamp - lastFlushAttempt >= flushAttemptDelay) {
+
+          flushWriters(maxSeenTimestamp - allowedLateness);
+          lastFlushAttempt = stamp;
+        }
       }
     } catch (Exception ex) {
       log.warn("Exception writing data {}", data, ex);
@@ -149,32 +197,49 @@ public class BulkGCloudStorageWriter
     }
   }
 
-  @Override
-  public void rollback() {
-    init();
+  private BucketData getOrCreateWriterFor(long stamp) {
+    long boundary = (stamp / rollPeriod) * rollPeriod;
+    return buckets.computeIfAbsent(boundary + rollPeriod, b -> new BucketData());
   }
 
-  private void init() {
-    if (writer != null) {
+  private void flushWriters(long stamp) {
+    HashMap<Long, BucketData> flushable = new HashMap<>(buckets.headMap(stamp));
+    flushable.forEach((endStamp, data) -> {
       try {
-        writer.close();
-        writer = null;
+        flushWriter(endStamp, data.getBlob(), data.getWriter(), data.getCommitter());
       } catch (IOException ex) {
         throw new RuntimeException(ex);
       }
+      buckets.remove(endStamp);
+    });
+  }
+
+  @Override
+  public void rollback() {
+    init(true);
+  }
+
+  private void init() {
+    if (!initialized) {
+      if (!tmpDir.exists()) {
+        tmpDir.mkdirs();
+      } else if (tmpDir.isDirectory()) {
+        remove(tmpDir);
+        tmpDir.mkdirs();
+      } else {
+        throw new IllegalStateException(
+            "Temporary directory " + tmpDir + " is not directory");
+      }
+      tmpDir.deleteOnExit();
+      initialized = true;
     }
-    if (!tmpDir.exists()) {
-      tmpDir.mkdirs();
-    } else if (tmpDir.isDirectory()) {
-      remove(tmpDir);
-      tmpDir.mkdirs();
-    } else {
-      throw new IllegalStateException(
-          "Temporary directory " + tmpDir + " is not directory");
+  }
+
+  private void init(boolean force) {
+    if (force) {
+      initialized = false;
     }
-    tmpDir.deleteOnExit();
-    writer = null;
-    anyflush = false;
+    init();
   }
 
   private void remove(File dir) {
@@ -196,26 +261,24 @@ public class BulkGCloudStorageWriter
   }
 
   @VisibleForTesting
-  void createLocalBlob() {
-    localBlob = new BinaryBlob(new File(tmpDir, UUID.randomUUID().toString()));
+  BinaryBlob createLocalBlob() {
+    return new BinaryBlob(new File(tmpDir, UUID.randomUUID().toString()));
   }
 
   @VisibleForTesting
   void flush() {
-    forceFlush = true;
+    flushWriters(Long.MAX_VALUE);
   }
 
   private void flush(
-      File file, long minTimestamp,
-      long maxTimestamp, CommitCallback callback) {
+      File file, long bucketEndStamp, CommitCallback callback) {
 
     try {
-      String name = toBlobName(minTimestamp, maxTimestamp);
+      String name = toBlobName(bucketEndStamp - rollPeriod, bucketEndStamp);
       Blob blob = createBlob(name);
       flushToBlob(file, blob);
       deleteHandlingErrors(file);
       callback.commit(true, null);
-      anyflush = true;
     } catch (Exception ex) {
       callback.commit(false, ex);
       throw new RuntimeException(ex);
@@ -269,33 +332,34 @@ public class BulkGCloudStorageWriter
 
   @Override
   public void close() {
-    try {
-      CountDownLatch latch = new CountDownLatch(1);
-      flushWriter(System.currentTimeMillis(), (succ, exc) -> {
-        if (!succ) {
-          log.warn("Failed to close writer {}", writer, exc);
-        }
-        latch.countDown();
-      });
-      latch.await();
-    } catch (Exception ex) {
-      log.warn("Failed to close writer {}", writer, ex);
-    }
+    buckets.forEach((bucket, data) -> {
+      try {
+        CountDownLatch latch = new CountDownLatch(1);
+        flushWriter(bucket, data.getBlob(), data.getWriter(), (succ, exc) -> {
+          if (!succ) {
+            log.warn("Failed to close writer {}", data.getWriter(), exc);
+          }
+          latch.countDown();
+        });
+        latch.await();
+      } catch (Exception ex) {
+        log.warn("Failed to close writer {}", data.getWriter(), ex);
+      }
+    });
+    buckets.clear();
   }
 
-  private void flushWriter(long now, CommitCallback statusCallback) throws IOException {
+  private void flushWriter(
+      long bucketEndStamp,
+      BinaryBlob localBlob,
+      BinaryBlob.Writer writer,
+      CommitCallback statusCallback) throws IOException {
+
     if (writer != null) {
       writer.close();
       final File flushFile = localBlob.getPath();
-      final long flushMinStamp = minTimestamp;
-      final long flushMaxStamp = maxTimestamp;
-      lastFlushStamp = now;
-      flushExecutor().execute(
-          () -> flush(flushFile, flushMinStamp, flushMaxStamp, statusCallback));
-      writer = null;
-      minTimestamp = Long.MAX_VALUE;
-      maxTimestamp = Long.MIN_VALUE;
-      forceFlush = false;
+      flushExecutor().execute(() -> flush(
+          flushFile, bucketEndStamp, statusCallback));
     }
   }
 

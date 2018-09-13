@@ -152,7 +152,7 @@ public class GCloudLogObservable
       prefixes.add(format.format(LocalDateTime.ofInstant(
           Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTF", ZoneOffset.UTC))));
     } else {
-      prefixes.add(this.path) ;
+      prefixes.add(this.path);
     }
     return prefixes;
   }

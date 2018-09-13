@@ -67,7 +67,7 @@ public class BulkGCloudStorageWriterTest {
 
   BulkGCloudStorageWriter writer;
   List<String> blobs;
-  List<StreamElement> written;
+  List<StreamElement> written = null;
   AtomicReference<CountDownLatch> latch = new AtomicReference<>();
 
   public BulkGCloudStorageWriterTest() throws URISyntaxException {
@@ -130,23 +130,87 @@ public class BulkGCloudStorageWriterTest {
         "key", "attr", now, new byte[] { 1, 2 });
     StreamElement second = StreamElement.update(entity, wildcard,
         UUID.randomUUID().toString(),
-        "key", "wildcard.1", now + 2000, new byte[] { 3 });
+        "key", "wildcard.1", now + 200, new byte[] { 3 });
     writer.write(first, (succ, exc) -> {
       // this one will not get committed
     });
-    // this will flush on next write
-    writer.flush();
     writer.write(second, (succ, exc) -> {
       assertTrue("Exception " + exc, succ);
       assertNull(exc);
       latch.get().countDown();
     });
+    writer.flush();
     latch.get().await();
     assertNotNull(written);
     validate(written, first, second);
     assertEquals(1, blobs.size());
     assertEquals(
-        writer.toBlobName(now - now % 1000, now + 2000),
+        writer.toBlobName(now - now % 1000, now + 1000),
+        blobs.get(0));
+    assertTrue(blobs.get(0).startsWith("2017/07/"));
+  }
+
+  @Test(timeout = 10000)
+  public synchronized void testWriteAutoFlush() throws Exception {
+    latch.set(new CountDownLatch(2));
+    long now = 1500000000000L;
+    StreamElement first = StreamElement.update(entity, attr,
+        UUID.randomUUID().toString(),
+        "key", "attr", now, new byte[] { 1, 2 });
+    StreamElement second = StreamElement.update(entity, wildcard,
+        UUID.randomUUID().toString(),
+        "key", "wildcard.1", now + 2000, new byte[] { 3 });
+    writer.write(first, (succ, exc) -> {
+      assertTrue("Exception " + exc, succ);
+      assertNull(exc);
+      latch.get().countDown();
+    });
+    writer.write(second, (succ, exc) -> {
+      assertTrue("Exception " + exc, succ);
+      assertNull(exc);
+    });
+    latch.get().await();
+    assertNotNull(written);
+    validate(written, first);
+    assertEquals(1, blobs.size());
+    assertEquals(
+        writer.toBlobName(now - now % 1000, now + 1000),
+        blobs.get(0));
+    assertTrue(blobs.get(0).startsWith("2017/07/"));
+  }
+
+  @Test(timeout = 10000)
+  public synchronized void testWriteOutOfOrder() throws Exception {
+    latch.set(new CountDownLatch(2));
+    long now = 1500000000000L;
+    StreamElement[] elements = {
+      StreamElement.update(entity, attr,
+          UUID.randomUUID().toString(),
+          "key", "attr", now + 200, new byte[] { 1 }),
+      StreamElement.update(entity, wildcard,
+          UUID.randomUUID().toString(),
+          "key", "wildcard.1", now, new byte[] { 1, 2 }),
+      StreamElement.update(entity, wildcard,
+          UUID.randomUUID().toString(),
+          "key", "wildcard.1", now + 1000, new byte[] { 1, 2, 3 }),
+      StreamElement.update(entity, wildcard,
+          UUID.randomUUID().toString(),
+          "key", "wildcard.1", now + 500, new byte[] { 1, 2, 3, 4 }),
+      StreamElement.update(entity, wildcard,
+          UUID.randomUUID().toString(),
+          "key", "wildcard.1", now + 2000, new byte[] { 1, 2, 3, 4, 5 })
+    };
+    Arrays.stream(elements).forEach(e -> writer.write(e, (succ, exc) -> {
+      assertTrue("Exception " + exc, succ);
+      assertNull(exc);
+      latch.get().countDown();
+    }));
+    latch.get().await();
+    assertNotNull(written);
+    validate(written, elements[0], elements[1], elements[3]);
+    assertEquals(1, blobs.size());
+    assertEquals(
+        writer.toBlobName(now - now % 1000, now + 1000),
         blobs.get(0));
     assertTrue(blobs.get(0).startsWith("2017/07/"));
   }
@@ -167,6 +231,8 @@ public class BulkGCloudStorageWriterTest {
   private Map<String, Object> cfg() {
     Map<String, Object> ret = new HashMap<>();
     ret.put("log-roll-interval", "1000");
+    ret.put("allowed-lateness-ms", 500);
+    ret.put("flush-delay-ms", 50);
     if (gzip) {
       ret.put("gzip", "true");
     }

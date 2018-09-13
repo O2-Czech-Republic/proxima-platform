@@ -84,6 +84,7 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
         props, Serdes.String().serializer(), Serdes.ByteArray().serializer());
   }
 
+  @Override
   public void close() {
     if (this.producer != null) {
       this.producer.close();

@@ -17,6 +17,7 @@ package cz.o2.proxima.gcloud.storage;
 
 import com.google.cloud.storage.Blob;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.internal.shaded.com.google.common.collect.Iterables;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.Context;
@@ -35,6 +36,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -66,8 +69,8 @@ public class BulkGCloudStorageWriterTest {
   public boolean gzip;
 
   BulkGCloudStorageWriter writer;
-  List<String> blobs;
-  List<StreamElement> written = null;
+  NavigableSet<String> blobs;
+  Map<Long, List<StreamElement>> written;
   AtomicReference<CountDownLatch> latch = new AtomicReference<>();
 
   public BulkGCloudStorageWriterTest() throws URISyntaxException {
@@ -90,8 +93,8 @@ public class BulkGCloudStorageWriterTest {
 
   @Before
   public void setUp() throws URISyntaxException {
-    blobs = Collections.synchronizedList(new ArrayList<>());
-    written = null;
+    blobs = Collections.synchronizedNavigableSet(new TreeSet<>());
+    written = Collections.synchronizedMap(new HashMap<>());
     writer = new BulkGCloudStorageWriter(
         entity, new URI("gcloud-storage://project:bucket/path"),
         cfg(), context()) {
@@ -108,10 +111,11 @@ public class BulkGCloudStorageWriterTest {
       }
 
       @Override
-      void flushToBlob(File file, Blob blob) throws IOException {
-        written = new ArrayList<>();
+      void flushToBlob(long bucketEndStamp, File file, Blob blob) throws IOException {
+        List<StreamElement> blobWritten = new ArrayList<>();
+        written.put(bucketEndStamp, blobWritten);
         try (BinaryBlob.Reader reader = new BinaryBlob(file).reader(entity)) {
-          reader.iterator().forEachRemaining(written::add);
+          reader.iterator().forEachRemaining(blobWritten::add);
         }
         if (latch.get() != null) {
           latch.get().countDown();
@@ -141,13 +145,13 @@ public class BulkGCloudStorageWriterTest {
     });
     writer.flush();
     latch.get().await();
-    assertNotNull(written);
-    validate(written, first, second);
+    assertEquals(1, written.size());
+    validate(written.get(1500000001000L), first, second);
     assertEquals(1, blobs.size());
     assertEquals(
-        writer.toBlobName(now - now % 1000, now + 1000),
-        blobs.get(0));
-    assertTrue(blobs.get(0).startsWith("2017/07/"));
+        writer.toBlobName(now, now + 1000),
+        Iterables.getOnlyElement(blobs));
+    assertTrue(Iterables.getOnlyElement(blobs).startsWith("2017/07/"));
   }
 
   @Test(timeout = 10000)
@@ -170,18 +174,57 @@ public class BulkGCloudStorageWriterTest {
       assertNull(exc);
     });
     latch.get().await();
-    assertNotNull(written);
-    validate(written, first);
+    assertEquals(1, written.size());
+    validate(written.get(1500000001000L), first);
     assertEquals(1, blobs.size());
     assertEquals(
-        writer.toBlobName(now - now % 1000, now + 1000),
-        blobs.get(0));
-    assertTrue(blobs.get(0).startsWith("2017/07/"));
+        writer.toBlobName(now, now + 1000),
+        Iterables.getOnlyElement(blobs));
+    assertTrue(Iterables.getOnlyElement(blobs).startsWith("2017/07/"));
   }
 
   @Test(timeout = 10000)
   public synchronized void testWriteOutOfOrder() throws Exception {
     latch.set(new CountDownLatch(2));
+    long now = 1500000000000L;
+    StreamElement[] elements = {
+      StreamElement.update(entity, attr,
+          UUID.randomUUID().toString(),
+          "key", "attr", now + 200, new byte[] { 1 }),
+      StreamElement.update(entity, wildcard,
+          UUID.randomUUID().toString(),
+          "key", "wildcard.1", now, new byte[] { 1, 2 }),
+      StreamElement.update(entity, wildcard,
+          UUID.randomUUID().toString(),
+          "key", "wildcard.1", now + 999, new byte[] { 1, 2, 3 }),
+      StreamElement.update(entity, wildcard,
+          UUID.randomUUID().toString(),
+          "key", "wildcard.1", now + 500, new byte[] { 1, 2, 3, 4 }),
+      StreamElement.update(entity, wildcard,
+          UUID.randomUUID().toString(),
+          "key", "wildcard.1", now + 2000, new byte[] { 1, 2, 3, 4, 5 })
+    };
+    Arrays.stream(elements).forEach(e -> writer.write(e, (succ, exc) -> {
+      assertTrue("Exception " + exc, succ);
+      assertNull(exc);
+      assertEquals(now + 500, e.getStamp());
+      latch.get().countDown();
+    }));
+    latch.get().await();
+    assertEquals(1, written.size());
+    validate(
+        written.get(1500000001000L),
+        elements[0], elements[1], elements[2], elements[3]);
+    assertEquals(1, blobs.size());
+    assertEquals(
+        writer.toBlobName(now, now + 1000),
+        Iterables.getOnlyElement(blobs));
+    assertTrue(Iterables.getOnlyElement(blobs).startsWith("2017/07/"));
+  }
+
+  @Test(timeout = 10000)
+  public synchronized void testFlushingOnOutOfOrder() throws Exception {
+    latch.set(new CountDownLatch(3));
     long now = 1500000000000L;
     StreamElement[] elements = {
       StreamElement.update(entity, attr,
@@ -203,16 +246,22 @@ public class BulkGCloudStorageWriterTest {
     Arrays.stream(elements).forEach(e -> writer.write(e, (succ, exc) -> {
       assertTrue("Exception " + exc, succ);
       assertNull(exc);
+      assertEquals(now + 500, e.getStamp());
       latch.get().countDown();
     }));
     latch.get().await();
-    assertNotNull(written);
-    validate(written, elements[0], elements[1], elements[3]);
-    assertEquals(1, blobs.size());
+    assertEquals(2, written.size());
+    validate(written.get(1500000001000L), elements[0], elements[1], elements[3]);
+    validate(written.get(1500000002000L), elements[2]);
+    assertEquals(2, blobs.size());
     assertEquals(
-        writer.toBlobName(now - now % 1000, now + 1000),
-        blobs.get(0));
-    assertTrue(blobs.get(0).startsWith("2017/07/"));
+        writer.toBlobName(now, now + 1000),
+        Iterables.get(blobs, 0));
+    assertTrue(Iterables.get(blobs, 0).startsWith("2017/07/"));
+    assertEquals(
+        writer.toBlobName(now + 1000, now + 2000),
+        Iterables.get(blobs, 1));
+    assertTrue(Iterables.get(blobs, 1).startsWith("2017/07/"));
   }
 
   private void validate(List<StreamElement> written, StreamElement... elements)

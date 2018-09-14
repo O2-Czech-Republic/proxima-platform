@@ -25,6 +25,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.BulkAttributeWriter;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.StreamElement;
+import cz.seznam.euphoria.core.util.ExceptionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Hex;
@@ -44,7 +45,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
@@ -52,6 +54,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
@@ -94,6 +97,12 @@ public class BulkGCloudStorageWriter
     @Setter
     @Nullable
     CommitCallback committer = null;
+    @Getter
+    @Setter
+    long lastWriteWatermark = 0L;
+    @Getter
+    @Setter
+    long lastWriteSeqNo = 0L;
 
     BucketData() {
       try {
@@ -120,6 +129,7 @@ public class BulkGCloudStorageWriter
   private final NavigableMap<Long, BucketData> buckets = new TreeMap<>();
   private long maxSeenTimestamp = Long.MIN_VALUE;
   private long lastFlushAttempt = Long.MIN_VALUE;
+  private long writeSeqNo = 0L;
   private transient Executor flushExecutor;
   private transient boolean initialized;
 
@@ -181,15 +191,19 @@ public class BulkGCloudStorageWriter
       BucketData bucketData = getOrCreateWriterFor(stamp);
       bucketData.setCommitter(statusCallback);
       bucketData.getWriter().write(data);
+      bucketData.setLastWriteSeqNo(writeSeqNo++);
+      boolean watermarkUpdated = false;
       // update watermark
       if (maxSeenTimestamp < stamp) {
+        watermarkUpdated = true;
         maxSeenTimestamp = stamp;
-        if (lastFlushAttempt == Long.MIN_VALUE
-            || stamp - lastFlushAttempt >= flushAttemptDelay) {
+      }
+      bucketData.setLastWriteWatermark(maxSeenTimestamp);
+      if (watermarkUpdated && (lastFlushAttempt == Long.MIN_VALUE
+          || stamp - lastFlushAttempt >= flushAttemptDelay)) {
 
-          flushWriters(maxSeenTimestamp - allowedLateness);
-          lastFlushAttempt = stamp;
-        }
+        flushWriters(maxSeenTimestamp - allowedLateness);
+        lastFlushAttempt = stamp;
       }
     } catch (Exception ex) {
       log.warn("Exception writing data {}", data, ex);
@@ -198,18 +212,49 @@ public class BulkGCloudStorageWriter
   }
 
   private BucketData getOrCreateWriterFor(long stamp) {
-    long boundary = (stamp / rollPeriod) * rollPeriod;
+    long boundary = getFlushBoundary(stamp);
     return buckets.computeIfAbsent(boundary + rollPeriod, b -> new BucketData());
   }
 
+  private long getFlushBoundary(long stamp) {
+    return (stamp / rollPeriod) * rollPeriod;
+  }
+
   private void flushWriters(long stamp) {
-    HashMap<Long, BucketData> flushable = new HashMap<>(buckets.headMap(stamp));
-    flushable.forEach((endStamp, data) -> {
-      try {
-        flushWriter(endStamp, data.getBlob(), data.getWriter(), data.getCommitter());
-      } catch (IOException ex) {
-        throw new RuntimeException(ex);
+    List<Map.Entry<Long, BucketData>> flushable = new ArrayList<>();
+    long lastWrittenSeqNo = -1L;
+    CommitCallback confirm = null;
+    for (Map.Entry<Long, BucketData> e : buckets.entrySet()) {
+      if (e.getKey() <= stamp) {
+        flushable.add(e);
+        if (e.getValue().getLastWriteWatermark() >= e.getKey()) {
+          // the bucket was written after the closing timestamp
+          // move the flushing to next bucket
+          stamp = e.getKey() + rollPeriod;
+        }
+        if (e.getValue().getLastWriteSeqNo() > lastWrittenSeqNo) {
+          lastWrittenSeqNo = e.getValue().getLastWriteSeqNo();
+          confirm = e.getValue().getCommitter();
+        }
+      } else {
+        break;
       }
+    }
+    final CommitCallback flushingCallback = confirm;
+    AtomicInteger flushing = new AtomicInteger(flushable.size());
+    CommitCallback finalCallback = (succ, exc) -> {
+      if (!succ) {
+        throw new RuntimeException(exc);
+      }
+      if (flushing.decrementAndGet() == 0) {
+        flushingCallback.commit(true, null);
+      }
+    };
+    flushable.forEach(e -> {
+      long endStamp = e.getKey();
+      BucketData data = e.getValue();
+      ExceptionUtils.unchecked(() ->
+          flushWriter(endStamp, data.getBlob(), data.getWriter(), finalCallback));
       buckets.remove(endStamp);
     });
   }
@@ -240,6 +285,7 @@ public class BulkGCloudStorageWriter
       maxSeenTimestamp = Long.MIN_VALUE;
       lastFlushAttempt = Long.MIN_VALUE;
       buckets.clear();
+      writeSeqNo = 0L;
       initialized = false;
     }
     init();
@@ -279,7 +325,7 @@ public class BulkGCloudStorageWriter
     try {
       String name = toBlobName(bucketEndStamp - rollPeriod, bucketEndStamp);
       Blob blob = createBlob(name);
-      flushToBlob(file, blob);
+      flushToBlob(bucketEndStamp, file, blob);
       deleteHandlingErrors(file);
       callback.commit(true, null);
     } catch (Exception ex) {
@@ -301,7 +347,7 @@ public class BulkGCloudStorageWriter
   }
 
   @VisibleForTesting
-  void flushToBlob(File file, Blob blob) throws IOException {
+  void flushToBlob(long bucketEndStamp, File file, Blob blob) throws IOException {
     int written = 0;
     try (final WriteChannel channel = client().writer(blob);
         final FileInputStream fin = new FileInputStream(file)) {
@@ -365,7 +411,5 @@ public class BulkGCloudStorageWriter
           flushFile, bucketEndStamp, statusCallback));
     }
   }
-
-
 
 }

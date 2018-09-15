@@ -72,6 +72,7 @@ public class BulkGCloudStorageWriterTest {
   NavigableSet<String> blobs;
   Map<Long, List<StreamElement>> written;
   AtomicReference<CountDownLatch> latch = new AtomicReference<>();
+  AtomicReference<Throwable> onFlushToBlob = new AtomicReference<>();
 
   public BulkGCloudStorageWriterTest() throws URISyntaxException {
     this.wildcard = AttributeDescriptor.newBuilder(repo)
@@ -94,6 +95,7 @@ public class BulkGCloudStorageWriterTest {
   @Before
   public void setUp() throws URISyntaxException {
     blobs = Collections.synchronizedNavigableSet(new TreeSet<>());
+    onFlushToBlob.set(null);
     written = Collections.synchronizedMap(new HashMap<>());
     writer = new BulkGCloudStorageWriter(
         entity, new URI("gcloud-storage://project:bucket/path"),
@@ -112,13 +114,19 @@ public class BulkGCloudStorageWriterTest {
 
       @Override
       void flushToBlob(long bucketEndStamp, File file, Blob blob) throws IOException {
-        List<StreamElement> blobWritten = new ArrayList<>();
-        written.put(bucketEndStamp, blobWritten);
-        try (BinaryBlob.Reader reader = new BinaryBlob(file).reader(entity)) {
-          reader.iterator().forEachRemaining(blobWritten::add);
-        }
-        if (latch.get() != null) {
-          latch.get().countDown();
+        try {
+          if (onFlushToBlob.get() != null) {
+            throw new RuntimeException(onFlushToBlob.get());
+          }
+          List<StreamElement> blobWritten = new ArrayList<>();
+          written.put(bucketEndStamp, blobWritten);
+          try (BinaryBlob.Reader reader = new BinaryBlob(file).reader(entity)) {
+            reader.iterator().forEachRemaining(blobWritten::add);
+          }
+        } finally {
+          if (latch.get() != null) {
+            latch.get().countDown();
+          }
         }
       }
 
@@ -262,6 +270,29 @@ public class BulkGCloudStorageWriterTest {
         writer.toBlobName(now + 1000, now + 2000),
         Iterables.get(blobs, 1));
     assertTrue(Iterables.get(blobs, 1).startsWith("2017/07/"));
+  }
+
+  @Test(timeout = 10000)
+  public synchronized void testFailWrite() throws Exception {
+    onFlushToBlob.set(new RuntimeException("Fail"));
+    latch.set(new CountDownLatch(2));
+    long now = 1500000000000L;
+    StreamElement[] elements = {
+      StreamElement.update(entity, attr,
+          UUID.randomUUID().toString(),
+          "key", "attr", now + 200, new byte[] { 1 }),
+      StreamElement.update(entity, wildcard,
+          UUID.randomUUID().toString(),
+          "key", "wildcard.1", now, new byte[] { 1, 2 }),
+    };
+    Arrays.stream(elements).forEach(e -> writer.write(e, (succ, exc) -> {
+      assertFalse(succ);
+      assertNotNull(exc);
+      latch.get().countDown();
+    }));
+    writer.flush();
+    latch.get().await();
+    assertTrue(written.isEmpty());
   }
 
   private void validate(List<StreamElement> written, StreamElement... elements)

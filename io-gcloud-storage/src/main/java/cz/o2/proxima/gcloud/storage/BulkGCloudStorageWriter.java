@@ -244,9 +244,9 @@ public class BulkGCloudStorageWriter
     AtomicInteger flushing = new AtomicInteger(flushable.size());
     CommitCallback finalCallback = (succ, exc) -> {
       if (!succ) {
-        throw new RuntimeException(exc);
-      }
-      if (flushing.decrementAndGet() == 0) {
+        flushing.set(-1);
+        flushingCallback.commit(false, exc);
+      } else if (flushing.decrementAndGet() == 0) {
         flushingCallback.commit(true, null);
       }
     };
@@ -326,11 +326,10 @@ public class BulkGCloudStorageWriter
       String name = toBlobName(bucketEndStamp - rollPeriod, bucketEndStamp);
       Blob blob = createBlob(name);
       flushToBlob(bucketEndStamp, file, blob);
-      deleteHandlingErrors(file);
+      deleteHandlingErrors(file, false);
       callback.commit(true, null);
     } catch (Exception ex) {
       callback.commit(false, ex);
-      throw new RuntimeException(ex);
     }
   }
 
@@ -365,10 +364,17 @@ public class BulkGCloudStorageWriter
   }
 
   private void deleteHandlingErrors(File f) {
+    deleteHandlingErrors(f, true);
+  }
+
+  private void deleteHandlingErrors(File f, boolean throwOnErrors) {
     try {
       Files.deleteIfExists(Paths.get(f.getAbsolutePath()));
     } catch (IOException ex) {
-      throw new RuntimeException(ex);
+      if (throwOnErrors) {
+        throw new RuntimeException(ex);
+      }
+      log.warn("Failed to delete {}. Ingoring", f, ex);
     }
   }
 

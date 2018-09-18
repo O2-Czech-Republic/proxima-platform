@@ -112,7 +112,7 @@ public class RandomHBaseReaderTest {
   }
 
   @Test
-  public void testListWildcard() throws IOException {
+  public void testScanWildcard() throws IOException {
     long now = 1500000000000L;
     // write several values, delibetarely written in descending order
     write("key", "wildcard.12345", "value1", now);
@@ -178,6 +178,7 @@ public class RandomHBaseReaderTest {
     List<KeyValue<?>> res = new ArrayList<>();
     reader.scanWildcard("key", wildcard, null, 1, res::add);
     assertEquals(1, res.size());
+    assertEquals("value6", new String(res.get(0).getValueBytes()));
 
     RandomOffset offset = res.get(0).getOffset();
     res.clear();

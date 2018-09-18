@@ -88,4 +88,13 @@ public class StreamTest extends AbstractStreamTest {
     assertEquals(Sets.newHashSet(1, 2, 3, 4), result);
   }
 
+  @Test
+  public void testCollect() {
+    Stream<Integer> stream1 = Stream.wrap(executor(), builder(1, 2), () -> { });
+    Stream<Integer> stream2 = Stream.wrap(executor(), builder(3, 4), () -> { });
+    List<Integer> result = stream1.union(stream2).collect();
+    assertEquals(Arrays.asList(1, 2, 3, 4), result);
+  }
+
+
 }

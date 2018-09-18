@@ -22,6 +22,7 @@ import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.tools.io.AttributeSink;
 import cz.o2.proxima.tools.io.DirectAttributeSink;
+import cz.o2.proxima.tools.io.ListSink;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
 import cz.seznam.euphoria.core.client.dataset.windowing.Session;
@@ -42,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -131,6 +133,15 @@ public class Stream<T> {
     datasetBuilt.persist(newOutputSink(dehydrated));
 
     runFlow(datasetBuilt.getFlow());
+  }
+
+  public List<T> collect() {
+    Dataset<T> datasetBuilt = dataset.build();
+    ListSink<T> sink = new ListSink<>();
+    datasetBuilt.persist(sink);
+
+    runFlow(datasetBuilt.getFlow());
+    return sink.getResult();
   }
 
   private static <T> DataSink<T> newOutputSink(Closure<?> writeFn) {

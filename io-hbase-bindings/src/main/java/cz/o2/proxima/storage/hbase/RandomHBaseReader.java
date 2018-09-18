@@ -100,7 +100,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
       final Get get = new Get(key.getBytes(UTF8));
       get.addFamily(family);
       get.setFilter(new ColumnPrefixFilter(
-          wildcard.toAttributePrefix().getBytes(UTF8)));
+          (wildcard.toAttributePrefix()).getBytes(UTF8)));
       final Scan scan = new Scan(get);
       if (limit <= 0) {
         limit = Integer.MAX_VALUE;
@@ -108,7 +108,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
       scan.setBatch(limit);
       if (stroff != null) {
         scan.setFilter(new ColumnPaginationFilter(
-            limit, stroff.getOffset().getBytes(UTF8)));
+            limit, (stroff.getOffset() + '\00').getBytes(UTF8)));
       }
 
       int accepted = 0;
@@ -137,7 +137,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
     ensureClient();
     Scan s = offset == null
         ? new Scan()
-        : new Scan(((RawOffset) offset).getOffset().getBytes(UTF8));
+        : new Scan((((RawOffset) offset).getOffset() + '\00').getBytes(UTF8));
     s.addFamily(family);
     s.setFilter(new KeyOnlyFilter());
 
@@ -197,7 +197,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
   }
 
   static RawOffset asOffset(String what) {
-    return new RawOffset(what + '\00');
+    return new RawOffset(what);
   }
 
 }

@@ -812,13 +812,7 @@ public class ConfigRepository implements Repository, Serializable {
 
       String schemeStr = scheme.toString();
       if (schemeStr.indexOf(':') == -1) {
-        // if the scheme does not contain `:' we need to add class specified for
-        // the primitive type
-        if (schemeStr.equals("bytes")) {
-          schemeStr += ":byte[]";
-        } else {
-          throw new IllegalArgumentException("Scheme " + schemeStr + " is unknown");
-        }
+        schemeStr += ":///";
       }
       URI schemeUri = new URI(schemeStr);
       validateSerializerFactory(schemeUri);

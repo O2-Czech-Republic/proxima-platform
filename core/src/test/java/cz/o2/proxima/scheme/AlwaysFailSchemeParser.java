@@ -30,21 +30,26 @@ public class AlwaysFailSchemeParser implements ValueSerializerFactory {
   }
 
   @Override
-  public ValueSerializer<Object> getValueSerializer(URI scheme) {
-    return new ValueSerializer<Object>() {
+  public ValueSerializer<byte[]> getValueSerializer(URI scheme) {
+    return new ValueSerializer<byte[]>() {
       @Override
-      public Optional<Object> deserialize(byte[] input) {
+      public Optional<byte[]> deserialize(byte[] input) {
         return Optional.empty();
       }
 
       @Override
-      public Object getDefault() {
+      public byte[] getDefault() {
         return null;
       }
 
       @Override
-      public byte[] serialize(Object value) {
-        return new byte[]{ };
+      public byte[] serialize(byte[] value) {
+        return value;
+      }
+
+      @Override
+      public Class<byte[]> getClassType() {
+        return byte[].class;
       }
 
     };

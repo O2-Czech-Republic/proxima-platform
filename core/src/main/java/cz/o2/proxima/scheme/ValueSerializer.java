@@ -57,4 +57,10 @@ public interface ValueSerializer<T> extends Serializable {
     return deserialize(input).isPresent();
   }
 
+  /**
+   * Retrieve raw java class type of this serializer.
+   * @return the raw java class type
+   */
+  Class<T> getClassType();
+
 }

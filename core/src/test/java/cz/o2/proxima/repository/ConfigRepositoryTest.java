@@ -83,11 +83,11 @@ public class ConfigRepositoryTest {
 
     EntityDescriptor gateway = repo.findEntity("gateway").get();
     assertEquals("gateway", gateway.getName());
-    assertEquals("bytes:byte[]",
+    assertEquals("bytes:///",
         gateway.findAttribute("armed").get().getSchemeUri().toString());
     assertEquals("fail:whenever",
         gateway.findAttribute("fail").get().getSchemeUri().toString());
-    assertEquals("bytes:byte[]",
+    assertEquals("bytes:///",
         gateway.findAttribute("bytes").get().getSchemeUri().toString());
 
     assertEquals(1, repo.getTransformations().size());

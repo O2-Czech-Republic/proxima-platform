@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.AbstractMessage.Builder;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -69,6 +70,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -76,6 +78,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.codehaus.groovy.tools.shell.Groovysh;
@@ -112,6 +115,12 @@ public class Console {
     return INSTANCE;
   }
 
+  @VisibleForTesting
+  public static Console create(Config config, Repository repo) {
+    INSTANCE = new Console(config, repo);
+    return INSTANCE;
+  }
+
   public static void main(String[] args) {
     Console console = Console.get(args);
     Runtime.getRuntime().addShutdownHook(new Thread(console::close));
@@ -142,10 +151,18 @@ public class Console {
   });
 
   Console(String[] paths) {
+    this(getConfig(paths));
+  }
+
+  Console(Config config) {
+    this(config, Repository.of(config));
+  }
+
+  Console(Config config, Repository repo) {
+    this.config = config;
+    this.repo = repo;
     ClassLoader old = Thread.currentThread().getContextClassLoader();
     Thread.currentThread().setContextClassLoader(new GroovyClassLoader(old));
-    config = getConfig(paths);
-    repo = Repository.of(config);
     conf = new Configuration(Configuration.VERSION_2_3_23);
     conf.setDefaultEncoding("utf-8");
     conf.setClassForTemplateLoading(getClass(), "/");
@@ -161,7 +178,7 @@ public class Console {
         repo);
   }
 
-  private Config getConfig(String[] paths) {
+  private static Config getConfig(String[] paths) {
     Config ret;
     if (paths.length > 0) {
       ret = Arrays.stream(paths)
@@ -188,19 +205,16 @@ public class Console {
 
   @SuppressWarnings("unchecked")
   public <T> Stream<TypedStreamElement<?>> getStream(
-      EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       Position position,
       boolean stopAtCurrent) {
 
-    return getStream(
-        entityDesc, attrDesc, position, stopAtCurrent, false);
+    return getStream(attrDesc, position, stopAtCurrent, false);
   }
 
 
   @SuppressWarnings("unchecked")
   public <T> Stream<TypedStreamElement<?>> getStream(
-      EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       Position position,
       boolean stopAtCurrent,
@@ -218,12 +232,7 @@ public class Console {
 
     final DatasetBuilder<TypedStreamElement<Object>> builder;
     builder = () -> {
-      final DataSource source;
-      if (stopAtCurrent) {
-        source = BoundedStreamSource.of(reader, position);
-      } else {
-        source = UnboundedStreamSource.of(reader, position);
-      }
+      DataSource source = createSourceFromReader(reader, stopAtCurrent, position);
 
       Dataset<StreamElement> ds = flow.get().createInput(source);
 
@@ -245,6 +254,68 @@ public class Console {
         (DatasetBuilder) builder,
         this::resetFlow,
         this::unboundedStreamInterrupt);
+  }
+
+  @SuppressWarnings("unchecked")
+  public Stream<StreamElement> getUnionStream(
+      Position position, boolean eventTime,
+      boolean stopAtCurrent,
+      AttributeDescriptorProvider<?>... descriptors) {
+
+    Set<String> names = Arrays.stream(descriptors)
+        .map(p -> p.desc().getName())
+        .collect(Collectors.toSet());
+
+    return Arrays.stream(descriptors)
+        .map(desc ->
+            repo.getFamiliesForAttribute(desc.desc())
+                .stream()
+                .filter(af -> af.getAccess().canReadCommitLog())
+                // sort primary families on top
+                .sorted((l, r) -> l.getType().ordinal() - r.getType().ordinal())
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Missing commit log for " + desc)))
+        .distinct()
+        .map(af -> af.getCommitLogReader()
+            .orElseThrow(() -> new IllegalStateException(
+                "Family " + af + " has no commit log")))
+        .map(reader -> {
+          final DatasetBuilder<StreamElement> builder;
+          builder = () -> {
+            final DataSource source = createSourceFromReader(
+                reader, stopAtCurrent, position);
+
+            Dataset<StreamElement> ds = flow.get().createInput(source);
+
+            if (eventTime) {
+              ds = AssignEventTime.of(ds)
+                  .using(StreamElement::getStamp)
+                  .output();
+            }
+            return Filter.of(ds)
+                .by(t -> names.contains(t.getAttributeDescriptor().getName()))
+                .output();
+          };
+          return Stream.wrap(
+              createExecutor(eventTime),
+              (DatasetBuilder<StreamElement>) builder,
+              this::resetFlow,
+              this::unboundedStreamInterrupt);
+        })
+        .reduce((a, b) -> a.union(b))
+        .orElseThrow(() -> new IllegalStateException("Pass non-empty descriptors"));
+  }
+
+  private DataSource createSourceFromReader(
+      CommitLogReader reader,
+      boolean stopAtCurrent,
+      Position position) {
+
+    if (stopAtCurrent) {
+      return BoundedStreamSource.of(reader, position);
+    }
+    return UnboundedStreamSource.of(reader, position);
   }
 
   public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
@@ -406,7 +477,7 @@ public class Console {
           TextFormat.ParseException {
 
     if (attrDesc.getSchemeUri().getScheme().equals("proto")) {
-      String protoClass = attrDesc.getSchemeUri().getSchemeSpecificPart();
+      String protoClass = attrDesc.getValueSerializer().getClassType().getName();
       Class<AbstractMessage> cls = Classpath.findClass(protoClass, AbstractMessage.class);
       byte[] payload = null;
       if (textFormat != null) {

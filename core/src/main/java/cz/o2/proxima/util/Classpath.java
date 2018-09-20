@@ -59,7 +59,7 @@ public class Classpath {
   }
 
   @SuppressWarnings({ "unchecked", "rawtypes" })
-  private static Class findClass(String name) {
+  public static Class findClass(String name) {
     try {
       return Thread.currentThread().getContextClassLoader().loadClass(name);
     } catch (ClassNotFoundException t) {

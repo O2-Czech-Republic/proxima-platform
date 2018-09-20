@@ -49,6 +49,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     return new ValueSerializer<M>() {
 
       final String protoClass = uri.getSchemeSpecificPart();
+      final Class<M> clz = Classpath.findClass(protoClass);
       final ProtoSerializerFactory factory = ProtoSerializerFactory.this;
       @Nullable
       transient M defVal = null;
@@ -81,6 +82,11 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
         return value.toByteArray();
       }
 
+      @Override
+      public Class<M> getClassType() {
+        return clz;
+      }
+
     };
   }
 
@@ -102,8 +108,9 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
   // this method is synchronized because of the cache
   @SuppressWarnings("unchecked")
   @Override
-  public synchronized ValueSerializer getValueSerializer(URI scheme) {
-    return parsers.computeIfAbsent(scheme, this::createSerializer);
+  public synchronized <T> ValueSerializer<T> getValueSerializer(URI scheme) {
+    return (ValueSerializer) parsers.computeIfAbsent(
+        scheme, this::createSerializer);
   }
 
   @SuppressWarnings("unchecked")

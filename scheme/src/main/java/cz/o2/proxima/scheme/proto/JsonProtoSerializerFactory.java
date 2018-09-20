@@ -53,8 +53,9 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
 
   @SuppressWarnings("unchecked")
   @Override
-  public ValueSerializer getValueSerializer(URI specifier) {
-    return serializers.computeIfAbsent(specifier, this::createSerializer);
+  public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
+    return (ValueSerializer) serializers.computeIfAbsent(
+        specifier, this::createSerializer);
   }
 
   @SuppressWarnings("unchecked")
@@ -63,6 +64,7 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
     return new ValueSerializer() {
 
       final String protoClass = uri.getSchemeSpecificPart();
+      final Class clz = Classpath.findClass(protoClass);
       final JsonProtoSerializerFactory factory = JsonProtoSerializerFactory.this;
       final boolean strictScheme = Optional
           .ofNullable(UriUtil.parseQuery(uri).get("strictScheme"))
@@ -126,6 +128,11 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
         return parser;
       }
 
+      @Override
+      public Class getClassType() {
+        return clz;
+      }
+
     };
   }
 
@@ -150,6 +157,5 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
       throw new RuntimeException(ex);
     }
   }
-
 
 }

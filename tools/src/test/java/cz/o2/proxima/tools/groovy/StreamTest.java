@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -92,8 +93,10 @@ public class StreamTest extends AbstractStreamTest {
   public void testCollect() {
     Stream<Integer> stream1 = Stream.wrap(executor(), builder(1, 2), () -> { });
     Stream<Integer> stream2 = Stream.wrap(executor(), builder(3, 4), () -> { });
-    List<Integer> result = stream1.union(stream2).collect();
-    assertEquals(Arrays.asList(1, 2, 3, 4), result);
+    Set<Integer> result = stream1.union(stream2)
+        .collect()
+        .stream().collect(Collectors.toSet());
+    assertEquals(Sets.newHashSet(1, 2, 3, 4), result);
   }
 
 

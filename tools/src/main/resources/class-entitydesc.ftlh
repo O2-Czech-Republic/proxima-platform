@@ -4,12 +4,17 @@
  */
 
 import cz.o2.proxima.repository.Repository
+import cz.o2.proxima.repository.AttributeDescriptor
+import cz.o2.proxima.repository.EntityDescriptor
+import cz.o2.proxima.storage.StreamElement
 import cz.o2.proxima.storage.commitlog.Position
+import cz.o2.proxima.tools.groovy.AttributeDescriptorProvider
 import cz.o2.proxima.tools.groovy.Console
 import cz.o2.proxima.tools.groovy.RepositoryProvider
 import cz.o2.proxima.tools.groovy.Stream
 import cz.o2.proxima.tools.groovy.WindowedStream
 import cz.o2.proxima.tools.io.ConsoleRandomReader
+import cz.o2.proxima.tools.io.TypedStreamElement
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing
 
 class Environment implements RepositoryProvider {
@@ -35,15 +40,15 @@ class Environment implements RepositoryProvider {
 
       /* All attributes */
       <#list entity.attributes as attribute>
-        class ${attribute.classname}Descriptor {
+        class ${attribute.classname}Descriptor implements AttributeDescriptorProvider {
       
           private final Console console = Environment.this.console
-          private final cz.o2.proxima.repository.AttributeDescriptor desc = ${entity.classname}Descriptor.this.desc.findAttribute("${attribute.origname}").get()
+          private final AttributeDescriptor desc = ${entity.classname}Descriptor.this.desc.findAttribute("${attribute.origname}").get()
           private final Class type = ${attribute.typeclass}
           private final String name = "${attribute.name}"
           private final cz.o2.proxima.scheme.ValueSerializer serializer = desc.getValueSerializer()
 
-          def cz.o2.proxima.repository.AttributeDescriptor desc() {
+          def AttributeDescriptor desc() {
             return desc
           }
 
@@ -59,51 +64,51 @@ class Environment implements RepositoryProvider {
             return serializer
           }
 
-          def Stream<${attribute.type}> stream() {
+          def Stream<TypedStreamElement<${attribute.type}>> stream() {
             return stream(false);
           }
 
-          def Stream<${attribute.type}> stream(boolean eventTime) {
+          def Stream<TypedStreamElement<${attribute.type}>> stream(boolean eventTime) {
             return console.getStream(
-                ${entity.classname}Descriptor.this.desc, desc,
+                desc,
                 Position.NEWEST,
                 false,
                 eventTime);
           }
 
-          def WindowedStream<${attribute.type}, GlobalWindowing> streamFromOldest() {
+          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> streamFromOldest() {
             return streamFromOldest(true)
           }
 
-          def WindowedStream<${attribute.type}, GlobalWindowing> streamFromOldest(boolean stopAtCurrent) {
+          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> streamFromOldest(boolean stopAtCurrent) {
             return console.getStream(
-                ${entity.classname}Descriptor.this.desc, desc,
+                desc,
                 Position.OLDEST,
                 stopAtCurrent,
                 true).windowAll();
           }
 
-          def WindowedStream<${attribute.type}, GlobalWindowing> batchSnapshot() {
+          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchSnapshot() {
             return console.getBatchSnapshot(
                 ${entity.classname}Descriptor.this.desc, desc);
           }
 
-          def WindowedStream<${attribute.type}, GlobalWindowing> batchSnapshot(long start, long end) {
+          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchSnapshot(long start, long end) {
             return console.getBatchSnapshot(
                 ${entity.classname}Descriptor.this.desc, desc, start, end);
           }
 
-          def WindowedStream<${attribute.type}, GlobalWindowing> batchUpdates() {
+          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchUpdates() {
             return console.getBatchUpdates(
                 ${entity.classname}Descriptor.this.desc, desc, Long.MIN_VALUE, Long.MAX_VALUE);
           }
 
-          def WindowedStream<${attribute.type}, GlobalWindowing> batchUpdates(long startStamp) {
+          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchUpdates(long startStamp) {
             return console.getBatchUpdates(
                 ${entity.classname}Descriptor.this.desc, desc, startStamp, Long.MAX_VALUE);
           }
 
-          def WindowedStream<${attribute.type}, GlobalWindowing> batchUpdates(long startStamp, long endStamp) {
+          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchUpdates(long startStamp, long endStamp) {
             return console.getBatchUpdates(
                 ${entity.classname}Descriptor.this.desc, desc, startStamp, endStamp);
           }
@@ -164,6 +169,18 @@ class Environment implements RepositoryProvider {
 
   def Repository getRepo() {
     return console.getRepo();
+  }
+
+  def Stream<StreamElement> unionStream(AttributeDescriptorProvider... descriptors) {
+    return console.getUnionStream(Position.NEWEST, true, false, descriptors);
+  }
+
+  def Stream<StreamElement> unionStreamFromOldest(AttributeDescriptorProvider... descriptors) {
+    return console.getUnionStream(Position.OLDEST, true, true, descriptors);
+  }
+
+  def Stream<StreamElement> unionStreamFromOldest(boolean stopAtCurrent, AttributeDescriptorProvider... descriptors) {
+    return console.getUnionStream(Position.OLDEST, true, stopAtCurrent, descriptors);
   }
 
 }

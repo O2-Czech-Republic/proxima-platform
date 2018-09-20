@@ -15,18 +15,23 @@
  */
 package cz.o2.proxima.tools.io;
 
+import cz.o2.proxima.annotations.Experimental;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.seznam.euphoria.core.client.io.DataSink;
 import cz.seznam.euphoria.core.client.io.Writer;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Attribute sink using direct write to commit log.
  */
 @Slf4j
+@Experimental("Does not follow correct exactly-once semantics for now.")
 public class DirectAttributeSink implements DataSink<StreamElement> {
 
   public static DataSink<StreamElement> of(Repository repo) {
@@ -60,14 +65,24 @@ public class DirectAttributeSink implements DataSink<StreamElement> {
 
       @Override
       public void write(StreamElement elem) throws IOException {
-        repo.getWriter(elem.getAttributeDescriptor())
+        OnlineAttributeWriter writer = repo.getWriter(elem.getAttributeDescriptor())
             .orElseThrow(() -> new IllegalStateException(
-                "Missing writer for " + elem.getAttributeDescriptor()))
-            .write(transformFn.apply(elem), (succ, exc) -> {
-              if (!succ) {
-                throw new IllegalStateException(exc);
-              }
-            });
+                "Missing writer for " + elem.getAttributeDescriptor()));
+        StreamElement toWrite = transformFn.apply(elem);
+        AtomicInteger retries = new AtomicInteger();
+        AtomicReference<Runnable> write = new AtomicReference<>();
+        write.set(() -> writer.write(toWrite, (succ, exc) -> {
+          if (!succ) {
+            if (retries.incrementAndGet() >= 3) {
+              throw new IllegalStateException(exc);
+            }
+            log.warn(
+                "Failed to write {}, retries {}, retrying.",
+                toWrite, retries.get(), exc);
+            write.get().run();
+          }
+        }));
+        write.get().run();
       }
 
       @Override

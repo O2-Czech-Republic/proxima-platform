@@ -16,7 +16,6 @@
 package cz.o2.proxima.storage.commitlog;
 
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Partitioner;
 
 /**
  * Partitioner that always send the ingest into first partition.

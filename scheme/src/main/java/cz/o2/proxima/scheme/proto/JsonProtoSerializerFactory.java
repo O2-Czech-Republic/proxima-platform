@@ -64,7 +64,7 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
     return new ValueSerializer() {
 
       final String protoClass = uri.getSchemeSpecificPart();
-      final Class clz = Classpath.findClass(protoClass);
+      final Class clz = Classpath.findClass(protoClass, AbstractMessage.class);
       final JsonProtoSerializerFactory factory = JsonProtoSerializerFactory.this;
       final boolean strictScheme = Optional
           .ofNullable(UriUtil.parseQuery(uri).get("strictScheme"))

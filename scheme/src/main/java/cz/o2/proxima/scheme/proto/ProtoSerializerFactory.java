@@ -49,7 +49,9 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     return new ValueSerializer<M>() {
 
       final String protoClass = uri.getSchemeSpecificPart();
-      final Class<M> clz = Classpath.findClass(protoClass);
+      @SuppressWarnings("unchecked")
+      final Class<M> clz = (Class<M>) Classpath.findClass(
+          protoClass, AbstractMessage.class);
       final ProtoSerializerFactory factory = ProtoSerializerFactory.this;
       @Nullable
       transient M defVal = null;

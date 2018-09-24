@@ -56,7 +56,8 @@ public class GroovyEnv {
             String name = a.toAttributePrefix(false);
             ret.put("classname", toFirstUpper(name));
             ret.put("type", toClassSpec(a.getValueSerializer().getClassType()));
-            ret.put("typeclass", toClassSpec(a.getValueSerializer().getClassType()));
+            ret.put("typeclass", toClassSpec(
+                a.getValueSerializer().getClassType()) + ".class");
             ret.put("origname", a.getName());
             ret.put("name", name);
             ret.put("fieldname", name.toLowerCase());

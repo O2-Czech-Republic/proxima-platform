@@ -101,32 +101,17 @@ public class InMemStorage extends StorageDescriptor {
               data, getUri(), observers.size());
         }
       }
-      if (data.isDeleteWildcard()) {
-        String prefix = getUri().getPath() + "/" + data.getKey()
-            + "#" + data.getAttributeDescriptor().toAttributePrefix();
-        for (Map.Entry<String, Pair<Long, byte[]>> e
-            : this.data.tailMap(prefix).entrySet()) {
-          if (!e.getKey().startsWith(prefix)) {
-            break;
-          }
-          if (e.getValue().getFirst() < data.getStamp()) {
-            String attr = e.getKey().substring(prefix.lastIndexOf('#') + 1);
-            write(StreamElement.delete(
-                data.getEntityDescriptor(), data.getAttributeDescriptor(),
-                data.getUuid(), data.getKey(), attr, data.getStamp()),
-                (succ, exc) -> { });
-          }
-        }
-      } else {
-        this.data.compute(
-            getUri().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
-            (key, old) -> {
-              if (old != null && old.getFirst() > data.getStamp()) {
-                return old;
-              }
-              return Pair.of(data.getStamp(), data.getValue());
-            });
-      }
+      String attr = data.isDeleteWildcard()
+          ? data.getAttributeDescriptor().toAttributePrefix()
+          : data.getAttribute();
+      this.data.compute(
+          toMapKey(getUri(), data.getKey(), attr),
+          (key, old) -> {
+            if (old != null && old.getFirst() > data.getStamp()) {
+              return old;
+            }
+            return Pair.of(data.getStamp(), data.getValue());
+          });
       synchronized (observers) {
         observers.values().forEach(o -> o.write(data));
       }
@@ -322,7 +307,7 @@ public class InMemStorage extends StorageDescriptor {
       try {
         flushBasedOnPosition(
             position,
-            (el, committer) -> observer.onNext(el, committer::accept));
+            (el, committer) -> observer.onNext(el, () -> 0, committer::accept));
       } catch (InterruptedException ex) {
         log.warn("Interrupted while reading old data", ex);
         Thread.currentThread().interrupt();
@@ -459,9 +444,13 @@ public class InMemStorage extends StorageDescriptor {
         AttributeDescriptor<T> desc,
         long stamp) {
 
-      String mapKey = getUri().getPath() + "/" + key + "#" + attribute;
-      return Optional.ofNullable(data.get(mapKey))
+      Optional<Pair<Long, byte[]>> wildcard
+          = desc.isWildcard() && !attribute.equals(desc.toAttributePrefix())
+              ? getMapKey(key, desc.toAttributePrefix())
+              : Optional.empty();
+      return getMapKey(key, attribute)
           .filter(p -> p.getSecond() != null)
+          .filter(p -> !wildcard.isPresent() || wildcard.get().getFirst() < p.getFirst())
           .map(b -> {
             try {
               return KeyValue.of(
@@ -475,6 +464,14 @@ public class InMemStorage extends StorageDescriptor {
               throw new RuntimeException(ex);
             }
           });
+    }
+
+    private Optional<Pair<Long, byte[]>> getMapKey(String key, String attribute) {
+      return Optional.ofNullable(data.get(toMapKey(key, attribute)));
+    }
+
+    private String toMapKey(String key, String attribute) {
+      return InMemStorage.toMapKey(getUri(), key, attribute);
     }
 
     @SuppressWarnings("unchecked")
@@ -510,38 +507,47 @@ public class InMemStorage extends StorageDescriptor {
         Consumer<KeyValue<Object>> consumer) {
 
       String off = offset == null ? "" : ((RawOffset) offset).getOffset();
-      String start = getUri().getPath() + "/" + key + "#" + prefix;
+      String start = toMapKey(key, prefix);
       int count = 0;
       for (Map.Entry<String, Pair<Long, byte[]>> e : data.tailMap(start).entrySet()) {
-        if (e.getKey().startsWith(start)) {
-          int hash = e.getKey().lastIndexOf("#");
-          String attribute = e.getKey().substring(hash + 1);
-          if (attribute.equals(off) || e.getValue().getSecond() == null) {
-            continue;
-          }
-          Optional<AttributeDescriptor<Object>> attr;
-          attr = getEntityDescriptor().findAttribute(attribute, true);
-          if (attr.isPresent()) {
-            consumer.accept(KeyValue.of(
-                getEntityDescriptor(),
-                (AttributeDescriptor) attr.get(),
-                key,
-                attribute,
-                new RawOffset(attribute),
-                attr.get().getValueSerializer().deserialize(
-                    e.getValue().getSecond()).get(),
-                e.getValue().getSecond()));
+        if (e.getValue().getFirst() <= stamp) {
+          if (e.getKey().startsWith(start)) {
+            int hash = e.getKey().lastIndexOf("#");
+            String attribute = e.getKey().substring(hash + 1);
+            if (attribute.equals(off) || e.getValue().getSecond() == null) {
+              continue;
+            }
+            Optional<AttributeDescriptor<Object>> attr;
+            attr = getEntityDescriptor().findAttribute(attribute, true);
+            if (attr.isPresent()) {
+              Optional<Pair<Long, byte[]>> wildcard = attr.get().isWildcard()
+                  ? getMapKey(key, attr.get().toAttributePrefix())
+                  : Optional.empty();
+              if (!wildcard.isPresent()
+                  || wildcard.get().getFirst() < e.getValue().getFirst()) {
 
-            if (++count == limit) {
-              break;
+                consumer.accept(KeyValue.of(
+                    getEntityDescriptor(),
+                    (AttributeDescriptor) attr.get(),
+                    key,
+                    attribute,
+                    new RawOffset(attribute),
+                    attr.get().getValueSerializer().deserialize(
+                        e.getValue().getSecond()).get(),
+                    e.getValue().getSecond()));
+
+                if (++count == limit) {
+                  break;
+                }
+              }
+            } else {
+              log.warn(
+                  "Unknown attribute {} in entity {}",
+                  attribute, getEntityDescriptor());
             }
           } else {
-            log.warn(
-                "Unknown attribute {} in entity {}",
-                attribute, getEntityDescriptor());
+            break;
           }
-        } else {
-          break;
         }
       }
     }
@@ -836,5 +842,8 @@ public class InMemStorage extends StorageDescriptor {
         elem.getValue());
   }
 
+  private static String toMapKey(URI uri, String key, String attribute) {
+    return uri.getPath() + "/" + key + "#" + attribute;
+  }
 
 }

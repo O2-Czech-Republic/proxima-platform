@@ -29,7 +29,9 @@ import cz.o2.proxima.storage.randomaccess.KeyValue;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import static org.junit.Assert.*;
 import org.junit.Test;
@@ -159,6 +161,41 @@ public class LocalCachedPartitionedViewTest {
     assertFalse(view.get("key", "device.2", device, now + 500).isPresent());
     assertFalse(view.get("key", "device.3", device, now + 500).isPresent());
   }
+
+  @Test
+  public void testGetWithDeleteAfterReinit() {
+    writer.write(update("key", "device.1", device, now - 1000), (succ, exc) -> { });
+    writer.write(update("key", "device.2", device, now - 500), (succ, exc) -> { });
+    writer.write(delete("key", "device.1", device, now + 500), (succ, exc) -> { });
+    writer.write(update("key", "device.1", device, now), (succ, exc) -> { });
+    writer.write(update("key", "device.3", device, now - 500), (succ, exc) -> { });
+    view.assign(singlePartition());
+    assertFalse(view.get("key", "device.1", device, now + 500).isPresent());
+    assertTrue(view.get("key", "device.2", device, now + 500).isPresent());
+    assertTrue(view.get("key", "device.3", device, now + 500).isPresent());
+
+    Set<KeyValue<?>> elements = new HashSet<>();
+    view.scanWildcard("key", device, now + 1000, elements::add);
+    assertEquals(2, elements.size());
+  }
+
+  @Test
+  public void testGetWithWildcardDeleteAfterReinit() {
+    writer.write(update("key", "device.1", device, now - 1000), (succ, exc) -> { });
+    writer.write(update("key", "device.2", device, now - 500), (succ, exc) -> { });
+    writer.write(deleteWildcard("key", device, now), (succ, exc) -> { });
+    writer.write(update("key", "device.1", device, now + 500), (succ, exc) -> { });
+    writer.write(update("key", "device.3", device, now - 500), (succ, exc) -> { });
+    view.assign(singlePartition());
+    assertTrue(view.get("key", "device.1", device, now + 500).isPresent());
+    assertFalse(view.get("key", "device.2", device, now + 500).isPresent());
+    assertFalse(view.get("key", "device.3", device, now + 500).isPresent());
+
+    List<KeyValue<?>> elements = new ArrayList<>();
+    view.scanWildcard("key", device, now + 1000, elements::add);
+    assertEquals(1, elements.size());
+  }
+
 
   private StreamElement deleteWildcard(
       String key, AttributeDescriptor<?> desc, long stamp) {

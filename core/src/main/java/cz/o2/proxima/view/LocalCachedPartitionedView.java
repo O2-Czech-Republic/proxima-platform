@@ -124,6 +124,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
     AtomicLong prefetchedCount = new AtomicLong();
 
     BulkLogObserver prefetchObserver = new BulkLogObserver() {
+
       @Override
       public boolean onNext(
           StreamElement ingest,
@@ -190,7 +191,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
           partitions, Position.OLDEST, true, prefetchObserver);
       latch.await();
       log.info(
-          "Finished prefetching of data after {} records. Starting consumption"
+          "Finished prefetching of data after {} records. Starting consumption "
               + "of updates.",
           prefetchedCount.get());
       List<Offset> offsets = h.getCommittedOffsets();

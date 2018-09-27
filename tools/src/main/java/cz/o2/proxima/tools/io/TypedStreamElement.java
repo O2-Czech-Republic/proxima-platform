@@ -31,7 +31,7 @@ public class TypedStreamElement<T> extends StreamElement {
     super(
         element.getEntityDescriptor(), element.getAttributeDescriptor(),
         element.getUuid(), element.getKey(), element.getAttribute(),
-        element.getStamp(), element.getValue());
+        element.getStamp(), false, element.getValue());
   }
 
   @Override

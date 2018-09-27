@@ -1354,7 +1354,7 @@ public class ConfigRepository implements Repository, Serializable {
                       // each incoming attribute is proxy
                       AttributeProxyDescriptorImpl<?> proxyDesc;
                       proxyDesc = ((AttributeDescriptorBase<?>) desc).toProxy();
-                      return replPrefix + strippingReplPrefix(
+                      return strippingReplPrefix(
                           proxyDesc.getWriteTransform().fromProxy(raw));
                     }))
             .build());
@@ -1380,9 +1380,7 @@ public class ConfigRepository implements Repository, Serializable {
         .stream()
         .map(a -> findAttributeRequired(entity, a.getName()).toProxy())
         .forEach(a -> {
-          String source = toReplicationWriteName(
-              replicationName,
-              strippingReplPrefix(a.getReadTarget().getName()));
+          String source = strippingReplPrefix(a.getReadTarget().getName());
           AttributeDescriptorBase<?> sourceAttr;
           sourceAttr = findAttributeRequired(entity, source);
           String renamed = replPrefix + a.getName();
@@ -1422,8 +1420,10 @@ public class ConfigRepository implements Repository, Serializable {
         String.format("_%s_replicated", replicationName), false);
     String replPrefix = transform + "$";
     Map<AttributeDescriptor<?>, AttributeDescriptor<?>> sourceMapping;
-    sourceMapping = getReplMapping(
-        entity, write.getAttributes(), replPrefix, false);
+    List<AttributeDescriptor<?>> readAttrs = strippingReplPrefix(
+        entity, write.getAttributes());
+    readAttrs.addAll(write.getAttributes());
+    sourceMapping = getReplMapping(entity, readAttrs, replPrefix, false);
 
     this.transformations.put(
         transform,
@@ -1434,8 +1434,11 @@ public class ConfigRepository implements Repository, Serializable {
             .setTransformation(
                 renameTransform(
                     transform,
-                    sourceMapping::get,
-                    (a, desc) -> renameReplicated(replPrefix, a)))
+                    src -> Objects.requireNonNull(
+                        sourceMapping.get(src),
+                        () -> "Missing " + src + " in " + sourceMapping),
+                    // store under original name
+                    (a, desc) -> a))
             .build());
   }
 
@@ -1459,16 +1462,6 @@ public class ConfigRepository implements Repository, Serializable {
       String mappedPrefix,
       boolean read) {
 
-    return getReplMapping(entity, attrs, mappedPrefix, read, false);
-  }
-
-  private static Map<AttributeDescriptor<?>, AttributeDescriptor<?>> getReplMapping(
-      EntityDescriptor entity,
-      Collection<AttributeDescriptor<?>> attrs,
-      String mappedPrefix,
-      boolean read,
-      boolean strict) {
-
     return attrs
         .stream()
         .map(a -> {
@@ -1481,7 +1474,7 @@ public class ConfigRepository implements Repository, Serializable {
           } else {
             attrName = a.getName();
           }
-          String renamed = renameReplicated(mappedPrefix, attrName, strict);
+          String renamed = renameReplicated(mappedPrefix, attrName);
           return Pair.of(a, entity
               .findAttribute(renamed, true)
               .orElseThrow(() -> new IllegalStateException(
@@ -1491,20 +1484,9 @@ public class ConfigRepository implements Repository, Serializable {
   }
 
   private static String renameReplicated(String prefix, String input) {
-    return renameReplicated(prefix, input, true);
-  }
-
-  private static String renameReplicated(
-      String prefix, String input, boolean strict) {
-
     int dollar = input.indexOf('$');
     if (dollar < 0) {
-      if (strict) {
-        throw new IllegalArgumentException(
-            "Invalid input, missing $ separator in `" + input + "'");
-      } else {
-        return prefix + input;
-      }
+      return prefix + input;
     }
     return prefix + input.substring(dollar + 1);
   }
@@ -1516,6 +1498,20 @@ public class ConfigRepository implements Repository, Serializable {
       return input;
     }
     return input.substring(dollar + 1);
+  }
+
+  private static List<AttributeDescriptor<?>> strippingReplPrefix(
+      EntityDescriptor entity, List<AttributeDescriptor<?>> what) {
+
+    return what.stream()
+        .map(AttributeDescriptor::getName)
+        .map(ConfigRepository::strippingReplPrefix)
+        .map(a -> findAttributeRequired(entity, a))
+        .collect(Collectors.toList());
+  }
+
+  private static ProxyTransform strippingReplPrefixTransform() {
+    return ProxyTransform.droppingUntilCharacter('$', "");
   }
 
   private static Transformation renameTransform(
@@ -1665,11 +1661,10 @@ public class ConfigRepository implements Repository, Serializable {
           AttributeDescriptor.newProxy(
               proxy.getName(),
               (AttributeDescriptor) source,
-              ProxyTransform.renaming(
-                  proxy.toAttributePrefix(), source.toAttributePrefix()),
+              strippingReplPrefixTransform(),
               target,
-              ProxyTransform.renaming(
-                  proxy.toAttributePrefix(), target.toAttributePrefix())));
+              // store under original name
+              strippingReplPrefixTransform()));
     }
   }
 

@@ -67,13 +67,13 @@ public class SingleTopicMultipleReplicationsTest {
       .orElseThrow(() -> new IllegalStateException("Missing entity entity"));
   final AttributeDescriptor<byte[]> scalar = findAttribute("scalar");
   final AttributeDescriptor<byte[]> wildcard = findAttribute("wildcard.*");
+  final AttributeDescriptor<byte[]> raw = findAttribute("_raw.*");
   final AttributeDescriptor<byte[]> wildcardInput = findAttribute(
       "_wildcardReplication_read$wildcard.*");
   final AttributeDescriptor<byte[]> rawReplicated = findAttribute(
       "_wildcardReplication_replicated$_raw.*");
   final AttributeDescriptor<byte[]> rawWrite = findAttribute(
       "_wildcardReplication_write$_raw.*");
-
 
   long now;
 
@@ -101,8 +101,9 @@ public class SingleTopicMultipleReplicationsTest {
     assertEquals(1, transformedCount);
     assertEquals(1, transformed.size());
     assertEquals(
-        "_wildcardReplication_replicated$_raw.2",
-        transformed.get(0).getAttribute());
+        "_wildcardReplication_replicated$_raw.*",
+        transformed.get(0).getAttributeDescriptor().getName());
+    assertEquals("_raw.2", transformed.get(0).getAttribute());
   }
 
   @Test
@@ -117,14 +118,18 @@ public class SingleTopicMultipleReplicationsTest {
     List<StreamElement> transformed = new ArrayList<>();
     int transformedCount = wildcardReplicatedTransform.getTransformation()
         .apply(StreamElement.update(
-            entity, rawWrite, uuid(), "key", "_wildcardReplication_write$_raw.2",
+            entity, raw, uuid(), "key", "_raw.2",
             now, value()), transformed::add);
 
     assertEquals(1, transformedCount);
     assertEquals(1, transformed.size());
     assertEquals(
-        "_wildcardReplication_replicated$_raw.2",
+        "_wildcardReplication_replicated$_raw.*",
+        transformed.get(0).getAttributeDescriptor().getName());
+    assertEquals(
+        "_raw.2",
         transformed.get(0).getAttribute());
+
   }
 
   @Test(timeout = 5000)

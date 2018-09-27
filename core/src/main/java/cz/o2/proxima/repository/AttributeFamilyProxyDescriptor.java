@@ -740,7 +740,9 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       if (data.isDeleteWildcard()) {
         return StreamElement.deleteWildcard(
             data.getEntityDescriptor(),
-            target, data.getUuid(), data.getKey(), data.getStamp());
+            target, data.getUuid(), data.getKey(),
+            transform.apply(data.getAttribute()),
+            data.getStamp());
       } else {
         return StreamElement.delete(
             data.getEntityDescriptor(), target,

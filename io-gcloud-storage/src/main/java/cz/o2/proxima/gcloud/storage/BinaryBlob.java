@@ -200,7 +200,8 @@ public class BinaryBlob {
       if (parsed.getDelete()) {
         if (parsed.getDeleteWildcard()) {
           return StreamElement.deleteWildcard(entity, getAttr(parsed),
-              parsed.getUuid(), parsed.getKey(), parsed.getStamp());
+              parsed.getUuid(), parsed.getKey(), parsed.getAttribute(),
+              parsed.getStamp());
         }
         return StreamElement.delete(entity, getAttr(parsed), parsed.getUuid(),
             parsed.getKey(), parsed.getAttribute(), parsed.getStamp());

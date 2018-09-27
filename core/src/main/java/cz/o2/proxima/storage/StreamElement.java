@@ -54,7 +54,7 @@ public class StreamElement implements Serializable {
 
     return new StreamElement(
         entityDesc, attributeDesc, uuid, key,
-        attribute, stamp, value);
+        attribute, stamp, false, value);
   }
 
   /**
@@ -77,7 +77,7 @@ public class StreamElement implements Serializable {
 
     return new StreamElement(
         entityDesc, attributeDesc, uuid, key,
-        attribute, stamp, null);
+        attribute, stamp, false, null);
   }
 
   /**
@@ -98,9 +98,12 @@ public class StreamElement implements Serializable {
       String attribute,
       long stamp) {
 
+    if (!attribute.endsWith("*")) {
+      attribute += "*";
+    }
     return new StreamElement(
         entityDesc, attributeDesc, uuid,
-        key, attribute, stamp, null);
+        key, attribute, stamp, true, null);
   }
 
   /**
@@ -146,6 +149,8 @@ public class StreamElement implements Serializable {
   @Nullable
   private final byte[] value;
 
+  private final boolean deleteWildcard;
+
   protected StreamElement(
       EntityDescriptor entityDesc,
       AttributeDescriptor<?> attributeDesc,
@@ -153,6 +158,7 @@ public class StreamElement implements Serializable {
       String key,
       String attribute,
       long stamp,
+      boolean deleteWildcard,
       @Nullable byte[] value) {
 
     this.entityDescriptor = Objects.requireNonNull(entityDesc);
@@ -162,6 +168,7 @@ public class StreamElement implements Serializable {
     this.attribute = Objects.requireNonNull(attribute);
     this.stamp = stamp;
     this.value = value;
+    this.deleteWildcard = deleteWildcard;
   }
 
   @Override
@@ -187,8 +194,9 @@ public class StreamElement implements Serializable {
    * @return {@code true} if this is delete wildcard event
    */
   public boolean isDeleteWildcard() {
-    return isDelete()
-        && attribute.equals(attributeDescriptor.toAttributePrefix() + "*");
+    return isDelete() && (
+        attribute.equals(attributeDescriptor.toAttributePrefix() + "*")
+        || deleteWildcard);
   }
 
   /**

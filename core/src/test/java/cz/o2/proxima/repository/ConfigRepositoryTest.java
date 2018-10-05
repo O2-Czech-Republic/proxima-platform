@@ -1078,11 +1078,13 @@ public class ConfigRepositoryTest {
         .findEntity("second")
         .orElseThrow(() -> new IllegalStateException("Missing entity second"));
 
-    testFullReplication(first, second);
-    testFullReplication(second, first);
+    testFullReplicationWithEntities(first, second);
+    testFullReplicationWithEntities(second, first);
   }
 
-  void testFullReplication(EntityDescriptor first, EntityDescriptor second) {
+  void testFullReplicationWithEntities(
+      EntityDescriptor first, EntityDescriptor second) {
+
     final AttributeDescriptor<Object> wildcardFirst = first
         .findAttribute("wildcard.*")
         .orElseThrow(() -> new IllegalStateException(
@@ -1113,7 +1115,8 @@ public class ConfigRepositoryTest {
 
     repo.getWriter(wildcardSecond).get().write(
         StreamElement.deleteWildcard(
-            first, wildcardSecond, "uuid", "key", now + 1),
+            first, wildcardSecond, "uuid", "key", wildcardSecond.toAttributePrefix(),
+            now + 1),
         (succ, exc) -> { });
 
     reader = repo.getFamiliesForAttribute(wildcardFirst)
@@ -1124,7 +1127,7 @@ public class ConfigRepositoryTest {
 
     assertTrue(reader.isPresent());
     assertFalse(reader.get()
-        .get("key", wildcardFirst.toAttributePrefix() + 1, wildcardFirst)
+        .get("key", wildcardFirst.toAttributePrefix() + 1, wildcardFirst, now + 1)
         .isPresent());
   }
 
@@ -1215,27 +1218,29 @@ public class ConfigRepositoryTest {
     // transformation from local writes to slave
     checkTransformation(
         dummy,
-        "_dummyReplicationMasterSlave_slave",
         transformations.get("_dummyReplicationMasterSlave_slave"),
+        "wildcard.*",
         "_dummyReplicationMasterSlave_write$wildcard.*",
-        "_dummyReplicationMasterSlave_slave$wildcard.*",
-        "wildcard.*");
+        "wildcard.*",
+        "_dummyReplicationMasterSlave_slave$wildcard.*");
 
     // transformation from local writes to replicated result
     checkTransformation(
         dummy,
-        "_dummyReplicationMasterSlave_replicated",
         transformations.get("_dummyReplicationMasterSlave_replicated"),
+        "wildcard.*",
         "_dummyReplicationMasterSlave_write$wildcard.*",
+        "wildcard.*",
         "_dummyReplicationMasterSlave_replicated$wildcard.*");
 
     // transformation from remote writes to local replicated result
     // with proxy
     checkTransformation(
         dummy,
-        "_dummyReplicationProxiedSlave_read",
         transformations.get("_dummyReplicationProxiedSlave_read"),
         "data",
+        "data",
+        "_d",
         "_dummyReplicationProxiedSlave_replicated$_d");
   }
 
@@ -1258,19 +1263,18 @@ public class ConfigRepositoryTest {
     // without proxy
     checkTransformation(
         gateway,
-        "_gatewayReplication_read",
         transformations.get("_gatewayReplication_read"),
         "armed",
-        "_gatewayReplication_replicated$armed");
+        "armed");
 
     // transformation from local writes to slave
     checkTransformation(
         gateway,
-        "_gatewayReplication_inmemSecond",
         transformations.get("_gatewayReplication_inmemSecond"),
+        "armed",
         "_gatewayReplication_write$armed",
-        "_gatewayReplication_inmemSecond$armed",
-        "armed");
+        "armed",
+        "_gatewayReplication_inmemSecond$armed");
   }
 
   @Test
@@ -1309,16 +1313,10 @@ public class ConfigRepositoryTest {
     assertEquals(1, proxy.getAttributes().size());
     AttributeProxyDescriptorImpl<?> attr;
     attr = (AttributeProxyDescriptorImpl<?>) _d;
-    assertEquals(
-        "_dummyReplicationProxiedSlave_write$_d",
-        attr.getWriteTransform().fromProxy("_d"));
-    assertEquals("_d",
-        attr.getWriteTransform().toProxy("_dummyReplicationProxiedSlave_write$_d"));
-    assertEquals(
-        "_dummyReplicationProxiedSlave_replicated$_d",
-        attr.getReadTransform().fromProxy("_d"));
-    assertEquals("_d",
-        attr.getReadTransform().toProxy("_dummyReplicationProxiedSlave_replicated$_d"));
+    assertEquals("_d", attr.getWriteTransform().fromProxy("_d"));
+    assertEquals("_d", attr.getWriteTransform().toProxy("_d"));
+    assertEquals("_d", attr.getReadTransform().fromProxy("_d"));
+    assertEquals("_d", attr.getReadTransform().toProxy("_d"));
 
     // attribute dummy.data should be proxy to _d
     attr = (AttributeProxyDescriptorImpl<?>) dummy.findAttribute("data").get();
@@ -1470,10 +1468,6 @@ public class ConfigRepositoryTest {
         .findAttribute("event.*", true)
         .orElseThrow(() -> new IllegalStateException(
             "Missing attribute event.*"));
-    AttributeDescriptor<Object> eventRead = dummy
-        .findAttribute("_dummy2Replication_read$event.*", true)
-        .orElseThrow(() -> new IllegalStateException(
-            "Missing read attribute event.*"));
 
     TransformationRunner.runTransformations(repo);
     runAttributeReplicas(repo);
@@ -1515,35 +1509,34 @@ public class ConfigRepositoryTest {
   // validate that given transformation transforms in the desired way
   private void checkTransformation(
       EntityDescriptor entity,
-      String name,
       TransformationDescriptor transform,
       String from,
       String to) {
 
-    checkTransformation(entity, name, transform, from, to, to);
+    checkTransformation(entity, transform, from, from, to, to);
   }
 
   private void checkTransformation(
       EntityDescriptor entity,
-      String name,
       TransformationDescriptor transform,
-      String from,
-      String to,
-      String toAttrName) {
+      String fromAttr,
+      String fromAttrDesc,
+      String toAttr,
+      String toAttrDesc) {
 
+    Optional<AttributeDescriptor<Object>> f = entity.findAttribute(fromAttrDesc, true);
     assertTrue(
-        "Entity " + entity + " doesn't contain attribute " + from,
-        entity.findAttribute(from, true).isPresent());
+        "Entity " + entity + " doesn't contain attribute " + fromAttrDesc,
+        f.isPresent());
     assertTrue(
-        "Entity " + entity + " doesn't contain attribute " + to,
-        entity.findAttribute(to, true).isPresent());
-    AttributeDescriptor<?> fromAttr = entity.findAttribute(from, true).get();
-    AttributeDescriptor<?> toAttr = entity.findAttribute(to, true).get();
+        "Entity " + entity + " doesn't contain attribute " + toAttrDesc,
+        entity.findAttribute(toAttrDesc, true).isPresent());
     assertEquals(transform.getEntity(), entity);
     assertEquals(
-        toAttrName,
+        toAttr,
         collectSingleAttributeUpdate(
-            transform.getTransformation(), entity, from, fromAttr));
+            transform.getTransformation(), entity, fromAttr,
+            entity.findAttribute(fromAttr, true).get()));
   }
 
   private static String collectSingleAttributeUpdate(

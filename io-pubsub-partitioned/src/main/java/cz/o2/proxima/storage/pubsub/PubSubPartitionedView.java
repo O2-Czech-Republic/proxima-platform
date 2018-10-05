@@ -423,7 +423,8 @@ class PubSubPartitionedView extends PubSubReader implements PartitionedView {
     if (attr.isPresent()) {
       if (data.isDeleteWildcard()) {
         return Optional.of(StreamElement.deleteWildcard(
-            entity, attr.get(), uuid, data.getKey(), stamp));
+            entity, attr.get(), uuid, data.getKey(),
+            data.getAttribute(), stamp));
       } else if (data.isDelete()) {
         return Optional.of(StreamElement.delete(
             entity, attr.get(), uuid, data.getKey(),

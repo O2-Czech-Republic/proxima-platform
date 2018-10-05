@@ -449,7 +449,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
               parsed.getKey(), parsed.getAttribute(), stamp));
         } else if (parsed.getDeleteWildcard()) {
           return Optional.of(StreamElement.deleteWildcard(
-              entity, attribute.get(), uuid, parsed.getKey(), stamp));
+              entity, attribute.get(), uuid, parsed.getKey(),
+              parsed.getAttribute(), stamp));
         }
         return Optional.of(StreamElement.update(
             entity, attribute.get(), uuid, parsed.getKey(), parsed.getAttribute(),

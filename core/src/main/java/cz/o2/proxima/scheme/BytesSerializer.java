@@ -32,9 +32,10 @@ public class BytesSerializer implements ValueSerializerFactory {
     return "bytes";
   }
 
+  @SuppressWarnings("unchecked")
   @Override
-  public ValueSerializer<byte[]> getValueSerializer(URI scheme) {
-    return new ValueSerializer<byte[]>() {
+  public <T> ValueSerializer<T> getValueSerializer(URI scheme) {
+    return (ValueSerializer) new ValueSerializer<byte[]>() {
 
       @Override
       public Optional<byte[]> deserialize(byte[] input) {

@@ -143,8 +143,8 @@ public class OffsetCommitter<ID> {
     }
     if (!commitable.isEmpty()) {
       Map.Entry<Long, OffsetMeta> toCommit = commitable.get(commitable.size() - 1);
-      toCommit.getValue().getCommit().apply();
       commitable.forEach(e -> current.remove(e.getKey()));
+      toCommit.getValue().getCommit().apply();
     }
   }
 
@@ -158,6 +158,13 @@ public class OffsetCommitter<ID> {
     if (current != null) {
       current.remove(offset);
     }
+  }
+
+  /**
+   * Clear completely all mappings.
+   */
+  public void clear() {
+    waitingOffsets.clear();
   }
 
 }

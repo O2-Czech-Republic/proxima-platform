@@ -298,7 +298,7 @@ public class KafkaLogReader extends AbstractStorage
     Map<TopicPartition, OffsetAndMetadata> kafkaCommitMap;
     kafkaCommitMap = Collections.synchronizedMap(new HashMap<>());
 
-    OffsetCommitter<TopicPartition> offsetCommitter = new OffsetCommitter<>();
+    final OffsetCommitter<TopicPartition> offsetCommitter = new OffsetCommitter<>();
 
     BiConsumer<TopicPartition, ConsumerRecord<String, byte[]>> preWrite = (tp, r) ->
         offsetCommitter.register(tp, r.offset(), 1,
@@ -320,7 +320,7 @@ public class KafkaLogReader extends AbstractStorage
     AtomicReference<ObserveHandle> handle = new AtomicReference<>();
     submitConsumerWithObserver(
         name, offsets, position, stopAtCurrent,
-        preWrite, onlineConsumer, executor, handle);
+        preWrite, offsetCommitter::clear, onlineConsumer, executor, handle);
     return dynamicHandle(handle);
   }
 
@@ -348,7 +348,7 @@ public class KafkaLogReader extends AbstractStorage
     Map<TopicPartition, OffsetAndMetadata> kafkaCommitMap;
     kafkaCommitMap = Collections.synchronizedMap(new HashMap<>());
 
-    BulkConsumer bulkConsumer = new BulkConsumer(
+    final BulkConsumer bulkConsumer = new BulkConsumer(
         topic, observer,
         (tp, o) -> {
           if (commitToKafka) {
@@ -367,6 +367,7 @@ public class KafkaLogReader extends AbstractStorage
     AtomicReference<ObserveHandle> handle = new AtomicReference<>();
     submitConsumerWithObserver(
         name, offsets, position, stopAtCurrent, (tp, r) -> { },
+        kafkaCommitMap::clear,
         bulkConsumer, executor, handle);
     return dynamicHandle(handle);
   }
@@ -375,6 +376,7 @@ public class KafkaLogReader extends AbstractStorage
       @Nullable String name, @Nullable Collection<Offset> offsets,
       Position position, boolean stopAtCurrent,
       BiConsumer<TopicPartition, ConsumerRecord<String, byte[]>> preWrite,
+      Runnable preStart,
       ElementConsumer consumer,
       ExecutorService executor,
       AtomicReference<ObserveHandle> handle) throws InterruptedException {
@@ -417,8 +419,10 @@ public class KafkaLogReader extends AbstractStorage
       });
       final AtomicReference<KafkaConsumer<String, byte[]>> consumerRef;
       consumerRef = new AtomicReference<>();
+      preStart.run();
       try (KafkaConsumer<String, byte[]> kafka = createConsumer(
           name, offsets, listener(name, consumerRef, consumer), position)) {
+
         consumerRef.set(kafka);
 
         final Map<TopicPartition, Long> endOffsets;
@@ -541,7 +545,7 @@ public class KafkaLogReader extends AbstractStorage
           try {
             submitConsumerWithObserver(
                 name, offsets, position, stopAtCurrent,
-                preWrite, consumer, executor, handle);
+                preWrite, preStart, consumer, executor, handle);
           } catch (InterruptedException ex) {
             log.warn("Interrupted while restarting observer");
             Thread.currentThread().interrupt();

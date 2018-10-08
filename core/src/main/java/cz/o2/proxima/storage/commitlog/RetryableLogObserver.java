@@ -38,8 +38,7 @@ public abstract class RetryableLogObserver
   }
 
   @Override
-  public final boolean onNext(
-      StreamElement ingest, LogObserver.OffsetCommitter confirm) {
+  public final boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
 
     boolean ret = onNextInternal(ingest, confirm);
     success();

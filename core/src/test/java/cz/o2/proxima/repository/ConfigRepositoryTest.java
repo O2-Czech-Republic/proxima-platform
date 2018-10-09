@@ -294,6 +294,20 @@ public class ConfigRepositoryTest {
   public void testProxyObserve()
       throws InterruptedException, UnsupportedEncodingException {
 
+    testProxyObserveWithAttributeName("event.abc");
+  }
+
+  @Test
+  // this tests lookup in attributefamilyproxydescriptor
+  // that automatically drops 'prefix$' from attribute name
+  public void testProxyObserveBackwardCompatible()
+      throws InterruptedException, UnsupportedEncodingException {
+
+    testProxyObserveWithAttributeName("_ignored_$event.abc");
+  }
+
+  private void testProxyObserveWithAttributeName(String name)
+      throws InterruptedException, UnsupportedEncodingException {
     EntityDescriptor proxied = repo.findEntity("proxied").get();
     AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
     CommitLogReader reader = repo.getFamiliesForAttribute(source)
@@ -320,7 +334,7 @@ public class ConfigRepositoryTest {
     repo.getWriter(source).get().write(StreamElement.update(
         proxied,
         source, UUID.randomUUID().toString(),
-        "key", "event.abc", System.currentTimeMillis(), "test".getBytes("UTF-8")),
+        "key", name, System.currentTimeMillis(), "test".getBytes("UTF-8")),
         (s, exc) -> {
           assertTrue(s);
         });
@@ -344,6 +358,7 @@ public class ConfigRepositoryTest {
     assertEquals("event.def", read.get(1).getAttribute());
     assertEquals("key", read.get(1).getKey());
   }
+
 
   @Test
   public void testProxyObserveBulk()

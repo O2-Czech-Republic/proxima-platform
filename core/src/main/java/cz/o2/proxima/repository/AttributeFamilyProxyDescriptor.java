@@ -54,7 +54,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -118,9 +117,17 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
     }
 
     private <T> T lookup(Map<String, T> map, String name) {
-      return Objects.requireNonNull(
-          map.get(name),
-          "Missing name " + name + " in " + map + " for family " + familyName);
+      T result = map.get(name);
+      if (result != null) {
+        return result;
+      }
+      int index = name.lastIndexOf('$');
+      if (index >= 0 && index < name.length() - 1) {
+        String truncated = name.substring(index + 1);
+        log.warn("Truncating name {} to {}", name, truncated);
+        return lookup(map, truncated);
+      }
+      throw new IllegalStateException("Missing name " + name + " in " + map);
     }
   }
 

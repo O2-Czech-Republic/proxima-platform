@@ -126,6 +126,8 @@ public class IngestClient implements AutoCloseable {
 
   private final ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1);
 
+  private long lastFlush = System.nanoTime();
+
   @VisibleForTesting
   IngestClient(String host, int port, Options options) {
     this.host = host;
@@ -134,7 +136,6 @@ public class IngestClient implements AutoCloseable {
     this.inFlightRequests = Collections.synchronizedMap(new HashMap<>());
     this.flushThread = new Thread(() -> {
       long flushTimeNanos = options.getFlushUsec() * 1_000L;
-      long lastFlush = System.nanoTime();
       while (!Thread.currentThread().isInterrupted()) {
         try {
           long nowNanos = System.nanoTime();
@@ -148,7 +149,6 @@ public class IngestClient implements AutoCloseable {
             if (bulkBuilder.getIngestCount() > 0) {
               flush();
             }
-            lastFlush = nowNanos;
           }
         } catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
@@ -291,9 +291,7 @@ public class IngestClient implements AutoCloseable {
     synchronized (this) {
       bulkBuilder.addIngest(ingest);
       if (bulkBuilder.getIngestCount() >= options.getMaxFlushRecords()) {
-        synchronized (bulkBuilder) {
-          bulkBuilder.notifyAll();
-        }
+        flush();
       }
     }
 
@@ -374,6 +372,7 @@ public class IngestClient implements AutoCloseable {
               + "This might suggest bug in code.");
     }
     bulkBuilder.clear();
+    lastFlush = System.nanoTime();
   }
 
 }

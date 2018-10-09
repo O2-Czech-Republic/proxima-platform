@@ -83,15 +83,16 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       Rpc.ListResponse.Builder response = Rpc.ListResponse.newBuilder()
           .setStatus(200);
 
-      reader.scanWildcard(
-          request.getKey(), wildcard,
-          reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, request.getOffset()),
-          request.getLimit() > 0 ? request.getLimit() : -1,
-          kv -> response.addValue(
-              Rpc.ListResponse.AttrValue.newBuilder()
-                  .setAttribute(kv.getAttribute())
-                  .setValue(ByteString.copyFrom(kv.getValueBytes()))));
-
+      synchronized (reader) {
+        reader.scanWildcard(
+            request.getKey(), wildcard,
+            reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, request.getOffset()),
+            request.getLimit() > 0 ? request.getLimit() : -1,
+            kv -> response.addValue(
+                Rpc.ListResponse.AttrValue.newBuilder()
+                    .setAttribute(kv.getAttribute())
+                    .setValue(ByteString.copyFrom(kv.getValueBytes()))));
+      }
       responseObserver.onNext(response.build());
       responseObserver.onCompleted();
     } catch (Status s) {
@@ -136,17 +137,19 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
 
       RandomAccessReader reader = instantiateReader(attribute);
 
-      KeyValue<Object> kv = reader
-          .get(request.getKey(), request.getAttribute(), attribute)
-          .orElseThrow(() -> new Status(
-              404,
-              "Key " + request.getKey() + " and/or attribute "
-                  + request.getAttribute() + " not found"));
+      synchronized (reader) {
+        KeyValue<Object> kv = reader
+            .get(request.getKey(), request.getAttribute(), attribute)
+            .orElseThrow(() -> new Status(
+                404,
+                "Key " + request.getKey() + " and/or attribute "
+                    + request.getAttribute() + " not found"));
 
-      responseObserver.onNext(Rpc.GetResponse.newBuilder()
-          .setStatus(200)
-          .setValue(ByteString.copyFrom(kv.getValueBytes()))
-          .build());
+        responseObserver.onNext(Rpc.GetResponse.newBuilder()
+            .setStatus(200)
+            .setValue(ByteString.copyFrom(kv.getValueBytes()))
+            .build());
+      }
 
       responseObserver.onCompleted();
     } catch (Status s) {

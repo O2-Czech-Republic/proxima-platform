@@ -42,7 +42,6 @@
           <artifactSet>
             <excludes>
               <exclude>org.slf4j:slf4j-api:jar:</exclude>
-              <exclude>cz.seznam.euphoria:*</exclude>
             </excludes>
           </artifactSet>
           <relocations>

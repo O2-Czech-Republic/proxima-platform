@@ -127,10 +127,12 @@
       <version>2.3.23</version>
     </dependency>
 
+    <!-- exclude this dependency from transitive dependecies, need to be added manually -->
     <dependency>
       <groupId>cz.seznam.euphoria</groupId>
       <artifactId>euphoria-local</artifactId>
       <version>${euphoria.version}</version>
+      <scope>provided</scope>
     </dependency>
 
     <dependency>

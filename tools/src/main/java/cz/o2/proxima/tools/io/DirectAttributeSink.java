@@ -45,6 +45,7 @@ public class DirectAttributeSink implements DataSink<StreamElement> {
   }
 
   private final Repository repo;
+  private final AtomicInteger unclosedWriters = new AtomicInteger();
   private final UnaryFunction<StreamElement, StreamElement> transformFn;
 
   private DirectAttributeSink(Repository repo) {
@@ -61,6 +62,7 @@ public class DirectAttributeSink implements DataSink<StreamElement> {
 
   @Override
   public Writer<StreamElement> openWriter(int partitionId) {
+    unclosedWriters.incrementAndGet();
     return new Writer<StreamElement>() {
 
       @Override
@@ -92,7 +94,9 @@ public class DirectAttributeSink implements DataSink<StreamElement> {
 
       @Override
       public void close() throws IOException {
-        repo.close();
+        if (unclosedWriters.decrementAndGet() == 0) {
+          repo.close();
+        }
       }
 
     };

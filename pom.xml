@@ -112,7 +112,8 @@
                       <message>No Snapshots Allowed!</message>
                     </requireReleaseDeps>
                   </rules>
-                  <fail>true</fail>
+                  <!--fail>true</fail-->
+                  <fail>false</fail>
                 </configuration>
               </execution>
             </executions>

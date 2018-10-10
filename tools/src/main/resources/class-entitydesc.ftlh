@@ -99,18 +99,15 @@ class Environment implements RepositoryProvider {
           }
 
           def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchUpdates() {
-            return console.getBatchUpdates(
-                ${entity.classname}Descriptor.this.desc, desc, Long.MIN_VALUE, Long.MAX_VALUE);
+            return console.getBatchUpdates(Long.MIN_VALUE, Long.MAX_VALUE, this);
           }
 
           def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchUpdates(long startStamp) {
-            return console.getBatchUpdates(
-                ${entity.classname}Descriptor.this.desc, desc, startStamp, Long.MAX_VALUE);
+            return console.getBatchUpdates(startStamp, Long.MAX_VALUE, this);
           }
 
           def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchUpdates(long startStamp, long endStamp) {
-            return console.getBatchUpdates(
-                ${entity.classname}Descriptor.this.desc, desc, startStamp, endStamp);
+            return console.getBatchUpdates(startStamp, endStamp, this);
           }
 
           <#if attribute.wildcard>
@@ -172,15 +169,35 @@ class Environment implements RepositoryProvider {
   }
 
   def Stream<StreamElement> unionStream(AttributeDescriptorProvider... descriptors) {
-    return console.getUnionStream(Position.NEWEST, true, false, descriptors);
+    return console.getUnionStream(Position.NEWEST, true, false, descriptors)
   }
 
   def Stream<StreamElement> unionStreamFromOldest(AttributeDescriptorProvider... descriptors) {
-    return console.getUnionStream(Position.OLDEST, true, true, descriptors);
+    return console.getUnionStream(Position.OLDEST, true, true, descriptors)
   }
 
-  def Stream<StreamElement> unionStreamFromOldest(boolean stopAtCurrent, AttributeDescriptorProvider... descriptors) {
-    return console.getUnionStream(Position.OLDEST, true, stopAtCurrent, descriptors);
+  def Stream<StreamElement> unionStreamFromOldest(
+      boolean stopAtCurrent, AttributeDescriptorProvider... descriptors) {
+
+    return console.getUnionStream(Position.OLDEST, true, stopAtCurrent, descriptors)
+  }
+
+  def Stream<StreamElement> unionBatchUpdates(
+      AttributeDescriptorProvider... descriptors) {
+
+    return unionBatchUpdates(Long.MIN_VALUE, Long.MAX_VALUE, descriptors)
+  }
+
+  def Stream<StreamElement> unionBatchUpdates(
+      long endTimestamp, AttributeDescriptorProvider... descriptors) {
+
+    return unionBatchUpdates(Long.MIN_VALUE, endTimestamp, descriptors)
+  }
+
+  def Stream<StreamElement> unionBatchUpdates(
+      long startStamp, long endTimestamp, AttributeDescriptorProvider... descriptors) {
+
+    return console.getBatchUpdates(startStamp, endTimestamp, descriptors)
   }
 
 }

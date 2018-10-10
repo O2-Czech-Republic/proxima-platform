@@ -117,6 +117,12 @@ public class InMemStorage extends StorageDescriptor {
       }
       statusCallback.commit(true, null);
     }
+
+    @Override
+    public void close() {
+      // nop
+    }
+
   }
 
   private static class InMemCommitLogReader

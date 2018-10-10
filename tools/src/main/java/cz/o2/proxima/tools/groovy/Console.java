@@ -50,6 +50,7 @@ import cz.seznam.euphoria.core.client.operator.Filter;
 import cz.seznam.euphoria.core.client.operator.FlatMap;
 import cz.seznam.euphoria.core.client.operator.MapElements;
 import cz.seznam.euphoria.core.client.operator.ReduceByKey;
+import cz.seznam.euphoria.core.client.operator.Union;
 import cz.seznam.euphoria.core.client.util.Pair;
 import cz.seznam.euphoria.core.executor.Executor;
 import cz.seznam.euphoria.executor.local.LocalExecutor;
@@ -417,34 +418,46 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> WindowedStream<StreamElement, GlobalWindowing> getBatchUpdates(
-      EntityDescriptor entityDesc,
-      AttributeDescriptor<T> attrDesc,
+  public WindowedStream<StreamElement, GlobalWindowing> getBatchUpdates(
       long startStamp,
-      long endStamp) {
+      long endStamp,
+      AttributeDescriptorProvider<?>... attrs) {
 
-    AttributeFamilyDescriptor family = repo.getFamiliesForAttribute(attrDesc)
-        .stream()
-        .filter(af -> af.getAccess().canReadBatchUpdates())
-        .filter(af -> af.getBatchObservable().isPresent())
-        .findAny()
-        .orElseThrow(() -> new IllegalStateException("Attribute "
-            + attrDesc.getName() + " has no batch log observable reader"));
+    Set<String> descriptors = Arrays.stream(attrs)
+        .map(AttributeDescriptorProvider::desc)
+        .map(AttributeDescriptor::toAttributePrefix)
+        .collect(Collectors.toSet());
 
     DatasetBuilder<StreamElement> builder = () -> {
-      Dataset<StreamElement> ds = flow.get().createInput(BatchSource.of(
-          family.getBatchObservable().get(),
-          family,
-          startStamp, endStamp));
+      Dataset<StreamElement> ds = Arrays.stream(attrs)
+          .map(AttributeDescriptorProvider::desc)
+          .map(attrDesc ->
+              repo.getFamiliesForAttribute(attrDesc)
+                  .stream()
+                  .filter(af -> af.getAccess().canReadBatchUpdates())
+                  .filter(af -> af.getBatchObservable().isPresent())
+                  .findAny()
+                  .orElseThrow(() -> new IllegalStateException("Attribute "
+                      + attrDesc.getName() + " has no batch log observable reader")))
+          .distinct()
+          .map(family ->
+              flow.get().createInput(BatchSource.of(
+                  family.getBatchObservable().get(),
+                  family,
+                  startStamp, endStamp)))
+          .reduce((left, right) -> Union.of(left, right).output())
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Please pass non-empty list of attributes, got " + attrs));
 
       ds = Filter.of(ds)
           .by(i -> i.getStamp() >= startStamp && i.getStamp() < endStamp)
           .output();
 
-      String prefix = attrDesc.toAttributePrefix();
       Dataset<StreamElement> filtered = Filter.of(ds)
-          .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
+          .by(t -> descriptors.contains(
+              t.getAttributeDescriptor().toAttributePrefix()))
           .output();
+      
       return AssignEventTime.of(filtered)
           .using(StreamElement::getStamp)
           .output();

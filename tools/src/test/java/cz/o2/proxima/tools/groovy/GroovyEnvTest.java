@@ -40,10 +40,22 @@ public class GroovyEnvTest {
   final Repository repo = ConfigRepository.of(cfg);
   final EntityDescriptor gateway = repo.findEntity("gateway")
       .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+  final EntityDescriptor batch = repo.findEntity("batch")
+      .orElseThrow(() -> new IllegalStateException("Missing entity batch"));
+
   @SuppressWarnings("unchecked")
   final AttributeDescriptor<byte[]> armed = (AttributeDescriptor) gateway
       .findAttribute("armed")
       .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+  @SuppressWarnings("unchecked")
+  final AttributeDescriptor<byte[]> data = (AttributeDescriptor) batch
+      .findAttribute("data")
+      .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+  final AttributeDescriptor<byte[]> wildcard = (AttributeDescriptor) batch
+      .findAttribute("wildcard.*")
+      .orElseThrow(() -> new IllegalStateException("Missing attribute wildcard"));
+
+
   Configuration conf;
 
   GroovyClassLoader loader;
@@ -96,6 +108,53 @@ public class GroovyEnvTest {
             (succ, exc) -> { });
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testBatchUpdatesCollect() throws Exception {
+    Script compiled = compile("env.batch.data.batchUpdates().collect()");
+    repo.getWriter(armed)
+        .orElseThrow(() -> new IllegalStateException("Missing writer"))
+        .write(StreamElement.update(batch, data, "uuid",
+            "key", data.getName(), System.currentTimeMillis(), new byte[] { }),
+            (succ, exc) -> { });
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testBatchUpdatesCollectWildcard() throws Exception {
+    Script compiled = compile("env.batch.wildcard.batchUpdates().collect()");
+    repo.getWriter(wildcard)
+        .orElseThrow(() -> new IllegalStateException("Missing writer"))
+        .write(StreamElement.update(batch, wildcard, "uuid",
+            "key", wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(), new byte[] { }),
+            (succ, exc) -> { });
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testUnionBatchUpdatesCollect() throws Exception {
+    Script compiled = compile(
+        "env.unionBatchUpdates(env.batch.data, env.batch.wildcard).collect()");
+    repo.getWriter(armed)
+        .orElseThrow(() -> new IllegalStateException("Missing writer"))
+        .write(StreamElement.update(batch, data, "uuid",
+            "key", data.getName(), System.currentTimeMillis(), new byte[] { }),
+            (succ, exc) -> { });
+    repo.getWriter(wildcard)
+        .orElseThrow(() -> new IllegalStateException("Missing writer"))
+        .write(StreamElement.update(batch, wildcard, "uuid",
+            "key", wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(), new byte[] { }),
+            (succ, exc) -> { });
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(2, result.size());
   }
 
 }

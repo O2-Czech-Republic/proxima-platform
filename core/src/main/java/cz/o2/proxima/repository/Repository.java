@@ -21,7 +21,6 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StorageDescriptor;
 
-import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;

@@ -44,7 +44,6 @@
           <artifactSet>
             <excludes>
               <!-- exclude proxima and core dependencies -->
-              <exclude>cz.seznam.euphoria:*</exclude>
               <exclude>cz.o2.proxima:core</exclude>
             </excludes>
           </artifactSet>

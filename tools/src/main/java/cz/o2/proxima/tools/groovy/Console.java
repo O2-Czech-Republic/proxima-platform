@@ -298,11 +298,15 @@ public class Console {
                 .by(t -> names.contains(t.getAttributeDescriptor().getName()))
                 .output();
           };
-          return Stream.wrap(
+          Stream<StreamElement> ret = Stream.wrap(
               createExecutor(eventTime),
               (DatasetBuilder<StreamElement>) builder,
               this::resetFlow,
               this::unboundedStreamInterrupt);
+          if (stopAtCurrent) {
+            return ret.windowAll();
+          }
+          return ret;
         })
         .reduce((a, b) -> a.union(b))
         .orElseThrow(() -> new IllegalStateException("Pass non-empty descriptors"));
@@ -457,7 +461,7 @@ public class Console {
           .by(t -> descriptors.contains(
               t.getAttributeDescriptor().toAttributePrefix()))
           .output();
-      
+
       return AssignEventTime.of(filtered)
           .using(StreamElement::getStamp)
           .output();

@@ -157,4 +157,19 @@ public class GroovyEnvTest {
     assertEquals(2, result.size());
   }
 
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testStreamFromOldestWindowedCollect() throws Exception {
+    Script compiled = compile("env.gateway.armed.streamFromOldest()"
+        + ".reduceToLatest().collect()");
+    repo.getWriter(armed)
+        .orElseThrow(() -> new IllegalStateException("Missing writer"))
+        .write(StreamElement.update(gateway, armed, "uuid",
+            "key", armed.getName(), System.currentTimeMillis(), new byte[] { }),
+            (succ, exc) -> { });
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
+  }
+
+
 }

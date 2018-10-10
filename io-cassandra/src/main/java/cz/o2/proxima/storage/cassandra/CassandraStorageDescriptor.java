@@ -17,8 +17,9 @@ package cz.o2.proxima.storage.cassandra;
 
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StorageDescriptor;
+
 import java.net.URI;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -27,12 +28,13 @@ import java.util.Map;
 public class CassandraStorageDescriptor extends StorageDescriptor {
 
   public CassandraStorageDescriptor() {
-    super(Arrays.asList("cassandra"));
+    super(Collections.singletonList("cassandra"));
   }
 
   @Override
   public CassandraDBAccessor getAccessor(
       EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+
     return new CassandraDBAccessor(entityDesc, uri, cfg);
   }
 

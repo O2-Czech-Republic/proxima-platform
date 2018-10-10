@@ -15,14 +15,16 @@
  */
 package cz.o2.proxima.metrics;
 
+import com.google.common.base.Preconditions;
 import com.tdunning.math.stats.TDigest;
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.util.Pair;
-import cz.seznam.euphoria.shadow.com.google.common.base.Preconditions;
 import java.util.Arrays;
 
 /**
  * An approximation of 1st, 10th, 30th, 50th, 70th, 90th and 99th percentile.
  */
+@Stable
 public class ApproxPercentileMetric
     extends Metric<Stats>
     implements ApproxPercentileMetricMXBean {
@@ -57,7 +59,9 @@ public class ApproxPercentileMetric
     super(group, name);
     Preconditions.checkArgument(window > 0, "Window must be non-zero length");
     this.maxDigests = (int) (duration / window);
-    Preconditions.checkArgument(maxDigests > 0, "Duration must be at least of length of the window");
+    Preconditions.checkArgument(
+        maxDigests > 0,
+        "Duration must be at least of length of the window");
     this.windowNs = window * 1_000_000L;
     _reset();
   }

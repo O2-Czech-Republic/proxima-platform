@@ -23,13 +23,13 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.1.2</version>
+    <version>0.2-SNAPSHOT</version>
   </parent>
      
   <artifactId>tools</artifactId>
   <packaging>jar</packaging>
      
-  <name>Proxima platform Tools</name>
+  <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
     <plugins>
@@ -68,7 +68,7 @@
     <dependency>
       <groupId>jline</groupId>
       <artifactId>jline</artifactId>
-      <version>2.14.3</version>
+      <version>2.14.6</version>
     </dependency>
 
     <dependency>
@@ -79,6 +79,22 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-all</artifactId>
+      <version>${grpc.version}</version>
+      <exclusions>
+        <!-- do not use protobuf-lite, use protobuf-java -->
+        <exclusion>
+          <groupId>com.google.protobuf</groupId>
+          <artifactId>protobuf-lite</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-protobuf-nano</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-okhttp</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -134,6 +150,16 @@
       <artifactId>ingest-client</artifactId>
       <version>${project.version}</version>
     </dependency>
+
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>core</artifactId>
+      <version>${project.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
 </project>

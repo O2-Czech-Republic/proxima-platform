@@ -17,10 +17,10 @@ package cz.o2.proxima.storage.hbase;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
-import static cz.o2.proxima.storage.hbase.TestUtil.b;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
@@ -39,13 +39,15 @@ import org.junit.After;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
+import static cz.o2.proxima.storage.hbase.TestUtil.bytes;
 
 /**
  * Test {@code HBaseWriter} via a local instance of HBase cluster.
  */
 public class HBaseWriterTest {
 
-  private final Repository repo = Repository.Builder.ofTest(ConfigFactory.load()).build();
+  private final Repository repo = ConfigRepository.Builder.ofTest(
+      ConfigFactory.load()).build();
   private final EntityDescriptor entity = repo.findEntity("test").get();
   private final AttributeDescriptor<?> attr = entity.findAttribute("dummy").get();
 
@@ -57,7 +59,7 @@ public class HBaseWriterTest {
   public void setUp() throws Exception {
     util = HBaseTestingUtility.createLocalHTU();
     cluster = util.startMiniCluster();
-    util.createTable(TableName.valueOf("users"), b("u"));
+    util.createTable(TableName.valueOf("users"), bytes("u"));
     writer = new HBaseWriter(
         new URI("hbase://localhost:2181/users?family=u"),
         cluster.getConfiguration(),
@@ -72,9 +74,10 @@ public class HBaseWriterTest {
   @Test(timeout = 10000)
   public void testWrite() throws InterruptedException, IOException {
     CountDownLatch latch = new CountDownLatch(1);
+    long now = 1500000000000L;
     writer.write(StreamElement.update(
         entity, attr, UUID.randomUUID().toString(),
-        "entity", "dummy", System.currentTimeMillis(), new byte[] { 1, 2 }),
+        "entity", "dummy", now, new byte[] { 1, 2 }),
         (succ, exc) -> {
           assertTrue("Error on write: " + exc, succ);
           latch.countDown();
@@ -82,11 +85,13 @@ public class HBaseWriterTest {
     latch.await();
     Connection conn = ConnectionFactory.createConnection(cluster.getConfiguration());
     Table table = conn.getTable(TableName.valueOf("users"));
-    Get get = new Get(b("entity"));
+    Get get = new Get(bytes("entity"));
     Result res = table.get(get);
-    NavigableMap<byte[], byte[]> familyMap = res.getFamilyMap(b("u"));
+    NavigableMap<byte[], byte[]> familyMap = res.getFamilyMap(bytes("u"));
     assertEquals(1, familyMap.size());
-    assertArrayEquals(new byte[] { 1, 2 }, familyMap.get(b("dummy")));
+    assertArrayEquals(new byte[] { 1, 2 }, familyMap.get(bytes("dummy")));
+    assertEquals(now, (long) res.getMap().get(bytes("u"))
+        .get(bytes("dummy")).firstEntry().getKey());
   }
 
 }

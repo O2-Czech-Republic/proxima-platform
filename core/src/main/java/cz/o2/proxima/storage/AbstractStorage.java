@@ -15,15 +15,17 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.repository.EntityDescriptor;
+import java.io.Serializable;
 import java.net.URI;
 import lombok.Getter;
 
 /**
  * A class that is super type of all data accessors.
- *
  */
-public class AbstractStorage {
+@Internal
+public class AbstractStorage implements Serializable {
 
   /** The entity this writer is created for. */
   @Getter
@@ -36,7 +38,7 @@ public class AbstractStorage {
     this.uri = uri;
   }
 
-  public URI getURI() {
+  public URI getUri() {
     return uri;
   }
 
@@ -44,7 +46,7 @@ public class AbstractStorage {
   public boolean equals(Object obj) {
     if (obj instanceof AttributeWriterBase) {
       AttributeWriterBase other = (AttributeWriterBase) obj;
-      return other.getURI().equals(uri);
+      return other.getUri().equals(uri);
     }
     return false;
   }

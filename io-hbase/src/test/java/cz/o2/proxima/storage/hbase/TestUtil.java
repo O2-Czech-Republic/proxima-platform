@@ -25,24 +25,19 @@ import org.apache.hadoop.hbase.client.Table;
  */
 class TestUtil {
 
-  static byte[] b(String s) {
+  static byte[] bytes(String s) {
     return s.getBytes(Charset.forName("UTF-8"));
-  }
-
-  static void write(
-      String key, String attribute, String value, Table client) throws IOException {
-
-    write(key, attribute, value, System.currentTimeMillis(), client);
   }
 
   static void write(
       String key, String attribute, String value, long stamp, Table client)
       throws IOException {
 
-    Put p = new Put(b(key));
-    p.addColumn(b("u"), b(attribute), stamp, b(value));
+    Put p = new Put(bytes(key));
+    p.addColumn(bytes("u"), bytes(attribute), stamp, bytes(value));
     client.put(p);
   }
 
   private TestUtil() { }
+  
 }

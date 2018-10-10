@@ -68,23 +68,24 @@ public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
 
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
-    return Optional.of(new HBaseWriter(getURI(), getConf(), cfg));
+    return Optional.of(new HBaseWriter(getUri(), getConf(), cfg));
   }
 
   @Override
   public Optional<RandomAccessReader> getRandomAccessReader(Context context) {
     return Optional.of(new RandomHBaseReader(
-        getURI(), getConf(), cfg, getEntityDescriptor()));
+        getUri(), getConf(), cfg, getEntityDescriptor()));
   }
 
   @Override
   public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
     return Optional.of(new HBaseLogObservable(
-        getURI(), getConf(), cfg, getEntityDescriptor(), context.getExecutorService()));
+        getUri(), getConf(), getEntityDescriptor(),
+        context::getExecutorService));
   }
 
   private Configuration getConf() {
-    return HBaseConfiguration.create(confFactory.apply(cfg, getURI()));
+    return HBaseConfiguration.create(confFactory.apply(cfg, getUri()));
   }
 
 }

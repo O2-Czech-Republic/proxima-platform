@@ -15,13 +15,15 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.net.URI;
 
 /**
  * Base interface for {@code OnlineAttributeWriter} and {@code BulkAttributeWriter}.
  */
-public interface AttributeWriterBase extends Serializable {
+@Stable
+public interface AttributeWriterBase extends Serializable, AutoCloseable {
 
   enum Type {
     ONLINE,
@@ -32,7 +34,7 @@ public interface AttributeWriterBase extends Serializable {
    * Retrieve URI of this writer.
    * @return URI of this writer
    */
-  URI getURI();
+  URI getUri();
 
   /**
    * Retrieve type of the writer.
@@ -62,5 +64,12 @@ public interface AttributeWriterBase extends Serializable {
   default BulkAttributeWriter bulk() {
     return (BulkAttributeWriter) this;
   }
+
+  /**
+   * Close allocated resources of this writer.
+   * This is supposed to be idempotent.
+   */
+  @Override
+  void close();
 
 }

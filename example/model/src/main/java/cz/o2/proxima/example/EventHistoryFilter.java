@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
 
 package cz.o2.proxima.example;
 
-import com.google.protobuf.InvalidProtocolBufferException;
-import cz.o2.proxima.example.event.Event.BaseEvent;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.StorageFilter;
 
@@ -28,15 +26,7 @@ public class EventHistoryFilter implements StorageFilter {
 
   @Override
   public boolean apply(StreamElement ingest) {
-    try {
-      if (ingest.isDelete()) {
-        return false;
-      }
-      BaseEvent event = BaseEvent.parseFrom(ingest.getValue());
-      return true;
-    } catch (InvalidProtocolBufferException ex) {
-      throw new IllegalStateException("Failed to read protobuf", ex);
-    }
+    return !ingest.isDelete();
   }
 
 }

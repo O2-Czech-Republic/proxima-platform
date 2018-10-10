@@ -85,14 +85,13 @@ public class ConsumerGroup implements Serializable {
       // for sure
       partitions.clear();
       partitions.addAll(assign);
-      listener.onPartitionsAssigned(partitions.stream()
+      List<TopicPartition> tps = partitions.stream()
           .map(p -> new TopicPartition(topic, p.getId()))
-          .collect(Collectors.toList()));
-      if (log.isDebugEnabled()) {
-        log.debug("Assigned partitions {} to consumer ID {} of group {}",
-            partitions.stream().map(Partition::getId).collect(Collectors.toList()),
-            id, name);
-      }
+          .collect(Collectors.toList());
+      listener.onPartitionsAssigned(tps);
+      log.debug(
+          "Assigned partitions {} to consumer ID {} of group {}, notifying listener {}",
+          tps, id, name, listener);
     }
 
   }
@@ -121,7 +120,8 @@ public class ConsumerGroup implements Serializable {
     this.topic = topic;
     this.numPartitions = numPartitions;
     if (numPartitions <= 0) {
-      throw new IllegalArgumentException("Number of partitions must be strictly positive");
+      throw new IllegalArgumentException(
+          "Number of partitions must be strictly positive");
     }
   }
 
@@ -197,6 +197,14 @@ public class ConsumerGroup implements Serializable {
     }
   }
 
+  /**
+   * Manually assign given partitions to given consumer ID.
+   */
+  synchronized void assign(int id, List<Partition> assignment) {
+    Assignment current = this.assignments.get(id);
+    current.drop();
+    current.assign(assignment);
+  }
 
   /**
    * Retrieve partitions for given consumer ID.
@@ -207,15 +215,6 @@ public class ConsumerGroup implements Serializable {
       return assignment.getPartitions();
     }
     return Collections.emptyList();
-  }
-
-  /**
-   * Manually assign given partitions to given consumer ID.
-   */
-  synchronized void assign(int id, List<Partition> assignment) {
-    Assignment current = this.assignments.get(id);
-    current.drop();
-    current.assign(assignment);
   }
 
 

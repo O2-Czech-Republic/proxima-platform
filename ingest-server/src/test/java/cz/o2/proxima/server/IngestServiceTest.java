@@ -19,10 +19,12 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.proto.service.Rpc;
+import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.scheme.proto.test.Scheme;
 import cz.o2.proxima.server.test.Test.ExtendedMessage;
 import cz.o2.proxima.storage.InMemBulkStorage;
 import cz.o2.proxima.storage.InMemStorage;
-import cz.o2.proxima.test.Scheme;
+import cz.o2.proxima.util.Pair;
 import io.grpc.stub.StreamObserver;
 import java.util.Map;
 import java.util.UUID;
@@ -39,7 +41,7 @@ import org.junit.Test;
 public class IngestServiceTest {
 
   IngestServer server;
-  IngestServer.IngestService ingest;
+  IngestService ingest;
 
   BlockingQueue<Rpc.Status> responses;
   StreamObserver<Rpc.StatusBulk> responseObserver;
@@ -47,8 +49,10 @@ public class IngestServiceTest {
 
   @Before
   public void setup() throws InterruptedException {
-    server = new IngestServer(ConfigFactory.load().resolve());
-    ingest = server.new IngestService();
+    server = new IngestServer(ConfigFactory.load()
+        .withFallback(ConfigFactory.load("test-reference.conf"))
+        .resolve());
+    ingest = new IngestService(server.repo, server.scheduler);
     server.startConsumerThreads();
     latch = new CountDownLatch(1);
 
@@ -76,7 +80,7 @@ public class IngestServiceTest {
   }
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestBulkInvalidScheme() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -94,7 +98,7 @@ public class IngestServiceTest {
     assertEquals(412, status.getStatus());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestBulkInvalidEntity() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -113,7 +117,7 @@ public class IngestServiceTest {
     assertEquals(404, status.getStatus());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestBulkInvalidEntityAttribute() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -132,7 +136,7 @@ public class IngestServiceTest {
     assertEquals(404, status.getStatus());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestBulkMissingKey() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -153,7 +157,7 @@ public class IngestServiceTest {
   }
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestBulkValid() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -173,13 +177,13 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = (InMemStorage) server.repo.getStorageDescriptor("inmem");
-    Map<String, byte[]> data = storage.getData();
+    Map<String, Pair<Long, byte[]>> data = storage.getData();
     assertEquals(1, data.size());
     assertArrayEquals(
-        new byte[0], data.get("/proxima/dummy/my-dummy-entity#data"));
+        new byte[0], data.get("/proxima/dummy/my-dummy-entity#data").getSecond());
   }
 
-  @Test(timeout = 5000)
+  @Test(timeout = 10000)
   public void testIngestBulkWildcardEntityAttribute() throws Exception {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -214,17 +218,17 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = (InMemStorage) server.repo.getStorageDescriptor("inmem");
-    Map<String, byte[]> data = storage.getData();
+    Map<String, Pair<Long, byte[]>> data = storage.getData();
     assertEquals(2, data.size());
     assertEquals("muhehe", Scheme.Device.parseFrom(
-        data.get("/proxima/dummy/dummy1#wildcard.1234"))
+        data.get("/proxima/dummy/dummy1#wildcard.1234").getSecond())
         .getPayload().toStringUtf8());
     assertEquals("muhehe", Scheme.Device.parseFrom(
-        data.get("/proxima/dummy/dummy2#wildcard.12345"))
+        data.get("/proxima/dummy/dummy2#wildcard.12345").getSecond())
         .getPayload().toStringUtf8());
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestWildcardEntityInvalidScheme() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -252,12 +256,13 @@ public class IngestServiceTest {
   }
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestSingleValid() throws InterruptedException {
 
     latch = new CountDownLatch(1);
 
-    StreamObserver<Rpc.Ingest> result = ingest.ingestSingle(new StreamObserver<Rpc.Status>() {
+    final StreamObserver<Rpc.Ingest> result;
+    result = ingest.ingestSingle(new StreamObserver<Rpc.Status>() {
 
       @Override
       public void onNext(Rpc.Status status) {
@@ -291,17 +296,18 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = (InMemStorage) server.repo.getStorageDescriptor("inmem");
-    Map<String, byte[]> data = storage.getData();
+    Map<String, Pair<Long, byte[]>> data = storage.getData();
     assertEquals(1, data.size());
     assertTrue(data.containsKey("/proxima/dummy/my-dummy-entity#data"));
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestSingleValidButFilteredOut() throws InterruptedException {
 
     latch = new CountDownLatch(1);
 
-    StreamObserver<Rpc.Ingest> result = ingest.ingestSingle(new StreamObserver<Rpc.Status>() {
+    final StreamObserver<Rpc.Ingest> result;
+    result = ingest.ingestSingle(new StreamObserver<Rpc.Status>() {
 
       @Override
       public void onNext(Rpc.Status status) {
@@ -336,7 +342,7 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = (InMemStorage) server.repo.getStorageDescriptor("inmem");
-    Map<String, byte[]> data = storage.getData();
+    Map<String, Pair<Long, byte[]>> data = storage.getData();
     // although we have the filter applied here,
     // we cannot filter the ingest out, because it goes directly to the
     // output (without commit log in the middle)
@@ -345,7 +351,7 @@ public class IngestServiceTest {
 
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestValid() throws InterruptedException {
 
     Rpc.Ingest request = Rpc.Ingest.newBuilder()
@@ -363,13 +369,13 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = (InMemStorage) server.repo.getStorageDescriptor("inmem");
-    Map<String, byte[]> data = storage.getData();
+    Map<String, Pair<Long, byte[]>> data = storage.getData();
     assertEquals(1, data.size());
     assertTrue(data.containsKey("/proxima/dummy/my-dummy-entity#data"));
   }
 
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestValidBulk() throws InterruptedException {
 
     Rpc.Ingest request = Rpc.Ingest.newBuilder()
@@ -386,13 +392,15 @@ public class IngestServiceTest {
     Rpc.Status status = responses.poll();
     assertEquals(200, status.getStatus());
 
-    InMemBulkStorage storage = (InMemBulkStorage) server.repo.getStorageDescriptor("inmem-bulk");
-    Map<String, byte[]> data = storage.getData();
+    Repository repo = server.repo;
+    InMemBulkStorage storage = (InMemBulkStorage) repo.getStorageDescriptor(
+        "inmem-bulk");
+    Map<String, Pair<Long, byte[]>> data = storage.getData();
     assertEquals(1, data.size());
     assertTrue(data.containsKey("/proxima_events/bulk/my-dummy-entity#data"));
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testIngestValidExtendedScheme()
       throws InterruptedException, InvalidProtocolBufferException {
 
@@ -415,17 +423,17 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = (InMemStorage) server.repo.getStorageDescriptor("inmem");
-    Map<String, byte[]> data = storage.getData();
+    Map<String, Pair<Long, byte[]>> data = storage.getData();
     assertEquals(2, data.size());
-    byte[] value = data.get("/test_inmem/my-dummy-entity#data");
+    byte[] value = data.get("/test_inmem/my-dummy-entity#data").getSecond();
     assertTrue(value != null);
     assertEquals(payload, ExtendedMessage.parseFrom(value));
-    value = data.get("/test_inmem/random/my-dummy-entity#data");
+    value = data.get("/test_inmem/random/my-dummy-entity#data").getSecond();
     assertTrue(value != null);
     assertEquals(payload, ExtendedMessage.parseFrom(value));
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testTransform() throws InterruptedException {
     // write event.data and check that we receive write to dummy.wildcard.<stamp>
     long now = System.currentTimeMillis();
@@ -445,12 +453,25 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = (InMemStorage) server.repo.getStorageDescriptor("inmem");
-    Map<String, byte[]> data = storage.getData();
+    Map<String, Pair<Long, byte[]>> data = storage.getData();
     assertEquals(2, data.size());
-    byte[] value = data.get("/proxima_events/my-dummy-entity#data");
+    byte[] value = data.get("/proxima_events/my-dummy-entity#data").getSecond();
     assertTrue(value != null);
-    value = data.get("/proxima/dummy/my-dummy-entity#wildcard." + now);
+    assertEquals(
+        (Long) now,
+        data.get("/proxima_events/my-dummy-entity#data").getFirst());
+    value = data.get("/proxima/dummy/my-dummy-entity#wildcard." + now).getSecond();
     assertTrue(value != null);
+  }
+
+  @Test
+  public void testConfigReadWithReplicatedProxy() {
+    // just verify this doesn't throw exceptions
+    IngestServer dummy = new IngestServer(
+        ConfigFactory.load("test-replication.conf")
+        .withFallback(ConfigFactory.load("test-reference.conf"))
+        .resolve());
+    dummy.startConsumerThreads();
   }
 
   private void flushToIngest(Rpc.Ingest request) throws InterruptedException {

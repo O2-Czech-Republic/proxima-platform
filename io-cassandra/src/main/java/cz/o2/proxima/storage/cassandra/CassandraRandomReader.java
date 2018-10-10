@@ -20,14 +20,16 @@ import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Token;
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.cassandra.CqlFactory.KvIterable;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
+import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.util.Pair;
 import java.nio.ByteBuffer;
 import java.util.Optional;
-import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,15 +44,16 @@ class CassandraRandomReader
   private final CassandraDBAccessor accessor;
 
   CassandraRandomReader(CassandraDBAccessor accessor) {
-    super(accessor.getEntityDescriptor(), accessor.getURI());
+    super(accessor.getEntityDescriptor(), accessor.getUri());
     this.accessor = accessor;
   }
 
   @Override
-  public synchronized Optional<KeyValue<?>> get(
+  public synchronized <T> Optional<KeyValue<T>> get(
       String key,
       String attribute,
-      AttributeDescriptor<?> desc) {
+      AttributeDescriptor<T> desc,
+      long stamp) {
 
     Session session = accessor.ensureSession();
     BoundStatement statement = accessor.getCqlFactory()
@@ -84,15 +87,43 @@ class CassandraRandomReader
     return Optional.empty();
   }
 
+  @Override
+  public void scanWildcardAll(
+      String key,
+      RandomOffset offset,
+      long stamp,
+      int limit,
+      Consumer<KeyValue<?>> consumer) {
+
+    try {
+      Offsets.Raw off = (Offsets.Raw) offset;
+      Session session = accessor.ensureSession();
+      KvIterable iter = accessor.getCqlFactory().getListAllStatement(
+          key, off, limit, session);
+      for (KeyValue<?> kv : iter.iterable(accessor)) {
+        if (kv.getAttribute().compareTo(off.getRaw()) > 0) {
+          if (limit-- == 0) {
+            break;
+          }
+          consumer.accept(kv);
+        }
+      }
+    } catch (Exception ex) {
+      log.error("Failed to scan attributes of {}", key, ex);
+      throw new RuntimeException(ex);
+    }
+
+  }
 
   @Override
   @SuppressWarnings("unchecked")
-  public synchronized void scanWildcard(
+  public synchronized <T> void scanWildcard(
       String key,
-      AttributeDescriptor<?> wildcard,
-      @Nullable Offset offset,
+      AttributeDescriptor<T> wildcard,
+      @Nullable RandomOffset offset,
+      long stamp,
       int limit,
-      Consumer<KeyValue<?>> consumer) {
+      Consumer<KeyValue<T>> consumer) {
 
     try {
       Session session = accessor.ensureSession();
@@ -108,13 +139,13 @@ class CassandraRandomReader
         if (val != null) {
           byte[] rowValue = val.array();
           // by convention
-          String name = wildcard.toAttributePrefix() + accessor.getConverter().asString(attribute);
-
+          String name = wildcard.toAttributePrefix() + accessor.getConverter().asString(
+              attribute);
 
           Optional parsed = wildcard.getValueSerializer().deserialize(rowValue);
 
           if (parsed.isPresent()) {
-            consumer.accept(KeyValue.of(
+            consumer.accept((KeyValue) KeyValue.of(
                 getEntityDescriptor(),
                 (AttributeDescriptor) wildcard,
                 key,
@@ -137,9 +168,9 @@ class CassandraRandomReader
 
   @Override
   public synchronized void listEntities(
-      Offset offset,
+      RandomOffset offset,
       int limit,
-      Consumer<Pair<Offset, String>> consumer) {
+      Consumer<Pair<RandomOffset, String>> consumer) {
 
     Session session = accessor.ensureSession();
     BoundStatement statement = accessor.getCqlFactory().getListEntitiesStatement(
@@ -165,7 +196,7 @@ class CassandraRandomReader
   }
 
   @Override
-  public synchronized Offset fetchOffset(Listing type, String key) {
+  public synchronized RandomOffset fetchOffset(Listing type, String key) {
     try {
       switch (type) {
         case ATTRIBUTE:
@@ -179,12 +210,14 @@ class CassandraRandomReader
             return new Offsets.Token(Long.MIN_VALUE);
           }
           return new Offsets.Token(res.one().getLong(0));
+
+        default:
+          throw new IllegalArgumentException("Unknown type of listing: " + type);
       }
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
-    throw new IllegalArgumentException("Unknown type of listing: " + type);
-  }
 
+  }
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage.randomaccess;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader.Offset;
+import java.util.Objects;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import lombok.Getter;
 
 /**
  * {@code KeyValue} with {@code Offset}.
  */
+@Stable
 public class KeyValue<T> {
 
   @SuppressWarnings("unchecked")
@@ -33,13 +35,31 @@ public class KeyValue<T> {
       AttributeDescriptor<T> attrDesc,
       String key,
       String attribute,
-      Offset offset,
+      RandomOffset offset,
       byte[] valueBytes) {
+
+    return of(
+        entityDesc, attrDesc, key, attribute,
+        offset, valueBytes, System.currentTimeMillis());
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T> KeyValue<T> of(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<T> attrDesc,
+      String key,
+      String attribute,
+      RandomOffset offset,
+      byte[] valueBytes,
+      long stamp) {
+
 
     Optional<T> value = attrDesc.getValueSerializer().deserialize(valueBytes);
 
     if (!value.isPresent()) {
-      throw new IllegalArgumentException("Cannot parse given bytes to value");
+      throw new IllegalArgumentException(
+          "Cannot parse given bytes of length " + valueBytes.length
+              + " to value with serializer " + attrDesc.getValueSerializer());
     }
 
     return new KeyValue<>(
@@ -49,7 +69,8 @@ public class KeyValue<T> {
         attribute,
         offset,
         value.get(),
-        valueBytes);
+        valueBytes,
+        stamp);
   }
 
 
@@ -58,7 +79,7 @@ public class KeyValue<T> {
       AttributeDescriptor<T> attrDesc,
       String key,
       String attribute,
-      Offset offset,
+      RandomOffset offset,
       T value,
       byte[] valueBytes) {
 
@@ -69,7 +90,30 @@ public class KeyValue<T> {
         attribute,
         offset,
         value,
-        valueBytes);
+        valueBytes,
+        System.currentTimeMillis());
+  }
+
+
+  public static <T> KeyValue<T> of(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<T> attrDesc,
+      String key,
+      String attribute,
+      RandomOffset offset,
+      T value,
+      byte[] valueBytes,
+      long stamp) {
+
+    return new KeyValue<>(
+        entityDesc,
+        attrDesc,
+        key,
+        attribute,
+        offset,
+        value,
+        valueBytes,
+        stamp);
   }
 
   @Getter
@@ -88,10 +132,14 @@ public class KeyValue<T> {
   private final T value;
 
   @Getter
+  @Nullable
   private final byte[] valueBytes;
 
   @Getter
-  private final Offset offset;
+  private final RandomOffset offset;
+
+  @Getter
+  private final long stamp;
 
 
   KeyValue(
@@ -99,17 +147,19 @@ public class KeyValue<T> {
       AttributeDescriptor<T> attrDesc,
       String key,
       String attribute,
-      Offset offset,
+      RandomOffset offset,
       T value,
-      byte[] valueBytes) {
+      byte[] valueBytes,
+      long stamp) {
 
-    this.entityDescriptor = entityDesc;
-    this.attrDescriptor = attrDesc;
-    this.key = key;
-    this.attribute = attribute;
-    this.value = value;
+    this.entityDescriptor = Objects.requireNonNull(entityDesc);
+    this.attrDescriptor = Objects.requireNonNull(attrDesc);
+    this.key = Objects.requireNonNull(key);
+    this.attribute = Objects.requireNonNull(attribute);
+    this.value = Objects.requireNonNull(value);
     this.valueBytes = valueBytes;
-    this.offset = offset;
+    this.offset = Objects.requireNonNull(offset);
+    this.stamp = stamp;
   }
 
   @Override
@@ -120,6 +170,7 @@ public class KeyValue<T> {
         + ", key=" + getKey()
         + ", attribute=" + getAttribute()
         + ", offset=" + getOffset()
+        + ", stamp=" + getStamp()
         + ", value=" + getValue() + ")";
   }
 

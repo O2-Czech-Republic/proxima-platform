@@ -17,6 +17,7 @@ package cz.o2.proxima.storage.http;
 
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.CommitCallback;
 import cz.o2.proxima.storage.DataAccessor;
@@ -31,9 +32,10 @@ import java.util.Optional;
 /**
  * Writer via HTTP(S) requests.
  */
-public class HttpWriter implements OnlineAttributeWriter, DataAccessor {
+public class HttpWriter
+    extends AbstractStorage
+    implements OnlineAttributeWriter, DataAccessor {
 
-  final URI uri;
   final ConnFactory connFactory;
 
   public HttpWriter(
@@ -41,18 +43,12 @@ public class HttpWriter implements OnlineAttributeWriter, DataAccessor {
       URI uri,
       Map<String, Object> cfg) {
 
-    this.uri = uri;
+    super(entityDesc, uri);
     try {
       this.connFactory = getConnFactory(cfg);
-    } catch (ClassNotFoundException
-        | InstantiationException | IllegalAccessException ex) {
+    } catch (InstantiationException | IllegalAccessException ex) {
       throw new RuntimeException(ex);
     }
-  }
-
-  @Override
-  public URI getURI() {
-    return uri;
   }
 
   @Override
@@ -62,12 +58,13 @@ public class HttpWriter implements OnlineAttributeWriter, DataAccessor {
 
     HttpURLConnection conn = null;
     try {
-      conn = connFactory.openConnection(uri, data);
+      conn = connFactory.openConnection(getUri(), data);
       int code = conn.getResponseCode();
       if (code == 200) {
         statusCallback.commit(true, null);
       } else {
-        statusCallback.commit(false, new RuntimeException("Invalid status code " + code));
+        statusCallback.commit(false, new RuntimeException(
+            "Invalid status code " + code));
       }
     } catch (Exception ex) {
       statusCallback.commit(false, ex);
@@ -79,13 +76,11 @@ public class HttpWriter implements OnlineAttributeWriter, DataAccessor {
   }
 
   private ConnFactory getConnFactory(Map<String, Object> cfg)
-      throws ClassNotFoundException, InstantiationException, IllegalAccessException {
+      throws InstantiationException, IllegalAccessException {
 
     String factory = (String) cfg.get("connectionFactory");
     if (factory == null) {
-      return (uri, elem) -> {
-        return (HttpURLConnection) uri.toURL().openConnection();
-      };
+      return (uri, elem) -> (HttpURLConnection) uri.toURL().openConnection();
     }
     Class<ConnFactory> cls = Classpath.findClass(factory, ConnFactory.class);
     return cls.newInstance();
@@ -96,6 +91,9 @@ public class HttpWriter implements OnlineAttributeWriter, DataAccessor {
     return Optional.of(this);
   }
 
-
+  @Override
+  public void close() {
+    // nop
+  }
 
 }

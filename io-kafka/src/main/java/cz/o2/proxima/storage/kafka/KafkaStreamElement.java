@@ -36,7 +36,11 @@ public class KafkaStreamElement extends StreamElement {
       String uuid, String key, String attribute,
       long stamp, byte[] value, int partition, long offset) {
 
-    super(entityDesc, attributeDesc, uuid, key, attribute, stamp, value);
+    super(
+        entityDesc, attributeDesc, uuid, key, attribute,
+        stamp, false /* not forced, is inferred from attribute descriptor name */,
+        value);
+
     this.partition = partition;
     this.offset = offset;
   }

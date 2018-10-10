@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.util;
 
 import org.junit.Test;
@@ -24,32 +23,14 @@ import static org.junit.Assert.*;
  * Test pattern matching.
  */
 public class NamePatternTest {
-  
+
   @Test
   public void testSingleWildcard() {
     String pattern = "device.*";
     NamePattern test = new NamePattern(pattern);
     assertTrue(test.matches("device.abc-xyz"));
-    assertFalse(test.matches("device."));
+    assertTrue(test.matches("device."));
     assertFalse(test.matches("device"));
-  }
-  
-  @Test
-  public void testSingleWildcardInMiddle() {
-    String pattern = "device.*-abc";
-    NamePattern test = new NamePattern(pattern);
-    assertTrue(test.matches("device.xyz-abc"));
-    assertFalse(test.matches("device.xyz-abc-123"));
-    assertFalse(test.matches("device.-abc"));
-  }
-  
-  @Test
-  public void testWildcardAtBegginingAndEnd() {
-    String pattern = "*device*";
-    NamePattern test = new NamePattern(pattern);
-    assertTrue(test.matches("this is my device number 1"));
-    assertFalse(test.matches("device 1"));
-    assertFalse(test.matches("first device"));
   }
 
 }

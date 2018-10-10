@@ -15,12 +15,14 @@
  */
 package cz.o2.proxima.scheme;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.util.Optional;
 
 /**
  * A serializer of values with specified scheme.
  */
+@Stable
 public interface ValueSerializer<T> extends Serializable {
 
   /**
@@ -54,5 +56,11 @@ public interface ValueSerializer<T> extends Serializable {
   default boolean isValid(byte[] input) {
     return deserialize(input).isPresent();
   }
+
+  /**
+   * Retrieve raw java class type of this serializer.
+   * @return the raw java class type
+   */
+  Class<T> getClassType();
 
 }

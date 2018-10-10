@@ -38,10 +38,10 @@ import static org.mockito.Mockito.mock;
  */
 public class IngestClientTest {
 
-  final String host = "localhost";
-  final int port = 4001;
-  List<Rpc.Ingest> ingested;
-  Deque<Rpc.Status> statuses;
+  private final String host = "localhost";
+  private final int port = 4001;
+  private List<Rpc.Ingest> ingested;
+  private Deque<Rpc.Status> statuses;
 
   @Before
   public void setUp() {
@@ -60,7 +60,7 @@ public class IngestClientTest {
         .build(), s -> { });
   }
 
-  @Test(timeout = 5000)
+  @Test(timeout = 10000)
   public void testSingleRequest() throws InterruptedException {
     IngestClient client = create(new Options());
     CountDownLatch latch = new CountDownLatch(1);
@@ -81,7 +81,7 @@ public class IngestClientTest {
     assertEquals(200, status.get().getStatus());
   }
 
-  @Test(timeout = 5000)
+  @Test(timeout = 10000)
   public void testMultiRequests() throws InterruptedException {
     IngestClient client = create(new Options());
     CountDownLatch latch = new CountDownLatch(2);
@@ -114,7 +114,7 @@ public class IngestClientTest {
   }
 
 
-  @Test(timeout = 5000)
+  @Test(timeout = 10000)
   public void testTimeoutRequest() throws InterruptedException {
     IngestClient client = create(new Options());
     CountDownLatch latch = new CountDownLatch(1);
@@ -137,11 +137,13 @@ public class IngestClientTest {
 
   private IngestClient create(Options opts) {
     return new IngestClient(host, port, opts) {
+
       @Override
       void createChannelAndStub() {
         this.channel = mockChannel();
         this.stub = IngestServiceGrpc.newStub(channel);
         this.requestObserver = new StreamObserver<Rpc.IngestBulk>() {
+
           @Override
           public void onNext(Rpc.IngestBulk bulk) {
             ingested.addAll(bulk.getIngestList());

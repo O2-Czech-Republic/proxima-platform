@@ -27,16 +27,16 @@ import java.util.Map;
 public class HttpStorage extends StorageDescriptor {
 
   public HttpStorage() {
-    super(Arrays.asList("http", "https"));
+    super(Arrays.asList("http", "https", "ws", "wss"));
   }
 
   @Override
-  public HttpWriter getAccessor(
+  public HttpAccessor getAccessor(
       EntityDescriptor entityDesc,
       URI uri,
       Map<String, Object> cfg) {
 
-    return new HttpWriter(entityDesc, uri, cfg);
+    return new HttpAccessor(entityDesc, uri, cfg);
   }
 
 }

@@ -18,8 +18,10 @@ package cz.o2.proxima.generator;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.CamelCase;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateExceptionHandler;
@@ -47,11 +49,15 @@ public class ModelGenerator {
   private final File sourceConfigPath;
   private final File outputPath;
 
-  public ModelGenerator(String javaPackage, String className,
-                        String sourceConfigPath, String outputPath) {
+  public ModelGenerator(
+      String javaPackage, String className, String sourceConfigPath, String outputPath) {
 
-    Preconditions.checkArgument(StringUtils.isNotBlank(javaPackage), "Java package name is missing");
-    Preconditions.checkArgument(StringUtils.isNotBlank(className), "Class name is missing");
+    Preconditions.checkArgument(
+        StringUtils.isNotBlank(javaPackage),
+        "Java package name is missing");
+    Preconditions.checkArgument(
+        StringUtils.isNotBlank(className),
+        "Class name is missing");
 
     this.javaPackage = javaPackage;
     this.className = className;
@@ -59,11 +65,13 @@ public class ModelGenerator {
     this.outputPath = new File(outputPath);
 
     if (!this.sourceConfigPath.exists()) {
-      throw new IllegalArgumentException("Source config not found at [ " + sourceConfigPath + " ]");
+      throw new IllegalArgumentException(
+          "Source config not found at [ " + sourceConfigPath + " ]");
     }
 
     if (!this.outputPath.isAbsolute()) {
-      throw new IllegalArgumentException("Output path must be absolute [ " + outputPath + " ]");
+      throw new IllegalArgumentException(
+          "Output path must be absolute [ " + outputPath + " ]");
     }
   }
 
@@ -72,14 +80,12 @@ public class ModelGenerator {
     Configuration conf = getConf();
 
     File output = getOutputDirForPackage(outputPath, javaPackage);
-    if (!output.exists()) {
-      if (!output.mkdirs()) {
-        throw new RuntimeException(
-            "Failed to create directories for [ " + output.getAbsolutePath() + " ]");
-      }
+    if (!output.exists() && !output.mkdirs()) {
+      throw new RuntimeException(
+          "Failed to create directories for [ " + output.getAbsolutePath() + " ]");
     }
 
-    Repository repo = Repository.Builder
+    final Repository repo = ConfigRepository.Builder
         .of(ConfigFactory.parseFile(sourceConfigPath).resolve())
         .withReadOnly(true)
         .withValidate(false)
@@ -91,7 +97,8 @@ public class ModelGenerator {
     Map<String, Object> root = new HashMap<>();
 
     List<Map<String, Object>> entities = getEntities(repo);
-    try (FileOutputStream out = new FileOutputStream(new File(output, className + ".java"))) {
+    final File outputFile = new File(output, className + ".java");
+    try (FileOutputStream out = new FileOutputStream(outputFile)) {
       root.put("input_path", sourceConfigPath.getAbsoluteFile());
       root.put("input_config", readFileToString(sourceConfigPath));
       root.put("java_package", javaPackage);
@@ -127,7 +134,7 @@ public class ModelGenerator {
     Map<String, Object> ret = new HashMap<>();
     ret.put("classname", toClassName(e.getName()));
     ret.put("name", e.getName());
-    ret.put("nameCamel", toCamelCase(e.getName()));
+    ret.put("nameCamel", CamelCase.apply(e.getName()));
 
     List<Map<String, Object>> attributes = e.getAllAttributes().stream()
         .map(attr -> {
@@ -136,10 +143,10 @@ public class ModelGenerator {
           attrMap.put("wildcard", attr.isWildcard());
           attrMap.put("nameRaw", attr.getName());
           attrMap.put("name", nameModified);
-          attrMap.put("nameCamel", toCamelCase(nameModified));
+          attrMap.put("nameCamel", CamelCase.apply(nameModified));
           attrMap.put("nameUpper", nameModified.toUpperCase());
           // FIXME: this is working just for protobufs
-          attrMap.put("type", attr.getSchemeURI().getSchemeSpecificPart());
+          attrMap.put("type", attr.getSchemeUri().getSchemeSpecificPart());
           return attrMap;
         })
         .collect(Collectors.toList());
@@ -147,23 +154,15 @@ public class ModelGenerator {
     return ret;
   }
 
-  private String toCamelCase(String what) {
-    if (what.isEmpty()) {
-      throw new IllegalArgumentException("Entity name cannot be empty.");
-    }
-    char[] chars = what.toCharArray();
-    chars[0] = Character.toUpperCase(chars[0]);
-    return new String(chars);
-  }
-
   private String toClassName(String name) {
-    return toCamelCase(name);
+    return CamelCase.apply(name);
   }
 
   private String readFileToString(File path) throws IOException {
     return Joiner.on("\n + ").join(
         IOUtils.readLines(new FileInputStream(path), "UTF-8")
-            .stream().map(s -> "\"" + s.replace("\"", "\\\"") + "\\n\"")
+            .stream()
+            .map(s -> "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\\n\"")
             .collect(Collectors.toList()));
   }
 }

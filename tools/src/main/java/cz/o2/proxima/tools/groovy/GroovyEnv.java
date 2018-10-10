@@ -55,8 +55,9 @@ public class GroovyEnv {
             Map<String, Object> ret = new HashMap<>();
             String name = a.toAttributePrefix(false);
             ret.put("classname", toFirstUpper(name));
-            ret.put("type", a.getSchemeURI().getSchemeSpecificPart());
-            ret.put("typeclass", a.getSchemeURI().getSchemeSpecificPart() + ".class");
+            ret.put("type", toClassSpec(a.getValueSerializer().getClassType()));
+            ret.put("typeclass", toClassSpec(
+                a.getValueSerializer().getClassType()) + ".class");
             ret.put("origname", a.getName());
             ret.put("name", name);
             ret.put("fieldname", name.toLowerCase());
@@ -82,10 +83,23 @@ public class GroovyEnv {
   }
 
   private static Object toFirstUpper(String name) {
-    if (name.isEmpty()) return name;
+    if (name.isEmpty()) {
+      return name;
+    }
     char[] charArray = name.toCharArray();
     charArray[0] = Character.toUpperCase(charArray[0]);
     return new String(charArray);
+  }
+
+  private static String toClassSpec(Class<?> cls) {
+    if (cls.isAssignableFrom(byte[].class)) {
+      return "byte[]";
+    }
+    return cls.getName();
+  }
+
+  private GroovyEnv() {
+    // nop
   }
 
 }

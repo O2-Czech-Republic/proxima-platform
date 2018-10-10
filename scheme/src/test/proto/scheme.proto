@@ -15,7 +15,7 @@
  */
 /* Dummy scheme messages to validate in test cases. */
 syntax = "proto3";
-option java_package = "cz.o2.proxima.test";
+option java_package = "cz.o2.proxima.scheme.proto.test";
 
 message Event {
   string gatewayId = 1;

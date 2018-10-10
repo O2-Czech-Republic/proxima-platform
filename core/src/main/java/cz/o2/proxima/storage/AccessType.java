@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Stable;
+import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -23,7 +24,8 @@ import java.util.stream.Collectors;
 /**
  * Access type to {@code attribute family}.
  */
-public interface AccessType {
+@Stable
+public interface AccessType extends Serializable {
 
   /**
    * Return {@code AccessType} based on configuration specification.
@@ -45,6 +47,7 @@ public interface AccessType {
     boolean isStateCommitLog = specifiers.remove("state-commit-log");
     boolean isListPrimaryKey = specifiers.remove("list-primary-key");
     boolean canCreatePartitionedView = specifiers.remove("partitioned-view");
+    boolean canCreateCachedView = specifiers.remove("partitioned-cached-view");
 
     if (!specifiers.isEmpty()) {
       throw new IllegalArgumentException("Unknown storage tags: " + specifiers);
@@ -97,6 +100,11 @@ public interface AccessType {
       }
 
       @Override
+      public boolean canCreatePartitionedCachedView() {
+        return canCreateCachedView;
+      }
+
+      @Override
       public String toString() {
         return "AccessType("
             + "canReadBatchUpdates=" + canReadBatchUpdates()
@@ -108,6 +116,7 @@ public interface AccessType {
             + ", isListPrimaryKey=" + isListPrimaryKey
             + ", isWriteOnly=" + isWriteOnly
             + ", canCreatePartitionedView=" + canCreatePartitionedView
+            + ", canCreateCachedPartitionedView=" + canCreateCachedView
             + ")";
       }
 
@@ -159,7 +168,14 @@ public interface AccessType {
 
       @Override
       public boolean canCreatePartitionedView() {
-        return left.canCreatePartitionedView() || right.canCreatePartitionedView();
+        return left.canCreatePartitionedView()
+            || right.canCreatePartitionedView();
+      }
+
+      @Override
+      public boolean canCreatePartitionedCachedView() {
+        return left.canCreatePartitionedCachedView()
+            || right.canCreatePartitionedCachedView();
       }
 
     };
@@ -208,8 +224,15 @@ public interface AccessType {
   boolean isWriteOnly();
 
   /**
-   * @return {@code true} if a partitioned view be created from this attribute family
+   * @return {@code true} if a partitioned view can be created from this
+   *         attribute family
    */
   boolean canCreatePartitionedView();
+
+  /**
+   * @return {@code true} if a partitioned cached view can be create from this
+   *         attribute family
+   */
+  boolean canCreatePartitionedCachedView();
 
 }

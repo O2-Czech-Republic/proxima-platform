@@ -15,9 +15,11 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.transform.Transformation;
+import com.google.common.base.Preconditions;
+import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageFilter;
-import cz.seznam.euphoria.shadow.com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,6 +32,7 @@ import lombok.Getter;
 /**
  * Descriptor of single transformation specified in {@code transformations}.
  */
+@Evolving("Affected by #66")
 public class TransformationDescriptor implements Serializable {
 
   static Builder newBuilder() {
@@ -80,16 +83,19 @@ public class TransformationDescriptor implements Serializable {
           entity != null,
           "Please specify source entity");
 
-      return new TransformationDescriptor(entity, attrs, transformation, filter);
+      return new TransformationDescriptor(
+          entity, attrs, transformation, filter);
     }
   }
 
   @Getter
   private final EntityDescriptor entity;
-  @Getter
+
   private final List<AttributeDescriptor<?>> attributes;
+
   @Getter
   private final Transformation transformation;
+
   @Getter
   private final StorageFilter filter;
 
@@ -100,8 +106,26 @@ public class TransformationDescriptor implements Serializable {
       @Nullable StorageFilter filter) {
 
     this.entity = Objects.requireNonNull(entity);
-    this.attributes = Collections.unmodifiableList(attributes);
+    this.attributes = Objects.requireNonNull(attributes);
     this.transformation = Objects.requireNonNull(transformation);
     this.filter = filter == null ? new PassthroughFilter() : filter;
   }
+
+  public List<AttributeDescriptor<?>> getAttributes() {
+    return Collections.unmodifiableList(attributes);
+  }
+
+  void replaceAttribute(AttributeDescriptor<?> attr) {
+    attributes.remove(attr);
+    attributes.add(attr);
+  }
+
+  @Override
+  public String toString() {
+    return "TransformationDescriptor("
+        + "entity=" + entity
+        + ", attributes=" + attributes
+        + ")";
+  }
+
 }

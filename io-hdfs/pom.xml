@@ -23,13 +23,13 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.1.2</version>
+    <version>0.2-SNAPSHOT</version>
   </parent>
      
   <artifactId>io-hdfs</artifactId>
   <packaging>jar</packaging>
      
-  <name>Proxima platform HDFS module</name>
+  <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
     <plugins>
@@ -46,6 +46,7 @@
           <artifactSet>
             <excludes>
               <!-- exclude proxima and core dependencies -->
+              <exclude>cz.seznam.euphoria:*</exclude>
               <exclude>cz.o2.proxima:core</exclude>
             </excludes>
           </artifactSet>

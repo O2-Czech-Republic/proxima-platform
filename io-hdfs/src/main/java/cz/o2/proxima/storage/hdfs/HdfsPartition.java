@@ -16,11 +16,11 @@
 package cz.o2.proxima.storage.hdfs;
 
 import cz.o2.proxima.storage.batch.BoundedPartition;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
 import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
 
 /**
  * {@code Partition} of files in HDFS.
@@ -28,7 +28,7 @@ import org.apache.hadoop.fs.Path;
 public class HdfsPartition extends BoundedPartition {
 
   @Getter
-  private List<Path> files = new ArrayList<>();
+  private final List<URI> files = new ArrayList<>();
 
   private long size = 0L;
 
@@ -37,7 +37,7 @@ public class HdfsPartition extends BoundedPartition {
   }
 
   public void add(LocatedFileStatus file) {
-    files.add(file.getPath());
+    files.add(file.getPath().toUri());
     size += file.getLen();
   }
 

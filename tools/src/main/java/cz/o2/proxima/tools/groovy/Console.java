@@ -15,12 +15,14 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.AbstractMessage.Builder;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.functional.TriFunction;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc.RetrieveServiceBlockingStub;
 import cz.o2.proxima.proto.service.Rpc;
@@ -29,24 +31,28 @@ import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.OnlineAttributeWriter;
-import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
-import cz.o2.proxima.storage.commitlog.CommitLogReader.Position;
-import cz.o2.proxima.tools.io.BatchSource;
+import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.source.BatchSource;
+import cz.o2.proxima.source.BoundedStreamSource;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
-import cz.o2.proxima.tools.io.StreamSource;
-import cz.o2.proxima.tools.io.TypedIngest;
+import cz.o2.proxima.source.UnboundedStreamSource;
+import cz.o2.proxima.tools.io.TypedStreamElement;
 import cz.o2.proxima.util.Classpath;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
 import cz.seznam.euphoria.core.client.flow.Flow;
 import cz.seznam.euphoria.core.client.io.Collector;
+import cz.seznam.euphoria.core.client.io.DataSource;
 import cz.seznam.euphoria.core.client.operator.AssignEventTime;
 import cz.seznam.euphoria.core.client.operator.Filter;
 import cz.seznam.euphoria.core.client.operator.FlatMap;
+import cz.seznam.euphoria.core.client.operator.MapElements;
 import cz.seznam.euphoria.core.client.operator.ReduceByKey;
+import cz.seznam.euphoria.core.client.operator.Union;
 import cz.seznam.euphoria.core.client.util.Pair;
+import cz.seznam.euphoria.core.executor.Executor;
 import cz.seznam.euphoria.executor.local.LocalExecutor;
 import cz.seznam.euphoria.executor.local.ProcessingTimeTriggerScheduler;
 import cz.seznam.euphoria.executor.local.WatermarkEmitStrategy;
@@ -58,6 +64,8 @@ import groovy.lang.GroovyObject;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -65,14 +73,26 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.codehaus.groovy.tools.shell.Groovysh;
+import org.codehaus.groovy.tools.shell.IO;
 
 /**
  * This is the groovysh based console.
  */
+@Slf4j
 public class Console {
+
+  private static final String EXECUTOR_CONF_PREFIX = "console.executor";
+  private static final String EXECUTOR_FACTORY = "factory";
 
   private static volatile Console INSTANCE = null;
 
@@ -81,9 +101,11 @@ public class Console {
    * main method.
    * @return the singleton instance
    */
-  public static final Console get() { return INSTANCE; }
+  public static final Console get() {
+    return INSTANCE;
+  }
 
-  public static Console get(String[] args) throws Exception {
+  public static Console get(String[] args) {
     if (INSTANCE == null) {
       synchronized (Console.class) {
         if (INSTANCE == null) {
@@ -94,33 +116,61 @@ public class Console {
     return INSTANCE;
   }
 
-  AtomicReference<Flow> flow = new AtomicReference<>(createFlow());
+  @VisibleForTesting
+  public static Console create(Config config, Repository repo) {
+    INSTANCE = new Console(config, repo);
+    return INSTANCE;
+  }
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     Console console = Console.get(args);
-    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-      console.close();
-    }));
+    Runtime.getRuntime().addShutdownHook(new Thread(console::close));
 
-    Groovysh shell = new Groovysh();
+    console.runInputForwarding();
+    Groovysh shell = new Groovysh(new IO(
+        console.getInputStream(), System.out, System.err));
     shell.run("env = " + Console.class.getName() + ".get().getEnv()");
     System.out.println();
     console.close();
   }
 
-  Repository repo;
-  List<ConsoleRandomReader> readers = new ArrayList<>();
+  final AtomicReference<Flow> flow = new AtomicReference<>(createFlow());
+  final BlockingQueue<Byte> input = new ArrayBlockingQueue<>(1000);
+  @Getter
+  final Repository repo;
+  final List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;
+  final Config config;
+  final TriFunction<Repository, Config, Boolean, Executor> executorFactory;
+  final ExecutorService executor = Executors.newCachedThreadPool(r -> {
+    Thread t = new Thread(r);
+    t.setName("input-forwarder");
+    t.setDaemon(true);
+    t.setUncaughtExceptionHandler((thrd, err) ->
+        log.error("Error in thread {}", thrd.getName(), err));
+    return t;
+  });
 
-  Console(String[] paths) throws Exception {
+  Console(String[] paths) {
+    this(getConfig(paths));
+  }
+
+  Console(Config config) {
+    this(config, Repository.of(config));
+  }
+
+  Console(Config config, Repository repo) {
+    this.config = config;
+    this.repo = repo;
     ClassLoader old = Thread.currentThread().getContextClassLoader();
     Thread.currentThread().setContextClassLoader(new GroovyClassLoader(old));
-    repo = getRepo(paths);
     conf = new Configuration(Configuration.VERSION_2_3_23);
     conf.setDefaultEncoding("utf-8");
     conf.setClassForTemplateLoading(getClass(), "/");
     conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
     conf.setLogTemplateExceptions(false);
+
+    executorFactory = getExecutorFactory(config);
   }
 
   public GroovyObject getEnv() throws Exception {
@@ -129,16 +179,16 @@ public class Console {
         repo);
   }
 
-  private Repository getRepo(String[] paths) {
-    Config config;
+  private static Config getConfig(String[] paths) {
+    Config ret;
     if (paths.length > 0) {
-      config = Arrays.stream(paths)
-        .map(p -> ConfigFactory.parseFile(new File(p)))
-        .reduce(ConfigFactory.empty(), (a, b) -> b.withFallback(a));
+      ret = Arrays.stream(paths)
+          .map(p -> ConfigFactory.parseFile(new File(p)))
+          .reduce(ConfigFactory.empty(), (a, b) -> b.withFallback(a));
     } else {
-      config = ConfigFactory.load();
+      ret = ConfigFactory.load();
     }
-    return Repository.of(config.resolve());
+    return ret.resolve();
   }
 
   Flow createFlow() {
@@ -155,20 +205,17 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> Stream<TypedIngest<T>> getStream(
-      EntityDescriptor entityDesc,
+  public <T> Stream<TypedStreamElement<?>> getStream(
       AttributeDescriptor<T> attrDesc,
       Position position,
       boolean stopAtCurrent) {
 
-    return getStream(
-        entityDesc, attrDesc, position, stopAtCurrent, false);
+    return getStream(attrDesc, position, stopAtCurrent, false);
   }
 
 
   @SuppressWarnings("unchecked")
-  public <T> Stream<TypedIngest<T>> getStream(
-      EntityDescriptor entityDesc,
+  public <T> Stream<TypedStreamElement<?>> getStream(
       AttributeDescriptor<T> attrDesc,
       Position position,
       boolean stopAtCurrent,
@@ -177,42 +224,102 @@ public class Console {
     CommitLogReader reader = repo.getFamiliesForAttribute(attrDesc)
         .stream()
         .filter(af -> af.getAccess().canReadCommitLog())
+        // sort primary families on top
+        .sorted((l, r) -> l.getType().ordinal() - r.getType().ordinal())
         .map(af -> af.getCommitLogReader().get())
-        .findAny()
+        .findFirst()
         .orElseThrow(() -> new IllegalArgumentException(
             "Attribute " + attrDesc + " has no commit log"));
 
-    DatasetBuilder<TypedIngest<?>> builder = () -> {
-      Dataset<TypedIngest<?>> input = flow.get().createInput(StreamSource.of(
-          reader,
-          position,
-          stopAtCurrent,
-          TypedIngest::of));
+    final DatasetBuilder<TypedStreamElement<Object>> builder;
+    builder = () -> {
+      DataSource source = createSourceFromReader(reader, stopAtCurrent, position);
+
+      Dataset<StreamElement> ds = flow.get().createInput(source);
 
       String prefix = attrDesc.toAttributePrefix();
       if (eventTime) {
-        input = AssignEventTime.of(input)
-            .using(TypedIngest::getStamp)
+        ds = AssignEventTime.of(ds)
+            .using(StreamElement::getStamp)
             .output();
       }
-      return Filter.of(input)
-          .by(t -> t.getAttrDesc().toAttributePrefix().equals(prefix))
+      Dataset<StreamElement> filtered = Filter.of(ds)
+          .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
+          .output();
+      return MapElements.of(filtered)
+          .using(TypedStreamElement::of)
           .output();
     };
-
     return Stream.wrap(
-        new LocalExecutor()
-            .setTriggeringSchedulerSupplier(() -> {
-              return eventTime
-                  ? new WatermarkTriggerScheduler(500)
-                  : new ProcessingTimeTriggerScheduler();
-            })
-            .setWatermarkEmitStrategySupplier(() -> new WatermarkEmitStrategy.Default()),
+        createExecutor(eventTime),
         (DatasetBuilder) builder,
-        this::resetFlow);
+        this::resetFlow,
+        this::unboundedStreamInterrupt);
   }
 
-  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchSnapshot(
+  @SuppressWarnings("unchecked")
+  public Stream<StreamElement> getUnionStream(
+      Position position, boolean eventTime,
+      boolean stopAtCurrent,
+      AttributeDescriptorProvider<?>... descriptors) {
+
+    Set<String> names = Arrays.stream(descriptors)
+        .map(p -> p.desc().getName())
+        .collect(Collectors.toSet());
+
+    return Arrays.stream(descriptors)
+        .map(desc ->
+            repo.getFamiliesForAttribute(desc.desc())
+                .stream()
+                .filter(af -> af.getAccess().canReadCommitLog())
+                // sort primary families on top
+                .sorted((l, r) -> l.getType().ordinal() - r.getType().ordinal())
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Missing commit log for " + desc)))
+        .distinct()
+        .map(af -> af.getCommitLogReader()
+            .orElseThrow(() -> new IllegalStateException(
+                "Family " + af + " has no commit log")))
+        .map(reader -> {
+          final DatasetBuilder<StreamElement> builder;
+          builder = () -> {
+            final DataSource source = createSourceFromReader(
+                reader, stopAtCurrent, position);
+
+            Dataset<StreamElement> ds = flow.get().createInput(source);
+
+            if (eventTime) {
+              ds = AssignEventTime.of(ds)
+                  .using(StreamElement::getStamp)
+                  .output();
+            }
+            return Filter.of(ds)
+                .by(t -> names.contains(t.getAttributeDescriptor().getName()))
+                .output();
+          };
+          return Stream.wrap(
+              createExecutor(eventTime),
+              (DatasetBuilder<StreamElement>) builder,
+              this::resetFlow,
+              this::unboundedStreamInterrupt);
+        })
+        .reduce((a, b) -> a.union(b))
+        .orElseThrow(() -> new IllegalStateException("Pass non-empty descriptors"));
+  }
+
+  private DataSource createSourceFromReader(
+      CommitLogReader reader,
+      boolean stopAtCurrent,
+      Position position) {
+
+    if (stopAtCurrent) {
+      return BoundedStreamSource.of(reader, position);
+    }
+    return UnboundedStreamSource.of(reader, position);
+  }
+
+  public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc) {
 
@@ -221,14 +328,14 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchSnapshot(
+  public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       long fromStamp,
       long toStamp) {
 
-    DatasetBuilder<TypedIngest<Object>> builder = () -> {
-      final Dataset<TypedIngest<Object>> input;
+    DatasetBuilder<StreamElement> builder = () -> {
+      final Dataset<StreamElement> ds;
       AttributeFamilyDescriptor family = repo.getFamiliesForAttribute(attrDesc)
           .stream()
           .filter(af -> af.getAccess().canReadBatchSnapshot())
@@ -237,115 +344,130 @@ public class Console {
           .orElse(null);
 
       if (family == null || fromStamp > Long.MIN_VALUE || toStamp < Long.MAX_VALUE) {
-        // create the data by reducing stream updates
-        CommitLogReader reader = repo.getFamiliesForAttribute(attrDesc)
-            .stream()
-            .filter(af -> af.getAccess().isStateCommitLog())
-            .map(af -> af.getCommitLogReader().get())
-            .findAny()
-            .orElseThrow(() -> new IllegalStateException(
-                "Cannot create batch snapshot, missing random access family and state commit log for " + attrDesc));
-        Dataset<TypedIngest<Object>> stream = flow.get().createInput(
-            StreamSource.of(reader, Position.OLDEST, true, TypedIngest::of));
-
-        // filter by stamp
-        stream = Filter.of(stream)
-            .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
-            .output();
-
-        Dataset<Pair<Pair<String, String>, TypedIngest<Object>>> reduced = ReduceByKey.of(stream)
-            .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
-            .combineBy(values -> {
-              TypedIngest<Object> res = null;
-              Iterable<TypedIngest<Object>> iter = () -> values.iterator();
-              for (TypedIngest<Object> v : iter) {
-                if (res == null || v.getStamp() > res.getStamp()) {
-                  res = v;
-                }
-              }
-              return res;
-            })
-            .output();
-
-        input = FlatMap.of(reduced)
-            .using((Pair<Pair<String, String>, TypedIngest<Object>> e, Collector<TypedIngest<Object>> ctx) -> {
-              if (e.getSecond().getValue() != null) {
-                ctx.collect(e.getSecond());
-              }
-            })
-            .output();
-
+        ds = reduceUpdatesToSnapshot(attrDesc, fromStamp, toStamp);
       } else {
-        Dataset<TypedIngest<Object>> raw = flow.get().createInput(BatchSource.of(
+        Dataset<StreamElement> raw = flow.get().createInput(BatchSource.of(
             family.getBatchObservable().get(),
             family,
             fromStamp,
             toStamp));
-        input = Filter.of(raw)
+        ds = Filter.of(raw)
             .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
             .output();
       }
 
       String prefix = attrDesc.toAttributePrefix();
-      return Filter.of(input)
-          .by(t -> t.getAttrDesc().toAttributePrefix().equals(prefix))
+      return Filter.of(ds)
+          .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
           .output();
     };
 
     return Stream.wrap(
-        new LocalExecutor()
-            .setTriggeringSchedulerSupplier(() -> {
-              return new ProcessingTimeTriggerScheduler();
-            })
-            .setWatermarkEmitStrategySupplier(() -> new WatermarkEmitStrategy.Default()),
+        createExecutor(false),
         (DatasetBuilder) builder,
-        this::resetFlow).windowAll();
+        this::resetFlow,
+        this::unboundedStreamInterrupt).windowAll();
 
+  }
+
+  private Dataset<StreamElement> reduceUpdatesToSnapshot(
+      AttributeDescriptor<?> attrDesc,
+      long fromStamp,
+      long toStamp) {
+
+    // create the data by reducing stream updates
+    CommitLogReader reader = repo.getFamiliesForAttribute(attrDesc)
+        .stream()
+        .filter(af -> af.getAccess().isStateCommitLog())
+        .sorted((l, r) -> l.getType().ordinal() - r.getType().ordinal())
+        .map(af -> af.getCommitLogReader().get())
+        .findFirst()
+        .orElseThrow(() -> new IllegalStateException(
+            "Cannot create batch snapshot, missing random access family "
+                + "and state commit log for " + attrDesc));
+    Dataset<StreamElement> stream = flow.get().createInput(
+        UnboundedStreamSource.of(reader, Position.OLDEST));
+    // filter by stamp
+    stream = Filter.of(stream)
+        .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
+        .output();
+    final Dataset<Pair<Pair<String, String>, StreamElement>> reduced;
+    reduced = ReduceByKey.of(stream)
+        .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
+        .combineBy(values -> {
+          StreamElement res = null;
+          Iterable<StreamElement> iter = values::iterator;
+          for (StreamElement v : iter) {
+            if (res == null || v.getStamp() > res.getStamp()) {
+              res = v;
+            }
+          }
+          return res;
+        })
+        .output();
+    return FlatMap.of(reduced)
+        .using((
+            Pair<Pair<String, String>, StreamElement> e,
+            Collector<StreamElement> ctx) -> {
+          if (e.getSecond().getValue() != null) {
+            ctx.collect(e.getSecond());
+          }
+        })
+        .output();
   }
 
 
   @SuppressWarnings("unchecked")
-  public <T> WindowedStream<TypedIngest<T>, GlobalWindowing> getBatchUpdates(
-      EntityDescriptor entityDesc,
-      AttributeDescriptor<T> attrDesc,
+  public WindowedStream<StreamElement, GlobalWindowing> getBatchUpdates(
       long startStamp,
-      long endStamp) {
+      long endStamp,
+      AttributeDescriptorProvider<?>... attrs) {
 
-    AttributeFamilyDescriptor family = repo.getFamiliesForAttribute(attrDesc)
-        .stream()
-        .filter(af -> af.getAccess().canReadBatchUpdates())
-        .filter(af -> af.getBatchObservable().isPresent())
-        .findAny()
-        .orElseThrow(() -> new IllegalStateException("Attribute "
-            + attrDesc.getName() + " has no random access reader"));
+    Set<String> descriptors = Arrays.stream(attrs)
+        .map(AttributeDescriptorProvider::desc)
+        .map(AttributeDescriptor::toAttributePrefix)
+        .collect(Collectors.toSet());
 
-    DatasetBuilder<TypedIngest<Object>> builder = () -> {
-      Dataset<TypedIngest<Object>> input = flow.get().createInput(BatchSource.of(
-          family.getBatchObservable().get(),
-          family,
-          startStamp, endStamp));
+    DatasetBuilder<StreamElement> builder = () -> {
+      Dataset<StreamElement> ds = Arrays.stream(attrs)
+          .map(AttributeDescriptorProvider::desc)
+          .map(attrDesc ->
+              repo.getFamiliesForAttribute(attrDesc)
+                  .stream()
+                  .filter(af -> af.getAccess().canReadBatchUpdates())
+                  .filter(af -> af.getBatchObservable().isPresent())
+                  .findAny()
+                  .orElseThrow(() -> new IllegalStateException("Attribute "
+                      + attrDesc.getName() + " has no batch log observable reader")))
+          .distinct()
+          .map(family ->
+              flow.get().createInput(BatchSource.of(
+                  family.getBatchObservable().get(),
+                  family,
+                  startStamp, endStamp)))
+          .reduce((left, right) -> Union.of(left, right).output())
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Please pass non-empty list of attributes, got " + attrs));
 
-      input = Filter.of(input)
+      ds = Filter.of(ds)
           .by(i -> i.getStamp() >= startStamp && i.getStamp() < endStamp)
           .output();
 
-      String prefix = attrDesc.toAttributePrefix();
-      Dataset<TypedIngest<Object>> filtered = Filter.of(input)
-          .by(t -> t.getAttrDesc().toAttributePrefix().equals(prefix))
+      Dataset<StreamElement> filtered = Filter.of(ds)
+          .by(t -> descriptors.contains(
+              t.getAttributeDescriptor().toAttributePrefix()))
           .output();
+      
       return AssignEventTime.of(filtered)
-          .using(TypedIngest::getStamp)
+          .using(StreamElement::getStamp)
           .output();
     };
 
     return Stream.wrap(
-        new LocalExecutor()
-            .setTriggeringSchedulerSupplier(() -> {
-              return new ProcessingTimeTriggerScheduler();
-            })
-            .setWatermarkEmitStrategySupplier(() -> new WatermarkEmitStrategy.Default()),
+        createExecutor(false),
         (DatasetBuilder) builder,
-        this::resetFlow).windowAll();
+        this::resetFlow,
+        this::unboundedStreamInterrupt).windowAll();
 
   }
 
@@ -363,13 +485,12 @@ public class Console {
       EntityDescriptor entityDesc,
       AttributeDescriptor attrDesc,
       String key, String attribute, String textFormat)
-      throws NoSuchMethodException, IllegalAccessException,
-          IllegalArgumentException, InvocationTargetException,
+      throws NoSuchMethodException, IllegalAccessException, InvocationTargetException,
           ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
           TextFormat.ParseException {
 
-    if (attrDesc.getSchemeURI().getScheme().equals("proto")) {
-      String protoClass = attrDesc.getSchemeURI().getSchemeSpecificPart();
+    if (attrDesc.getSchemeUri().getScheme().equals("proto")) {
+      String protoClass = attrDesc.getValueSerializer().getClassType().getName();
       Class<AbstractMessage> cls = Classpath.findClass(protoClass, AbstractMessage.class);
       byte[] payload = null;
       if (textFormat != null) {
@@ -378,14 +499,9 @@ public class Console {
         TextFormat.merge(textFormat, builder);
         payload = builder.build().toByteArray();
       }
-      Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(attrDesc);
-      OnlineAttributeWriter writer = families.stream()
-          .filter(af -> af.getType() == StorageType.PRIMARY)
-          .findAny()
-          .orElse(families.stream().findAny().get())
-          .getWriter()
-          .get()
-          .online();
+      OnlineAttributeWriter writer = repo.getWriter(attrDesc)
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Missing writer for " + attrDesc));
       CountDownLatch latch = new CountDownLatch(1);
       AtomicReference<Throwable> exc = new AtomicReference<>();
       writer.write(StreamElement.update(
@@ -403,7 +519,7 @@ public class Console {
     } else {
       throw new IllegalArgumentException(
           "Don't know how to make builder for "
-          + attrDesc.getSchemeURI());
+          + attrDesc.getSchemeUri());
     }
 
   }
@@ -412,28 +528,23 @@ public class Console {
       EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc,
       String key, String attribute) throws InterruptedException {
 
-      Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(attrDesc);
-      OnlineAttributeWriter writer = families.stream()
-          .filter(af -> af.getType() == StorageType.PRIMARY)
-          .findAny()
-          .orElse(families.stream().findAny().get())
-          .getWriter()
-          .get()
-          .online();
-      CountDownLatch latch = new CountDownLatch(1);
-      AtomicReference<Throwable> exc = new AtomicReference<>();
-      writer.write(StreamElement.update(
-          entityDesc, attrDesc, UUID.randomUUID().toString(),
-          key, attribute, System.currentTimeMillis(), null), (success, ex) -> {
-            if (!success) {
-              exc.set(ex);
-            }
-            latch.countDown();
-          });
-      latch.await();
-      if (exc.get() != null) {
-        throw new RuntimeException(exc.get());
-      }
+    OnlineAttributeWriter writer = repo.getWriter(attrDesc)
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Missing writer for " + attrDesc));
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Throwable> exc = new AtomicReference<>();
+    writer.write(StreamElement.update(
+        entityDesc, attrDesc, UUID.randomUUID().toString(),
+        key, attribute, System.currentTimeMillis(), null), (success, ex) -> {
+          if (!success) {
+            exc.set(ex);
+          }
+          latch.countDown();
+        });
+    latch.await();
+    if (exc.get() != null) {
+      throw new RuntimeException(exc.get());
+    }
   }
 
   public EntityDescriptor findEntityDescriptor(String entity) {
@@ -449,7 +560,7 @@ public class Console {
     Channel channel = ManagedChannelBuilder
         .forAddress(host, port)
         .directExecutor()
-        .usePlaintext(true)
+        .usePlaintext()
         .build();
 
     RetrieveServiceBlockingStub stub = RetrieveServiceGrpc.newBlockingStub(channel);
@@ -468,7 +579,7 @@ public class Console {
     Channel channel = ManagedChannelBuilder
         .forAddress(host, port)
         .directExecutor()
-        .usePlaintext(true)
+        .usePlaintext()
         .build();
 
     RetrieveServiceBlockingStub stub = RetrieveServiceGrpc.newBlockingStub(channel);
@@ -481,6 +592,76 @@ public class Console {
 
   private void close() {
     readers.forEach(ConsoleRandomReader::close);
+  }
+
+  private boolean unboundedStreamInterrupt() {
+    try {
+      return takeInputChar() == 'q';
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      return true;
+    }
+  }
+
+  private void runInputForwarding() {
+    executor.execute(() -> {
+      while (!Thread.currentThread().isInterrupted()) {
+        try {
+          byte next = (byte) System.in.read();
+          while (!input.offer(next)) {
+            input.remove();
+          }
+        } catch (IOException ex) {
+          throw new RuntimeException(ex);
+        }
+      }
+    });
+  }
+
+  private InputStream getInputStream() {
+    return new InputStream() {
+
+      @Override
+      public int read() throws IOException {
+        try {
+          return input.take();
+        } catch (InterruptedException ex) {
+          Thread.currentThread().interrupt();
+          return -1;
+        }
+      }
+
+    };
+  }
+
+  private int takeInputChar() throws InterruptedException {
+    return input.take();
+  }
+
+  private Executor createExecutor(boolean eventTime) {
+    Config executorConfig = config.atPath(EXECUTOR_CONF_PREFIX);
+    return executorFactory.apply(repo, executorConfig, eventTime);
+  }
+
+  private static LocalExecutor createLocalExecutor(boolean eventTime) {
+    return new LocalExecutor()
+        .setTriggeringSchedulerSupplier(() ->
+            eventTime
+                ? new WatermarkTriggerScheduler(500)
+                : new ProcessingTimeTriggerScheduler())
+        .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new);
+  }
+
+  @SuppressWarnings("unchecked")
+  private TriFunction<Repository, Config, Boolean, Executor> getExecutorFactory(
+      Config config) {
+
+    String path = EXECUTOR_CONF_PREFIX + "." + EXECUTOR_FACTORY;
+    if (config.hasPath(path)) {
+      return Classpath.newInstance(
+          Classpath.findClass(config.getString(path), TriFunction.class));
+    }
+    return (repository, cfg, eventTime) -> Console.createLocalExecutor(eventTime);
   }
 
 }

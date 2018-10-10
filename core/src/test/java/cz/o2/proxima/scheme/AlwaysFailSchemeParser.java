@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.scheme;
 
 import java.net.URI;
 import java.util.Optional;
-import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.scheme.ValueSerializerFactory;
 
 /**
  * This scheme parser always fails the parsing.
@@ -33,21 +30,26 @@ public class AlwaysFailSchemeParser implements ValueSerializerFactory {
   }
 
   @Override
-  public ValueSerializer<Object> getValueSerializer(URI scheme) {
-    return new ValueSerializer<Object>() {
+  public ValueSerializer<byte[]> getValueSerializer(URI scheme) {
+    return new ValueSerializer<byte[]>() {
       @Override
-      public Optional<Object> deserialize(byte[] input) {
+      public Optional<byte[]> deserialize(byte[] input) {
         return Optional.empty();
       }
 
       @Override
-      public Object getDefault() {
+      public byte[] getDefault() {
         return null;
       }
 
       @Override
-      public byte[] serialize(Object value) {
-        return new byte[]{ };
+      public byte[] serialize(byte[] value) {
+        return value;
+      }
+
+      @Override
+      public Class<byte[]> getClassType() {
+        return byte[].class;
       }
 
     };

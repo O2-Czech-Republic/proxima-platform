@@ -15,8 +15,9 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.transform.ProxyTransform;
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Objects;
@@ -28,6 +29,8 @@ import cz.o2.proxima.scheme.ValueSerializer;
 /**
  * An interface describing each attribute.
  */
+@Stable
+@Accessors(chain = true)
 public interface AttributeDescriptor<T> extends Serializable {
 
   class Builder {
@@ -39,27 +42,33 @@ public interface AttributeDescriptor<T> extends Serializable {
     }
 
     @Setter
-    @Accessors(chain = true)
     private String entity;
 
     @Setter
-    @Accessors(chain = true)
     private String name;
 
     @Setter
-    @Accessors(chain = true)
-    private URI schemeURI;
+    private URI schemeUri;
+
+    @Setter
+    private boolean replica = false;
 
     @SuppressWarnings("unchecked")
     public <T> AttributeDescriptorImpl<T> build() {
       Objects.requireNonNull(name, "Please specify name");
       Objects.requireNonNull(entity, "Please specify entity");
-      Objects.requireNonNull(schemeURI, "Please specify scheme URI");
+      Objects.requireNonNull(schemeUri, "Please specify scheme URI");
 
-      ValueSerializerFactory<?> factory = repo.getValueSerializerFactory(schemeURI.getScheme());
+      ValueSerializerFactory factory = repo.getValueSerializerFactory(
+          schemeUri.getScheme());
 
-      return new AttributeDescriptorImpl<>(name, entity, schemeURI,
-          factory == null ? null : (ValueSerializer<T>) factory.getValueSerializer(schemeURI));
+      return new AttributeDescriptorImpl<>(
+          name, entity,
+          schemeUri,
+          factory == null
+              ? null
+              : factory.getValueSerializer(schemeUri),
+          replica);
     }
   }
 
@@ -69,10 +78,25 @@ public interface AttributeDescriptor<T> extends Serializable {
 
   static <T> AttributeDescriptorBase<T> newProxy(
       String name,
-      AttributeDescriptorBase<T> target,
-      ProxyTransform transform) {
+      AttributeDescriptor<T> targetRead,
+      ProxyTransform transformRead,
+      AttributeDescriptor<T> targetWrite,
+      ProxyTransform transformWrite) {
 
-    return new AttributeProxyDescriptorImpl<>(name, target, transform);
+    return newProxy(
+        name, targetRead, transformRead, targetWrite, transformWrite, false);
+  }
+
+  static <T> AttributeDescriptorBase<T> newProxy(
+      String name,
+      AttributeDescriptor<T> targetRead,
+      ProxyTransform transformRead,
+      AttributeDescriptor<T> targetWrite,
+      ProxyTransform transformWrite,
+      boolean replica) {
+
+    return new AttributeProxyDescriptorImpl<>(
+        name, targetRead, transformRead, targetWrite, transformWrite, replica);
   }
 
   /**
@@ -91,19 +115,13 @@ public interface AttributeDescriptor<T> extends Serializable {
    * Retrieve URI of the scheme of this attribute.
    * @return scheme URI of this attribute
    */
-  URI getSchemeURI();
+  URI getSchemeUri();
 
   /**
    * Retrieve name of the associated entity.
    * @return name of the associated entity
    */
   String getEntity();
-
-  /**
-   * Retrieve writer for the data.
-   * @return {@link OnlineAttributeWriter} of this attribute
-   */
-  OnlineAttributeWriter getWriter();
 
   /**
    * Retrieve name of the attribute if not wildcard, otherwise
@@ -122,7 +140,6 @@ public interface AttributeDescriptor<T> extends Serializable {
    */
   String toAttributePrefix(boolean includeLastDot);
 
-
   /**
    * Retrieve serializer for value type.
    * @return {@link ValueSerializer} of this attribute's value
@@ -134,5 +151,12 @@ public interface AttributeDescriptor<T> extends Serializable {
    * @return {@code true} it this is public attribute
    */
   boolean isPublic();
+
+  /**
+   * Convert this attribute back to builder.
+   * @param repo the repository
+   * @return builder representing this attribute
+   */
+  public AttributeDescriptor.Builder toBuilder(Repository repo);
 
 }

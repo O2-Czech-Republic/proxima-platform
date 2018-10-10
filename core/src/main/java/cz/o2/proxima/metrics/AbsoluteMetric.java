@@ -15,12 +15,14 @@
  */
 package cz.o2.proxima.metrics;
 
-import cz.seznam.euphoria.shadow.com.google.common.util.concurrent.AtomicDouble;
+import com.google.common.util.concurrent.AtomicDouble;
+import cz.o2.proxima.annotations.Stable;
 import java.beans.ConstructorProperties;
 
 /**
  * A metric with absolute value.
  */
+@Stable
 public class AbsoluteMetric extends ScalarMetric {
 
   public static AbsoluteMetric of(String group, String name) {

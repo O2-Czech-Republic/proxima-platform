@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.stdout;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractOnlineAttributeWriter;
@@ -31,6 +32,7 @@ import java.util.Optional;
 /**
  * Dummy storage printing data to stdout.
  */
+@Stable
 public class StdoutStorage extends StorageDescriptor {
 
   public StdoutStorage() {
@@ -50,9 +52,9 @@ public class StdoutStorage extends StorageDescriptor {
           @Override
           public void write(StreamElement data, CommitCallback callback) {
             System.out.println(String.format(
-              "Writing entity %s to attribute %s with key %s and value of size %d",
-              data.getEntityDescriptor(), data.getAttributeDescriptor(), data.getKey(),
-              data.getValue().length));
+                "Writing entity %s to attribute %s with key %s and value of size %d",
+                data.getEntityDescriptor(), data.getAttributeDescriptor(), data.getKey(),
+                data.getValue().length));
             callback.commit(true, null);
           }
         });

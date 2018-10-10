@@ -39,7 +39,7 @@ public class OffsetCommitter<ID> {
    * Callback to be called for performing the commit.
    */
   @FunctionalInterface
-  public static interface  Callback {
+  public static interface Callback {
     void apply();
   }
 
@@ -86,7 +86,8 @@ public class OffsetCommitter<ID> {
    * Register number of actions to be performed before offset can be committed.
    * @param id id of the consumer
    * @param offset the registered offset
-   * @param numActions how many times {@link confirm} should be called to consider the action as done
+   * @param numActions how many times {@link confirm} should be called to
+   *                   consider the action as done
    * @param commit {@link Callback} to call to commit
    */
   public void register(ID id, long offset, int numActions, Callback commit) {
@@ -100,7 +101,9 @@ public class OffsetCommitter<ID> {
     }
     current.put(offset, new OffsetMeta(numActions, commit));
     if (numActions == 0) {
-      checkCommitable(id, current);
+      synchronized (current) {
+        checkCommitable(id, current);
+      }
     }
   }
 
@@ -110,38 +113,38 @@ public class OffsetCommitter<ID> {
    * @param offset the offset to confirm
    */
   public void confirm(ID id, long offset) {
-    NavigableMap<Long, OffsetMeta> current = waitingOffsets.get(id);
+    Map<Long, OffsetMeta> current = waitingOffsets.get(id);
     log.debug("Confirming processing of offset {} with ID {}", offset, id);
     if (current != null) {
       OffsetMeta meta = current.get(offset);
       if (meta != null) {
         meta.decrement();
       }
-      checkCommitable(id, current);
+      synchronized (current) {
+        checkCommitable(id, current);
+      }
     }
   }
 
-  private void checkCommitable(ID id, NavigableMap<Long, OffsetMeta> current) {
-    synchronized (current) {
-      List<Map.Entry<Long, OffsetMeta>> commitable = new ArrayList<>();
-      for (Map.Entry<Long, OffsetMeta> e : current.entrySet()) {
-        if (e.getValue().getActions() <= 0) {
-          log.debug(
-              "Adding offset {} of ID {} to committable map.",
-              e.getKey(), id);
-          commitable.add(e);
-        } else {
-          log.debug(
-              "Waiting for still non-committed offset {}, {} actions missing",
-              e.getKey(), e.getValue().getActions());
-          break;
-        }
+  private void checkCommitable(ID id, Map<Long, OffsetMeta> current) {
+    List<Map.Entry<Long, OffsetMeta>> commitable = new ArrayList<>();
+    for (Map.Entry<Long, OffsetMeta> e : current.entrySet()) {
+      if (e.getValue().getActions() <= 0) {
+        log.debug(
+            "Adding offset {} of ID {} to committable map.",
+            e.getKey(), id);
+        commitable.add(e);
+      } else {
+        log.debug(
+            "Waiting for still non-committed offset {}, {} actions missing",
+            e.getKey(), e.getValue().getActions());
+        break;
       }
-      if (!commitable.isEmpty()) {
-        Map.Entry<Long, OffsetMeta> toCommit = commitable.get(commitable.size() - 1);
-        toCommit.getValue().getCommit().apply();
-        commitable.forEach(e -> current.remove(e.getKey()));
-      }
+    }
+    if (!commitable.isEmpty()) {
+      Map.Entry<Long, OffsetMeta> toCommit = commitable.get(commitable.size() - 1);
+      commitable.forEach(e -> current.remove(e.getKey()));
+      toCommit.getValue().getCommit().apply();
     }
   }
 
@@ -151,10 +154,17 @@ public class OffsetCommitter<ID> {
    * @param offset offset to clear
    */
   public void clear(ID id, long offset) {
-    NavigableMap<Long, OffsetMeta> current = waitingOffsets.get(id);
+    Map<Long, OffsetMeta> current = waitingOffsets.get(id);
     if (current != null) {
       current.remove(offset);
     }
+  }
+
+  /**
+   * Clear completely all mappings.
+   */
+  public void clear() {
+    waitingOffsets.clear();
   }
 
 }

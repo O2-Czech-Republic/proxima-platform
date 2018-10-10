@@ -42,13 +42,14 @@ class GCloudStorageAccessor extends AbstractStorage implements DataAccessor {
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
     return Optional.of(new BulkGCloudStorageWriter(
-        getEntityDescriptor(), getURI(), cfg));
+        getEntityDescriptor(), getUri(), cfg, context));
   }
 
   @Override
   public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
     return Optional.of(new GCloudLogObservable(
-        getEntityDescriptor(), getURI(), cfg, context.getExecutorService()));
+        getEntityDescriptor(), getUri(), cfg,
+        context::getExecutorService));
   }
 
 }

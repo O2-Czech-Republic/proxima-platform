@@ -15,29 +15,25 @@
  */
 package cz.o2.proxima.storage.kafka;
 
+import cz.o2.proxima.view.LocalCachedPartitionedView;
+import cz.o2.proxima.storage.commitlog.Partitioner;
+import com.google.common.base.Strings;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.DataAccessor;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
-import cz.o2.proxima.storage.commitlog.LogObserver;
-import cz.o2.proxima.storage.kafka.partitioner.KeyPartitioner;
+import cz.o2.proxima.storage.commitlog.KeyPartitioner;
 import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.view.PartitionedCachedView;
 import cz.o2.proxima.view.PartitionedView;
-import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.common.TopicPartition;
-
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.function.Consumer;
 import lombok.AccessLevel;
 
 /**
@@ -45,76 +41,6 @@ import lombok.AccessLevel;
  */
 @Slf4j
 public class KafkaAccessor extends AbstractStorage implements DataAccessor {
-
-  /**
-   * Consumer of stream elements.
-   * The callback may or might not be called depending on the consuming mode
-   * (bulk or online).
-   */
-  static interface ElementConsumer {
-    void consumeWithConfirm(
-        @Nullable StreamElement element,
-        TopicPartition tp, long offset,
-        Consumer<Throwable> errorHandler);
-  }
-
-  static interface TopicPartitionCommitter {
-    void commit(TopicPartition tp, long offset);
-  }
-
-  static final class OnlineConsumer implements ElementConsumer {
-    final LogObserver observer;
-    final TopicPartitionCommitter committer;
-    OnlineConsumer(LogObserver observer, TopicPartitionCommitter committer) {
-      this.observer = observer;
-      this.committer = committer;
-    }
-
-    @Override
-    public void consumeWithConfirm(
-        @Nullable StreamElement element,
-        TopicPartition tp, long offset,
-        Consumer<Throwable> errorHandler) {
-
-      if (element != null) {
-        observer.onNext(element, tp::partition, (succ, exc) -> {
-          if (succ) {
-            committer.commit(tp, offset);
-          } else {
-            errorHandler.accept(exc);
-          }
-        });
-      } else {
-        committer.commit(tp, offset);
-      }
-    }
-  }
-
-  static final class BulkConsumer implements ElementConsumer {
-    final BulkLogObserver observer;
-    final TopicPartitionCommitter committer;
-    BulkConsumer(BulkLogObserver observer, TopicPartitionCommitter committer) {
-      this.observer = observer;
-      this.committer = committer;
-    }
-
-    @Override
-    public void consumeWithConfirm(
-        @Nullable StreamElement element,
-        TopicPartition tp, long offset,
-        Consumer<Throwable> errorHandler) {
-
-      if (element != null) {
-        observer.onNext(element, tp::partition, (succ, exc) -> {
-          if (succ) {
-            committer.commit(tp, offset);
-          } else {
-            errorHandler.accept(exc);
-          }
-        });
-      }
-    }
-  }
 
   /** A poll interval in milliseconds. */
   public static final String POLL_INTERVAL_CFG = "poll.interval";
@@ -173,7 +99,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
     log.info(
         "Using consumerPollInterval {} and partitionerClass {} for URI {}",
-        consumerPollInterval, partitioner.getClass(), getURI());
+        consumerPollInterval, partitioner.getClass(), getUri());
   }
 
 
@@ -194,24 +120,37 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
    * @return {@link KafkaConsumerFactory} for creating consumers
    */
   public KafkaConsumerFactory createConsumerFactory() {
-    return new KafkaConsumerFactory(getURI(), createProps());
+    return new KafkaConsumerFactory(getUri(), createProps());
   }
 
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
-    return Optional.of(new KafkaWriter(this));
+    return Optional.of(newWriter());
   }
 
   @Override
   public Optional<CommitLogReader> getCommitLogReader(Context context) {
-    return Optional.of(new KafkaLogReader(this, context));
+    return Optional.of(newReader(context));
   }
 
   @Override
   public Optional<PartitionedView> getPartitionedView(Context context) {
-    return Optional.of(new KafkaLogReader(this, context));
+    return Optional.of(newReader(context));
   }
 
+  @Override
+  public Optional<PartitionedCachedView> getCachedView(Context context) {
+    return Optional.of(new LocalCachedPartitionedView(
+        getEntityDescriptor(), newReader(context),
+        newWriter()));
+  }
 
+  KafkaWriter newWriter() {
+    return new KafkaWriter(this);
+  }
+
+  KafkaLogReader newReader(Context context) {
+    return new KafkaLogReader(this, context);
+  }
 
 }

@@ -15,17 +15,19 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.base.Preconditions;
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
 import java.net.URI;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import lombok.Getter;
-import lombok.Setter;
 
 /**
- * Base class for {@link AttributeDescriptorImpl} and {@link AttributeProxyDescriptorImpl}.
+ * Base class for {@link AttributeDescriptorImpl}
+ * and {@link AttributeProxyDescriptorImpl}.
  */
+@Internal
 public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<T> {
 
   @Getter
@@ -35,7 +37,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   protected final String name;
 
   @Getter
-  protected final URI schemeURI;
+  protected final URI schemeUri;
 
   @Getter
   protected final boolean proxy;
@@ -43,50 +45,71 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   @Getter
   protected final boolean wildcard;
 
-  protected @Nullable final ValueSerializer<T> valueSerializer;
-
   @Getter
-  @Setter
-  protected OnlineAttributeWriter writer = null;
+  protected final boolean replica;
+
+  @Nullable
+  protected final ValueSerializer<T> valueSerializer;
 
   public AttributeDescriptorBase(
-      String name, String entity, URI schemeURI,
-      @Nullable ValueSerializer<T> valueSerializer) {
+      String name, String entity, URI schemeUri,
+      @Nullable ValueSerializer<T> valueSerializer,
+      boolean replica) {
 
     this.name = Objects.requireNonNull(name);
     this.entity = Objects.requireNonNull(entity);
-    this.schemeURI = Objects.requireNonNull(schemeURI);
+    this.schemeUri = Objects.requireNonNull(schemeUri);
     this.wildcard = this.name.endsWith(".*");
     this.proxy = false;
     this.valueSerializer = valueSerializer;
-    if (this.wildcard) {
-      if (name.length() < 3
+    this.replica = replica;
+    if (this.wildcard
+        && (name.length() < 3
           || name.substring(0, name.length() - 1).contains("*")
-          || name.charAt(name.length() - 2) != '.') {
+          || name.charAt(name.length() - 2) != '.')) {
 
-        throw new IllegalArgumentException(
-            "Please specify wildcard attributes only in the format `<name>.*; for now. "
-                + "That is - wildcard attributes can contain only single asterisk "
-                + "right after a dot at the end of the attribute name. "
-                + "This is implementation constraint for now.");
-      }
+      throw new IllegalArgumentException(
+          "Please specify wildcard attributes only in the format `<name>.*; for now. "
+              + "That is - wildcard attributes can contain only single asterisk "
+              + "right after a dot at the end of the attribute name. "
+              + "This is implementation constraint for now.");
     }
   }
 
-  public AttributeDescriptorBase(String name, AttributeDescriptorBase<T> target) {
+  public AttributeDescriptorBase(
+      String name,
+      AttributeDescriptor<T> targetRead,
+      AttributeDescriptor<T> targetWrite,
+      boolean replica) {
+
     this.name = Objects.requireNonNull(name);
-    this.entity = target.getEntity();
-    this.schemeURI = target.getSchemeURI();
+    Preconditions.checkArgument(
+        targetRead.getEntity().equals(targetWrite.getEntity()),
+        String.format(
+            "Cannot mix entities in proxies, got %s and %s",
+            targetRead.getEntity(), targetWrite.getEntity()));
+    Preconditions.checkArgument(
+        targetRead.getSchemeUri().equals(targetWrite.getSchemeUri()),
+        String.format(
+            "Cannot mix attributes with different schemes, got %s and %s",
+            targetRead.getSchemeUri(), targetWrite.getSchemeUri()));
+    Preconditions.checkArgument(
+        targetRead.isWildcard() == targetWrite.isWildcard(),
+        "Cannot mix non-wildcard and wildcard attributes in proxy");
+    this.entity = targetRead.getEntity();
+    this.schemeUri = targetRead.getSchemeUri();
     this.proxy = true;
-    this.wildcard = target.isWildcard();
-    this.valueSerializer = target.getValueSerializer();
+    this.replica = replica;
+    this.wildcard = targetRead.isWildcard();
+    this.valueSerializer = targetRead.getValueSerializer();
   }
 
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof AttributeDescriptor) {
       AttributeDescriptor other = (AttributeDescriptor) obj;
-      return Objects.equals(other.getEntity(), entity) && Objects.equals(other.getName(), name);
+      return Objects.equals(
+          other.getEntity(), entity) && Objects.equals(other.getName(), name);
     }
     return false;
   }
@@ -116,6 +139,21 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   @Override
   public ValueSerializer<T> getValueSerializer() {
     return Objects.requireNonNull(valueSerializer);
+  }
+
+  @Override
+  public Builder toBuilder(Repository repo) {
+    return AttributeDescriptor.newBuilder(repo)
+        .setName(getName())
+        .setEntity(getEntity())
+        .setSchemeUri(getSchemeUri());
+  }
+
+  AttributeProxyDescriptorImpl<T> toProxy() {
+    Preconditions.checkArgument(
+        this instanceof AttributeProxyDescriptorImpl,
+        "Attribute " + this + " is not proxy attribute");
+    return (AttributeProxyDescriptorImpl<T>) this;
   }
 
 }

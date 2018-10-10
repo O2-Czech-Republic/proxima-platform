@@ -23,13 +23,13 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.1.2</version>
+    <version>0.2-SNAPSHOT</version>
   </parent>
      
   <artifactId>scheme</artifactId>
   <packaging>jar</packaging>
      
-  <name>Proxima platform core scheme parsers and validators</name>
+  <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
     <extensions>
@@ -45,7 +45,7 @@
         <artifactId>protobuf-maven-plugin</artifactId>
         <version>0.5.0</version>
         <configuration>
-          <protocArtifact>com.google.protobuf:protoc:${proto.version}:exe:${os.detected.classifier}</protocArtifact>
+          <protocArtifact>com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}</protocArtifact>
           <pluginId>grpc-java</pluginId>
           <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
         </configuration>
@@ -104,7 +104,12 @@
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
-      <scope>compile</scope>
+      <version>${proto.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java-util</artifactId>
       <version>${proto.version}</version>
     </dependency>
 

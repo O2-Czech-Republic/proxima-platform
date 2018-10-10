@@ -15,13 +15,15 @@
  */
 package cz.o2.proxima.storage.hdfs;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.DataAccessor;
 import cz.o2.proxima.storage.StorageDescriptor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -32,21 +34,30 @@ import java.util.Map;
 public class HdfsStorage extends StorageDescriptor {
 
   public HdfsStorage() {
-    super(Arrays.asList("hdfs"));
+    super(Arrays.asList("hdfs", "hadoop"));
   }
 
   @Override
-  public DataAccessor getAccessor(
-      EntityDescriptor entityDesc,
-      URI uri, Map<String, Object> cfg) {
+  public DataAccessor getAccessor(EntityDescriptor entityDesc,
+                                  URI uri, Map<String, Object> cfg) {
 
-    try {
-      return new HdfsDataAccessor(entityDesc, uri, cfg);
-    } catch (IOException ex) {
-      log.error(
-          "Failed to instantiate {}", HdfsDataAccessor.class.getName(), ex);
-      throw new RuntimeException(ex);
+    return new HdfsDataAccessor(entityDesc, remap(uri), cfg);
+  }
+
+  private static URI remap(URI input) {
+    if (input.getScheme().equals("hadoop")) {
+      Preconditions.checkArgument(
+          !Strings.isNullOrEmpty(input.getSchemeSpecificPart()),
+          "When using generic `hadoop` scheme, please use scheme-specific part "
+              + "for actual filesystem scheme");
+      try {
+        return new URI(input.toString().replace(
+            "hadoop:" + input.getSchemeSpecificPart(), input.getSchemeSpecificPart()));
+      } catch (URISyntaxException ex) {
+        throw new RuntimeException(ex);
+      }
     }
+    return input;
   }
 
 }

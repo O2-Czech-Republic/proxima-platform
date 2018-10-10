@@ -18,12 +18,13 @@ package cz.o2.proxima.gcloud.storage;
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.batch.BatchLogObserver;
-import cz.seznam.euphoria.shadow.com.google.common.annotations.VisibleForTesting;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,6 +49,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 /**
  * {@link BatchLogObservable} for gcloud storage.
@@ -57,7 +59,8 @@ public class GCloudLogObservable
     extends GCloudClient
     implements BatchLogObservable {
 
-  private static final Pattern BLOB_NAME_PATTERN = Pattern.compile("[^-]+-([0-9]+)_([0-9]+)\\.blob.*");
+  private static final Pattern BLOB_NAME_PATTERN = Pattern.compile(
+      "[^-]+-([0-9]+)_([0-9]+)\\.blob.*");
 
   private static class GCloudStoragePartition implements Partition {
 
@@ -94,44 +97,30 @@ public class GCloudLogObservable
   }
 
   private final long partitionMinSize;
-  private final Executor executor;
+  private final Factory<Executor> executorFactory;
+  @Nullable
+  private transient Executor executor = null;
 
   public GCloudLogObservable(
       EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg,
-      Executor executor) {
+      Factory<Executor> executorFactory) {
 
     super(entityDesc, uri, cfg);
     this.partitionMinSize = Optional.ofNullable(cfg.get("partition.size"))
         .map(Object::toString)
         .map(Long::valueOf)
         .orElse(100 * 1024 * 1024L);
-    this.executor = executor;
+    this.executorFactory = executorFactory;
   }
 
   @Override
   public List<Partition> getPartitions(long startStamp, long endStamp) {
-    DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy/MM");
     List<Partition> ret = new ArrayList<>();
-    Set<String> prefixes = new HashSet<>();
-    long t = startStamp;
-    if (startStamp > Long.MIN_VALUE && endStamp < Long.MAX_VALUE) {
-      LocalDateTime time = LocalDateTime.ofInstant(
-          Instant.ofEpochMilli(t), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
-      LocalDateTime end = LocalDateTime.ofInstant(
-          Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
-      while (time.isBefore(end)) {
-        prefixes.add(this.path + format.format(time));
-        time = time.plusMonths(1);
-      }
-      prefixes.add(format.format(LocalDateTime.ofInstant(
-          Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTF", ZoneOffset.UTC))));
-    } else {
-      prefixes.add(this.path) ;
-    }
+    Set<String> prefixes = convertStampsToPrefixes(startStamp, endStamp);
     AtomicInteger id = new AtomicInteger();
     AtomicReference<GCloudStoragePartition> current = new AtomicReference<>();
     prefixes.forEach(prefix -> {
-      Page<Blob> p = this.client.list(this.bucket, BlobListOption.prefix(prefix));
+      Page<Blob> p = client().list(this.bucket, BlobListOption.prefix(prefix));
       for (Blob b : p.iterateAll()) {
         if (isInRange(b.getName(), startStamp, endStamp)) {
           if (current.get() == null) {
@@ -147,12 +136,33 @@ public class GCloudLogObservable
     return ret;
   }
 
+  private Set<String> convertStampsToPrefixes(long startStamp, long endStamp) {
+    DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy/MM");
+    Set<String> prefixes = new HashSet<>();
+    long t = startStamp;
+    if (startStamp > Long.MIN_VALUE && endStamp < Long.MAX_VALUE) {
+      LocalDateTime time = LocalDateTime.ofInstant(
+          Instant.ofEpochMilli(t), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
+      LocalDateTime end = LocalDateTime.ofInstant(
+          Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
+      while (time.isBefore(end)) {
+        prefixes.add(this.path + format.format(time));
+        time = time.plusMonths(1);
+      }
+      prefixes.add(format.format(LocalDateTime.ofInstant(
+          Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTF", ZoneOffset.UTC))));
+    } else {
+      prefixes.add(this.path);
+    }
+    return prefixes;
+  }
+
   @VisibleForTesting
   static boolean isInRange(String name, long startStamp, long endStamp) {
     Matcher matcher = BLOB_NAME_PATTERN.matcher(name);
     if (matcher.matches()) {
-      long min = Long.valueOf(matcher.group(1));
-      long max = Long.valueOf(matcher.group(2));
+      long min = Long.parseLong(matcher.group(1));
+      long max = Long.parseLong(matcher.group(2));
       return max >= startStamp && min <= endStamp;
     }
     log.debug("Skipping unparseable name {}", name);
@@ -165,9 +175,12 @@ public class GCloudLogObservable
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor.execute(() -> {
+    executor().execute(() -> {
       try {
-        Set<AttributeDescriptor<?>> attrs = attributes.stream().collect(Collectors.toSet());
+        Set<AttributeDescriptor<?>> attrs = attributes
+            .stream()
+            .collect(Collectors.toSet());
+
         partitions.forEach(p -> {
           GCloudStoragePartition part = (GCloudStoragePartition) p;
           part.getBlobs().forEach(blob -> {
@@ -189,6 +202,13 @@ public class GCloudLogObservable
         observer.onError(ex);
       }
     });
+  }
+
+  private Executor executor() {
+    if (executor == null) {
+      executor = executorFactory.apply();
+    }
+    return executor;
   }
 
 }

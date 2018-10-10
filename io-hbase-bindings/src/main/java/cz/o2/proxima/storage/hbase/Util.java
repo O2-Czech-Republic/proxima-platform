@@ -16,10 +16,11 @@
 package cz.o2.proxima.storage.hbase;
 
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.storage.URIUtil;
-import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
+import com.google.common.base.Strings;
+import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
@@ -27,6 +28,7 @@ import org.apache.hadoop.hbase.HConstants;
 /**
  * Various utils.
  */
+@Slf4j
 class Util {
 
   private static final String FAMILY_QUERY = "family";
@@ -48,10 +50,22 @@ class Util {
   }
 
   static byte[] getFamily(URI uri) {
-    return Optional.ofNullable(URIUtil.parseQuery(uri).get(FAMILY_QUERY))
+    return Optional.ofNullable(UriUtil.parseQuery(uri).get(FAMILY_QUERY))
         .map(String::getBytes)
         .orElseThrow(() -> new IllegalArgumentException(
             "Query " + FAMILY_QUERY + " is missing!"));
+  }
+
+  static void closeQuietly(AutoCloseable closeable) {
+    try {
+      closeable.close();
+    } catch (Exception ex) {
+      log.warn("Failed to close {}. Ignored.", closeable, ex);
+    }
+  }
+
+  private Util() {
+    // nop
   }
 
 }

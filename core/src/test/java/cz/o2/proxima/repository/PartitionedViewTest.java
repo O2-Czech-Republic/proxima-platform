@@ -16,6 +16,7 @@
 package cz.o2.proxima.repository;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.AttributeWriterBase;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
@@ -27,23 +28,26 @@ import cz.seznam.euphoria.core.client.io.StdoutSink;
 import cz.seznam.euphoria.core.client.operator.MapElements;
 import cz.seznam.euphoria.executor.local.LocalExecutor;
 import java.io.Serializable;
-import java.util.concurrent.TimeUnit;
+import java.util.Collection;
 import org.junit.After;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 
 /**
- * Test {@PartitionView} capability of {@code InMemStorage}.
+ * Test {@link PartitionedView} capability of {@link cz.o2.proxima.storage.InMemStorage}.
  */
 public class PartitionedViewTest implements Serializable {
 
-  private final transient Repository repo = Repository.Builder.of(
-      ConfigFactory.load().resolve()).build();
+  private final transient Repository repo = ConfigRepository.Builder.of(
+      ConfigFactory.load()
+          .withFallback(ConfigFactory.load("test-reference.conf"))
+          .resolve()).build();
 
   private transient LocalExecutor executor;
   private final transient EntityDescriptor entity = repo.findEntity("event").get();
-  private final transient AttributeDescriptor<?> attr = entity.findAttribute("data").get();
+  private final transient AttributeDescriptor<?> attr = entity
+      .findAttribute("data").get();
 
   private transient PartitionedView view;
   private transient AttributeWriterBase writer;
@@ -65,33 +69,37 @@ public class PartitionedViewTest implements Serializable {
     executor.abort();
   }
 
-  @Test(timeout = 2000)
+  @Test(timeout = 10000)
   public void testViewConsumption() throws InterruptedException {
     assertEquals(1, view.getPartitions().size());
-    Dataset<String> result = view.observePartitions(view.getPartitions(), new PartitionedLogObserver<String>() {
+    SerializableCountDownLatch latch = new SerializableCountDownLatch(1);
+    SerializableCountDownLatch start = new SerializableCountDownLatch(1);
 
-      @Override
-      public boolean onNext(
-          StreamElement ingest,
-          PartitionedLogObserver.ConfirmCallback confirm,
-          Partition partition,
-          Consumer<String> collector) {
+    Dataset<String> result = view.observePartitions(view.getPartitions(),
+        new PartitionedLogObserver<String>() {
 
-        collector.consume(ingest.getKey());
-        confirm.confirm();
-        return true;
-      }
+          @Override
+          public void onRepartition(Collection<Partition> assigned) {
+            start.countDown();
+          }
 
-      @Override
-      public void onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
+          @Override
+          public boolean onNext(
+              StreamElement ingest, ConfirmCallback confirm,
+              Partition partition, Consumer<String> collector) {
 
-    });
+            collector.accept(ingest.getKey());
+            confirm.confirm();
+            return true;
+          }
 
-    // count down one after writing the ingest and one after processing
-    // it in the pipeline
-    SerializableCountDownLatch latch = new SerializableCountDownLatch(2);
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+
+        });
+
     MapElements.of(result)
         .using(e -> {
           latch.countDown();
@@ -102,9 +110,7 @@ public class PartitionedViewTest implements Serializable {
 
     executor.submit(result.getFlow());
 
-
-    // wait for 1 second to enable starting of the execution pipeline
-    TimeUnit.SECONDS.sleep(1);
+    start.await();
 
     // write data to event
     writer.online().write(

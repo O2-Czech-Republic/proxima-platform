@@ -17,12 +17,11 @@ package cz.o2.proxima.storage.hbase;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import static cz.o2.proxima.storage.hbase.TestUtil.b;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader.Offset;
+import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.net.URI;
@@ -42,16 +41,22 @@ import org.junit.After;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
+import static cz.o2.proxima.storage.hbase.TestUtil.bytes;
 
 /**
  * Testing suite for {@link RandomHBaseReader}.
  */
 public class RandomHBaseReaderTest {
 
-  private final Repository repo = Repository.Builder.ofTest(ConfigFactory.load()).build();
+  private final Repository repo = ConfigRepository.Builder.ofTest(
+      ConfigFactory.load()).build();
   private final EntityDescriptor entity = repo.findEntity("test").get();
-  private final AttributeDescriptor<?> attr = entity.findAttribute("dummy").get();
-  private final AttributeDescriptor<?> wildcard = entity.findAttribute("wildcard.*").get();
+  @SuppressWarnings("unchecked")
+  private final AttributeDescriptor<byte[]> attr = (AttributeDescriptor) entity
+      .findAttribute("dummy").get();
+  @SuppressWarnings("unchecked")
+  private final AttributeDescriptor<byte[]> wildcard = (AttributeDescriptor) entity
+      .findAttribute("wildcard.*").get();
   private final TableName tableName = TableName.valueOf("test");
 
   private HBaseTestingUtility util;
@@ -64,7 +69,7 @@ public class RandomHBaseReaderTest {
   public void setUp() throws Exception {
     util = HBaseTestingUtility.createLocalHTU();
     cluster = util.startMiniCluster();
-    util.createTable(tableName, b("u"));
+    util.createTable(tableName, bytes("u"));
     conn = ConnectionFactory.createConnection(util.getConfiguration());
     client = conn.getTable(tableName);
 
@@ -83,38 +88,43 @@ public class RandomHBaseReaderTest {
 
   @Test
   public void testRandomGet() throws IOException {
-    write("key", "dummy", "value");
-    Optional<KeyValue<?>> res = reader.get("key", attr);
+    long now = 1500000000000L;
+    write("key", "dummy", "value", now);
+    Optional<KeyValue<byte[]>> res = reader.get("key", attr);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
-    assertArrayEquals(b("value"), res.get().getValueBytes());
+    assertArrayEquals(bytes("value"), res.get().getValueBytes());
     assertEquals(attr, res.get().getAttrDescriptor());
+    assertEquals(now, res.get().getStamp());
   }
 
   @Test
   public void testRandomGetWildcard() throws IOException {
-    write("key", "wildcard.12345", "value");
-    Optional<KeyValue<?>> res = reader.get("key", "wildcard.12345", wildcard);
+    long now = 1500000000000L;
+    write("key", "wildcard.12345", "value", now);
+    Optional<KeyValue<byte[]>> res = reader.get("key", "wildcard.12345", wildcard);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
-    assertArrayEquals(b("value"), res.get().getValueBytes());
+    assertArrayEquals(bytes("value"), res.get().getValueBytes());
     assertEquals("wildcard.12345", res.get().getAttribute());
     assertEquals(wildcard, res.get().getAttrDescriptor());
+    assertEquals(now, res.get().getStamp());
   }
 
   @Test
-  public void testListWildcard() throws IOException {
+  public void testScanWildcard() throws IOException {
+    long now = 1500000000000L;
     // write several values, delibetarely written in descending order
-    write("key", "wildcard.12345", "value1");
-    write("key", "wildcard.1234", "value2");
-    write("key", "wildcard.123", "value3");
-    write("key", "wildcard.12", "value4");
-    write("key", "wildcard.1", "value5");
-    write("key", "wildcard.0", "value6");
+    write("key", "wildcard.12345", "value1", now);
+    write("key", "wildcard.1234", "value2", now + 1);
+    write("key", "wildcard.123", "value3", now + 2);
+    write("key", "wildcard.12", "value4", now + 3);
+    write("key", "wildcard.1", "value5", now + 4);
+    write("key", "wildcard.0", "value6", now + 5);
 
     // include some "garbage"
-    write("key", "dummy", "blah");
-    write("key2", "wildcard.1", "blah");
+    write("key", "dummy", "blah", now + 6);
+    write("key2", "wildcard.1", "blah", now + 7);
 
     List<KeyValue<?>> res = new ArrayList<>();
     reader.scanWildcard("key", wildcard, res::add);
@@ -145,27 +155,32 @@ public class RandomHBaseReaderTest {
         res.stream()
             .map(k -> new String(k.getValueBytes()))
             .collect(Collectors.toList()));
+
+    res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts >= now));
+    res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts < now + 10));
   }
 
   @Test
   public void testListWildcardWithOffset() throws IOException {
+    long now = 1500000000000L;
     // write several values, delibetarely written in descending order
-    write("key", "wildcard.12345", "value1");
-    write("key", "wildcard.1234", "value2");
-    write("key", "wildcard.123", "value3");
-    write("key", "wildcard.12", "value4");
-    write("key", "wildcard.1", "value5");
-    write("key", "wildcard.0", "value6");
+    write("key", "wildcard.12345", "value1", now);
+    write("key", "wildcard.1234", "value2", now + 1);
+    write("key", "wildcard.123", "value3", now + 2);
+    write("key", "wildcard.12", "value4", now + 3);
+    write("key", "wildcard.1", "value5", now + 4);
+    write("key", "wildcard.0", "value6", now + 5);
 
     // include some "garbage"
-    write("key", "dummy", "blah");
-    write("key2", "wildcard.1", "blah");
+    write("key", "dummy", "blah", now + 6);
+    write("key2", "wildcard.1", "blah", now + 7);
 
     List<KeyValue<?>> res = new ArrayList<>();
     reader.scanWildcard("key", wildcard, null, 1, res::add);
     assertEquals(1, res.size());
+    assertEquals("value6", new String(res.get(0).getValueBytes()));
 
-    RandomAccessReader.Offset offset = res.get(0).getOffset();
+    RandomOffset offset = res.get(0).getOffset();
     res.clear();
     reader.scanWildcard("key", wildcard, offset, 3, res::add);
     assertEquals(3, res.size());
@@ -193,13 +208,17 @@ public class RandomHBaseReaderTest {
         Arrays.asList(
             "wildcard.1", "wildcard.12", "wildcard.123"),
         res.stream().map(KeyValue::getAttribute).collect(Collectors.toList()));
+
+    res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts >= now));
+    res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts < now + 10));
   }
 
   @Test
   public void testListKeys() throws IOException {
-    write("key1", "dummy", "a");
-    write("key2", "wildcard.1", "b");
-    write("key0", "dummy", "c");
+    long now = 1500000000000L;
+    write("key1", "dummy", "a", now);
+    write("key2", "wildcard.1", "b", now);
+    write("key0", "dummy", "c", now);
 
     List<String> keys = new ArrayList<>();
     reader.listEntities(p -> keys.add(p.getSecond()));
@@ -208,21 +227,25 @@ public class RandomHBaseReaderTest {
 
   @Test
   public void testListKeysOffset() throws IOException {
-    write("key1", "dummy", "a");
-    write("key2", "wildcard.1", "b");
-    write("key0", "dummy", "c");
+    long now = 1500000000000L;
+    write("key1", "dummy", "a", now);
+    write("key2", "wildcard.1", "b", now);
+    write("key0", "dummy", "c", now);
 
-    List<Pair<Offset, String>> keys = new ArrayList<>();
+    List<Pair<RandomOffset, String>> keys = new ArrayList<>();
     reader.listEntities(null, 1, keys::add);
     assertEquals(1, keys.size());
-    Offset off = keys.get(0).getFirst();
+    RandomOffset off = keys.get(0).getFirst();
     keys.clear();
     reader.listEntities(off, 1, keys::add);
     assertEquals("key1", keys.get(0).getSecond());
   }
 
-  void write(String key, String attribute, String value) throws IOException {
-    TestUtil.write(key, attribute, value, client);
+  void write(
+      String key, String attribute, String value,
+      long stamp) throws IOException {
+
+    TestUtil.write(key, attribute, value, stamp, client);
   }
 
 }

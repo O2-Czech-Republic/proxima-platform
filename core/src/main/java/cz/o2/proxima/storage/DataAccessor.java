@@ -15,10 +15,12 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.repository.Context;
 import cz.o2.proxima.storage.batch.BatchLogObservable;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
+import cz.o2.proxima.view.PartitionedCachedView;
 import cz.o2.proxima.view.PartitionedView;
 import java.io.Serializable;
 import java.util.Optional;
@@ -26,6 +28,7 @@ import java.util.Optional;
 /**
  * Interface providing various types of data access patterns to storage.
  */
+@Internal
 public interface DataAccessor extends Serializable {
 
   /**
@@ -70,6 +73,15 @@ public interface DataAccessor extends Serializable {
    * @return optional {@link PartitionedView} of this accessor
    */
   default Optional<PartitionedView> getPartitionedView(Context context) {
+    return Optional.empty();
+  }
+
+  /**
+   * Retrieve partitioned cached view of the data.
+   * @param context serializable context provided by repository
+   * @return optional {@link PartitionedCachedView} of this accessor
+   */
+  default Optional<PartitionedCachedView> getCachedView(Context context) {
     return Optional.empty();
   }
 

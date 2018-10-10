@@ -15,12 +15,14 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
 
 /**
  * Base interface for bulk and online observers.
  */
-public interface LogObserverBase extends AutoCloseable, Serializable {
+@Internal
+public interface LogObserverBase extends Serializable {
 
   /**
    * Notify that the processing has gracefully ended.
@@ -39,7 +41,8 @@ public interface LogObserverBase extends AutoCloseable, Serializable {
   /**
    * Called to notify there was an error in the commit reader.
    * @param error error caught during processing
-   * @return {@code true} to restart processing from last committed position, {@code false} to stop processing
+   * @return {@code true} to restart processing from last committed position,
+   *         {@code false} to stop processing
    */
   boolean onError(Throwable error);
 

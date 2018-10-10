@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package cz.o2.proxima.transform;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.Transformation;
 import cz.o2.proxima.storage.StreamElement;
 
 /**
@@ -42,12 +41,14 @@ public class EventDataToDummy implements Transformation {
 
 
   @Override
-  public void apply(
+  public int apply(
       StreamElement input, Collector<StreamElement> collector) {
+    
     collector.collect(StreamElement.update(
         target, targetAttr, input.getUuid(),
         input.getKey(), prefix + input.getStamp(),
         input.getStamp(), input.getValue()));
+    return 1;
   }
 
 

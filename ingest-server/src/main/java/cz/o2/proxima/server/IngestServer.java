@@ -15,18 +15,15 @@
  */
 package cz.o2.proxima.server;
 
-import com.google.protobuf.ByteString;
-import com.google.protobuf.TextFormat;
+import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.proto.service.IngestServiceGrpc.IngestServiceImplBase;
-import cz.o2.proxima.proto.service.RetrieveServiceGrpc.RetrieveServiceImplBase;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.Transformation;
+import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.AttributeWriterBase;
@@ -36,19 +33,12 @@ import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.AbstractRetryableLogObserver;
-import cz.o2.proxima.storage.commitlog.BulkLogObserver;
 import cz.o2.proxima.storage.commitlog.CommitLogReader;
-import cz.o2.proxima.storage.commitlog.LogObserver;
+import cz.o2.proxima.storage.commitlog.Offset;
 import cz.o2.proxima.storage.commitlog.RetryableBulkObserver;
 import cz.o2.proxima.storage.commitlog.RetryableLogObserver;
-import cz.o2.proxima.storage.randomaccess.KeyValue;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.Pair;
-import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
-import cz.seznam.euphoria.shadow.com.google.common.collect.Sets;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.grpc.ServerBuilder;
-import io.grpc.stub.StreamObserver;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import net.jodah.failsafe.Failsafe;
@@ -56,22 +46,19 @@ import net.jodah.failsafe.RetryPolicy;
 
 import javax.annotation.Nullable;
 import java.io.File;
-import java.io.IOException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -84,9 +71,9 @@ public class IngestServer {
   /**
    * Run the server.
    * @param args command line arguments
-   * @throws Exception on error
+   * @throws Throwable on error
    */
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) throws Throwable {
     final IngestServer server;
 
     if (args.length == 0) {
@@ -98,344 +85,15 @@ public class IngestServer {
     server.run();
   }
 
-  /**
-   * The ingestion service.
-   **/
-  public class IngestService extends IngestServiceImplBase {
-
-    @Override
-    public void ingest(
-        Rpc.Ingest request, StreamObserver<Rpc.Status> responseObserver) {
-      Metrics.INGEST_SINGLE.increment();
-      processSingleIngest(request, status -> {
-        synchronized (responseObserver) {
-          responseObserver.onNext(status);
-          responseObserver.onCompleted();
-        }
-      });
-    }
-
-
-    @Override
-    public StreamObserver<Rpc.Ingest> ingestSingle(
-        StreamObserver<Rpc.Status> responseObserver) {
-
-      AtomicInteger inflightRequest = new AtomicInteger(0);
-
-      return new StreamObserver<Rpc.Ingest>() {
-        @Override
-        public void onNext(Rpc.Ingest request) {
-          Metrics.INGEST_SINGLE.increment();
-          inflightRequest.incrementAndGet();
-          processSingleIngest(request, status -> {
-            synchronized (responseObserver) {
-              responseObserver.onNext(status);
-            }
-            if (inflightRequest.decrementAndGet() == 0) {
-              synchronized (inflightRequest) {
-                inflightRequest.notify();
-              }
-            }
-          });
-        }
-
-        @Override
-        public void onError(Throwable thrwbl) {
-          log.error("Error on channel", thrwbl);
-          synchronized (responseObserver) {
-            responseObserver.onError(thrwbl);
-          }
-        }
-
-        @Override
-        public void onCompleted() {
-          inflightRequest.accumulateAndGet(0, (a, b) -> {
-            int res = a + b;
-            if (res > 0) {
-              synchronized (inflightRequest) {
-                try {
-                  inflightRequest.wait();
-                } catch (InterruptedException ex) {
-                  Thread.currentThread().interrupt();
-                }
-              }
-            }
-            synchronized (responseObserver) {
-              responseObserver.onCompleted();
-            }
-            return res;
-          });
-        }
-
-      };
-    }
-
-
-    @Override
-    public StreamObserver<Rpc.IngestBulk> ingestBulk(
-        StreamObserver<Rpc.StatusBulk> responseObserver) {
-
-      // the responseObserver doesn't have to be synchronized in this
-      // case, because the communication with the observer is done
-      // in single flush thread
-
-      return new StreamObserver<Rpc.IngestBulk>() {
-
-        final Queue<Rpc.Status> statusQueue = new ConcurrentLinkedQueue<>();
-        final AtomicBoolean completed = new AtomicBoolean(false);
-        final AtomicInteger inflightRequests = new AtomicInteger();
-        final AtomicLong lastFlushNanos = new AtomicLong(System.nanoTime());
-        final Rpc.StatusBulk.Builder builder = Rpc.StatusBulk.newBuilder();
-        final long maxSleepNanos = 100000000L;
-        final int maxQueuedStatuses = 500;
-
-        Runnable flushTask = () -> {
-          try {
-            synchronized (builder) {
-              while (statusQueue.size() > maxQueuedStatuses) {
-                peekQueueToBuilderAndFlush();
-              }
-              long now = System.nanoTime();
-              if (now - lastFlushNanos.get() >= maxSleepNanos) {
-                while (!statusQueue.isEmpty()) {
-                  peekQueueToBuilderAndFlush();
-                }
-              }
-              if (builder.getStatusCount() > 0) {
-                responseObserver.onNext(builder.build());
-                builder.clear();
-              }
-              if (completed.get() && inflightRequests.get() == 0 && statusQueue.isEmpty()) {
-                responseObserver.onCompleted();
-              }
-            }
-          } catch (Exception ex) {
-            log.error("Failed to send bulk status", ex);
-          }
-        };
-
-        // schedule the flush periodically
-        ScheduledFuture<?> flushFuture = scheduler.scheduleAtFixedRate(
-            flushTask, maxSleepNanos, maxSleepNanos, TimeUnit.NANOSECONDS);
-
-        private void peekQueueToBuilderAndFlush() {
-          synchronized (builder) {
-            builder.addStatus(statusQueue.poll());
-            if (builder.getStatusCount() >= 1000) {
-              flush();
-            }
-          }
-        }
-
-        /** Flush response(s) to the observer. */
-        private void flush() {
-          synchronized (builder) {
-            lastFlushNanos.set(System.nanoTime());
-            Rpc.StatusBulk bulk = builder.build();
-            if (bulk.getStatusCount() > 0) {
-              responseObserver.onNext(bulk);
-            }
-            builder.clear();
-          }
-        }
-
-        @Override
-        public void onNext(Rpc.IngestBulk bulk) {
-          Metrics.INGEST_BULK.increment();
-          Metrics.BULK_SIZE.increment(bulk.getIngestCount());
-          inflightRequests.addAndGet(bulk.getIngestCount());
-          bulk.getIngestList().stream()
-              .forEach(r -> processSingleIngest(r, status -> {
-                statusQueue.add(status);
-                if (statusQueue.size() >= maxQueuedStatuses) {
-                  // enqueue flush
-                  scheduler.execute(flushTask);
-                }
-                if (inflightRequests.decrementAndGet() == 0) {
-                  // there is no more infligt requests
-                  synchronized (inflightRequests) {
-                    inflightRequests.notify();
-                  }
-                }
-              }));
-        }
-
-        @Override
-        public void onError(Throwable error) {
-          log.error("Error from client", error);
-          // close the connection
-          responseObserver.onError(error);
-          flushFuture.cancel(true);
-        }
-
-        @SuppressFBWarnings(
-            value = "JLM_JSR166_UTILCONCURRENT_MONITORENTER",
-            justification = "The synchronization on `inflighRequests` is used only for "
-                + "waiting before the flush thread finishes (wait() - notify())")
-        @Override
-        public void onCompleted() {
-          completed.set(true);
-          flushFuture.cancel(true);
-          // flush all responses to the observer
-          synchronized (inflightRequests) {
-            while (inflightRequests.get() != 0) {
-              try {
-                inflightRequests.wait(100);
-              } catch (InterruptedException ex) {
-                log.warn("Interrupted while waiting to send responses to client");
-              }
-            }
-          }
-          while (!statusQueue.isEmpty()) {
-            peekQueueToBuilderAndFlush();
-          }
-          flush();
-          responseObserver.onCompleted();
-        }
-
-      };
-    }
-
-  }
-
-  public class RetrieveService extends RetrieveServiceImplBase {
-
-    private class Status extends Exception {
-      final int status;
-      final String message;
-      Status(int status, String message) {
-        this.status = status;
-        this.message = message;
-      }
-    };
-
-    @Override
-    public void listAttributes(
-        Rpc.ListRequest request,
-        StreamObserver<Rpc.ListResponse> responseObserver) {
-
-      try {
-        Metrics.LIST_REQUESTS.increment();
-        log.info("Processing listAttributes {}", TextFormat.shortDebugString(request));
-        if (request.getEntity().isEmpty() || request.getKey().isEmpty()
-            || request.getWildcardPrefix().isEmpty()) {
-          throw new Status(400, "Missing some required fields");
-        }
-
-        EntityDescriptor entity = repo.findEntity(request.getEntity())
-            .orElseThrow(() -> new Status(
-                404, "Entity " + request.getEntity() + " not found"));
-
-        AttributeDescriptor wildcard = entity.findAttribute(
-            request.getWildcardPrefix() + ".*").orElseThrow(
-                () -> new Status(404, "Entity " + request.getEntity()
-                    + " does not have wildcard attribute "
-                    + request.getWildcardPrefix()));
-
-        RandomAccessReader reader = repo.getFamiliesForAttribute(wildcard).stream()
-            .filter(af -> af.getRandomAccessReader().isPresent())
-            .map(af -> af.getRandomAccessReader().get())
-            .findAny()
-            .orElseThrow(() -> new Status(400, "Attribute " + wildcard
-                + " has no random reader"));
-
-        Rpc.ListResponse.Builder response = Rpc.ListResponse.newBuilder()
-            .setStatus(200);
-
-        reader.scanWildcard(
-            request.getKey(), wildcard,
-            reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, request.getOffset()),
-            request.getLimit() > 0 ? request.getLimit() : -1,
-            kv -> response.addValue(
-                Rpc.ListResponse.AttrValue.newBuilder()
-                    .setAttribute(kv.getAttribute())
-                    .setValue(ByteString.copyFrom(kv.getValueBytes()))));
-
-        responseObserver.onNext(response.build());
-        responseObserver.onCompleted();
-      } catch (Status s) {
-        responseObserver.onNext(Rpc.ListResponse.newBuilder()
-              .setStatus(s.status)
-              .setStatusMessage(s.message)
-              .build());
-        responseObserver.onCompleted();
-      } catch (Exception ex) {
-        log.error("Failed to process request {}", request, ex);
-        responseObserver.onNext(Rpc.ListResponse.newBuilder()
-            .setStatus(500)
-            .setStatusMessage(ex.getMessage())
-            .build());
-        responseObserver.onCompleted();
-      }
-    }
-
-    @Override
-    public void get(
-        Rpc.GetRequest request,
-        StreamObserver<Rpc.GetResponse> responseObserver) {
-
-      Metrics.GET_REQUESTS.increment();
-      log.info("Processing get {}", TextFormat.shortDebugString(request));
-      try {
-        if (request.getEntity().isEmpty() || request.getKey().isEmpty()
-            || request.getAttribute().isEmpty()) {
-          throw new Status(400, "Missing some required fields");
-        }
-
-        EntityDescriptor entity = repo.findEntity(request.getEntity())
-            .orElseThrow(() -> new Status(
-                404, "Entity " + request.getEntity() + " not found"));
-
-        AttributeDescriptor attribute = entity.findAttribute(
-            request.getAttribute()).orElseThrow(
-                () -> new Status(404, "Entity " + request.getEntity()
-                    + " does not have attribute "
-                    + request.getAttribute()));
-
-        RandomAccessReader reader = repo.getFamiliesForAttribute(attribute).stream()
-            .filter(af -> af.getRandomAccessReader().isPresent())
-            .map(af -> af.getRandomAccessReader().get())
-            .findAny()
-            .orElseThrow(() -> new Status(400, "Attribute " + attribute
-                + " has no random reader"));
-
-        KeyValue<?> kv = reader.get(request.getKey(), request.getAttribute(), attribute)
-            .orElseThrow(() -> new Status(404, "Key " + request.getKey() + " and/or attribute "
-                + request.getAttribute() + " not found"));
-
-        responseObserver.onNext(Rpc.GetResponse.newBuilder()
-            .setStatus(200)
-            .setValue(ByteString.copyFrom(kv.getValueBytes()))
-            .build());
-
-        responseObserver.onCompleted();
-      } catch (Status s) {
-        responseObserver.onNext(Rpc.GetResponse.newBuilder()
-              .setStatus(s.status)
-              .setStatusMessage(s.message)
-              .build());
-        responseObserver.onCompleted();
-      } catch (Exception ex) {
-        log.error("Failed to process request {}", request, ex);
-        responseObserver.onNext(Rpc.GetResponse.newBuilder()
-            .setStatus(500)
-            .setStatusMessage(ex.getMessage())
-            .build());
-        responseObserver.onCompleted();
-      }
-
-    }
-
-  }
 
   @Getter
-  final int minCores = 2;
+  static final int CORES = Math.max(2, Runtime.getRuntime().availableProcessors());
   @Getter
   final Executor executor = new ThreadPoolExecutor(
-            minCores,
-            10 * minCores,
-            10, TimeUnit.SECONDS,
-            new SynchronousQueue<>());
+      CORES,
+      10 * CORES,
+      10, TimeUnit.SECONDS,
+      new ArrayBlockingQueue<>(10 * CORES));
 
   @Getter
   final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(5);
@@ -455,105 +113,34 @@ public class IngestServer {
   protected IngestServer(Config cfg) {
     this.cfg = cfg;
     repo = Repository.of(cfg);
+    if (log.isDebugEnabled()) {
+      repo.getAllEntities()
+          .forEach(e -> e.getAllAttributes(true)
+              .stream()
+              .forEach(a -> log.debug("Configured attribute {}", a)));
+    }
     if (repo.isEmpty()) {
       throw new IllegalArgumentException(
           "No valid entities found in provided config!");
     }
-    this.ignoreErrors = cfg.hasPath(Constants.CFG_IGNORE_ERRORS)
-        ? cfg.getBoolean(Constants.CFG_IGNORE_ERRORS)
-        : false;
+    this.ignoreErrors =
+        cfg.hasPath(Constants.CFG_IGNORE_ERRORS)
+            && cfg.getBoolean(Constants.CFG_IGNORE_ERRORS);
   }
 
 
-
-  private void processSingleIngest(
-      Rpc.Ingest request,
-      Consumer<Rpc.Status> consumer) {
-
-    log.info("Processing input ingest {}", TextFormat.shortDebugString(request));
-    Metrics.INGESTS.increment();
-    try {
-      if (!writeRequest(request, consumer)) {
-        Metrics.INVALID_REQUEST.increment();
-      }
-    } catch (Exception err) {
-      log.error("Error processing user request {}", request, err);
-      consumer.accept(status(request.getUuid(), 500, err.getMessage()));
-    }
-  }
-
-  /**
-   * Ingest the given request and return {@code true} if successfully
-   * ingested and {@code false} if the request is invalid.
-   */
-  private boolean writeRequest(
-      Rpc.Ingest request,
-      Consumer<Rpc.Status> consumer) throws IOException {
-
-    if (Strings.isNullOrEmpty(request.getKey())
-        || Strings.isNullOrEmpty(request.getEntity())
-        || Strings.isNullOrEmpty(request.getAttribute())) {
-      consumer.accept(status(request.getUuid(),
-          400, "Missing required fields in input message"));
-      return false;
-    }
-    Optional<EntityDescriptor> entity = repo.findEntity(request.getEntity());
-
-    if (!entity.isPresent()) {
-      consumer.accept(notFound(request.getUuid(),
-          "Entity " + request.getEntity() + " not found"));
-      return false;
-    }
-    Optional<AttributeDescriptor<?>> attr = entity.get().findAttribute(
-        request.getAttribute());
-    if (!attr.isPresent()) {
-      consumer.accept(notFound(request.getUuid(),
-          "Attribute " + request.getAttribute() + " of entity "
-              + entity.get().getName() + " not found"));
-      return false;
-    }
-    return ingestRequest(
-        toStreamElement(request, entity.get(), attr.get()),
-        request.getUuid(), consumer);
-  }
-
-  private static StreamElement toStreamElement(
-      Rpc.Ingest request, EntityDescriptor entity,
-      AttributeDescriptor attr) {
-
-    long stamp = request.getStamp() == 0
-        ? System.currentTimeMillis()
-        : request.getStamp();
-
-    if (request.getDelete()) {
-      return attr.isWildcard() && attr.getName().equals(request.getAttribute())
-        ? StreamElement.deleteWildcard(
-            entity, attr, request.getUuid(),
-            request.getKey(), stamp)
-        : StreamElement.delete(
-            entity, attr, request.getUuid(),
-            request.getKey(), request.getAttribute(), stamp);
-    }
-    return StreamElement.update(
-            entity, attr, request.getUuid(),
-            request.getKey(), request.getAttribute(),
-            stamp,
-            request.getValue().toByteArray());
-  }
-
-
-
-  private boolean ingestRequest(
+  static boolean ingestRequest(
+      Repository repo,
       StreamElement ingest, String uuid,
-      Consumer<Rpc.Status> responseConsumer)
-      throws IOException {
+      Consumer<Rpc.Status> responseConsumer) {
 
     EntityDescriptor entityDesc = ingest.getEntityDescriptor();
     AttributeDescriptor attributeDesc = ingest.getAttributeDescriptor();
 
-    OnlineAttributeWriter writerBase = attributeDesc.getWriter();
-    // we need online writer here
-    OnlineAttributeWriter writer = writerBase == null ? null : writerBase.online();
+    OnlineAttributeWriter writer = repo.getWriter(attributeDesc)
+        .orElseThrow(() ->
+            new IllegalStateException(
+                "Writer for attribute " + attributeDesc.getName() + " not found"));
 
     if (writer == null) {
       log.warn("Missing writer for request {}", ingest);
@@ -585,8 +172,8 @@ public class IngestServer {
 
     Metrics.COMMIT_LOG_APPEND.increment();
     // write the ingest into the commit log and confirm to the client
-    log.debug("Writing request {} to commit log {}", ingest, writerBase.getURI());
-    writerBase.write(ingest, (s, exc) -> {
+    log.debug("Writing {} to commit log {}", ingest, writer.getUri());
+    writer.write(ingest, (s, exc) -> {
       if (s) {
         responseConsumer.accept(ok(uuid));
       } else {
@@ -596,8 +183,7 @@ public class IngestServer {
     return true;
   }
 
-
-  private Rpc.Status notFound(String uuid, String what) {
+  static Rpc.Status notFound(String uuid, String what) {
     return Rpc.Status.newBuilder()
         .setUuid(uuid)
         .setStatus(404)
@@ -605,14 +191,14 @@ public class IngestServer {
         .build();
   }
 
-  private Rpc.Status ok(String uuid) {
+  static Rpc.Status ok(String uuid) {
     return Rpc.Status.newBuilder()
         .setStatus(200)
         .setUuid(uuid)
         .build();
   }
 
-  private Rpc.Status status(String uuid, int status, String message) {
+  static Rpc.Status status(String uuid, int status, String message) {
     return Rpc.Status.newBuilder()
         .setUuid(uuid)
         .setStatus(status)
@@ -620,24 +206,20 @@ public class IngestServer {
         .build();
   }
 
-
   /** Run the server. */
-  private void run() throws Exception {
+  private void run() {
     final int port = cfg.hasPath(Constants.CFG_PORT)
         ? cfg.getInt(Constants.CFG_PORT)
         : Constants.DEFALT_PORT;
     io.grpc.Server server = ServerBuilder.forPort(port)
         .executor(executor)
-        .addService(new IngestService())
-        .addService(new RetrieveService())
+        .addService(new IngestService(repo, scheduler))
+        .addService(new RetrieveService(repo))
         .build();
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        log.info("Gracefully shuting down server.");
-        server.shutdown();
-      }
-    });
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+      log.info("Gracefully shuting down server.");
+      server.shutdown();
+    }));
     Metrics.register();
     startConsumerThreads();
     try {
@@ -653,9 +235,8 @@ public class IngestServer {
 
   /**
    * Start all threads that will be consuming the commit log and write to the output.
-   * @throws InterruptedException when interrupted
    **/
-  protected void startConsumerThreads() throws InterruptedException {
+  protected void startConsumerThreads() {
 
     // index the repository
     Map<AttributeFamilyDescriptor, Set<AttributeFamilyDescriptor>> familyToCommitLog;
@@ -665,23 +246,24 @@ public class IngestServer {
     // execute threads to consume the commit log
     familyToCommitLog.forEach((family, logs) -> {
       for (AttributeFamilyDescriptor commitLogFamily : logs) {
-        CommitLogReader commitLog = commitLogFamily.getCommitLogReader()
-            .orElseThrow(() -> new IllegalStateException(
-                "Failed validation on consistency of attribute families. Fix code!"));
         if (!family.getAccess().isReadonly()) {
-          AttributeWriterBase writer = family.getWriter().get();
+          CommitLogReader commitLog = commitLogFamily.getCommitLogReader()
+              .orElseThrow(() -> new IllegalStateException(
+                  "Failed to find commit-log reader in family " + commitLogFamily));
+          AttributeWriterBase writer = family.getWriter()
+              .orElseThrow(() ->
+                  new IllegalStateException(
+                      "Unable to get writer for family " + family.getName() + "."));
           StorageFilter filter = family.getFilter();
-          Set<AttributeDescriptor<?>> allowedAttributes = family
-              .getAttributes()
-              .stream().collect(Collectors.toSet());
+          Set<AttributeDescriptor<?>> allowedAttributes =
+              new HashSet<>(family.getAttributes());
           final String name = "consumer-" + family.getName();
-          Thread.currentThread().setName(name);
           registerWriterTo(name, commitLog, allowedAttributes, filter,
               writer, retryPolicy);
           log.info(
-              "Started consumer thread {} consuming from log {} with URI {} into {} "
+              "Started consumer {} consuming from log {} with URI {} into {} "
                   + "attributes {}",
-              name, commitLog, commitLog.getURI(), writer.getURI(), allowedAttributes);
+              name, commitLog, commitLog.getUri(), writer.getUri(), allowedAttributes);
         } else {
           log.debug("Not starting thread for read-only family {}", family);
         }
@@ -689,9 +271,7 @@ public class IngestServer {
     });
 
     // execute transformer threads
-    repo.getTransformations().forEach((k, v) -> {
-      runTransformer(k, v);
-    });
+    repo.getTransformations().forEach(this::runTransformer);
   }
 
   private void runTransformer(String name, TransformationDescriptor transform) {
@@ -702,74 +282,36 @@ public class IngestServer {
             .collect(Collectors.toSet()))
         .reduce(Sets::intersection)
         .filter(s -> !s.isEmpty())
-        .map(s -> s.stream().filter(f -> f.getCommitLogReader().isPresent())
-            .findAny().orElse(null))
-        .filter(af -> af != null)
-        .orElseThrow(() -> new IllegalArgumentException(
+        .map(s -> s.stream()
+            .filter(f -> f.getCommitLogReader().isPresent())
+            .findAny()
+            .orElse(null))
+        .filter(Objects::nonNull)
+        .orElseThrow(() ->
+            new IllegalArgumentException(
             "Cannot obtain attribute family for " + transform.getAttributes()));
 
     Transformation t = transform.getTransformation();
     StorageFilter f = transform.getFilter();
     final String consumer = "transformer-" + name;
-    CommitLogReader reader = family.getCommitLogReader().get();
+    CommitLogReader reader = family.getCommitLogReader()
+        .orElseThrow(() ->
+            new IllegalStateException(
+                "Unable to get reader for family " + family.getName() + "."));
 
-    new RetryableLogObserver(3, consumer, reader) {
-
-      @Override
-      protected void failure() {
-        die(String.format("Failed to transform using %s. Bailing out.", t));
-      }
-
-      @Override
-      public boolean onNextInternal(
-          StreamElement ingest, LogObserver.ConfirmCallback confirm) {
-
-        // add one to prevent confirmation before all elements
-        // are processed
-        if (!f.apply(ingest)) {
-          log.debug("Skipping transformation of {} by filter", ingest);
-          return true;
-        }
-        AtomicInteger toConfirm = new AtomicInteger(1);
-        try {
-          Transformation.Collector<StreamElement> collector = elem -> {
-            toConfirm.incrementAndGet();
-            try {
-              log.info("Writing transformed element {}", elem);
-              ingestRequest(
-                  elem, elem.getUuid(), rpc -> {
-                    if (rpc.getStatus() == 200) {
-                      if (toConfirm.decrementAndGet() == 0) {
-                        confirm.confirm();
-                      }
-                    } else {
-                      toConfirm.set(-1);
-                      confirm.fail(new RuntimeException(
-                          String.format("Received invalid status %d:%s",
-                              rpc.getStatus(), rpc.getStatusMessage())));
-                    }
-                  });
-            } catch (Exception ex) {
-              toConfirm.set(-1);
-              confirm.fail(ex);
-            }
-          };
-          t.apply(ingest, collector);
-          if (toConfirm.decrementAndGet() == 0) {
-            confirm.confirm();
-          }
-        } catch (Exception ex) {
-          toConfirm.set(-1);
-          confirm.fail(ex);
-        }
-        return true;
-      }
-
-
-    }.start();
+    startTransformationObserver(consumer, reader, t, f, name);
     log.info(
         "Started transformer {} reading from {} using {}",
-        consumer, reader.getURI(), t.getClass());
+        consumer, reader.getUri(), t.getClass());
+  }
+
+  private void startTransformationObserver(
+      String consumer, CommitLogReader reader,
+      Transformation transformation, StorageFilter filter, String name) {
+
+    new TransformationObserver(
+        3, consumer, reader, repo,
+        name, transformation, filter).start();
   }
 
   /**
@@ -779,34 +321,46 @@ public class IngestServer {
    */
   @SuppressWarnings("unchecked")
   private Map<AttributeFamilyDescriptor, Set<AttributeFamilyDescriptor>>
-  indexFamilyToCommitLogs() {
+      indexFamilyToCommitLogs() {
 
     // each attribute and its associated primary family
-    Map<AttributeDescriptor, AttributeFamilyDescriptor> attrToCommitLog = repo.getAllFamilies()
+    final Map<AttributeDescriptor, AttributeFamilyDescriptor> attrToCommitLog;
+    attrToCommitLog = repo.getAllFamilies()
         .filter(af -> af.getType() == StorageType.PRIMARY)
         // take pair of attribute to associated commit log
-        .flatMap(af -> {
-          return af.getAttributes()
-              .stream()
-              .map(attr -> Pair.of(attr, af));
-        })
+        .flatMap(af -> af.getAttributes()
+            .stream()
+            .map(attr -> Pair.of(attr, af)))
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
     return (Map) repo.getAllFamilies()
         .filter(af -> af.getType() == StorageType.REPLICA)
         // map to pair of attribute family and associated commit log(s) via attributes
-        .map(af -> Pair.of(af,
+        .map(af -> {
+          if (af.getSource().isPresent()) {
+            String source = af.getSource().get();
+            return Pair.of(af, Collections.singleton(repo
+                .getAllFamilies()
+                .filter(af2 -> af2.getName().equals(source))
+                .findAny()
+                .orElseThrow(() -> new IllegalArgumentException(
+                    "Unknown family " + source))));
+          }
+          return Pair.of(af,
             af.getAttributes()
                 .stream()
                 .map(attr -> {
                   AttributeFamilyDescriptor commitFamily = attrToCommitLog.get(attr);
-                  if (commitFamily == null && attr.getWriter() != null) {
-                    throw new IllegalStateException("Missing source commit log family for " + attr);
+                  Optional<OnlineAttributeWriter> writer = repo.getWriter(attr);
+                  if (commitFamily == null && writer.isPresent()) {
+                    throw new IllegalStateException(
+                        "Missing source commit log family for " + attr);
                   }
                   return commitFamily;
                 })
-                .filter(p -> p != null)
-                .collect(Collectors.toSet())))
+              .filter(Objects::nonNull)
+              .collect(Collectors.toSet()));
+        })
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
   }
 
@@ -821,15 +375,15 @@ public class IngestServer {
     AbstractRetryableLogObserver observer;
     log.info(
         "Registering {} writer to {} from commit log {}",
-        writerBase.getType(), writerBase.getURI(), commitLog.getURI());
+        writerBase.getType(), writerBase.getUri(), commitLog.getUri());
 
     if (writerBase.getType() == AttributeWriterBase.Type.ONLINE) {
       OnlineAttributeWriter writer = writerBase.online();
-      observer = getOnlineWriter(
-          consumerName, commitLog, allowedAttributes, filter, writer, retry);
+      observer = getOnlineObserver(
+          consumerName, commitLog, allowedAttributes, filter, writer);
     } else {
       BulkAttributeWriter writer = writerBase.bulk();
-      observer = getBulkWriter(
+      observer = getBulkObserver(
           consumerName, commitLog, allowedAttributes, filter, writer, retry);
     }
 
@@ -837,7 +391,7 @@ public class IngestServer {
 
   }
 
-  private AbstractRetryableLogObserver getBulkWriter(
+  private AbstractRetryableLogObserver getBulkObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,
@@ -850,52 +404,22 @@ public class IngestServer {
       @Override
       public boolean onNextInternal(
           StreamElement ingest,
-          BulkLogObserver.BulkCommitter confirm) {
+          OffsetCommitter committer) {
 
-        return writeInternal(ingest, confirm);
-      }
-
-      private boolean writeInternal(
-          StreamElement ingest, BulkLogObserver.BulkCommitter confirm) {
-
-        final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
-        log.debug("Received new ingest element {}", ingest);
+        final boolean allowed = allowedAttributes.contains(
+            ingest.getAttributeDescriptor());
+        log.debug(
+            "Consumer {}: received new ingest element {}", consumerName, ingest);
         if (allowed && filter.apply(ingest)) {
-          Failsafe.with(retryPolicy).run(() -> {
-            log.debug("Writing element {} into {}", ingest, writer);
-            writer.write(ingest, (success, exc) -> {
-              if (!success) {
-                log.error(
-                    "Failed to write ingest {} to {}", ingest, writer.getURI(),
-                    exc);
-                Metrics.NON_COMMIT_WRITES_RETRIES.increment();
-                if (ignoreErrors) {
-                  log.error(
-                      "Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
-                      ingest, writer.getURI());
-                  confirm.commit();
-                } else {
-                  confirm.fail(exc);
-                }
-              } else {
-                if (ingest.isDelete()) {
-                  Metrics.NON_COMMIT_LOG_DELETES.increment();
-                } else {
-                  Metrics.NON_COMMIT_LOG_UPDATES.increment();
-                }
-                confirm.commit();
-              }
-            });
-          });
+          Failsafe.with(retry).run(() -> ingestBulkInternal(ingest, committer));
         } else {
           Metrics.COMMIT_UPDATE_DISCARDED.increment();
           log.debug(
-              "Discarding write of {} to {} because of {}, "
+              "Consumer {]: discarding write of {} to {} because of {}, "
                   + "with allowedAttributes {} and filter class {}",
-              ingest, writer.getURI(),
+              consumerName, ingest, writer.getUri(),
               allowed ? "applied filter" : "invalid attribute",
-              allowedAttributes,
-              filter.getClass());
+              allowedAttributes, filter.getClass());
         }
         return true;
       }
@@ -903,75 +427,65 @@ public class IngestServer {
       @Override
       protected void failure() {
         die(String.format(
-            "Too many errors retrying the consumption of commit log %s. Killing self.",
-            commitLog.getURI()));
+            "Consumer %s: too many errors retrying the consumption of "
+                + "commit log %s. Killing self.",
+            consumerName, commitLog.getUri()));
       }
 
       @Override
-      public void onRestart() {
+      public void onRestart(List<Offset> offsets) {
         log.info(
-            "Restarting bulk processing of {}, rollbacking the writer",
-            writer.getURI());
+            "Consumer {}: restarting bulk processing of {} from {}, "
+                + "rollbacking the writer",
+            consumerName, writer.getUri(), offsets);
         writer.rollback();
+      }
+
+      private void ingestBulkInternal(
+          StreamElement ingest,
+          OffsetCommitter committer) {
+
+        log.debug(
+            "Consumer {}: writing element {} into {}",
+            consumerName, ingest, writer);
+
+        writer.write(ingest, (succ, exc) -> confirmWrite(
+            consumerName, ingest, writer, succ, exc,
+            committer::confirm, committer::fail));
       }
 
     };
   }
 
-  private AbstractRetryableLogObserver getOnlineWriter(
+  private AbstractRetryableLogObserver getOnlineObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,
       StorageFilter filter,
-      OnlineAttributeWriter writer,
-      RetryPolicy retry) {
+      OnlineAttributeWriter writer) {
 
     return new RetryableLogObserver(3, consumerName, commitLog) {
 
       @Override
       public boolean onNextInternal(
-          StreamElement ingest,
-          LogObserver.ConfirmCallback confirm) {
+          StreamElement ingest, OffsetCommitter committer) {
 
-        final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
-        log.debug("Received new ingest element {}", ingest);
+        final boolean allowed = allowedAttributes.contains(
+            ingest.getAttributeDescriptor());
+        log.debug(
+            "Consumer {}: received new stream element {}", consumerName, ingest);
         if (allowed && filter.apply(ingest)) {
-          Failsafe.with(retryPolicy).run(() -> {
-            log.debug("Writing element {} into {}", ingest, writer);
-            writer.write(ingest, (success, exc) -> {
-              if (!success) {
-                log.error(
-                    "Failed to write ingest {} to {}", ingest, writer.getURI(),
-                    exc);
-                Metrics.NON_COMMIT_WRITES_RETRIES.increment();
-                if (ignoreErrors) {
-                  log.error(
-                      "Retries exhausted trying to ingest {} to {}. Configured to ignore. Skipping.",
-                      ingest, writer.getURI());
-                  confirm.confirm();
-                } else {
-                  confirm.fail(exc);
-                }
-              } else {
-                if (ingest.isDelete()) {
-                  Metrics.NON_COMMIT_LOG_DELETES.increment();
-                } else {
-                  Metrics.NON_COMMIT_LOG_UPDATES.increment();
-                }
-                confirm.confirm();
-              }
-            });
-          });
+          Failsafe.with(retryPolicy).run(
+              () -> ingestOnlineInternal(ingest, committer));
         } else {
           Metrics.COMMIT_UPDATE_DISCARDED.increment();
           log.debug(
-              "Discarding write of {} to {} because of {}, "
+              "Consumer {}: discarding write of {} to {} because of {}, "
                   + "with allowedAttributes {} and filter class {}",
-              ingest, writer.getURI(),
+              consumerName, ingest, writer.getUri(),
               allowed ? "applied filter" : "invalid attribute",
-              allowedAttributes,
-              filter.getClass());
-          confirm.confirm();
+              allowedAttributes, filter.getClass());
+          committer.confirm();
         }
         return true;
       }
@@ -979,23 +493,68 @@ public class IngestServer {
       @Override
       protected void failure() {
         die(String.format(
-            "Too many errors retrying the consumption of commit log %s. Killing self.",
-            commitLog.getURI()));
+            "Consumer %s: too many errors retrying the consumption of commit "
+                + "log %s. Killing self.",
+            consumerName, commitLog.getUri()));
+      }
+
+      private void ingestOnlineInternal(
+          StreamElement ingest, OffsetCommitter committer) {
+
+        log.debug(
+            "Consumer {}: writing element {} into {}",
+            consumerName, ingest, writer);
+        writer.write(ingest, (success, exc) -> confirmWrite(
+            consumerName, ingest, writer, success, exc,
+            committer::confirm, committer::fail));
       }
 
     };
   }
 
-  private void die(String message) {
+  private void confirmWrite(
+      String consumerName,
+      StreamElement ingest,
+      AttributeWriterBase writer,
+      boolean success, Throwable exc,
+      Runnable onSuccess,
+      Consumer<Throwable> onError) {
+
+    if (!success) {
+      log.error(
+          "Consumer {}: failed to write ingest {} to {}",
+          consumerName, ingest, writer.getUri(), exc);
+      Metrics.NON_COMMIT_WRITES_RETRIES.increment();
+      if (ignoreErrors) {
+        log.error(
+            "Consumer {}: retries exhausted trying to ingest {} to {}. "
+                + "Configured to ignore. Skipping.",
+            consumerName, ingest, writer.getUri());
+        onSuccess.run();
+      } else {
+        onError.accept(exc);
+      }
+    } else {
+      if (ingest.isDelete()) {
+        Metrics.NON_COMMIT_LOG_DELETES.increment();
+      } else {
+        Metrics.NON_COMMIT_LOG_UPDATES.increment();
+      }
+      onSuccess.run();
+    }
+  }
+
+  static void die(String message) {
     die(message, null);
   }
 
-  private void die(String message, @Nullable Throwable error) {
+  static void die(String message, @Nullable Throwable error) {
     try {
       // sleep random time between zero to 10 seconds to break ties
       Thread.sleep((long) (Math.random() * 10000));
     } catch (InterruptedException ex) {
-      // nop, already going to die
+      // just for making sonar happy :-)
+      Thread.currentThread().interrupt();
     }
     if (error == null) {
       log.error(message);

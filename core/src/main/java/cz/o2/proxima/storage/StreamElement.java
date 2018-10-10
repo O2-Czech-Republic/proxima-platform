@@ -15,8 +15,10 @@
  */
 package cz.o2.proxima.storage;
 
+import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -24,8 +26,11 @@ import lombok.Getter;
 
 /**
  * Data wrapper for all ingestion requests.
+ * NOTE: {@link Serializable} is implemented only for tests. Real-world applications
+ * should never use java serialization for passing data elements.
  */
-public class StreamElement {
+@Evolving("Should change to interface with implementations")
+public class StreamElement implements Serializable {
 
   /**
    * Update given entity attribute with given value.
@@ -49,7 +54,7 @@ public class StreamElement {
 
     return new StreamElement(
         entityDesc, attributeDesc, uuid, key,
-        attribute, stamp, value);
+        attribute, stamp, false, value);
   }
 
   /**
@@ -72,7 +77,33 @@ public class StreamElement {
 
     return new StreamElement(
         entityDesc, attributeDesc, uuid, key,
-        attribute, stamp, null);
+        attribute, stamp, false, null);
+  }
+
+  /**
+   * Delete all versions of given wildcard attribute.
+   * @param entityDesc descriptor of entity
+   * @param attributeDesc descriptor of attribute
+   * @param uuid UUID of the event
+   * @param key key of entity
+   * @param attribute string representation of the attribute
+   * @param stamp timestamp of the event
+   * @return {@link StreamElement} to be written to the system
+   */
+  public static StreamElement deleteWildcard(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<?> attributeDesc,
+      String uuid,
+      String key,
+      String attribute,
+      long stamp) {
+
+    if (!attribute.endsWith("*")) {
+      attribute += "*";
+    }
+    return new StreamElement(
+        entityDesc, attributeDesc, uuid,
+        key, attribute, stamp, true, null);
   }
 
   /**
@@ -91,9 +122,9 @@ public class StreamElement {
       String key,
       long stamp) {
 
-    return new StreamElement(
-        entityDesc, attributeDesc, uuid,
-        key, null, stamp, null);
+    return deleteWildcard(
+        entityDesc, attributeDesc, uuid, key,
+        attributeDesc.toAttributePrefix() + "*", stamp);
   }
 
   @Getter
@@ -109,7 +140,6 @@ public class StreamElement {
   private final String key;
 
   @Getter
-  @Nullable
   private final String attribute;
 
   @Getter
@@ -119,22 +149,26 @@ public class StreamElement {
   @Nullable
   private final byte[] value;
 
+  private final boolean deleteWildcard;
+
   protected StreamElement(
       EntityDescriptor entityDesc,
       AttributeDescriptor<?> attributeDesc,
       String uuid,
       String key,
-      @Nullable String attribute,
+      String attribute,
       long stamp,
+      boolean deleteWildcard,
       @Nullable byte[] value) {
 
     this.entityDescriptor = Objects.requireNonNull(entityDesc);
     this.attributeDescriptor = Objects.requireNonNull(attributeDesc);
     this.uuid = Objects.requireNonNull(uuid);
     this.key = Objects.requireNonNull(key);
-    this.attribute = attribute;
+    this.attribute = Objects.requireNonNull(attribute);
     this.stamp = stamp;
     this.value = value;
+    this.deleteWildcard = deleteWildcard;
   }
 
   @Override
@@ -145,7 +179,6 @@ public class StreamElement {
         + ", key=" + key + ", attribute=" + attribute
         + ", stamp=" + stamp
         + ", value.length=" + (value == null ? -1 : value.length) + ")";
-
   }
 
   /**
@@ -161,7 +194,9 @@ public class StreamElement {
    * @return {@code true} if this is delete wildcard event
    */
   public boolean isDeleteWildcard() {
-    return isDelete() && attribute == null;
+    return isDelete() && (
+        attribute.equals(attributeDescriptor.toAttributePrefix() + "*")
+        || deleteWildcard);
   }
 
   /**
@@ -171,7 +206,25 @@ public class StreamElement {
    */
   @SuppressWarnings("unchecked")
   public <T> Optional<T> getParsed() {
+    if (value == null) {
+      return Optional.empty();
+    }
     return (Optional<T>) attributeDescriptor.getValueSerializer().deserialize(value);
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj instanceof StreamElement) {
+      return ((StreamElement) obj).uuid.equals(uuid);
+    }
+    return false;
+  }
+
+  @Override
+  public int hashCode() {
+    return uuid.hashCode();
+  }
+
+
 
 }

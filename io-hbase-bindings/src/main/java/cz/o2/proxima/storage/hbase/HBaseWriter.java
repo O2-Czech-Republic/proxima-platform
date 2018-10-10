@@ -52,7 +52,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
   private boolean flushCommits;
 
   HBaseWriter(URI uri, Configuration conf, Map<String, Object> cfg) {
-    super(uri, conf, cfg);
+    super(uri, conf);
     batchSize = Optional.ofNullable(cfg.get(DEL_BATCH_SIZE_CONF))
         .map(o -> Integer.valueOf(o.toString()))
         .orElse(1000);
@@ -89,6 +89,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
         Put put = new Put(key, stamp);
         put.addColumn(
             family, column.getBytes(UTF8),
+            data.getStamp(),
             data.getValue());
         this.client.put(put);
       }

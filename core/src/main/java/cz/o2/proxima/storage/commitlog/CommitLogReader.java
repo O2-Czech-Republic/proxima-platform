@@ -15,12 +15,17 @@
  */
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.source.UnboundedStreamSource;
 import cz.o2.proxima.storage.Partition;
+import cz.o2.proxima.storage.StreamElement;
+import cz.seznam.euphoria.core.client.io.DataSource;
 import java.io.Closeable;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Read access to commit log.
@@ -28,33 +33,20 @@ import java.util.List;
  * observer on the stream. If the observer is named then if multiple registration
  * exist with the same name, it is automatically load balanced.
  */
+@Stable
 public interface CommitLogReader extends Closeable, Serializable {
-
-  /**
-   * An enum specifying the position in the commit log to start reading from.
-   */
-  enum Position {
-
-    /** Read the commit log from the current data actually pushed to the log. */
-    NEWEST,
-
-    /** Read the commit log from the oldest data available. */
-    OLDEST
-
-  }
 
   /**
    * Retrieve URI representing this resource.
    * @return URI representing this resource
    */
-  URI getURI();
+  URI getUri();
 
   /**
    * Retrieve list of partitions of this commit log.
    * @return list of partitions of this reader
    */
   List<Partition> getPartitions();
-
 
   /**
    * Subscribe observer by name to the commit log.
@@ -66,10 +58,9 @@ public interface CommitLogReader extends Closeable, Serializable {
    * @param name identifier of the consumer
    * @param position the position to seek for in the commit log
    * @param observer the observer to subscribe to the commit log
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  Cancellable observe(String name, Position position, LogObserver observer);
-
+  ObserveHandle observe(String name, Position position, LogObserver observer);
 
   /**
    * Subscribe observer by name to the commit log and read the newest data.
@@ -80,26 +71,27 @@ public interface CommitLogReader extends Closeable, Serializable {
    * This is a non blocking call.
    * @param name identifier of the consumer
    * @param observer the observer to subscribe to the commit log
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default Cancellable observe(String name, LogObserver observer) {
+  default ObserveHandle observe(String name, LogObserver observer) {
     return observe(name, Position.NEWEST, observer);
   }
-
 
   /**
    * Subscribe to given set of partitions.
    * If you use this call then the reader stops being automatically
    * load balanced and the set of partitions can only be changed
    * by call to this method again.
+   * @param name name of the observer
    * @param partitions the list of partitions to subscribe to
    * @param position the position to seek to in the partitions
    * @param stopAtCurrent when {@code true} then stop the observer as soon
    *                      as it reaches most recent record
    * @param observer the observer to subscribe to the partitions
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  Cancellable observePartitions(
+  ObserveHandle observePartitions(
+      String name,
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
@@ -113,10 +105,33 @@ public interface CommitLogReader extends Closeable, Serializable {
    * by call to this method again.
    * @param partitions the list of partitions to subscribe to
    * @param position the position to seek to in the partitions
+   * @param stopAtCurrent when {@code true} then stop the observer as soon
+   *                      as it reaches most recent record
    * @param observer the observer to subscribe to the partitions
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default Cancellable observePartitions(
+  default ObserveHandle observePartitions(
+      Collection<Partition> partitions,
+      Position position,
+      boolean stopAtCurrent,
+      LogObserver observer) {
+
+    return observePartitions(
+        "unnamed-proxima-bulk-consumer-" + UUID.randomUUID().toString(),
+        partitions, position, stopAtCurrent, observer);
+  }
+
+  /**
+   * Subscribe to given set of partitions.
+   * If you use this call then the reader stops being automatically
+   * load balanced and the set of partitions can only be changed
+   * by call to this method again.
+   * @param partitions the list of partitions to subscribe to
+   * @param position the position to seek to in the partitions
+   * @param observer the observer to subscribe to the partitions
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  default ObserveHandle observePartitions(
       Collection<Partition> partitions,
       Position position,
       LogObserver observer) {
@@ -132,10 +147,10 @@ public interface CommitLogReader extends Closeable, Serializable {
    * by call to this method again.
    * @param partitions the partitions to subscribe to
    * @param observer the observer to subscribe to the given partitions
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default Cancellable observePartitions(
-      List<Partition> partitions,
+  default ObserveHandle observePartitions(
+      Collection<Partition> partitions,
       LogObserver observer) {
 
     return observePartitions(partitions, Position.NEWEST, observer);
@@ -143,20 +158,170 @@ public interface CommitLogReader extends Closeable, Serializable {
 
 
   /**
-   * Subscribe to the commitlog in a bulk fashion. That implies that elements
+   * Subscribe to the commit log in a bulk fashion. That implies that elements
+   * are not committed one-by-one, but in a bulks, where all elements in a bulk
+   * are committed at once. This is useful for micro-batching approach of
+   * data processing.
+   * @param name name of the observer
+   * @param position the position to seek to in the partitions
+   * @param stopAtCurrent when {@code true} then stop the observer as soon
+   *                      as it reaches most recent record
+   * @param observer the observer to subscribe
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  ObserveHandle observeBulk(
+      String name,
+      Position position,
+      boolean stopAtCurrent,
+      BulkLogObserver observer);
+
+
+  /**
+   * Subscribe to the commit log in a bulk fashion. That implies that elements
    * are not committed one-by-one, but in a bulks, where all elements in a bulk
    * are committed at once. This is useful for micro-batching approach of
    * data processing.
    * @param name name of the observer
    * @param position the position to seek to in the partitions
    * @param observer the observer to subscribe
-   * @return {@link Cancellable} to asynchronously cancel the observation
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  Cancellable observeBulk(
+  default ObserveHandle observeBulk(
       String name,
       Position position,
+      BulkLogObserver observer) {
+
+    return observeBulk(name, position, false, observer);
+  }
+
+
+  /**
+   * Subscribe to the commit log in a bulk fashion from newest data.
+   * That implies that elements are not committed one-by-one, but in a bulks,
+   * where all elements in a bulk are committed at once. This is useful for
+   * micro-batching approach of data processing.
+   * @param name name of the observer
+   * @param observer the observer to subscribe
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  default ObserveHandle observeBulk(
+      String name,
+      BulkLogObserver observer) {
+
+    return observeBulk(name, Position.NEWEST, observer);
+  }
+
+  /**
+   * Subscribe to given partitions in a bulk fashion.
+   * @param name name of the observer
+   * @param partitions the partitions to subscribe to
+   * @param position the position to seek to in the partitions
+   * @param observer the observer to subscribe to the partitions
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  default ObserveHandle observeBulkPartitions(
+      String name,
+      Collection<Partition> partitions,
+      Position position,
+      BulkLogObserver observer) {
+
+    return observeBulkPartitions(name, partitions, position, false, observer);
+  }
+
+
+  /**
+   * Subscribe to given partitions in a bulk fashion.
+   * @param name name of the observer
+   * @param partitions the partitions to subscribe to
+   * @param position the position to seek to in the partitions
+   * @param stopAtCurrent when {@code true} then stop the observer as soon
+   *                      as it reaches most recent record
+   * @param observer the observer to subscribe to the partitions
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  ObserveHandle observeBulkPartitions(
+      String name,
+      Collection<Partition> partitions,
+      Position position,
+      boolean stopAtCurrent,
+      BulkLogObserver observer);
+
+  /**
+   * Subscribe to given partitions in a bulk fashion.
+   * @param partitions the partitions to subscribe to
+   * @param position the position to seek to in the partitions
+   * @param stopAtCurrent when {@code true} then stop the observer as soon
+   *                      as it reaches most recent record
+   * @param observer the observer to subscribe to the partitions
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  default ObserveHandle observeBulkPartitions(
+      Collection<Partition> partitions,
+      Position position,
+      boolean stopAtCurrent,
+      BulkLogObserver observer) {
+
+    return observeBulkPartitions(
+        "unnamed-proxima-bulk-consumer-" + UUID.randomUUID().toString(),
+        partitions,
+        position,
+        stopAtCurrent,
+        observer);
+  }
+
+  /**
+   * Subscribe to given partitions in a bulk fashion.
+   * @param partitions the partitions to subscribe to
+   * @param position the position to seek to in the partitions
+   * @param observer the observer to subscribe to the partitions
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  default ObserveHandle observeBulkPartitions(
+      Collection<Partition> partitions,
+      Position position,
+      BulkLogObserver observer) {
+
+    return observeBulkPartitions(
+        partitions,
+        position,
+        false,
+        observer);
+  }
+
+
+  /**
+   * Consume from given offsets in a bulk fashion. A typical use-case for this
+   * type of consumption is to first use
+   * {@link CommitLogReader#observeBulkPartitions}, observe
+   * for some time, than interrupt the consumption, store associated offsets
+   * and resume the consumption from these offsets later
+   * @param offsets the @{link Offset}s to subscribe to
+   * @param observer the observer to subscribe to the offsets
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  ObserveHandle observeBulkOffsets(
+      Collection<Offset> offsets,
       BulkLogObserver observer);
 
 
+  /**
+   * Retrieve source from this reader that can be used in Euphoria processing.
+   * @param position where to start reading
+   * @return {@link DataSource} for further processing
+   */
+  default DataSource<StreamElement> getSource(Position position) {
+
+    return UnboundedStreamSource.of(this, position);
+  }
+
+  /**
+   * Retrieve source from this reader that can be used in Euphoria processing.
+   * The source reads data from newest position and continues processing
+   * as new data is incoming.
+   * @return {@link DataSource} for further processing
+   */
+  default DataSource<StreamElement> getSource() {
+    return getSource(Position.NEWEST);
+  }
 
 }

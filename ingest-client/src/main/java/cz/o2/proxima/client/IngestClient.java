@@ -15,16 +15,18 @@
  */
 package cz.o2.proxima.client;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
+import com.google.protobuf.TextFormat;
 import cz.o2.proxima.proto.service.IngestServiceGrpc;
 import cz.o2.proxima.proto.service.IngestServiceGrpc.IngestServiceStub;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.Rpc;
-import cz.seznam.euphoria.shadow.com.google.common.annotations.VisibleForTesting;
-import cz.seznam.euphoria.shadow.com.google.common.base.Strings;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import lombok.Getter;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -42,41 +44,54 @@ import java.util.function.Consumer;
 @Slf4j
 public class IngestClient implements AutoCloseable {
 
-  // request sent through the channel
+  /**
+   * Request sent through the channel
+   */
+  @Value
   private class Request {
-    @Getter
-    final Consumer<Rpc.Status> consumer;
-    @Getter
-    final ScheduledFuture timeoutFuture;
-    @Getter
-    final Rpc.Ingest payload;
-    Request(
-        Consumer<Rpc.Status> consumer,
-        ScheduledFuture timeoutFuture,
-        Rpc.Ingest payload) {
-      this.consumer = consumer;
-      this.timeoutFuture = timeoutFuture;
-      this.payload = payload;
-    }
 
-    // confirm the status and remove the timeout schedule
-    private void setStatus(Rpc.Status s) {
+    final Consumer<Rpc.Status> consumer;
+    final ScheduledFuture timeoutFuture;
+    final Rpc.Ingest payload;
+
+    /**
+     * Confirm the status and remove the timeout schedule
+     * @param status of the request
+     */
+    private void setStatus(Rpc.Status status) {
       if (timeoutFuture == null || timeoutFuture.cancel(false)) {
-        consumer.accept(s);
+        consumer.accept(status);
       }
     }
 
-    // retry to send the request
+    /**
+     * Retry to send the request
+     */
     void retry() {
       // we don't setup any timeout
       sendTry(payload, -1L, TimeUnit.MILLISECONDS, consumer, true);
     }
   }
 
+  /**
+   * Create {@link IngestClient} instance
+   *
+   * @param host of the ingest server
+   * @param port of the ingest server
+   * @return ingest client
+   */
   public static IngestClient create(String host, int port) {
     return create(host, port, new Options());
   }
 
+  /**
+   * Create {@link IngestClient} instance
+   *
+   * @param host of the ingest server
+   * @param port of the ingest server
+   * @param opts extra settings
+   * @return ingest client
+   */
   public static IngestClient create(String host, int port, Options opts) {
     return new IngestClient(host, port, opts);
   }
@@ -89,64 +104,38 @@ public class IngestClient implements AutoCloseable {
   private final Options options;
 
   /** Map of UUID of message to the consumer of the message status. */
-  private final Map<String, Request> inflightRequests = Collections.synchronizedMap(new HashMap<>());
+  private final Map<String, Request> inFlightRequests;
 
+  @VisibleForTesting
   Channel channel = null;
+
+  @VisibleForTesting
   IngestServiceStub stub = null;
-  RetrieveServiceGrpc.RetrieveServiceBlockingStub getStub = null;
-  final Rpc.IngestBulk.Builder bulkBuilder = Rpc.IngestBulk.newBuilder();
-  final CountDownLatch closedLatch = new CountDownLatch(1);
-  final StreamObserver<Rpc.StatusBulk> statusObserver = new StreamObserver<Rpc.StatusBulk>() {
 
-    @Override
-    public void onNext(Rpc.StatusBulk bulk) {
-      for (Rpc.Status status : bulk.getStatusList()) {
-        final String uuid = status.getUuid();
-        final Request request = inflightRequests.remove(uuid);
-        if (request == null) {
-          log.warn("Received response for unknown message " + status);
-        } else {
-          synchronized (inflightRequests) {
-            inflightRequests.notifyAll();
-          }
-          request.setStatus(status);
-        }
-      }
-    }
+  private RetrieveServiceGrpc.RetrieveServiceBlockingStub getStub = null;
+  private final Rpc.IngestBulk.Builder bulkBuilder = Rpc.IngestBulk.newBuilder();
+  private final CountDownLatch closedLatch = new CountDownLatch(1);
 
-    @Override
-    public void onError(Throwable thrwbl) {
-      log.warn("Error on channel, closing stub", thrwbl);
-      synchronized (IngestClient.this) {
-        stub = null;
-        createChannelAndStub();
-      }
-    }
-
-    @Override
-    public void onCompleted() {
-      synchronized (inflightRequests) {
-        inflightRequests.clear();
-      }
-      closedLatch.countDown();
-    }
-
-  };
+  @VisibleForTesting
+  final StreamObserver<Rpc.StatusBulk> statusObserver = newStatusObserver();
 
   private final Thread flushThread;
 
+  @VisibleForTesting
   StreamObserver<Rpc.IngestBulk> requestObserver;
 
   private final ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1);
+
+  private long lastFlush = System.nanoTime();
 
   @VisibleForTesting
   IngestClient(String host, int port, Options options) {
     this.host = host;
     this.port = port;
     this.options = options;
+    this.inFlightRequests = Collections.synchronizedMap(new HashMap<>());
     this.flushThread = new Thread(() -> {
       long flushTimeNanos = options.getFlushUsec() * 1_000L;
-      long lastFlush = System.nanoTime();
       while (!Thread.currentThread().isInterrupted()) {
         try {
           long nowNanos = System.nanoTime();
@@ -160,7 +149,6 @@ public class IngestClient implements AutoCloseable {
             if (bulkBuilder.getIngestCount() > 0) {
               flush();
             }
-            lastFlush = nowNanos;
           }
         } catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
@@ -170,6 +158,52 @@ public class IngestClient implements AutoCloseable {
 
     this.flushThread.setDaemon(true);
     this.flushThread.setName(getClass().getSimpleName() + "-flushThread");
+  }
+
+  private StreamObserver<Rpc.StatusBulk> newStatusObserver() {
+
+    return new StreamObserver<Rpc.StatusBulk>() {
+      @Override
+      public void onNext(Rpc.StatusBulk bulk) {
+        for (Rpc.Status status : bulk.getStatusList()) {
+          final String uuid = status.getUuid();
+          final Request request = inFlightRequests.remove(uuid);
+          if (request == null) {
+            log.warn(
+                "Received response for unknown message {}",
+                TextFormat.shortDebugString(status));
+          } else {
+            synchronized (inFlightRequests) {
+              inFlightRequests.notifyAll();
+            }
+            request.setStatus(status);
+          }
+        }
+      }
+
+      @Override
+      public void onError(Throwable thrwbl) {
+        log.warn("Error on channel, closing stub", thrwbl);
+        synchronized (IngestClient.this) {
+          stub = null;
+          try {
+            TimeUnit.SECONDS.sleep(1);
+          } catch (InterruptedException ex) {
+            log.warn("Interrupted while waiting before channel open retry.", ex);
+            Thread.currentThread().interrupt();
+          }
+          createChannelAndStub();
+        }
+      }
+
+      @Override
+      public void onCompleted() {
+        synchronized (inFlightRequests) {
+          inFlightRequests.clear();
+        }
+        closedLatch.countDown();
+      }
+    };
   }
 
   /**
@@ -201,8 +235,8 @@ public class IngestClient implements AutoCloseable {
    * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.GetResponse}.
    */
   public Rpc.GetResponse get(Rpc.GetRequest request) {
-     ensureChannel();
-     return getStub.get(request);
+    ensureChannel();
+    return getStub.get(request);
   }
 
   /** Send the request with timeout. */
@@ -224,10 +258,22 @@ public class IngestClient implements AutoCloseable {
       ensureChannel();
     }
 
-    while (!isRetry && inflightRequests.size() >= options.getMaxInflightRequests()) {
-      synchronized (inflightRequests) {
+    ScheduledFuture<?> scheduled = null;
+    if (timeout > 0) {
+      scheduled = timer.schedule(() -> {
+        inFlightRequests.remove(ingest.getUuid());
+        statusConsumer.accept(Rpc.Status.newBuilder()
+            .setStatus(504)
+            .setStatusMessage(
+                "Timeout while waiting for response of request UUID " + ingest.getUuid())
+            .build());
+      }, timeout, unit);
+    }
+
+    while (!isRetry && inFlightRequests.size() >= options.getMaxInflightRequests()) {
+      synchronized (inFlightRequests) {
         try {
-          inflightRequests.wait(100);
+          inFlightRequests.wait(100);
         } catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
           statusConsumer.accept(Rpc.Status.newBuilder()
@@ -239,39 +285,25 @@ public class IngestClient implements AutoCloseable {
       }
     }
 
-    ScheduledFuture<?> scheduled = null;
-    if (timeout > 0) {
-      scheduled = timer.schedule(() -> {
-        inflightRequests.remove(ingest.getUuid());
-        statusConsumer.accept(Rpc.Status.newBuilder()
-            .setStatus(504)
-            .setStatusMessage(
-                "Timeout while waiting for response of request UUID " + ingest.getUuid())
-            .build());
-      }, timeout, unit);
-    }
-
-    inflightRequests.putIfAbsent(ingest.getUuid(),
+    inFlightRequests.putIfAbsent(ingest.getUuid(),
         new Request(statusConsumer, scheduled, ingest));
 
     synchronized (this) {
       bulkBuilder.addIngest(ingest);
       if (bulkBuilder.getIngestCount() >= options.getMaxFlushRecords()) {
-        synchronized (flushThread) {
-          flushThread.notify();
-        }
+        flush();
       }
     }
 
   }
 
   @VisibleForTesting
-  void createChannelAndStub() {
+  synchronized void createChannelAndStub() {
 
     if (channel == null) {
       channel = ManagedChannelBuilder
           .forAddress(host, port)
-          .usePlaintext(true)
+          .usePlaintext()
           .executor(options.getExecutor())
           .build();
     }
@@ -281,8 +313,8 @@ public class IngestClient implements AutoCloseable {
 
     requestObserver = stub.ingestBulk(statusObserver);
 
-    synchronized (inflightRequests) {
-      inflightRequests.values().forEach(Request::retry);
+    synchronized (inFlightRequests) {
+      inFlightRequests.values().forEach(Request::retry);
     }
 
   }
@@ -305,10 +337,10 @@ public class IngestClient implements AutoCloseable {
     }
 
     if (channelNotNull) {
-      while (!inflightRequests.isEmpty()) {
-        synchronized (inflightRequests) {
+      while (!inFlightRequests.isEmpty()) {
+        synchronized (inFlightRequests) {
           try {
-            inflightRequests.wait(100);
+            inFlightRequests.wait(100);
           } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             break;
@@ -321,7 +353,9 @@ public class IngestClient implements AutoCloseable {
 
       flushThread.interrupt();
       try {
-        closedLatch.await(1, TimeUnit.SECONDS);
+        if (!closedLatch.await(1, TimeUnit.SECONDS)) {
+          log.warn("Unable to await for flushThreads");
+        }
       } catch (InterruptedException ex) {
         Thread.currentThread().interrupt();
       }
@@ -329,11 +363,16 @@ public class IngestClient implements AutoCloseable {
     }
   }
 
-  private void flush() {
+  private synchronized void flush() {
     if (requestObserver != null) {
       requestObserver.onNext(bulkBuilder.build());
+    } else {
+      log.warn(
+          "Cannot send bulk due to null observer. "
+              + "This might suggest bug in code.");
     }
     bulkBuilder.clear();
+    lastFlush = System.nanoTime();
   }
 
 }

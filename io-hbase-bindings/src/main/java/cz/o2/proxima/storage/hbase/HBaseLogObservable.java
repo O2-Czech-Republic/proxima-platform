@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.hbase;
 
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
@@ -40,7 +41,6 @@ import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executor;
 
 /**
@@ -49,18 +49,21 @@ import java.util.concurrent.Executor;
 @Slf4j
 class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservable {
 
-  private static Charset UTF8 = Charset.forName("UTF-8");
+  private static final Charset UTF8 = Charset.forName("UTF-8");
 
   private final EntityDescriptor entity;
-  private final Executor executor;
+  private final Factory<Executor> executorFactory;
+  private transient Executor executor;
 
   public HBaseLogObservable(
-      URI uri, Configuration conf, Map<String, Object> cfg,
-      EntityDescriptor entity, Executor executor) {
+      URI uri,
+      Configuration conf,
+      EntityDescriptor entity,
+      Factory<Executor> executorFactory) {
 
-    super(uri, conf, cfg);
+    super(uri, conf);
     this.entity = entity;
-    this.executor = executor;
+    this.executorFactory = executorFactory;
   }
 
   @Override
@@ -68,7 +71,7 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
     try {
       ensureClient();
       List<Partition> ret = new ArrayList<>();
-      byte[][] end = conn.getRegionLocator(table).getEndKeys();
+      byte[][] end = conn.getRegionLocator(tableName()).getEndKeys();
       byte[] startPos = new byte[0];
       if (startStamp < 0) {
         startStamp = 0;
@@ -89,10 +92,9 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor.execute(() -> {
+    executor().execute(() -> {
       ensureClient();
       try {
-        outer:
         for (Partition p : partitions) {
           HBasePartition hp = (HBasePartition) p;
           Scan scan = new Scan(hp.getStartKey(), hp.getEndKey());
@@ -100,15 +102,20 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
           scan.setTimeRange(hp.getStartStamp(), hp.getEndStamp());
           scan.setFilter(toFilter(attributes));
 
+          boolean finish = false;
           try (ResultScanner scanner = client.getScanner(scan)) {
             Result next;
             while (((next = scanner.next()) != null)
                 && !Thread.currentThread().isInterrupted()) {
 
               if (!consume(next, attributes, hp, observer)) {
-                break outer;
+                finish = true;
+                break;
               }
             }
+          }
+          if (finish) {
+            break;
           }
         }
         observer.onCompleted();
@@ -117,6 +124,13 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
         observer.onError(ex);
       }
     });
+  }
+
+  private Executor executor() {
+    if (executor == null) {
+      executor = executorFactory.apply();
+    }
+    return executor;
   }
 
   private boolean consume(Result r,

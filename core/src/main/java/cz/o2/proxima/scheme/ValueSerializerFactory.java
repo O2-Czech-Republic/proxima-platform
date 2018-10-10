@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme;
 
+import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.net.URI;
 
@@ -22,7 +23,8 @@ import java.net.URI;
  * Factory for {@code ValueSerializer}.
  * The serializer has a specific scheme (e.g. proto:).
  */
-public interface ValueSerializerFactory<T> extends Serializable {
+@Stable
+public interface ValueSerializerFactory extends Serializable {
 
   /**
    * Retrieve scheme that of URI that this parser accepts.
@@ -33,9 +35,10 @@ public interface ValueSerializerFactory<T> extends Serializable {
 
   /**
    * Get {@code ValueSerializer} for given scheme.
+   * @param <T> type of deserialized data
    * @param specifier URI specifier of this data type
    * @return {@link ValueSerializer} for the scheme
    */
-  ValueSerializer<T> getValueSerializer(URI specifier);
+  <T> ValueSerializer<T> getValueSerializer(URI specifier);
 
 }

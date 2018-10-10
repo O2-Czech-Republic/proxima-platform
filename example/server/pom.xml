@@ -23,13 +23,17 @@
   <parent>
     <groupId>cz.o2.proxima.example</groupId>
     <artifactId>example-parent</artifactId>
-    <version>0.1.2</version>
+    <version>0.2-SNAPSHOT</version>
   </parent>
      
   <artifactId>example-ingest-server</artifactId>
   <packaging>jar</packaging>
      
-  <name>Platform example Ingest Server</name>
+  <name>${project.groupId}:${project.artifactId}</name>
+
+  <properties>
+    <sonar.jacoco.reportPaths>${project.basedir}/../../target/jacoco.exec</sonar.jacoco.reportPaths>
+  </properties>
 
   <build>
     <plugins>
@@ -49,18 +53,13 @@
         <version>2.4.3</version>
         <configuration>
           <transformers>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-             <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
-            </transformer>
+            <transformer
+                implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
           </transformers>
           <relocations>
             <relocation>
-              <pattern>org.reflections.</pattern>
-              <shadedPattern>cz.o2.proxima.internal.org.reflections.</shadedPattern>
-            </relocation>
-            <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.seznam.euphoria.shadow.com.google.common.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.internal.shaded.com.google.common.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -88,6 +87,12 @@
     <dependency>
       <groupId>cz.o2.proxima.example</groupId>
       <artifactId>example-model</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima.example</groupId>
+      <artifactId>example-proto</artifactId>
       <version>${project.version}</version>
     </dependency>
 

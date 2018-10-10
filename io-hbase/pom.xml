@@ -23,13 +23,13 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.1.2</version>
+    <version>0.2-SNAPSHOT</version>
   </parent>
      
   <artifactId>io-hbase</artifactId>
   <packaging>jar</packaging>
      
-  <name>Proxima platform HBase module</name>
+  <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
     <plugins>
@@ -39,13 +39,12 @@
         <version>2.4.3</version>
         <configuration>
           <transformers>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-             <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
-            </transformer>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
           </transformers>
           <artifactSet>
             <excludes>
               <!-- exclude proxima and core dependencies -->
+              <exclude>cz.seznam.euphoria:*</exclude>
               <exclude>cz.o2.proxima:core</exclude>
             </excludes>
           </artifactSet>

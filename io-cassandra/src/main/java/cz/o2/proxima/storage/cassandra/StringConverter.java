@@ -24,16 +24,18 @@ import javax.annotation.Nullable;
  */
 public interface StringConverter<T> extends Serializable {
 
-  public static final StringConverter<String> DEFAULT = new StringConverter<String>() {
+  public static class DefaultConverter implements StringConverter<String> {
 
     /** String value that all strings should be less than. */
-    final String MAX = new String(new byte[] { (byte) 0xFF }, 0, 1, Charset.forName("ascii"));
+    static final String MAX = new String(
+        new byte[] { (byte) 0xFF },
+        0, 1, Charset.forName("ascii"));
     /** String value that all strings should be greater or equal to. */
-    final String MIN = "";
+    static final String MIN = "";
 
     @Override
     public String asString(String what) {
-      return (String) what;
+      return what;
     }
 
     @Override
@@ -51,7 +53,11 @@ public interface StringConverter<T> extends Serializable {
       return MIN;
     }
 
-  };
+  }
+
+  public static StringConverter<String> getDefault() {
+    return new DefaultConverter();
+  }
 
   /**
    * Convert type to string.

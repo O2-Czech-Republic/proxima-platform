@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage.batch;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 
@@ -23,6 +24,7 @@ import cz.o2.proxima.storage.StreamElement;
  *
  * Implementations should override either of `onNext` methods.
  */
+@Stable
 public interface BatchLogObserver {
 
   /**

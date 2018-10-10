@@ -21,12 +21,14 @@
 
 package cz.o2.proxima.storage.commitlog;
 
+import cz.o2.proxima.annotations.Stable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * A parent class for retryable online and bulk log observers.
  */
+@Stable
 @Slf4j
 public abstract class AbstractRetryableLogObserver implements LogObserverBase {
 
@@ -37,13 +39,12 @@ public abstract class AbstractRetryableLogObserver implements LogObserverBase {
   @Getter
   private final String name;
   /** The commit log this observer observes from. */
-  @Getter
   private final CommitLogReader commitLog;
   /** Current number of failures in a row. */
   private int numFailures;
 
   @Getter
-  private CommitLogReader.Position position;
+  private Position position;
 
   public AbstractRetryableLogObserver(
       int maxRetries,
@@ -61,9 +62,8 @@ public abstract class AbstractRetryableLogObserver implements LogObserverBase {
     numFailures++;
     log.error(
         "Error in observing commit log {} by {}, retries so far {}, maxRetries {}",
-        commitLog.getURI(), name, numFailures, maxRetries, error);
+        commitLog.getUri(), name, numFailures, maxRetries, error);
     if (numFailures < maxRetries) {
-      startInternal(position);
       return true;
     } else {
       failure();
@@ -75,24 +75,30 @@ public abstract class AbstractRetryableLogObserver implements LogObserverBase {
     numFailures = 0;
   }
 
-  public void start() {
-    start(CommitLogReader.Position.NEWEST);
+  public ObserveHandle start() {
+    return start(Position.NEWEST);
   }
 
-  public void start(CommitLogReader.Position position) {
+  public ObserveHandle start(Position position) {
     this.position = position;
-    this.startInternal(position);
+    return this.startInternal(position);
   }
 
   /**
    * Called when processing is to start from given position.
    * @param position position in the log
+   * @return handle of the observe process
    */
-  protected abstract void startInternal(CommitLogReader.Position position);
+  protected abstract ObserveHandle startInternal(Position position);
 
   /**
    * Called when unrecoverable error detected on the commit log.
    */
   protected abstract void failure();
+
+  @SuppressWarnings("unchecked")
+  CommitLogReader getCommitLog() {
+    return commitLog;
+  }
 
 }

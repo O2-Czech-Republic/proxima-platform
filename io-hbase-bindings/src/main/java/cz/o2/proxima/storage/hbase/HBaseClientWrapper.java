@@ -15,6 +15,10 @@
  */
 package cz.o2.proxima.storage.hbase;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -24,38 +28,44 @@ import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Table;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.URI;
-import java.util.Map;
+import org.apache.hadoop.io.Writable;
 
 /**
  * Class containing embedded HBase client.
  */
 @Slf4j
-class HBaseClientWrapper {
+class HBaseClientWrapper implements AutoCloseable, Serializable {
 
   final URI uri;
-  final TableName table;
-  final Configuration conf;
+  final byte[] serializedConf;
   final byte[] family;
-  Connection conn;
-  Table client;
+  transient Connection conn;
+  transient Table client;
 
-  HBaseClientWrapper(URI uri, Configuration conf, Map<String, Object> cfg) {
+  HBaseClientWrapper(URI uri, Configuration conf) {
     this.uri = uri;
-    table = TableName.valueOf(Util.getTable(uri));
-    family = Util.getFamily(uri);
-    this.conf = HBaseConfiguration.create(conf);
+    this.family = Util.getFamily(uri);
+    this.serializedConf = serialize(HBaseConfiguration.create(conf));
   }
 
-  public URI getURI() {
+  public URI getUri() {
     return uri;
   }
 
   void ensureClient() {
-    if (this.conn == null || this.conn.isClosed()) {
+    if (conn == null || conn.isClosed()) {
       try {
-        this.conn = ConnectionFactory.createConnection(conf);
-        this.client = conn.getTable(table);
+        if (client != null) {
+          client.close();
+        }
+        if (conn != null && !conn.isClosed()) {
+          conn.close();
+        }
+        conn = ConnectionFactory.createConnection(
+            deserialize(serializedConf, new Configuration()));
+        client = conn.getTable(tableName());
       } catch (IOException ex) {
         log.error("Error connecting to cluster", ex);
         throw new RuntimeException(ex);
@@ -63,5 +73,42 @@ class HBaseClientWrapper {
     }
   }
 
+  TableName tableName() {
+    return TableName.valueOf(Util.getTable(uri));
+  }
+
+  @Override
+  public void close() {
+    if (client != null) {
+      Util.closeQuietly(client);
+      client = null;
+    }
+    if (conn != null) {
+      Util.closeQuietly(conn);
+      conn = null;
+    }
+  }
+
+  private static byte[] serialize(Writable obj) {
+    try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
+         DataOutputStream dos = new DataOutputStream(baos)) {
+
+      obj.write(dos);
+      dos.flush();
+      return baos.toByteArray();
+    } catch (IOException ex) {
+      throw new RuntimeException(ex);
+    }
+  }
+
+  private static <W extends Writable> W deserialize(byte[] bytes, W obj) {
+    try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+         DataInputStream dis = new DataInputStream(bais)) {
+      obj.readFields(dis);
+      return obj;
+    } catch (IOException ex) {
+      throw new RuntimeException(ex);
+    }
+  }
 
 }

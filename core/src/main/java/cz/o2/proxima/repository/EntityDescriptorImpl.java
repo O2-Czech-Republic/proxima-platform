@@ -15,8 +15,11 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.collect.Lists;
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.util.NamePattern;
-import cz.seznam.euphoria.shadow.com.google.common.collect.Maps;
+import cz.o2.proxima.util.Pair;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -24,10 +27,13 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Descriptor of entity.
  */
+@Slf4j
+@Internal
 public class EntityDescriptorImpl implements EntityDescriptor {
 
 
@@ -44,9 +50,9 @@ public class EntityDescriptorImpl implements EntityDescriptor {
   /** Map of attributes by pattern. */
   private final Map<NamePattern, AttributeDescriptor<?>> attributesByPattern;
 
-  EntityDescriptorImpl(String name, List<AttributeDescriptor<?>> attrs) {
+  EntityDescriptorImpl(String name, Collection<AttributeDescriptor<?>> attrs) {
     this.name = Objects.requireNonNull(name);
-    this.attributes = Collections.unmodifiableList(Objects.requireNonNull(attrs));
+    this.attributes = Lists.newArrayList(Objects.requireNonNull(attrs));
 
     List<AttributeDescriptor<?>> fullyQualified = attrs.stream()
         .filter(a -> !a.isWildcard())
@@ -54,27 +60,29 @@ public class EntityDescriptorImpl implements EntityDescriptor {
 
     attributesByPattern = attrs.stream()
         .filter(AttributeDescriptor::isWildcard)
-        .map(p -> Maps.immutableEntry(new NamePattern(p.getName()), p))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .map(p -> Pair.of(new NamePattern(p.getName()), p))
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
-    this.attributesByName = Maps.uniqueIndex(
-        fullyQualified, AttributeDescriptor::getName);
+    this.attributesByName = fullyQualified.stream()
+        .collect(Collectors.toMap(AttributeDescriptor::getName, e -> e));
   }
 
 
   /** Find attribute based by name. */
+  @SuppressWarnings("unchecked")
   @Override
-  public Optional<AttributeDescriptor<?>> findAttribute(
+  public <T> Optional<AttributeDescriptor<T>> findAttribute(
       String name, boolean includeProtected) {
 
     AttributeDescriptor found = attributesByName.get(name);
     if (found == null) {
-      for (Map.Entry<NamePattern, AttributeDescriptor<?>> e : attributesByPattern.entrySet()) {
-        if (e.getKey().matches(name)) {
-          found = e.getValue();
-          break;
-        }
-      }
+      found = attributesByPattern
+          .entrySet()
+          .stream()
+          .filter(e -> e.getKey().matches(name))
+          .findFirst()
+          .map(Map.Entry::getValue)
+          .orElse(null);
     }
     if (found != null && (includeProtected || found.isPublic())) {
       return Optional.of(found);
@@ -90,7 +98,7 @@ public class EntityDescriptorImpl implements EntityDescriptor {
       return Collections.unmodifiableList(attributes);
     }
     return attributes.stream()
-        .filter(a -> a.isPublic())
+        .filter(AttributeDescriptor::isPublic)
         .collect(Collectors.toList());
   }
 
@@ -111,6 +119,21 @@ public class EntityDescriptorImpl implements EntityDescriptor {
   @Override
   public int hashCode() {
     return name.hashCode();
+  }
+
+  Optional<AttributeDescriptor<?>> replaceAttribute(AttributeDescriptor<?> attr) {
+    Optional<AttributeDescriptor<?>> current;
+    current = this.attributes.stream().filter(a -> a.equals(attr)).findAny();
+    if (current.isPresent()) {
+      this.attributes.remove(attr);
+    }
+    this.attributes.add(attr);
+    if (attr.isWildcard()) {
+      this.attributesByPattern.put(new NamePattern(attr.getName()), attr);
+    } else {
+      this.attributesByName.put(attr.getName(), attr);
+    }
+    return current;
   }
 
 }

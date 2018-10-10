@@ -19,7 +19,7 @@ import cz.o2.proxima.example.event.Event;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.repository.Transformation;
+import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,7 +46,7 @@ public class EventDataToUserHistory implements Transformation {
   }
 
   @Override
-  public void apply(StreamElement input, Collector<StreamElement> collector) {
+  public int apply(StreamElement input, Collector<StreamElement> collector) {
     if (!input.isDelete()) {
       Optional<Event.BaseEvent> data = input.getParsed();
       if (data.isPresent()) {
@@ -55,10 +55,12 @@ public class EventDataToUserHistory implements Transformation {
             data.get().getUserName(),
             prefix + input.getStamp(),
             input.getStamp(), input.getValue()));
+        return 1;
       }
     } else {
       log.warn("Ignored delete in transformed event {}", input);
     }
+    return 0;
   }
 
 }

@@ -23,13 +23,13 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.1.2</version>
+    <version>0.2-SNAPSHOT</version>
   </parent>
      
   <artifactId>core</artifactId>
   <packaging>jar</packaging>
      
-  <name>Proxima platform core</name>
+  <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
     <plugins>
@@ -39,14 +39,16 @@
         <version>2.4.3</version>
         <configuration>
           <shadeTestJar>true</shadeTestJar>
+          <artifactSet>
+            <excludes>
+              <exclude>org.slf4j:slf4j-api:jar:</exclude>
+              <exclude>cz.seznam.euphoria:*</exclude>
+            </excludes>
+          </artifactSet>
           <relocations>
             <relocation>
-              <pattern>org.reflections.</pattern>
-              <shadedPattern>cz.o2.proxima.internal.org.reflections.</shadedPattern>
-            </relocation>
-            <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.seznam.euphoria.shadow.com.google.common.</shadedPattern>
+              <shadedPattern>cz.o2.proxima.internal.shaded.com.google.common.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -91,8 +93,6 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.25</version>
-      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -102,25 +102,16 @@
     </dependency>
 
     <dependency>
-      <groupId>org.reflections</groupId>
-      <artifactId>reflections</artifactId>
-      <version>0.9.10</version>
-      <exclusions>
-        <exclusion>
-          <groupId>com.google.code.findbugs</groupId>
-          <artifactId>annotations</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>com.google.guava</groupId>
-          <artifactId>guava</artifactId>
-        </exclusion>
-      </exclusions>
+      <groupId>cz.seznam.euphoria</groupId>
+      <artifactId>euphoria-core</artifactId>
+      <version>${euphoria.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-core</artifactId>
+      <artifactId>euphoria-testing</artifactId>
       <version>${euphoria.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -150,7 +141,13 @@
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
       <version>23.0</version>
-      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>annotations</artifactId>
+      <version>3.0.1u2</version>
+      <scope>provided</scope>
     </dependency>
 
   </dependencies>

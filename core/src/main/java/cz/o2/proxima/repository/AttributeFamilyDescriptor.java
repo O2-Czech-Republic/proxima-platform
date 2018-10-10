@@ -15,72 +15,80 @@
  */
 package cz.o2.proxima.repository;
 
+import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.AttributeWriterBase;
-import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
+import cz.o2.proxima.storage.batch.BatchLogObservable;
+import cz.o2.proxima.storage.commitlog.CommitLogReader;
 import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
+import cz.o2.proxima.view.PartitionedCachedView;
+import cz.o2.proxima.view.PartitionedView;
+import cz.seznam.euphoria.shadow.com.google.common.collect.Lists;
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import cz.o2.proxima.storage.batch.BatchLogObservable;
-import cz.o2.proxima.view.PartitionedView;
-import java.io.Serializable;
-import javax.annotation.Nullable;
 
 /**
  * A family of attributes with the same storage.
  */
+@Evolving("Affected by #66")
 public class AttributeFamilyDescriptor implements Serializable {
 
+  @Accessors(chain = true)
   public static final class Builder {
 
     private final List<AttributeDescriptor<?>> attributes = new ArrayList<>();
 
     @Setter
-    @Accessors(chain = true)
     private String name;
 
     @Setter
-    @Accessors(chain = true)
     private AttributeWriterBase writer;
 
     @Setter
-    @Accessors(chain = true)
     private RandomAccessReader randomAccess;
 
     @Setter
-    @Accessors(chain = true)
     private CommitLogReader commitLog;
 
     @Setter
-    @Accessors(chain = true)
     private BatchLogObservable batchObservable;
 
     @Setter
-    @Accessors(chain = true)
     private PartitionedView partitionedView;
 
     @Setter
-    @Accessors(chain = true)
+    private PartitionedCachedView cachedView;
+
+    @Setter
     private StorageType type;
 
     @Setter
-    @Accessors(chain = true)
     private AccessType access;
 
     @Setter
-    @Accessors(chain = true)
     private StorageFilter filter = PassthroughFilter.INSTANCE;
 
+    @Setter
+    private String source;
+
     private Builder() { }
+
+    public Builder clearAttributes() {
+      attributes.clear();
+      return this;
+    }
 
     public Builder addAttribute(AttributeDescriptor<?> desc) {
       attributes.add(desc);
@@ -90,7 +98,8 @@ public class AttributeFamilyDescriptor implements Serializable {
     public AttributeFamilyDescriptor build() {
       return new AttributeFamilyDescriptor(
           name, type, attributes, writer, commitLog, batchObservable,
-          randomAccess, partitionedView, access, filter);
+          randomAccess, partitionedView, cachedView, access, filter,
+          source);
     }
   }
 
@@ -133,27 +142,37 @@ public class AttributeFamilyDescriptor implements Serializable {
   @Nullable
   private final PartitionedView partitionedView;
 
+  @Nullable
+  private final PartitionedCachedView cachedView;
+
+  @Nullable
+  private final String source;
+
   AttributeFamilyDescriptor(String name,
       StorageType type,
-      List<AttributeDescriptor<?>> attributes,
+      Collection<AttributeDescriptor<?>> attributes,
       @Nullable AttributeWriterBase writer,
       @Nullable CommitLogReader commitLogReader,
       @Nullable BatchLogObservable batchObservable,
       @Nullable RandomAccessReader randomAccess,
       @Nullable PartitionedView partitionedView,
+      @Nullable PartitionedCachedView cachedView,
       AccessType access,
-      StorageFilter filter) {
+      StorageFilter filter,
+      @Nullable String source) {
 
     this.name = Objects.requireNonNull(name);
     this.type = type;
-    this.attributes = Objects.requireNonNull(attributes);
+    this.attributes = Lists.newArrayList(Objects.requireNonNull(attributes));
     this.writer = writer;
     this.commitLogReader = commitLogReader;
     this.batchObservable = batchObservable;
     this.randomAccess = randomAccess;
     this.partitionedView = partitionedView;
+    this.cachedView = cachedView;
     this.access = Objects.requireNonNull(access);
     this.filter = filter;
+    this.source = source;
   }
 
   public List<AttributeDescriptor<?>> getAttributes() {
@@ -162,7 +181,7 @@ public class AttributeFamilyDescriptor implements Serializable {
 
   @Override
   public String toString() {
-    return "AttributeFamily(" + name + ")";
+    return "AttributeFamily(name=" + name + ", attributes=" + attributes + ")";
   }
 
   @Override
@@ -242,6 +261,56 @@ public class AttributeFamilyDescriptor implements Serializable {
           partitionedView, "Family " + name + " doesn't have partitioned view"));
     }
     return Optional.empty();
+  }
+
+
+  /**
+   * Retrieve partitioned cached view.
+   * Empty if the attribute family cannot create partitioned cached view.
+   * @return optional {@link PartitionedCachedView} of this family
+   */
+  public Optional<PartitionedCachedView> getPartitionedCachedView() {
+    if (access.canCreatePartitionedCachedView()) {
+      return Optional.of(Objects.requireNonNull(
+          cachedView, "Family " + name + " cannot create cached view"));
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * Retrieve optional name of source attribute family, if this is replica.
+   * The source might not be explicitly specified (in which case this method
+   * returns {@code Optional.empty()} and the source is determined
+   * automatically.
+   * @return optional specified source family
+   */
+  public Optional<String> getSource() {
+    return Optional.ofNullable(source);
+  }
+
+  Builder toBuilder() {
+    Builder ret = new Builder()
+        .setAccess(access)
+        .setBatchObservable(batchObservable)
+        .setCachedView(cachedView)
+        .setCommitLog(commitLogReader)
+        .setFilter(filter)
+        .setName(name)
+        .setPartitionedView(partitionedView)
+        .setRandomAccess(randomAccess)
+        .setSource(source)
+        .setType(type)
+        .setWriter(writer);
+    attributes.forEach(ret::addAttribute);
+    return ret;
+  }
+
+  /**
+   * Check if this proxied family.
+   * @return {@code true} if proxied family
+   */
+  boolean isProxy() {
+    return false;
   }
 
 }

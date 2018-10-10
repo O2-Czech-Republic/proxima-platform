@@ -29,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import javax.annotation.Nullable;
 
 /**
  * Class for sinking data into specified attribute of entity.
@@ -36,9 +37,12 @@ import java.util.concurrent.CountDownLatch;
 @Slf4j
 public class AttributeSink implements DataSink<Triple<String, byte[], Long>> {
 
-  private final IngestClient client;
+  private final String host;
+  private final int port;
   private final EntityDescriptor entityDesc;
   private final AttributeDescriptor<?> desc;
+  @Nullable
+  private transient IngestClient client = null;
 
   public AttributeSink(
       String host,
@@ -46,7 +50,8 @@ public class AttributeSink implements DataSink<Triple<String, byte[], Long>> {
       EntityDescriptor entityDesc,
       AttributeDescriptor<?> desc) {
 
-    this.client = IngestClient.create(host, port);
+    this.host = host;
+    this.port = port;
     this.entityDesc = entityDesc;
     this.desc = desc;
   }
@@ -67,15 +72,15 @@ public class AttributeSink implements DataSink<Triple<String, byte[], Long>> {
             .setValue(ByteString.copyFrom(elem.getSecond()))
             .setStamp(elem.getThird())
             .build();
-        client.send(ingest, status -> {
-              if (status.getStatus() != 200) {
-                log.warn(
-                    "Failed to send ingest {}: {} {}",
-                    TextFormat.shortDebugString(ingest),
-                    status.getStatus(), status.getStatusMessage());
-              }
-              latch.countDown();
-            });
+        client().send(ingest, status -> {
+          if (status.getStatus() != 200) {
+            log.warn(
+                "Failed to send ingest {}: {} {}",
+                TextFormat.shortDebugString(ingest),
+                status.getStatus(), status.getStatusMessage());
+          }
+          latch.countDown();
+        });
       }
 
       @Override
@@ -99,6 +104,13 @@ public class AttributeSink implements DataSink<Triple<String, byte[], Long>> {
   @Override
   public void rollback() throws IOException {
     client.close();
+  }
+
+  private IngestClient client() {
+    if (client == null) {
+      client = IngestClient.create(host, port);
+    }
+    return client;
   }
 
 }

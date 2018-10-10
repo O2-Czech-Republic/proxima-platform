@@ -15,16 +15,12 @@
  */
 package cz.o2.proxima.storage.kafka;
 
-import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.LogObserver;
-import cz.o2.proxima.view.PartitionedLogObserver;
-import cz.o2.proxima.view.PartitionedLogObserver.Consumer;
+import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.storage.UriUtil;
+import cz.o2.proxima.storage.commitlog.Offset;
 import java.net.URI;
 import java.util.Collection;
-import java.util.concurrent.BlockingQueue;
-import java.util.stream.Collectors;
-import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 
 /**
@@ -32,84 +28,46 @@ import org.apache.kafka.common.TopicPartition;
  */
 class Utils {
 
+  @FunctionalInterface
+  interface ThrowingConsumer<T> {
+    void apply(T what) throws Exception;
+  }
+
   /**
    * Retrieve topic from given URI.
    * @param uri the URL
    * @return topic name
    */
   static String topic(URI uri) {
-    String topic = uri.getPath().substring(1);
-    while (topic.endsWith("/")) {
-      topic = topic.substring(0, topic.length());
-    }
+    String topic = UriUtil.getPathNormalized(uri);
     if (topic.isEmpty()) {
       throw new IllegalArgumentException("Invalid path in URI " + uri);
     }
     return topic;
   }
 
-  /**
-   * Retrieve {@code ConsumerRebalanceListener} that notifies given {@code PartitionedLogObserver}.
-   */
-  static ConsumerRebalanceListener rebalanceListener(PartitionedLogObserver observer) {
-    return new ConsumerRebalanceListener() {
-
-      @Override
-      public void onPartitionsRevoked(Collection<TopicPartition> clctn) {
-
-      }
-
-      @SuppressWarnings("unchecked")
-      @Override
-      public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
-        observer.onRepartition(partitions
-            .stream()
-            .map(tp -> (Partition) () -> tp.partition()).collect(Collectors.toList()));
-      }
-
-    };
-  }
-
-  /**
-   * Retrieve a {@code LogObserver} that forwards elements to given {@code BlockingQueue}
-   * via given {@code PartitionedLogObserver}.
-   */
-  static <T> LogObserver forwardingTo(
-      BlockingQueue<T> queue, PartitionedLogObserver<T> observer) {
-
-    Consumer<T> consumer = e -> {
+  static <T> Consumer<T> unchecked(ThrowingConsumer<T> wrap) {
+    return t -> {
       try {
-        queue.put(e);
-      } catch (InterruptedException ex) {
+        wrap.apply(t);
+      } catch (Exception ex) {
         throw new RuntimeException(ex);
       }
     };
-    return new LogObserver() {
-
-      @Override
-      public boolean onNext(
-          StreamElement ingest, Partition partition,
-          LogObserver.ConfirmCallback confirm) {
-
-        observer.onNext(ingest, confirm::confirm, partition, consumer);
-        confirm.confirm();
-        return true;
-      }
-
-      @Override
-      public boolean onError(Throwable error) {
-        observer.onError(error);
-        return false;
-      }
-
-      @Override
-      public void close() throws Exception {
-      }
-
-
-    };
   }
 
+  static void seekToOffsets(
+      String topic,
+      Collection<Offset> offsets,
+      final KafkaConsumer<String, byte[]> consumer) {
+
+    // seek to given offsets
+    offsets.forEach(o -> {
+      TopicOffset to = (TopicOffset) o;
+      TopicPartition tp = new TopicPartition(topic, o.getPartition().getId());
+      consumer.seek(tp, to.getOffset());
+    });
+  }
 
 
   private Utils() { }

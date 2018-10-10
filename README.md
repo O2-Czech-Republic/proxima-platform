@@ -1,9 +1,14 @@
+[![Build Status](https://travis-ci.org/datadrivencz/proxima-platform.svg?branch=master)](https://travis-ci.org/datadrivencz/proxima-platform) [![sonar](https://sonarcloud.io/api/project_badges/measure?project=cz.o2.proxima%3Aplatform-parent&metric=alert_status)](https://sonarcloud.io/dashboard?id=cz.o2.proxima%3Aplatform-parent)
+
 # The Proxima platform
 
 The platform is a generic data ingestion, manipulation and retrieval framework.
 High level can be described by following scheme:
 
 ![high-level scheme](docs/design-platform.png)
+
+## Design document
+High level design document can be found [here](https://docs.google.com/document/d/1s6UFrEaFldjuGhLX9IosTnfNcMhMpvGjCWfI_5Lqqp4/edit?usp=sharing).
 
 ## Scheme definition
 First, let's introduce some glossary:
@@ -105,7 +110,7 @@ First, let's introduce some glossary:
          attributes: [ "data" ]
          storage: "cassandra://"${cassandra.seed}/${cassandra.user-event-table}/
          # this class defines how we transform incoming event to CQL
-         cqlFactory: cz.o2.proxima.example.EventHistoryCQLFactory
+         cqlFactory: cz.o2.proxima.example.EventHistoryCqlFactory
          # this is filtering condition, we want to select only some events
          filter: cz.o2.proxima.example.EventHistoryFilter
          type: replica
@@ -201,12 +206,6 @@ First, let's introduce some glossary:
    DataModel model = DataModel.ofTest(ConfigFactory.defaultApplication());
   ```  
   
- ## Simple stream processing
- Simple streams can be processed by attaching simple observer to it.
- ```java
-   DataModel model = DataModel.of(ConfigFactory.defaultApplication());
- ```
- 
  ## Platform's unified data processing API
  This is essentially just a wrapper around [Euphoria API](https://github.com/seznam/euphoria), currently outlined
  in `tools` package in groovy language, containing a console being able to execute data transformation _flows_.
@@ -217,3 +216,6 @@ First, let's introduce some glossary:
  
  There is also some pending work on the side of the maven compiler plugin, so it can be possible to obtain a `Dataset`
  from given attributes in the same way as it is possible for simple observers. This is contained in issue #3.
+
+ ## Build dependency
+  * rename command

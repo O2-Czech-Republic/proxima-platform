@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 O2 Czech Republic, a.s.
+ * Copyright 2017-2018 O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.tools.groovy;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.Repository;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.StringReader;
+import java.nio.charset.Charset;
 import java.util.List;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -37,18 +38,19 @@ import org.apache.commons.io.IOUtils;
  */
 public class Compiler {
 
-  final Configuration conf = new Configuration(Configuration.VERSION_2_3_23);
-  final DefaultParser cli = new DefaultParser();
+  private static final Charset UTF8 = Charset.forName("UTF-8");
+  private final Configuration conf = new Configuration(Configuration.VERSION_2_3_23);
+  private final DefaultParser cli = new DefaultParser();
 
-  final String output;
-  final List<String> configs;
+  private final String output;
+  private final List<String> configs;
 
   public static void main(String[] args) throws Exception {
     Compiler compiler = new Compiler(args);
     compiler.run();
   }
 
-  Compiler(String[] args) throws ParseException {
+  private Compiler(String[] args) throws ParseException {
     Options opts = getOpts();
     CommandLine parsed = cli.parse(opts, args);
 
@@ -58,7 +60,7 @@ public class Compiler {
     output = parsed.getOptionValue("o");
     configs = parsed.getArgList();
 
-    conf.setDefaultEncoding("utf-8");
+    conf.setDefaultEncoding(UTF8.name());
     conf.setClassForTemplateLoading(getClass(), "/");
     conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
     conf.setLogTemplateExceptions(false);
@@ -71,8 +73,8 @@ public class Compiler {
             ConfigFactory.empty(),
             (l, r) -> l.withFallback(r))
         .resolve();
-    
-    Repository repo = Repository.Builder.of(config)
+
+    Repository repo = ConfigRepository.Builder.of(config)
         .withReadOnly(true)
         .withValidate(false)
         .withLoadFamilies(true)
@@ -84,7 +86,7 @@ public class Compiler {
     ensureParentDir(of);
     try (FileOutputStream fos = new FileOutputStream(of)) {
       StringReader reader = new StringReader(source);
-      IOUtils.copy(reader, fos);
+      IOUtils.copy(reader, fos, UTF8);
     }
   }
 
@@ -103,8 +105,6 @@ public class Compiler {
           + " exists and is not directory!");
     }
   }
-
-
 
 
 }

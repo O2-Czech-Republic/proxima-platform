@@ -15,8 +15,11 @@
  */
 package cz.o2.proxima.view;
 
+import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.LogObserverBase;
 import java.io.Serializable;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -24,7 +27,8 @@ import javax.annotation.Nullable;
 /**
  * Observer of data in {@code PartitionedView}.
  */
-public interface PartitionedLogObserver<T> extends Serializable {
+@Stable
+public interface PartitionedLogObserver<T> extends LogObserverBase {
 
   @FunctionalInterface
   public interface ConfirmCallback extends Serializable {
@@ -52,14 +56,6 @@ public interface PartitionedLogObserver<T> extends Serializable {
     }
 
   }
-
-  @FunctionalInterface
-  public interface Consumer<T> extends Serializable {
-
-    void consume(T what);
-
-  }
-
 
   /**
    * A repartitioning operation has just happened.
@@ -91,15 +87,9 @@ public interface PartitionedLogObserver<T> extends Serializable {
   /**
    * Notify that the processing has gracefully ended.
    */
+  @Override
   default void onCompleted() {
 
   }
-
-  /**
-   * Called to notify there was an error in the reader.
-   * @param error the error caught during processing
-   */
-  void onError(Throwable error);
-
 
 }

@@ -60,7 +60,7 @@ public class GCloudLogObservable
     implements BatchLogObservable {
 
   private static final Pattern BLOB_NAME_PATTERN = Pattern.compile(
-      "[^-]+-([0-9]+)_([0-9]+)\\.blob.*");
+      ".*/?[^-/]+-([0-9]+)_([0-9]+)[^/]*\\.blob[^/]*$");
 
   private static class GCloudStoragePartition implements Partition {
 
@@ -133,6 +133,12 @@ public class GCloudLogObservable
         }
       }
     });
+    if (current.get() != null) {
+      ret.add(current.get());
+    }
+    log.debug(
+        "Parsed partitions {} for startStamp {}, endStamp {}",
+        ret, startStamp, endStamp);
     return ret;
   }
 
@@ -150,7 +156,7 @@ public class GCloudLogObservable
         time = time.plusMonths(1);
       }
       prefixes.add(format.format(LocalDateTime.ofInstant(
-          Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTF", ZoneOffset.UTC))));
+          Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC))));
     } else {
       prefixes.add(this.path);
     }
@@ -165,7 +171,7 @@ public class GCloudLogObservable
       long max = Long.parseLong(matcher.group(2));
       return max >= startStamp && min <= endStamp;
     }
-    log.debug("Skipping unparseable name {}", name);
+    log.warn("Skipping unparseable name {}", name);
     return false;
   }
 

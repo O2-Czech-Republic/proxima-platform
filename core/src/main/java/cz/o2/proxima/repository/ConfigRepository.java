@@ -312,7 +312,7 @@ public class ConfigRepository implements Repository, Serializable {
     this.attributeToFamily.clear();
     this.entitiesByName.clear();
     this.transformations.clear();
-    this.writers.clear();
+    this.close();
 
     // Read the config and store entity descriptors
     readEntityDescriptors(config);

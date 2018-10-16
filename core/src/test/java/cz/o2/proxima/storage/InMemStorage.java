@@ -394,14 +394,21 @@ public class InMemStorage extends StorageDescriptor {
 
       if (position == Position.OLDEST) {
         synchronized (data) {
-          int prefix = getUri().getPath().length() + 1;
-          CountDownLatch latch = new CountDownLatch(data.size());
+          String prefix = getUri().getPath() + "/";
+          int prefixLength = prefix.length();
+          CountDownLatch latch = new CountDownLatch(
+              (int) data
+                  .entrySet()
+                  .stream()
+                  .filter(e -> e.getKey().startsWith(prefix))
+                  .count());
           data.entrySet()
               .stream()
+              .filter(e -> e.getKey().startsWith(prefix))
               .sorted((a, b) ->
                   Long.compare(a.getValue().getFirst(), b.getValue().getFirst()))
               .forEach(e -> {
-                String[] parts = e.getKey().substring(prefix).split("#");
+                String[] parts = e.getKey().substring(prefixLength).split("#");
                 String key = parts[0];
                 String attribute = parts[1];
                 AttributeDescriptor<?> desc = getEntityDescriptor()

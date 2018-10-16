@@ -286,11 +286,12 @@ public class Stream<T> {
           if (attr.isPresent()) {
             long stamp = timeDehydrated.call(in);
             final ValueSerializer<Object> serializer = attr.get().getValueSerializer();
-            byte[] value = serializer.serialize(valueDehydrated.call(in));
+            Object value = valueDehydrated.call(in);
+            byte[] valueBytes = value != null ? serializer.serialize(value) : null;
             ctx.collect(StreamElement.update(
                 entity, attr.get(),
                 UUID.randomUUID().toString(),
-                key, attribute, stamp, value));
+                key, attribute, stamp, valueBytes));
           } else {
             log.warn("Cannot find attribute {} in {}", attribute, entity);
           }

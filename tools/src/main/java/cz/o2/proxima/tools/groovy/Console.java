@@ -462,6 +462,12 @@ public class Console {
               t.getAttributeDescriptor().toAttributePrefix()))
           .output();
 
+      if (attrs.length == 1) {
+        filtered = (Dataset) MapElements.of(filtered)
+            .using(TypedStreamElement::of)
+            .output();
+      }
+
       return AssignEventTime.of(filtered)
           .using(StreamElement::getStamp)
           .output();

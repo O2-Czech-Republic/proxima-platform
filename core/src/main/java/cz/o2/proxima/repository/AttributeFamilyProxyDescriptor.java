@@ -424,10 +424,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
             offset);
         reader.scanWildcard(
             key, targetAttribute.getReadTarget(),
-            offset == null
-                ? null
-                : new RawOffset(targetAttribute.getReadTransform()
-                    .fromProxy(((RawOffset) offset).getOffset())),
+            offset,
             stamp,
             limit,
             kv -> consumer.accept((KeyValue) transformToProxy(kv, targetAttribute)));

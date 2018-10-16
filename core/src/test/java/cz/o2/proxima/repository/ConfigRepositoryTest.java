@@ -259,6 +259,48 @@ public class ConfigRepositoryTest {
   }
 
   @Test
+  public void testProxyScanWithOffset()
+      throws UnsupportedEncodingException, InterruptedException {
+
+    EntityDescriptor proxied = repo.findEntity("proxied").get();
+    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    Set<AttributeFamilyDescriptor> proxiedFamilies = repo
+        .getFamiliesForAttribute(source);
+
+    repo.getWriter(source).get().write(StreamElement.update(
+        proxied,
+        source, UUID.randomUUID().toString(),
+        "key", "event.abc", System.currentTimeMillis(), "test".getBytes("UTF-8")),
+        (s, exc) -> {
+          assertTrue(s);
+        });
+
+    repo.getWriter(source).get().write(StreamElement.update(
+        proxied,
+        source, UUID.randomUUID().toString(),
+        "key", "event.def", System.currentTimeMillis(), "test2".getBytes("UTF-8")),
+        (s, exc) -> {
+          assertTrue(s);
+        });
+
+
+    List<KeyValue<?>> kvs = new ArrayList<>();
+    RandomAccessReader reader = proxiedFamilies.iterator().next()
+        .getRandomAccessReader().get();
+    reader.scanWildcard(
+        "key", source,
+        reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, "event.abc"),
+        1, kvs::add);
+
+    assertEquals(1, kvs.size());
+    assertEquals("test2", new String((byte[]) kvs.get(0).getValue()));
+    assertEquals(source, kvs.get(0).getAttrDescriptor());
+    assertEquals("event.def", kvs.get(0).getAttribute());
+    assertEquals("key", kvs.get(0).getKey());
+  }
+
+
+  @Test
   public void testProxyCachedView() throws UnsupportedEncodingException {
     EntityDescriptor proxied = repo.findEntity("proxied").get();
     AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();

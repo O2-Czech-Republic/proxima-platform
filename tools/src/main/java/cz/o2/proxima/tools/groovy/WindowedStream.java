@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.tools.groovy;
 
-import cz.o2.proxima.tools.io.TypedStreamElement;
+import cz.o2.proxima.storage.StreamElement;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
 import cz.seznam.euphoria.core.client.dataset.windowing.Window;
 import cz.seznam.euphoria.core.client.dataset.windowing.WindowedElement;
@@ -271,10 +271,10 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
   }
 
   @SuppressWarnings("unchecked")
-  public <T> WindowedStream<TypedStreamElement<T>, W> reduceToLatest() {
+  public WindowedStream<StreamElement, W> reduceToLatest() {
     return descendant(() -> {
-      final Dataset<TypedStreamElement<T>> input;
-      input = (Dataset<TypedStreamElement<T>>) dataset.build();
+      final Dataset<StreamElement> input;
+      input = (Dataset<StreamElement>) dataset.build();
       return ReduceByKey.of(input)
           .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
           .combineBy(values ->

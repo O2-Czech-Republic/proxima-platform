@@ -142,7 +142,7 @@ public class GroovyEnvTest {
   public void testUnionBatchUpdatesCollect() throws Exception {
     Script compiled = compile(
         "env.unionBatchUpdates(env.batch.data, env.batch.wildcard).collect()");
-    repo.getWriter(armed)
+    repo.getWriter(data)
         .orElseThrow(() -> new IllegalStateException("Missing writer"))
         .write(StreamElement.update(batch, data, "uuid",
             "key", data.getName(), System.currentTimeMillis(), new byte[] { }),
@@ -155,6 +155,36 @@ public class GroovyEnvTest {
             (succ, exc) -> { });
     List<StreamElement> result = (List) compiled.run();
     assertEquals(2, result.size());
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testStreamFromOldestWindowedCollect() throws Exception {
+    Script compiled = compile("env.gateway.armed.streamFromOldest()"
+        + ".reduceToLatest().collect()");
+    repo.getWriter(armed)
+        .orElseThrow(() -> new IllegalStateException("Missing writer"))
+        .write(StreamElement.update(gateway, armed, "uuid",
+            "key", armed.getName(), System.currentTimeMillis(), new byte[] { }),
+            (succ, exc) -> { });
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testStreamPersist() throws Exception {
+    Script compiled = compile(
+        "env.batch.data.batchUpdates().persist(env, env.gateway.desc(), { it.key }, "
+            + "{ 'armed' }, { it.parsed.get() }, { it.stamp })\n"
+        + "env.gateway.armed.streamFromOldest().collect()");
+    repo.getWriter(data)
+        .orElseThrow(() -> new IllegalStateException("Missing writer"))
+        .write(StreamElement.update(batch, data, "uuid",
+            "key", data.getName(), System.currentTimeMillis(), new byte[] { }),
+            (succ, exc) -> { });
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
   }
 
 }

@@ -36,6 +36,12 @@ public class GCloudLogObservableTest {
         "prefix-1234567890000_9876543210000.blob",
         1234567891000L, 12345678902000L));
     assertTrue(GCloudLogObservable.isInRange(
+        "/my/dummy/path/prefix-1234567890000_9876543210000.blob",
+        1234567891000L, 12345678902000L));
+    assertTrue(GCloudLogObservable.isInRange(
+        "/my/dummy/path/prefix-1234567890000_9876543210000_suffix.blob",
+        1234567891000L, 12345678902000L));
+    assertTrue(GCloudLogObservable.isInRange(
         "prefix-1234567890000_9876543210000.blob.whatever",
         1234567891000L, 12345678902000L));
     assertTrue(GCloudLogObservable.isInRange(

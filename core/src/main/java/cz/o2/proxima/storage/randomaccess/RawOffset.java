@@ -31,4 +31,9 @@ public class RawOffset implements RandomOffset {
     this.offset = offset;
   }
 
+  @Override
+  public String toString() {
+    return "RawOffset(" + offset + ")";
+  }
+
 }

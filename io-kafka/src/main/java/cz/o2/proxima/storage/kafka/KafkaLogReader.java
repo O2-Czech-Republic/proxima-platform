@@ -116,7 +116,7 @@ public class KafkaLogReader extends AbstractStorage
 
     DataSourceUtils.Producer producer = () ->
         handle.set(observeKafka(name, null, Position.NEWEST, false,
-            KafkaLogObserver.PartitionedLogObserverKafkaLogObserver.of(
+            KafkaLogObserver.PartitionedKafkaLogObserver.of(
                 observer, Utils.unchecked(queue::put))));
 
     Serializable lock = new Serializable() { };
@@ -161,7 +161,7 @@ public class KafkaLogReader extends AbstractStorage
     DataSourceUtils.Producer producer = () ->
         handle.set(observeKafka(
             null, partitions, Position.NEWEST, false,
-            KafkaLogObserver.PartitionedLogObserverKafkaLogObserver.of(
+            KafkaLogObserver.PartitionedKafkaLogObserver.of(
                 observer, Utils.unchecked(queue::put))));
 
     final Serializable lock = new Serializable() { };

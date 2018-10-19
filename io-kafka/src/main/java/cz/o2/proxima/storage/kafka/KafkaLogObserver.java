@@ -71,19 +71,19 @@ interface KafkaLogObserver extends LogObserverBase {
 
   }
 
-  class PartitionedLogObserverKafkaLogObserver<T> implements KafkaLogObserver {
+  class PartitionedKafkaLogObserver<T> implements KafkaLogObserver {
 
-    public static <T> PartitionedLogObserverKafkaLogObserver<T> of(
+    public static <T> PartitionedKafkaLogObserver<T> of(
         PartitionedLogObserver<T> wrap,
         Consumer<T> consumer) {
 
-      return new PartitionedLogObserverKafkaLogObserver<>(wrap, consumer);
+      return new PartitionedKafkaLogObserver<>(wrap, consumer);
     }
 
     private final PartitionedLogObserver<T> observer;
     private final Consumer<T> outputConsumer;
 
-    PartitionedLogObserverKafkaLogObserver(
+    PartitionedKafkaLogObserver(
         PartitionedLogObserver<T> wrap,
         Consumer<T> outputConsumer) {
 

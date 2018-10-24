@@ -89,6 +89,7 @@
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <!-- checkstyle config -->
     <checkstyle.config.location>checkstyle.xml</checkstyle.config.location>
+    <spotbugs.version>3.1.8</spotbugs.version>
   </properties>
 
   <profiles>
@@ -244,11 +245,18 @@
         </configuration>
       </plugin>
 
-      <!-- static analysis of the code using FindBugs -->
+      <!-- static analysis of the code using SpotBugs -->
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>findbugs-maven-plugin</artifactId>
-        <version>3.0.4</version>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>3.1.7</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs</artifactId>
+            <version>${spotbugs.version}</version>
+          </dependency>
+        </dependencies>
         <configuration>
           <effort>max</effort>
           <!-- check only for 'troubling' bugs and worse -->
@@ -392,13 +400,6 @@
         <artifactId>mockito-all</artifactId>
         <version>1.10.19</version>
         <scope>test</scope>
-      </dependency>
-
-      <dependency>
-        <groupId>com.google.code.findbugs</groupId>
-        <artifactId>jsr305</artifactId>
-        <version>3.0.2</version>
-        <scope>provided</scope>
       </dependency>
 
     </dependencies>

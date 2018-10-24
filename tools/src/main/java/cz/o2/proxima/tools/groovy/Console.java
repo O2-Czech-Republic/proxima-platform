@@ -451,7 +451,7 @@ public class Console {
                   startStamp, endStamp)))
           .reduce((left, right) -> Union.of(left, right).output())
           .orElseThrow(() -> new IllegalArgumentException(
-              "Please pass non-empty list of attributes, got " + attrs));
+              "Please pass non-empty list of attributes, got " + Arrays.toString(attrs)));
 
       ds = Filter.of(ds)
           .by(i -> i.getStamp() >= startStamp && i.getStamp() < endStamp)

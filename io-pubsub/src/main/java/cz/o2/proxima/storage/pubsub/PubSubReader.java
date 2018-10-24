@@ -337,7 +337,9 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     if (onInit != null) {
       executor().submit(() -> {
         subscriber.get().awaitRunning();
-        onInit.run();
+        if (onInit != null) {
+          onInit.run();
+        }
       });
     }
 

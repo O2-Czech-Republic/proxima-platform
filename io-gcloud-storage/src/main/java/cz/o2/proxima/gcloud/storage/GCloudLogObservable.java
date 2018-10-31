@@ -190,8 +190,11 @@ public class GCloudLogObservable
         partitions.forEach(p -> {
           GCloudStoragePartition part = (GCloudStoragePartition) p;
           part.getBlobs().forEach(blob -> {
+            final String name = blob.getName();
             try (InputStream s = Channels.newInputStream(blob.reader());
-                BinaryBlob.Reader reader = BinaryBlob.reader(getEntityDescriptor(), s)) {
+                BinaryBlob.Reader reader = BinaryBlob.reader(
+                    getEntityDescriptor(), name, s)) {
+
               reader.forEach(e -> {
                 if (attrs.contains(e.getAttributeDescriptor())) {
                   observer.onNext(e);

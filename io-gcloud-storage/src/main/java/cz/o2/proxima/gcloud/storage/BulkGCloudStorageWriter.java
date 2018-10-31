@@ -322,14 +322,27 @@ public class BulkGCloudStorageWriter
   private void flush(
       File file, long bucketEndStamp, CommitCallback callback) {
 
+    String name = toBlobName(bucketEndStamp - rollPeriod, bucketEndStamp);
+    Blob blob = null;
     try {
-      String name = toBlobName(bucketEndStamp - rollPeriod, bucketEndStamp);
-      Blob blob = createBlob(name);
+      blob = createBlob(name);
       flushToBlob(bucketEndStamp, file, blob);
       deleteHandlingErrors(file, false);
       callback.commit(true, null);
     } catch (Exception ex) {
+      log.warn("Failed to flush blob {}. Deleting if exists.", name, ex);
+      deleteBlobIfExists(blob);
       callback.commit(false, ex);
+    }
+  }
+
+  private void deleteBlobIfExists(Blob blob) {
+    try {
+      if (blob != null && blob.exists()) {
+        blob.delete();
+      }
+    } catch (Exception ex) {
+      log.warn("Failed to delete blob {}. Ignoring.", blob.getName(), ex);
     }
   }
 

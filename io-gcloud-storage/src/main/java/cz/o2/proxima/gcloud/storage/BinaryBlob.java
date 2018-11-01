@@ -124,6 +124,7 @@ public class BinaryBlob {
     private final Parser<Serialization.Element> parser = Serialization.Element.parser();
     private final EntityDescriptor entity;
     private final Serialization.Header header;
+    private final String blobName;
     private DataInputStream blobStream = null;
 
     private Reader(
@@ -134,6 +135,7 @@ public class BinaryBlob {
       this.entity = entity;
       header = readHeader(blobName, in);
       blobStream = toInputStream(in);
+      this.blobName = blobName;
     }
 
     @Override
@@ -146,6 +148,9 @@ public class BinaryBlob {
           try {
             next = BinaryBlob.Reader.this.next();
           } catch (EOFException eof) {
+            log.debug(
+                "EOF while reading {}. Terminating iteration.",
+                blobName, eof);
             // terminate
             next = null;
           } catch (IOException ex) {
@@ -154,7 +159,7 @@ public class BinaryBlob {
           if (next != null) {
             return next;
           }
-          this.endOfData();
+          endOfData();
           return null;
         }
 
@@ -189,10 +194,12 @@ public class BinaryBlob {
 
 
     private StreamElement next() throws IOException {
-      if (blobStream.available() > 0) {
+      try {
         return fromBytes(readBytes(blobStream));
+      } catch (EOFException eof) {
+        log.trace("EOF while reading next data from blob {}.", blobName, eof);
+        return null;
       }
-      return null;
     }
 
     private DataInputStream toInputStream(InputStream in) throws IOException {

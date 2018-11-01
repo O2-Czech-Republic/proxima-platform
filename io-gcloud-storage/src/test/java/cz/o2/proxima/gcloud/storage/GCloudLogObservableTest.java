@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.gcloud.storage;
 
+import cz.seznam.euphoria.shadow.com.google.common.collect.Sets;
+import java.util.Set;
 import static org.junit.Assert.*;
 import org.junit.Test;
 
@@ -57,6 +59,13 @@ public class GCloudLogObservableTest {
     assertFalse(GCloudLogObservable.isInRange(
         "prefix-1234567890000_9876543210000.blob.whatever",
         9999999999000L, 9999999999999L));
+  }
+
+  @Test
+  public void testConvertStampsToPrefixes() {
+    Set<String> prefixes = GCloudLogObservable.convertStampsToPrefixes(
+        "/dummy/", 1541022824110L, 1541109235381L);
+    assertEquals(Sets.newHashSet("/dummy/2018/10", "/dummy/2018/11"), prefixes);
   }
 
 }

@@ -116,20 +116,25 @@ public class GCloudLogObservable
   @Override
   public List<Partition> getPartitions(long startStamp, long endStamp) {
     List<Partition> ret = new ArrayList<>();
-    Set<String> prefixes = convertStampsToPrefixes(startStamp, endStamp);
+    Set<String> prefixes = convertStampsToPrefixes(this.path, startStamp, endStamp);
     AtomicInteger id = new AtomicInteger();
     AtomicReference<GCloudStoragePartition> current = new AtomicReference<>();
     prefixes.forEach(prefix -> {
       Page<Blob> p = client().list(this.bucket, BlobListOption.prefix(prefix));
       for (Blob b : p.iterateAll()) {
+        log.trace("Considering blob {} for partition inclusion", b.getName());
         if (isInRange(b.getName(), startStamp, endStamp)) {
           if (current.get() == null) {
             current.set(new GCloudStoragePartition(id.getAndIncrement()));
           }
           current.get().add(b);
+          log.trace("Blob {} added to partition {}", b.getName(), current.get());
           if (current.get().size() >= partitionMinSize) {
             ret.add(current.getAndSet(null));
           }
+        } else {
+          log.trace(
+              "Blob {} is not in range {} - {}", b.getName(), startStamp, endStamp);
         }
       }
     });
@@ -142,9 +147,18 @@ public class GCloudLogObservable
     return ret;
   }
 
-  private Set<String> convertStampsToPrefixes(long startStamp, long endStamp) {
+  @VisibleForTesting
+  static Set<String> convertStampsToPrefixes(
+      String basePath, long startStamp, long endStamp) {
+
     DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy/MM");
     Set<String> prefixes = new HashSet<>();
+    // remove trailing slashes
+    while (basePath.endsWith("/")) {
+      basePath = basePath.substring(0, basePath.length() - 1);
+    }
+    // and add exactly one
+    basePath += "/";
     long t = startStamp;
     if (startStamp > Long.MIN_VALUE && endStamp < Long.MAX_VALUE) {
       LocalDateTime time = LocalDateTime.ofInstant(
@@ -152,13 +166,14 @@ public class GCloudLogObservable
       LocalDateTime end = LocalDateTime.ofInstant(
           Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
       while (time.isBefore(end)) {
-        prefixes.add(this.path + format.format(time));
+        prefixes.add(basePath + format.format(time));
         time = time.plusMonths(1);
       }
-      prefixes.add(format.format(LocalDateTime.ofInstant(
-          Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC))));
+      prefixes.add(
+          basePath + format.format(LocalDateTime.ofInstant(
+              Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC))));
     } else {
-      prefixes.add(this.path);
+      prefixes.add(basePath);
     }
     return prefixes;
   }
@@ -191,6 +206,7 @@ public class GCloudLogObservable
           GCloudStoragePartition part = (GCloudStoragePartition) p;
           part.getBlobs().forEach(blob -> {
             final String name = blob.getName();
+            log.debug("Starting to observe partition {}", p);
             try (InputStream s = Channels.newInputStream(blob.reader());
                 BinaryBlob.Reader reader = BinaryBlob.reader(
                     getEntityDescriptor(), name, s)) {

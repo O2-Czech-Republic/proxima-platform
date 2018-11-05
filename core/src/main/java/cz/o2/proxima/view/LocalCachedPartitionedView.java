@@ -101,11 +101,15 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
       } else {
         attrName = ingest.getAttribute();
       }
-      Pair<Long, Object> oldVal = cache.get(
-          ingest.getKey(), attrName, Long.MAX_VALUE);
-      boolean updated = cache.put(
-          ingest.getKey(), attrName, ingest.getStamp(),
-          overwrite, ingest.isDelete() ? null : parsed.get());
+      final boolean updated;
+      final Pair<Long, Object> oldVal;
+      synchronized (cache) {
+        oldVal = cache.get(
+            ingest.getKey(), attrName, Long.MAX_VALUE);
+        updated = cache.put(
+            ingest.getKey(), attrName, ingest.getStamp(),
+            overwrite, ingest.isDelete() ? null : parsed.get());
+      }
       if (updated) {
         updateCallback.accept(ingest, oldVal);
       }
@@ -227,19 +231,21 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
       long stamp) {
 
     long deleteStamp = Long.MIN_VALUE;
-    if (desc.isWildcard()) {
-      // check there is not wildcard delete
-      Pair<Long, Object> wildcard = cache.get(key, desc.toAttributePrefix(), stamp);
-      if (wildcard != null && wildcard.getSecond() == null) {
-        // this is delete
-        // move the required stamp after the delete
-        deleteStamp = wildcard.getFirst();
+    synchronized (cache) {
+      if (desc.isWildcard()) {
+        // check there is not wildcard delete
+        Pair<Long, Object> wildcard = cache.get(key, desc.toAttributePrefix(), stamp);
+        if (wildcard != null && wildcard.getSecond() == null) {
+          // this is delete
+          // move the required stamp after the delete
+          deleteStamp = wildcard.getFirst();
+        }
       }
+      final long filterStamp = deleteStamp;
+      return Optional.ofNullable(cache.get(key, attribute, stamp))
+          .filter(e -> e.getFirst() >= filterStamp)
+          .flatMap(e -> Optional.ofNullable(toKv(key, attribute, e)));
     }
-    final long filterStamp = deleteStamp;
-    return Optional.ofNullable(cache.get(key, attribute, stamp))
-        .filter(e -> e.getFirst() >= filterStamp)
-        .flatMap(e -> Optional.ofNullable(toKv(key, attribute, e)));
   }
 
   @Override

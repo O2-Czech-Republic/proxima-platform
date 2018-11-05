@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.2.3</version>
+    <version>0.2.4</version>
   </parent>
      
   <artifactId>io-hbase-bindings</artifactId>

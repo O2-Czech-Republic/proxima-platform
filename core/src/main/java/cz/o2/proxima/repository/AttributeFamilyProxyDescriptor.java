@@ -96,8 +96,7 @@ class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       List<AttributeProxyDescriptorImpl<?>> read = readNameToDesc.get(name);
       if (read == null) {
         log.debug(
-            "Fallbacking to lookup of proxy attribute with name {} in family {}. "
-                + "This can happen when switching to and from replicated modes.",
+            "Fallbacking to lookup of proxy attribute with name {} in family {}. ",
             name, familyName);
         try {
           return Arrays.asList(lookupProxy(name));

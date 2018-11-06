@@ -61,6 +61,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
   private class IngestObserver implements StreamObserver<Rpc.Ingest> {
 
     final StreamObserver<Rpc.Status> responseObserver;
+    final Object inflightRequestsLock = new Object();
     final AtomicInteger inflightRequests = new AtomicInteger(0);
     final Object responseObserverLock = new Object();
 
@@ -77,8 +78,8 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
           responseObserver.onNext(status);
         }
         if (inflightRequests.decrementAndGet() == 0) {
-          synchronized (inflightRequests) {
-            inflightRequests.notifyAll();
+          synchronized (inflightRequestsLock) {
+            inflightRequestsLock.notifyAll();
           }
         }
       });
@@ -97,10 +98,10 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
       inflightRequests.accumulateAndGet(0, (a, b) -> {
         int res = a + b;
         if (res > 0) {
-          synchronized (inflightRequests) {
+          synchronized (inflightRequestsLock) {
             try {
               while (inflightRequests.get() > 0) {
-                inflightRequests.wait();
+                inflightRequestsLock.wait();
               }
             } catch (InterruptedException ex) {
               Thread.currentThread().interrupt();
@@ -121,6 +122,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     final StreamObserver<Rpc.StatusBulk> responseObserver;
     final Queue<Rpc.Status> statusQueue = new ConcurrentLinkedQueue<>();
     final AtomicBoolean completed = new AtomicBoolean(false);
+    final Object inflightRequestsLock = new Object();
     final AtomicInteger inflightRequests = new AtomicInteger();
     final AtomicLong lastFlushNanos = new AtomicLong(System.nanoTime());
     final Rpc.StatusBulk.Builder builder = Rpc.StatusBulk.newBuilder();
@@ -202,8 +204,8 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
             }
             if (inflightRequests.decrementAndGet() == 0) {
               // there is no more inflight requests
-              synchronized (inflightRequests) {
-                inflightRequests.notifyAll();
+              synchronized (inflightRequestsLock) {
+                inflightRequestsLock.notifyAll();
               }
             }
           }));

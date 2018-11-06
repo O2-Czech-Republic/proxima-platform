@@ -491,10 +491,23 @@ public class Console {
     return reader;
   }
 
+
   public void put(
       EntityDescriptor entityDesc,
       AttributeDescriptor attrDesc,
       String key, String attribute, String textFormat)
+      throws NoSuchMethodException, IllegalAccessException, InvocationTargetException,
+          ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
+          TextFormat.ParseException {
+
+    put(entityDesc, attrDesc, key, attribute,
+        System.currentTimeMillis(), textFormat);
+  }
+
+  public void put(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor attrDesc,
+      String key, String attribute, long stamp, String textFormat)
       throws NoSuchMethodException, IllegalAccessException, InvocationTargetException,
           ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
           TextFormat.ParseException {
@@ -516,7 +529,7 @@ public class Console {
       AtomicReference<Throwable> exc = new AtomicReference<>();
       writer.write(StreamElement.update(
           entityDesc, attrDesc, UUID.randomUUID().toString(),
-          key, attribute, System.currentTimeMillis(), payload), (success, ex) -> {
+          key, attribute, stamp, payload), (success, ex) -> {
             if (!success) {
               exc.set(ex);
             }

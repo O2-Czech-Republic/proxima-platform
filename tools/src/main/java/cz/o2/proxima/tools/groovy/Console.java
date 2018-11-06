@@ -538,6 +538,13 @@ public class Console {
       EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc,
       String key, String attribute) throws InterruptedException {
 
+    delete(entityDesc, attrDesc, key, attribute, System.currentTimeMillis());
+  }
+
+  public void delete(
+      EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc,
+      String key, String attribute, long stamp) throws InterruptedException {
+
     OnlineAttributeWriter writer = repo.getWriter(attrDesc)
         .orElseThrow(() -> new IllegalArgumentException(
             "Missing writer for " + attrDesc));
@@ -545,7 +552,7 @@ public class Console {
     AtomicReference<Throwable> exc = new AtomicReference<>();
     writer.write(StreamElement.update(
         entityDesc, attrDesc, UUID.randomUUID().toString(),
-        key, attribute, System.currentTimeMillis(), null), (success, ex) -> {
+        key, attribute, stamp, null), (success, ex) -> {
           if (!success) {
             exc.set(ex);
           }

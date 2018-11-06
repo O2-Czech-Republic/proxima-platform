@@ -523,6 +523,7 @@ public class InMemStorage extends StorageDescriptor {
       String start = toMapKey(key, prefix);
       int count = 0;
       for (Map.Entry<String, Pair<Long, byte[]>> e : data.tailMap(start).entrySet()) {
+        log.trace("Scanning entry {} looking for prefix {}", e, start);
         if (e.getValue().getFirst() <= stamp) {
           if (e.getKey().startsWith(start)) {
             int hash = e.getKey().lastIndexOf("#");

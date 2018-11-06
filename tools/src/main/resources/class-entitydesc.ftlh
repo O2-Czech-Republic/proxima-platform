@@ -112,10 +112,10 @@ class Environment implements RepositoryProvider {
 
           <#if attribute.wildcard>
             def cz.o2.proxima.storage.randomaccess.KeyValue<${attribute.type}> get(String key, String attribute) {
-              return ${entity.classname}Descriptor.this.reader.get(key, name + "." + attribute)
+              return ${entity.classname}Descriptor.this.reader.get(key, desc.toAttributePrefix() + attribute)
             }
             def List<cz.o2.proxima.storage.randomaccess.KeyValue<${attribute.type}>> list(String key) {
-              return ${entity.classname}Descriptor.this.reader.list(key, name)
+              return ${entity.classname}Descriptor.this.reader.list(key, desc.toAttributePrefix())
             }
             def List<cz.o2.proxima.storage.randomaccess.KeyValue<${attribute.type}>> list(String key, String start, int limit) {
               return ${entity.classname}Descriptor.this.reader.list(key, name, start, limit)
@@ -124,10 +124,22 @@ class Environment implements RepositoryProvider {
               return ${entity.classname}Descriptor.this.reader.list(key, name, start)
             }
             def void put(String key, String attribute, String textFormat) {
-              console.put(${entity.classname}Descriptor.this.desc, desc, key, name + "." + attribute, textFormat)
+              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, textFormat)
+            }
+            def void put(String key, String attribute, long stamp, String textFormat) {
+              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, stamp, textFormat)
             }
             def void delete(String key, String attribute) {
               console.delete(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute)
+            }
+            def void delete(String key, String attribute, long stamp) {
+              console.delete(${entity.classname}Descriptor.this.desc, desc, key, desc.toAttributePrefix() + attribute, stamp)
+            }
+            def void deleteAll(String key) {
+              console.delete(${entity.classname}Descriptor.this.desc, desc, key, desc.getName())
+            }
+            def void deleteAll(String key, long stamp) {
+              console.delete(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), stamp)
             }
           <#else>
             def ${attribute.type} get(String key) {
@@ -136,8 +148,14 @@ class Environment implements RepositoryProvider {
             def void put(String key, String textFormat) {
               console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), textFormat)
             }
+            def void put(String key, long stamp, String textFormat) {
+              console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), stamp, textFormat)
+            }
             def void delete(String key) {
               console.delete(${entity.classname}Descriptor.this.desc, desc, key, desc.getName())
+            }
+            def void delete(String key, long stamp) {
+              console.delete(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), stamp)
             }
           </#if>
 

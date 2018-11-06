@@ -49,6 +49,12 @@ class CassandraWriter
       Optional<BoundStatement> cql = accessor.getCqlFactory()
           .getWriteStatement(data, session);
       if (cql.isPresent()) {
+        if (log.isDebugEnabled()) {
+          log.debug(
+              "Executing statement {} to write {}",
+              cql.get().preparedStatement().getQueryString(),
+              data);
+        }
         accessor.execute(cql.get());
       } else {
         log.warn("Missing CQL statement to write {}. Discarding.", data);

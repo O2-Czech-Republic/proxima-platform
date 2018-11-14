@@ -479,6 +479,10 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
 
     private ConsumerRecord<String, byte[]> toConsumerRecord(
         StreamElement ingest, int partitionId, int offset) {
+
+      final String key = ingest.getKey() + "#" + ingest.getAttribute();
+      final byte[] value = ingest.getValue();
+
       return new ConsumerRecord<>(
           getTopic(),
           partitionId,
@@ -486,10 +490,10 @@ public class LocalKafkaCommitLogDescriptor extends StorageDescriptor {
           ingest.getStamp(),
           TimestampType.CREATE_TIME,
           0L,
-          -1,
-          -1,
-          ingest.getKey() + "#" + ingest.getAttribute(),
-          ingest.getValue());
+          key.length(),
+          value != null ? value.length : 0,
+          key,
+          value);
     }
 
     public boolean allConsumed() {

@@ -40,7 +40,9 @@ import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.Accessor;
 import cz.o2.proxima.storage.kafka.LocalKafkaCommitLogDescriptor.LocalKafkaWriter;
 import cz.o2.proxima.storage.commitlog.FirstPartitionPartitioner;
 import cz.o2.proxima.storage.commitlog.KeyPartitioner;
+import cz.o2.proxima.storage.commitlog.LogObserver;
 import cz.o2.proxima.storage.randomaccess.KeyValue;
+import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.view.PartitionedCachedView;
 import cz.o2.proxima.view.PartitionedLogObserver;
 import cz.o2.proxima.view.PartitionedView;
@@ -56,6 +58,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -1348,6 +1351,69 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertArrayEquals(new byte[] { 3, 4 }, view.get("key1", attr).get().getValue());
   }
 
+  @Test(timeout = 5000)
+  public void testMaxBytesPerSec() throws InterruptedException {
+    long startNs = System.nanoTime();
+    testSequentialConsumption(3);
+    assertTrue(System.nanoTime() - startNs > 500000000L);
+  }
+
+  @Test(timeout = 5000)
+  public void testNoMaxBytesPerSec() throws InterruptedException {
+    long startNs = System.nanoTime();
+    testSequentialConsumption(Long.MAX_VALUE);
+    assertTrue(System.nanoTime() - startNs < 500000000L);
+  }
+
+
+  private void testSequentialConsumption(
+      long maxBytesPerSec)
+      throws InterruptedException {
+
+    final Accessor accessor = kafka.getAccessor(
+        entity, storageUri, cfg(Pair.of(
+            KafkaAccessor.MAX_BYTES_PER_SEC, maxBytesPerSec)));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final AtomicReference<CountDownLatch> latch = new AtomicReference<>(
+        new CountDownLatch(1));
+    CommitLogReader reader = accessor.getCommitLogReader(context())
+        .orElseThrow(() -> new IllegalStateException("Missing log reader"));
+
+    reader.observe("dummy", new LogObserver() {
+
+      @Override
+      public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter committer) {
+        latch.getAndSet(new CountDownLatch(1)).countDown();
+        return true;
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+    });
+    CountDownLatch toWait = latch.get();
+    writer.write(StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key1", attr.getName(),
+        System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
+          assertTrue(succ);
+          assertNull(exc);
+        });
+    toWait.await();
+    toWait = latch.get();
+    writer.write(StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key1", attr.getName(),
+        System.currentTimeMillis(), emptyValue()), (succ, exc) -> {
+          assertTrue(succ);
+          assertNull(exc);
+        });
+
+    toWait.await();
+  }
+
   private static Map<String, Object> partitionsCfg(int partitions) {
     return partitionsCfg(partitions, null);
   }
@@ -1356,14 +1422,20 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       int partitions,
       @Nullable Class<? extends Partitioner> partitioner) {
 
-    Map<String, Object> ret = new HashMap<>();
-    ret.put(
-        LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS,
-        String.valueOf(partitions));
-    if (partitioner != null) {
-      ret.put(KafkaAccessor.PARTITIONER_CLASS, partitioner.getName());
-    }
-    return ret;
+    return cfg(Pair.of(
+        LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS, String.valueOf(partitions)),
+        partitioner != null
+            ? Pair.of(KafkaAccessor.PARTITIONER_CLASS, partitioner.getName())
+            : null);
+  }
+
+  @SafeVarargs
+  private static Map<String, Object> cfg(
+      Pair<String, Object>... pairs) {
+
+    return Arrays.stream(pairs)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
   }
 
   private static byte[] emptyValue() {

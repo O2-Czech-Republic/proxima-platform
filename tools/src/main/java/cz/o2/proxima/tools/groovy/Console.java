@@ -94,7 +94,7 @@ public class Console {
   private static final String EXECUTOR_CONF_PREFIX = "console.executor";
   private static final String EXECUTOR_FACTORY = "factory";
 
-  private static volatile Console INSTANCE = null;
+  private static AtomicReference<Console> INSTANCE = new AtomicReference<>();
 
   /**
    * This is supposed to be called only from the groovysh initialized in this
@@ -102,24 +102,24 @@ public class Console {
    * @return the singleton instance
    */
   public static final Console get() {
-    return INSTANCE;
+    return INSTANCE.get();
   }
 
   public static Console get(String[] args) {
-    if (INSTANCE == null) {
+    if (INSTANCE.get() == null) {
       synchronized (Console.class) {
-        if (INSTANCE == null) {
-          INSTANCE = new Console(args);
+        if (INSTANCE.get() == null) {
+          INSTANCE.set(new Console(args));
         }
       }
     }
-    return INSTANCE;
+    return INSTANCE.get();
   }
 
   @VisibleForTesting
   public static Console create(Config config, Repository repo) {
-    INSTANCE = new Console(config, repo);
-    return INSTANCE;
+    INSTANCE.set(new Console(config, repo));
+    return INSTANCE.get();
   }
 
   public static void main(String[] args) {

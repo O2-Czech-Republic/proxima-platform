@@ -194,6 +194,7 @@ public class GroovyEnvTest {
   }
 
 
+  @SuppressWarnings("unchecked")
   @Ignore(
       "This has to be implemented, reduceToLatest must take wildcard deletes "
           + "into account! "
@@ -216,6 +217,7 @@ public class GroovyEnvTest {
     assertEquals(1, result.size());
   }
 
+  @SuppressWarnings("unchecked")
   @Test
   public void testWildcardDeleteRandomRead() throws Exception {
     long now = 123456789000L;

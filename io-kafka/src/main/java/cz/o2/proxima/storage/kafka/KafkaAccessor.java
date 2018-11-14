@@ -46,6 +46,8 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   public static final String POLL_INTERVAL_CFG = "poll.interval";
   /** Partitioner class for entity key-attribute pair. */
   public static final String PARTITIONER_CLASS = "partitioner";
+  /** Maximal read speed in bytes per second. */
+  public static final String MAX_BYTES_PER_SEC = "bytes-per-sec-max";
 
   public static final String WRITER_CONFIG_PREFIX = "kafka.";
   private static final int PRODUCE_CONFIG_PREFIX_LENGTH = WRITER_CONFIG_PREFIX.length();
@@ -60,6 +62,9 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Getter(AccessLevel.PACKAGE)
   private long consumerPollInterval = 100;
+
+  @Getter(AccessLevel.PACKAGE)
+  private long maxBytesPerSec = Long.MAX_VALUE;
 
   public KafkaAccessor(
       EntityDescriptor entity,
@@ -97,9 +102,17 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
         })
         .orElse(this.partitioner);
 
+    this.maxBytesPerSec = Optional.ofNullable(cfg.get(MAX_BYTES_PER_SEC))
+        .map(v -> Long.valueOf(v.toString()))
+        .orElse(maxBytesPerSec);
+
     log.info(
-        "Using consumerPollInterval {} and partitionerClass {} for URI {}",
-        consumerPollInterval, partitioner.getClass(), getUri());
+        "Configured accessor with "
+            + "consumerPollInterval {},"
+            + "partitionerClass {} "
+            + "maxBytesPerSec {}"
+            + "for URI {}",
+        consumerPollInterval, partitioner.getClass(), maxBytesPerSec, getUri());
   }
 
 

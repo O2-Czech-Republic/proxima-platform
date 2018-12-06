@@ -25,10 +25,10 @@
     <artifactId>platform-parent</artifactId>
     <version>0.2.4</version>
   </parent>
-     
+
   <artifactId>core</artifactId>
   <packaging>jar</packaging>
-     
+
   <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
@@ -118,17 +118,12 @@
       <artifactId>t-digest</artifactId>
       <version>3.2</version>
     </dependency>
-   
+
     <dependency>
       <groupId>cz.seznam.euphoria</groupId>
       <artifactId>euphoria-local</artifactId>
       <version>${euphoria.version}</version>
       <scope>test</scope>
-    </dependency>
-   
-    <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>jsr305</artifactId>
     </dependency>
 
     <dependency>
@@ -143,9 +138,9 @@
     </dependency>
 
     <dependency>
-      <groupId>com.google.code.findbugs</groupId>
-      <artifactId>annotations</artifactId>
-      <version>3.0.1u2</version>
+      <groupId>com.github.spotbugs</groupId>
+      <artifactId>spotbugs-annotations</artifactId>
+      <version>${spotbugs.version}</version>
       <scope>provided</scope>
     </dependency>
 

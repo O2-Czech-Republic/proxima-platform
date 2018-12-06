@@ -121,9 +121,8 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
       if (statement instanceof BoundStatement) {
         BoundStatement s = (BoundStatement) statement;
         log.debug(
-            "Executing BoundStatement {} prepared from PreparedStatement "
-                + "{} with payload {}",
-            s, s.preparedStatement(), s.getOutgoingPayload());
+            "Executing BoundStatement {}",
+            s.preparedStatement().getQueryString());
       } else {
         log.debug(
             "Executing {} {} with payload {}",

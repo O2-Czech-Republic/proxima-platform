@@ -51,6 +51,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -77,6 +78,7 @@ public class KafkaLogReader extends AbstractStorage
   private final Context context;
   private final AtomicBoolean shutdown = new AtomicBoolean();
   private final long consumerPollInterval;
+  private final long maxBytesPerSec;
   private final String topic;
 
   KafkaLogReader(KafkaAccessor accessor, Context context) {
@@ -84,6 +86,7 @@ public class KafkaLogReader extends AbstractStorage
     this.accessor = accessor;
     this.context = context;
     this.consumerPollInterval = accessor.getConsumerPollInterval();
+    this.maxBytesPerSec = accessor.getMaxBytesPerSec();
     this.topic = accessor.getTopic();
   }
 
@@ -309,13 +312,15 @@ public class KafkaLogReader extends AbstractStorage
               }
             });
 
-    OnlineConsumer onlineConsumer = new OnlineConsumer(observer, offsetCommitter, () -> {
-      synchronized (kafkaCommitMap) {
-        Map<TopicPartition, OffsetAndMetadata> clone = new HashMap<>(kafkaCommitMap);
-        kafkaCommitMap.clear();
-        return clone;
-      }
-    });
+    OnlineConsumer onlineConsumer = new OnlineConsumer(
+        observer, offsetCommitter,
+        () -> {
+          synchronized (kafkaCommitMap) {
+            Map<TopicPartition, OffsetAndMetadata> clone = new HashMap<>(kafkaCommitMap);
+            kafkaCommitMap.clear();
+            return clone;
+          }
+        });
 
     AtomicReference<ObserveHandle> handle = new AtomicReference<>();
     submitConsumerWithObserver(
@@ -373,9 +378,12 @@ public class KafkaLogReader extends AbstractStorage
   }
 
   private void submitConsumerWithObserver(
-      @Nullable String name, @Nullable Collection<Offset> offsets,
-      Position position, boolean stopAtCurrent,
-      BiConsumer<TopicPartition, ConsumerRecord<String, byte[]>> preWrite,
+      @Nullable String name,
+      @Nullable Collection<Offset> offsets,
+      Position position,
+      boolean stopAtCurrent,
+      BiConsumer<TopicPartition,
+      ConsumerRecord<String, byte[]>> preWrite,
       Runnable preStart,
       ElementConsumer consumer,
       ExecutorService executor,
@@ -478,7 +486,12 @@ public class KafkaLogReader extends AbstractStorage
               poll = ConsumerRecords.empty();
             }
           }
+          final long bytesPerPoll = maxBytesPerSec < Long.MAX_VALUE
+              ? Math.max(1L, maxBytesPerSec / (1000L * consumerPollInterval))
+              : Long.MAX_VALUE;
+          long bytesPolled = 0L;
           for (ConsumerRecord<String, byte[]> r : poll) {
+            bytesPolled += r.serializedKeySize() + r.serializedValueSize();
             String key = r.key();
             byte[] value = r.value();
             TopicPartition tp = new TopicPartition(r.topic(), r.partition());
@@ -530,6 +543,10 @@ public class KafkaLogReader extends AbstractStorage
           if (errorThrown != null) {
             throw new RuntimeException(errorThrown);
           }
+          long sleepDuration = bytesPolled * consumerPollInterval / bytesPerPoll;
+          if (sleepDuration > 0) {
+            TimeUnit.MILLISECONDS.sleep(sleepDuration);
+          }
           poll = kafka.poll(consumerPollInterval);
         } while (!shutdown.get() && !completed.get()
             && !Thread.currentThread().isInterrupted());
@@ -539,6 +556,10 @@ public class KafkaLogReader extends AbstractStorage
         } else {
           consumer.onCancelled();
         }
+      } catch (InterruptedException ex) {
+        log.info("Interrupted while polling kafka. Terminating consumption.", ex);
+        Thread.currentThread().interrupt();
+        consumer.onCancelled();
       } catch (Throwable err) {
         log.error("Error processing consumer {}", name, err);
         if (consumer.onError(err)) {

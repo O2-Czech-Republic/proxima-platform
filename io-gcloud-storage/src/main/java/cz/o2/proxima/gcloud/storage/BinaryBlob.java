@@ -124,12 +124,18 @@ public class BinaryBlob {
     private final Parser<Serialization.Element> parser = Serialization.Element.parser();
     private final EntityDescriptor entity;
     private final Serialization.Header header;
+    private final String blobName;
     private DataInputStream blobStream = null;
 
-    private Reader(EntityDescriptor entity, InputStream in) throws IOException {
+    private Reader(
+        EntityDescriptor entity,
+        String blobName,
+        InputStream in) throws IOException {
+
       this.entity = entity;
-      header = readHeader(in);
+      header = readHeader(blobName, in);
       blobStream = toInputStream(in);
+      this.blobName = blobName;
     }
 
     @Override
@@ -142,6 +148,9 @@ public class BinaryBlob {
           try {
             next = BinaryBlob.Reader.this.next();
           } catch (EOFException eof) {
+            log.debug(
+                "EOF while reading {}. Terminating iteration.",
+                blobName, eof);
             // terminate
             next = null;
           } catch (IOException ex) {
@@ -150,7 +159,7 @@ public class BinaryBlob {
           if (next != null) {
             return next;
           }
-          this.endOfData();
+          endOfData();
           return null;
         }
 
@@ -163,7 +172,9 @@ public class BinaryBlob {
       return buf;
     }
 
-    private Serialization.Header readHeader(InputStream in) throws IOException {
+    private Serialization.Header readHeader(
+        String blobName, InputStream in) throws IOException {
+
       // don't close this
       try {
         DataInputStream dos = new DataInputStream(in);
@@ -174,17 +185,21 @@ public class BinaryBlob {
         }
         return parsed;
       } catch (EOFException eof) {
-        log.warn("EOF while reading input. Probably corrupt input?", eof);
+        log.warn(
+            "EOF while reading input of {}. Probably corrupt input?",
+            blobName, eof);
         return Serialization.Header.getDefaultInstance();
       }
     }
 
 
     private StreamElement next() throws IOException {
-      if (blobStream.available() > 0) {
+      try {
         return fromBytes(readBytes(blobStream));
+      } catch (EOFException eof) {
+        log.trace("EOF while reading next data from blob {}.", blobName, eof);
+        return null;
       }
-      return null;
     }
 
     private DataInputStream toInputStream(InputStream in) throws IOException {
@@ -248,18 +263,19 @@ public class BinaryBlob {
   /**
    * Create reader from given entity and {@link InputStream}.
    * @param entity the entity to read attributes for
+   * @param path path to the stream for logging purposes
    * @param in the {@link InputStream}
    * @return reader
    * @throws IOException on IO errors
    */
   public static Reader reader(
-      EntityDescriptor entity, InputStream in) throws IOException {
+      EntityDescriptor entity, String path, InputStream in) throws IOException {
 
-    return new Reader(entity, in);
+    return new Reader(entity, path, in);
   }
 
   public Reader reader(EntityDescriptor entity) throws IOException {
-    return new Reader(entity, new FileInputStream(path));
+    return new Reader(entity, path.getName(), new FileInputStream(path));
   }
 
   @Getter

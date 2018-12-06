@@ -94,7 +94,7 @@ public class Console {
   private static final String EXECUTOR_CONF_PREFIX = "console.executor";
   private static final String EXECUTOR_FACTORY = "factory";
 
-  private static volatile Console INSTANCE = null;
+  private static AtomicReference<Console> INSTANCE = new AtomicReference<>();
 
   /**
    * This is supposed to be called only from the groovysh initialized in this
@@ -102,24 +102,24 @@ public class Console {
    * @return the singleton instance
    */
   public static final Console get() {
-    return INSTANCE;
+    return INSTANCE.get();
   }
 
   public static Console get(String[] args) {
-    if (INSTANCE == null) {
+    if (INSTANCE.get() == null) {
       synchronized (Console.class) {
-        if (INSTANCE == null) {
-          INSTANCE = new Console(args);
+        if (INSTANCE.get() == null) {
+          INSTANCE.set(new Console(args));
         }
       }
     }
-    return INSTANCE;
+    return INSTANCE.get();
   }
 
   @VisibleForTesting
   public static Console create(Config config, Repository repo) {
-    INSTANCE = new Console(config, repo);
-    return INSTANCE;
+    INSTANCE.set(new Console(config, repo));
+    return INSTANCE.get();
   }
 
   public static void main(String[] args) {
@@ -451,7 +451,7 @@ public class Console {
                   startStamp, endStamp)))
           .reduce((left, right) -> Union.of(left, right).output())
           .orElseThrow(() -> new IllegalArgumentException(
-              "Please pass non-empty list of attributes, got " + attrs));
+              "Please pass non-empty list of attributes, got " + Arrays.toString(attrs)));
 
       ds = Filter.of(ds)
           .by(i -> i.getStamp() >= startStamp && i.getStamp() < endStamp)
@@ -491,10 +491,23 @@ public class Console {
     return reader;
   }
 
+
   public void put(
       EntityDescriptor entityDesc,
       AttributeDescriptor attrDesc,
       String key, String attribute, String textFormat)
+      throws NoSuchMethodException, IllegalAccessException, InvocationTargetException,
+          ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
+          TextFormat.ParseException {
+
+    put(entityDesc, attrDesc, key, attribute,
+        System.currentTimeMillis(), textFormat);
+  }
+
+  public void put(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor attrDesc,
+      String key, String attribute, long stamp, String textFormat)
       throws NoSuchMethodException, IllegalAccessException, InvocationTargetException,
           ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
           TextFormat.ParseException {
@@ -516,7 +529,7 @@ public class Console {
       AtomicReference<Throwable> exc = new AtomicReference<>();
       writer.write(StreamElement.update(
           entityDesc, attrDesc, UUID.randomUUID().toString(),
-          key, attribute, System.currentTimeMillis(), payload), (success, ex) -> {
+          key, attribute, stamp, payload), (success, ex) -> {
             if (!success) {
               exc.set(ex);
             }
@@ -538,6 +551,13 @@ public class Console {
       EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc,
       String key, String attribute) throws InterruptedException {
 
+    delete(entityDesc, attrDesc, key, attribute, System.currentTimeMillis());
+  }
+
+  public void delete(
+      EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc,
+      String key, String attribute, long stamp) throws InterruptedException {
+
     OnlineAttributeWriter writer = repo.getWriter(attrDesc)
         .orElseThrow(() -> new IllegalArgumentException(
             "Missing writer for " + attrDesc));
@@ -545,7 +565,7 @@ public class Console {
     AtomicReference<Throwable> exc = new AtomicReference<>();
     writer.write(StreamElement.update(
         entityDesc, attrDesc, UUID.randomUUID().toString(),
-        key, attribute, System.currentTimeMillis(), null), (success, ex) -> {
+        key, attribute, stamp, null), (success, ex) -> {
           if (!success) {
             exc.set(ex);
           }

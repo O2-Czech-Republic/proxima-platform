@@ -146,9 +146,7 @@ public class IngestClient implements AutoCloseable {
             }
           }
           synchronized (IngestClient.this) {
-            if (bulkBuilder.getIngestCount() > 0) {
-              flush();
-            }
+            flush();
           }
         } catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
@@ -364,14 +362,16 @@ public class IngestClient implements AutoCloseable {
   }
 
   private synchronized void flush() {
-    if (requestObserver != null) {
-      requestObserver.onNext(bulkBuilder.build());
-    } else {
-      log.warn(
-          "Cannot send bulk due to null observer. "
-              + "This might suggest bug in code.");
+    if (bulkBuilder.getIngestCount() > 0) {
+      if (requestObserver != null) {
+        requestObserver.onNext(bulkBuilder.build());
+      } else {
+        log.warn(
+            "Cannot send bulk due to null observer. "
+                + "This might suggest bug in code.");
+      }
+      bulkBuilder.clear();
     }
-    bulkBuilder.clear();
     lastFlush = System.nanoTime();
   }
 

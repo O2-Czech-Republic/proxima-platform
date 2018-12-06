@@ -21,6 +21,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
@@ -29,6 +30,7 @@ import groovy.lang.Script;
 import java.util.List;
 import static org.junit.Assert.*;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -48,13 +50,17 @@ public class GroovyEnvTest {
       .findAttribute("armed")
       .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
   @SuppressWarnings("unchecked")
+  final AttributeDescriptor<byte[]> device = (AttributeDescriptor) gateway
+      .findAttribute("device.*")
+      .orElseThrow(() -> new IllegalStateException("Missing attribute device"));
+  @SuppressWarnings("unchecked")
   final AttributeDescriptor<byte[]> data = (AttributeDescriptor) batch
       .findAttribute("data")
       .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+  @SuppressWarnings("unchecked")
   final AttributeDescriptor<byte[]> wildcard = (AttributeDescriptor) batch
       .findAttribute("wildcard.*")
       .orElseThrow(() -> new IllegalStateException("Missing attribute wildcard"));
-
 
   Configuration conf;
 
@@ -183,6 +189,49 @@ public class GroovyEnvTest {
         .write(StreamElement.update(batch, data, "uuid",
             "key", data.getName(), System.currentTimeMillis(), new byte[] { }),
             (succ, exc) -> { });
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
+  }
+
+
+  @SuppressWarnings("unchecked")
+  @Ignore(
+      "This has to be implemented, reduceToLatest must take wildcard deletes "
+          + "into account! "
+          + "See https://github.com/O2-Czech-Republic/proxima-platform/issues/110")
+  @Test
+  public void testWildcardDelete() throws Exception {
+    long now = 123456789000L;
+    Script compiled = compile(
+        "env.gateway.device.deleteAll(\"gw\", 1234567890000)\n"
+        + "env.gateway.device.streamFromOldest().reduceToLatest().collect()");
+    OnlineAttributeWriter writer = repo.getWriter(device)
+        .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    writer.write(StreamElement.update(
+        gateway, device, "uuid", "key", device.toAttributePrefix() + "1", now - 1,
+        new byte[] { }), (succ, exc) -> { });
+    writer.write(StreamElement.update(
+        gateway, device, "uuid", "key", device.toAttributePrefix() + "2", now + 1,
+        new byte[] { }), (succ, exc) -> { });
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testWildcardDeleteRandomRead() throws Exception {
+    long now = 123456789000L;
+    Script compiled = compile(
+        /* "env.gateway.device.deleteAll(\"gw\", 1234567890000)\n" */ ""
+        + "env.gateway.device.list(\"gw\")");
+    OnlineAttributeWriter writer = repo.getWriter(device)
+        .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    writer.write(StreamElement.update(
+        gateway, device, "uuid", "gw", device.toAttributePrefix() + "1", now - 1,
+        new byte[] { }), (succ, exc) -> { });
+    writer.write(StreamElement.update(
+        gateway, device, "uuid", "key", device.toAttributePrefix() + "2", now + 1,
+        new byte[] { }), (succ, exc) -> { });
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }

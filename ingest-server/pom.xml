@@ -23,10 +23,10 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.3-SNAPSHOT</version>
   </parent>
      
-  <artifactId>ingest-server-grpc</artifactId>
+  <artifactId>proxima-ingest-server-grpc</artifactId>
   <packaging>jar</packaging>
      
   <name>${project.groupId}:${project.artifactId}</name>
@@ -66,27 +66,19 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>core</artifactId>
+      <artifactId>proxima-core</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>scheme</artifactId>
+      <artifactId>proxima-scheme</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>core</artifactId>
-      <version>${project.version}</version>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>scheme</artifactId>
+      <artifactId>proxima-core</artifactId>
       <version>${project.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
@@ -94,7 +86,15 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>server-rpc-proto</artifactId>
+      <artifactId>proxima-scheme</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-server-rpc-proto</artifactId>
       <version>${project.version}</version>
     </dependency>
 

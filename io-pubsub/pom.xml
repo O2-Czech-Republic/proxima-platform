@@ -23,10 +23,10 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.3-SNAPSHOT</version>
   </parent>
      
-  <artifactId>io-pubsub</artifactId>
+  <artifactId>proxima-io-pubsub</artifactId>
   <packaging>jar</packaging>
      
   <name>${project.groupId}:${project.artifactId}</name>
@@ -95,7 +95,7 @@
             <configuration>
               <executable>${basedir}/shade-grpc-services.sh</executable>
               <arguments>
-                <argument>${project.build.directory}/io-pubsub-${project.version}.jar</argument>
+                <argument>${project.build.directory}/proxima-io-pubsub-${project.version}.jar</argument>
                 <argument>io.grpc</argument>
                 <argument>${shadePattern}.io.grpc</argument>
               </arguments>
@@ -165,7 +165,7 @@
             <excludes>
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.seznam.euphoria:*</exclude>
-              <exclude>cz.o2.proxima:core</exclude>
+              <exclude>cz.o2.proxima:proxima-core</exclude>
             </excludes>
           </artifactSet>
           <shadeTestJar>true</shadeTestJar>
@@ -233,7 +233,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>core</artifactId>
+      <artifactId>proxima-core</artifactId>
       <version>${project.version}</version>
     </dependency>
 

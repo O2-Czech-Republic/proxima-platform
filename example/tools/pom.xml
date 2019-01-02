@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima.example</groupId>
     <artifactId>example-parent</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.3-SNAPSHOT</version>
   </parent>
      
   <artifactId>example-tools</artifactId>
@@ -125,31 +125,31 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>core</artifactId>
+      <artifactId>proxima-core</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>tools</artifactId>
+      <artifactId>proxima-tools</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>io-cassandra</artifactId>
+      <artifactId>proxima-io-cassandra</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>io-kafka</artifactId>
+      <artifactId>proxima-io-kafka</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>io-hdfs</artifactId>
+      <artifactId>proxima-io-hdfs</artifactId>
       <version>${project.version}</version>
     </dependency>
 

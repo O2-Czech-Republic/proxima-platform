@@ -23,10 +23,10 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.3-SNAPSHOT</version>
   </parent>
      
-  <artifactId>io-hbase-bindings</artifactId>
+  <artifactId>proxima-io-hbase-bindings</artifactId>
   <packaging>jar</packaging>
      
   <name>${project.groupId}:${project.artifactId}</name>
@@ -35,7 +35,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>core</artifactId>
+      <artifactId>proxima-core</artifactId>
       <version>${project.version}</version>
     </dependency>
 

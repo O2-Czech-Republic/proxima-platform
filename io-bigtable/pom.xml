@@ -23,10 +23,10 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.3-SNAPSHOT</version>
   </parent>
      
-  <artifactId>io-bigtable</artifactId>
+  <artifactId>proxima-io-bigtable</artifactId>
   <packaging>jar</packaging>
      
   <name>${project.groupId}:${project.artifactId}</name>
@@ -113,7 +113,7 @@
             <configuration>
               <executable>${basedir}/shade-grpc-services.sh</executable>
               <arguments>
-                <argument>${project.build.directory}/io-bigtable-${project.version}.jar</argument>
+                <argument>${project.build.directory}/proxima-io-bigtable-${project.version}.jar</argument>
                 <argument>io.grpc</argument>
                 <argument>${shadePattern}.io.grpc</argument>
               </arguments>
@@ -189,7 +189,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>io-hbase-bindings</artifactId>
+      <artifactId>proxima-io-hbase-bindings</artifactId>
       <version>${project.version}</version>
     </dependency>
 

@@ -26,7 +26,7 @@
     <version>0.3-SNAPSHOT</version>
   </parent>
      
-  <artifactId>proxima-io-pubsub-partitioned</artifactId>
+  <artifactId>proxima-direct-io-pubsub-partitioned</artifactId>
   <packaging>jar</packaging>
      
   <name>${project.groupId}:${project.artifactId}</name>
@@ -77,7 +77,7 @@
             <excludes>
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:proxima-core</exclude>
-              <exclude>cz.o2.proxima:proxima-io-pubsub</exclude>
+              <exclude>cz.o2.proxima:proxima-direct-io-pubsub</exclude>
               <exclude>io.netty:*</exclude>
               <exclude>io.grpc:*</exclude>
             </excludes>
@@ -124,7 +124,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-io-pubsub</artifactId>
+      <artifactId>proxima-direct-io-pubsub</artifactId>
       <version>${project.version}</version>
     </dependency>
 

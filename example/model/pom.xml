@@ -95,25 +95,25 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-io-kafka</artifactId>
+      <artifactId>proxima-direct-io-kafka</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-io-cassandra</artifactId>
+      <artifactId>proxima-direct-io-cassandra</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-io-hbase</artifactId>
+      <artifactId>proxima-direct-io-hbase</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-io-hdfs</artifactId>
+      <artifactId>proxima-direct-io-hdfs</artifactId>
       <version>${project.version}</version>
     </dependency>
 

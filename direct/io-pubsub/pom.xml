@@ -26,13 +26,13 @@
     <version>0.3-SNAPSHOT</version>
   </parent>
      
-  <artifactId>proxima-io-gcloud-storage</artifactId>
+  <artifactId>proxima-direct-io-pubsub</artifactId>
   <packaging>jar</packaging>
      
   <name>${project.groupId}:${project.artifactId}</name>
 
   <properties>
-    <shadePattern>cz.o2.proxima.gcloud.storage.shaded</shadePattern>
+    <shadePattern>cz.o2.proxima.pubsub.shaded</shadePattern>
   </properties>
 
   <build>
@@ -46,6 +46,19 @@
     </extensions>
 
     <plugins>
+      <!-- generate test-jar artifact -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.0.2</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
 
       <!-- compile protobuffers -->
       <plugin>
@@ -68,7 +81,30 @@
         </executions>
       </plugin>
 
-      <!--plugin>
+      <plugin>
+        <artifactId>exec-maven-plugin</artifactId>
+        <groupId>org.codehaus.mojo</groupId>
+        <version>1.6.0</version>
+        <executions>
+          <execution>
+            <id>Services shade</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${basedir}/shade-grpc-services.sh</executable>
+              <arguments>
+                <argument>${project.build.directory}/proxima-direct-io-pubsub-${project.version}.jar</argument>
+                <argument>io.grpc</argument>
+                <argument>${shadePattern}.io.grpc</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>         
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
         <version>3.0.2</version>
@@ -87,9 +123,9 @@
             </configuration>
           </execution>
         </executions>
-      </plugin-->
+      </plugin>
 
-      <!--plugin>
+      <plugin>
         <groupId>com.coderplus.maven.plugins</groupId>
         <artifactId>copy-rename-maven-plugin</artifactId>
         <version>1.0</version>
@@ -103,41 +139,18 @@
             <configuration>
               <fileSets>
                 <fileSet>
-                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_linux_x86_64.so</sourceFile>
-                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_gcloud_storage_shaded_netty_tcnative_linux_x86_64.so</destinationFile>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libio_grpc_netty_shaded_netty_tcnative_linux_x86_64.so</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_shaded_io_grpc_netty_shaded_netty_tcnative_linux_x86_64.so</destinationFile>
                 </fileSet>
                 <fileSet>
-                  <sourceFile>${project.build.directory}/classes/META-INF/native/netty_tcnative_windows_x86_64.dll</sourceFile>
-                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_gcloud_storage_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_pubsub_shaded_io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
                 </fileSet>
                 <fileSet>
-                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_osx_x86_64.jnilib</sourceFile>
-                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_gcloud_storage_shaded_libnetty_tcnative_osx_x86_64.jnilib</destinationFile>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libio_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_shaded_io_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib</destinationFile>
                 </fileSet>
               </fileSets>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin-->
-
-      <plugin>
-        <artifactId>exec-maven-plugin</artifactId>
-        <groupId>org.codehaus.mojo</groupId>
-        <version>1.6.0</version>
-        <executions>
-          <execution>
-            <id>Services shade</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>${basedir}/shade-grpc-services.sh</executable>
-              <arguments>
-                <argument>${project.build.directory}/proxima-io-gcloud-storage-${project.version}.jar</argument>
-                <argument>io.grpc</argument>
-                <argument>${shadePattern}.io.grpc</argument>
-              </arguments>
             </configuration>
           </execution>
         </executions>
@@ -148,22 +161,15 @@
         <artifactId>maven-shade-plugin</artifactId>
         <version>2.4.3</version>
         <configuration>
-          <transformers>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-             <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
-            </transformer>
-          </transformers>
           <artifactSet>
             <excludes>
               <!-- exclude proxima and core dependencies -->
+              <exclude>cz.seznam.euphoria:*</exclude>
               <exclude>cz.o2.proxima:proxima-core</exclude>
             </excludes>
           </artifactSet>
+          <shadeTestJar>true</shadeTestJar>
           <relocations>
-            <relocation>
-              <pattern>io.netty.</pattern>
-              <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
-            </relocation>
             <relocation>
               <pattern>io.grpc.</pattern>
               <shadedPattern>${shadePattern}.io.grpc.</shadedPattern>
@@ -177,6 +183,18 @@
               <shadedPattern>${shadePattern}.com.google.api.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>com.google.pubsub.</pattern>
+              <shadedPattern>${shadePattern}.com.google.pubsub.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.cloud.</pattern>
+              <shadedPattern>${shadePattern}.com.google.cloud.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.auth.</pattern>
+              <shadedPattern>${shadePattern}.com.google.auth.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>com.google.iam.</pattern>
               <shadedPattern>${shadePattern}.com.google.iam.</shadedPattern>
             </relocation>
@@ -185,24 +203,16 @@
               <shadedPattern>${shadePattern}.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>com.google.auth.</pattern>
-              <shadedPattern>${shadePattern}.com.google.auth.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>com.google.cloud.</pattern>
-              <shadedPattern>${shadePattern}.com.google.cloud.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>org.codehaus.jackson.</pattern>
-              <shadedPattern>${shadePattern}.org.codehaus.jackson.</shadedPattern>
-            </relocation>
-            <relocation>
               <pattern>com.google.protobuf.</pattern>
               <shadedPattern>${shadePattern}.com.google.protobuf.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.fasterxml.</pattern>
               <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>cz.o2.proxima.storage.pubsub.proto.</pattern>
+              <shadedPattern>cz.o2.proxima.storage.pubsub.internal.proto.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -215,6 +225,7 @@
           </execution>
         </executions>
       </plugin>
+
     </plugins>
   </build>
 
@@ -227,14 +238,37 @@
     </dependency>
 
     <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-pubsub</artifactId>
+      <version>0.38.0-beta</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>${proto.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
     </dependency>
 
     <dependency>
-      <groupId>com.google.cloud</groupId>
-      <artifactId>google-cloud-storage</artifactId>
-      <version>1.16.0</version>
+      <groupId>cz.seznam.euphoria</groupId>
+      <artifactId>euphoria-local</artifactId>
+      <version>${euphoria.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
     </dependency>
 
     <dependency>
@@ -245,20 +279,6 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.25</version>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>com.github.spotbugs</groupId>
-      <artifactId>spotbugs-annotations</artifactId>
-      <version>${spotbugs.version}</version>
-      <scope>provided</scope>
     </dependency>
 
   </dependencies>

@@ -408,19 +408,10 @@
 
   <modules>
     <module>core</module>
+    <module>direct</module>
     <module>example</module>
     <module>ingest-client</module>
     <module>ingest-server</module>
-    <module>io-bigtable</module>
-    <module>io-cassandra</module>
-    <module>io-gcloud-storage</module>
-    <module>io-hbase</module>
-    <module>io-hbase-bindings</module>
-    <module>io-hdfs</module>
-    <module>io-http</module>
-    <module>io-kafka</module>
-    <module>io-pubsub</module>
-    <module>io-pubsub-partitioned</module>
     <module>maven</module>
     <module>rpc</module>
     <module>scheme</module>

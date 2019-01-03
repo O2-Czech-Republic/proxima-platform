@@ -26,7 +26,7 @@
     <version>0.3-SNAPSHOT</version>
   </parent>
      
-  <artifactId>proxima-io-hbase-bindings</artifactId>
+  <artifactId>proxima-direct-io-hbase-bindings</artifactId>
   <packaging>jar</packaging>
      
   <name>${project.groupId}:${project.artifactId}</name>

@@ -26,7 +26,7 @@
     <version>0.3-SNAPSHOT</version>
   </parent>
      
-  <artifactId>proxima-io-hdfs</artifactId>
+  <artifactId>proxima-direct-io-hbase</artifactId>
   <packaging>jar</packaging>
      
   <name>${project.groupId}:${project.artifactId}</name>
@@ -39,9 +39,7 @@
         <version>2.4.3</version>
         <configuration>
           <transformers>
-            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-             <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
-            </transformer>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
           </transformers>
           <artifactSet>
             <excludes>
@@ -55,20 +53,12 @@
               <shadedPattern>cz.o2.proxima.hadoop.shaded.io.netty.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>org.mortbay.jetty.</pattern>
-              <shadedPattern>cz.o2.proxima.hadoop.shaded.org.mortbay.jetty.</shadedPattern>
-            </relocation>
-            <relocation>
               <pattern>com.google.common.</pattern>
               <shadedPattern>cz.o2.proxima.hadoop.shaded.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.protobuf.</pattern>
               <shadedPattern>cz.o2.proxima.hadoop.shaded.com.google.protobuf.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>org.codehaus.jackson.</pattern>
-              <shadedPattern>cz.o2.proxima.hadoop.shaded.org.codehaus.jackson.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -81,6 +71,7 @@
           </execution>
         </executions>
       </plugin>
+
     </plugins>
   </build>
 
@@ -88,7 +79,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-core</artifactId>
+      <artifactId>proxima-direct-io-hbase-bindings</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -106,29 +97,82 @@
           <groupId>org.slf4j</groupId>
           <artifactId>slf4j-log4j12</artifactId>
         </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-client</artifactId>
+      <version>${hbase.version}</version>
+      <scope>compile</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-common</artifactId>
+      <version>${hbase.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>2.7.4</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+      <exclusions>
         <exclusion>
-          <groupId>log4j</groupId>
-          <artifactId>log4j</artifactId>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-log4j12</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>2.5.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.hbase</groupId>
+      <artifactId>hbase-testing-util</artifactId>
+      <version>${hbase.version}</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-log4j12</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+        
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-hdfs</artifactId>
+      <version>2.7.4</version>
+      <type>test-jar</type>
+      <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-hdfs</artifactId>
       <version>2.7.4</version>
-      <exclusions>
-        <exclusion>
-          <groupId>log4j</groupId>
-          <artifactId>log4j</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
+      <scope>test</scope>
+    </dependency>           
 
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
     </dependency>
+
+    <dependency>
+      <groupId>log4j</groupId>
+      <artifactId>log4j</artifactId>
+      <scope>test</scope>
+      <version>1.2.17</version>
+    </dependency>
+
 
   </dependencies>
 

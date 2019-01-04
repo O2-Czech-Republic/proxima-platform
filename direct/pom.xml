@@ -26,7 +26,7 @@
     <version>0.3-SNAPSHOT</version>
   </parent>
 
-  <artifactId>platform-direct</artifactId>
+  <artifactId>proxima-direct</artifactId>
   <packaging>pom</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
@@ -101,6 +101,7 @@
   </dependencyManagement>
 
   <modules>
+    <module>core</module>
     <module>io-bigtable</module>
     <module>io-cassandra</module>
     <module>io-gcloud-storage</module>

@@ -15,14 +15,15 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.collect.Streams;
 import com.typesafe.config.Config;
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StorageDescriptor;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -30,8 +31,8 @@ import javax.annotation.Nullable;
 /**
  * Repository of all entities configured in the system.
  */
-@Evolving("Affected by #66")
-public interface Repository extends AutoCloseable {
+@Evolving
+public interface Repository {
 
   static Repository of(Config config) {
     return ConfigRepository.of(config);
@@ -100,16 +101,30 @@ public interface Repository extends AutoCloseable {
   ValueSerializerFactory getValueSerializerFactory(String scheme);
 
   /**
-   * Retrieve writer for specified attribute.
-   *
-   * @param attr the attribute to retrieve writer for
-   * @return the attribute writer
+   * Retrieve {@link DataOperator} representation for this {@link Repository}.
+   * @param T type of the DataOperator
+   * @param type the class object of the DataOperator
+   * @return the data operator of given type
+   * @throws ClassNotFoundException if the given implementation cannot be created
    */
-  Optional<OnlineAttributeWriter> getWriter(AttributeDescriptor<?> attr);
+  default <T extends DataOperator> T asDataOperator(Class<T> type)
+      throws ClassNotFoundException {
 
-  /**
-   * Close all allocated resources.
-   */
-  public void close();
+    ServiceLoader<DataOperator> loader = ServiceLoader.load(DataOperator.class);
+    return Streams
+        .stream(loader)
+        .filter(operator -> {
+          boolean assignable = type.isAssignableFrom(operator.getClass());
+          if (!assignable) {
+            operator.close();
+          }
+          return assignable;
+        })
+        .findAny()
+        .map(o -> (T) o)
+        .orElseThrow(() -> new ClassNotFoundException(
+            "Cannot find data operator of type " + type));
+  }
+
 
 }

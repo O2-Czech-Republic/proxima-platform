@@ -86,13 +86,47 @@
     </dependency>
 
     <dependency>
+      <groupId>cz.seznam.euphoria</groupId>
+      <artifactId>euphoria-core</artifactId>
+      <version>${euphoria.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.seznam.euphoria</groupId>
+      <artifactId>euphoria-testing</artifactId>
+      <version>${euphoria.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
     </dependency>
 
     <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>23.0</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-core</artifactId>
+      <version>${project.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.seznam.euphoria</groupId>
+      <artifactId>euphoria-local</artifactId>
+      <version>${euphoria.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>

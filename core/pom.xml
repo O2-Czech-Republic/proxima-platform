@@ -101,29 +101,9 @@
     </dependency>
 
     <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-core</artifactId>
-      <version>${euphoria.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-testing</artifactId>
-      <version>${euphoria.version}</version>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
       <groupId>com.tdunning</groupId>
       <artifactId>t-digest</artifactId>
       <version>3.2</version>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-local</artifactId>
-      <version>${euphoria.version}</version>
-      <scope>test</scope>
     </dependency>
 
     <dependency>

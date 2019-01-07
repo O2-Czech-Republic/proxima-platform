@@ -90,9 +90,7 @@ public class ModelGenerator {
         .withReadOnly(true)
         .withValidate(false)
         .withLoadFamilies(false)
-        .withLoadAccessors(false)
         .build();
-
 
     Map<String, Object> root = new HashMap<>();
 

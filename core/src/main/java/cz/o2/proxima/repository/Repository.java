@@ -19,7 +19,6 @@ import com.google.common.collect.Streams;
 import com.typesafe.config.Config;
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
-import cz.o2.proxima.storage.StorageDescriptor;
 
 import java.util.Map;
 import java.util.Optional;
@@ -68,15 +67,6 @@ public interface Repository {
   boolean isEmpty();
 
   /**
-   * Retrieve storage descriptor by scheme.
-   *
-   * @param scheme storage scheme to look for
-   * @return {@link StorageDescriptor} for the specified scheme
-   */
-  StorageDescriptor getStorageDescriptor(String scheme);
-
-
-  /**
    * List all unique attribute families.
    *
    * @return all families specified in this repository
@@ -102,28 +92,42 @@ public interface Repository {
 
   /**
    * Retrieve {@link DataOperator} representation for this {@link Repository}.
-   * @param T type of the DataOperator
-   * @param type the class object of the DataOperator
+   *
+   * @param <T> type of the operator
+   * @param type the operator class
+   *
    * @return the data operator of given type
-   * @throws ClassNotFoundException if the given implementation cannot be created
    */
-  default <T extends DataOperator> T asDataOperator(Class<T> type)
-      throws ClassNotFoundException {
+  @SuppressWarnings("unchecked")
+  default <T extends DataOperator> T asDataOperator(Class<T> type) {
 
-    ServiceLoader<DataOperator> loader = ServiceLoader.load(DataOperator.class);
+    ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(
+        DataOperatorFactory.class);
+
     return Streams
-        .stream(loader)
-        .filter(operator -> {
-          boolean assignable = type.isAssignableFrom(operator.getClass());
-          if (!assignable) {
-            operator.close();
-          }
-          return assignable;
-        })
+        .stream(loaders)
+        .filter(factory ->  factory.isOfType(type))
         .findAny()
-        .map(o -> (T) o)
-        .orElseThrow(() -> new ClassNotFoundException(
-            "Cannot find data operator of type " + type));
+        .map(o -> (DataOperatorFactory<T>) o)
+        .map(f -> f.create(this))
+        .orElseThrow(() -> new IllegalStateException(
+            "Operator " + type + " not found."));
+  }
+
+  /**
+   * Check if given implementation of data operator is available on classpath
+   * and {@link #asDataOperator(java.lang.Class)} will return non-null object
+   * for class corresponding the given name.
+   * @param name name of the operator
+   * @return {@code true} if the operator is available, {@code false} otherwise
+   */
+  default boolean hasOperator(String name) {
+    ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(
+        DataOperatorFactory.class);
+    return Streams.stream(loaders)
+        .filter(f -> f.getOperatorName().equals(name))
+        .findAny()
+        .isPresent();
   }
 
 

@@ -25,7 +25,7 @@ import lombok.Getter;
 
 /**
  * Base class for {@link AttributeDescriptorImpl}
- * and {@link AttributeProxyDescriptorImpl}.
+ * and {@link AttributeProxyDescriptor}.
  */
 @Internal
 public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<T> {
@@ -149,11 +149,10 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
         .setSchemeUri(getSchemeUri());
   }
 
-  AttributeProxyDescriptorImpl<T> toProxy() {
-    Preconditions.checkArgument(
-        this instanceof AttributeProxyDescriptorImpl,
+  AttributeProxyDescriptor<T> toProxy() {
+    Preconditions.checkArgument(this instanceof AttributeProxyDescriptor,
         "Attribute " + this + " is not proxy attribute");
-    return (AttributeProxyDescriptorImpl<T>) this;
+    return (AttributeProxyDescriptor<T>) this;
   }
 
 }

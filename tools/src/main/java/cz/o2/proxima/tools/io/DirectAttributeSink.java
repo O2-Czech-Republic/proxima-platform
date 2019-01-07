@@ -18,7 +18,7 @@ package cz.o2.proxima.tools.io;
 import cz.o2.proxima.annotations.Experimental;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.seznam.euphoria.core.client.io.DataSink;
 import cz.seznam.euphoria.core.client.io.Writer;

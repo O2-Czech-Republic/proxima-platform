@@ -23,19 +23,12 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import cz.o2.proxima.functional.BiFunction;
-import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
-import cz.o2.proxima.storage.DataAccessor;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
-import cz.o2.proxima.storage.StorageDescriptor;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.batch.BatchLogObservable;
-import cz.o2.proxima.storage.commitlog.CommitLogReader;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import cz.o2.proxima.util.CamelCase;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.Pair;
@@ -56,8 +49,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -115,27 +106,17 @@ public class ConfigRepository implements Repository, Serializable {
     }
 
     private final Config config;
-    private Factory<ExecutorService> executorFactory;
     private boolean readOnly = false;
     private boolean validate = true;
     private boolean loadFamilies = true;
-    private boolean loadAccessors = true;
 
     private Builder(Config config, boolean test) {
       this.config = Objects.requireNonNull(config);
-      this.executorFactory = () -> Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r);
-        t.setName("ProximaRepositoryPool");
-        t.setUncaughtExceptionHandler((thr, exc) ->
-            log.error("Error running task in thread {}", thr.getName(), exc));
-        return t;
-      });
 
       if (test) {
         this.readOnly = true;
         this.validate = false;
         this.loadFamilies = false;
-        this.loadAccessors = false;
       }
     }
 
@@ -154,21 +135,9 @@ public class ConfigRepository implements Repository, Serializable {
       return this;
     }
 
-    public Builder withLoadAccessors(boolean flag) {
-      this.loadAccessors = flag;
-      return this;
-    }
-
-    public Builder withExecutorFactory(
-        Factory<ExecutorService> executorFactory) {
-      this.executorFactory = executorFactory;
-      return this;
-    }
-
     public ConfigRepository build() {
       return new ConfigRepository(
-          config, readOnly, validate, loadFamilies,
-          loadAccessors, executorFactory);
+          config, readOnly, validate, loadFamilies);
     }
   }
 
@@ -199,7 +168,8 @@ public class ConfigRepository implements Repository, Serializable {
    * This enables to use the repository inside reader applications that
    * don't have to have all the server jars on classpath.
    */
-  private final boolean isReadonly;
+  @Getter
+  private final boolean readonly;
 
   /**
    * Flag to indicate if we should validate the scheme with serializer.
@@ -208,20 +178,6 @@ public class ConfigRepository implements Repository, Serializable {
    * This is useful mostly inside the maven plugin.
    */
   private final boolean shouldValidate;
-
-  /**
-   * Flag to indicate we should or should not load accessor to column families.
-   * The accessor is not needed mostly in the compiler.
-   */
-  private final boolean shouldLoadAccessors;
-
-  /**
-   * Map of all storage descriptors available.
-   * Key is acceptable scheme of the descriptor.
-   * This need not be synchronized because it is only written in constructor
-   * and then it is read-only.
-   **/
-  private final Map<String, StorageDescriptor> schemeToStorage = new HashMap<>();
 
   /**
    * Map of all scheme serializers.
@@ -253,15 +209,10 @@ public class ConfigRepository implements Repository, Serializable {
   private final Map<String, TransformationDescriptor> transformations = new HashMap<>();
 
   /**
-   * Context passed to serializable data accessors.
+   * Set of operators created by this repository.
    */
-  private final Context context;
-
-  /**
-   * Cache of writers for all attributes.
-   */
-  private final Map<AttributeDescriptor<?>, OnlineAttributeWriter> writers
-      = Collections.synchronizedMap(new HashMap<>());
+  private final Set<DataOperator> operators = Collections.synchronizedSet(
+      new HashSet<>());
 
   /**
    * Construct the repository from the config with the specified read-only and
@@ -272,30 +223,20 @@ public class ConfigRepository implements Repository, Serializable {
    * @param shouldValidate set to false to skip some sanity checks (not recommended)
    * @param loadFamilies should we load attribute families? This is needed
    *                     only during runtime, for maven plugin it is set to false
-   * @param loadAccessors should we load accessors to column families? When not loaded
-   *                      the repository will not be usable neither for reading
-   *                      nor for writing (this is usable merely for code generation)
    */
   private ConfigRepository(
       Config cfg,
       boolean isReadonly,
       boolean shouldValidate,
-      boolean loadFamilies,
-      boolean loadAccessors,
-      Factory<ExecutorService> executorFactory) {
+      boolean loadFamilies) {
 
     this.config = cfg;
-    this.isReadonly = isReadonly;
+    this.readonly = isReadonly;
     this.shouldValidate = shouldValidate;
-    this.shouldLoadAccessors = loadAccessors;
-    this.context = new Context(executorFactory);
 
     try {
 
-      // First read all storage implementations available to the repository.
-      readStorages(ServiceLoader.load(StorageDescriptor.class));
-
-      // Next read all scheme serializers.
+      // read all scheme serializers.
       readSchemeSerializers(ServiceLoader.load(ValueSerializerFactory.class));
 
       reloadConfig(loadFamilies, config);
@@ -312,7 +253,6 @@ public class ConfigRepository implements Repository, Serializable {
     this.attributeToFamily.clear();
     this.entitiesByName.clear();
     this.transformations.clear();
-    this.close();
 
     // Read the config and store entity descriptors
     readEntityDescriptors(config);
@@ -320,19 +260,17 @@ public class ConfigRepository implements Repository, Serializable {
     if (loadFamilies) {
       // Read attribute families and map them to storages by attribute. */
       readAttributeFamilies(config);
-      if (shouldLoadAccessors) {
-        // Link attribute families for proxied attribute (non replicated)
-        loadProxiedFamilies();
-        // modify entites based on replications
-        Map<String, Replication> replications = parseReplications(config);
-        readEntityReplications(replications);
-        // Create replication families
-        createReplicationFamilies(replications);
-        // Link attribute families for proxied attribute (replicated)
-        loadProxiedFamilies(true);
-        // Read transformations from one entity to another.
-        readTransformations(config);
-      }
+      // Link attribute families for proxied attribute (non replicated)
+      loadProxiedFamilies();
+      // modify entites based on replications
+      Map<String, Replication> replications = parseReplications(config);
+      readEntityReplications(replications);
+      // Create replication families
+      createReplicationFamilies(replications);
+      // Link attribute families for proxied attribute (replicated)
+      loadProxiedFamilies(true);
+      // Read transformations from one entity to another.
+      readTransformations(config);
     }
 
     if (shouldValidate) {
@@ -340,14 +278,8 @@ public class ConfigRepository implements Repository, Serializable {
       validate();
     }
 
-  }
+    operators.forEach(DataOperator::reload);
 
-  /**
-   * Retrieve {@link Context} that is used in all distributed operations.
-   * @return the serializable context
-   */
-  public Context getContext() {
-    return context;
   }
 
   private <T> T newInstance(String name, Class<T> cls) {
@@ -357,15 +289,6 @@ public class ConfigRepository implements Repository, Serializable {
     } catch (InstantiationException | IllegalAccessException ex) {
       throw new IllegalArgumentException("Cannot instantiate class " + name, ex);
     }
-  }
-
-  private void readStorages(Iterable<StorageDescriptor> storages) {
-    storages.forEach(store ->
-        store.getAcceptableSchemes().forEach(s -> {
-          log.info("Adding storage descriptor {} for scheme {}://",
-              store.getClass().getName(), s);
-          schemeToStorage.put(s, store);
-        }));
   }
 
   private void readSchemeSerializers(Iterable<ValueSerializerFactory> serializers) {
@@ -725,12 +648,8 @@ public class ConfigRepository implements Repository, Serializable {
           .orElseThrow(() -> new IllegalStateException(
               "Invalid state: `proxy` must not be null"));
 
-      if (shouldLoadAccessors) {
-        readTransform = writeTransform = getProxyTransform(settings);
-        readTransform.setup(readTarget);
-      } else {
-        readTransform = writeTransform = null;
-      }
+      readTransform = writeTransform = getProxyTransform(settings);
+      readTransform.setup(readTarget);
       entityBuilder.addAttribute(AttributeDescriptor.newProxy(
           attrName, readTarget, readTransform, writeTarget, writeTransform));
     }
@@ -777,16 +696,12 @@ public class ConfigRepository implements Repository, Serializable {
       writeTarget = original;
     }
 
-    if (shouldLoadAccessors) {
-      readTransform = readTarget == original
-          ? ProxyTransform.identity() : getProxyTransform(read);
-      writeTransform = writeTarget == original
-          ? ProxyTransform.identity() : getProxyTransform(write);
-      readTransform.setup(readTarget);
-      writeTransform.setup(writeTarget);
-    } else {
-      readTransform = writeTransform = null;
-    }
+    readTransform = readTarget == original
+        ? ProxyTransform.identity() : getProxyTransform(read);
+    writeTransform = writeTarget == original
+        ? ProxyTransform.identity() : getProxyTransform(write);
+    readTransform.setup(readTarget);
+    writeTransform.setup(writeTarget);
     entityBuilder.addAttribute(AttributeDescriptor.newProxy(
         attrName, readTarget, readTransform, writeTarget, writeTransform));
   }
@@ -955,27 +870,16 @@ public class ConfigRepository implements Repository, Serializable {
         () -> String.format(
             "Missing required field `%s' in attribute family %s", STORAGE, name))
         .toString());
-    final StorageDescriptor storageDesc = isReadonly
-        ? asReadOnly(Objects.requireNonNull(
-            schemeToStorage.get(
-                storageUri.getScheme()),
-                "Missing storage descriptor for scheme " + storageUri.getScheme()))
-        : schemeToStorage.get(storageUri.getScheme());
     final EntityDescriptor entDesc = findEntityRequired(entity);
-    if (storageDesc == null) {
-      throw new IllegalArgumentException(
-          "No storage for scheme " + storageUri.getScheme());
-    }
     AttributeFamilyDescriptor.Builder family = AttributeFamilyDescriptor
         .newBuilder()
+        .setEntity(entDesc)
         .setName(name)
         .setType(type)
         .setAccess(access)
+        .setStorageUri(storageUri)
+        .setCfg(cfg)
         .setSource((String) cfg.get(FROM));
-    if (shouldLoadAccessors) {
-      loadFamilyAccessors(
-          name, entDesc, storageUri, cfg, storageDesc, access, family);
-    }
     Collection<AttributeDescriptor<?>> allAttributes = new HashSet<>();
     for (String attr : attributes) {
       // attribute descriptors affected by this settings
@@ -983,7 +887,7 @@ public class ConfigRepository implements Repository, Serializable {
       attrDescs = searchAttributesMatching(attr, entDesc, false, false);
       allAttributes.addAll(attrDescs);
     }
-    if (!filter.isEmpty() && !isReadonly) {
+    if (!filter.isEmpty() && !readonly) {
       insertFilterIfPossible(allAttributes, type, filter, name, family);
     }
     allAttributes.forEach(family::addAttribute);
@@ -1016,55 +920,6 @@ public class ConfigRepository implements Repository, Serializable {
     family.setFilter(newInstance(filter, StorageFilter.class));
   }
 
-  private void loadFamilyAccessors(
-      String familyName,
-      EntityDescriptor entDesc,
-      URI storageUri,
-      Map<String, Object> cfg,
-      StorageDescriptor storageDesc,
-      AccessType access,
-      AttributeFamilyDescriptor.Builder family) {
-
-    DataAccessor accessor = storageDesc.getAccessor(entDesc, storageUri, cfg);
-
-    if (!isReadonly && !access.isReadonly()) {
-      family.setWriter(accessor.getWriter(context)
-          .orElseThrow(() -> new IllegalArgumentException(String.format(
-              "Storage %s has no valid writer for family %s, "
-                  + ", plesase specify the family as read-only.",
-              storageDesc, familyName))));
-    }
-    if (access.canRandomRead()) {
-      family.setRandomAccess(accessor.getRandomAccessReader(context)
-          .orElseThrow(() -> new IllegalArgumentException(String.format(
-              "Storage %s has no valid random access storage for family %s",
-               storageDesc, familyName))));
-    }
-    if (access.canReadCommitLog()) {
-      family.setCommitLog(accessor.getCommitLogReader(context).orElseThrow(
-          () -> new IllegalArgumentException(String.format(
-              "Storage %s has no valid commit-log storage for family %s",
-              storageDesc, familyName))));
-    }
-    if (access.canCreatePartitionedView()) {
-      family.setPartitionedView(accessor.getPartitionedView(context)
-          .orElseThrow(() -> new IllegalArgumentException(String.format(
-              "Storage %s has no valid partitioned view for family %s",
-              storageDesc, familyName))));
-    }
-    if (access.canCreatePartitionedCachedView()) {
-      family.setCachedView(accessor.getCachedView(context)
-          .orElseThrow(() -> new IllegalArgumentException(String.format(
-              "Storage %s has no cached partitioned view for family %s",
-              storageDesc, familyName))));
-    }
-    if (access.canReadBatchSnapshot() || access.canReadBatchUpdates()) {
-      family.setBatchObservable(accessor.getBatchLogObservable(context)
-          .orElseThrow(() -> new IllegalArgumentException(String.format(
-              "Storage %s has no batch log observable for family %s",
-              storageDesc, familyName))));
-    }
-  }
 
   private void insertFamily(AttributeFamilyDescriptor family, boolean overwrite) {
     family.getAttributes().forEach(a -> {
@@ -1352,7 +1207,7 @@ public class ConfigRepository implements Repository, Serializable {
                     (input, desc) -> {
                       String raw = strippingReplPrefix(input);
                       // each incoming attribute is proxy
-                      AttributeProxyDescriptorImpl<?> proxyDesc;
+                      AttributeProxyDescriptor<?> proxyDesc;
                       proxyDesc = ((AttributeDescriptorBase<?>) desc).toProxy();
                       return strippingReplPrefix(
                           proxyDesc.getWriteTransform().fromProxy(raw));
@@ -1400,7 +1255,7 @@ public class ConfigRepository implements Repository, Serializable {
                     sourceMapping::get,
                     (input, desc) -> {
                       String raw = strippingReplPrefix(input);
-                      AttributeProxyDescriptorImpl<?> proxyDesc;
+                      AttributeProxyDescriptor<?> proxyDesc;
                       proxyDesc = ((AttributeDescriptorBase<?>) sourceToOrig
                           .get(desc)).toProxy();
                       return strippingReplPrefix(
@@ -1625,7 +1480,7 @@ public class ConfigRepository implements Repository, Serializable {
 
     if (((AttributeDescriptorBase<?>) proxy).isProxy()) {
       // recursively bind targets
-      AttributeProxyDescriptorImpl<?> targetProxy;
+      AttributeProxyDescriptor<?> targetProxy;
       targetProxy = ((AttributeDescriptorBase<?>) proxy).toProxy();
       Set<String> toRebind = Stream.of(
           targetProxy.getReadTarget(), targetProxy.getWriteTarget())
@@ -1707,9 +1562,9 @@ public class ConfigRepository implements Repository, Serializable {
 
   private void loadProxiedFamilies(boolean all) {
     Map<Pair<AttributeFamilyDescriptor, AttributeFamilyDescriptor>,
-        List<AttributeProxyDescriptorImpl<?>>> readWriteToAttr;
+        List<AttributeProxyDescriptor<?>>> readWriteToAttr;
 
-    List<AttributeProxyDescriptorImpl<?>> attributes = getAllEntities()
+    List<AttributeProxyDescriptor<?>> attributes = getAllEntities()
         .flatMap(e -> e.getAllAttributes(true).stream())
         .filter(a -> ((AttributeDescriptorBase<?>) a).isProxy())
         .filter(a -> all || !((AttributeDescriptorBase<?>) a).isReplica())
@@ -1719,7 +1574,7 @@ public class ConfigRepository implements Repository, Serializable {
     // build dependency ordering, because we might have dependency
     // chain in the families, and we need to rebind them
     // in the dependency order (bottom-up)
-    Collection<AttributeProxyDescriptorImpl<?>> dependencyOrdered = all
+    Collection<AttributeProxyDescriptor<?>> dependencyOrdered = all
         ? buildProxyOrdering(attributes)
         : attributes;
 
@@ -1751,7 +1606,7 @@ public class ConfigRepository implements Repository, Serializable {
                 Pair::getSecond,
                 Collectors.mapping(Pair::getFirst, Collectors.toList())));
 
-    for (AttributeProxyDescriptorImpl<?> attr : dependencyOrdered) {
+    for (AttributeProxyDescriptor<?> attr : dependencyOrdered) {
       // prevent ConcurrentModificationException
       List<AttributeFamilyDescriptor> createdFamilies = new ArrayList<>();
 
@@ -1759,17 +1614,16 @@ public class ConfigRepository implements Repository, Serializable {
           .stream()
           .filter(e -> e.getValue().contains(attr))
           .forEach(e -> {
-            List<AttributeProxyDescriptorImpl<?>> proxyList = e.getValue();
+            List<AttributeProxyDescriptor<?>> proxyList = e.getValue();
             // cartesian product of read x write families
             for (AttributeFamilyDescriptor read
                 : getFamiliesForAttribute(attr.getReadTarget())) {
               for (AttributeFamilyDescriptor write
                   : getFamiliesForAttribute(attr.getWriteTarget())) {
 
-                for (AttributeProxyDescriptorImpl<?> a : proxyList) {
+                for (AttributeProxyDescriptor<?> a : proxyList) {
                   createdFamilies.add(
                       AttributeFamilyProxyDescriptor.of(
-                          findEntityRequired(a.getEntity()),
                           proxyList, read, write));
                 }
               }
@@ -1780,12 +1634,12 @@ public class ConfigRepository implements Repository, Serializable {
 
   }
 
-  private LinkedHashSet<AttributeProxyDescriptorImpl<?>> buildProxyOrdering(
+  private LinkedHashSet<AttributeProxyDescriptor<?>> buildProxyOrdering(
       Collection<? extends AttributeDescriptor<?>> attributes) {
 
-    LinkedHashSet<AttributeProxyDescriptorImpl<?>> dependencyOrdered;
+    LinkedHashSet<AttributeProxyDescriptor<?>> dependencyOrdered;
     dependencyOrdered = new LinkedHashSet<>();
-    List<AttributeProxyDescriptorImpl<?>> proxies = attributes
+    List<AttributeProxyDescriptor<?>> proxies = attributes
         .stream()
         .map(a -> ((AttributeDescriptorBase<?>) a).toProxy())
         .collect(Collectors.toList());
@@ -1955,15 +1809,6 @@ public class ConfigRepository implements Repository, Serializable {
   }
 
   @Override
-  public StorageDescriptor getStorageDescriptor(String scheme) {
-    StorageDescriptor desc = this.schemeToStorage.get(scheme);
-    if (desc == null) {
-      throw new IllegalArgumentException("No storage for scheme " + scheme);
-    }
-    return desc;
-  }
-
-  @Override
   public Stream<AttributeFamilyDescriptor> getAllFamilies() {
     return attributeToFamily.values()
         .stream()
@@ -2000,28 +1845,6 @@ public class ConfigRepository implements Repository, Serializable {
             "Attribute " + attr + " has not primary family"));
   }
 
-  // FIXME
-  public Optional<OnlineAttributeWriter> getWriter(AttributeDescriptor<?> attr) {
-    synchronized (writers) {
-      OnlineAttributeWriter writer = writers.get(attr);
-      if (writer == null) {
-        getFamiliesForAttribute(attr)
-            .stream()
-            .filter(af -> af.getType() == StorageType.PRIMARY)
-            .filter(af -> !af.getAccess().isReadonly())
-            .findAny()
-            .ifPresent(af ->
-              // store writer of this family to all attributes
-              af.getWriter()
-                  .ifPresent(w ->
-                      af.getAttributes().forEach(a -> writers.put(a, w.online()))));
-
-        return Optional.ofNullable(writers.get(attr));
-      }
-      return Optional.of(writer);
-    }
-  }
-
   @Override
   public Stream<EntityDescriptor> getAllEntities() {
     return entitiesByName.values().stream();
@@ -2055,50 +1878,13 @@ public class ConfigRepository implements Repository, Serializable {
     return ret;
   }
 
-  /**
-   * Wrap given storage descriptor to read-only version.
-   */
-  private StorageDescriptor asReadOnly(StorageDescriptor wrap) {
-
-    Objects.requireNonNull(wrap, "Missing storage descriptor");
-    return new StorageDescriptor(wrap.getAcceptableSchemes()) {
-
-      @Override
-      public DataAccessor getAccessor(
-          EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-
-        DataAccessor wrapped = wrap.getAccessor(entityDesc, uri, cfg);
-
-        return new DataAccessor() {
-
-          @Override
-          public Optional<CommitLogReader> getCommitLogReader(Context context) {
-            return wrapped.getCommitLogReader(context);
-          }
-
-          @Override
-          public Optional<RandomAccessReader> getRandomAccessReader(Context context) {
-            return wrapped.getRandomAccessReader(context);
-          }
-
-          @Override
-          public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-            return wrapped.getBatchLogObservable(context);
-          }
-
-        };
-      }
-
-    };
+  @Override
+  public <T extends DataOperator> T asDataOperator(Class<T> type) {
+    T operator = Repository.super.asDataOperator(type);
+    operators.add(operator);
+    return operator;
   }
 
-  // FIXME
-  public void close() {
-    synchronized (writers) {
-      writers.entrySet().stream().map(Map.Entry::getValue)
-          .distinct()
-          .forEach(OnlineAttributeWriter::close);
-      writers.clear();
-    }
-  }
+
+
 }

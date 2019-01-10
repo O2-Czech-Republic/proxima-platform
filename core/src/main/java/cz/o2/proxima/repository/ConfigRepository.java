@@ -23,6 +23,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import cz.o2.proxima.functional.BiFunction;
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
@@ -1879,8 +1880,10 @@ public class ConfigRepository implements Repository, Serializable {
   }
 
   @Override
-  public <T extends DataOperator> T asDataOperator(Class<T> type) {
-    T operator = Repository.super.asDataOperator(type);
+  public <T extends DataOperator> T asDataOperator(
+      Class<T> type, Consumer<T>... modifiers) {
+
+    T operator = Repository.super.asDataOperator(type, modifiers);
     operators.add(operator);
     return operator;
   }

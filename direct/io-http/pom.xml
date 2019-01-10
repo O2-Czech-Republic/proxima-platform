@@ -42,6 +42,7 @@
             <excludes>
               <!-- exclude proxima and core dependencies -->
               <exclude>cz.o2.proxima:proxima-core</exclude>
+              <exclude>cz.o2.proxima:proxima-direct-core</exclude>
             </excludes>
           </artifactSet>
           <relocations>
@@ -73,6 +74,12 @@
     <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-core</artifactId>
       <version>${project.version}</version>
     </dependency>
 

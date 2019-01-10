@@ -18,7 +18,9 @@ package cz.o2.proxima.repository;
 import com.google.common.collect.Streams;
 import com.typesafe.config.Config;
 import cz.o2.proxima.annotations.Evolving;
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
+import java.util.Arrays;
 
 import java.util.Map;
 import java.util.Optional;
@@ -95,11 +97,13 @@ public interface Repository {
    *
    * @param <T> type of the operator
    * @param type the operator class
+   * @param modifiers functions to be applied to the operator before it is returned
    *
    * @return the data operator of given type
    */
   @SuppressWarnings("unchecked")
-  default <T extends DataOperator> T asDataOperator(Class<T> type) {
+  default <T extends DataOperator> T asDataOperator(
+      Class<T> type, Consumer<T>... modifiers) {
 
     ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(
         DataOperatorFactory.class);
@@ -109,15 +113,19 @@ public interface Repository {
         .filter(factory ->  factory.isOfType(type))
         .findAny()
         .map(o -> (DataOperatorFactory<T>) o)
-        .map(f -> f.create(this))
+        .map(f -> {
+          T op = f.create(this);
+          Arrays.stream(modifiers).forEach(m -> m.accept(op));
+          return op;
+        })
         .orElseThrow(() -> new IllegalStateException(
             "Operator " + type + " not found."));
   }
 
   /**
    * Check if given implementation of data operator is available on classpath
-   * and {@link #asDataOperator(java.lang.Class)} will return non-null object
-   * for class corresponding the given name.
+   * and {@link #asDataOperator(java.lang.Class, Consumer...)} will return
+   * non-null object for class corresponding the given name.
    * @param name name of the operator
    * @return {@code true} if the operator is available, {@code false} otherwise
    */

@@ -59,9 +59,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   private final Map<AttributeDescriptor<?>, OnlineAttributeWriter> writers
       = Collections.synchronizedMap(new HashMap<>());
 
-
-  // FIXME: configurable
-  private final Factory<ExecutorService> executorFactory = () -> Executors
+  private Factory<ExecutorService> executorFactory = () -> Executors
       .newCachedThreadPool(r -> {
         Thread t = new Thread(r);
         t.setName("ProximaRepositoryPool");
@@ -70,18 +68,27 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
         return t;
       });
 
-
   private final Context context;
   private final List<DataAccessorFactory> factories = new ArrayList<>();
 
   DirectDataOperator(Repository repo) {
-
     this.repo = repo;
     this.context = new Context(familyMap::get, executorFactory);
     ServiceLoader<DataAccessorFactory> loader = ServiceLoader.load(
         DataAccessorFactory.class);
     Iterables.addAll(factories, loader);
     reload();
+  }
+
+  /**
+   * Explicitly specify {@link ExecutorService} to use when constructing
+   * threads.
+   * @param factory the factory for {@link ExecutorService}
+   * @return this
+   */
+  public DirectDataOperator withExecutorFactory(Factory<ExecutorService> factory) {
+    this.executorFactory = factory;
+    return this;
   }
 
   @Override

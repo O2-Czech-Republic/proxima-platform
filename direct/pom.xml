@@ -111,7 +111,6 @@
     <module>io-http</module>
     <module>io-kafka</module>
     <module>io-pubsub</module>
-    <module>io-pubsub-partitioned</module>
   </modules>
 
 </project>

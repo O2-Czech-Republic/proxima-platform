@@ -22,16 +22,17 @@
 
   <parent>
     <groupId>cz.o2.proxima</groupId>
-    <artifactId>platform-parent</artifactId>
+    <artifactId>proxima-direct</artifactId>
     <version>0.3-SNAPSHOT</version>
   </parent>
      
-  <artifactId>proxima-ingest-server-grpc</artifactId>
+  <artifactId>proxima-server-rpc-proto</artifactId>
   <packaging>jar</packaging>
      
   <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
+
     <extensions>
       <extension>
         <groupId>kr.motd.maven</groupId>
@@ -39,6 +40,7 @@
         <version>1.4.1.Final</version>
       </extension>
     </extensions>
+
     <plugins>
       <plugin>
         <groupId>org.xolstice.maven.plugins</groupId>
@@ -59,76 +61,37 @@
           </execution>
         </executions>
       </plugin>
+
     </plugins>
   </build>
 
   <dependencies>
 
     <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-core</artifactId>
-      <version>${project.version}</version>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>${proto.version}</version>
     </dependency>
 
     <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-scheme</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-core</artifactId>
-      <version>${project.version}</version>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-scheme</artifactId>
-      <version>${project.version}</version>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-server-rpc-proto</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.projectlombok</groupId>
-      <artifactId>lombok</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>net.jodah</groupId>
-      <artifactId>failsafe</artifactId>
-      <version>1.0.4</version>
-    </dependency>
-
-    <dependency>
-      <groupId>com.github.spotbugs</groupId>
-      <artifactId>spotbugs-annotations</artifactId>
-      <version>${spotbugs.version}</version>
-      <scope>provided</scope>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-all</artifactId>
+      <version>${grpc.version}</version>
+      <exclusions>
+        <!-- do not use protobuf-lite, use protobuf-java -->
+        <exclusion>
+          <groupId>com.google.protobuf</groupId>
+          <artifactId>protobuf-lite</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-protobuf-nano</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.grpc</groupId>
+          <artifactId>grpc-okhttp</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
   </dependencies>

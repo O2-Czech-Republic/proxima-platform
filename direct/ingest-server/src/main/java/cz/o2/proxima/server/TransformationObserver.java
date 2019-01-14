@@ -22,6 +22,7 @@ import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.transform.Transformation;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
@@ -33,18 +34,21 @@ import lombok.extern.slf4j.Slf4j;
 public class TransformationObserver extends RetryableLogObserver {
 
   private final Repository repo;
+  private final DirectDataOperator direct;
   private final Transformation transformation;
   private final StorageFilter filter;
   private final String name;
 
   TransformationObserver(
       int retries, String consumer, CommitLogReader reader,
-      Repository repo, String name, Transformation transformation,
+      Repository repo, DirectDataOperator direct,
+      String name, Transformation transformation,
       StorageFilter filter) {
 
 
     super(retries, consumer, reader);
     this.repo = repo;
+    this.direct = direct;
     this.name = name;
     this.transformation = transformation;
     this.filter = filter;
@@ -83,7 +87,7 @@ public class TransformationObserver extends RetryableLogObserver {
               "Transformation {}: writing transformed element {}",
               name, elem);
           ingestRequest(
-              repo, elem, elem.getUuid(), rpc -> {
+              direct, elem, elem.getUuid(), rpc -> {
                 if (rpc.getStatus() == 200) {
                   if (toConfirm.decrementAndGet() == 0) {
                     committer.confirm();

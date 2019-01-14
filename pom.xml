@@ -410,10 +410,7 @@
     <module>core</module>
     <module>direct</module>
     <module>example</module>
-    <module>ingest-client</module>
-    <module>ingest-server</module>
     <module>maven</module>
-    <module>rpc</module>
     <module>scheme</module>
     <module>tools</module>
   </modules>

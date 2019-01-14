@@ -16,6 +16,7 @@
 package cz.o2.proxima.tools.io;
 
 import cz.o2.proxima.annotations.Experimental;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -34,29 +35,37 @@ import lombok.extern.slf4j.Slf4j;
 @Experimental("Does not follow correct exactly-once semantics for now.")
 public class DirectAttributeSink implements DataSink<StreamElement> {
 
-  public static DataSink<StreamElement> of(Repository repo) {
-    return new DirectAttributeSink(repo);
+  public static DataSink<StreamElement> of(
+      Repository repo,
+      DirectDataOperator direct) {
+
+    return new DirectAttributeSink(repo, direct);
   }
 
   public static DataSink<StreamElement> of(
-      Repository repo, UnaryFunction<StreamElement, StreamElement> transformFn) {
+      Repository repo,
+      DirectDataOperator direct,
+      UnaryFunction<StreamElement, StreamElement> transformFn) {
 
-    return new DirectAttributeSink(repo, transformFn);
+    return new DirectAttributeSink(repo, direct, transformFn);
   }
 
   private final Repository repo;
+  private final DirectDataOperator direct;
   private final AtomicInteger unclosedWriters = new AtomicInteger();
   private final UnaryFunction<StreamElement, StreamElement> transformFn;
 
-  private DirectAttributeSink(Repository repo) {
-    this(repo, UnaryFunction.identity());
+  private DirectAttributeSink(Repository repo, DirectDataOperator direct) {
+    this(repo, direct, UnaryFunction.identity());
   }
 
   private DirectAttributeSink(
       Repository repo,
+      DirectDataOperator direct,
       UnaryFunction<StreamElement, StreamElement> transformFn) {
 
     this.repo = repo;
+    this.direct = direct;
     this.transformFn = transformFn;
   }
 
@@ -67,7 +76,7 @@ public class DirectAttributeSink implements DataSink<StreamElement> {
 
       @Override
       public void write(StreamElement elem) throws IOException {
-        OnlineAttributeWriter writer = repo.getWriter(elem.getAttributeDescriptor())
+        OnlineAttributeWriter writer = direct.getWriter(elem.getAttributeDescriptor())
             .orElseThrow(() -> new IllegalStateException(
                 "Missing writer for " + elem.getAttributeDescriptor()));
         StreamElement toWrite = transformFn.apply(elem);
@@ -95,7 +104,7 @@ public class DirectAttributeSink implements DataSink<StreamElement> {
       @Override
       public void close() throws IOException {
         if (unclosedWriters.decrementAndGet() == 0) {
-          repo.close();
+          direct.close();
         }
       }
 

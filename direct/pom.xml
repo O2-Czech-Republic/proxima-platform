@@ -115,6 +115,8 @@
   <modules>
     <module>compiler</module>
     <module>core</module>
+    <module>ingest-client</module>    
+    <module>ingest-server</module>    
     <module>io-bigtable</module>
     <module>io-cassandra</module>
     <module>io-gcloud-storage</module>
@@ -124,6 +126,7 @@
     <module>io-http</module>
     <module>io-kafka</module>
     <module>io-pubsub</module>
+    <module>rpc</module>
   </modules>
 
 </project>

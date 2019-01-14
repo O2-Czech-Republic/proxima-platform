@@ -17,6 +17,7 @@ package cz.o2.proxima.tools.groovy;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -40,6 +41,7 @@ public class GroovyEnvTest {
 
   final Config cfg = ConfigFactory.load("test-reference.conf").resolve();
   final Repository repo = ConfigRepository.of(cfg);
+  final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
   final EntityDescriptor gateway = repo.findEntity("gateway")
       .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
   final EntityDescriptor batch = repo.findEntity("batch")
@@ -94,7 +96,7 @@ public class GroovyEnvTest {
   @Test
   public void testStreamFromOldestCollect() throws Exception {
     Script compiled = compile("env.gateway.armed.streamFromOldest().collect()");
-    repo.getWriter(armed)
+    direct.getWriter(armed)
         .orElseThrow(() -> new IllegalStateException("Missing writer"))
         .write(StreamElement.update(gateway, armed, "uuid",
             "key", armed.getName(), System.currentTimeMillis(), new byte[] { }),
@@ -107,7 +109,7 @@ public class GroovyEnvTest {
   @Test
   public void testUnionFromOldestCollect() throws Exception {
     Script compiled = compile("env.unionStreamFromOldest(env.gateway.armed).collect()");
-    repo.getWriter(armed)
+    direct.getWriter(armed)
         .orElseThrow(() -> new IllegalStateException("Missing writer"))
         .write(StreamElement.update(gateway, armed, "uuid",
             "key", armed.getName(), System.currentTimeMillis(), new byte[] { }),
@@ -120,7 +122,7 @@ public class GroovyEnvTest {
   @Test
   public void testBatchUpdatesCollect() throws Exception {
     Script compiled = compile("env.batch.data.batchUpdates().collect()");
-    repo.getWriter(armed)
+    direct.getWriter(armed)
         .orElseThrow(() -> new IllegalStateException("Missing writer"))
         .write(StreamElement.update(batch, data, "uuid",
             "key", data.getName(), System.currentTimeMillis(), new byte[] { }),
@@ -133,7 +135,7 @@ public class GroovyEnvTest {
   @Test
   public void testBatchUpdatesCollectWildcard() throws Exception {
     Script compiled = compile("env.batch.wildcard.batchUpdates().collect()");
-    repo.getWriter(wildcard)
+    direct.getWriter(wildcard)
         .orElseThrow(() -> new IllegalStateException("Missing writer"))
         .write(StreamElement.update(batch, wildcard, "uuid",
             "key", wildcard.toAttributePrefix() + "1",
@@ -148,12 +150,12 @@ public class GroovyEnvTest {
   public void testUnionBatchUpdatesCollect() throws Exception {
     Script compiled = compile(
         "env.unionBatchUpdates(env.batch.data, env.batch.wildcard).collect()");
-    repo.getWriter(data)
+    direct.getWriter(data)
         .orElseThrow(() -> new IllegalStateException("Missing writer"))
         .write(StreamElement.update(batch, data, "uuid",
             "key", data.getName(), System.currentTimeMillis(), new byte[] { }),
             (succ, exc) -> { });
-    repo.getWriter(wildcard)
+    direct.getWriter(wildcard)
         .orElseThrow(() -> new IllegalStateException("Missing writer"))
         .write(StreamElement.update(batch, wildcard, "uuid",
             "key", wildcard.toAttributePrefix() + "1",
@@ -168,7 +170,7 @@ public class GroovyEnvTest {
   public void testStreamFromOldestWindowedCollect() throws Exception {
     Script compiled = compile("env.gateway.armed.streamFromOldest()"
         + ".reduceToLatest().collect()");
-    repo.getWriter(armed)
+    direct.getWriter(armed)
         .orElseThrow(() -> new IllegalStateException("Missing writer"))
         .write(StreamElement.update(gateway, armed, "uuid",
             "key", armed.getName(), System.currentTimeMillis(), new byte[] { }),
@@ -184,7 +186,7 @@ public class GroovyEnvTest {
         "env.batch.data.batchUpdates().persist(env, env.gateway.desc(), { it.key }, "
             + "{ 'armed' }, { it.parsed.get() }, { it.stamp })\n"
         + "env.gateway.armed.streamFromOldest().collect()");
-    repo.getWriter(data)
+    direct.getWriter(data)
         .orElseThrow(() -> new IllegalStateException("Missing writer"))
         .write(StreamElement.update(batch, data, "uuid",
             "key", data.getName(), System.currentTimeMillis(), new byte[] { }),
@@ -205,7 +207,7 @@ public class GroovyEnvTest {
     Script compiled = compile(
         "env.gateway.device.deleteAll(\"gw\", 1234567890000)\n"
         + "env.gateway.device.streamFromOldest().reduceToLatest().collect()");
-    OnlineAttributeWriter writer = repo.getWriter(device)
+    OnlineAttributeWriter writer = direct.getWriter(device)
         .orElseThrow(() -> new IllegalStateException("Missing writer"));
     writer.write(StreamElement.update(
         gateway, device, "uuid", "key", device.toAttributePrefix() + "1", now - 1,
@@ -224,7 +226,7 @@ public class GroovyEnvTest {
     Script compiled = compile(
         /* "env.gateway.device.deleteAll(\"gw\", 1234567890000)\n" */ ""
         + "env.gateway.device.list(\"gw\")");
-    OnlineAttributeWriter writer = repo.getWriter(device)
+    OnlineAttributeWriter writer = direct.getWriter(device)
         .orElseThrow(() -> new IllegalStateException("Missing writer"));
     writer.write(StreamElement.update(
         gateway, device, "uuid", "gw", device.toAttributePrefix() + "1", now - 1,

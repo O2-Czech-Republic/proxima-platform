@@ -80,65 +80,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class InMemStorage implements DataAccessorFactory {
 
-  @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("inmem");
-  }
-
-  @Override
-  public DataAccessor create(
-      EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
-
-    observers.computeIfAbsent(uri, k -> Collections.synchronizedNavigableMap(
-        new TreeMap<>()));
-    NavigableMap<Integer, InMemIngestWriter> uriObservers = observers.get(uri);
-    Writer writer = new Writer(entity, uri, data, uriObservers);
-    InMemCommitLogReader commitLogReader = new InMemCommitLogReader(
-        entity, uri, data, uriObservers);
-    Reader reader = new Reader(entity, uri, data);
-    CachedView cachedView = new CachedView(reader, commitLogReader, writer);
-
-    return new DataAccessor() {
-      @Override
-      public Optional<AttributeWriterBase> getWriter(Context context) {
-        Objects.requireNonNull(context);
-        return Optional.of(writer);
-      }
-
-      @Override
-      public Optional<CommitLogReader> getCommitLogReader(Context context) {
-        Objects.requireNonNull(context);
-        return Optional.of(commitLogReader);
-      }
-
-      @Override
-      public Optional<RandomAccessReader> getRandomAccessReader(Context context) {
-        Objects.requireNonNull(context);
-        return Optional.of(reader);
-      }
-
-      @Override
-      public Optional<PartitionedView> getPartitionedView(Context context) {
-        Objects.requireNonNull(context);
-        return Optional.of(commitLogReader);
-      }
-
-      @Override
-      public Optional<PartitionedCachedView> getCachedView(Context context) {
-        Objects.requireNonNull(context);
-        return Optional.of(cachedView);
-      }
-
-      @Override
-      public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-        Objects.requireNonNull(context);
-        reader.setExecutorFactory(() -> context.getExecutorService());
-        return Optional.of(reader);
-      }
-
-    };
-  }
-
   @FunctionalInterface
   private interface InMemIngestWriter extends Serializable {
     void write(StreamElement data);
@@ -844,6 +785,65 @@ public class InMemStorage implements DataAccessorFactory {
   public InMemStorage() {
     this.data = Collections.synchronizedNavigableMap(new TreeMap<>());
     this.observers = new ConcurrentHashMap<>();
+  }
+
+  @Override
+  public boolean accepts(URI uri) {
+    return uri.getScheme().equals("inmem");
+  }
+
+  @Override
+  public DataAccessor create(
+      EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
+
+    observers.computeIfAbsent(uri, k -> Collections.synchronizedNavigableMap(
+        new TreeMap<>()));
+    NavigableMap<Integer, InMemIngestWriter> uriObservers = observers.get(uri);
+    Writer writer = new Writer(entity, uri, data, uriObservers);
+    InMemCommitLogReader commitLogReader = new InMemCommitLogReader(
+        entity, uri, data, uriObservers);
+    Reader reader = new Reader(entity, uri, data);
+    CachedView cachedView = new CachedView(reader, commitLogReader, writer);
+
+    return new DataAccessor() {
+      @Override
+      public Optional<AttributeWriterBase> getWriter(Context context) {
+        Objects.requireNonNull(context);
+        return Optional.of(writer);
+      }
+
+      @Override
+      public Optional<CommitLogReader> getCommitLogReader(Context context) {
+        Objects.requireNonNull(context);
+        return Optional.of(commitLogReader);
+      }
+
+      @Override
+      public Optional<RandomAccessReader> getRandomAccessReader(Context context) {
+        Objects.requireNonNull(context);
+        return Optional.of(reader);
+      }
+
+      @Override
+      public Optional<PartitionedView> getPartitionedView(Context context) {
+        Objects.requireNonNull(context);
+        return Optional.of(commitLogReader);
+      }
+
+      @Override
+      public Optional<PartitionedCachedView> getCachedView(Context context) {
+        Objects.requireNonNull(context);
+        return Optional.of(cachedView);
+      }
+
+      @Override
+      public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
+        Objects.requireNonNull(context);
+        reader.setExecutorFactory(() -> context.getExecutorService());
+        return Optional.of(reader);
+      }
+
+    };
   }
 
   @SuppressWarnings("unchecked")

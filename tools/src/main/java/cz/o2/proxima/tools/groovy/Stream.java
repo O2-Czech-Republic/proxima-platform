@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -228,6 +229,7 @@ public class Stream<T> {
 
     Dataset<StreamElement> output;
     Repository repo = repoProvider.getRepo();
+    DirectDataOperator direct = repoProvider.getDirect();
     output = FlatMap.of((Dataset<StreamElement>) dataset.build())
         .using((StreamElement in, Collector<StreamElement> ctx) -> {
           String key = in.getKey();
@@ -251,7 +253,7 @@ public class Stream<T> {
         .output();
 
     int prefixLength = replicationName.length() + target.length() + 3;
-    output.persist(DirectAttributeSink.of(repo, e ->
+    output.persist(DirectAttributeSink.of(repo, direct, e ->
         StreamElement.update(
             e.getEntityDescriptor(),
             e.getAttributeDescriptor(),
@@ -298,7 +300,9 @@ public class Stream<T> {
         })
         .output();
 
-    output.persist(DirectAttributeSink.of(repoProvider.getRepo()));
+    output.persist(DirectAttributeSink.of(
+        repoProvider.getRepo(),
+        repoProvider.getDirect()));
 
     runFlow(output.getFlow());
   }

@@ -17,6 +17,7 @@ package cz.o2.proxima.server;
 
 import com.google.common.base.Strings;
 import com.google.protobuf.TextFormat;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.proto.service.IngestServiceGrpc;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -48,13 +49,16 @@ import lombok.extern.slf4j.Slf4j;
 public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
 
   private final Repository repo;
+  private final DirectDataOperator direct;
   private final ScheduledExecutorService scheduler;
 
   public IngestService(
       Repository repo,
+      DirectDataOperator direct,
       ScheduledExecutorService scheduler) {
 
     this.repo = repo;
+    this.direct = direct;
     this.scheduler = scheduler;
   }
 
@@ -305,7 +309,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
       return false;
     }
     return ingestRequest(
-        repo, toStreamElement(request, entity.get(), attr.get()),
+        direct, toStreamElement(request, entity.get(), attr.get()),
         request.getUuid(), consumer);
   }
 

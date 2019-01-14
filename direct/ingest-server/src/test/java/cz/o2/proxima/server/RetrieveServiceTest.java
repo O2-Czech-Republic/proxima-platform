@@ -44,7 +44,7 @@ public class RetrieveServiceTest {
     server = new IngestServer(ConfigFactory.load("test-reference.conf")
         .withFallback(ConfigFactory.load())
         .resolve());
-    retrieve = new RetrieveService(server.repo);
+    retrieve = new RetrieveService(server.repo, server.direct);
     server.startConsumerThreads();
   }
 
@@ -121,7 +121,7 @@ public class RetrieveServiceTest {
     EntityDescriptor entity = server.repo.findEntity("dummy").get();
     AttributeDescriptor attribute = entity.findAttribute("data").get();
     String key = "my-fancy-entity-key";
-    server.repo.getWriter(attribute).get().write(
+    server.direct.getWriter(attribute).get().write(
         StreamElement.update(entity, attribute, UUID.randomUUID().toString(),
             key, attribute.getName(),
             System.currentTimeMillis(),
@@ -206,14 +206,14 @@ public class RetrieveServiceTest {
     AttributeDescriptor attribute = entity.findAttribute("wildcard.*").get();
     String key = "my-fancy-entity-key";
 
-    server.repo.getWriter(attribute).get().write(
+    server.direct.getWriter(attribute).get().write(
         StreamElement.update(
             entity, attribute, UUID.randomUUID().toString(),
             key, "wildcard.1",
             System.currentTimeMillis(),
             new byte[] { 1, 2, 3 }),
         (s, err) -> { });
-    server.repo.getWriter(attribute).get().write(
+    server.direct.getWriter(attribute).get().write(
         StreamElement.update(
             entity, attribute, UUID.randomUUID().toString(),
             key, "wildcard.2",
@@ -270,14 +270,14 @@ public class RetrieveServiceTest {
     AttributeDescriptor attribute = entity.findAttribute("wildcard.*").get();
     String key = "my-fancy-entity-key";
 
-    server.repo.getWriter(attribute).get().write(
+    server.direct.getWriter(attribute).get().write(
         StreamElement.update(
             entity, attribute, UUID.randomUUID().toString(),
             key, "wildcard.1",
             System.currentTimeMillis(),
             new byte[] { 1, 2, 3 }),
         (s, err) -> { });
-    server.repo.getWriter(attribute).get().write(
+    server.direct.getWriter(attribute).get().write(
         StreamElement.update(
             entity, attribute, UUID.randomUUID().toString(),
             key, "wildcard.2",
@@ -331,14 +331,14 @@ public class RetrieveServiceTest {
     AttributeDescriptor attribute = entity.findAttribute("wildcard.*").get();
     String key = "my-fancy-entity-key";
 
-    server.repo.getWriter(attribute).get().write(
+    server.direct.getWriter(attribute).get().write(
         StreamElement.update(
             entity, attribute, UUID.randomUUID().toString(),
             key, "wildcard.1",
             System.currentTimeMillis(),
             new byte[] { 1, 2, 3 }),
         (s, err) -> { });
-    server.repo.getWriter(attribute).get().write(
+    server.direct.getWriter(attribute).get().write(
         StreamElement.update(
             entity, attribute, UUID.randomUUID().toString(),
             key, "wildcard.2",
@@ -395,7 +395,7 @@ public class RetrieveServiceTest {
     ExtendedMessage payload = ExtendedMessage.newBuilder()
         .setFirst(1).setSecond(2).build();
 
-    server.repo.getWriter(attribute).get().write(
+    server.direct.getWriter(attribute).get().write(
         StreamElement.update(entity, attribute, UUID.randomUUID().toString(),
             key, attribute.getName(),
             System.currentTimeMillis(),

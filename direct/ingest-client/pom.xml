@@ -22,7 +22,7 @@
 
   <parent>
     <groupId>cz.o2.proxima</groupId>
-    <artifactId>platform-parent</artifactId>
+    <artifactId>proxima-direct</artifactId>
     <version>0.3-SNAPSHOT</version>
   </parent>
      
@@ -35,7 +35,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-core</artifactId>
+      <artifactId>proxima-direct-core</artifactId>
       <version>${project.version}</version>
     </dependency>
 

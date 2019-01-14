@@ -18,25 +18,26 @@ package cz.o2.proxima.server;
 import com.google.common.collect.Sets;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.proto.service.Rpc;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.transform.Transformation;
-import cz.o2.proxima.repository.TransformationDescriptor;
-import cz.o2.proxima.server.metrics.Metrics;
-import cz.o2.proxima.direct.core.AttributeWriterBase;
-import cz.o2.proxima.direct.core.BulkAttributeWriter;
-import cz.o2.proxima.direct.core.OnlineAttributeWriter;
-import cz.o2.proxima.storage.StorageFilter;
-import cz.o2.proxima.storage.StorageType;
-import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.direct.commitlog.AbstractRetryableLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.RetryableBulkObserver;
 import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
+import cz.o2.proxima.direct.core.AttributeWriterBase;
+import cz.o2.proxima.direct.core.BulkAttributeWriter;
+import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
+import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.proto.service.Rpc;
+import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.transform.Transformation;
+import cz.o2.proxima.repository.TransformationDescriptor;
+import cz.o2.proxima.server.metrics.Metrics;
+import cz.o2.proxima.storage.StorageFilter;
+import cz.o2.proxima.storage.StorageType;
+import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import io.grpc.ServerBuilder;
 import lombok.Getter;
@@ -101,6 +102,8 @@ public class IngestServer {
   @Getter
   final Repository repo;
   @Getter
+  final DirectDataOperator direct;
+  @Getter
   final Config cfg;
   @Getter
   final boolean ignoreErrors;
@@ -113,6 +116,7 @@ public class IngestServer {
   protected IngestServer(Config cfg) {
     this.cfg = cfg;
     repo = Repository.of(cfg);
+    direct = repo.asDataOperator(DirectDataOperator.class);
     if (log.isDebugEnabled()) {
       repo.getAllEntities()
           .forEach(e -> e.getAllAttributes(true)
@@ -130,14 +134,14 @@ public class IngestServer {
 
 
   static boolean ingestRequest(
-      Repository repo,
+      DirectDataOperator direct,
       StreamElement ingest, String uuid,
       Consumer<Rpc.Status> responseConsumer) {
 
     EntityDescriptor entityDesc = ingest.getEntityDescriptor();
     AttributeDescriptor attributeDesc = ingest.getAttributeDescriptor();
 
-    OnlineAttributeWriter writer = repo.getWriter(attributeDesc)
+    OnlineAttributeWriter writer = direct.getWriter(attributeDesc)
         .orElseThrow(() ->
             new IllegalStateException(
                 "Writer for attribute " + attributeDesc.getName() + " not found"));
@@ -213,8 +217,8 @@ public class IngestServer {
         : Constants.DEFALT_PORT;
     io.grpc.Server server = ServerBuilder.forPort(port)
         .executor(executor)
-        .addService(new IngestService(repo, scheduler))
-        .addService(new RetrieveService(repo))
+        .addService(new IngestService(repo, direct, scheduler))
+        .addService(new RetrieveService(repo, direct))
         .build();
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       log.info("Gracefully shuting down server.");
@@ -239,25 +243,28 @@ public class IngestServer {
   protected void startConsumerThreads() {
 
     // index the repository
-    Map<AttributeFamilyDescriptor, Set<AttributeFamilyDescriptor>> familyToCommitLog;
+    Map<
+        DirectAttributeFamilyDescriptor,
+        Set<DirectAttributeFamilyDescriptor>> familyToCommitLog;
     familyToCommitLog = indexFamilyToCommitLogs();
 
     log.info("Starting consumer threads for familyToCommitLog {}", familyToCommitLog);
     // execute threads to consume the commit log
     familyToCommitLog.forEach((family, logs) -> {
-      for (AttributeFamilyDescriptor commitLogFamily : logs) {
-        if (!family.getAccess().isReadonly()) {
+      for (DirectAttributeFamilyDescriptor commitLogFamily : logs) {
+        if (!family.getDesc().getAccess().isReadonly()) {
           CommitLogReader commitLog = commitLogFamily.getCommitLogReader()
               .orElseThrow(() -> new IllegalStateException(
                   "Failed to find commit-log reader in family " + commitLogFamily));
           AttributeWriterBase writer = family.getWriter()
               .orElseThrow(() ->
                   new IllegalStateException(
-                      "Unable to get writer for family " + family.getName() + "."));
-          StorageFilter filter = family.getFilter();
+                      "Unable to get writer for family "
+                          + family.getDesc().getName() + "."));
+          StorageFilter filter = family.getDesc().getFilter();
           Set<AttributeDescriptor<?>> allowedAttributes =
               new HashSet<>(family.getAttributes());
-          final String name = "consumer-" + family.getName();
+          final String name = "consumer-" + family.getDesc().getName();
           registerWriterTo(name, commitLog, allowedAttributes, filter,
               writer, retryPolicy);
           log.info(
@@ -275,10 +282,10 @@ public class IngestServer {
   }
 
   private void runTransformer(String name, TransformationDescriptor transform) {
-    AttributeFamilyDescriptor family = transform.getAttributes()
+    DirectAttributeFamilyDescriptor family = transform.getAttributes()
         .stream()
-        .map(a -> this.repo.getFamiliesForAttribute(a)
-            .stream().filter(af -> af.getAccess().canReadCommitLog())
+        .map(a -> direct.getFamiliesForAttribute(a)
+            .stream().filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .collect(Collectors.toSet()))
         .reduce(Sets::intersection)
         .filter(s -> !s.isEmpty())
@@ -297,7 +304,8 @@ public class IngestServer {
     CommitLogReader reader = family.getCommitLogReader()
         .orElseThrow(() ->
             new IllegalStateException(
-                "Unable to get reader for family " + family.getName() + "."));
+                "Unable to get reader for family "
+                    + family.getDesc().getName() + "."));
 
     startTransformationObserver(consumer, reader, t, f, name);
     log.info(
@@ -310,7 +318,7 @@ public class IngestServer {
       Transformation transformation, StorageFilter filter, String name) {
 
     new TransformationObserver(
-        3, consumer, reader, repo,
+        3, consumer, reader, repo, direct,
         name, transformation, filter).start();
   }
 
@@ -320,21 +328,21 @@ public class IngestServer {
    * themselves.
    */
   @SuppressWarnings("unchecked")
-  private Map<AttributeFamilyDescriptor, Set<AttributeFamilyDescriptor>>
+  private Map<DirectAttributeFamilyDescriptor, Set<DirectAttributeFamilyDescriptor>>
       indexFamilyToCommitLogs() {
 
     // each attribute and its associated primary family
-    final Map<AttributeDescriptor, AttributeFamilyDescriptor> attrToCommitLog;
-    attrToCommitLog = repo.getAllFamilies()
-        .filter(af -> af.getType() == StorageType.PRIMARY)
+    final Map<AttributeDescriptor, DirectAttributeFamilyDescriptor> attrToCommitLog;
+    attrToCommitLog = direct.getAllFamilies()
+        .filter(af -> af.getDesc().getType() == StorageType.PRIMARY)
         // take pair of attribute to associated commit log
         .flatMap(af -> af.getAttributes()
             .stream()
             .map(attr -> Pair.of(attr, af)))
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
-    return (Map) repo.getAllFamilies()
-        .filter(af -> af.getType() == StorageType.REPLICA)
+    return (Map) direct.getAllFamilies()
+        .filter(af -> af.getDesc().getType() == StorageType.REPLICA)
         // map to pair of attribute family and associated commit log(s) via attributes
         .map(af -> {
           if (af.getSource().isPresent()) {
@@ -350,8 +358,9 @@ public class IngestServer {
             af.getAttributes()
                 .stream()
                 .map(attr -> {
-                  AttributeFamilyDescriptor commitFamily = attrToCommitLog.get(attr);
-                  Optional<OnlineAttributeWriter> writer = repo.getWriter(attr);
+                  DirectAttributeFamilyDescriptor commitFamily;
+                  commitFamily = attrToCommitLog.get(attr);
+                  Optional<OnlineAttributeWriter> writer = direct.getWriter(attr);
                   if (commitFamily == null && writer.isPresent()) {
                     throw new IllegalStateException(
                         "Missing source commit log family for " + attr);

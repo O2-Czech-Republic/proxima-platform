@@ -23,6 +23,7 @@ import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StorageType;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -213,8 +214,24 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return context.resolve(family);
   }
 
+  /**
+   * Retrieve factory that first matches given uri.
+   * @param uri the URI to search factory for
+   * @return optional {@link DataAccessorFactory} for specified URI
+   */
+  public Optional<DataAccessorFactory> getAccessorFactory(URI uri) {
+    return factories
+        .stream()
+        .filter(f -> f.accepts(uri))
+        .findAny();
+  }
 
 
+  /**
+   * Retrieve writer for given {@link AttributeDescriptor}.
+   * @param attr the attribute to find writer for
+   * @return optional writer
+   */
   public Optional<OnlineAttributeWriter> getWriter(AttributeDescriptor<?> attr) {
     synchronized (writers) {
       OnlineAttributeWriter writer = writers.get(attr);

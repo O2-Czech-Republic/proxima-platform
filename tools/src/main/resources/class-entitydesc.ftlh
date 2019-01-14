@@ -3,11 +3,13 @@
  * AUTO GENERATED! DO NOT EDIT!
  */
 
+import cz.o2.proxima.direct.core.DirectDataOperator
+import cz.o2.proxima.direct.commitlog.Position
+import cz.o2.proxima.direct.randomaccess.KeyValue
 import cz.o2.proxima.repository.Repository
 import cz.o2.proxima.repository.AttributeDescriptor
 import cz.o2.proxima.repository.EntityDescriptor
 import cz.o2.proxima.storage.StreamElement
-import cz.o2.proxima.storage.commitlog.Position
 import cz.o2.proxima.tools.groovy.AttributeDescriptorProvider
 import cz.o2.proxima.tools.groovy.Console
 import cz.o2.proxima.tools.groovy.RepositoryProvider
@@ -111,16 +113,16 @@ class Environment implements RepositoryProvider {
           }
 
           <#if attribute.wildcard>
-            def cz.o2.proxima.storage.randomaccess.KeyValue<${attribute.type}> get(String key, String attribute) {
+            def KeyValue<${attribute.type}> get(String key, String attribute) {
               return ${entity.classname}Descriptor.this.reader.get(key, desc.toAttributePrefix() + attribute)
             }
-            def List<cz.o2.proxima.storage.randomaccess.KeyValue<${attribute.type}>> list(String key) {
+            def List<KeyValue<${attribute.type}>> list(String key) {
               return ${entity.classname}Descriptor.this.reader.list(key, desc.toAttributePrefix())
             }
-            def List<cz.o2.proxima.storage.randomaccess.KeyValue<${attribute.type}>> list(String key, String start, int limit) {
+            def List<KeyValue<${attribute.type}>> list(String key, String start, int limit) {
               return ${entity.classname}Descriptor.this.reader.list(key, name, start, limit)
             }
-            def List<cz.o2.proxima.storage.randomaccess.KeyValue<${attribute.type}>> list(String key, String start) {
+            def List<KeyValue<${attribute.type}>> list(String key, String start) {
               return ${entity.classname}Descriptor.this.reader.list(key, name, start)
             }
             def void put(String key, String attribute, String textFormat) {
@@ -169,7 +171,7 @@ class Environment implements RepositoryProvider {
         reader.listKeys(consumer)
       }
 
-      def List<cz.o2.proxima.util.Pair<cz.o2.proxima.storage.randomaccess.RandomOffset, String>> listKeys(
+      def List<cz.o2.proxima.util.Pair<cz.o2.proxima.direct.randomaccess.RandomOffset, String>> listKeys(
           String offset, int limit) {
         return reader.listKeys(offset, limit)
       }
@@ -183,7 +185,12 @@ class Environment implements RepositoryProvider {
   </#list>
 
   def Repository getRepo() {
-    return console.getRepo();
+    return console.getRepo()
+  }
+
+  def DirectDataOperator getDirect() {
+    return console.getDirect() \
+        .orElseThrow({ new IllegalStateException("Missing direct operator") })
   }
 
   def Stream<StreamElement> unionStream(AttributeDescriptorProvider... descriptors) {

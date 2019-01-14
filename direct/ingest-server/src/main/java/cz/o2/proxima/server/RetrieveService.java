@@ -17,15 +17,16 @@ package cz.o2.proxima.server;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.TextFormat;
+import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
+import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.server.metrics.Metrics;
-import cz.o2.proxima.storage.randomaccess.KeyValue;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
 import io.grpc.stub.StreamObserver;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,9 +41,11 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
 
   private final Map<AttributeDescriptor<?>, RandomAccessReader> readerMap;
   private final Repository repo;
+  private final DirectDataOperator direct;
 
-  public RetrieveService(Repository repo) {
+  public RetrieveService(Repository repo, DirectDataOperator direct) {
     this.repo = repo;
+    this.direct = direct;
     this.readerMap = Collections.synchronizedMap(new HashMap<>());
   }
 
@@ -176,9 +179,9 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
 
       RandomAccessReader reader = readerMap.get(attr);
       if (reader == null) {
-        AttributeFamilyDescriptor family = repo.getFamiliesForAttribute(attr)
+        DirectAttributeFamilyDescriptor family = direct.getFamiliesForAttribute(attr)
             .stream()
-            .filter(af -> af.getAccess().canRandomRead())
+            .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
             .orElseThrow(() -> new Status(400, "Attribute " +  attr
                 + " has no random access family"));

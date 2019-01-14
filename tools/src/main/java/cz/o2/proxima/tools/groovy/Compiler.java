@@ -78,7 +78,6 @@ public class Compiler {
         .withReadOnly(true)
         .withValidate(false)
         .withLoadFamilies(true)
-        .withLoadAccessors(false)
         .build();
 
     String source = GroovyEnv.getSource(conf, repo);

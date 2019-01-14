@@ -54,6 +54,13 @@
             <goals><goal>compile</goal></goals>
           </execution>
         </executions>
+        <dependencies>
+          <dependency>
+            <groupId>cz.o2.proxima</groupId>
+            <artifactId>proxima-direct-compiler-plugin</artifactId>
+            <version>${project.version}</version>
+          </dependency>
+        </dependencies>
       </plugin>
     </plugins>
   </build>

@@ -113,6 +113,7 @@
   </dependencyManagement>
 
   <modules>
+    <module>compiler</module>
     <module>core</module>
     <module>io-bigtable</module>
     <module>io-cassandra</module>

@@ -12,16 +12,17 @@ import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.commitlog.CommitLogReader;
-import cz.o2.proxima.storage.randomaccess.KeyValue;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
-import cz.o2.proxima.view.PartitionedView;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+/* operator specific imports */
+<#list imports as import>
+import ${import};
+</#list>
 
 public class ${java_classname} implements Serializable {
 
@@ -47,6 +48,27 @@ public class ${java_classname} implements Serializable {
   public static ${java_classname} ofTest(Config cfg) {
     return new ${java_classname}(ConfigRepository.Builder.ofTest(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
+
+<#list operators as operator>
+  public class ${operator.classname} {
+
+    ${operator.classdef}
+
+    public ${java_classname} parent() {
+      return ${java_classname}.this;
+    }
+
+  }
+  public static ${operator.classname} ${operator.name}(Config cfg) {
+    return of(cfg).${operator.name}();
+  }
+  public static ${operator.classname} ${operator.name}(ConfigRepository.Builder builder) {
+    return of(builder).${operator.name}();
+  }
+  public ${operator.classname} ${operator.name}() {
+    return new ${operator.classname}();
+  }
+</#list>
 
 <#list entities as entity>
 
@@ -104,78 +126,6 @@ public class ${java_classname} implements Serializable {
       return ${attribute.name}Descriptor;
     }
   </#list> <#-- entity.attributes as attribute -->
-
-    public Optional<CommitLogReader> getCommitLog(AttributeDescriptor<?>... attributes) {
-      Set<AttributeFamilyDescriptor> descriptors = new HashSet<>();
-      for (AttributeDescriptor<?> attr : attributes) {
-        Set<AttributeFamilyDescriptor> commitLogs = repo.getFamiliesForAttribute(attr)
-            .stream()
-            .filter(af -> af.getCommitLogReader().isPresent())
-            .collect(Collectors.toSet());
-        if (commitLogs.isEmpty()) {
-          return Optional.empty();
-        }
-        descriptors.addAll(commitLogs);
-      }
-      // FIXME: we cannot join multiple commit logs together for now
-      // so we have to throw exception here
-      if (descriptors.size() > 1) {
-        throw new UnsupportedOperationException("Unsupported: multiple commit logs for multiple attributes");
-      }
-      return descriptors.stream().findAny().get().getCommitLogReader();
-    }
-
-    public Optional<PartitionedView> getPartitionedView(AttributeDescriptor<?>... attributes) {
-
-      Set<AttributeFamilyDescriptor> descriptors = new HashSet<>();
-      for (AttributeDescriptor<?> attr : attributes) {
-        Set<AttributeFamilyDescriptor> views = repo.getFamiliesForAttribute(attr)
-            .stream()
-            .filter(af -> af.getAccess().canCreatePartitionedView())
-            .collect(Collectors.toSet());
-        if (views.isEmpty()) {
-          return Optional.empty();
-        }
-        descriptors.addAll(views);
-      }
-      // FIXME: we cannot join multiple commit logs together for now
-      // so we have to throw exception here
-      if (descriptors.size() > 1) {
-        throw new UnsupportedOperationException("Unsupported: multiple commit logs for multiple attributes");
-      }
-      return descriptors.stream().findAny().get().getPartitionedView();
-    }
-
-    /**
-     * Fetch specified attributes from the random access storage and return
-     * the object with getters.
-     **/
-    @SuppressWarnings("unchecked")
-    public ${entity.classname}Wrapper get(String key, AttributeDescriptor<?>... attributes) {
-
-      ${entity.classname}Wrapper ret = new ${entity.classname}Wrapper();
-      // FIXME: this is highly suboptimal for now
-      for (AttributeDescriptor<?> desc : attributes) {
-      <#list entity.attributes as attribute>
-        if (desc == ${attribute.name}Descriptor) {
-          RandomAccessReader reader = repo.getFamiliesForAttribute(desc)
-              .stream()
-              .filter(af -> af.getRandomAccessReader().isPresent())
-              .map(af -> af.getRandomAccessReader().get())
-              .findAny()
-              .orElseThrow(() -> new IllegalArgumentException("Cannot fetch attribute " + desc));
-
-        <#if !attribute.wildcard>
-          Optional<KeyValue<${attribute.type}>> kv = (Optional) reader.get(key, desc);
-          ret.${attribute.nameCamel} = kv.map(KeyValue::getValue).orElse(null);
-        </#if>
-          continue;
-        }
-      </#list>
-      }
-      return ret;
-
-    }
 
     private ${entity.classname}() { }
 

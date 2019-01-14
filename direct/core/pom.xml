@@ -83,7 +83,6 @@
     <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-core</artifactId>
-      <version>${project.version}</version>
     </dependency>
 
     <dependency>

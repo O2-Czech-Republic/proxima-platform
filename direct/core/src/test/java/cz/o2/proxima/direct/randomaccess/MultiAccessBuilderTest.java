@@ -49,16 +49,11 @@ public class MultiAccessBuilderTest {
   long now;
 
   public MultiAccessBuilderTest() {
-    try {
-      this.repo = ConfigRepository.Builder.of(
-          ConfigFactory.load()
-              .withFallback(ConfigFactory.load("test-reference.conf"))
-              .resolve()).build();
-      this.direct = repo.asDataOperator(DirectDataOperator.class);
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
-    }
+    this.repo = ConfigRepository.Builder.of(
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve()).build();
+    this.direct = repo.asDataOperator(DirectDataOperator.class);
   }
 
   @Before

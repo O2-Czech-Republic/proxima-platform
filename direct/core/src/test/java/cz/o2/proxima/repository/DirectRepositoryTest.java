@@ -1082,16 +1082,11 @@ public class DirectRepositoryTest {
   public void testApplicationOfProxyTransformOnReplicatedDataWithTransform()
       throws InterruptedException {
 
-    try {
-      repo.reloadConfig(
-          true,
-          ConfigFactory.load()
-              .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
-              .resolve());
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
-    }
+    repo.reloadConfig(
+        true,
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
+            .resolve());
     final EntityDescriptor dummy = repo
         .findEntity("dummy2")
         .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));

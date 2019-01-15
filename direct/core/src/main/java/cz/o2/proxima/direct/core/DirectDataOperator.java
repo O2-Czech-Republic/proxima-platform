@@ -95,8 +95,8 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   @Override
   public final void reload() {
     close();
-    dependencyOrdered(repo.getAllFamilies())
-        .forEach(family -> addResolvedFamily(family, factories));
+    familyMap.clear();
+    dependencyOrdered(repo.getAllFamilies()).forEach(this::addResolvedFamily);
   }
 
   /**
@@ -152,28 +152,25 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return resolved;
   }
 
-  private void addResolvedFamily(
-      AttributeFamilyDescriptor family,
-      List<DataAccessorFactory> factories) {
-
-    if (familyMap.get(family) == null) {
+  private void addResolvedFamily(AttributeFamilyDescriptor family) {
+    if (!familyMap.containsKey(family)) {
       if (family.isProxy()) {
         AttributeFamilyProxyDescriptor proxy = family.toProxy();
-        familyMap.put(family, DirectAttributeFamilyProxyDescriptor.of(
-            context, proxy));
-        addResolvedFamily(proxy.getTargetFamilyRead(), factories);
-        addResolvedFamily(proxy.getTargetFamilyWrite(), factories);
+        familyMap.put(
+            family,
+            DirectAttributeFamilyProxyDescriptor.of(context, proxy));
+        addResolvedFamily(proxy.getTargetFamilyRead());
+        addResolvedFamily(proxy.getTargetFamilyWrite());
       } else {
-        DataAccessor accessor = findFor(family, factories);
-        familyMap.put(family, new DirectAttributeFamilyDescriptor(
-            family, context, accessor));
+        DataAccessor accessor = findFor(family);
+        familyMap.put(
+            family,
+            new DirectAttributeFamilyDescriptor(family, context, accessor));
       }
     }
   }
 
-  private DataAccessor findFor(
-      AttributeFamilyDescriptor desc, List<DataAccessorFactory> factories) {
-
+  private DataAccessor findFor(AttributeFamilyDescriptor desc) {
     for (DataAccessorFactory daf : factories) {
       if (daf.accepts(desc.getStorageUri())) {
         return daf.create(desc.getEntity(), desc.getStorageUri(), desc.getCfg());
@@ -200,6 +197,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    */
   public DirectAttributeFamilyDescriptor resolveRequired(
       AttributeFamilyDescriptor family) {
+
     return context.resolveRequired(family);
   }
 
@@ -225,7 +223,6 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
         .filter(f -> f.accepts(uri))
         .findAny();
   }
-
 
   /**
    * Retrieve writer for given {@link AttributeDescriptor}.
@@ -254,6 +251,9 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     }
   }
 
+  /**
+   * Close the operator and release all allocated resources.
+   */
   @Override
   public void close() {
     synchronized (writers) {
@@ -262,7 +262,6 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
           .forEach(OnlineAttributeWriter::close);
       writers.clear();
     }
-    familyMap.clear();
   }
 
   /**
@@ -279,6 +278,10 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
         .collect(Collectors.toSet());
   }
 
+  /**
+   * Retrieve all families with their direct representation.
+   * @return stream of all {@link DirectAttributeFamilyDescriptor}s.
+   */
   public Stream<DirectAttributeFamilyDescriptor> getAllFamilies() {
     return repo.getAllFamilies().map(this::resolveRequired);
   }

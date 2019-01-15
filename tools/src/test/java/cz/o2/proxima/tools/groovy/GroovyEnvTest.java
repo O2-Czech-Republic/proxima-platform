@@ -41,7 +41,6 @@ public class GroovyEnvTest {
 
   final Config cfg = ConfigFactory.load("test-reference.conf").resolve();
   final Repository repo = ConfigRepository.of(cfg);
-  final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
   final EntityDescriptor gateway = repo.findEntity("gateway")
       .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
   final EntityDescriptor batch = repo.findEntity("batch")
@@ -68,9 +67,13 @@ public class GroovyEnvTest {
 
   GroovyClassLoader loader;
 
+  DirectDataOperator direct;
+
   @Before
   public void setUp() {
-    Console.create(cfg, repo);
+    Console console = Console.create(cfg, repo);
+    direct = console.getDirect().orElseThrow(
+        () -> new IllegalStateException("Missing direct operator"));
     conf = new Configuration(Configuration.VERSION_2_3_23);
     conf.setDefaultEncoding("utf-8");
     conf.setClassForTemplateLoading(getClass(), "/");
@@ -191,8 +194,13 @@ public class GroovyEnvTest {
         .write(StreamElement.update(batch, data, "uuid",
             "key", data.getName(), System.currentTimeMillis(), new byte[] { }),
             (succ, exc) -> { });
-    List<StreamElement> result = (List) compiled.run();
-    assertEquals(1, result.size());
+    try {
+      List<StreamElement> result = (List) compiled.run();
+      assertEquals(1, result.size());
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
+    }
   }
 
 

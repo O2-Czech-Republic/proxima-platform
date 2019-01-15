@@ -341,15 +341,15 @@ public class IngestServer {
             .map(attr -> Pair.of(attr, af)))
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
-    return (Map) direct.getAllFamilies()
+    return direct.getAllFamilies()
         .filter(af -> af.getDesc().getType() == StorageType.REPLICA)
         // map to pair of attribute family and associated commit log(s) via attributes
         .map(af -> {
           if (af.getSource().isPresent()) {
             String source = af.getSource().get();
-            return Pair.of(af, Collections.singleton(repo
+            return Pair.of(af, Collections.singleton(direct
                 .getAllFamilies()
-                .filter(af2 -> af2.getName().equals(source))
+                .filter(af2 -> af2.getDesc().getName().equals(source))
                 .findAny()
                 .orElseThrow(() -> new IllegalArgumentException(
                     "Unknown family " + source))));

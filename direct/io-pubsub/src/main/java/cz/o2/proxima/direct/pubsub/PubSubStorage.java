@@ -36,7 +36,7 @@ public class PubSubStorage implements DataAccessorFactory {
 
   @Override
   public boolean accepts(URI uri) {
-    return uri.getScheme().equals("uri");
+    return uri.getScheme().equals("gps");
   }
 
 }

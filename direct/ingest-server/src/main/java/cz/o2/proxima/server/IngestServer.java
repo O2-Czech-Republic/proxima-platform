@@ -318,7 +318,7 @@ public class IngestServer {
       Transformation transformation, StorageFilter filter, String name) {
 
     new TransformationObserver(
-        3, consumer, reader, repo, direct,
+        3, consumer, reader, direct,
         name, transformation, filter).start();
   }
 

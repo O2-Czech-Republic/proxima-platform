@@ -212,7 +212,7 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> Stream<TypedStreamElement<?>> getStream(
+  public <T> Stream<TypedStreamElement<T>> getStream(
       AttributeDescriptor<T> attrDesc,
       Position position,
       boolean stopAtCurrent) {
@@ -222,7 +222,7 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> Stream<TypedStreamElement<?>> getStream(
+  public <T> Stream<TypedStreamElement<T>> getStream(
       AttributeDescriptor<T> attrDesc,
       Position position,
       boolean stopAtCurrent,
@@ -341,16 +341,14 @@ public class Console {
   }
 
   public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
-      EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc) {
 
-    return getBatchSnapshot(entityDesc, attrDesc, Long.MIN_VALUE, Long.MAX_VALUE);
+    return getBatchSnapshot(attrDesc, Long.MIN_VALUE, Long.MAX_VALUE);
   }
 
 
   @SuppressWarnings("unchecked")
   public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
-      EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       long fromStamp,
       long toStamp) {

@@ -24,7 +24,7 @@ import freemarker.template.TemplateExceptionHandler;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.StringReader;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
@@ -38,7 +38,6 @@ import org.apache.commons.io.IOUtils;
  */
 public class Compiler {
 
-  private static final Charset UTF8 = Charset.forName("UTF-8");
   private final Configuration conf = new Configuration(Configuration.VERSION_2_3_23);
   private final DefaultParser cli = new DefaultParser();
 
@@ -60,7 +59,7 @@ public class Compiler {
     output = parsed.getOptionValue("o");
     configs = parsed.getArgList();
 
-    conf.setDefaultEncoding(UTF8.name());
+    conf.setDefaultEncoding(StandardCharsets.UTF_8.name());
     conf.setClassForTemplateLoading(getClass(), "/");
     conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
     conf.setLogTemplateExceptions(false);
@@ -85,7 +84,7 @@ public class Compiler {
     ensureParentDir(of);
     try (FileOutputStream fos = new FileOutputStream(of)) {
       StringReader reader = new StringReader(source);
-      IOUtils.copy(reader, fos, UTF8);
+      IOUtils.copy(reader, fos, StandardCharsets.UTF_8);
     }
   }
 

@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.server;
 
-import cz.o2.proxima.repository.Repository;
 import static cz.o2.proxima.server.IngestServer.die;
 import static cz.o2.proxima.server.IngestServer.ingestRequest;
 import cz.o2.proxima.storage.StorageFilter;
@@ -33,7 +32,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TransformationObserver extends RetryableLogObserver {
 
-  private final Repository repo;
   private final DirectDataOperator direct;
   private final Transformation transformation;
   private final StorageFilter filter;
@@ -41,13 +39,12 @@ public class TransformationObserver extends RetryableLogObserver {
 
   TransformationObserver(
       int retries, String consumer, CommitLogReader reader,
-      Repository repo, DirectDataOperator direct,
+      DirectDataOperator direct,
       String name, Transformation transformation,
       StorageFilter filter) {
 
 
     super(retries, consumer, reader);
-    this.repo = repo;
     this.direct = direct;
     this.name = name;
     this.transformation = transformation;

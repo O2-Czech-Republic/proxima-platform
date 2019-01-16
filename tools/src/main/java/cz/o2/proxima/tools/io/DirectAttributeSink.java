@@ -18,7 +18,6 @@ package cz.o2.proxima.tools.io;
 import cz.o2.proxima.annotations.Experimental;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.seznam.euphoria.core.client.io.DataSink;
@@ -36,35 +35,30 @@ import lombok.extern.slf4j.Slf4j;
 public class DirectAttributeSink implements DataSink<StreamElement> {
 
   public static DataSink<StreamElement> of(
-      Repository repo,
       DirectDataOperator direct) {
 
-    return new DirectAttributeSink(repo, direct);
+    return new DirectAttributeSink(direct);
   }
 
   public static DataSink<StreamElement> of(
-      Repository repo,
       DirectDataOperator direct,
       UnaryFunction<StreamElement, StreamElement> transformFn) {
 
-    return new DirectAttributeSink(repo, direct, transformFn);
+    return new DirectAttributeSink(direct, transformFn);
   }
 
-  private final Repository repo;
   private final DirectDataOperator direct;
   private final AtomicInteger unclosedWriters = new AtomicInteger();
   private final UnaryFunction<StreamElement, StreamElement> transformFn;
 
-  private DirectAttributeSink(Repository repo, DirectDataOperator direct) {
-    this(repo, direct, UnaryFunction.identity());
+  private DirectAttributeSink(DirectDataOperator direct) {
+    this(direct, UnaryFunction.identity());
   }
 
   private DirectAttributeSink(
-      Repository repo,
       DirectDataOperator direct,
       UnaryFunction<StreamElement, StreamElement> transformFn) {
 
-    this.repo = repo;
     this.direct = direct;
     this.transformFn = transformFn;
   }

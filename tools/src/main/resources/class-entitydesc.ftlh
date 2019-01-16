@@ -91,13 +91,11 @@ class Environment implements RepositoryProvider {
           }
 
           def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchSnapshot() {
-            return console.getBatchSnapshot(
-                ${entity.classname}Descriptor.this.desc, desc);
+            return console.getBatchSnapshot(desc);
           }
 
           def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchSnapshot(long start, long end) {
-            return console.getBatchSnapshot(
-                ${entity.classname}Descriptor.this.desc, desc, start, end);
+            return console.getBatchSnapshot(desc, start, end);
           }
 
           def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchUpdates() {

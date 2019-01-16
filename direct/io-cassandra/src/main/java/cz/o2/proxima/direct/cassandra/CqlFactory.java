@@ -36,8 +36,8 @@ public interface CqlFactory extends Serializable {
   /**
    * Interface for iteration over returned results returning {@link KeyValue}s.
    */
-  interface KvIterable {
-    Iterable<KeyValue<?>> iterable(CassandraDBAccessor accessor);
+  interface KvIterable<T> {
+    Iterable<KeyValue<T>> iterable(CassandraDBAccessor accessor);
   }
 
   /**
@@ -82,7 +82,7 @@ public interface CqlFactory extends Serializable {
    * @param session the connection session
    * @return iterable over keyvalues
    */
-  KvIterable getListAllStatement(
+  <T> KvIterable<T> getListAllStatement(
       String key,
       @Nullable Offsets.Raw offset,
       int limit,

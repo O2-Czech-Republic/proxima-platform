@@ -189,8 +189,9 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
   }
 
   @Override
-  public KvIterable getListAllStatement(
+  public <T> KvIterable<T> getListAllStatement(
       String key, Offsets.Raw offset, int limit, Session session) {
+
     throw new UnsupportedOperationException("Not supported.");
   }
 

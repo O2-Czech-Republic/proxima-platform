@@ -111,7 +111,7 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
             ingest.getKey(), attrName, Long.MAX_VALUE);
         updated = cache.put(
             ingest.getKey(), attrName, ingest.getStamp(),
-            overwrite, ingest.isDelete() ? null : parsed.get());
+            overwrite, ingest.isDelete() ? null : parsed.orElse(null));
       }
       if (updated) {
         updateCallback.accept(ingest, oldVal);

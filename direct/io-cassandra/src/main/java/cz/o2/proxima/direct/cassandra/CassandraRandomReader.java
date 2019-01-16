@@ -98,7 +98,7 @@ class CassandraRandomReader
     try {
       Offsets.Raw off = (Offsets.Raw) offset;
       Session session = accessor.ensureSession();
-      KvIterable iter = accessor.getCqlFactory().getListAllStatement(
+      KvIterable<?> iter = accessor.getCqlFactory().getListAllStatement(
           key, off, limit, session);
       for (KeyValue<?> kv : iter.iterable(accessor)) {
         if (kv.getAttribute().compareTo(off.getRaw()) > 0) {

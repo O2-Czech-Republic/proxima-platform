@@ -318,7 +318,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
   }
 
   @Override
-  public KvIterable getListAllStatement(
+  public <T> KvIterable<T> getListAllStatement(
       String key, Offsets.Raw offset,
       int limit, Session session) {
 

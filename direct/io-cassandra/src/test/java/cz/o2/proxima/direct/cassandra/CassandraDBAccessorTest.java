@@ -144,7 +144,7 @@ public class CassandraDBAccessorTest {
     }
 
     @Override
-    public KvIterable getListAllStatement(
+    public <T> KvIterable<T> getListAllStatement(
         String key, Offsets.Raw offset, int limit, Session session) {
 
       return mock(KvIterable.class);
@@ -210,8 +210,9 @@ public class CassandraDBAccessorTest {
     }
 
     @Override
-    public KvIterable getListAllStatement(
+    public <T> KvIterable<T> getListAllStatement(
         String key, Offsets.Raw offset, int limit, Session session) {
+
       throw new RuntimeException("Fail");
     }
   }

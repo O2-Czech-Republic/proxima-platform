@@ -18,7 +18,6 @@ package cz.o2.proxima.tools.groovy;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.tools.io.AttributeSink;
@@ -228,7 +227,6 @@ public class Stream<T> {
       String target) {
 
     Dataset<StreamElement> output;
-    Repository repo = repoProvider.getRepo();
     DirectDataOperator direct = repoProvider.getDirect();
     output = FlatMap.of((Dataset<StreamElement>) dataset.build())
         .using((StreamElement in, Collector<StreamElement> ctx) -> {

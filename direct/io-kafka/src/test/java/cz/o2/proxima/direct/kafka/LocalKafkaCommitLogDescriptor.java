@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.kafka;
 
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -680,16 +679,14 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   }
 
   @Override
-  public LocalKafkaCommitLogDescriptor.Accessor create(
+  public Accessor create(
       EntityDescriptor entityDesc,
       URI uri,
       Map<String, Object> cfg) {
 
-    Map<URI, Accessor> accesssorsForId = ACCESSORS.get(id);
-    final Accessor ret = new Accessor(entityDesc, uri, cfg, id);
-    Accessor old = accesssorsForId.putIfAbsent(uri, ret);
-    Preconditions.checkArgument(old == null, "URI " + uri + " is already registered!");
-    return ret;
+    Map<URI, Accessor> accessorsForId = ACCESSORS.get(id);
+    return accessorsForId.computeIfAbsent(
+        uri, u -> new Accessor(entityDesc, u, cfg, id));
   }
 
   @Override

@@ -155,6 +155,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   private void addResolvedFamily(AttributeFamilyDescriptor family) {
     try {
       if (!familyMap.containsKey(family)) {
+        log.debug("Adding new family {} to familyMap", family);
         if (family.isProxy()) {
           AttributeFamilyProxyDescriptor proxy = family.toProxy();
           familyMap.put(

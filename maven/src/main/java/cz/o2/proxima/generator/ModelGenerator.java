@@ -16,7 +16,6 @@
 package cz.o2.proxima.generator;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
@@ -203,7 +202,8 @@ public class ModelGenerator {
 
   private String readFileToString(File path) throws IOException {
     try {
-      return Joiner.on("\n + ").join(
+      return String.join(
+          "\n + ",
           IOUtils.readLines(new FileInputStream(path), "UTF-8")
               .stream()
               .map(s -> "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\\n\"")

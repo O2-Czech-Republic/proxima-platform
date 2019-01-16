@@ -19,7 +19,6 @@ import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
-import com.google.common.base.Joiner;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
@@ -92,7 +91,7 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
     StringBuilder sb = new StringBuilder();
     sb.append(
         String.format("INSERT INTO %s (%s) VALUES (", getTableName(),
-        Joiner.on(", ").join(columns)));
+        String.join(", ", columns)));
     String comma = "";
     for (int i = 0; i < extractors.size(); i++) {
       sb.append(comma);

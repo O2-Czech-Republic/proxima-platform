@@ -1,6 +1,11 @@
     
     DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
 
+    @Override
+    public DirectDataOperator getOperator() {
+      return direct;
+    }
+
     public Optional<CommitLogReader> getCommitLog(AttributeDescriptor<?>... attributes) {
       Set<DirectAttributeFamilyDescriptor> descriptors = new HashSet<>();
       for (AttributeDescriptor<?> attr : attributes) {

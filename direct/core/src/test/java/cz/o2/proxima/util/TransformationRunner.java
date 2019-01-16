@@ -47,15 +47,15 @@ public class TransformationRunner {
    * Run all transformations in given repository.
    * @param repo the repository
    * @param direct the operator to run transformations with
-   * @param onReplicate callback to be called before write to replicated target
+   * @param onReplicated callback to be called before write to replicated target
    */
   public static void runTransformations(
       Repository repo,
       DirectDataOperator direct,
-      Consumer<StreamElement> onReplicate) {
+      Consumer<StreamElement> onReplicated) {
 
     repo.getTransformations()
-        .forEach((name, desc) -> runTransformation(direct, name, desc, onReplicate));
+        .forEach((name, desc) -> runTransformation(direct, name, desc, onReplicated));
   }
 
 
@@ -64,13 +64,13 @@ public class TransformationRunner {
    * @param direct the operator to run transformations with
    * @param name name of the transformation
    * @param desc the transformation to run
-   * @param onReplicate callback to be called before write to replicated target
+   * @param onReplicated callback to be called before write to replicated target
    */
   public static void runTransformation(
       DirectDataOperator direct,
       String name,
       TransformationDescriptor desc,
-      Consumer<StreamElement> onReplicate) {
+      Consumer<StreamElement> onReplicated) {
 
     desc.getAttributes().stream()
         .flatMap(attr -> direct.getFamiliesForAttribute(attr)
@@ -89,7 +89,7 @@ public class TransformationRunner {
               log.debug(
                   "Transformation {}: writing original {} transformed {}",
                   name, ingest, transformed);
-              onReplicate.accept(transformed);
+              onReplicated.accept(transformed);
               direct.getWriter(transformed.getAttributeDescriptor())
                   .get()
                   .write(transformed, committer::commit);

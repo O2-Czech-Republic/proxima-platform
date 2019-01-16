@@ -122,6 +122,7 @@ public class ModelGenerator {
         .withReadOnly(true)
         .withValidate(false)
         .withLoadFamilies(false)
+        .withLoadClasses(false)
         .build();
 
     Map<String, Object> root = new HashMap<>();
@@ -225,6 +226,7 @@ public class ModelGenerator {
 
   private Map<String, String> toOperatorSubclassDef(OperatorGenerator generator) {
     Map<String, String> ret = new HashMap<>();
+    ret.put("operatorClass", generator.getOperatorClassName());
     ret.put("classdef", generator.classDef());
     ret.put("name", generator.operatorFactory().getOperatorName());
     ret.put("classname", toClassName(

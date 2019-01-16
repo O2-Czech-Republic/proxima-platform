@@ -194,13 +194,9 @@ public class GroovyEnvTest {
         .write(StreamElement.update(batch, data, "uuid",
             "key", data.getName(), System.currentTimeMillis(), new byte[] { }),
             (succ, exc) -> { });
-    try {
-      List<StreamElement> result = (List) compiled.run();
-      assertEquals(1, result.size());
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
-    }
+
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
   }
 
 

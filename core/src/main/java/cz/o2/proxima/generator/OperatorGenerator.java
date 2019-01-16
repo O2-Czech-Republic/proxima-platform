@@ -45,4 +45,11 @@ public interface OperatorGenerator {
    */
   String classDef();
 
+  /**
+   * Retrieve name of class that represents the {@link DataOperator}
+   * implementation.
+   * @return the class name
+   */
+  String getOperatorClassName();
+
 }

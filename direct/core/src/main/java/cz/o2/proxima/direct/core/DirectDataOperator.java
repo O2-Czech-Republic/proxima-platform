@@ -153,20 +153,25 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   }
 
   private void addResolvedFamily(AttributeFamilyDescriptor family) {
-    if (!familyMap.containsKey(family)) {
-      if (family.isProxy()) {
-        AttributeFamilyProxyDescriptor proxy = family.toProxy();
-        familyMap.put(
-            family,
-            DirectAttributeFamilyProxyDescriptor.of(context, proxy));
-        addResolvedFamily(proxy.getTargetFamilyRead());
-        addResolvedFamily(proxy.getTargetFamilyWrite());
-      } else {
-        DataAccessor accessor = findFor(family);
-        familyMap.put(
-            family,
-            new DirectAttributeFamilyDescriptor(family, context, accessor));
+    try {
+      if (!familyMap.containsKey(family)) {
+        if (family.isProxy()) {
+          AttributeFamilyProxyDescriptor proxy = family.toProxy();
+          familyMap.put(
+              family,
+              DirectAttributeFamilyProxyDescriptor.of(context, proxy));
+          addResolvedFamily(proxy.getTargetFamilyRead());
+          addResolvedFamily(proxy.getTargetFamilyWrite());
+        } else {
+          DataAccessor accessor = findFor(family);
+          familyMap.put(
+              family,
+              new DirectAttributeFamilyDescriptor(family, context, accessor));
+        }
       }
+    } catch (Exception ex) {
+      log.error("Failed to add family {}", family, ex);
+      throw ex;
     }
   }
 

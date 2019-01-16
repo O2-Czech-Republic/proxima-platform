@@ -10,6 +10,7 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
+import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import java.io.Serializable;
@@ -49,8 +50,20 @@ public class ${java_classname} implements Serializable {
     return new ${java_classname}(ConfigRepository.Builder.ofTest(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
 
+  @FunctionalInterface
+  static interface EntityDescriptorProvider {
+    EntityDescriptor getDescriptor();
+  }
+
+  @FunctionalInterface
+  static interface DataOperatorProvider<T extends DataOperator> extends Serializable {
+
+    T getOperator();
+
+  }
+
 <#list operators as operator>
-  public class ${operator.classname} {
+  public class ${operator.classname} implements DataOperatorProvider<${operator.operatorClass}> {
 
     ${operator.classdef}
 
@@ -59,6 +72,7 @@ public class ${java_classname} implements Serializable {
     }
 
   }
+  private final ${operator.classname} ${operator.name};
   public static ${operator.classname} ${operator.name}(Config cfg) {
     return of(cfg).${operator.name}();
   }
@@ -66,7 +80,10 @@ public class ${java_classname} implements Serializable {
     return of(builder).${operator.name}();
   }
   public ${operator.classname} ${operator.name}() {
-    return new ${operator.classname}();
+    return ${operator.name};
+  }
+  public ${operator.operatorClass} ${operator.name}Operator() {
+    return ${operator.name}.getOperator();
   }
 </#list>
 
@@ -103,10 +120,11 @@ public class ${java_classname} implements Serializable {
   /**
    * Class wrapping views on entity ${entity.name}
    **/
-  public class ${entity.classname} implements Serializable {
+  public class ${entity.classname} implements Serializable, EntityDescriptorProvider {
 
     private final EntityDescriptor descriptor = repo.findEntity("${entity.name}").get();
 
+    @Override
     public EntityDescriptor getDescriptor() {
       return descriptor;
     }
@@ -145,6 +163,9 @@ public class ${java_classname} implements Serializable {
   private ${java_classname}(ConfigRepository.Builder builder) {
     this.repo = Objects.requireNonNull(builder).build();
     this.cfg = ((ConfigRepository) repo).getConfig();
+<#list operators as operator>
+  ${operator.name} = new ${operator.classname}();
+</#list>
 <#list entities as entity>
     ${entity.name} = new ${entity.classname}();
 </#list>

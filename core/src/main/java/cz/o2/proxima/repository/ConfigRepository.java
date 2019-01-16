@@ -110,6 +110,7 @@ public class ConfigRepository implements Repository, Serializable {
     private boolean readOnly = false;
     private boolean validate = true;
     private boolean loadFamilies = true;
+    private boolean loadClasses = true;
 
     private Builder(Config config, boolean test) {
       this.config = Objects.requireNonNull(config);
@@ -136,9 +137,14 @@ public class ConfigRepository implements Repository, Serializable {
       return this;
     }
 
+    public Builder withLoadClasses(boolean flag) {
+      this.loadClasses = flag;
+      return this;
+    }
+
     public ConfigRepository build() {
       return new ConfigRepository(
-          config, readOnly, validate, loadFamilies);
+          config, readOnly, validate, loadFamilies, loadClasses);
     }
   }
 
@@ -179,6 +185,14 @@ public class ConfigRepository implements Repository, Serializable {
    * This is useful mostly inside the maven plugin.
    */
   private final boolean shouldValidate;
+
+  /**
+   * Flag to indicate if we should actually load classes specified in config.
+   * This is usually set to {@code true}, but in case of compiler using the
+   * repository, this might be handy to set to {@code false}, because the
+   * actual classes might not be available yet at the time of the code generation.
+   */
+  private final boolean loadClasses;
 
   /**
    * Map of all scheme serializers.
@@ -229,11 +243,13 @@ public class ConfigRepository implements Repository, Serializable {
       Config cfg,
       boolean isReadonly,
       boolean shouldValidate,
-      boolean loadFamilies) {
+      boolean loadFamilies,
+      boolean loadClasses) {
 
     this.config = cfg;
     this.readonly = isReadonly;
     this.shouldValidate = shouldValidate;
+    this.loadClasses = loadClasses;
 
     try {
 
@@ -283,7 +299,7 @@ public class ConfigRepository implements Repository, Serializable {
 
   }
 
-  private <T> T newInstance(String name, Class<T> cls) {
+  private <T> @Nullable T newInstance(String name, Class<T> cls) {
     try {
       Class<T> forName = Classpath.findClass(name, cls);
       return forName.newInstance();
@@ -649,8 +665,12 @@ public class ConfigRepository implements Repository, Serializable {
           .orElseThrow(() -> new IllegalStateException(
               "Invalid state: `proxy` must not be null"));
 
-      readTransform = writeTransform = getProxyTransform(settings);
-      readTransform.setup(readTarget);
+      if (loadClasses) {
+        readTransform = writeTransform = getProxyTransform(settings);
+        readTransform.setup(readTarget);
+      } else {
+        readTransform = writeTransform = null;
+      }
       entityBuilder.addAttribute(AttributeDescriptor.newProxy(
           attrName, readTarget, readTransform, writeTarget, writeTransform));
     }

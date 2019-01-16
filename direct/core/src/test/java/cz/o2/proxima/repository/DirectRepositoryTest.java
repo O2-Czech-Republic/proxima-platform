@@ -27,6 +27,7 @@ import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.view.PartitionedCachedView;
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
@@ -886,9 +887,9 @@ public class DirectRepositoryTest {
     AttributeDescriptor<Object> data = dummy
         .findAttribute("data", true)
         .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
-    runAttributeReplicas(repo);
     TransformationRunner.runTransformations(repo, direct);
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch latch = new CountDownLatch(2);
+    runAttributeReplicas(tmp -> latch.countDown());
     OnlineAttributeWriter writer = direct.getWriter(data).get();
     writer.write(
         StreamElement.update(
@@ -927,9 +928,9 @@ public class DirectRepositoryTest {
     final AttributeDescriptor<Object> raw = dummy
         .findAttribute("_e.*", true)
         .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
-    runAttributeReplicas(repo);
+    CountDownLatch latch = new CountDownLatch(2);
+    runAttributeReplicas(tmp -> latch.countDown());
     TransformationRunner.runTransformations(repo, direct);
-    CountDownLatch latch = new CountDownLatch(1);
     OnlineAttributeWriter writer = direct.getWriter(event).get();
     writer.write(
         StreamElement.update(
@@ -988,9 +989,9 @@ public class DirectRepositoryTest {
     final AttributeDescriptor<Object> raw = dummy
         .findAttribute("_e.*", true)
         .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
-    runAttributeReplicas(repo);
     TransformationRunner.runTransformations(repo, direct);
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch latch = new CountDownLatch(2);
+    runAttributeReplicas(tmp -> latch.countDown());
     OnlineAttributeWriter writer = direct.getWriter(eventSource).get();
     writer.write(
         StreamElement.update(
@@ -1042,9 +1043,9 @@ public class DirectRepositoryTest {
     final AttributeDescriptor<Object> raw = dummy
         .findAttribute("_e.*", true)
         .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
-    runAttributeReplicas(repo);
     TransformationRunner.runTransformations(repo, direct);
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch latch = new CountDownLatch(2);
+    runAttributeReplicas(tmp -> latch.countDown());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
     writer.write(
         StreamElement.update(
@@ -1103,9 +1104,9 @@ public class DirectRepositoryTest {
         .findAttribute("_e.*", true)
         .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
 
-    runAttributeReplicas(repo);
     TransformationRunner.runTransformations(repo, direct);
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch latch = new CountDownLatch(2);
+    runAttributeReplicas(tmp -> latch.countDown());
     OnlineAttributeWriter writer = direct.getWriter(data).get();
     long now = System.currentTimeMillis();
     writer.write(
@@ -1151,7 +1152,8 @@ public class DirectRepositoryTest {
   }
 
   void testFullReplicationWithEntities(
-      EntityDescriptor first, EntityDescriptor second) {
+      EntityDescriptor first, EntityDescriptor second)
+      throws InterruptedException {
 
     final AttributeDescriptor<Object> wildcardFirst = first
         .findAttribute("wildcard.*")
@@ -1161,8 +1163,11 @@ public class DirectRepositoryTest {
         .findAttribute("wildcard.*")
         .orElseThrow(() -> new IllegalStateException(
             "Missing attribute wildcard.* in entity " + second));
-    runAttributeReplicas(repo);
-    TransformationRunner.runTransformations(repo, direct);
+    AtomicReference<CountDownLatch> latch = new AtomicReference<>(
+        new CountDownLatch(1));
+    runAttributeReplicas(tmp -> latch.get().countDown());
+    TransformationRunner.runTransformations(
+        repo, direct, tmp -> latch.get().countDown());
     long now = System.currentTimeMillis();
     direct.getWriter(wildcardFirst).get().write(
         StreamElement.update(
@@ -1177,6 +1182,7 @@ public class DirectRepositoryTest {
         .findAny()
         .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
 
+    latch.getAndUpdate(old -> new CountDownLatch(1)).await();
     assertTrue(reader.isPresent());
     assertTrue(reader.get()
         .get("key", wildcardSecond.toAttributePrefix() + 1, wildcardSecond)
@@ -1194,6 +1200,7 @@ public class DirectRepositoryTest {
         .findAny()
         .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
 
+    latch.get().await();
     assertTrue(reader.isPresent());
     assertFalse(reader.get()
         .get("key", wildcardFirst.toAttributePrefix() + 1, wildcardFirst, now + 1)
@@ -1539,7 +1546,8 @@ public class DirectRepositoryTest {
             "Missing attribute event.*"));
 
     TransformationRunner.runTransformations(repo, direct);
-    runAttributeReplicas(repo);
+    CountDownLatch latch = new CountDownLatch(1);
+    runAttributeReplicas(tmp -> latch.countDown());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
 
     DirectAttributeFamilyDescriptor outputFamily = direct.getAllFamilies()
@@ -1556,6 +1564,7 @@ public class DirectRepositoryTest {
                 dummy, event, "uuid", "gw", "event.1",
                 System.currentTimeMillis(), new byte[] { 1, 2, 3}),
             (succ, exc) -> { });
+    latch.await();
     RandomAccessReader reader = direct.getFamiliesForAttribute(event)
         .stream()
         .filter(af -> af.getDesc().getAccess().canRandomRead())
@@ -1625,7 +1634,7 @@ public class DirectRepositoryTest {
     return element.get().getAttribute();
   }
 
-  private void runAttributeReplicas(ConfigRepository repo) {
+  private void runAttributeReplicas(Consumer<StreamElement> onReplicated) {
     direct.getAllFamilies()
         .filter(af -> af.getDesc().getType() == StorageType.REPLICA)
         .filter(af -> !af.getDesc().getAccess().isReadonly()
@@ -1652,7 +1661,10 @@ public class DirectRepositoryTest {
                 @Override
                 public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
                   log.debug("Replicating input {} to {}", ingest, writer);
-                  writer.write(ingest, committer::commit);
+                  writer.write(ingest, (succ, exc) -> {
+                    committer.commit(succ, exc);
+                    onReplicated.accept(ingest);
+                  });
                   return true;
                 }
 

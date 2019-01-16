@@ -48,15 +48,10 @@ public class ConfigRepositoryTest {
   private final ConfigRepository repo;
 
   public ConfigRepositoryTest() {
-    try {
-      this.repo = ConfigRepository.Builder.of(
-          ConfigFactory.load()
-              .withFallback(ConfigFactory.load("test-reference.conf"))
-              .resolve()).build();
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
-    }
+    this.repo = ConfigRepository.Builder.of(
+        ConfigFactory.load()
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve()).build();
   }
 
   @Test

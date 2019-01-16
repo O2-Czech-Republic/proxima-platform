@@ -16,6 +16,7 @@
 package cz.o2.proxima.repository;
 
 import cz.o2.proxima.transform.ProxyTransform;
+import javax.annotation.Nullable;
 import lombok.Getter;
 
 /**
@@ -26,12 +27,14 @@ public class AttributeProxyDescriptor<T> extends AttributeDescriptorBase<T> {
   @Getter
   private final AttributeDescriptor<T> readTarget;
 
+  @Nullable
   @Getter
   private final ProxyTransform readTransform;
 
   @Getter
   private final AttributeDescriptor<T> writeTarget;
 
+  @Nullable
   @Getter
   private final ProxyTransform writeTransform;
 

@@ -89,6 +89,11 @@ public class DirectOperatorGeneratorFactory implements OperatorGeneratorFactory 
       return conf;
     }
 
+    @Override
+    public String getOperatorClassName() {
+      return DirectDataOperator.class.getName();
+    }
+
   }
 
   @Override

@@ -68,6 +68,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -1356,20 +1357,18 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 5000)
   public void testMaxBytesPerSec() throws InterruptedException {
-    long startNs = System.nanoTime();
-    testSequentialConsumption(3);
-    assertTrue(System.nanoTime() - startNs > 500000000L);
+    long maxLatency = testSequentialConsumption(3);
+    assertTrue(maxLatency > 500000000L);
   }
 
   @Test(timeout = 5000)
   public void testNoMaxBytesPerSec() throws InterruptedException {
-    long startNs = System.nanoTime();
-    testSequentialConsumption(Long.MAX_VALUE);
-    assertTrue(System.nanoTime() - startNs < 500000000L);
+    long maxLatency = testSequentialConsumption(Long.MAX_VALUE);
+    assertTrue(maxLatency < 500000000L);
   }
 
 
-  private void testSequentialConsumption(
+  private long testSequentialConsumption(
       long maxBytesPerSec)
       throws InterruptedException {
 
@@ -1381,12 +1380,18 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         new CountDownLatch(1));
     CommitLogReader reader = accessor.getCommitLogReader(context())
         .orElseThrow(() -> new IllegalStateException("Missing log reader"));
+    final AtomicLong lastOnNext = new AtomicLong(System.nanoTime());
+    final AtomicLong maxLatency = new AtomicLong(0);
 
     reader.observe("dummy", new LogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, LogObserver.OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
         latch.getAndSet(new CountDownLatch(1)).countDown();
+        long now = System.nanoTime();
+        long last = lastOnNext.getAndSet(now);
+        long latency = now - last;
+        maxLatency.getAndUpdate(old -> Math.max(old, latency));
         return true;
       }
 
@@ -1415,6 +1420,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         });
 
     toWait.await();
+    return maxLatency.get();
   }
 
   private Context context() {

@@ -16,7 +16,6 @@
 package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.direct.commitlog.Partitioner;
 import java.util.Objects;
 
 /**

@@ -81,12 +81,14 @@ public class DirectOperatorGeneratorFactory implements OperatorGeneratorFactory 
     }
 
     private Configuration getConf() {
-      Configuration conf = new Configuration(Configuration.VERSION_2_3_23);
-      conf.setDefaultEncoding("utf-8");
-      conf.setClassForTemplateLoading(getClass(), "/");
-      conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
-      conf.setLogTemplateExceptions(false);
-      return conf;
+      Configuration freeMarkerConf = new Configuration(
+          Configuration.VERSION_2_3_23);
+      freeMarkerConf.setDefaultEncoding("utf-8");
+      freeMarkerConf.setClassForTemplateLoading(getClass(), "/");
+      freeMarkerConf.setTemplateExceptionHandler(
+          TemplateExceptionHandler.RETHROW_HANDLER);
+      freeMarkerConf.setLogTemplateExceptions(false);
+      return freeMarkerConf;
     }
 
     @Override

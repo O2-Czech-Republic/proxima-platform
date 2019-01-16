@@ -33,7 +33,7 @@ import org.apache.hadoop.hbase.filter.ColumnPrefixFilter;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 
@@ -43,7 +43,6 @@ import java.util.Optional;
 @Slf4j
 class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
 
-  private static final Charset UTF8 = Charset.forName("UTF-8");
   private static final String DEL_BATCH_SIZE_CONF = "del-batch-size";
   private static final String FLUSH_COMMITS_CFG = "flush-commits";
 
@@ -65,7 +64,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
   public void write(StreamElement data, CommitCallback statusCallback) {
 
     ensureClient();
-    byte[] key = data.getKey().getBytes(UTF8);
+    byte[] key = data.getKey().getBytes(StandardCharsets.UTF_8);
     long stamp = data.getStamp();
 
     try {
@@ -80,7 +79,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
         } else {
           Delete del = new Delete(key, stamp);
           del.addColumns(
-              family, data.getAttribute().getBytes(UTF8),
+              family, data.getAttribute().getBytes(StandardCharsets.UTF_8),
               stamp);
           this.client.delete(del);
         }
@@ -88,7 +87,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
         String column = data.getAttribute();
         Put put = new Put(key, stamp);
         put.addColumn(
-            family, column.getBytes(UTF8),
+            family, column.getBytes(StandardCharsets.UTF_8),
             data.getStamp(),
             data.getValue());
         this.client.put(put);
@@ -110,7 +109,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
     Delete del = new Delete(key);
     Get get = new Get(key);
     get.addFamily(family);
-    get.setFilter(new ColumnPrefixFilter(prefix.getBytes(UTF8)));
+    get.setFilter(new ColumnPrefixFilter(prefix.getBytes(StandardCharsets.UTF_8)));
     Scan scan = new Scan(get);
     scan.setAllowPartialResults(true);
 

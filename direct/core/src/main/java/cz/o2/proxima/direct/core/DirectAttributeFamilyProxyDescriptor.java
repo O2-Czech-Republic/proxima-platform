@@ -161,7 +161,9 @@ public class DirectAttributeFamilyProxyDescriptor
 
     URI uri = desc.getStorageUri();
     Optional<AttributeWriterBase> w = context.resolve(
-        desc.getTargetFamilyWrite()).flatMap(family -> family.getWriter());
+        desc.getTargetFamilyWrite())
+        .flatMap(DirectAttributeFamilyDescriptor::getWriter);
+
     if (!w.isPresent() || !(w.get() instanceof OnlineAttributeWriter)) {
       return Optional.empty();
     }

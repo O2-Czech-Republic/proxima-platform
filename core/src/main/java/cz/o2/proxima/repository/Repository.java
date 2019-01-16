@@ -20,6 +20,7 @@ import com.typesafe.config.Config;
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
+import java.io.Serializable;
 import java.util.Arrays;
 
 import java.util.Map;
@@ -33,7 +34,7 @@ import javax.annotation.Nullable;
  * Repository of all entities configured in the system.
  */
 @Evolving
-public interface Repository {
+public interface Repository extends Serializable {
 
   static Repository of(Config config) {
     return ConfigRepository.of(config);
@@ -132,10 +133,9 @@ public interface Repository {
   default boolean hasOperator(String name) {
     ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(
         DataOperatorFactory.class);
-    return Streams.stream(loaders)
-        .filter(f -> f.getOperatorName().equals(name))
-        .findAny()
-        .isPresent();
+    return Streams
+        .stream(loaders)
+        .anyMatch(f -> f.getOperatorName().equals(name));
   }
 
 

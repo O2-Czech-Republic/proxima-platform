@@ -38,7 +38,7 @@ import org.apache.hadoop.hbase.filter.QualifierFilter;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -48,8 +48,6 @@ import java.util.concurrent.Executor;
  */
 @Slf4j
 class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservable {
-
-  private static final Charset UTF8 = Charset.forName("UTF-8");
 
   private final EntityDescriptor entity;
   private final Factory<Executor> executorFactory;
@@ -173,11 +171,11 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
     attributes.forEach(attr -> {
       if (attr.isWildcard()) {
         attrFilter.addFilter(new ColumnPrefixFilter(
-            attr.toAttributePrefix().getBytes(UTF8)));
+            attr.toAttributePrefix().getBytes(StandardCharsets.UTF_8)));
       } else {
         attrFilter.addFilter(new QualifierFilter(
             CompareFilter.CompareOp.EQUAL,
-            new BinaryComparator(attr.getName().getBytes(UTF8))));
+            new BinaryComparator(attr.getName().getBytes(StandardCharsets.UTF_8))));
       }
     });
 

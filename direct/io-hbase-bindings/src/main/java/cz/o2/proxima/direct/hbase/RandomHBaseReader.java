@@ -26,7 +26,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 import org.apache.hadoop.conf.Configuration;
@@ -48,7 +48,6 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
   private static final String KEYS_SCANNER_CACHING = "hbase.list-keys.caching";
   private static final int KEYS_SCANNER_CACHING_DEFAULT = 1000;
-  private static final Charset UTF8 = Charset.forName("UTF-8");
 
   private final EntityDescriptor entity;
   private final int keyCaching;
@@ -75,8 +74,8 @@ public class RandomHBaseReader extends HBaseClientWrapper
       String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
     ensureClient();
-    byte[] qualifier = attribute.getBytes(UTF8);
-    Get get = new Get(key.getBytes(UTF8));
+    byte[] qualifier = attribute.getBytes(StandardCharsets.UTF_8);
+    Get get = new Get(key.getBytes(StandardCharsets.UTF_8));
     get.addColumn(family, qualifier);
     try {
       Result res = client.get(get);
@@ -98,10 +97,10 @@ public class RandomHBaseReader extends HBaseClientWrapper
     try {
       ensureClient();
       final RawOffset stroff = (RawOffset) offset;
-      final Get get = new Get(key.getBytes(UTF8));
+      final Get get = new Get(key.getBytes(StandardCharsets.UTF_8));
       get.addFamily(family);
       get.setFilter(new ColumnPrefixFilter(
-          (wildcard.toAttributePrefix()).getBytes(UTF8)));
+          (wildcard.toAttributePrefix()).getBytes(StandardCharsets.UTF_8)));
       final Scan scan = new Scan(get);
       if (limit <= 0) {
         limit = Integer.MAX_VALUE;
@@ -109,7 +108,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
       scan.setBatch(limit);
       if (stroff != null) {
         scan.setFilter(new ColumnPaginationFilter(
-            limit, (stroff.getOffset() + '\00').getBytes(UTF8)));
+            limit, (stroff.getOffset() + '\00').getBytes(StandardCharsets.UTF_8)));
       }
 
       int accepted = 0;
@@ -138,7 +137,8 @@ public class RandomHBaseReader extends HBaseClientWrapper
     ensureClient();
     Scan s = offset == null
         ? new Scan()
-        : new Scan((((RawOffset) offset).getOffset() + '\00').getBytes(UTF8));
+        : new Scan((((RawOffset) offset).getOffset() + '\00').getBytes(
+            StandardCharsets.UTF_8));
     s.addFamily(family);
     s.setFilter(new KeyOnlyFilter());
 

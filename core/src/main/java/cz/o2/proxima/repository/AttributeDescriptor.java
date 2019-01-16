@@ -173,6 +173,7 @@ public interface AttributeDescriptor<T> extends Serializable {
    * @return this converted as {@link AttributeProxyDescriptor}
    * @throws ClassCastException when {@link #isProxy} returns false
    */
+
   default AttributeProxyDescriptor<T> asProxy() throws ClassCastException {
     return (AttributeProxyDescriptor<T>) this;
   }

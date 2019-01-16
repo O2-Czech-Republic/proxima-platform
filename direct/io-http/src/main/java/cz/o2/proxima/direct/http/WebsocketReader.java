@@ -30,7 +30,7 @@ import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -46,7 +46,6 @@ import org.java_websocket.handshake.ServerHandshake;
  */
 public class WebsocketReader extends AbstractStorage implements CommitLogReader {
 
-  private static final Charset CHARSET = Charset.forName("UTF-8");
   private static final Partition PARTITION = () -> 0;
 
   private final AttributeDescriptor<?> attr;
@@ -116,7 +115,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
         StreamElement elem = StreamElement.update(
             getEntityDescriptor(), attr, UUID.randomUUID().toString(),
             keyExtractor.apply(m), attr.getName(), System.currentTimeMillis(),
-            m.getBytes(CHARSET));
+            m.getBytes(StandardCharsets.UTF_8));
         onNext.accept(elem);
       }
 

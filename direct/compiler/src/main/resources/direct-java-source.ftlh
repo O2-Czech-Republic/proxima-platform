@@ -26,24 +26,3 @@
       }
       return descriptors.stream().findAny().get().getCommitLogReader();
     }
-
-    public Optional<PartitionedView> getPartitionedView(AttributeDescriptor<?>... attributes) {
-
-      Set<DirectAttributeFamilyDescriptor> descriptors = new HashSet<>();
-      for (AttributeDescriptor<?> attr : attributes) {
-        Set<DirectAttributeFamilyDescriptor> views = direct.getFamiliesForAttribute(attr)
-            .stream()
-            .filter(af -> af.getDesc().getAccess().canCreatePartitionedView())
-            .collect(Collectors.toSet());
-        if (views.isEmpty()) {
-          return Optional.empty();
-        }
-        descriptors.addAll(views);
-      }
-      // FIXME: we cannot join multiple commit logs together for now
-      // so we have to throw exception here
-      if (descriptors.size() > 1) {
-        throw new UnsupportedOperationException("Unsupported: multiple commit logs for multiple attributes");
-      }
-      return descriptors.stream().findAny().get().getPartitionedView();
-    }

@@ -23,12 +23,9 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.direct.view.PartitionedLogObserver;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
-import cz.seznam.euphoria.core.client.dataset.Dataset;
-import cz.seznam.euphoria.core.client.flow.Flow;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -571,19 +568,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     @Override
-    public <T> Dataset<T> observePartitions(
-        Flow flow, Collection<Partition> partitions,
-        PartitionedLogObserver<T> observer) {
-
-      Dataset<T> ret = super.observePartitions(flow, partitions, observer);
-      log.debug(
-          "Started to observe partitions {} of view of LocalKafkaCommitLog with URI {}",
-          partitions.stream().map(Partition::getId).collect(Collectors.toList()),
-          getUri());
-      return ret;
-    }
-
-    @Override
     public ObserveHandle observe(String name, Position position, LogObserver observer) {
       ObserveHandle ret = super.observe(name, position, observer);
       log.debug(
@@ -593,22 +577,10 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     @Override
-    public <T> Dataset<T> observe(
-        Flow flow, String name, PartitionedLogObserver<T> observer) {
-
-      Dataset<T> ret = super.observe(flow, name, observer);
-      log.debug(
-          "Started to observe view of LocalKafkaCommitLog with URI {} "
-              + "by consumer name {}",
-          getUri(), name);
-      return ret;
-    }
-
-    @Override
     ObserveHandle observeKafka(
         @Nullable String name, Collection<Partition> partitions,
         Position position, boolean stopAtCurrent,
-        KafkaLogObserver observer) {
+        LogObserver observer) {
 
       ObserveHandle ret = super.observeKafka(
           name, partitions, position, stopAtCurrent, observer);

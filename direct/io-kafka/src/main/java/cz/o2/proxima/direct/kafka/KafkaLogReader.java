@@ -27,17 +27,9 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.kafka.Consumers.BulkConsumer;
 import cz.o2.proxima.direct.kafka.Consumers.OnlineConsumer;
-import cz.o2.proxima.direct.view.PartitionedLogObserver;
-import cz.o2.proxima.direct.view.PartitionedView;
-import cz.o2.proxima.direct.view.input.DataSourceUtils;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
-import cz.seznam.euphoria.core.client.dataset.Dataset;
-import cz.seznam.euphoria.core.client.flow.Flow;
-import cz.seznam.euphoria.core.client.io.DataSource;
-import cz.seznam.euphoria.core.client.operator.MapElements;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -47,8 +39,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -70,8 +60,7 @@ import org.apache.kafka.common.TopicPartition;
  * A {@link CommitLogReader} implementation for Kafka.
  */
 @Slf4j
-public class KafkaLogReader extends AbstractStorage
-    implements CommitLogReader, PartitionedView {
+public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
   @Getter
   final KafkaAccessor accessor;
@@ -105,38 +94,7 @@ public class KafkaLogReader extends AbstractStorage
       Position position,
       LogObserver observer) {
 
-    return observeKafka(
-        name, null, position, false,
-        new KafkaLogObserver.LogObserverKafkaLogObserver(observer));
-  }
-
-  @Override
-  public <T> Dataset<T> observe(
-      Flow flow, String name, PartitionedLogObserver<T> observer) {
-
-    BlockingQueue<T> queue = new ArrayBlockingQueue<>(100);
-    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
-
-    DataSourceUtils.Producer producer = () ->
-        handle.set(observeKafka(name, null, Position.NEWEST, false,
-            KafkaLogObserver.PartitionedKafkaLogObserver.of(
-                observer, Utils.unchecked(queue::put))));
-
-    Serializable lock = new Serializable() { };
-    DataSource<T> source = DataSourceUtils.fromPartitions(
-        DataSourceUtils.fromBlockingQueue(
-            queue, producer, () -> handle.get().getCurrentOffsets(),
-            off -> {
-              synchronized (lock) {
-                Optional.ofNullable(handle.get()).ifPresent(h -> h.resetOffsets(off));
-              }
-            }));
-
-    // we need to remap the input here to be able to directly persist it again
-    return MapElements.of(
-        flow.createInput(source))
-        .using(e -> e)
-        .output();
+    return observeKafka(name, null, position, false, observer);
   }
 
   @Override
@@ -149,39 +107,8 @@ public class KafkaLogReader extends AbstractStorage
 
     return observeKafka(
         null, partitions, position, stopAtCurrent,
-        new KafkaLogObserver.LogObserverKafkaLogObserver(observer));
+        observer);
 
-  }
-
-  @Override
-  public <T> Dataset<T> observePartitions(
-      Flow flow, Collection<Partition> partitions,
-      PartitionedLogObserver<T> observer) {
-
-    BlockingQueue<T> queue = new ArrayBlockingQueue<>(100);
-    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
-
-    DataSourceUtils.Producer producer = () ->
-        handle.set(observeKafka(
-            null, partitions, Position.NEWEST, false,
-            KafkaLogObserver.PartitionedKafkaLogObserver.of(
-                observer, Utils.unchecked(queue::put))));
-
-    final Serializable lock = new Serializable() { };
-    DataSource<T> source = DataSourceUtils.fromPartitions(
-        DataSourceUtils.fromBlockingQueue(
-            queue, producer, () -> handle.get().getCurrentOffsets(),
-            off -> {
-              synchronized (lock) {
-                Optional.ofNullable(handle.get()).ifPresent(h -> h.resetOffsets(off));
-              }
-            }));
-
-    // we need to remap the input here to be able to directly persist it again
-    return MapElements.of(
-        flow.createInput(source))
-        .using(e -> e)
-        .output();
   }
 
   @Override
@@ -237,7 +164,7 @@ public class KafkaLogReader extends AbstractStorage
       @Nullable Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      KafkaLogObserver observer) {
+      LogObserver observer) {
 
     try {
       return processConsumer(
@@ -294,7 +221,7 @@ public class KafkaLogReader extends AbstractStorage
       @Nullable String name, @Nullable Collection<Offset> offsets,
       Position position, boolean stopAtCurrent,
       boolean commitToKafka,
-      KafkaLogObserver observer,
+      LogObserver observer,
       ExecutorService executor) throws InterruptedException {
 
     // offsets that should be committed to kafka

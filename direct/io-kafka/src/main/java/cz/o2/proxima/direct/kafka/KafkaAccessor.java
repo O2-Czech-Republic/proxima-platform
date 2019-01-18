@@ -23,7 +23,6 @@ import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
-import cz.o2.proxima.direct.view.PartitionedView;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.util.Classpath;
@@ -143,11 +142,6 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Override
   public Optional<CommitLogReader> getCommitLogReader(Context context) {
-    return Optional.of(newReader(context));
-  }
-
-  @Override
-  public Optional<PartitionedView> getPartitionedView(Context context) {
     return Optional.of(newReader(context));
   }
 

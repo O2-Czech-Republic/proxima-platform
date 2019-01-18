@@ -60,15 +60,15 @@ public class TransformationObserver extends RetryableLogObserver {
 
   @Override
   public boolean onNextInternal(
-      StreamElement ingest, OffsetCommitter committer) {
+      StreamElement ingest, OnNextContext context) {
 
     if (!filter.apply(ingest)) {
       log.debug(
           "Transformation {}: skipping transformation of {} by filter",
           name,  ingest);
-      committer.confirm();
+      context.confirm();
     } else {
-      doTransform(committer, ingest);
+      doTransform(context, ingest);
     }
     return true;
   }

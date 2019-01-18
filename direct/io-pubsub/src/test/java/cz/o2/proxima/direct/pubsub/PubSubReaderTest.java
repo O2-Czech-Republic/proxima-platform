@@ -145,9 +145,9 @@ public class PubSubReaderTest {
     CountDownLatch latch = new CountDownLatch(3);
     ObserveHandle handle = reader.observe("dummy", new LogObserver() {
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         elems.add(ingest);
-        committer.confirm();
+        context.confirm();
         latch.countDown();
         return true;
       }
@@ -208,7 +208,7 @@ public class PubSubReaderTest {
     final ObserveHandle handle = reader.observe("dummy", new LogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         throw new RuntimeException("Fail");
       }
 
@@ -250,9 +250,9 @@ public class PubSubReaderTest {
     AtomicReference<BulkLogObserver.OffsetCommitter> commit = new AtomicReference<>();
     ObserveHandle handle = reader.observeBulk("dummy", new BulkLogObserver() {
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         elems.add(ingest);
-        commit.set(committer);
+        commit.set(context);
         latch.countDown();
         return true;
       }

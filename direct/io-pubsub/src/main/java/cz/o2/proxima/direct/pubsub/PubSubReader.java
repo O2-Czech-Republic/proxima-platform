@@ -31,7 +31,9 @@ import com.google.pubsub.v1.PushConfig;
 import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Position;
 import cz.o2.proxima.direct.core.Context;
@@ -107,7 +109,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
     validatePosition(position);
     return consume(name, (e, c) -> {
-      LogObserver.OffsetCommitter committer = (succ, exc) -> {
+      OffsetCommitter committer = (succ, exc) -> {
         if (succ) {
           log.debug("Confirming message {} to PubSub", e);
           c.ack();
@@ -121,7 +123,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         }
       };
       try {
-        boolean ret = observer.onNext(e, committer);
+        boolean ret = observer.onNext(e, asOnNextContext(committer, () -> 0));
         if (!ret) {
           observer.onCompleted();
         }
@@ -184,7 +186,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
           // ensure explicit synchronization here
           synchronized (lock) {
             try {
-              if (!observer.onNext(e, () -> 0, committer)) {
+              if (!observer.onNext(e, asOnNextContext(committer, () -> 0))) {
                 observer.onCompleted();
                 return false;
               }

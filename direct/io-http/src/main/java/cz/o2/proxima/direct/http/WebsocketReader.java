@@ -15,15 +15,17 @@
  */
 package cz.o2.proxima.direct.http;
 
+import com.google.common.collect.Iterables;
 import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Position;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.internal.shaded.com.google.common.collect.Iterables;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
@@ -56,6 +58,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
       EntityDescriptor entityDescriptor, URI uri, Map<String, Object> cfg) {
 
     super(entityDescriptor, uri);
+    @SuppressWarnings("unchecked")
     List<String> attributes = (List<String>) cfg.get("attributes");
     if (attributes.size() > 1) {
       throw new IllegalArgumentException(
@@ -95,7 +98,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
     checkSupportedPosition(position);
     return observe(
-        element -> observer.onNext(element, nullCommitter()),
+        element -> observer.onNext(element, nullContext()),
         observer::onError);
   }
 
@@ -168,7 +171,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
     checkSupportedPosition(position);
     return observe(
-        element -> observer.onNext(element, nullCommitter()),
+        element -> observer.onNext(element, nullContext()),
         observer::onError);
   }
 
@@ -178,7 +181,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
     checkSupportedPosition(position);
     return observe(
-        element -> observer.onNext(element, PARTITION, nullBulkCommitter()),
+        element -> observer.onNext(element, nullContext()),
         observer::onError);
   }
 
@@ -202,12 +205,10 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
     // nop
   }
 
-  private LogObserver.OffsetCommitter nullCommitter() {
-    return (succ, err) -> { };
-  }
-
-  private BulkLogObserver.OffsetCommitter nullBulkCommitter() {
-    return (succ, err) -> { };
+  private OnNextContext nullContext() {
+    return asOnNextContext(
+        (succ, err) -> { },
+        PARTITION);
   }
 
   private void checkSupportedPosition(Position position) {

@@ -22,7 +22,6 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.DirectDataOperatorFactory;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.direct.view.PartitionedView;
 import cz.o2.proxima.generator.OperatorGenerator;
 import cz.o2.proxima.generator.OperatorGeneratorFactory;
 import cz.o2.proxima.repository.DataOperatorFactory;
@@ -62,8 +61,7 @@ public class DirectOperatorGeneratorFactory implements OperatorGeneratorFactory 
           DirectAttributeFamilyDescriptor.class.getName(),
           CommitLogReader.class.getName(),
           KeyValue.class.getName(),
-          RandomAccessReader.class.getName(),
-          PartitionedView.class.getName()
+          RandomAccessReader.class.getName()
       );
     }
 

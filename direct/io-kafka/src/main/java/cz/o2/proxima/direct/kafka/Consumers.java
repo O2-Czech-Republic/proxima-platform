@@ -32,6 +32,9 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 
 /**
  * Placeholder class for consumers.
@@ -76,12 +79,12 @@ class Consumers {
 
   static final class OnlineConsumer extends ConsumerBase {
 
-    private final KafkaLogObserver observer;
+    private final LogObserver observer;
     private final OffsetCommitter<TopicPartition> committer;
     private final Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit;
 
     OnlineConsumer(
-        KafkaLogObserver observer,
+        LogObserver observer,
         OffsetCommitter<TopicPartition> committer,
         Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit) {
 
@@ -98,16 +101,19 @@ class Consumers {
 
       processing.put(tp.partition(), offset);
       if (element != null) {
-        return observer.onNext(element, (succ, exc) -> {
-          if (succ) {
-            committed.compute(
-                tp.partition(),
-                (k, v) -> v == null || v <= offset ? offset + 1 : v);
-            committer.confirm(tp, offset);
-          } else {
-            errorHandler.accept(exc);
-          }
-        }, tp::partition);
+        return observer.onNext(
+            element,
+            asOnNextContext((succ, exc) -> {
+              if (succ) {
+                committed.compute(
+                    tp.partition(),
+                    (k, v) -> v == null || v <= offset ? offset + 1 : v);
+                committer.confirm(tp, offset);
+              } else {
+                errorHandler.accept(exc);
+              }
+            },
+            tp::partition));
       }
       committed.compute(
           tp.partition(),
@@ -142,9 +148,11 @@ class Consumers {
         List<TopicOffset> offsets) {
 
       super.onAssign(consumer, offsets);
-      observer.onRepartition(offsets.stream()
-          .map(TopicOffset::getPartition)
-          .collect(Collectors.toList()));
+      observer.onRepartition(
+          asRepartitionContext(
+              offsets.stream()
+                  .map(TopicOffset::getPartition)
+                  .collect(Collectors.toList())));
     }
 
   }
@@ -177,25 +185,26 @@ class Consumers {
       processing.put(tp.partition(), offset);
       if (element != null) {
         return observer.onNext(
-            element, tp::partition,
-            bulkCommitter(tp, offset, errorHandler));
+            element, context(tp, offset, errorHandler));
       }
       return true;
     }
 
-    private BulkLogObserver.OffsetCommitter bulkCommitter(
+    private OnNextContext context(
         TopicPartition tp, long offset, Consumer<Throwable> errorHandler) {
 
-      return (succ, err) -> {
-        if (succ) {
-          committed.compute(
-              tp.partition(),
-              (k, v) -> Math.max(MoreObjects.firstNonNull(v, 0L), offset + 1));
-          commit.accept(tp, offset);
-        } else {
-          errorHandler.accept(err);
-        }
-      };
+      return asOnNextContext(
+          (succ, err) -> {
+            if (succ) {
+              committed.compute(
+                  tp.partition(),
+                  (k, v) -> Math.max(MoreObjects.firstNonNull(v, 0L), offset + 1));
+              commit.accept(tp, offset);
+            } else {
+              errorHandler.accept(err);
+            }
+          },
+          tp::partition);
     }
 
     @Override

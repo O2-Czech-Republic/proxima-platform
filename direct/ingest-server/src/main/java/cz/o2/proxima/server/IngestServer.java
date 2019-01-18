@@ -477,7 +477,7 @@ public class IngestServer {
 
       @Override
       public boolean onNextInternal(
-          StreamElement ingest, OffsetCommitter committer) {
+          StreamElement ingest, OnNextContext context) {
 
         final boolean allowed = allowedAttributes.contains(
             ingest.getAttributeDescriptor());
@@ -485,7 +485,7 @@ public class IngestServer {
             "Consumer {}: received new stream element {}", consumerName, ingest);
         if (allowed && filter.apply(ingest)) {
           Failsafe.with(retryPolicy).run(
-              () -> ingestOnlineInternal(ingest, committer));
+              () -> ingestOnlineInternal(ingest, context));
         } else {
           Metrics.COMMIT_UPDATE_DISCARDED.increment();
           log.debug(
@@ -494,7 +494,7 @@ public class IngestServer {
               consumerName, ingest, writer.getUri(),
               allowed ? "applied filter" : "invalid attribute",
               allowedAttributes, filter.getClass());
-          committer.confirm();
+          context.confirm();
         }
         return true;
       }

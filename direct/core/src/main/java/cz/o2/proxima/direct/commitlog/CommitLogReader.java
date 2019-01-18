@@ -173,7 +173,7 @@ public interface CommitLogReader extends Closeable, Serializable {
       String name,
       Position position,
       boolean stopAtCurrent,
-      BulkLogObserver observer);
+      LogObserver observer);
 
 
   /**
@@ -189,7 +189,7 @@ public interface CommitLogReader extends Closeable, Serializable {
   default ObserveHandle observeBulk(
       String name,
       Position position,
-      BulkLogObserver observer) {
+      LogObserver observer) {
 
     return observeBulk(name, position, false, observer);
   }
@@ -206,7 +206,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    */
   default ObserveHandle observeBulk(
       String name,
-      BulkLogObserver observer) {
+      LogObserver observer) {
 
     return observeBulk(name, Position.NEWEST, observer);
   }
@@ -223,7 +223,7 @@ public interface CommitLogReader extends Closeable, Serializable {
       String name,
       Collection<Partition> partitions,
       Position position,
-      BulkLogObserver observer) {
+      LogObserver observer) {
 
     return observeBulkPartitions(name, partitions, position, false, observer);
   }
@@ -244,7 +244,7 @@ public interface CommitLogReader extends Closeable, Serializable {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      BulkLogObserver observer);
+      LogObserver observer);
 
   /**
    * Subscribe to given partitions in a bulk fashion.
@@ -259,7 +259,7 @@ public interface CommitLogReader extends Closeable, Serializable {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      BulkLogObserver observer) {
+      LogObserver observer) {
 
     return observeBulkPartitions(
         "unnamed-proxima-bulk-consumer-" + UUID.randomUUID().toString(),
@@ -279,7 +279,7 @@ public interface CommitLogReader extends Closeable, Serializable {
   default ObserveHandle observeBulkPartitions(
       Collection<Partition> partitions,
       Position position,
-      BulkLogObserver observer) {
+      LogObserver observer) {
 
     return observeBulkPartitions(
         partitions,
@@ -301,7 +301,7 @@ public interface CommitLogReader extends Closeable, Serializable {
    */
   ObserveHandle observeBulkOffsets(
       Collection<Offset> offsets,
-      BulkLogObserver observer);
+      LogObserver observer);
 
 
   /**

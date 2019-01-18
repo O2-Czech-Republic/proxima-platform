@@ -16,7 +16,6 @@
 package cz.o2.proxima.repository;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
@@ -178,7 +177,7 @@ public class CommitLogReaderTest {
   public void testBulkObserve() throws InterruptedException {
     List<StreamElement> received = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(2);
-    reader.observeBulk("test", new BulkLogObserver() {
+    reader.observeBulk("test", new LogObserver() {
 
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {

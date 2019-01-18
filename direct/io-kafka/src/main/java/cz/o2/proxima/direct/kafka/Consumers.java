@@ -16,7 +16,6 @@
 package cz.o2.proxima.direct.kafka;
 
 import com.google.common.base.MoreObjects;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.storage.StreamElement;
@@ -160,13 +159,13 @@ class Consumers {
   static final class BulkConsumer extends ConsumerBase {
 
     private final String topic;
-    private final BulkLogObserver observer;
+    private final LogObserver observer;
     private final BiConsumer<TopicPartition, Long> commit;
     private final Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit;
 
     BulkConsumer(
         String topic,
-        BulkLogObserver observer,
+        LogObserver observer,
         BiConsumer<TopicPartition, Long> commit,
         Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit) {
 
@@ -234,7 +233,10 @@ class Consumers {
         List<TopicOffset> offsets) {
 
       super.onAssign(consumer, offsets);
-      observer.onRestart((List) offsets);
+      observer.onRepartition(asRepartitionContext(
+          offsets.stream()
+              .map(TopicOffset::getPartition)
+              .collect(Collectors.toList())));
 
       Utils.seekToOffsets(topic, (List) offsets, consumer);
     }

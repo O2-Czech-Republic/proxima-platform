@@ -18,8 +18,8 @@ package cz.o2.proxima.direct.euphoria.source;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
@@ -93,7 +93,7 @@ public class UnboundedStreamSource
 
       BlockingQueue<Optional<StreamElement>> queue = new ArrayBlockingQueue<>(100);
 
-      final BlockingQueue<BulkLogObserver.OffsetCommitter> committers;
+      final BlockingQueue<OffsetCommitter> committers;
       committers = new LinkedBlockingDeque<>();
       AtomicReference<ObserveHandle> handle = new AtomicReference<>();
       handle.set(reader.observeBulkPartitions(
@@ -152,9 +152,9 @@ public class UnboundedStreamSource
 
         @Override
         public void commitOffset(Offset offset) {
-          List<BulkLogObserver.OffsetCommitter> toCommit = new ArrayList<>();
+          List<OffsetCommitter> toCommit = new ArrayList<>();
           committers.drainTo(toCommit);
-          toCommit.forEach(BulkLogObserver.OffsetCommitter::confirm);
+          toCommit.forEach(OffsetCommitter::confirm);
         }
 
       };
@@ -162,11 +162,11 @@ public class UnboundedStreamSource
 
   }
 
-  private BulkLogObserver partitionObserver(
+  private LogObserver partitionObserver(
       BlockingQueue<Optional<StreamElement>> queue,
-      BlockingQueue<BulkLogObserver.OffsetCommitter> committers) {
+      BlockingQueue<OffsetCommitter> committers) {
 
-    return new BulkLogObserver() {
+    return new LogObserver() {
 
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -198,7 +198,7 @@ public class UnboundedStreamSource
 
   private boolean enqueue(
       BlockingQueue<Optional<StreamElement>> queue,
-      BlockingQueue<BulkLogObserver.OffsetCommitter> committers,
+      BlockingQueue<OffsetCommitter> committers,
       OffsetCommitter confirm,
       StreamElement ingest) {
 

@@ -18,7 +18,6 @@ package cz.o2.proxima.direct.core;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -250,7 +249,7 @@ public class DirectAttributeFamilyProxyDescriptor
           @Override
           public ObserveHandle observeBulk(
               String name, Position position, boolean stopAtCurrent,
-              BulkLogObserver observer) {
+              LogObserver observer) {
 
             return reader.observeBulk(
                 name, position, stopAtCurrent, wrapTransformed(lookup, observer));
@@ -266,7 +265,7 @@ public class DirectAttributeFamilyProxyDescriptor
               Collection<Partition> partitions,
               Position position,
               boolean stopAtCurrent,
-              BulkLogObserver observer) {
+              LogObserver observer) {
 
             return reader.observeBulkPartitions(
                 partitions, position, stopAtCurrent,
@@ -279,7 +278,7 @@ public class DirectAttributeFamilyProxyDescriptor
               Collection<Partition> partitions,
               Position position,
               boolean stopAtCurrent,
-              BulkLogObserver observer) {
+              LogObserver observer) {
 
             return reader.observeBulkPartitions(
                 name, partitions, position, stopAtCurrent,
@@ -288,7 +287,7 @@ public class DirectAttributeFamilyProxyDescriptor
 
           @Override
           public ObserveHandle observeBulkOffsets(
-              Collection<Offset> offsets, BulkLogObserver observer) {
+              Collection<Offset> offsets, LogObserver observer) {
 
             return reader.observeBulkOffsets(
                 offsets, wrapTransformed(lookup, observer));
@@ -471,6 +470,11 @@ public class DirectAttributeFamilyProxyDescriptor
       }
 
       @Override
+      public void onRepartition(OnRepartitionContext context) {
+        observer.onRepartition(context);
+      }
+
+      @Override
       public void onCompleted() {
         observer.onCompleted();
       }
@@ -483,54 +487,6 @@ public class DirectAttributeFamilyProxyDescriptor
       @Override
       public boolean onError(Throwable error) {
         return observer.onError(error);
-      }
-
-    };
-  }
-
-  static BulkLogObserver wrapTransformed(
-      AttrLookup lookup,
-      BulkLogObserver observer) {
-
-    return new BulkLogObserver() {
-
-      @Override
-      public void onCompleted() {
-        observer.onCompleted();
-      }
-
-      @Override
-      public boolean onError(Throwable error) {
-        return observer.onError(error);
-      }
-
-      @Override
-      public boolean onNext(
-          StreamElement ingest,
-          OnNextContext context) {
-
-        try {
-          return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
-              .stream()
-              .map(attr -> observer.onNext(transformToProxy(ingest, attr), context))
-              .filter(c -> !c)
-              .findFirst()
-              .orElse(true);
-        } catch (Exception ex) {
-          log.error("Failed to transform ingest {}", ingest, ex);
-          context.fail(ex);
-          return true;
-        }
-      }
-
-      @Override
-      public void onRestart(List<Offset> offsets) {
-        observer.onRestart(offsets);
-      }
-
-      @Override
-      public void onCancelled() {
-        observer.onCancelled();
       }
 
     };

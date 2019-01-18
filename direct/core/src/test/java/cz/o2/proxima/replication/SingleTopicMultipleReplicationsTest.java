@@ -16,7 +16,6 @@
 package cz.o2.proxima.replication;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.Position;
@@ -194,7 +193,7 @@ public class SingleTopicMultipleReplicationsTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observeBulkPartitions(
         reader.getPartitions(), Position.CURRENT,
-        new BulkLogObserver() {
+        new LogObserver() {
           @Override
           public boolean onNext(
               StreamElement ingest, OnNextContext context) {

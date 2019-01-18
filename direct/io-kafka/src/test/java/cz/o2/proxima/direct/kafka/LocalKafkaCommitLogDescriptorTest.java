@@ -18,15 +18,15 @@ package cz.o2.proxima.direct.kafka;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.KeyPartitioner;
 import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Partitioner;
 import cz.o2.proxima.direct.commitlog.Position;
-import cz.o2.proxima.direct.commitlog.RetryableBulkObserver;
+import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -581,7 +581,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     final ObserveHandle handle = reader.observeBulk(
         "test", Position.NEWEST,
-        new BulkLogObserver() {
+        new LogObserver() {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -627,7 +627,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
 
-    RetryableBulkObserver observer = new RetryableBulkObserver(3, "test", reader) {
+    RetryableLogObserver observer = new RetryableLogObserver(3, "test", reader) {
 
       @Override
       protected void failure() {
@@ -636,7 +636,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
       @Override
       protected boolean onNextInternal(
-          StreamElement ingest, OffsetCommitter confirm) {
+          StreamElement ingest, OnNextContext confirm) {
 
         restarts.incrementAndGet();
         throw new RuntimeException("FAIL!");
@@ -678,10 +678,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     final ObserveHandle handle = reader.observeBulk(
         "test", Position.NEWEST,
-        new BulkLogObserver() {
+        new LogObserver() {
 
           @Override
-          public void onRestart(List<Offset> offsets) {
+          public void onRepartition(OnRepartitionContext context) {
             restarts.incrementAndGet();
           }
 
@@ -737,10 +737,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     final ObserveHandle handle = reader.observeBulkPartitions(
         reader.getPartitions(),
-        Position.NEWEST, new BulkLogObserver() {
+        Position.NEWEST, new LogObserver() {
 
           @Override
-          public void onRestart(List<Offset> offsets) {
+          public void onRepartition(OnRepartitionContext context) {
             restarts.incrementAndGet();
           }
 
@@ -795,7 +795,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     final Map<Integer, Offset> currentOffsets = new HashMap<>();
 
-    final BulkLogObserver observer = new BulkLogObserver() {
+    final LogObserver observer = new LogObserver() {
 
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {

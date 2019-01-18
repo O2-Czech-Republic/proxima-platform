@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.kafka;
 
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Position;
@@ -568,7 +567,9 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     @Override
-    public ObserveHandle observe(String name, Position position, LogObserver observer) {
+    public ObserveHandle observe(
+        String name, Position position, LogObserver observer) {
+
       ObserveHandle ret = super.observe(name, position, observer);
       log.debug(
           "Started to observe LocalKafkaCommitLog with URI {} by consumer {}",
@@ -593,7 +594,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
     @Override
     public ObserveHandle observeBulk(
-        String name, Position position, BulkLogObserver observer) {
+        String name, Position position, LogObserver observer) {
 
       ObserveHandle ret = super.observeBulk(name, position, observer);
       log.debug("Started to bulk observe LocalKafkaCommitLog with URI {} by {}",

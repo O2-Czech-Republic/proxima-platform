@@ -18,8 +18,8 @@ package cz.o2.proxima.direct.euphoria.source;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Position;
@@ -116,10 +116,10 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
     };
   }
 
-  private BulkLogObserver partitionObserver(
+  private LogObserver partitionObserver(
       BlockingQueue<Optional<StreamElement>> queue) {
 
-    return new BulkLogObserver() {
+    return new LogObserver() {
 
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {

@@ -23,8 +23,8 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Position;
@@ -130,7 +130,7 @@ public class LocalCachedPartitionedView implements CachedView {
     CountDownLatch latch = new CountDownLatch(1);
     AtomicLong prefetchedCount = new AtomicLong();
 
-    BulkLogObserver prefetchObserver = new BulkLogObserver() {
+    LogObserver prefetchObserver = new LogObserver() {
 
       @Override
       public boolean onNext(
@@ -161,7 +161,7 @@ public class LocalCachedPartitionedView implements CachedView {
       }
 
     };
-    BulkLogObserver observer = new BulkLogObserver() {
+    LogObserver observer = new LogObserver() {
 
       @Override
       public boolean onNext(

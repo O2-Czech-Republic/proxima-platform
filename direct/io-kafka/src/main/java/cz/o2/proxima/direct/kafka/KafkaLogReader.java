@@ -17,7 +17,6 @@ package cz.o2.proxima.direct.kafka;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -116,7 +115,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       String name,
       Position position,
       boolean stopAtCurrent,
-      BulkLogObserver observer) {
+      LogObserver observer) {
 
     return observeKafkaBulk(name, null, position, stopAtCurrent, observer);
   }
@@ -127,7 +126,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      BulkLogObserver observer) {
+      LogObserver observer) {
 
     // name is ignored, because when observing partition the offsets
     // are not committed to kafka
@@ -139,7 +138,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
   @Override
   public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, BulkLogObserver observer) {
+      Collection<Offset> offsets, LogObserver observer) {
 
     return observeKafkaBulk(null, offsets, Position.CURRENT, false, observer);
   }
@@ -182,7 +181,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       @Nullable Collection<Offset> offsets,
       Position position,
       boolean stopAtCurrent,
-      BulkLogObserver observer) {
+      LogObserver observer) {
 
     Preconditions.checkArgument(
         name != null || offsets != null,
@@ -273,7 +272,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       @Nullable String name, @Nullable Collection<Offset> offsets,
       Position position, boolean stopAtCurrent,
       boolean commitToKafka,
-      BulkLogObserver observer,
+      LogObserver observer,
       ExecutorService executor) throws InterruptedException {
 
     // offsets that should be committed to kafka

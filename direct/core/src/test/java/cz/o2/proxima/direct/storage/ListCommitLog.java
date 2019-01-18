@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.direct.storage;
 
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Position;
 import cz.o2.proxima.direct.core.Context;
@@ -128,9 +128,9 @@ public class ListCommitLog implements CommitLogReader {
   @Override
   public ObserveHandle observeBulk(
       String name, Position position, boolean stopAtCurrent,
-      BulkLogObserver observer) {
+      LogObserver observer) {
 
-    observer.onRestart(Arrays.asList(() -> () -> 0));
+    observer.onRepartition(asRepartitionContext(Arrays.asList(() -> 0)));
     pushTo(element -> observer.onNext(
         element, asOnNextContext(
             (succ, exc) -> {
@@ -146,14 +146,14 @@ public class ListCommitLog implements CommitLogReader {
   @Override
   public ObserveHandle observeBulkPartitions(
       String name, Collection<Partition> partitions,
-      Position position, boolean stopAtCurrent, BulkLogObserver observer) {
+      Position position, boolean stopAtCurrent, LogObserver observer) {
 
     return observeBulk(name, position, observer);
   }
 
   @Override
   public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, BulkLogObserver observer) {
+      Collection<Offset> offsets, LogObserver observer) {
 
     return observeBulk(null, null, observer);
   }

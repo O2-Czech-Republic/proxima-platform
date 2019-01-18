@@ -18,7 +18,6 @@ package cz.o2.proxima.repository;
 import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
@@ -426,7 +425,7 @@ public class DirectRepositoryTest {
         .flatMap(af -> af.getCommitLogReader())
         .get();
     List<StreamElement> read = new ArrayList<>();
-    reader.observeBulk("dummy", new BulkLogObserver() {
+    reader.observeBulk("dummy", new LogObserver() {
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {
         read.add(ingest);

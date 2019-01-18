@@ -28,12 +28,12 @@ import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PushConfig;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Position;
 import cz.o2.proxima.direct.core.Context;
@@ -161,7 +161,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   public ObserveHandle observeBulk(
       @Nullable String name, Position position,
       boolean stopAtCurrent,
-      BulkLogObserver observer) {
+      LogObserver observer) {
 
     validateNotStopAtCurrent(stopAtCurrent);
 
@@ -179,7 +179,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
             list.add(c);
             confirmUntil.set(list.size() + globalOffset.get());
           }
-          BulkLogObserver.OffsetCommitter committer = createBulkCommitter(
+          OffsetCommitter committer = createBulkCommitter(
               listLock, confirmUntil, globalOffset, unconfirmed);
 
           // our observers are not supposed to be thread safe, so we must
@@ -198,12 +198,12 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
             }
           }
         }, observer::onError,
-        () -> observer.onRestart(Arrays.asList(() -> () -> 0)),
-        () -> observer.onRestart(Arrays.asList(() -> () -> 0)),
+        () -> observer.onRepartition(asRepartitionContext(Arrays.asList(() -> 0))),
+        () -> observer.onRepartition(asRepartitionContext(Arrays.asList(() -> 0))),
         observer::onCancelled);
   }
 
-  private BulkLogObserver.OffsetCommitter createBulkCommitter(
+  private OffsetCommitter createBulkCommitter(
       Object listLock,
       AtomicLong confirmUntil,
       AtomicLong globalOffset,
@@ -245,7 +245,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      BulkLogObserver observer) {
+      LogObserver observer) {
 
     validateNotStopAtCurrent(stopAtCurrent);
 
@@ -254,7 +254,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
   @Override
   public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, BulkLogObserver observer) {
+      Collection<Offset> offsets, LogObserver observer) {
 
     return observeBulkPartitions(
         offsets.stream().map(Offset::getPartition).collect(Collectors.toList()),

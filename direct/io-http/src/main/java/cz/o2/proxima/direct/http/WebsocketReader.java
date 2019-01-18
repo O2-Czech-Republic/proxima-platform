@@ -16,7 +16,6 @@
 package cz.o2.proxima.direct.http;
 
 import com.google.common.collect.Iterables;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
@@ -177,7 +176,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
   @Override
   public ObserveHandle observeBulk(
-      String name, Position position, boolean stopAtCurrent, BulkLogObserver observer) {
+      String name, Position position, boolean stopAtCurrent, LogObserver observer) {
 
     checkSupportedPosition(position);
     return observe(
@@ -188,14 +187,14 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   @Override
   public ObserveHandle observeBulkPartitions(
       String name, Collection<Partition> partitions, Position position,
-      boolean stopAtCurrent, BulkLogObserver observer) {
+      boolean stopAtCurrent, LogObserver observer) {
 
     return observeBulk(name, position, observer);
   }
 
   @Override
   public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, BulkLogObserver observer) {
+      Collection<Offset> offsets, LogObserver observer) {
 
     return observeBulk(null, Position.NEWEST, observer);
   }

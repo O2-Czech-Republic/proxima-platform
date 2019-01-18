@@ -20,8 +20,8 @@ import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -247,8 +247,8 @@ public class PubSubReaderTest {
     List<StreamElement> elems = new ArrayList<>();
     AtomicBoolean cancelled = new AtomicBoolean();
     CountDownLatch latch = new CountDownLatch(3);
-    AtomicReference<BulkLogObserver.OffsetCommitter> commit = new AtomicReference<>();
-    ObserveHandle handle = reader.observeBulk("dummy", new BulkLogObserver() {
+    AtomicReference<OffsetCommitter> commit = new AtomicReference<>();
+    ObserveHandle handle = reader.observeBulk("dummy", new LogObserver() {
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {
         elems.add(ingest);

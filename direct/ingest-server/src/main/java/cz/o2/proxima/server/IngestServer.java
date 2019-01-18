@@ -20,8 +20,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.AbstractRetryableLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.direct.commitlog.RetryableBulkObserver;
+import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
@@ -49,7 +48,6 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -408,19 +406,19 @@ public class IngestServer {
       BulkAttributeWriter writer,
       RetryPolicy retry) {
 
-    return new RetryableBulkObserver(3, consumerName, commitLog) {
+    return new RetryableLogObserver(3, consumerName, commitLog) {
 
       @Override
       public boolean onNextInternal(
           StreamElement ingest,
-          OffsetCommitter committer) {
+          OnNextContext context) {
 
         final boolean allowed = allowedAttributes.contains(
             ingest.getAttributeDescriptor());
         log.debug(
             "Consumer {}: received new ingest element {}", consumerName, ingest);
         if (allowed && filter.apply(ingest)) {
-          Failsafe.with(retry).run(() -> ingestBulkInternal(ingest, committer));
+          Failsafe.with(retry).run(() -> ingestBulkInternal(ingest, context));
         } else {
           Metrics.COMMIT_UPDATE_DISCARDED.increment();
           log.debug(
@@ -442,11 +440,11 @@ public class IngestServer {
       }
 
       @Override
-      public void onRestart(List<Offset> offsets) {
+      public void onRepartition(OnRepartitionContext context) {
         log.info(
             "Consumer {}: restarting bulk processing of {} from {}, "
                 + "rollbacking the writer",
-            consumerName, writer.getUri(), offsets);
+            consumerName, writer.getUri(), context.partitions());
         writer.rollback();
       }
 

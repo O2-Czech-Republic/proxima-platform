@@ -18,7 +18,6 @@ package cz.o2.proxima.direct.storage;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -249,7 +248,7 @@ public class InMemStorage implements DataAccessorFactory {
         String name,
         Position position,
         boolean stopAtCurrent,
-        BulkLogObserver observer) {
+        LogObserver observer) {
 
       try {
         flushBasedOnPosition(
@@ -317,14 +316,14 @@ public class InMemStorage implements DataAccessorFactory {
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        BulkLogObserver observer) {
+        LogObserver observer) {
 
       return observeBulk(name, position, stopAtCurrent, observer);
     }
 
     @Override
     public ObserveHandle observeBulkOffsets(
-        Collection<Offset> offsets, BulkLogObserver observer) {
+        Collection<Offset> offsets, LogObserver observer) {
 
       return observeBulkPartitions(
           offsets.stream().map(Offset::getPartition).collect(Collectors.toList()),

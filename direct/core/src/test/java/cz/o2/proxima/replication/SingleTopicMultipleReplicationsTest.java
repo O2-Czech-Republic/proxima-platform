@@ -154,10 +154,11 @@ public class SingleTopicMultipleReplicationsTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe("dummy", new LogObserver() {
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         assertEquals(wildcard, ingest.getAttributeDescriptor());
         assertEquals("wildcard.1", ingest.getAttribute());
         latch.countDown();
+        context.confirm();
         return false;
       }
 
@@ -196,7 +197,7 @@ public class SingleTopicMultipleReplicationsTest {
         new BulkLogObserver() {
           @Override
           public boolean onNext(
-              StreamElement ingest, OffsetCommitter committer) {
+              StreamElement ingest, OnNextContext context) {
             assertEquals(wildcard, ingest.getAttributeDescriptor());
             assertEquals("wildcard.1", ingest.getAttribute());
             latch.countDown();

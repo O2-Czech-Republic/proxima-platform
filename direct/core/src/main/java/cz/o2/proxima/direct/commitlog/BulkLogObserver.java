@@ -16,11 +16,7 @@
 package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import java.io.Serializable;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /**
  * Observer of a {@code CommitLog} that commits offsets in bulk fashion
@@ -34,78 +30,7 @@ import javax.annotation.Nullable;
  * Implementation has to override either of `onNext` methods.
  */
 @Stable
-public interface BulkLogObserver extends LogObserverBase {
-
-  /**
-   * Interface for bulk commit. When committed, all elements preceding the committed
-   * one are considered as committed.
-   */
-  @FunctionalInterface
-  interface OffsetCommitter extends Serializable {
-
-    /**
-     * Commit bulk processing of all currently uncommitted messages.
-     * @param success the success flag
-     * @param err error thrown in bulk processing (if any)
-     */
-    void commit(boolean success, @Nullable Throwable err);
-
-    /**
-     * Confirm successful processing.
-     */
-    default void confirm() {
-      commit(true, null);
-    }
-
-    /**
-     * Fail the bulk processing.
-     * @param err the error thrown during processing
-     */
-    default void fail(Throwable err)  {
-      commit(false, err);
-    }
-
-    /**
-     * Nack the processing (no error thrown, but not successful).
-     */
-    default void nack() {
-      commit(false, null);
-    }
-
-  }
-
-  /**
-   * Process next record in the commit log.
-   * @param ingest the ingested data written to the commit log
-   * @param committer a callback that the application *might* use to commit the ingest
-   * until the confirm is committed, all uncommitted elements will be reprocessed
-   * in case of failure. Call to `BulkCommitter#commit` all elements
-   * processed so far will be committed.
-   * @return {@code true} if the processing should continue, {@code false} otherwise
-   **/
-  default boolean onNext(StreamElement ingest, OffsetCommitter committer) {
-    throw new UnsupportedOperationException(
-        "Please override either of `onNext` methods");
-  }
-
-
-  /**
-   * Process next record in the commit log.
-   * @param ingest the ingested data written to the commit log
-   * @param partition the source partition of the ingest
-   * @param committer a callback that the application *might* use to commit the ingest
-   * until the confirm is committed, all uncommitted elements will be reprocessed
-   * in case of failure. Call to `BulkCommitter#commit` all elements
-   * processed so far will be committed.
-   * @return {@code true} if the processing should continue, {@code false} otherwise
-   **/
-  default boolean onNext(
-      StreamElement ingest,
-      Partition partition,
-      OffsetCommitter committer) {
-
-    return onNext(ingest, committer);
-  }
+public interface BulkLogObserver extends LogObserver {
 
   /**
    * Called when the bulk processing is restarted from last committed position.

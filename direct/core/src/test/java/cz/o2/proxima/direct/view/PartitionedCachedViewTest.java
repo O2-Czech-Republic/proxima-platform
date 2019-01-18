@@ -36,7 +36,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 /**
- * Test suite for {@link PartitionedCachedView}.
+ * Test suite for {@link CachedView}.
  */
 public class PartitionedCachedViewTest {
 
@@ -84,11 +84,11 @@ public class PartitionedCachedViewTest {
         .filter(af -> af.getDesc().getAccess().canCreatePartitionedCachedView())
         .findAny()
         .orElseThrow(() -> new IllegalStateException("Status has no cached view"));
-    PartitionedCachedView view = cachedFamily.getPartitionedCachedView().get();
+    CachedView view = cachedFamily.getCachedView().get();
     // read all partitions
     AtomicReference<CountDownLatch> latch = new AtomicReference<>();
     view.assign(
-        cachedFamily.getPartitionedView().get().getPartitions(),
+        cachedFamily.getCommitLogReader().get().getPartitions(),
         (update, current) -> {
           Optional.ofNullable(latch.get()).ifPresent(CountDownLatch::countDown);
         });
@@ -123,11 +123,11 @@ public class PartitionedCachedViewTest {
         .findAny()
         .orElseThrow(() -> new IllegalStateException("Status has no cached view"));
 
-    PartitionedCachedView view = cachedFamily.getPartitionedCachedView().get();
+    CachedView view = cachedFamily.getCachedView().get();
     // read all partitions
     AtomicReference<CountDownLatch> latch = new AtomicReference<>();
     view.assign(
-        cachedFamily.getPartitionedView().get().getPartitions(),
+        cachedFamily.getCommitLogReader().get().getPartitions(),
         (update, current) -> {
           Optional.ofNullable(latch.get()).ifPresent(CountDownLatch::countDown);
         });

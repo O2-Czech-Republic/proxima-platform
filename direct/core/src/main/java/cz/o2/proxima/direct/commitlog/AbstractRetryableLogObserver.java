@@ -30,7 +30,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Stable
 @Slf4j
-public abstract class AbstractRetryableLogObserver implements LogObserverBase {
+public abstract class AbstractRetryableLogObserver implements LogObserver {
 
   /** Maximal number of retries. */
   @Getter

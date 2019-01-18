@@ -34,7 +34,7 @@ import java.util.Collection;
  * that read-write operations have happens-before relation semantics.
  */
 @Stable
-public interface PartitionedCachedView
+public interface CachedView
     extends RandomAccessReader, OnlineAttributeWriter {
 
   /**

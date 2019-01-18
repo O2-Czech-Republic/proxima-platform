@@ -23,7 +23,6 @@ import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
-import cz.o2.proxima.direct.view.PartitionedCachedView;
 import cz.o2.proxima.direct.view.PartitionedView;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
@@ -35,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import lombok.AccessLevel;
+import cz.o2.proxima.direct.view.CachedView;
 
 /**
  * Kafka writer and commit log using {@code KafkaProducer}.
@@ -152,7 +152,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   }
 
   @Override
-  public Optional<PartitionedCachedView> getCachedView(Context context) {
+  public Optional<CachedView> getCachedView(Context context) {
     return Optional.of(new LocalCachedPartitionedView(
         getEntityDescriptor(), newReader(context),
         newWriter()));

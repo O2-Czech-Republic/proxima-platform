@@ -17,7 +17,6 @@ package cz.o2.proxima.direct.kafka;
 
 import com.google.common.base.MoreObjects;
 import cz.o2.proxima.direct.commitlog.BulkLogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserverBase;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.storage.StreamElement;
@@ -32,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import cz.o2.proxima.direct.commitlog.LogObserver;
 
 /**
  * Placeholder class for consumers.
@@ -70,7 +70,7 @@ class Consumers {
           TopicOffset::getOffset)));
     }
 
-    abstract LogObserverBase observer();
+    abstract LogObserver observer();
 
   }
 
@@ -132,7 +132,7 @@ class Consumers {
     }
 
     @Override
-    LogObserverBase observer() {
+    LogObserver observer() {
       return observer;
     }
 
@@ -209,7 +209,7 @@ class Consumers {
     }
 
     @Override
-    LogObserverBase observer() {
+    LogObserver observer() {
       return observer;
     }
 

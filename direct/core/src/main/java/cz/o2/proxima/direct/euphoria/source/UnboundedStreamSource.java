@@ -20,6 +20,7 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Position;
@@ -168,11 +169,11 @@ public class UnboundedStreamSource
     return new BulkLogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         try {
-          return enqueue(queue, committers, confirm, ingest);
+          return enqueue(queue, committers, context, ingest);
         } catch (Exception ex) {
-          confirm.fail(ex);
+          context.fail(ex);
           throw new RuntimeException(ex);
         }
       }
@@ -198,7 +199,7 @@ public class UnboundedStreamSource
   private boolean enqueue(
       BlockingQueue<Optional<StreamElement>> queue,
       BlockingQueue<BulkLogObserver.OffsetCommitter> committers,
-      BulkLogObserver.OffsetCommitter confirm,
+      OffsetCommitter confirm,
       StreamElement ingest) {
 
     try {

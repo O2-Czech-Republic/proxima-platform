@@ -20,6 +20,7 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Position;
 import cz.seznam.euphoria.core.client.io.BoundedDataSource;
@@ -121,12 +122,12 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
     return new BulkLogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
 
         try {
-          return enqueue(queue, ingest, confirm);
+          return enqueue(queue, ingest, context);
         } catch (Exception ex) {
-          confirm.fail(ex);
+          context.fail(ex);
           throw new RuntimeException(ex);
         }
       }
@@ -151,7 +152,7 @@ public class BoundedStreamSource implements BoundedDataSource<StreamElement> {
 
   private boolean enqueue(
       BlockingQueue<Optional<StreamElement>> queue,
-      StreamElement ingest, BulkLogObserver.OffsetCommitter confirm) {
+      StreamElement ingest, OffsetCommitter confirm) {
 
     try {
       queue.put(Optional.of(ingest));

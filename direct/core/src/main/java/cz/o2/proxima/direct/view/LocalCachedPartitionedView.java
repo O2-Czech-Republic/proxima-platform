@@ -48,10 +48,10 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A transformation view from {@link PartitionedView} to {@link PartitionedCachedView}.
+ * A transformation view from {@link CommitLogReader} to {@link CachedView}.
  */
 @Slf4j
-public class LocalCachedPartitionedView implements PartitionedCachedView {
+public class LocalCachedPartitionedView implements CachedView {
 
   private final CommitLogReader reader;
   private final EntityDescriptor entity;
@@ -135,16 +135,15 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
       @Override
       public boolean onNext(
           StreamElement ingest,
-          Partition partition,
-          OffsetCommitter committer) {
+          OnNextContext context) {
 
         try {
           prefetchedCount.incrementAndGet();
           onCache(ingest, false);
-          committer.confirm();
+          context.confirm();
           return true;
         } catch (Throwable ex) {
-          committer.fail(ex);
+          context.fail(ex);
           return false;
         }
       }
@@ -167,15 +166,14 @@ public class LocalCachedPartitionedView implements PartitionedCachedView {
       @Override
       public boolean onNext(
           StreamElement ingest,
-          Partition partition,
-          OffsetCommitter confirm) {
+          OnNextContext context) {
 
         try {
           onCache(ingest, false);
-          confirm.confirm();
+          context.confirm();
           return true;
         } catch (Throwable err) {
-          confirm.fail(err);
+          context.fail(err);
           return false;
         }
       }

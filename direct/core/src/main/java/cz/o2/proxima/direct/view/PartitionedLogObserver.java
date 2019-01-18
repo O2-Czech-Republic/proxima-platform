@@ -19,16 +19,16 @@ import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.direct.commitlog.LogObserverBase;
 import java.io.Serializable;
 import java.util.Collection;
 import javax.annotation.Nullable;
+import cz.o2.proxima.direct.commitlog.LogObserver;
 
 /**
  * Observer of data in {@code PartitionedView}.
  */
 @Stable
-public interface PartitionedLogObserver<T> extends LogObserverBase {
+public interface PartitionedLogObserver<T> extends LogObserver {
 
   @FunctionalInterface
   public interface ConfirmCallback extends Serializable {

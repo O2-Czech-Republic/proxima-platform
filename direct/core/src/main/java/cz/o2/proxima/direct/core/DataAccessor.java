@@ -19,10 +19,9 @@ import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.direct.view.PartitionedCachedView;
-import cz.o2.proxima.direct.view.PartitionedView;
 import java.io.Serializable;
 import java.util.Optional;
+import cz.o2.proxima.direct.view.CachedView;
 
 /**
  * Interface providing various types of data access patterns to storage.
@@ -67,20 +66,11 @@ public interface DataAccessor extends Serializable {
   }
 
   /**
-   * Retrieve partitioned view of the data.
-   * @param context serializable context provided by repository
-   * @return optional {@link PartitionedView} of this accessor
-   */
-  default Optional<PartitionedView> getPartitionedView(Context context) {
-    return Optional.empty();
-  }
-
-  /**
    * Retrieve partitioned cached view of the data.
    * @param context serializable context provided by repository
-   * @return optional {@link PartitionedCachedView} of this accessor
+   * @return optional {@link CachedView} of this accessor
    */
-  default Optional<PartitionedCachedView> getCachedView(Context context) {
+  default Optional<CachedView> getCachedView(Context context) {
     return Optional.empty();
   }
 

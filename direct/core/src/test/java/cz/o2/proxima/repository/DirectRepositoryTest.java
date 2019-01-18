@@ -26,7 +26,6 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.direct.view.PartitionedCachedView;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
@@ -55,6 +54,7 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 import static org.junit.Assert.*;
+import cz.o2.proxima.direct.view.CachedView;
 
 /**
  * Test repository config parsing.
@@ -157,7 +157,7 @@ public class DirectRepositoryTest {
         .observe("dummy", new LogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
             assertEquals("test", new String(ingest.getValue()));
             assertEquals("event.abc", ingest.getAttribute());
             assertEquals(source, ingest.getAttributeDescriptor());
@@ -314,11 +314,11 @@ public class DirectRepositoryTest {
     EntityDescriptor proxied = repo.findEntity("proxied").get();
     AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
     AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
-    PartitionedCachedView view = direct.getFamiliesForAttribute(source)
+    CachedView view = direct.getFamiliesForAttribute(source)
         .stream()
         .filter(af -> af.getDesc().getAccess().canCreatePartitionedCachedView())
         .findAny()
-        .flatMap(af -> af.getPartitionedCachedView())
+        .flatMap(af -> af.getCachedView())
         .orElseThrow(() -> new IllegalStateException(
             "Missing cached view for " + source));
     RandomAccessReader reader = direct.getFamiliesForAttribute(target)
@@ -372,9 +372,9 @@ public class DirectRepositoryTest {
     List<StreamElement> read = new ArrayList<>();
     reader.observe("dummy", new LogObserver() {
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         read.add(ingest);
-        committer.confirm();
+        context.confirm();
         return true;
       }
 
@@ -428,9 +428,9 @@ public class DirectRepositoryTest {
     List<StreamElement> read = new ArrayList<>();
     reader.observeBulk("dummy", new BulkLogObserver() {
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         read.add(ingest);
-        committer.confirm();
+        context.confirm();
         return true;
       }
 
@@ -677,7 +677,7 @@ public class DirectRepositoryTest {
     List<StreamElement> observed = new ArrayList<>();
     reader.observe("dummy", new LogObserver() {
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         if (!expectNonEmpty) {
           fail("No input was expected.");
         }
@@ -739,10 +739,10 @@ public class DirectRepositoryTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe("dummy", new LogObserver() {
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         assertEquals(ingest.getAttributeDescriptor(), armed);
         latch.countDown();
-        committer.confirm();
+        context.confirm();
         return true;
       }
 
@@ -793,10 +793,10 @@ public class DirectRepositoryTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe("dummy", new LogObserver() {
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         assertEquals(ingest.getAttributeDescriptor(), armed);
         latch.countDown();
-        committer.confirm();
+        context.confirm();
         return true;
       }
 
@@ -849,7 +849,7 @@ public class DirectRepositoryTest {
             "Missing commit log reader for data"));
     reader.observe("dummy", new LogObserver() {
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         assertEquals(ingest.getAttributeDescriptor(), data);
         latch.countDown();
         return true;
@@ -1242,10 +1242,10 @@ public class DirectRepositoryTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe("dummy", new LogObserver() {
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         assertEquals(ingest.getAttributeDescriptor(), data);
         latch.countDown();
-        committer.confirm();
+        context.confirm();
         return true;
       }
 
@@ -1469,10 +1469,10 @@ public class DirectRepositoryTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe("dummy", new LogObserver() {
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         assertEquals(ingest.getAttributeDescriptor(), status);
         latch.countDown();
-        committer.confirm();
+        context.confirm();
         return true;
       }
 
@@ -1659,10 +1659,10 @@ public class DirectRepositoryTest {
               .get()
               .observe(af.getDesc().getName(), new LogObserver() {
                 @Override
-                public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+                public boolean onNext(StreamElement ingest, OnNextContext context) {
                   log.debug("Replicating input {} to {}", ingest, writer);
                   writer.write(ingest, (succ, exc) -> {
-                    committer.commit(succ, exc);
+                    context.commit(succ, exc);
                     onReplicated.accept(ingest);
                   });
                   return true;

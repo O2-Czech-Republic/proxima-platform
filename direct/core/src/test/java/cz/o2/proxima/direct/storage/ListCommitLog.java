@@ -19,6 +19,7 @@ import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Position;
 import cz.o2.proxima.direct.core.Context;
@@ -103,11 +104,16 @@ public class ListCommitLog implements CommitLogReader {
   public ObserveHandle observe(
       String name, Position position, LogObserver observer) {
 
-    pushTo(element -> observer.onNext(element, (succ, exc) -> {
-      if (!succ) {
-        observer.onError(exc);
-      }
-    }), observer::onCompleted);
+    pushTo(element -> observer.onNext(
+        element,
+        asOnNextContext(
+            (succ, exc) -> {
+              if (!succ) {
+                observer.onError(exc);
+              }
+            },
+            () -> 0)),
+        observer::onCompleted);
     return new NopObserveHandle();
   }
 
@@ -125,11 +131,15 @@ public class ListCommitLog implements CommitLogReader {
       BulkLogObserver observer) {
 
     observer.onRestart(Arrays.asList(() -> () -> 0));
-    pushTo(element -> observer.onNext(element, () -> 0, (succ, exc) -> {
-      if (!succ) {
-        observer.onError(exc);
-      }
-    }), observer::onCompleted);
+    pushTo(element -> observer.onNext(
+        element, asOnNextContext(
+            (succ, exc) -> {
+              if (!succ) {
+                observer.onError(exc);
+              }
+            },
+            () -> 0)),
+        observer::onCompleted);
     return new NopObserveHandle();
   }
 

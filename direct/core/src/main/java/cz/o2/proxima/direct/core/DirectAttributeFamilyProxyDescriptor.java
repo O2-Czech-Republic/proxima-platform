@@ -36,13 +36,8 @@ import cz.o2.proxima.direct.randomaccess.RawOffset;
 import cz.o2.proxima.transform.ProxyTransform;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
-import cz.o2.proxima.direct.view.PartitionedCachedView;
-import cz.o2.proxima.direct.view.PartitionedLogObserver;
-import cz.o2.proxima.direct.view.PartitionedView;
 import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.AttributeProxyDescriptor;
-import cz.seznam.euphoria.core.client.dataset.Dataset;
-import cz.seznam.euphoria.core.client.flow.Flow;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
@@ -56,6 +51,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import cz.o2.proxima.direct.view.CachedView;
 
 /**
  * Attribute family proxy descriptor for direct operator.
@@ -149,7 +145,6 @@ public class DirectAttributeFamilyProxyDescriptor
         getCommitLogReader(lookup, context, desc),
         getBatchObservable(lookup, context, desc),
         getRandomAccess(lookup, context, desc),
-        getPartitionedView(lookup, context, desc),
         getPartitionedCachedView(lookup, context, desc));
   }
 
@@ -432,51 +427,7 @@ public class DirectAttributeFamilyProxyDescriptor
         });
   }
 
-  @SuppressWarnings("unchecked")
-  private static Optional<PartitionedView> getPartitionedView(
-      AttrLookup lookup,
-      Context context,
-      AttributeFamilyProxyDescriptor desc) {
-
-    return context
-        .resolve(desc.getTargetFamilyRead())
-        .flatMap(DirectAttributeFamilyDescriptor::getPartitionedView)
-        .map(view -> new PartitionedView() {
-
-          @Override
-          public List<Partition> getPartitions() {
-            return view.getPartitions();
-          }
-
-          @Override
-          public <T> Dataset<T> observePartitions(
-              Flow flow,
-              Collection<Partition> partitions,
-              PartitionedLogObserver<T> observer) {
-
-            return view.observePartitions(
-                flow, partitions,
-                wrapTransformed(lookup, observer));
-          }
-
-          @Override
-          public <T> Dataset<T> observe(
-              Flow flow, String name, PartitionedLogObserver<T> observer) {
-
-            return view.observe(
-                flow, name,
-                wrapTransformed(lookup, observer));
-          }
-
-          @Override
-          public EntityDescriptor getEntityDescriptor() {
-            return view.getEntityDescriptor();
-          }
-
-        });
-  }
-
-  private static Optional<PartitionedCachedView> getPartitionedCachedView(
+  private static Optional<CachedView> getPartitionedCachedView(
       AttrLookup lookup,
       Context context,
       AttributeFamilyProxyDescriptor desc) {
@@ -504,17 +455,17 @@ public class DirectAttributeFamilyProxyDescriptor
     return new LogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
         try {
           return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
               .stream()
-              .map(attr -> observer.onNext(transformToProxy(ingest, attr), confirm))
+              .map(attr -> observer.onNext(transformToProxy(ingest, attr), context))
               .filter(c -> !c)
               .findFirst()
               .orElse(true);
         } catch (Exception ex) {
           log.error("Failed to transform ingest {}", ingest, ex);
-          confirm.fail(ex);
+          context.fail(ex);
           return false;
         }
       }
@@ -556,20 +507,18 @@ public class DirectAttributeFamilyProxyDescriptor
       @Override
       public boolean onNext(
           StreamElement ingest,
-          Partition partition,
-          BulkLogObserver.OffsetCommitter confirm) {
+          OnNextContext context) {
 
         try {
           return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
               .stream()
-              .map(attr -> observer.onNext(
-                  transformToProxy(ingest, attr), partition, confirm))
+              .map(attr -> observer.onNext(transformToProxy(ingest, attr), context))
               .filter(c -> !c)
               .findFirst()
               .orElse(true);
         } catch (Exception ex) {
           log.error("Failed to transform ingest {}", ingest, ex);
-          confirm.fail(ex);
+          context.fail(ex);
           return true;
         }
       }
@@ -619,52 +568,6 @@ public class DirectAttributeFamilyProxyDescriptor
       @Override
       public void onError(Throwable error) {
         observer.onError(error);
-      }
-
-    };
-  }
-
-  private static <T> PartitionedLogObserver<T> wrapTransformed(
-      AttrLookup lookup,
-      PartitionedLogObserver<T> observer) {
-
-    return new PartitionedLogObserver<T>() {
-
-      @Override
-      public void onRepartition(Collection<Partition> assigned) {
-        observer.onRepartition(assigned);
-      }
-
-      @Override
-      public boolean onNext(
-          StreamElement ingest,
-          PartitionedLogObserver.ConfirmCallback confirm,
-          Partition partition,
-          Consumer<T> collector) {
-
-        try {
-          return lookup.lookupRead(ingest.getAttributeDescriptor().getName())
-              .stream()
-              .map(attr -> observer.onNext(
-                  transformToProxy(ingest, attr),
-                  confirm, partition, collector))
-              .filter(c -> !c)
-              .findFirst()
-              .orElse(true);
-        } catch (Exception ex) {
-          log.error("Failed to transform ingest {}", ingest, ex);
-          return true;
-        }
-      }
-
-      @Override
-      public void onCompleted() {
-        observer.onCompleted();
-      }
-
-      @Override
-      public boolean onError(Throwable error) {
-        return observer.onError(error);
       }
 
     };

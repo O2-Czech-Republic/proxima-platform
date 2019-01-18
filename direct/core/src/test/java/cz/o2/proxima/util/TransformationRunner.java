@@ -84,7 +84,7 @@ public class TransformationRunner {
             "No commit log reader for attributes of transformation " + desc))
         .observe(name, new LogObserver() {
           @Override
-          public boolean onNext(StreamElement ingest, OffsetCommitter committer) {
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
             desc.getTransformation().apply(ingest, transformed -> {
               log.debug(
                   "Transformation {}: writing original {} transformed {}",
@@ -92,7 +92,7 @@ public class TransformationRunner {
               onReplicated.accept(transformed);
               direct.getWriter(transformed.getAttributeDescriptor())
                   .get()
-                  .write(transformed, committer::commit);
+                  .write(transformed, context::commit);
             });
             return true;
           }

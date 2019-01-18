@@ -16,29 +16,22 @@
 package cz.o2.proxima.direct.storage;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.direct.view.PartitionedLogObserver;
-import cz.o2.proxima.direct.view.PartitionedView;
-import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
-import cz.seznam.euphoria.core.client.dataset.Dataset;
-import cz.seznam.euphoria.core.client.io.ListDataSink;
-import cz.seznam.euphoria.core.client.operator.MapElements;
-import cz.seznam.euphoria.executor.local.LocalExecutor;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -63,35 +56,28 @@ public class InMemStorageTest implements Serializable {
     DataAccessor accessor = storage.create(
         entity, new URI("inmem:///inmemstoragetest"),
         Collections.emptyMap());
-    PartitionedView view = accessor.getPartitionedView(direct.getContext())
+    CommitLogReader reader = accessor.getCommitLogReader(direct.getContext())
         .orElseThrow(() -> new IllegalStateException("Missing partitioned view"));
     AttributeWriterBase writer = accessor.getWriter(direct.getContext())
         .orElseThrow(() -> new IllegalStateException("Missing writer"));
-    SynchronousQueue<Integer> sync = new SynchronousQueue<>();
     AtomicReference<CountDownLatch> latch = new AtomicReference<>();
-    Dataset<Integer> dataset = view.observePartitions(
-        view.getPartitions(), new PartitionedLogObserver<Integer>() {
+    ObserveHandle handle = reader.observePartitions(
+        reader.getPartitions(), new LogObserver() {
 
           @Override
-          public void onRepartition(Collection<Partition> assigned) {
-            assertEquals(1, assigned.size());
-            try {
-              latch.set(new CountDownLatch(1));
-              sync.put(1);
-            } catch (InterruptedException ex) {
-              throw new RuntimeException(ex);
-            }
+          public void onRepartition(OnRepartitionContext context) {
+            assertEquals(1, context.partitions().size());
+            latch.set(new CountDownLatch(1));
           }
 
           @Override
           public boolean onNext(
-              StreamElement ingest, ConfirmCallback confirm,
-              Partition partition, Consumer<Integer> collector) {
+              StreamElement ingest, OnNextContext context) {
 
-            assertEquals(0, partition.getId());
+            assertEquals(0, context.getPartition().getId());
             assertEquals("key", ingest.getKey());
-            collector.accept(1);
-            confirm.confirm();
+            context.confirm();
+            latch.get().countDown();
             return false;
           }
 
@@ -102,19 +88,6 @@ public class InMemStorageTest implements Serializable {
 
         });
 
-    MapElements.of(dataset)
-        .using(e -> {
-          latch.get().countDown();
-          return e;
-        })
-        .output()
-        .persist(ListDataSink.get());
-
-    direct.getContext().getExecutorService().execute(() -> {
-      new LocalExecutor().submit(dataset.getFlow()).join();
-    });
-    // use synchronousqueue as synchronization mechanism only
-    assertEquals(1, (int) sync.take());
     writer.online().write(
         StreamElement.update(
             entity, entity.findAttribute("data")

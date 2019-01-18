@@ -16,22 +16,17 @@
 package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
+import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
- * Observer of the data in the commit log.
- * This observer provides access only to the data that was not yet consumed
- * by the named consumer. The consumer maintains position in the commit log
- * so if it crashes, then it will continue consuming from the committed position.
- * However, it is not guaranteed that a message will not be delivered multiple
- * times, nor it is guaranteed that messages will be delivered in-order.
- *
- * The implementation has to override either of `onNext` methods.
+ * Base interface for bulk and online observers.
  */
 @Stable
-public interface LogObserver extends LogObserverBase {
+public interface LogObserver extends Serializable {
 
   /**
    * Committer for manipulation with offset during consumption.
@@ -70,12 +65,83 @@ public interface LogObserver extends LogObserverBase {
   }
 
   /**
+   * Context passed to {@link #onNext}.
+   */
+  @Stable
+  interface OnNextContext extends OffsetCommitter {
+
+    /**
+     * Retrieve committer for currently processed record.
+     * @return offset committer to use for committing
+     */
+    OffsetCommitter committer();
+
+    /**
+     * Retrieve partition for currently processed record.
+     * @return partition of currently processed record
+     */
+    Partition getPartition();
+
+    @Override
+    default void commit(boolean success, Throwable error) {
+      committer().commit(success, error);
+    }
+
+  }
+
+  /**
+   * Context passed to {@link #onRepartition}.
+   */
+  interface OnRepartitionContext {
+
+    /**
+     * Retrieve list of currently assigned partitions.
+     * @return partitions currently assigned (after the repartition)
+     */
+    Collection<Partition> partitions();
+
+  }
+
+  /**
+   * Notify that the processing has gracefully ended.
+   */
+  default void onCompleted() {
+
+  }
+
+  /**
+   * Notify that the processing has been canceled.
+   */
+  default void onCancelled() {
+
+  }
+
+  /**
+   * Called to notify there was an error in the commit reader.
+   * @param error error caught during processing
+   * @return {@code true} to restart processing from last committed position,
+   *         {@code false} to stop processing
+   */
+  boolean onError(Throwable error);
+
+  /**
    * Process next record in the commit log.
    * @param ingest the ingested data written to the commit log
-   * @param committer a context that the application must use to confirm processing
-   * of the ingest. If the application fails to do so, the result is undefined
+   * @param context a context that the application must use to confirm processing
+   * of the ingest. If the application fails to do so, the result is undefined.
    * @return {@code true} if the processing should continue, {@code false} otherwise
    **/
-  boolean onNext(StreamElement ingest, OffsetCommitter committer);
+  boolean onNext(
+      StreamElement ingest,
+      OnNextContext context);
+
+  /**
+   * Callback to notify of automatic repartitioning.
+   * This method is always called first before any {@link #onNext} call happens.
+   * @param context context of the repartition
+   */
+  default void onRepartition(OnRepartitionContext context) {
+
+  }
 
 }

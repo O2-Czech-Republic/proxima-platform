@@ -20,14 +20,13 @@ import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.direct.view.PartitionedCachedView;
-import cz.o2.proxima.direct.view.PartitionedView;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import cz.o2.proxima.direct.view.CachedView;
 
 /**
  * Attribute descriptor with associated accessors.
@@ -53,10 +52,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
   private final RandomAccessReader randomAccessReader;
 
   @Nullable
-  private final PartitionedView partitionedView;
-
-  @Nullable
-  private final PartitionedCachedView cachedView;
+  private final CachedView cachedView;
 
   DirectAttributeFamilyDescriptor(
       AttributeFamilyDescriptor desc,
@@ -64,15 +60,13 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
       Optional<CommitLogReader> commitLogReader,
       Optional<BatchLogObservable> batchLogObservable,
       Optional<RandomAccessReader> randomAccessReader,
-      Optional<PartitionedView> partitionedView,
-      Optional<PartitionedCachedView> cachedView) {
+      Optional<CachedView> cachedView) {
 
     this.desc = desc;
     this.writer = writer.orElse(null);
     this.commitLogReader = commitLogReader.orElse(null);
     this.batchObservable = batchLogObservable.orElse(null);
     this.randomAccessReader = randomAccessReader.orElse(null);
-    this.partitionedView = partitionedView.orElse(null);
     this.cachedView = cachedView.orElse(null);
   }
 
@@ -86,7 +80,6 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
         accessor.getCommitLogReader(context),
         accessor.getBatchLogObservable(context),
         accessor.getRandomAccessReader(context),
-        accessor.getPartitionedView(context),
         accessor.getCachedView(context));
   }
 
@@ -170,26 +163,11 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
   }
 
   /**
-   * Retrieve a partitioned view.
-   * Empty if the attribute family cannot create partitioned view.
-   * @return optional {@link PartitionedView} of this family
-   */
-  public Optional<PartitionedView> getPartitionedView() {
-    if (desc.getAccess().canCreatePartitionedView()) {
-      return Optional.of(Objects.requireNonNull(partitionedView,
-          () -> "Family " + desc.getName()
-                  + " doesn't have partitioned view"));
-    }
-    return Optional.empty();
-  }
-
-
-  /**
-   * Retrieve partitioned cached view.
+   * Retrieve cached view.
    * Empty if the attribute family cannot create partitioned cached view.
-   * @return optional {@link PartitionedCachedView} of this family
+   * @return optional {@link CachedView} of this family
    */
-  public Optional<PartitionedCachedView> getPartitionedCachedView() {
+  public Optional<CachedView> getCachedView() {
     if (desc.getAccess().canCreatePartitionedCachedView()) {
       return Optional.of(Objects.requireNonNull(cachedView,
           () -> "Family " + desc.getName() + " cannot create cached view"));

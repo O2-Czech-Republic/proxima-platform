@@ -41,10 +41,9 @@ public abstract class RetryableBulkObserver
 
   @Override
   public final boolean onNext(
-      StreamElement ingest, Partition partition,
-      BulkLogObserver.OffsetCommitter confirm) {
+      StreamElement ingest, OnNextContext context) {
 
-    boolean ret = onNextInternal(ingest, partition, confirm);
+    boolean ret = onNextInternal(ingest, context);
     success();
     return ret;
   }

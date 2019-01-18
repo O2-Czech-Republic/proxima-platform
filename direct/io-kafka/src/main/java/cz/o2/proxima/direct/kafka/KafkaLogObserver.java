@@ -16,17 +16,17 @@
 package cz.o2.proxima.direct.kafka;
 
 import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserverBase;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.view.PartitionedLogObserver;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.StreamElement;
 import java.util.Collection;
+import cz.o2.proxima.direct.commitlog.LogObserver;
 
 /**
  * A {@link PartitionedLogObserver} usable as {@link LogObserver}.
  */
-interface KafkaLogObserver extends LogObserverBase {
+interface KafkaLogObserver extends LogObserver {
 
   interface ConfirmCallback {
     void apply(boolean succ, Throwable err);

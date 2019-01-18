@@ -35,7 +35,6 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.kafka.LocalKafkaCommitLogDescriptor.Accessor;
 import cz.o2.proxima.direct.kafka.LocalKafkaCommitLogDescriptor.LocalKafkaWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
-import cz.o2.proxima.direct.view.PartitionedCachedView;
 import cz.o2.proxima.direct.view.PartitionedLogObserver;
 import cz.o2.proxima.direct.view.PartitionedView;
 import cz.o2.proxima.functional.Consumer;
@@ -83,6 +82,7 @@ import org.apache.kafka.common.TopicPartition;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
+import cz.o2.proxima.direct.view.CachedView;
 
 /**
  * Test suite for {@code LocalKafkaCommitLogDescriptorTest}.
@@ -1004,7 +1004,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testCachedView() throws InterruptedException {
     final Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
     final LocalKafkaWriter writer = accessor.newWriter();
-    final PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    final CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(
         new CountDownLatch(1));
@@ -1039,7 +1039,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final Accessor accessor = kafka.create(
         entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     final LocalKafkaWriter writer = accessor.newWriter();
-    final PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    final CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(
         new CountDownLatch(2));
@@ -1081,7 +1081,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testCachedViewWrite() throws InterruptedException {
     Accessor accessor = kafka.create(
         entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
-    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     List<StreamElement> updates = Arrays.asList(
         StreamElement.update(
@@ -1109,7 +1109,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testCachedViewWriteAndDelete() throws InterruptedException {
     Accessor accessor = kafka.create(
         entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
-    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     List<StreamElement> updates = Arrays.asList(
@@ -1137,7 +1137,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testCachedViewWriteAndDeleteWildcard() throws InterruptedException {
     Accessor accessor = kafka.create(
         entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
-    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
@@ -1182,7 +1182,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testCachedViewWriteAndList() throws InterruptedException {
     Accessor accessor = kafka.create(
         entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
-    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
@@ -1221,7 +1221,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testCachedViewWriteAndListAll() throws InterruptedException {
     Accessor accessor = kafka.create(
         entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
-    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
@@ -1260,7 +1260,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testCachedViewWritePreUpdate() throws InterruptedException {
     Accessor accessor = kafka.create(
         entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
-    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     List<StreamElement> updates = Arrays.asList(
         StreamElement.update(
@@ -1289,7 +1289,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     Accessor accessor = kafka.create(
         entity, storageUri, partitionsCfg(3, KeyPartitioner.class));
-    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     List<StreamElement> updates = Arrays.asList(
@@ -1320,7 +1320,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testRewriteAndPrefetch() throws InterruptedException, IOException {
     Accessor accessor = kafka.create(
         entity, storageUri, partitionsCfg(3, KeyPartitioner.class));
-    PartitionedCachedView view = accessor.getCachedView(context()).orElseThrow(
+    CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
     List<StreamElement> updates = Arrays.asList(

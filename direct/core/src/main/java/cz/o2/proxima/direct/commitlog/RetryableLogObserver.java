@@ -38,9 +38,9 @@ public abstract class RetryableLogObserver
   }
 
   @Override
-  public final boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
+  public final boolean onNext(StreamElement ingest, OnNextContext context) {
 
-    boolean ret = onNextInternal(ingest, confirm);
+    boolean ret = onNextInternal(ingest, context);
     success();
     return ret;
   }
@@ -56,10 +56,10 @@ public abstract class RetryableLogObserver
   /**
    * Called to observe the ingest data.
    * @param ingest input data
-   * @param confirm callback used to confirm processing
+   * @param context context of the element
    * @return {@code true} to continue processing, {@code false} otherwise
    */
   protected abstract boolean onNextInternal(
-      StreamElement ingest, LogObserver.OffsetCommitter confirm);
+      StreamElement ingest, OnNextContext context);
 
 }

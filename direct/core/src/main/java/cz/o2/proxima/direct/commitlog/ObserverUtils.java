@@ -16,34 +16,40 @@
 package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.annotations.Internal;
-import java.io.Serializable;
+import cz.o2.proxima.direct.core.Partition;
+import java.util.Collection;
 
 /**
- * Base interface for bulk and online observers.
+ * Various utilities for working with {@link LogObserver}.
  */
 @Internal
-public interface LogObserverBase extends Serializable {
+public class ObserverUtils {
 
-  /**
-   * Notify that the processing has gracefully ended.
-   */
-  default void onCompleted() {
+  public static LogObserver.OnNextContext asOnNextContext(
+      LogObserver.OffsetCommitter committer,
+      Partition partition) {
 
+    return new LogObserver.OnNextContext() {
+
+      @Override
+      public LogObserver.OffsetCommitter committer() {
+        return committer;
+      }
+
+      @Override
+      public Partition getPartition() {
+        return partition;
+      }
+
+    };
   }
 
-  /**
-   * Notify that the processing has been canceled.
-   */
-  default void onCancelled() {
+  public static LogObserver.OnRepartitionContext asRepartitionContext(
+      Collection<Partition> assigned) {
 
+    return () -> assigned;
   }
 
-  /**
-   * Called to notify there was an error in the commit reader.
-   * @param error error caught during processing
-   * @return {@code true} to restart processing from last committed position,
-   *         {@code false} to stop processing
-   */
-  boolean onError(Throwable error);
+  private ObserverUtils() { }
 
 }

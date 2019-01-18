@@ -22,6 +22,8 @@ import cz.o2.proxima.direct.commitlog.BulkLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Position;
 import cz.o2.proxima.direct.core.AbstractOnlineAttributeWriter;
@@ -37,10 +39,6 @@ import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader.Listing;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.randomaccess.RawOffset;
-import cz.o2.proxima.direct.view.PartitionedCachedView;
-import cz.o2.proxima.direct.view.PartitionedLogObserver;
-import cz.o2.proxima.direct.view.PartitionedView;
-import cz.o2.proxima.direct.view.input.DataSourceUtils;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
@@ -49,8 +47,6 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
-import cz.seznam.euphoria.core.client.dataset.Dataset;
-import cz.seznam.euphoria.core.client.flow.Flow;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Arrays;
@@ -63,16 +59,15 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.SynchronousQueue;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
-import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import cz.o2.proxima.direct.view.CachedView;
 
 /**
  * InMemStorage for testing purposes.
@@ -137,7 +132,7 @@ public class InMemStorage implements DataAccessorFactory {
 
   private static class InMemCommitLogReader
       extends AbstractStorage
-      implements CommitLogReader, PartitionedView {
+      implements CommitLogReader {
 
     private final NavigableMap<Integer, InMemIngestWriter> observers;
     private final NavigableMap<String, Pair<Long, byte[]>> data;
@@ -178,10 +173,13 @@ public class InMemStorage implements DataAccessorFactory {
         LogObserver observer) {
 
       log.debug("Observing {} as {}", getUri(), name);
+      observer.onRepartition(asRepartitionContext(Arrays.asList(() -> 0)));
       try {
         flushBasedOnPosition(
             position,
-            (el, committer) -> observer.onNext(el, committer::accept));
+            (el, committer) -> observer.onNext(el, asOnNextContext(
+                committer::accept,
+                () -> 0)));
       } catch (InterruptedException ex) {
         log.warn("Interrupted while reading old data.", ex);
         Thread.currentThread().interrupt();
@@ -194,7 +192,7 @@ public class InMemStorage implements DataAccessorFactory {
           observers.put(id, elem -> {
             elem = cloneAndUpdateAttribute(getEntityDescriptor(), elem);
             try {
-              observer.onNext(elem, (suc, err) -> { });
+              observer.onNext(elem, asOnNextContext((suc, err) -> { }, () -> 0));
             } catch (Exception ex) {
               observer.onError(ex);
             }
@@ -236,15 +234,6 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     @Override
-    public <T> Dataset<T> observe(
-        Flow flow,
-        String name,
-        PartitionedLogObserver<T> observer) {
-
-      return observePartitions(flow, getPartitions(), observer);
-    }
-
-    @Override
     public ObserveHandle observePartitions(
         String name,
         Collection<Partition> partitions,
@@ -253,64 +242,6 @@ public class InMemStorage implements DataAccessorFactory {
         LogObserver observer) {
 
       return observe(null, position, stopAtCurrent, observer);
-    }
-
-    @Override
-    public <T> Dataset<T> observePartitions(
-        Flow flow,
-        Collection<Partition> partitions,
-        PartitionedLogObserver<T> observer) {
-
-      if (partitions.size() != 1 || partitions.stream().findFirst().get().getId() != 0) {
-        throw new IllegalArgumentException(
-            "This fake implementation has only single partition");
-      }
-
-      SynchronousQueue<T> queue = new SynchronousQueue<>();
-      DataSourceUtils.Producer producer = () -> {
-        Object lock = new Object();
-        ObserveHandle handle = observe(
-            "partitionedView-" + flow.getName(),
-            new LogObserver() {
-
-              @Override
-              public boolean onNext(StreamElement ingest, OffsetCommitter confirm) {
-                synchronized (lock) {
-                  ingest = cloneAndUpdateAttribute(getEntityDescriptor(), ingest);
-                  observer.onNext(ingest, confirm::commit, () -> 0, e -> {
-                    try {
-                      queue.put(e);
-                    } catch (InterruptedException ex) {
-                      Thread.currentThread().interrupt();
-                    }
-                  });
-                }
-                return true;
-              }
-
-              @Override
-              public boolean onError(Throwable error) {
-                throw new RuntimeException(error);
-              }
-
-            });
-        synchronized (lock) {
-          try {
-            handle.waitUntilReady();
-          } catch (InterruptedException ex) {
-            throw new RuntimeException(ex);
-          }
-          observer.onRepartition(partitions);
-        }
-
-      };
-
-      return flow.createInput(
-          DataSourceUtils.fromPartitions(
-              DataSourceUtils.fromBlockingQueue(queue, producer,
-                  () -> new ArrayList<>(),
-                  l -> { })));
-
     }
 
     @Override
@@ -323,7 +254,9 @@ public class InMemStorage implements DataAccessorFactory {
       try {
         flushBasedOnPosition(
             position,
-            (el, committer) -> observer.onNext(el, () -> 0, committer::accept));
+            (el, committer) -> observer.onNext(el, asOnNextContext(
+                committer::accept,
+                () -> 0)));
       } catch (InterruptedException ex) {
         log.warn("Interrupted while reading old data", ex);
         Thread.currentThread().interrupt();
@@ -336,7 +269,9 @@ public class InMemStorage implements DataAccessorFactory {
           observers.put(id, elem -> {
             elem = cloneAndUpdateAttribute(getEntityDescriptor(), elem);
             try {
-              observer.onNext(elem, () -> 0, (suc, err) -> { });
+              observer.onNext(elem, asOnNextContext(
+                  (suc, err) -> { },
+                  () -> 0));
             } catch (Exception ex) {
               observer.onError(ex);
             }
@@ -653,14 +588,14 @@ public class InMemStorage implements DataAccessorFactory {
 
   }
 
-  private static class CachedView implements PartitionedCachedView {
+  private static class InMemCachedView implements CachedView {
 
     private final RandomAccessReader reader;
     private final CommitLogReader commitLogReader;
     private final OnlineAttributeWriter writer;
     private BiConsumer<StreamElement, Pair<Long, Object>> updateCallback;
 
-    CachedView(
+    InMemCachedView(
         RandomAccessReader reader,
         CommitLogReader commitLogReader,
         OnlineAttributeWriter writer) {
@@ -683,10 +618,10 @@ public class InMemStorage implements DataAccessorFactory {
               @Override
               public boolean onNext(
                   StreamElement ingest,
-                  LogObserver.OffsetCommitter committer) {
+                  OnNextContext context) {
 
                 cache(ingest);
-                committer.confirm();
+                context.confirm();
                 return true;
               }
 
@@ -803,7 +738,7 @@ public class InMemStorage implements DataAccessorFactory {
     InMemCommitLogReader commitLogReader = new InMemCommitLogReader(
         entity, uri, data, uriObservers);
     Reader reader = new Reader(entity, uri, data);
-    CachedView cachedView = new CachedView(reader, commitLogReader, writer);
+    CachedView cachedView = new InMemCachedView(reader, commitLogReader, writer);
 
     return new DataAccessor() {
       @Override
@@ -825,13 +760,7 @@ public class InMemStorage implements DataAccessorFactory {
       }
 
       @Override
-      public Optional<PartitionedView> getPartitionedView(Context context) {
-        Objects.requireNonNull(context);
-        return Optional.of(commitLogReader);
-      }
-
-      @Override
-      public Optional<PartitionedCachedView> getCachedView(Context context) {
+      public Optional<CachedView> getCachedView(Context context) {
         Objects.requireNonNull(context);
         return Optional.of(cachedView);
       }

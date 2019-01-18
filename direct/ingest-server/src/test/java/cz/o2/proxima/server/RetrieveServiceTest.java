@@ -442,14 +442,44 @@ public class RetrieveServiceTest {
 
   @Test
   public void testListNotFound() throws Exception {
-    // FIXME
+    EntityDescriptor entity = server.repo.findEntity("dummy").get();
+    AttributeDescriptor attribute = entity.findAttribute("wildcard.*").get();
+    String key = "my-fancy-entity-key";
+
+    Rpc.ListRequest request = Rpc.ListRequest.newBuilder()
+        .setEntity(entity.getName())
+        .setWildcardPrefix("wildcard")
+        .setKey(key)
+        .setLimit(1)
+        .build();
+
+    final List<Rpc.ListResponse> responses = new ArrayList<>();
+    final AtomicBoolean finished = new AtomicBoolean(false);
+    final StreamObserver<Rpc.ListResponse> responseObserver;
+    responseObserver = new StreamObserver<Rpc.ListResponse>() {
+      @Override
+      public void onNext(Rpc.ListResponse res) {
+        responses.add(res);
+      }
+
+      @Override
+      public void onError(Throwable thrwbl) {
+        throw new RuntimeException(thrwbl);
+      }
+
+      @Override
+      public void onCompleted() {
+        finished.set(true);
+      }
+    };
+
+    retrieve.listAttributes(request, responseObserver);
+
+    assertTrue(finished.get());
+    assertEquals(1, responses.size());
+    Rpc.ListResponse response = responses.get(0);
+    assertEquals(200, response.getStatus());
+    assertTrue(response.getValueList().isEmpty());
   }
-
-
-  @Test
-  public void testListEmpty() throws Exception {
-    // FIXME
-  }
-
 
 }

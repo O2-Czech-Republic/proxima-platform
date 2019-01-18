@@ -62,7 +62,7 @@ public class StreamElementSink implements DataSink<StreamElement> {
 
       @Override
       public void close() throws IOException {
-        // FIXME: writer missing close?
+        writer.close();
       }
 
     };

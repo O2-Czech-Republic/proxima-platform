@@ -81,7 +81,7 @@ public class PartitionedCachedViewTest {
     DirectAttributeFamilyDescriptor cachedFamily = direct
         .getFamiliesForAttribute(status)
         .stream()
-        .filter(af -> af.getDesc().getAccess().canCreatePartitionedCachedView())
+        .filter(af -> af.getDesc().getAccess().canCreateCachedView())
         .findAny()
         .orElseThrow(() -> new IllegalStateException("Status has no cached view"));
     CachedView view = cachedFamily.getCachedView().get();
@@ -119,7 +119,7 @@ public class PartitionedCachedViewTest {
     DirectAttributeFamilyDescriptor cachedFamily = direct
         .getFamiliesForAttribute(status)
         .stream()
-        .filter(af -> af.getDesc().getAccess().canCreatePartitionedCachedView())
+        .filter(af -> af.getDesc().getAccess().canCreateCachedView())
         .findAny()
         .orElseThrow(() -> new IllegalStateException("Status has no cached view"));
 

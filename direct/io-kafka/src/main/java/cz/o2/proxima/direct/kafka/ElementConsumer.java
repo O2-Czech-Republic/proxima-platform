@@ -87,5 +87,10 @@ interface ElementConsumer {
       KafkaConsumer<String, byte[]> consumer,
       List<TopicOffset> offsets);
 
+  /**
+   * Called before the processing actually starts.
+   */
+  void onStart();
+
 }
 

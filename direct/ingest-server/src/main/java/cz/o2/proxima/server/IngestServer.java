@@ -20,7 +20,9 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.AbstractRetryableLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
+import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
@@ -179,7 +181,8 @@ public class IngestServer {
       if (s) {
         responseConsumer.accept(ok(uuid));
       } else {
-        responseConsumer.accept(status(uuid, 500, exc.getMessage()));
+        log.warn("Failed to write {}", ingest, exc);
+        responseConsumer.accept(status(uuid, 500, exc.toString()));
       }
     });
     return true;
@@ -315,9 +318,10 @@ public class IngestServer {
       String consumer, CommitLogReader reader,
       Transformation transformation, StorageFilter filter, String name) {
 
-    new TransformationObserver(
-        3, consumer, reader, direct,
-        name, transformation, filter).start();
+    RetryableLogObserver.online(
+        3, consumer, reader,
+        new TransformationObserver(direct, name, transformation, filter))
+        .start();
   }
 
   /**
@@ -406,62 +410,65 @@ public class IngestServer {
       BulkAttributeWriter writer,
       RetryPolicy retry) {
 
-    return new RetryableLogObserver(3, consumerName, commitLog) {
+    return RetryableLogObserver.bulk(
+        3, consumerName, commitLog,
+        new LogObserver() {
 
-      @Override
-      public boolean onNextInternal(
-          StreamElement ingest,
-          OnNextContext context) {
+          @Override
+          public boolean onNext(
+              StreamElement ingest,
+              OnNextContext context) {
 
-        final boolean allowed = allowedAttributes.contains(
-            ingest.getAttributeDescriptor());
-        log.debug(
-            "Consumer {}: received new ingest element {}", consumerName, ingest);
-        if (allowed && filter.apply(ingest)) {
-          Failsafe.with(retry).run(() -> ingestBulkInternal(ingest, context));
-        } else {
-          Metrics.COMMIT_UPDATE_DISCARDED.increment();
-          log.debug(
-              "Consumer {]: discarding write of {} to {} because of {}, "
-                  + "with allowedAttributes {} and filter class {}",
-              consumerName, ingest, writer.getUri(),
-              allowed ? "applied filter" : "invalid attribute",
-              allowedAttributes, filter.getClass());
-        }
-        return true;
-      }
+            final boolean allowed = allowedAttributes.contains(
+                ingest.getAttributeDescriptor());
+            log.debug(
+                "Consumer {}: received new ingest element {}", consumerName, ingest);
+            if (allowed && filter.apply(ingest)) {
+              Failsafe.with(retry).run(() -> ingestBulkInternal(ingest, context));
+            } else {
+              Metrics.COMMIT_UPDATE_DISCARDED.increment();
+              log.debug(
+                  "Consumer {]: discarding write of {} to {} because of {}, "
+                      + "with allowedAttributes {} and filter class {}",
+                  consumerName, ingest, writer.getUri(),
+                  allowed ? "applied filter" : "invalid attribute",
+                  allowedAttributes, filter.getClass());
+            }
+            return true;
+          }
 
-      @Override
-      protected void failure() {
-        die(String.format(
-            "Consumer %s: too many errors retrying the consumption of "
-                + "commit log %s. Killing self.",
-            consumerName, commitLog.getUri()));
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            die(String.format(
+                "Consumer %s: too many errors retrying the consumption of "
+                    + "commit log %s. Killing self.",
+                consumerName, commitLog.getUri()));
+            return false;
+          }
 
-      @Override
-      public void onRepartition(OnRepartitionContext context) {
-        log.info(
-            "Consumer {}: restarting bulk processing of {} from {}, "
-                + "rollbacking the writer",
-            consumerName, writer.getUri(), context.partitions());
-        writer.rollback();
-      }
+          @Override
+          public void onRepartition(OnRepartitionContext context) {
+            log.info(
+                "Consumer {}: restarting bulk processing of {} from {}, "
+                    + "rollbacking the writer",
+                consumerName, writer.getUri(), context.partitions());
+            writer.rollback();
+          }
 
-      private void ingestBulkInternal(
-          StreamElement ingest,
-          OffsetCommitter committer) {
+          private void ingestBulkInternal(
+              StreamElement ingest,
+              OffsetCommitter committer) {
 
-        log.debug(
-            "Consumer {}: writing element {} into {}",
-            consumerName, ingest, writer);
+            log.debug(
+                "Consumer {}: writing element {} into {}",
+                consumerName, ingest, writer);
 
-        writer.write(ingest, (succ, exc) -> confirmWrite(
-            consumerName, ingest, writer, succ, exc,
-            committer::confirm, committer::fail));
-      }
+            writer.write(ingest, (succ, exc) -> confirmWrite(
+                consumerName, ingest, writer, succ, exc,
+                committer::confirm, committer::fail));
+          }
 
-    };
+        });
   }
 
   private AbstractRetryableLogObserver getOnlineObserver(
@@ -471,52 +478,53 @@ public class IngestServer {
       StorageFilter filter,
       OnlineAttributeWriter writer) {
 
-    return new RetryableLogObserver(3, consumerName, commitLog) {
+    return RetryableLogObserver.online(
+        3, consumerName, commitLog, new LogObserver() {
 
-      @Override
-      public boolean onNextInternal(
-          StreamElement ingest, OnNextContext context) {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
 
-        final boolean allowed = allowedAttributes.contains(
-            ingest.getAttributeDescriptor());
-        log.debug(
-            "Consumer {}: received new stream element {}", consumerName, ingest);
-        if (allowed && filter.apply(ingest)) {
-          Failsafe.with(retryPolicy).run(
-              () -> ingestOnlineInternal(ingest, context));
-        } else {
-          Metrics.COMMIT_UPDATE_DISCARDED.increment();
-          log.debug(
-              "Consumer {}: discarding write of {} to {} because of {}, "
-                  + "with allowedAttributes {} and filter class {}",
-              consumerName, ingest, writer.getUri(),
-              allowed ? "applied filter" : "invalid attribute",
-              allowedAttributes, filter.getClass());
-          context.confirm();
-        }
-        return true;
-      }
+            final boolean allowed = allowedAttributes.contains(
+                ingest.getAttributeDescriptor());
+            log.debug(
+                "Consumer {}: received new stream element {}", consumerName, ingest);
+            if (allowed && filter.apply(ingest)) {
+              Failsafe.with(retryPolicy).run(
+                  () -> ingestOnlineInternal(ingest, context));
+            } else {
+              Metrics.COMMIT_UPDATE_DISCARDED.increment();
+              log.debug(
+                  "Consumer {}: discarding write of {} to {} because of {}, "
+                      + "with allowedAttributes {} and filter class {}",
+                  consumerName, ingest, writer.getUri(),
+                  allowed ? "applied filter" : "invalid attribute",
+                  allowedAttributes, filter.getClass());
+              context.confirm();
+            }
+            return true;
+          }
 
-      @Override
-      protected void failure() {
-        die(String.format(
-            "Consumer %s: too many errors retrying the consumption of commit "
-                + "log %s. Killing self.",
-            consumerName, commitLog.getUri()));
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            die(String.format(
+                "Consumer %s: too many errors retrying the consumption of commit "
+                    + "log %s. Killing self.",
+                consumerName, commitLog.getUri()));
+            return false;
+          }
 
-      private void ingestOnlineInternal(
-          StreamElement ingest, OffsetCommitter committer) {
+          private void ingestOnlineInternal(
+              StreamElement ingest, OffsetCommitter committer) {
 
-        log.debug(
-            "Consumer {}: writing element {} into {}",
-            consumerName, ingest, writer);
-        writer.write(ingest, (success, exc) -> confirmWrite(
-            consumerName, ingest, writer, success, exc,
-            committer::confirm, committer::fail));
-      }
+            log.debug(
+                "Consumer {}: writing element {} into {}",
+                consumerName, ingest, writer);
+            writer.write(ingest, (success, exc) -> confirmWrite(
+                consumerName, ingest, writer, success, exc,
+                committer::confirm, committer::fail));
+          }
 
-    };
+        });
   }
 
   private void confirmWrite(

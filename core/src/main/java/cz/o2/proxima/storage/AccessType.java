@@ -46,8 +46,7 @@ public interface AccessType extends Serializable {
     boolean isReadCommit = specifiers.remove("commit-log");
     boolean isStateCommitLog = specifiers.remove("state-commit-log");
     boolean isListPrimaryKey = specifiers.remove("list-primary-key");
-    boolean canCreatePartitionedView = specifiers.remove("partitioned-view");
-    boolean canCreateCachedView = specifiers.remove("partitioned-cached-view");
+    boolean canCreateCachedView = specifiers.remove("cached-view");
 
     if (!specifiers.isEmpty()) {
       throw new IllegalArgumentException("Unknown storage tags: " + specifiers);
@@ -95,12 +94,7 @@ public interface AccessType extends Serializable {
       }
 
       @Override
-      public boolean canCreatePartitionedView() {
-        return canCreatePartitionedView;
-      }
-
-      @Override
-      public boolean canCreatePartitionedCachedView() {
+      public boolean canCreateCachedView() {
         return canCreateCachedView;
       }
 
@@ -115,8 +109,7 @@ public interface AccessType extends Serializable {
             + ", isStateCommitLog=" + isStateCommitLog()
             + ", isListPrimaryKey=" + isListPrimaryKey
             + ", isWriteOnly=" + isWriteOnly
-            + ", canCreatePartitionedView=" + canCreatePartitionedView
-            + ", canCreateCachedPartitionedView=" + canCreateCachedView
+            + ", canCreateCachedView=" + canCreateCachedView
             + ")";
       }
 
@@ -167,15 +160,9 @@ public interface AccessType extends Serializable {
       }
 
       @Override
-      public boolean canCreatePartitionedView() {
-        return left.canCreatePartitionedView()
-            || right.canCreatePartitionedView();
-      }
-
-      @Override
-      public boolean canCreatePartitionedCachedView() {
-        return left.canCreatePartitionedCachedView()
-            || right.canCreatePartitionedCachedView();
+      public boolean canCreateCachedView() {
+        return left.canCreateCachedView()
+            || right.canCreateCachedView();
       }
 
     };
@@ -224,15 +211,9 @@ public interface AccessType extends Serializable {
   boolean isWriteOnly();
 
   /**
-   * @return {@code true} if a partitioned view can be created from this
+   * @return {@code true} if a cached view can be create from this
    *         attribute family
    */
-  boolean canCreatePartitionedView();
-
-  /**
-   * @return {@code true} if a partitioned cached view can be create from this
-   *         attribute family
-   */
-  boolean canCreatePartitionedCachedView();
+  boolean canCreateCachedView();
 
 }

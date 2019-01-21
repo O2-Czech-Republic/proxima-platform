@@ -19,8 +19,7 @@ import static cz.o2.proxima.server.IngestServer.die;
 import static cz.o2.proxima.server.IngestServer.ingestRequest;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
+import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.transform.Transformation;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -30,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
  * Observer of source data performing transformation to another entity/attribute.
  */
 @Slf4j
-public class TransformationObserver extends RetryableLogObserver {
+public class TransformationObserver implements LogObserver {
 
   private final DirectDataOperator direct;
   private final Transformation transformation;
@@ -38,13 +37,10 @@ public class TransformationObserver extends RetryableLogObserver {
   private final String name;
 
   TransformationObserver(
-      int retries, String consumer, CommitLogReader reader,
       DirectDataOperator direct,
       String name, Transformation transformation,
       StorageFilter filter) {
 
-
-    super(retries, consumer, reader);
     this.direct = direct;
     this.name = name;
     this.transformation = transformation;
@@ -52,15 +48,15 @@ public class TransformationObserver extends RetryableLogObserver {
   }
 
   @Override
-  protected void failure() {
+  public boolean onError(Throwable error) {
     die(String.format(
         "Failed to transform using %s. Bailing out.",
         transformation));
+    return false;
   }
 
   @Override
-  public boolean onNextInternal(
-      StreamElement ingest, OnNextContext context) {
+  public boolean onNext(StreamElement ingest, OnNextContext context) {
 
     if (!filter.apply(ingest)) {
       log.debug(

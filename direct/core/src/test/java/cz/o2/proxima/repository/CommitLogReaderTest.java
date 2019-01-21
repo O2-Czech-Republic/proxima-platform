@@ -18,6 +18,7 @@ package cz.o2.proxima.repository;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
@@ -141,26 +142,25 @@ public class CommitLogReaderTest {
     List<StreamElement> received = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
     AtomicInteger count = new AtomicInteger();
-    RetryableLogObserver observer = new RetryableLogObserver(2, "test", reader) {
+    RetryableLogObserver observer = RetryableLogObserver.online(
+        2, "test", reader, new LogObserver() {
 
-      @Override
-      protected boolean onNextInternal(
-          StreamElement ingest, OnNextContext confirm) {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext confirm) {
+            if (count.incrementAndGet() == 0) {
+              throw new RuntimeException("fail");
+            }
+            received.add(ingest);
+            latch.countDown();
+            return true;
+          }
 
-        if (count.incrementAndGet() == 0) {
-          throw new RuntimeException("fail");
-        }
-        received.add(ingest);
-        latch.countDown();
-        return true;
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            return false;
+          }
 
-      @Override
-      protected void failure() {
-
-      }
-
-    };
+        });
 
     observer.start();
     writer.online().write(StreamElement.update(

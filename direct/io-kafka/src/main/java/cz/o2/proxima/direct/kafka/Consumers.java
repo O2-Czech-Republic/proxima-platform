@@ -154,6 +154,11 @@ class Consumers {
                   .collect(Collectors.toList())));
     }
 
+    @Override
+    public void onStart() {
+      committer.clear();
+    }
+
   }
 
   static final class BulkConsumer extends ConsumerBase {
@@ -162,17 +167,20 @@ class Consumers {
     private final LogObserver observer;
     private final BiConsumer<TopicPartition, Long> commit;
     private final Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit;
+    private final Runnable onStart;
 
     BulkConsumer(
         String topic,
         LogObserver observer,
         BiConsumer<TopicPartition, Long> commit,
-        Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit) {
+        Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit,
+        Runnable onStart) {
 
       this.topic = topic;
       this.observer = observer;
       this.commit = commit;
       this.prepareCommit = prepareCommit;
+      this.onStart = onStart;
     }
 
     @Override
@@ -239,6 +247,11 @@ class Consumers {
               .collect(Collectors.toList())));
 
       Utils.seekToOffsets(topic, (List) offsets, consumer);
+    }
+
+    @Override
+    public void onStart() {
+      onStart.run();
     }
 
   }

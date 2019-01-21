@@ -66,7 +66,7 @@ public interface DataAccessor extends Serializable {
   }
 
   /**
-   * Retrieve partitioned cached view of the data.
+   * Retrieve cached view of the data.
    * @param context serializable context provided by repository
    * @return optional {@link CachedView} of this accessor
    */

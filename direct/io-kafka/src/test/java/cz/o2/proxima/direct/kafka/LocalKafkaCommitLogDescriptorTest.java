@@ -566,6 +566,112 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test(timeout = 10000)
+  public void testObserveSuccess() throws InterruptedException {
+    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+
+    final CountDownLatch latch = new CountDownLatch(2);
+    final StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
+
+    final ObserveHandle handle = reader.observe(
+        "test", Position.NEWEST,
+        new LogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            context.confirm();
+            latch.countDown();
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            fail("This should not be called");
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+
+        });
+
+    writer.write(update, (succ, e) -> {
+      assertTrue(succ);
+      latch.countDown();
+    });
+    latch.await();
+    assertEquals(3, handle.getCommittedOffsets().size());
+    long sum = handle.getCommittedOffsets()
+        .stream()
+        .mapToLong(o -> {
+          TopicOffset tpo = (TopicOffset) o;
+          assertTrue(tpo.getOffset() <= 1);
+          return tpo.getOffset();
+        })
+        .sum();
+
+    // single partition has committed one element
+    assertEquals(1, sum);
+  }
+
+
+  @Test(timeout = 10000)
+  public void testObserveWithException() throws InterruptedException {
+    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+
+    final AtomicInteger restarts = new AtomicInteger();
+    final AtomicReference<Throwable> exc = new AtomicReference<>();
+    final CountDownLatch latch = new CountDownLatch(2);
+    final StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
+
+    final ObserveHandle handle = reader.observe(
+        "test", Position.NEWEST,
+        new LogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            restarts.incrementAndGet();
+            throw new RuntimeException("FAIL!");
+          }
+
+          @Override
+          public void onCompleted() {
+            fail("This should not be called");
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            exc.set(error);
+            latch.countDown();
+            throw new RuntimeException(error);
+          }
+
+        });
+
+    writer.write(update, (succ, e) -> {
+      assertTrue(succ);
+      latch.countDown();
+    });
+    latch.await();
+    assertEquals("FAIL!", exc.get().getMessage());
+    assertEquals(1, restarts.get());
+    assertEquals(3, handle.getCommittedOffsets().size());
+    handle.getCurrentOffsets()
+        .forEach(o -> assertEquals(0, ((TopicOffset) o).getOffset()));
+  }
+
+
+  @Test(timeout = 10000)
   public void testBulkObserveWithException() throws InterruptedException {
     Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
@@ -627,22 +733,22 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         entity, attr, UUID.randomUUID().toString(),
         "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 });
 
-    RetryableLogObserver observer = new RetryableLogObserver(3, "test", reader) {
+    RetryableLogObserver observer = RetryableLogObserver.bulk(
+        3, "test", reader, new LogObserver() {
 
-      @Override
-      protected void failure() {
-        latch.countDown();
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            latch.countDown();
+            return false;
+          }
 
-      @Override
-      protected boolean onNextInternal(
-          StreamElement ingest, OnNextContext confirm) {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext confirm) {
+            restarts.incrementAndGet();
+            throw new RuntimeException("FAIL!");
+          }
 
-        restarts.incrementAndGet();
-        throw new RuntimeException("FAIL!");
-      }
-
-    };
+        });
     observer.start();
     Executors.newCachedThreadPool().execute(() -> {
       while (true) {

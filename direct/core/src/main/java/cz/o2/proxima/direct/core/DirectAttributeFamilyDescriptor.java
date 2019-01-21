@@ -164,11 +164,11 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
 
   /**
    * Retrieve cached view.
-   * Empty if the attribute family cannot create partitioned cached view.
+   * Empty if the attribute family cannot create cached view.
    * @return optional {@link CachedView} of this family
    */
   public Optional<CachedView> getCachedView() {
-    if (desc.getAccess().canCreatePartitionedCachedView()) {
+    if (desc.getAccess().canCreateCachedView()) {
       return Optional.of(Objects.requireNonNull(cachedView,
           () -> "Family " + desc.getName() + " cannot create cached view"));
     }

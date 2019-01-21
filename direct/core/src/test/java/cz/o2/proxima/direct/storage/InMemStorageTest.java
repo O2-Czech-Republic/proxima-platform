@@ -57,7 +57,7 @@ public class InMemStorageTest implements Serializable {
         entity, new URI("inmem:///inmemstoragetest"),
         Collections.emptyMap());
     CommitLogReader reader = accessor.getCommitLogReader(direct.getContext())
-        .orElseThrow(() -> new IllegalStateException("Missing partitioned view"));
+        .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
     AttributeWriterBase writer = accessor.getWriter(direct.getContext())
         .orElseThrow(() -> new IllegalStateException("Missing writer"));
     AtomicReference<CountDownLatch> latch = new AtomicReference<>();

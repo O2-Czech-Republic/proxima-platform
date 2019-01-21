@@ -43,9 +43,6 @@ public abstract class AbstractRetryableLogObserver implements LogObserver {
   /** Current number of failures in a row. */
   private int numFailures;
 
-  @Getter
-  private Position position;
-
   public AbstractRetryableLogObserver(
       int maxRetries,
       String name,
@@ -66,7 +63,7 @@ public abstract class AbstractRetryableLogObserver implements LogObserver {
     if (numFailures < maxRetries) {
       return true;
     } else {
-      failure();
+      failure(error);
       return false;
     }
   }
@@ -80,8 +77,7 @@ public abstract class AbstractRetryableLogObserver implements LogObserver {
   }
 
   public ObserveHandle start(Position position) {
-    this.position = position;
-    return this.startInternal(position);
+    return startInternal(position);
   }
 
   /**
@@ -93,8 +89,9 @@ public abstract class AbstractRetryableLogObserver implements LogObserver {
 
   /**
    * Called when unrecoverable error detected on the commit log.
+   * @param lastError the last error thrown during processing
    */
-  protected abstract void failure();
+  protected abstract void failure(Throwable lastError);
 
   @SuppressWarnings("unchecked")
   CommitLogReader getCommitLog() {

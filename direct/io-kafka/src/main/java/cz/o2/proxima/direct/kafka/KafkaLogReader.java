@@ -251,7 +251,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     AtomicReference<ObserveHandle> handle = new AtomicReference<>();
     submitConsumerWithObserver(
         name, offsets, position, stopAtCurrent,
-        preWrite, offsetCommitter::clear, onlineConsumer, executor, handle);
+        preWrite, onlineConsumer, executor, handle);
     return dynamicHandle(handle);
   }
 
@@ -293,12 +293,12 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
             kafkaCommitMap.clear();
             return clone;
           }
-        });
+        },
+        kafkaCommitMap::clear);
 
     AtomicReference<ObserveHandle> handle = new AtomicReference<>();
     submitConsumerWithObserver(
         name, offsets, position, stopAtCurrent, (tp, r) -> { },
-        kafkaCommitMap::clear,
         bulkConsumer, executor, handle);
     return dynamicHandle(handle);
   }
@@ -310,7 +310,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       boolean stopAtCurrent,
       BiConsumer<TopicPartition,
       ConsumerRecord<String, byte[]>> preWrite,
-      Runnable preStart,
       ElementConsumer consumer,
       ExecutorService executor,
       AtomicReference<ObserveHandle> handle) throws InterruptedException {
@@ -353,7 +352,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       });
       final AtomicReference<KafkaConsumer<String, byte[]>> consumerRef;
       consumerRef = new AtomicReference<>();
-      preStart.run();
+      consumer.onStart();
       try (KafkaConsumer<String, byte[]> kafka = createConsumer(
           name, offsets, listener(name, consumerRef, consumer), position)) {
 
@@ -492,7 +491,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           try {
             submitConsumerWithObserver(
                 name, offsets, position, stopAtCurrent,
-                preWrite, preStart, consumer, executor, handle);
+                preWrite, consumer, executor, handle);
           } catch (InterruptedException ex) {
             log.warn("Interrupted while restarting observer");
             Thread.currentThread().interrupt();

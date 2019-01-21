@@ -26,21 +26,56 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Stable
 @Slf4j
-public abstract class RetryableLogObserver
+public class RetryableLogObserver
     extends AbstractRetryableLogObserver implements LogObserver {
 
-  public RetryableLogObserver(
+  /**
+   * Create online retryable log observer.
+   * @param numRetries number of allowed successive failures
+   * @param name name of the consumer
+   * @param reader the {@link CommitLogReader}
+   * @param observer observer of data
+   * @return the observer
+   */
+  public static RetryableLogObserver online(
+      int numRetries, String name, CommitLogReader reader, LogObserver observer) {
+
+    return new RetryableLogObserver(numRetries, name, reader, false, observer);
+  }
+
+  /**
+   * Create bulk retryable log observer.
+   * @param numRetries number of allowed successive failures
+   * @param name name of the consumer
+   * @param reader the {@link CommitLogReader}
+   * @param observer consumer of data
+   * @return the observer
+   */
+  public static RetryableLogObserver bulk(
+      int numRetries, String name, CommitLogReader reader, LogObserver observer) {
+
+    return new RetryableLogObserver(numRetries, name, reader, true, observer);
+  }
+
+  private final LogObserver observer;
+  private final boolean bulk;
+
+  private RetryableLogObserver(
       int maxRetries,
       String name,
-      CommitLogReader commitLog) {
+      CommitLogReader commitLog,
+      boolean bulk,
+      LogObserver observer) {
 
     super(maxRetries, name, commitLog);
+    this.bulk = bulk;
+    this.observer = observer;
   }
 
   @Override
   public final boolean onNext(StreamElement ingest, OnNextContext context) {
 
-    boolean ret = onNextInternal(ingest, context);
+    boolean ret = observer.onNext(ingest, context);
     success();
     return ret;
   }
@@ -49,17 +84,34 @@ public abstract class RetryableLogObserver
   protected final ObserveHandle startInternal(Position position) {
     log.info(
         "Starting to process commitlog {} as {} from {}",
-        getCommitLog().getUri(), getName(), getPosition());
-    return getCommitLog().observe(getName(), getPosition(), this);
+        getCommitLog().getUri(), getName(), position);
+    if (bulk) {
+      return getCommitLog().observeBulk(getName(), position, this);
+    }
+    return getCommitLog().observe(getName(), position, this);
   }
 
-  /**
-   * Called to observe the ingest data.
-   * @param ingest input data
-   * @param context context of the element
-   * @return {@code true} to continue processing, {@code false} otherwise
-   */
-  protected abstract boolean onNextInternal(
-      StreamElement ingest, OnNextContext context);
+  @Override
+  protected final void failure(Throwable error) {
+    observer.onError(error);
+  }
+
+  @Override
+  public void onCompleted() {
+    observer.onCompleted();
+  }
+
+  @Override
+  public void onCancelled() {
+    observer.onCancelled();
+  }
+
+  @Override
+  public void onRepartition(OnRepartitionContext context) {
+    observer.onRepartition(context);
+  }
+
+
+
 
 }

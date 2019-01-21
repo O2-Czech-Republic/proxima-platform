@@ -315,7 +315,7 @@ public class DirectRepositoryTest {
     AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
     CachedView view = direct.getFamiliesForAttribute(source)
         .stream()
-        .filter(af -> af.getDesc().getAccess().canCreatePartitionedCachedView())
+        .filter(af -> af.getDesc().getAccess().canCreateCachedView())
         .findAny()
         .flatMap(af -> af.getCachedView())
         .orElseThrow(() -> new IllegalStateException(

@@ -709,6 +709,11 @@ public class InMemStorage implements DataAccessorFactory {
               element.getAttributeDescriptor()).orElse(null)));
     }
 
+    @Override
+    public Collection<Partition> getPartitions() {
+      return Arrays.asList(() -> 0);
+    }
+
   }
 
   @Getter

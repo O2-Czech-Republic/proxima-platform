@@ -75,4 +75,10 @@ public interface CachedView
    */
   void cache(StreamElement element);
 
+  /**
+   * Retrieve all partitions of the underlying commit log.
+   * @return all partitions of underlying commit log
+   */
+  Collection<Partition> getPartitions();
+
 }

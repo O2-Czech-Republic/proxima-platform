@@ -376,4 +376,9 @@ public class LocalCachedPartitionedView implements CachedView {
     onCache(element, true);
   }
 
+  @Override
+  public Collection<Partition> getPartitions() {
+    return reader.getPartitions();
+  }
+
 }

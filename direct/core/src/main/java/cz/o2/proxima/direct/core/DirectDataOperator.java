@@ -16,7 +16,12 @@
 package cz.o2.proxima.direct.core;
 
 import com.google.common.collect.Iterables;
+import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.internal.shaded.com.google.common.collect.Sets;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
@@ -25,6 +30,8 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StorageType;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -255,6 +262,95 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       }
       return Optional.of(writer);
     }
+  }
+
+  /**
+   * Retrieve {@link CommitLogReader} for given {@link AttributeDescriptor}s.
+   * @param attrs the attributes to find commit log reader for
+   * @return optional commit log reader
+   */
+  public Optional<CommitLogReader> getCommitLogReader(
+      Collection<AttributeDescriptor<?>> attrs) {
+
+    return getAccessor(
+        attrs,
+        a -> a.getDesc().getAccess().canReadCommitLog(),
+        a -> a.getCommitLogReader());
+  }
+
+  /**
+   * Retrieve {@link CommitLogReader} for given {@link AttributeDescriptor}s.
+   * @param attrs the attributes to find commit log reader for
+   * @return optional commit log reader
+   */
+  @SafeVarargs
+  public final Optional<CommitLogReader> getCommitLogReader(
+      AttributeDescriptor<?>... attrs) {
+
+    return getCommitLogReader(Arrays.asList(attrs));
+  }
+
+  /**
+   * Retrieve {@link CachedView} for given {@link AttributeDescriptor}s.
+   * @param attrs the attributes to find cached view for
+   * @return optional cached view
+   */
+  public Optional<CachedView> getCachedView(Collection<AttributeDescriptor<?>> attrs) {
+    return getAccessor(
+        attrs,
+        a -> a.getDesc().getAccess().canCreateCachedView(),
+        a -> a.getCachedView());
+  }
+
+  /**
+   * Retrieve {@link CachedView} for given {@link AttributeDescriptor}s.
+   * @param attrs the attributes to find cached view for
+   * @return optional cached view
+   */
+  @SafeVarargs
+  public final Optional<CachedView> getCachedView(AttributeDescriptor<?>... attrs) {
+    return getCachedView(Arrays.asList(attrs));
+  }
+
+  /**
+   * Retrieve {@link RandomAccessReader} for given {@link AttributeDescriptor}s.
+   * @param attrs the attributes to find radom access reader for
+   * @return optional random access reader
+   */
+  public Optional<RandomAccessReader> getRandomAccess(
+      Collection<AttributeDescriptor<?>> attrs) {
+
+    return getAccessor(
+        attrs,
+        a -> a.getDesc().getAccess().canRandomRead(),
+        a -> a.getRandomAccessReader());
+  }
+
+  /**
+   * Retrieve {@link RandomAccessReader} for given {@link AttributeDescriptor}s.
+   * @param attrs the attributes to find radom access reader for
+   * @return optional random access reader
+   */
+  @SafeVarargs
+  public final Optional<RandomAccessReader> getRandomAccess(
+      AttributeDescriptor<?>... attrs) {
+
+    return getRandomAccess(Arrays.asList(attrs));
+  }
+
+  private <T> Optional<T> getAccessor(
+      Collection<AttributeDescriptor<?>> attrs,
+      UnaryFunction<DirectAttributeFamilyDescriptor, Boolean> mask,
+      UnaryFunction<DirectAttributeFamilyDescriptor, Optional<T>> extract) {
+
+    return attrs.stream()
+        .map(a -> getFamiliesForAttribute(a)
+            .stream()
+            .filter(mask::apply)
+            .collect(Collectors.toSet()))
+        .reduce(Sets::intersection)
+        .flatMap(s -> s.stream().findAny())
+        .flatMap(extract::apply);
   }
 
   /**

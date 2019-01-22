@@ -13,16 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.repository;
+package cz.o2.proxima.direct.core;
 
 import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
-import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.functional.Consumer;
@@ -54,17 +51,25 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 import static org.junit.Assert.*;
 import cz.o2.proxima.direct.view.CachedView;
+import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeDescriptorBase;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
+import cz.o2.proxima.repository.AttributeProxyDescriptor;
+import cz.o2.proxima.repository.ConfigRepository;
+import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.TransformationDescriptor;
 
 /**
  * Test repository config parsing.
  */
 @Slf4j
-public class DirectRepositoryTest {
+public class DirectOperatorTest {
 
   private final ConfigRepository repo;
   private final DirectDataOperator direct;
 
-  public DirectRepositoryTest() {
+  public DirectOperatorTest() {
     this.repo = ConfigRepository.Builder.of(
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-reference.conf"))
@@ -596,10 +601,10 @@ public class DirectRepositoryTest {
         () -> new IllegalStateException("Missing entity gateway"));
     AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
         () -> new IllegalStateException("Missing attribute armed"));
-    assertTrue(armed instanceof AttributeProxyDescriptor);
+    assertTrue(armed.isProxy());
     assertEquals(
         "_gatewayReplication_write$armed",
-        ((AttributeProxyDescriptor<?>) armed).getReadTarget().getName());
+        armed.asProxy().getReadTarget().getName());
   }
 
   @Test
@@ -1583,6 +1588,36 @@ public class DirectRepositoryTest {
     assertFalse(reader.get("gw", "event.1", event, now).isPresent());
   }
 
+  @Test
+  public void testGetCommitLog() {
+    EntityDescriptor gateway = repo
+        .findEntity("gateway")
+        .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<Object> armed = gateway
+        .findAttribute("armed")
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute armed"));
+    AttributeDescriptor<Object> status = gateway
+        .findAttribute("status")
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute status"));
+
+
+    assertTrue(direct.getCommitLogReader(armed, status).isPresent());
+  }
+
+  @Test
+  public void testGetCachedView() {
+    EntityDescriptor gateway = repo
+        .findEntity("gateway")
+        .orElseThrow(() -> new IllegalStateException("Missing entity gateway  "));
+    AttributeDescriptor<Object> armed = gateway
+        .findAttribute("armed")
+        .orElseThrow(() -> new IllegalStateException(
+            "Missing attribute armed"));
+
+    assertTrue(direct.getCachedView(armed).isPresent());
+  }
 
   // validate that given transformation transforms in the desired way
   private void checkTransformation(

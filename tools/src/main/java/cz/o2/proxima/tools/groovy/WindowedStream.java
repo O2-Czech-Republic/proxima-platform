@@ -147,7 +147,9 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
         }
 
         @Override
-        public Trigger.TriggerResult onTimer(long time, W window, TriggerContext ctx) {
+        public Trigger.TriggerResult onTimer(
+            long time, W window, TriggerContext ctx) {
+
           Trigger.TriggerResult res = toResult(
               left.getTrigger().onTimer(time, window, ctx),
               right.getTrigger().onTimer(time, window, ctx));

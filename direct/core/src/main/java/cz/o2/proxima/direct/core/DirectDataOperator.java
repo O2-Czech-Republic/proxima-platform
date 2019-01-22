@@ -275,7 +275,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return getAccessor(
         attrs,
         a -> a.getDesc().getAccess().canReadCommitLog(),
-        a -> a.getCommitLogReader());
+        DirectAttributeFamilyDescriptor::getCommitLogReader);
   }
 
   /**
@@ -299,7 +299,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return getAccessor(
         attrs,
         a -> a.getDesc().getAccess().canCreateCachedView(),
-        a -> a.getCachedView());
+        DirectAttributeFamilyDescriptor::getCachedView);
   }
 
   /**
@@ -323,7 +323,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return getAccessor(
         attrs,
         a -> a.getDesc().getAccess().canRandomRead(),
-        a -> a.getRandomAccessReader());
+        DirectAttributeFamilyDescriptor::getRandomAccessReader);
   }
 
   /**

@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.hbase;
 
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import static cz.o2.proxima.direct.hbase.Util.cloneArray;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
@@ -119,7 +120,10 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
         CellScanner cellScanner = res.cellScanner();
         while (cellScanner.advance()) {
           Cell c = cellScanner.current();
-          del.addColumns(family, c.getQualifier(), stamp);
+          del.addColumns(family, cloneArray(
+              c.getQualifierArray(),
+              c.getQualifierOffset(),
+              c.getQualifierLength()), stamp);
           if (del.size() >= batchSize) {
             client.delete(del);
             del = new Delete(key);

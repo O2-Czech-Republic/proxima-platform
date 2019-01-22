@@ -64,6 +64,12 @@ class Util {
     }
   }
 
+  static byte[] cloneArray(byte[] array, int offset, int length) {
+    byte[] ret = new byte[length];
+    System.arraycopy(array, offset, ret, 0, length);
+    return ret;
+  }
+
   private Util() {
     // nop
   }

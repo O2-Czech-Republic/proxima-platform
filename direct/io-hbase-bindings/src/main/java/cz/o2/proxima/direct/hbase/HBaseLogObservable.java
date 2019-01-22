@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.hbase;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.Partition;
+import static cz.o2.proxima.direct.hbase.Util.cloneArray;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -148,15 +149,25 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
   private StreamElement toStreamElement(
       Cell cell, List<AttributeDescriptor<?>> attrs, HBasePartition hp) {
 
-    String key = new String(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
+    String key = new String(
+        cell.getRowArray(),
+        cell.getRowOffset(),
+        cell.getRowLength());
+
     String qualifier = new String(
         cell.getQualifierArray(),
-        cell.getQualifierOffset(), cell.getQualifierLength());
+        cell.getQualifierOffset(),
+        cell.getQualifierLength());
+
     for (AttributeDescriptor d : attrs) {
       if (qualifier.startsWith(d.toAttributePrefix())) {
         return StreamElement.update(
             entity, d, new String(hp.getStartKey()) + "#" + cell.getSequenceId(),
-            key, qualifier, cell.getTimestamp(), cell.getValue());
+            key, qualifier, cell.getTimestamp(),
+            cloneArray(
+                cell.getValueArray(),
+                cell.getValueOffset(),
+                cell.getValueLength()));
       }
     }
     throw new IllegalStateException("Illegal state! Fix code!");

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.hbase;
 
+import static cz.o2.proxima.direct.hbase.Util.cloneArray;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader.Listing;
@@ -179,7 +180,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
     return KeyValue.of(
         entity, desc, key,
         attribute, asOffset(attribute),
-        cell.getValue(),
+        cloneArray(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength()),
         cell.getTimestamp());
   }
 

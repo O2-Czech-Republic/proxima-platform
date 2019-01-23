@@ -36,6 +36,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
@@ -119,7 +120,9 @@ public class IngestClient implements AutoCloseable {
   @VisibleForTesting
   final StreamObserver<Rpc.StatusBulk> statusObserver = newStatusObserver();
 
-  private final Thread flushThread;
+  private Thread flushThread;
+
+  private final AtomicReference<Throwable> flushThreadExc = new AtomicReference<>();
 
   @VisibleForTesting
   StreamObserver<Rpc.IngestBulk> requestObserver;
@@ -134,28 +137,41 @@ public class IngestClient implements AutoCloseable {
     this.port = port;
     this.options = options;
     this.inFlightRequests = Collections.synchronizedMap(new HashMap<>());
-    this.flushThread = new Thread(() -> {
-      long flushTimeNanos = options.getFlushUsec() * 1_000L;
-      while (!Thread.currentThread().isInterrupted()) {
-        try {
-          long nowNanos = System.nanoTime();
-          long waitTimeNanos = flushTimeNanos - nowNanos + lastFlush;
-          synchronized (this) {
-            if (waitTimeNanos > 0) {
-              wait(waitTimeNanos / 1_000_000L, (int) (waitTimeNanos % 1_000_000L));
-            }
-          }
-          synchronized (IngestClient.this) {
-            flush();
-          }
-        } catch (InterruptedException ex) {
-          Thread.currentThread().interrupt();
+    this.flushThread = createFlushThread();
+  }
+
+  private Thread createFlushThread() {
+    Thread ret = new Thread(() -> {
+      try {
+        long flushTimeNanos = options.getFlushUsec() * 1_000L;
+        while (!Thread.currentThread().isInterrupted()) {
+          flushLoop(flushTimeNanos);
         }
+      } catch (Throwable thwbl) {
+        log.error("Error in flush thread", thwbl);
+        flushThreadExc.set(thwbl);
       }
     });
+    ret.setDaemon(true);
+    ret.setName(getClass().getSimpleName() + "-flushThread");
+    return ret;
+  }
 
-    this.flushThread.setDaemon(true);
-    this.flushThread.setName(getClass().getSimpleName() + "-flushThread");
+  private void flushLoop(long flushTimeNanos) {
+    try {
+      long nowNanos = System.nanoTime();
+      long waitTimeNanos = flushTimeNanos - nowNanos + lastFlush;
+      synchronized (this) {
+        if (waitTimeNanos > 0) {
+          wait(waitTimeNanos / 1_000_000L, (int) (waitTimeNanos % 1_000_000L));
+        }
+      }
+      synchronized (IngestClient.this) {
+        flush();
+      }
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   private StreamObserver<Rpc.StatusBulk> newStatusObserver() {
@@ -181,17 +197,7 @@ public class IngestClient implements AutoCloseable {
 
       @Override
       public void onError(Throwable thrwbl) {
-        log.warn("Error on channel, closing stub", thrwbl);
-        synchronized (IngestClient.this) {
-          stub = null;
-          try {
-            TimeUnit.SECONDS.sleep(1);
-          } catch (InterruptedException ex) {
-            log.warn("Interrupted while waiting before channel open retry.", ex);
-            Thread.currentThread().interrupt();
-          }
-          createChannelAndStub();
-        }
+        IngestClient.this.onError(thrwbl);
       }
 
       @Override
@@ -202,6 +208,18 @@ public class IngestClient implements AutoCloseable {
         closedLatch.countDown();
       }
     };
+  }
+
+  private synchronized void onError(Throwable thrwbl) {
+    stub = null;
+    try {
+      log.warn("Error on channel, closing stub", thrwbl);
+      TimeUnit.SECONDS.sleep(1);
+    } catch (InterruptedException ex) {
+      log.warn("Interrupted while waiting before channel open retry.", ex);
+      Thread.currentThread().interrupt();
+    }
+    createChannelAndStub();
   }
 
   /**
@@ -222,6 +240,7 @@ public class IngestClient implements AutoCloseable {
    */
   public void send(Rpc.Ingest ingest, long timeout,
       TimeUnit unit, Consumer<Rpc.Status> statusConsumer) {
+
     sendTry(ingest, timeout, unit, statusConsumer, false);
   }
 
@@ -243,17 +262,30 @@ public class IngestClient implements AutoCloseable {
       TimeUnit unit, Consumer<Rpc.Status> statusConsumer,
       boolean isRetry) {
 
-
     if (Strings.isNullOrEmpty(ingest.getUuid())) {
       throw new IllegalArgumentException(
           "UUID cannot be null, because it is used to confirm messages.");
     }
 
     synchronized (this) {
+      ensureChannel();
+      Throwable flushExc = flushThreadExc.getAndSet(null);
+      if (flushExc != null) {
+        log.warn(
+            "Received exception from flush thread. Restarting flush thread.",
+            flushExc);
+        try {
+          flushThread.join(500);
+        } catch (InterruptedException ex) {
+          log.warn("Interrupted while waiting for flushThread join.");
+          Thread.currentThread().interrupt();
+        }
+        flushThread = createFlushThread();
+        onError(flushExc);
+      }
       if (!flushThread.isAlive()) {
         flushThread.start();
       }
-      ensureChannel();
     }
 
     ScheduledFuture<?> scheduled = null;

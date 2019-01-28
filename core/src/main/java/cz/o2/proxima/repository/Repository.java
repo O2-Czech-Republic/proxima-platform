@@ -34,9 +34,14 @@ import javax.annotation.Nullable;
  * Repository of all entities configured in the system.
  */
 @Evolving
-public interface Repository extends Serializable {
+public abstract class Repository implements Serializable {
 
-  static Repository of(Config config) {
+  /**
+   * Create {@link Repository} from given {@link Config}.
+   * @param config the config
+   * @return repository
+   */
+  public static Repository of(Config config) {
     return ConfigRepository.of(config);
   }
 
@@ -46,35 +51,35 @@ public interface Repository extends Serializable {
    * @param name name of the entity to search for
    * @return optional {@link EntityDescriptor} found by name
    */
-  Optional<EntityDescriptor> findEntity(String name);
+  public abstract Optional<EntityDescriptor> findEntity(String name);
 
   /**
    * Retrieve stream of all entities.
    *
    * @return {@link Stream} of all entities specified in this repository
    */
-  Stream<EntityDescriptor> getAllEntities();
+  public abstract Stream<EntityDescriptor> getAllEntities();
 
   /**
    * Retrieve all transformers.
    *
    * @return all transformations by name
    */
-  Map<String, TransformationDescriptor> getTransformations();
+  public abstract Map<String, TransformationDescriptor> getTransformations();
 
   /**
    * Check if this repository is empty.
    *
    * @return {@code true} if this repository is empty
    */
-  boolean isEmpty();
+  public abstract boolean isEmpty();
 
   /**
    * List all unique attribute families.
    *
    * @return all families specified in this repository
    */
-  Stream<AttributeFamilyDescriptor> getAllFamilies();
+  public abstract Stream<AttributeFamilyDescriptor> getAllFamilies();
 
   /**
    * Retrieve list of attribute families for attribute.
@@ -82,7 +87,8 @@ public interface Repository extends Serializable {
    * @param attr attribute descriptor
    * @return all families of given attribute
    */
-  Set<AttributeFamilyDescriptor> getFamiliesForAttribute(AttributeDescriptor<?> attr);
+  public abstract Set<AttributeFamilyDescriptor> getFamiliesForAttribute(
+      AttributeDescriptor<?> attr);
 
   /**
    * Retrieve value serializer for given scheme.
@@ -91,7 +97,8 @@ public interface Repository extends Serializable {
    * @return {@link ValueSerializerFactory} for the scheme
    */
   @Nullable
-  ValueSerializerFactory getValueSerializerFactory(String scheme);
+  public abstract ValueSerializerFactory getValueSerializerFactory(
+      String scheme);
 
   /**
    * Retrieve {@link DataOperator} representation for this {@link Repository}.
@@ -103,7 +110,8 @@ public interface Repository extends Serializable {
    * @return the data operator of given type
    */
   @SuppressWarnings("unchecked")
-  default <T extends DataOperator> T asDataOperator(
+  @SafeVarargs
+  public final <T extends DataOperator> T asDataOperator(
       Class<T> type, Consumer<T>... modifiers) {
 
     ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(
@@ -117,6 +125,7 @@ public interface Repository extends Serializable {
         .map(f -> {
           T op = f.create(this);
           Arrays.stream(modifiers).forEach(m -> m.accept(op));
+          addedDataOperator(op);
           return op;
         })
         .orElseThrow(() -> new IllegalStateException(
@@ -130,12 +139,21 @@ public interface Repository extends Serializable {
    * @param name name of the operator
    * @return {@code true} if the operator is available, {@code false} otherwise
    */
-  default boolean hasOperator(String name) {
+  public boolean hasOperator(String name) {
     ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(
         DataOperatorFactory.class);
     return Streams
         .stream(loaders)
         .anyMatch(f -> f.getOperatorName().equals(name));
+  }
+
+
+  /**
+   * Called when new {@link DataOperator} is created.
+   * @param op the operator that was created
+   */
+  protected void addedDataOperator(DataOperator op) {
+
   }
 
 

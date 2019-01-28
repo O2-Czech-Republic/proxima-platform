@@ -23,7 +23,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import cz.o2.proxima.functional.BiFunction;
-import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
@@ -33,7 +32,6 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.CamelCase;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.Pair;
-import java.io.Serializable;
 import java.util.ServiceLoader;
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,7 +58,7 @@ import lombok.Value;
  * Repository of all entities configured in the system.
  */
 @Slf4j
-public class ConfigRepository implements Repository, Serializable {
+public class ConfigRepository extends Repository {
 
   // config parsing constants
   private static final String ALL = "all";
@@ -1900,14 +1898,8 @@ public class ConfigRepository implements Repository, Serializable {
   }
 
   @Override
-  public <T extends DataOperator> T asDataOperator(
-      Class<T> type, Consumer<T>... modifiers) {
-
-    T operator = Repository.super.asDataOperator(type, modifiers);
-    operators.add(operator);
-    return operator;
+  protected void addedDataOperator(DataOperator op) {
+    operators.add(op);
   }
-
-
 
 }

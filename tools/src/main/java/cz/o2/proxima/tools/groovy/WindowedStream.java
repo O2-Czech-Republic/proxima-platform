@@ -40,7 +40,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Supplier;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
@@ -147,7 +147,9 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
         }
 
         @Override
-        public Trigger.TriggerResult onTimer(long time, W window, TriggerContext ctx) {
+        public Trigger.TriggerResult onTimer(
+            long time, W window, TriggerContext ctx) {
+
           Trigger.TriggerResult res = toResult(
               left.getTrigger().onTimer(time, window, ctx),
               right.getTrigger().onTimer(time, window, ctx));
@@ -188,7 +190,7 @@ public class WindowedStream<T, W extends Windowing> extends Stream<T> {
       DatasetBuilder<T> dataset,
       W windowing,
       Runnable terminatingOperationCall,
-      Supplier<Boolean> unboundedStreamTerminateSignal,
+      BooleanSupplier unboundedStreamTerminateSignal,
       BinaryFunction<W, Duration, W> earlyEmitting) {
 
     super(executor, dataset, terminatingOperationCall, unboundedStreamTerminateSignal);

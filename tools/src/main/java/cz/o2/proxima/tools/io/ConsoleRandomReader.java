@@ -16,13 +16,14 @@
 package cz.o2.proxima.tools.io;
 
 import com.google.common.io.Closeables;
+import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.randomaccess.KeyValue;
-import cz.o2.proxima.storage.randomaccess.RandomAccessReader;
-import cz.o2.proxima.storage.randomaccess.RandomOffset;
 import cz.o2.proxima.util.Pair;
 import java.io.Closeable;
 import java.io.IOException;
@@ -43,7 +44,9 @@ public class ConsoleRandomReader implements Closeable {
   final Map<AttributeDescriptor, RandomAccessReader> attrToReader;
   final Map<String, RandomOffset> listEntityOffsets;
 
-  public ConsoleRandomReader(EntityDescriptor desc, Repository repo) {
+  public ConsoleRandomReader(
+      EntityDescriptor desc, Repository repo,
+      DirectDataOperator direct) {
 
     this.entityDesc = desc;
     this.attrToReader = new HashMap<>();
@@ -56,7 +59,10 @@ public class ConsoleRandomReader implements Closeable {
           .filter(af -> af.getAccess().canRandomRead())
           .findAny();
       if (randomFamily.isPresent()) {
-        attrToReader.put(f, randomFamily.get().getRandomAccessReader().get());
+        attrToReader.put(
+            f,
+            direct.resolveRequired(randomFamily.get())
+                .getRandomAccessReader().get());
       }
     });
   }

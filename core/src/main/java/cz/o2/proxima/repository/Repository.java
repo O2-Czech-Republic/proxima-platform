@@ -15,14 +15,17 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.collect.Streams;
 import com.typesafe.config.Config;
 import cz.o2.proxima.annotations.Evolving;
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
-import cz.o2.proxima.storage.StorageDescriptor;
+import java.io.Serializable;
+import java.util.Arrays;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -30,10 +33,15 @@ import javax.annotation.Nullable;
 /**
  * Repository of all entities configured in the system.
  */
-@Evolving("Affected by #66")
-public interface Repository extends AutoCloseable {
+@Evolving
+public abstract class Repository implements Serializable {
 
-  static Repository of(Config config) {
+  /**
+   * Create {@link Repository} from given {@link Config}.
+   * @param config the config
+   * @return repository
+   */
+  public static Repository of(Config config) {
     return ConfigRepository.of(config);
   }
 
@@ -43,44 +51,35 @@ public interface Repository extends AutoCloseable {
    * @param name name of the entity to search for
    * @return optional {@link EntityDescriptor} found by name
    */
-  Optional<EntityDescriptor> findEntity(String name);
+  public abstract Optional<EntityDescriptor> findEntity(String name);
 
   /**
    * Retrieve stream of all entities.
    *
    * @return {@link Stream} of all entities specified in this repository
    */
-  Stream<EntityDescriptor> getAllEntities();
+  public abstract Stream<EntityDescriptor> getAllEntities();
 
   /**
    * Retrieve all transformers.
    *
    * @return all transformations by name
    */
-  Map<String, TransformationDescriptor> getTransformations();
+  public abstract Map<String, TransformationDescriptor> getTransformations();
 
   /**
    * Check if this repository is empty.
    *
    * @return {@code true} if this repository is empty
    */
-  boolean isEmpty();
-
-  /**
-   * Retrieve storage descriptor by scheme.
-   *
-   * @param scheme storage scheme to look for
-   * @return {@link StorageDescriptor} for the specified scheme
-   */
-  StorageDescriptor getStorageDescriptor(String scheme);
-
+  public abstract boolean isEmpty();
 
   /**
    * List all unique attribute families.
    *
    * @return all families specified in this repository
    */
-  Stream<AttributeFamilyDescriptor> getAllFamilies();
+  public abstract Stream<AttributeFamilyDescriptor> getAllFamilies();
 
   /**
    * Retrieve list of attribute families for attribute.
@@ -88,7 +87,8 @@ public interface Repository extends AutoCloseable {
    * @param attr attribute descriptor
    * @return all families of given attribute
    */
-  Set<AttributeFamilyDescriptor> getFamiliesForAttribute(AttributeDescriptor<?> attr);
+  public abstract Set<AttributeFamilyDescriptor> getFamiliesForAttribute(
+      AttributeDescriptor<?> attr);
 
   /**
    * Retrieve value serializer for given scheme.
@@ -97,19 +97,64 @@ public interface Repository extends AutoCloseable {
    * @return {@link ValueSerializerFactory} for the scheme
    */
   @Nullable
-  ValueSerializerFactory getValueSerializerFactory(String scheme);
+  public abstract ValueSerializerFactory getValueSerializerFactory(
+      String scheme);
 
   /**
-   * Retrieve writer for specified attribute.
+   * Retrieve {@link DataOperator} representation for this {@link Repository}.
    *
-   * @param attr the attribute to retrieve writer for
-   * @return the attribute writer
+   * @param <T> type of the operator
+   * @param type the operator class
+   * @param modifiers functions to be applied to the operator before it is returned
+   *
+   * @return the data operator of given type
    */
-  Optional<OnlineAttributeWriter> getWriter(AttributeDescriptor<?> attr);
+  @SuppressWarnings("unchecked")
+  @SafeVarargs
+  public final <T extends DataOperator> T asDataOperator(
+      Class<T> type, Consumer<T>... modifiers) {
+
+    ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(
+        DataOperatorFactory.class);
+
+    return Streams
+        .stream(loaders)
+        .filter(factory ->  factory.isOfType(type))
+        .findAny()
+        .map(o -> (DataOperatorFactory<T>) o)
+        .map(f -> {
+          T op = f.create(this);
+          Arrays.stream(modifiers).forEach(m -> m.accept(op));
+          addedDataOperator(op);
+          return op;
+        })
+        .orElseThrow(() -> new IllegalStateException(
+            "Operator " + type + " not found."));
+  }
 
   /**
-   * Close all allocated resources.
+   * Check if given implementation of data operator is available on classpath
+   * and {@link #asDataOperator(java.lang.Class, Consumer...)} will return
+   * non-null object for class corresponding the given name.
+   * @param name name of the operator
+   * @return {@code true} if the operator is available, {@code false} otherwise
    */
-  public void close();
+  public boolean hasOperator(String name) {
+    ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(
+        DataOperatorFactory.class);
+    return Streams
+        .stream(loaders)
+        .anyMatch(f -> f.getOperatorName().equals(name));
+  }
+
+
+  /**
+   * Called when new {@link DataOperator} is created.
+   * @param op the operator that was created
+   */
+  protected void addedDataOperator(DataOperator op) {
+
+  }
+
 
 }

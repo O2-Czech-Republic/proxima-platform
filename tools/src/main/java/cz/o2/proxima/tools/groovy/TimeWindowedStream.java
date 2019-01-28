@@ -20,7 +20,7 @@ import cz.seznam.euphoria.core.client.dataset.windowing.TimeSliding;
 import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
 import cz.seznam.euphoria.core.executor.Executor;
 import java.time.Duration;
-import java.util.function.Supplier;
+import java.util.function.BooleanSupplier;
 
 /**
  * A stream that is windowed by time.
@@ -34,7 +34,7 @@ class TimeWindowedStream<T> extends WindowedStream<T, Windowing> {
   TimeWindowedStream(
       Executor executor, DatasetBuilder<T> dataset, long millis, long slide,
       Runnable terminatingOperationCall,
-      Supplier<Boolean> unboundedStreamTerminateSignal) {
+      BooleanSupplier unboundedStreamTerminateSignal) {
 
     super(executor, dataset,
         slide > 0
@@ -60,7 +60,7 @@ class TimeWindowedStream<T> extends WindowedStream<T, Windowing> {
   TimeWindowedStream(
       Executor executor, DatasetBuilder<T> dataset, long millis,
       Runnable terminatingOperationCall,
-      Supplier<Boolean> unboundedStreamTerminateSignal) {
+      BooleanSupplier unboundedStreamTerminateSignal) {
 
     this(executor, dataset, millis, -1L,
         terminatingOperationCall, unboundedStreamTerminateSignal);

@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.tools.io.AttributeSink;
@@ -51,7 +51,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
+import java.util.function.BooleanSupplier;
 
 /**
  * A stream abstraction with fluent style methods.
@@ -69,7 +69,7 @@ public class Stream<T> {
   public static <T> Stream<T> wrap(
       Executor executor, DatasetBuilder<T> dataset,
       Runnable terminatingOperationCall,
-      Supplier<Boolean> unboundedStreamTerminateSignal) {
+      BooleanSupplier unboundedStreamTerminateSignal) {
 
     return new Stream<>(
         executor, dataset, terminatingOperationCall,
@@ -80,13 +80,13 @@ public class Stream<T> {
   final Executor executor;
   final DatasetBuilder<T> dataset;
   final Runnable terminatingOperationCall;
-  final Supplier<Boolean> unboundedStreamTerminateSignal;
+  final BooleanSupplier unboundedStreamTerminateSignal;
 
   Stream(
       Executor executor,
       DatasetBuilder<T> dataset,
       Runnable terminatingOperationCall,
-      Supplier<Boolean> unboundedStreamTerminateSignal) {
+      BooleanSupplier unboundedStreamTerminateSignal) {
 
     this.executor = executor;
     this.dataset = dataset;
@@ -204,7 +204,7 @@ public class Stream<T> {
       poolExecutor.execute(() -> {
         interruptThread.set(Thread.currentThread());
         for (;;) {
-          if (unboundedStreamTerminateSignal.get()) {
+          if (unboundedStreamTerminateSignal.getAsBoolean()) {
             executor.shutdown();
             poolExecutor.shutdownNow();
             break;
@@ -227,7 +227,7 @@ public class Stream<T> {
       String target) {
 
     Dataset<StreamElement> output;
-    Repository repo = repoProvider.getRepo();
+    DirectDataOperator direct = repoProvider.getDirect();
     output = FlatMap.of((Dataset<StreamElement>) dataset.build())
         .using((StreamElement in, Collector<StreamElement> ctx) -> {
           String key = in.getKey();
@@ -251,7 +251,7 @@ public class Stream<T> {
         .output();
 
     int prefixLength = replicationName.length() + target.length() + 3;
-    output.persist(DirectAttributeSink.of(repo, e ->
+    output.persist(DirectAttributeSink.of(direct, e ->
         StreamElement.update(
             e.getEntityDescriptor(),
             e.getAttributeDescriptor(),
@@ -298,7 +298,7 @@ public class Stream<T> {
         })
         .output();
 
-    output.persist(DirectAttributeSink.of(repoProvider.getRepo()));
+    output.persist(DirectAttributeSink.of(repoProvider.getDirect()));
 
     runFlow(output.getFlow());
   }

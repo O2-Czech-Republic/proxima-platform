@@ -1,0 +1,181 @@
+/**
+ * Copyright 2017-2019 O2 Czech Republic, a.s.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package cz.o2.proxima.direct.view;
+
+import cz.o2.proxima.util.Pair;
+import java.util.HashMap;
+import java.util.Map;
+import static org.junit.Assert.*;
+import org.junit.Test;
+
+/**
+ * Test suite for {@link TimeBoundedVersionedCache}.
+ */
+public class TimeBoundedVersionedCacheTest {
+
+  long now = System.currentTimeMillis();
+
+  @Test
+  public void testCachePutGet() {
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    assertTrue(cache.put("key", "attribute", now, false, "test"));
+    assertEquals(Pair.of(now, "test"), cache.get("key", "attribute", now));
+    assertEquals(
+        Pair.of(now, "test"),
+        cache.get("key", "attribute", now + 1));
+    assertNull(cache.get("key", "attribute", now - 1));
+  }
+
+  @Test
+  public void testMultiCacheWithinTimeout() {
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    assertTrue(cache.put("key", "attribute", now, false, "test1"));
+    now += 30_000L;
+    assertTrue(cache.put("key", "attribute", now, false, "test2"));
+    assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now));
+    assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now + 1));
+    assertEquals(
+        Pair.of(now - 30_000L, "test1"),
+        cache.get("key", "attribute", now - 1));
+    assertEquals(2, cache.get("key").get("attribute").size());
+  }
+
+  @Test
+  public void testMultiCacheWithinTimeoutOverwrite() {
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    assertTrue(cache.put("key", "attribute", now, false, "test1"));
+    assertTrue(cache.put("key", "attribute", now, false, "test2"));
+    assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now));
+    assertTrue(cache.put("key", "attribute", now, true, "test3"));
+    assertEquals(Pair.of(now, "test3"), cache.get("key", "attribute", now));
+    assertFalse(cache.put("key", "attribute", now, false, "test4"));
+    assertEquals(Pair.of(now, "test3"), cache.get("key", "attribute", now));
+  }
+
+  @Test
+  public void testMultiCacheWithinTimeoutReversed() {
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    assertTrue(cache.put("key", "attribute", now, false, "test1"));
+    now -= 30_000L;
+    assertTrue(cache.put("key", "attribute", now, false, "test2"));
+    assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now));
+    assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now + 1));
+    assertEquals(
+        Pair.of(now + 30_000L, "test1"),
+        cache.get("key", "attribute", now + 31_000L));
+    assertNull(cache.get("key", "attribute", now - 1));
+    assertEquals(2, cache.get("key").get("attribute").size());
+  }
+
+
+  @Test
+  public void testMultiCacheOverTimeout() {
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    assertTrue(cache.put("key", "attribute", now, false, "test1"));
+    now += 120_000L;
+    assertTrue(cache.put("key", "attribute", now, false, "test2"));
+    assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now));
+    assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now + 1));
+    assertNull(cache.get("key", "attribute", now - 1));
+    assertEquals(1, cache.get("key").get("attribute").size());
+  }
+
+  @Test
+  public void testMultiCacheOverTimeoutReversed() {
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    assertTrue(cache.put("key", "attribute", now, false, "test1"));
+    now -= 120_000L;
+    assertFalse(cache.put("key", "attribute", now, false, "test2"));
+    assertEquals(1, cache.get("key").get("attribute").size());
+  }
+
+  @Test
+  public void testMultiCacheScan() {
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    assertTrue(cache.put("key", "a.1", now, false, "test1"));
+    now += 1;
+    assertTrue(cache.put("key", "a.2", now, false, "test2"));
+    assertTrue(cache.put("key", "a.3", now, false, "test3"));
+    Map<String, Pair<Long, Object>> scanned = new HashMap<>();
+    cache.scan("key", "a.", now, k -> null, (k, v) -> {
+      scanned.put(k, v);
+      return true;
+    });
+    assertEquals(3, scanned.size());
+
+    now += 1;
+    assertTrue(cache.put("key", "a.2", now, false, null));
+    scanned.clear();
+    cache.scan("key", "a.", now, k -> null, (k, v) -> {
+      scanned.put(k, v);
+      return true;
+    });
+    assertEquals(3, scanned.size());
+
+    scanned.clear();
+    cache.scan("key", "a.", "a.2", now, k -> null, (k, v) -> {
+      scanned.put(k, v);
+      return true;
+    });
+    assertEquals(1, scanned.size());
+    assertNotNull(scanned.get("a.3"));
+  }
+
+  @Test
+  public void testMultiCacheScanWithTombstoneDelete() {
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    assertTrue(cache.put("key", "a.1", now, false, "test1"));
+    now += 1;
+    assertTrue(cache.put("key", "a.2", now, false, "test2"));
+    now += 1;
+    // tombstone prefix delete
+    assertTrue(cache.put("key", "a.", now, false, null));
+    now += 1;
+    assertTrue(cache.put("key", "a.3", now, false, "test3"));
+    Map<String, Pair<Long, Object>> scanned = new HashMap<>();
+    cache.scan("key", "a.", now, k -> "a.", (k, v) -> {
+      scanned.put(k, v);
+      return true;
+    });
+    assertEquals(1, scanned.size());
+
+    now += 1;
+    assertTrue(cache.put("key", "a.2", now, false, null));
+    scanned.clear();
+    cache.scan("key", "a.", now, k -> "a.", (k, v) -> {
+      scanned.put(k, v);
+      return true;
+    });
+    assertEquals(2, scanned.size());
+
+    scanned.clear();
+    cache.scan("key", "a.", "a.2", now, k -> "a.", (k, v) -> {
+      scanned.put(k, v);
+      return true;
+    });
+    assertEquals(1, scanned.size());
+    assertNotNull(scanned.get("a.3"));
+
+    scanned.clear();
+    cache.scan("key", "a.", now - 3, k -> "a.", (k, v) -> {
+      scanned.put(k, v);
+      return true;
+    });
+    assertEquals(2, scanned.size());
+
+  }
+
+}

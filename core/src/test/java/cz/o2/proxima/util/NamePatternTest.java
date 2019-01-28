@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.util;
 
+import cz.o2.proxima.util.NamePattern;
 import org.junit.Test;
 
 import static org.junit.Assert.*;

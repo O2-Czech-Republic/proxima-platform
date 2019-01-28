@@ -1,0 +1,268 @@
+<!--
+
+    Copyright 2017-2019 O2 Czech Republic, a.s.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>cz.o2.proxima</groupId>
+    <artifactId>proxima-direct</artifactId>
+    <version>0.3-SNAPSHOT</version>
+  </parent>
+     
+  <artifactId>proxima-direct-io-gcloud-storage</artifactId>
+  <packaging>jar</packaging>
+     
+  <name>${project.groupId}:${project.artifactId}</name>
+
+  <properties>
+    <shadePattern>cz.o2.proxima.gcloud.storage.shaded</shadePattern>
+  </properties>
+
+  <build>
+
+    <extensions>
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.4.1.Final</version>
+      </extension>
+    </extensions>
+
+    <plugins>
+
+      <!-- compile protobuffers -->
+      <plugin>
+        <groupId>org.xolstice.maven.plugins</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <version>0.5.0</version>
+        <configuration>
+          <protocArtifact>com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}</protocArtifact>
+          <pluginId>grpc-java</pluginId>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>compile</goal>
+              <goal>test-compile</goal>
+              <goal>compile-custom</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!--plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.0.2</version>
+        <executions>
+          <execution>
+            <id>unpack-dependencies</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>unpack-dependencies</goal>
+            </goals>
+            <configuration>
+              <includes>**/META-INF/native/*</includes>
+              <outputDirectory>${project.build.directory}/classes/</outputDirectory>
+              <overWriteReleases>true</overWriteReleases>
+              <overWriteSnapshots>true</overWriteSnapshots>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin-->
+
+      <!--plugin>
+        <groupId>com.coderplus.maven.plugins</groupId>
+        <artifactId>copy-rename-maven-plugin</artifactId>
+        <version>1.0</version>
+        <executions>
+          <execution>
+            <id>copy-and-rename-tcnative</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>rename</goal>
+            </goals>
+            <configuration>
+              <fileSets>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_linux_x86_64.so</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_gcloud_storage_shaded_netty_tcnative_linux_x86_64.so</destinationFile>
+                </fileSet>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/netty_tcnative_windows_x86_64.dll</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_gcloud_storage_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
+                </fileSet>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_osx_x86_64.jnilib</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_gcloud_storage_shaded_libnetty_tcnative_osx_x86_64.jnilib</destinationFile>
+                </fileSet>
+              </fileSets>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin-->
+
+      <plugin>
+        <artifactId>exec-maven-plugin</artifactId>
+        <groupId>org.codehaus.mojo</groupId>
+        <version>1.6.0</version>
+        <executions>
+          <execution>
+            <id>Services shade</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>${basedir}/shade-grpc-services.sh</executable>
+              <arguments>
+                <argument>${project.build.directory}/proxima-direct-io-gcloud-storage-${project.version}.jar</argument>
+                <argument>io.grpc</argument>
+                <argument>${shadePattern}.io.grpc</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>2.4.3</version>
+        <configuration>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+             <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
+            </transformer>
+          </transformers>
+          <artifactSet>
+            <excludes>
+              <!-- exclude proxima and core dependencies -->
+              <exclude>cz.o2.proxima:proxima-core</exclude>
+              <exclude>cz.o2.proxima:proxima-direct-core</exclude>
+            </excludes>
+          </artifactSet>
+          <relocations>
+            <relocation>
+              <pattern>io.netty.</pattern>
+              <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.</pattern>
+              <shadedPattern>${shadePattern}.io.grpc.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.opencensus.</pattern>
+              <shadedPattern>${shadePattern}.io.opencensus.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.api.</pattern>
+              <shadedPattern>${shadePattern}.com.google.api.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.iam.</pattern>
+              <shadedPattern>${shadePattern}.com.google.iam.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.common.</pattern>
+              <shadedPattern>${shadePattern}.com.google.common.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.auth.</pattern>
+              <shadedPattern>${shadePattern}.com.google.auth.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.cloud.</pattern>
+              <shadedPattern>${shadePattern}.com.google.cloud.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>org.codehaus.jackson.</pattern>
+              <shadedPattern>${shadePattern}.org.codehaus.jackson.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.google.protobuf.</pattern>
+              <shadedPattern>${shadePattern}.com.google.protobuf.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.fasterxml.</pattern>
+              <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
+            </relocation>
+          </relocations>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-storage</artifactId>
+      <version>1.16.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-all</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>1.7.25</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.github.spotbugs</groupId>
+      <artifactId>spotbugs-annotations</artifactId>
+      <version>${spotbugs.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+  </dependencies>
+
+</project>
+

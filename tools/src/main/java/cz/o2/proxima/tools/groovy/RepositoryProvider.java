@@ -15,14 +15,16 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.Repository;
 
 /**
  * Provider of repository.
  */
-@FunctionalInterface
 public interface RepositoryProvider {
 
   Repository getRepo();
+
+  DirectDataOperator getDirect();
 
 }

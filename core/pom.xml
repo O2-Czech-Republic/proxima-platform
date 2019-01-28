@@ -23,10 +23,10 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.3-SNAPSHOT</version>
   </parent>
 
-  <artifactId>core</artifactId>
+  <artifactId>proxima-core</artifactId>
   <packaging>jar</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
@@ -101,29 +101,9 @@
     </dependency>
 
     <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-core</artifactId>
-      <version>${euphoria.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-testing</artifactId>
-      <version>${euphoria.version}</version>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
       <groupId>com.tdunning</groupId>
       <artifactId>t-digest</artifactId>
       <version>3.2</version>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-local</artifactId>
-      <version>${euphoria.version}</version>
-      <scope>test</scope>
     </dependency>
 
     <dependency>
@@ -134,7 +114,7 @@
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-      <version>23.0</version>
+      <version>${guava.version}</version>
     </dependency>
 
     <dependency>

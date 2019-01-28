@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima.example</groupId>
     <artifactId>example-parent</artifactId>
-    <version>0.2-SNAPSHOT</version>
+    <version>0.3-SNAPSHOT</version>
   </parent>
      
   <artifactId>example-model</artifactId>
@@ -42,7 +42,7 @@
       <plugin>
         <groupId>cz.o2.proxima</groupId>
         <artifactId>compiler-maven-plugin</artifactId>
-        <version>0.2-SNAPSHOT</version>
+        <version>0.3-SNAPSHOT</version>
         <configuration>
          <outputDir>generated-sources/model</outputDir>
          <javaPackage>cz.o2.proxima.example.model</javaPackage>
@@ -54,6 +54,13 @@
             <goals><goal>compile</goal></goals>
           </execution>
         </executions>
+        <dependencies>
+          <dependency>
+            <groupId>cz.o2.proxima</groupId>
+            <artifactId>proxima-direct-compiler-plugin</artifactId>
+            <version>${project.version}</version>
+          </dependency>
+        </dependencies>
       </plugin>
     </plugins>
   </build>
@@ -63,19 +70,19 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>core</artifactId>
+      <artifactId>proxima-core</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>scheme</artifactId>
+      <artifactId>proxima-scheme</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>scheme</artifactId>
+      <artifactId>proxima-scheme</artifactId>
       <version>${project.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
@@ -83,7 +90,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>server-rpc-proto</artifactId>
+      <artifactId>proxima-server-rpc-proto</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -95,25 +102,25 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>io-kafka</artifactId>
+      <artifactId>proxima-direct-io-kafka</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>io-cassandra</artifactId>
+      <artifactId>proxima-direct-io-cassandra</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>io-hbase</artifactId>
+      <artifactId>proxima-direct-io-hbase</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>io-hdfs</artifactId>
+      <artifactId>proxima-direct-io-hdfs</artifactId>
       <version>${project.version}</version>
     </dependency>
 

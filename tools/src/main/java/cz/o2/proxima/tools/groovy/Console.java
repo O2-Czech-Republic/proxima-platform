@@ -27,17 +27,18 @@ import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc.RetrieveServiceBlockingStub;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.OnlineAttributeWriter;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.CommitLogReader;
-import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.source.BatchSource;
-import cz.o2.proxima.source.BoundedStreamSource;
+import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.Position;
+import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
+import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.euphoria.source.BatchSource;
+import cz.o2.proxima.direct.euphoria.source.BoundedStreamSource;
+import cz.o2.proxima.direct.euphoria.source.UnboundedStreamSource;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
-import cz.o2.proxima.source.UnboundedStreamSource;
 import cz.o2.proxima.tools.io.TypedStreamElement;
 import cz.o2.proxima.util.Classpath;
 import cz.seznam.euphoria.core.client.dataset.Dataset;
@@ -71,6 +72,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -138,6 +140,8 @@ public class Console {
   final BlockingQueue<Byte> input = new ArrayBlockingQueue<>(1000);
   @Getter
   final Repository repo;
+  @Getter
+  final Optional<DirectDataOperator> direct;
   final List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;
   final Config config;
@@ -162,6 +166,9 @@ public class Console {
   Console(Config config, Repository repo) {
     this.config = config;
     this.repo = repo;
+    this.direct = repo.hasOperator("direct")
+        ? Optional.of(repo.asDataOperator(DirectDataOperator.class))
+        : Optional.empty();
     ClassLoader old = Thread.currentThread().getContextClassLoader();
     Thread.currentThread().setContextClassLoader(new GroovyClassLoader(old));
     conf = new Configuration(Configuration.VERSION_2_3_23);
@@ -205,7 +212,7 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> Stream<TypedStreamElement<?>> getStream(
+  public <T> Stream<TypedStreamElement<T>> getStream(
       AttributeDescriptor<T> attrDesc,
       Position position,
       boolean stopAtCurrent) {
@@ -215,46 +222,51 @@ public class Console {
 
 
   @SuppressWarnings("unchecked")
-  public <T> Stream<TypedStreamElement<?>> getStream(
+  public <T> Stream<TypedStreamElement<T>> getStream(
       AttributeDescriptor<T> attrDesc,
       Position position,
       boolean stopAtCurrent,
       boolean eventTime) {
 
-    CommitLogReader reader = repo.getFamiliesForAttribute(attrDesc)
-        .stream()
-        .filter(af -> af.getAccess().canReadCommitLog())
-        // sort primary families on top
-        .sorted((l, r) -> l.getType().ordinal() - r.getType().ordinal())
-        .map(af -> af.getCommitLogReader().get())
-        .findFirst()
-        .orElseThrow(() -> new IllegalArgumentException(
-            "Attribute " + attrDesc + " has no commit log"));
+    if (direct.isPresent()) {
+      CommitLogReader reader = direct.get().getFamiliesForAttribute(attrDesc)
+          .stream()
+          .filter(af -> af.getDesc().getAccess().canReadCommitLog())
+          // sort primary families on top
+          .sorted((l, r) -> Integer.compare(
+              l.getDesc().getType().ordinal(), r.getDesc().getType().ordinal()))
+          .map(af -> af.getCommitLogReader().get())
+          .findFirst()
+          .orElseThrow(() -> new IllegalArgumentException(
+              "Attribute " + attrDesc + " has no commit log"));
 
-    final DatasetBuilder<TypedStreamElement<Object>> builder;
-    builder = () -> {
-      DataSource source = createSourceFromReader(reader, stopAtCurrent, position);
+      final DatasetBuilder<TypedStreamElement<Object>> builder;
+      builder = () -> {
+        DataSource source = createSourceFromReader(reader, stopAtCurrent, position);
 
-      Dataset<StreamElement> ds = flow.get().createInput(source);
+        Dataset<StreamElement> ds = flow.get().createInput(source);
 
-      String prefix = attrDesc.toAttributePrefix();
-      if (eventTime) {
-        ds = AssignEventTime.of(ds)
-            .using(StreamElement::getStamp)
+        String prefix = attrDesc.toAttributePrefix();
+        if (eventTime) {
+          ds = AssignEventTime.of(ds)
+              .using(StreamElement::getStamp)
+              .output();
+        }
+        Dataset<StreamElement> filtered = Filter.of(ds)
+            .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
             .output();
-      }
-      Dataset<StreamElement> filtered = Filter.of(ds)
-          .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
-          .output();
-      return MapElements.of(filtered)
-          .using(TypedStreamElement::of)
-          .output();
-    };
-    return Stream.wrap(
-        createExecutor(eventTime),
-        (DatasetBuilder) builder,
-        this::resetFlow,
-        this::unboundedStreamInterrupt);
+        return MapElements.of(filtered)
+            .using(TypedStreamElement::of)
+            .output();
+      };
+      return Stream.wrap(
+          createExecutor(eventTime),
+          (DatasetBuilder) builder,
+          this::resetFlow,
+          this::unboundedStreamInterrupt);
+    }
+    throw new IllegalStateException(
+        "Can create stream with direct operator only. Add more functionality");
   }
 
   @SuppressWarnings("unchecked")
@@ -267,49 +279,54 @@ public class Console {
         .map(p -> p.desc().getName())
         .collect(Collectors.toSet());
 
-    return Arrays.stream(descriptors)
-        .map(desc ->
-            repo.getFamiliesForAttribute(desc.desc())
-                .stream()
-                .filter(af -> af.getAccess().canReadCommitLog())
-                // sort primary families on top
-                .sorted((l, r) -> l.getType().ordinal() - r.getType().ordinal())
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "Missing commit log for " + desc)))
-        .distinct()
-        .map(af -> af.getCommitLogReader()
-            .orElseThrow(() -> new IllegalStateException(
-                "Family " + af + " has no commit log")))
-        .map(reader -> {
-          final DatasetBuilder<StreamElement> builder;
-          builder = () -> {
-            final DataSource source = createSourceFromReader(
-                reader, stopAtCurrent, position);
+    if (direct.isPresent()) {
+      return Arrays.stream(descriptors)
+          .map(desc ->
+              direct.get().getFamiliesForAttribute(desc.desc())
+                  .stream()
+                  .filter(af -> af.getDesc().getAccess().canReadCommitLog())
+                  // sort primary families on top
+                  .sorted((l, r) -> Integer.compare(
+                      l.getDesc().getType().ordinal(), r.getDesc().getType().ordinal()))
+                  .findFirst()
+                  .orElseThrow(() -> new IllegalArgumentException(
+                      "Missing commit log for " + desc)))
+          .distinct()
+          .map(af -> af.getCommitLogReader()
+              .orElseThrow(() -> new IllegalStateException(
+                  "Family " + af + " has no commit log")))
+          .map(reader -> {
+            final DatasetBuilder<StreamElement> builder;
+            builder = () -> {
+              final DataSource source = createSourceFromReader(
+                  reader, stopAtCurrent, position);
 
-            Dataset<StreamElement> ds = flow.get().createInput(source);
+              Dataset<StreamElement> ds = flow.get().createInput(source);
 
-            if (eventTime) {
-              ds = AssignEventTime.of(ds)
-                  .using(StreamElement::getStamp)
+              if (eventTime) {
+                ds = AssignEventTime.of(ds)
+                    .using(StreamElement::getStamp)
+                    .output();
+              }
+              return Filter.of(ds)
+                  .by(t -> names.contains(t.getAttributeDescriptor().getName()))
                   .output();
+            };
+            Stream<StreamElement> ret = Stream.wrap(
+                createExecutor(eventTime),
+                (DatasetBuilder<StreamElement>) builder,
+                this::resetFlow,
+                this::unboundedStreamInterrupt);
+            if (stopAtCurrent) {
+              return ret.windowAll();
             }
-            return Filter.of(ds)
-                .by(t -> names.contains(t.getAttributeDescriptor().getName()))
-                .output();
-          };
-          Stream<StreamElement> ret = Stream.wrap(
-              createExecutor(eventTime),
-              (DatasetBuilder<StreamElement>) builder,
-              this::resetFlow,
-              this::unboundedStreamInterrupt);
-          if (stopAtCurrent) {
-            return ret.windowAll();
-          }
-          return ret;
-        })
-        .reduce((a, b) -> a.union(b))
-        .orElseThrow(() -> new IllegalStateException("Pass non-empty descriptors"));
+            return ret;
+          })
+          .reduce((a, b) -> a.union(b))
+          .orElseThrow(() -> new IllegalStateException("Pass non-empty descriptors"));
+    }
+    throw new IllegalStateException(
+        "Can create stream with direct operator only. Add more functionality");
   }
 
   private DataSource createSourceFromReader(
@@ -324,54 +341,56 @@ public class Console {
   }
 
   public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
-      EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc) {
 
-    return getBatchSnapshot(entityDesc, attrDesc, Long.MIN_VALUE, Long.MAX_VALUE);
+    return getBatchSnapshot(attrDesc, Long.MIN_VALUE, Long.MAX_VALUE);
   }
 
 
   @SuppressWarnings("unchecked")
   public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
-      EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       long fromStamp,
       long toStamp) {
 
-    DatasetBuilder<StreamElement> builder = () -> {
-      final Dataset<StreamElement> ds;
-      AttributeFamilyDescriptor family = repo.getFamiliesForAttribute(attrDesc)
-          .stream()
-          .filter(af -> af.getAccess().canReadBatchSnapshot())
-          .filter(af -> af.getBatchObservable().isPresent())
-          .findAny()
-          .orElse(null);
+    if (direct.isPresent()) {
+      DatasetBuilder<StreamElement> builder = () -> {
+        final Dataset<StreamElement> ds;
+        DirectAttributeFamilyDescriptor family;
+        family = direct.get().getFamiliesForAttribute(attrDesc)
+            .stream()
+            .filter(af -> af.getDesc().getAccess().canReadBatchSnapshot())
+            .filter(af -> af.getBatchObservable().isPresent())
+            .findAny()
+            .orElse(null);
 
-      if (family == null || fromStamp > Long.MIN_VALUE || toStamp < Long.MAX_VALUE) {
-        ds = reduceUpdatesToSnapshot(attrDesc, fromStamp, toStamp);
-      } else {
-        Dataset<StreamElement> raw = flow.get().createInput(BatchSource.of(
-            family.getBatchObservable().get(),
-            family,
-            fromStamp,
-            toStamp));
-        ds = Filter.of(raw)
-            .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
+        if (family == null || fromStamp > Long.MIN_VALUE || toStamp < Long.MAX_VALUE) {
+          ds = reduceUpdatesToSnapshot(attrDesc, fromStamp, toStamp);
+        } else {
+          Dataset<StreamElement> raw = flow.get().createInput(BatchSource.of(
+              family.getBatchObservable().get(),
+              family.getDesc(),
+              fromStamp,
+              toStamp));
+          ds = Filter.of(raw)
+              .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
+              .output();
+        }
+
+        String prefix = attrDesc.toAttributePrefix();
+        return Filter.of(ds)
+            .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
             .output();
-      }
+      };
 
-      String prefix = attrDesc.toAttributePrefix();
-      return Filter.of(ds)
-          .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
-          .output();
-    };
-
-    return Stream.wrap(
-        createExecutor(false),
-        (DatasetBuilder) builder,
-        this::resetFlow,
-        this::unboundedStreamInterrupt).windowAll();
-
+      return Stream.wrap(
+          createExecutor(false),
+          (DatasetBuilder) builder,
+          this::resetFlow,
+          this::unboundedStreamInterrupt).windowAll();
+    }
+    throw new IllegalStateException(
+        "Can create snapshot with direct operator only. Add more functionality");
   }
 
   private Dataset<StreamElement> reduceUpdatesToSnapshot(
@@ -379,45 +398,50 @@ public class Console {
       long fromStamp,
       long toStamp) {
 
-    // create the data by reducing stream updates
-    CommitLogReader reader = repo.getFamiliesForAttribute(attrDesc)
-        .stream()
-        .filter(af -> af.getAccess().isStateCommitLog())
-        .sorted((l, r) -> l.getType().ordinal() - r.getType().ordinal())
-        .map(af -> af.getCommitLogReader().get())
-        .findFirst()
-        .orElseThrow(() -> new IllegalStateException(
-            "Cannot create batch snapshot, missing random access family "
-                + "and state commit log for " + attrDesc));
-    Dataset<StreamElement> stream = flow.get().createInput(
-        UnboundedStreamSource.of(reader, Position.OLDEST));
-    // filter by stamp
-    stream = Filter.of(stream)
-        .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
-        .output();
-    final Dataset<Pair<Pair<String, String>, StreamElement>> reduced;
-    reduced = ReduceByKey.of(stream)
-        .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
-        .combineBy(values -> {
-          StreamElement res = null;
-          Iterable<StreamElement> iter = values::iterator;
-          for (StreamElement v : iter) {
-            if (res == null || v.getStamp() > res.getStamp()) {
-              res = v;
+    if (direct.isPresent()) {
+      // create the data by reducing stream updates
+      CommitLogReader reader = direct.get().getFamiliesForAttribute(attrDesc)
+          .stream()
+          .filter(af -> af.getDesc().getAccess().isStateCommitLog())
+          .sorted((l, r) -> Integer.compare(
+              l.getDesc().getType().ordinal(), r.getDesc().getType().ordinal()))
+          .map(af -> af.getCommitLogReader().get())
+          .findFirst()
+          .orElseThrow(() -> new IllegalStateException(
+              "Cannot create batch snapshot, missing random access family "
+                  + "and state commit log for " + attrDesc));
+      Dataset<StreamElement> stream = flow.get().createInput(
+          UnboundedStreamSource.of(reader, Position.OLDEST));
+      // filter by stamp
+      stream = Filter.of(stream)
+          .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
+          .output();
+      final Dataset<Pair<Pair<String, String>, StreamElement>> reduced;
+      reduced = ReduceByKey.of(stream)
+          .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
+          .combineBy(values -> {
+            StreamElement res = null;
+            Iterable<StreamElement> iter = values::iterator;
+            for (StreamElement v : iter) {
+              if (res == null || v.getStamp() > res.getStamp()) {
+                res = v;
+              }
             }
-          }
-          return res;
-        })
-        .output();
-    return FlatMap.of(reduced)
-        .using((
-            Pair<Pair<String, String>, StreamElement> e,
-            Collector<StreamElement> ctx) -> {
-          if (e.getSecond().getValue() != null) {
-            ctx.collect(e.getSecond());
-          }
-        })
-        .output();
+            return res;
+          })
+          .output();
+      return FlatMap.of(reduced)
+          .using((
+              Pair<Pair<String, String>, StreamElement> e,
+              Collector<StreamElement> ctx) -> {
+            if (e.getSecond().getValue() != null) {
+              ctx.collect(e.getSecond());
+            }
+          })
+          .output();
+    }
+    throw new IllegalStateException(
+        "Can create stream with direct operator only. Add more functionality");
   }
 
 
@@ -432,61 +456,69 @@ public class Console {
         .map(AttributeDescriptor::toAttributePrefix)
         .collect(Collectors.toSet());
 
-    DatasetBuilder<StreamElement> builder = () -> {
-      Dataset<StreamElement> ds = Arrays.stream(attrs)
-          .map(AttributeDescriptorProvider::desc)
-          .map(attrDesc ->
-              repo.getFamiliesForAttribute(attrDesc)
-                  .stream()
-                  .filter(af -> af.getAccess().canReadBatchUpdates())
-                  .filter(af -> af.getBatchObservable().isPresent())
-                  .findAny()
-                  .orElseThrow(() -> new IllegalStateException("Attribute "
-                      + attrDesc.getName() + " has no batch log observable reader")))
-          .distinct()
-          .map(family ->
-              flow.get().createInput(BatchSource.of(
-                  family.getBatchObservable().get(),
-                  family,
-                  startStamp, endStamp)))
-          .reduce((left, right) -> Union.of(left, right).output())
-          .orElseThrow(() -> new IllegalArgumentException(
-              "Please pass non-empty list of attributes, got " + Arrays.toString(attrs)));
+    if (direct.isPresent()) {
+      DatasetBuilder<StreamElement> builder = () -> {
+        Dataset<StreamElement> ds = Arrays.stream(attrs)
+            .map(AttributeDescriptorProvider::desc)
+            .map(attrDesc ->
+                direct.get().getFamiliesForAttribute(attrDesc)
+                    .stream()
+                    .filter(af -> af.getDesc().getAccess().canReadBatchUpdates())
+                    .filter(af -> af.getBatchObservable().isPresent())
+                    .findAny()
+                    .orElseThrow(() -> new IllegalStateException("Attribute "
+                        + attrDesc.getName() + " has no batch log observable reader")))
+            .distinct()
+            .map(family ->
+                flow.get().createInput(BatchSource.of(
+                    family.getBatchObservable().get(),
+                    family.getAttributes(),
+                    startStamp, endStamp)))
+            .reduce((left, right) -> Union.of(left, right).output())
+            .orElseThrow(() -> new IllegalArgumentException(
+                "Please pass non-empty list of attributes, got "
+                    + Arrays.toString(attrs)));
 
-      ds = Filter.of(ds)
-          .by(i -> i.getStamp() >= startStamp && i.getStamp() < endStamp)
-          .output();
-
-      Dataset<StreamElement> filtered = Filter.of(ds)
-          .by(t -> descriptors.contains(
-              t.getAttributeDescriptor().toAttributePrefix()))
-          .output();
-
-      if (attrs.length == 1) {
-        filtered = (Dataset) MapElements.of(filtered)
-            .using(TypedStreamElement::of)
+        ds = Filter.of(ds)
+            .by(i -> i.getStamp() >= startStamp && i.getStamp() < endStamp)
             .output();
-      }
 
-      return AssignEventTime.of(filtered)
-          .using(StreamElement::getStamp)
-          .output();
-    };
+        Dataset<StreamElement> filtered = Filter.of(ds)
+            .by(t -> descriptors.contains(
+                t.getAttributeDescriptor().toAttributePrefix()))
+            .output();
 
-    return Stream.wrap(
-        createExecutor(false),
-        (DatasetBuilder) builder,
-        this::resetFlow,
-        this::unboundedStreamInterrupt).windowAll();
+        if (attrs.length == 1) {
+          filtered = (Dataset) MapElements.of(filtered)
+              .using(TypedStreamElement::of)
+              .output();
+        }
 
+        return AssignEventTime.of(filtered)
+            .using(StreamElement::getStamp)
+            .output();
+      };
+
+      return Stream.wrap(
+          createExecutor(false),
+          (DatasetBuilder) builder,
+          this::resetFlow,
+          this::unboundedStreamInterrupt).windowAll();
+    }
+    throw new IllegalStateException(
+        "Can create stream with direct operator only. Add more functionality");
   }
 
 
   public ConsoleRandomReader getRandomAccessReader(String entity) {
-
+    if (!direct.isPresent()) {
+      throw new IllegalStateException(
+        "Can create random access reader with direct operator only. "
+            + "Add runtime dependency.");
+    }
     EntityDescriptor entityDesc = findEntityDescriptor(entity);
-
-    ConsoleRandomReader reader = new ConsoleRandomReader(entityDesc, repo);
+    ConsoleRandomReader reader = new ConsoleRandomReader(
+        entityDesc, repo, direct.get());
     readers.add(reader);
     return reader;
   }
@@ -512,6 +544,10 @@ public class Console {
           ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
           TextFormat.ParseException {
 
+    if (!direct.isPresent()) {
+      throw new IllegalStateException(
+          "Can write with direct operator only. Add runtime dependecncy");
+    }
     if (attrDesc.getSchemeUri().getScheme().equals("proto")) {
       String protoClass = attrDesc.getValueSerializer().getClassType().getName();
       Class<AbstractMessage> cls = Classpath.findClass(protoClass, AbstractMessage.class);
@@ -522,7 +558,7 @@ public class Console {
         TextFormat.merge(textFormat, builder);
         payload = builder.build().toByteArray();
       }
-      OnlineAttributeWriter writer = repo.getWriter(attrDesc)
+      OnlineAttributeWriter writer = direct.get().getWriter(attrDesc)
           .orElseThrow(() -> new IllegalArgumentException(
               "Missing writer for " + attrDesc));
       CountDownLatch latch = new CountDownLatch(1);
@@ -558,7 +594,11 @@ public class Console {
       EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc,
       String key, String attribute, long stamp) throws InterruptedException {
 
-    OnlineAttributeWriter writer = repo.getWriter(attrDesc)
+    if (!direct.isPresent()) {
+      throw new IllegalStateException(
+          "Can write with direct operator only. Add runtime dependecncy");
+    }
+    OnlineAttributeWriter writer = direct.get().getWriter(attrDesc)
         .orElseThrow(() -> new IllegalArgumentException(
             "Missing writer for " + attrDesc));
     CountDownLatch latch = new CountDownLatch(1);

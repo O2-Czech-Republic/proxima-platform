@@ -44,8 +44,8 @@ public class AbstractStorage implements Serializable {
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof AttributeWriterBase) {
-      AttributeWriterBase other = (AttributeWriterBase) obj;
+    if (obj instanceof AbstractStorage) {
+      AbstractStorage other = (AbstractStorage) obj;
       return other.getUri().equals(uri);
     }
     return false;

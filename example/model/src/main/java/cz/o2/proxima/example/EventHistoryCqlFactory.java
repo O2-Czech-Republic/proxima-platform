@@ -17,7 +17,7 @@
 package cz.o2.proxima.example;
 
 import cz.o2.proxima.example.event.Event.BaseEvent;
-import cz.o2.proxima.storage.cassandra.TransformingCqlFactory;
+import cz.o2.proxima.direct.cassandra.TransformingCqlFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;

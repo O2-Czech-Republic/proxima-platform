@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.util;
 
+import cz.o2.proxima.util.CamelCase;
 import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 

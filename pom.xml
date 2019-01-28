@@ -22,7 +22,7 @@
 
   <groupId>cz.o2.proxima</groupId>
   <artifactId>platform-parent</artifactId>
-  <version>0.2-SNAPSHOT</version>
+  <version>0.3-SNAPSHOT</version>
   <packaging>pom</packaging>
   <inceptionYear>2017</inceptionYear>
 
@@ -76,6 +76,7 @@
     <proto.version>3.5.1</proto.version>
     <protoc.version>3.5.1-1</protoc.version>
     <grpc.version>1.12.0</grpc.version>
+    <guava.version>23.0</guava.version>
     <euphoria.version>0.9-SNAPSHOT</euphoria.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -408,21 +409,9 @@
 
   <modules>
     <module>core</module>
+    <module>direct</module>
     <module>example</module>
-    <module>ingest-client</module>
-    <module>ingest-server</module>
-    <module>io-bigtable</module>
-    <module>io-cassandra</module>
-    <module>io-gcloud-storage</module>
-    <module>io-hbase</module>
-    <module>io-hbase-bindings</module>
-    <module>io-hdfs</module>
-    <module>io-http</module>
-    <module>io-kafka</module>
-    <module>io-pubsub</module>
-    <module>io-pubsub-partitioned</module>
     <module>maven</module>
-    <module>rpc</module>
     <module>scheme</module>
     <module>tools</module>
   </modules>

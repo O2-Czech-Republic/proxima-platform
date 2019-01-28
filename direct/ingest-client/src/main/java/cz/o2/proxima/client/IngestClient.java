@@ -66,7 +66,7 @@ public class IngestClient implements AutoCloseable {
     }
 
     /**
-     * Retry to send the request
+     * Retry to send the request.
      */
     void retry() {
       // we don't setup any timeout

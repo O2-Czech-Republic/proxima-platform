@@ -4,20 +4,18 @@
  */
 
 import cz.o2.proxima.direct.core.DirectDataOperator
-import cz.o2.proxima.direct.commitlog.Position
 import cz.o2.proxima.direct.randomaccess.KeyValue
 import cz.o2.proxima.repository.Repository
 import cz.o2.proxima.repository.AttributeDescriptor
 import cz.o2.proxima.repository.EntityDescriptor
 import cz.o2.proxima.storage.StreamElement
+import cz.o2.proxima.storage.commitlog.Position
 import cz.o2.proxima.tools.groovy.AttributeDescriptorProvider
 import cz.o2.proxima.tools.groovy.Console
 import cz.o2.proxima.tools.groovy.RepositoryProvider
 import cz.o2.proxima.tools.groovy.Stream
 import cz.o2.proxima.tools.groovy.WindowedStream
 import cz.o2.proxima.tools.io.ConsoleRandomReader
-import cz.o2.proxima.tools.io.TypedStreamElement
-import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing
 
 class Environment implements RepositoryProvider {
 
@@ -66,11 +64,11 @@ class Environment implements RepositoryProvider {
             return serializer
           }
 
-          def Stream<TypedStreamElement<${attribute.type}>> stream() {
+          def Stream<StreamElement> stream() {
             return stream(false);
           }
 
-          def Stream<TypedStreamElement<${attribute.type}>> stream(boolean eventTime) {
+          def Stream<StreamElement> stream(boolean eventTime) {
             return console.getStream(
                 desc,
                 Position.NEWEST,
@@ -78,11 +76,11 @@ class Environment implements RepositoryProvider {
                 eventTime);
           }
 
-          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> streamFromOldest() {
+          def WindowedStream<StreamElement> streamFromOldest() {
             return streamFromOldest(true)
           }
 
-          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> streamFromOldest(boolean stopAtCurrent) {
+          def WindowedStream<StreamElement> streamFromOldest(boolean stopAtCurrent) {
             return console.getStream(
                 desc,
                 Position.OLDEST,
@@ -90,23 +88,23 @@ class Environment implements RepositoryProvider {
                 true).windowAll();
           }
 
-          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchSnapshot() {
+          def WindowedStream<StreamElement> batchSnapshot() {
             return console.getBatchSnapshot(desc);
           }
 
-          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchSnapshot(long start, long end) {
+          def WindowedStream<StreamElement> batchSnapshot(long start, long end) {
             return console.getBatchSnapshot(desc, start, end);
           }
 
-          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchUpdates() {
+          def WindowedStream<StreamElement> batchUpdates() {
             return console.getBatchUpdates(Long.MIN_VALUE, Long.MAX_VALUE, this);
           }
 
-          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchUpdates(long startStamp) {
+          def WindowedStream<StreamElement> batchUpdates(long startStamp) {
             return console.getBatchUpdates(startStamp, Long.MAX_VALUE, this);
           }
 
-          def WindowedStream<TypedStreamElement<${attribute.type}>, GlobalWindowing> batchUpdates(long startStamp, long endStamp) {
+          def WindowedStream<StreamElement> batchUpdates(long startStamp, long endStamp) {
             return console.getBatchUpdates(startStamp, endStamp, this);
           }
 

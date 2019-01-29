@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.direct.http;
 
+import com.google.common.collect.Sets;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.seznam.euphoria.shadow.com.google.common.collect.Sets;
 import java.net.URI;
 import java.util.Map;
 

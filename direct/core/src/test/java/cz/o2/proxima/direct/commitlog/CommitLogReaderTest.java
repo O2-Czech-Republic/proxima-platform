@@ -24,14 +24,12 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Optionals;
-import cz.seznam.euphoria.executor.local.LocalExecutor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.After;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
@@ -46,8 +44,6 @@ public class CommitLogReaderTest {
           .withFallback(ConfigFactory.load("test-reference.conf"))
           .resolve());
 
-  private transient LocalExecutor executor;
-
   private final transient EntityDescriptor entity =
       Optionals.get(repo.findEntity("event"));
 
@@ -59,7 +55,6 @@ public class CommitLogReaderTest {
 
   @Before
   public void setUp() {
-    executor = new LocalExecutor();
     DirectAttributeFamilyDescriptor family = repo.getAllFamilies()
         .filter(af -> af.getName().equals("event-storage-stream"))
         .findAny()
@@ -68,11 +63,6 @@ public class CommitLogReaderTest {
 
     reader = family.getCommitLogReader().get();
     writer = family.getWriter().get();
-  }
-
-  @After
-  public void tearDown() {
-    executor.abort();
   }
 
   @Test(timeout = 10000)

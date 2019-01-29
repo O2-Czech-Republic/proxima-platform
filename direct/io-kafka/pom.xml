@@ -134,13 +134,6 @@
     </dependency>
 
     <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-local</artifactId>
-      <version>${euphoria.version}</version>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
     </dependency>

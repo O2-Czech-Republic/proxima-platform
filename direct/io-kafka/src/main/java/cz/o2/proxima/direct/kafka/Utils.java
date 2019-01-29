@@ -16,7 +16,6 @@
 package cz.o2.proxima.direct.kafka;
 
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Collection;
@@ -27,11 +26,6 @@ import org.apache.kafka.common.TopicPartition;
  * Various utilities.
  */
 class Utils {
-
-  @FunctionalInterface
-  interface ThrowingConsumer<T> {
-    void apply(T what) throws Exception;
-  }
 
   /**
    * Retrieve topic from given URI.
@@ -44,16 +38,6 @@ class Utils {
       throw new IllegalArgumentException("Invalid path in URI " + uri);
     }
     return topic;
-  }
-
-  static <T> Consumer<T> unchecked(ThrowingConsumer<T> wrap) {
-    return t -> {
-      try {
-        wrap.apply(t);
-      } catch (Exception ex) {
-        throw new RuntimeException(ex);
-      }
-    };
   }
 
   static void seekToOffsets(

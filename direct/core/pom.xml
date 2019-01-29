@@ -86,19 +86,6 @@
     </dependency>
 
     <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-core</artifactId>
-      <version>${euphoria.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-testing</artifactId>
-      <version>${euphoria.version}</version>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
     </dependency>
@@ -120,13 +107,6 @@
       <artifactId>proxima-core</artifactId>
       <version>${project.version}</version>
       <classifier>tests</classifier>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-local</artifactId>
-      <version>${euphoria.version}</version>
       <scope>test</scope>
     </dependency>
 

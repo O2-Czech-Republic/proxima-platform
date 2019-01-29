@@ -15,17 +15,17 @@
  */
 package cz.o2.proxima.direct.pubsub;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import java.net.URI;
 import java.util.Map;
 
 /**
  * A {@link DataAccessorFactory} for PubSub.
  */
-@Experimental
+@Stable
 public class PubSubStorage implements DataAccessorFactory {
 
   @Override

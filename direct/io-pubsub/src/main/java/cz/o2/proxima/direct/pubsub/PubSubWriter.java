@@ -24,14 +24,14 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
-import cz.o2.proxima.annotations.Experimental;
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.pubsub.proto.PubSub;
 import cz.o2.proxima.storage.StreamElement;
-import cz.seznam.euphoria.core.util.ExceptionUtils;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.concurrent.ExecutorService;
@@ -42,7 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * A {@link OnlineAttributeWriter} for Google PubSub.
  */
-@Experimental("Not well tested yet")
+@Stable
 @Slf4j
 class PubSubWriter extends AbstractOnlineAttributeWriter
     implements OnlineAttributeWriter {

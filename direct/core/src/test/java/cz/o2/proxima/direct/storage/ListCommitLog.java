@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.storage;
 
+import com.google.common.collect.Lists;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -26,7 +27,6 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.storage.StreamElement;
-import cz.seznam.euphoria.shadow.com.google.common.collect.Lists;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;

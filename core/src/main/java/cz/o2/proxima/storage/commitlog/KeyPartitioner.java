@@ -13,18 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.commitlog;
+package cz.o2.proxima.storage.commitlog;
 
 import cz.o2.proxima.storage.StreamElement;
 
 /**
- * Partitioner that always send the ingest into first partition.
+ * A partitioner based on key of entity.
+ * This is the default partitioner.
  */
-public class FirstPartitionPartitioner implements Partitioner {
+public class KeyPartitioner implements Partitioner {
 
   @Override
   public int getPartitionId(StreamElement element) {
-    return 0;
+    return element.getKey().hashCode();
   }
 
 }

@@ -17,8 +17,8 @@ package cz.o2.proxima.direct.kafka;
 
 import com.google.common.base.Strings;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.KeyPartitioner;
-import cz.o2.proxima.direct.commitlog.Partitioner;
+import cz.o2.proxima.storage.commitlog.KeyPartitioner;
+import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;

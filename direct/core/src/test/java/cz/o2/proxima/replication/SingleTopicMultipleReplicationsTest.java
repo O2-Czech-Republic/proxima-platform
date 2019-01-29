@@ -18,7 +18,7 @@ package cz.o2.proxima.replication;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.Position;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.repository.AttributeDescriptor;

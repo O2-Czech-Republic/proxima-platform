@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.commitlog;
+package cz.o2.proxima.storage.commitlog;
 
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;

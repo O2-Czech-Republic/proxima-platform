@@ -13,29 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.commitlog;
+package cz.o2.proxima.tools.groovy;
 
-import cz.o2.proxima.annotations.Stable;
+import java.util.List;
 
 /**
- * An enum specifying the position in the commit log to start reading from.
+ * Stream provider for testing purposes.
  */
-@Stable
-public enum Position {
+public interface TestStreamProvider {
 
-  /**
-   * Read the commit log from the current data actually pushed to the log
-   * or the currently committed position.
-   */
-  NEWEST,
-
-  /**
-   * Read from given offsets (current).
-   */
-  CURRENT,
-
-  /** Read the commit log from the oldest data available. */
-  OLDEST;
+  <T> Stream<T> of(List<T> values);
 
 }
-

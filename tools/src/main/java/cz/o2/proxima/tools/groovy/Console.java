@@ -22,7 +22,6 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.functional.TriFunction;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc.RetrieveServiceBlockingStub;
 import cz.o2.proxima.proto.service.Rpc;
@@ -32,33 +31,11 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.Position;
-import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.euphoria.source.BatchSource;
-import cz.o2.proxima.direct.euphoria.source.BoundedStreamSource;
-import cz.o2.proxima.direct.euphoria.source.UnboundedStreamSource;
+import cz.o2.proxima.internal.shaded.com.google.common.collect.Streams;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
-import cz.o2.proxima.tools.io.TypedStreamElement;
 import cz.o2.proxima.util.Classpath;
-import cz.seznam.euphoria.core.client.dataset.Dataset;
-import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
-import cz.seznam.euphoria.core.client.flow.Flow;
-import cz.seznam.euphoria.core.client.io.Collector;
-import cz.seznam.euphoria.core.client.io.DataSource;
-import cz.seznam.euphoria.core.client.operator.AssignEventTime;
-import cz.seznam.euphoria.core.client.operator.Filter;
-import cz.seznam.euphoria.core.client.operator.FlatMap;
-import cz.seznam.euphoria.core.client.operator.MapElements;
-import cz.seznam.euphoria.core.client.operator.ReduceByKey;
-import cz.seznam.euphoria.core.client.operator.Union;
-import cz.seznam.euphoria.core.client.util.Pair;
-import cz.seznam.euphoria.core.executor.Executor;
-import cz.seznam.euphoria.executor.local.LocalExecutor;
-import cz.seznam.euphoria.executor.local.ProcessingTimeTriggerScheduler;
-import cz.seznam.euphoria.executor.local.WatermarkEmitStrategy;
-import cz.seznam.euphoria.executor.local.WatermarkTriggerScheduler;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.GroovyClassLoader;
@@ -74,7 +51,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
+import java.util.ServiceLoader;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -93,9 +70,6 @@ import org.codehaus.groovy.tools.shell.IO;
  */
 @Slf4j
 public class Console {
-
-  private static final String EXECUTOR_CONF_PREFIX = "console.executor";
-  private static final String EXECUTOR_FACTORY = "factory";
 
   private static AtomicReference<Console> INSTANCE = new AtomicReference<>();
 
@@ -137,16 +111,15 @@ public class Console {
     console.close();
   }
 
-  final AtomicReference<Flow> flow = new AtomicReference<>(createFlow());
   final BlockingQueue<Byte> input = new ArrayBlockingQueue<>(1000);
   @Getter
   final Repository repo;
+  final StreamProvider streamProvider;
   @Getter
   final Optional<DirectDataOperator> direct;
   final List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;
   final Config config;
-  final TriFunction<Repository, Config, Boolean, Executor> executorFactory;
   final ExecutorService executor = Executors.newCachedThreadPool(r -> {
     Thread t = new Thread(r);
     t.setName("input-forwarder");
@@ -178,7 +151,9 @@ public class Console {
     conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
     conf.setLogTemplateExceptions(false);
 
-    executorFactory = getExecutorFactory(config);
+    ServiceLoader<StreamProvider> loader = ServiceLoader.load(StreamProvider.class);
+    streamProvider = Streams.stream(loader).findAny()
+        .orElseThrow(() -> new IllegalArgumentException("No StreamProvider found"));
   }
 
   public GroovyObject getEnv() throws Exception {
@@ -199,21 +174,8 @@ public class Console {
     return ret.resolve();
   }
 
-  Flow createFlow() {
-    return Flow.create();
-  }
-
-  Flow createFlow(String name) {
-    return Flow.create(name);
-  }
-
-  void resetFlow() {
-    flow.set(createFlow());
-  }
-
-
   @SuppressWarnings("unchecked")
-  public <T> Stream<TypedStreamElement<T>> getStream(
+  public <T> Stream<StreamElement> getStream(
       AttributeDescriptor<T> attrDesc,
       Position position,
       boolean stopAtCurrent) {
@@ -221,53 +183,17 @@ public class Console {
     return getStream(attrDesc, position, stopAtCurrent, false);
   }
 
-
   @SuppressWarnings("unchecked")
-  public <T> Stream<TypedStreamElement<T>> getStream(
+  public <T> Stream<StreamElement> getStream(
       AttributeDescriptor<T> attrDesc,
       Position position,
       boolean stopAtCurrent,
       boolean eventTime) {
 
-    if (direct.isPresent()) {
-      CommitLogReader reader = direct.get().getFamiliesForAttribute(attrDesc)
-          .stream()
-          .filter(af -> af.getDesc().getAccess().canReadCommitLog())
-          // sort primary families on top
-          .sorted((l, r) -> Integer.compare(
-              l.getDesc().getType().ordinal(), r.getDesc().getType().ordinal()))
-          .map(af -> af.getCommitLogReader().get())
-          .findFirst()
-          .orElseThrow(() -> new IllegalArgumentException(
-              "Attribute " + attrDesc + " has no commit log"));
-
-      final DatasetBuilder<TypedStreamElement<Object>> builder;
-      builder = () -> {
-        DataSource source = createSourceFromReader(reader, stopAtCurrent, position);
-
-        Dataset<StreamElement> ds = flow.get().createInput(source);
-
-        String prefix = attrDesc.toAttributePrefix();
-        if (eventTime) {
-          ds = AssignEventTime.of(ds)
-              .using(StreamElement::getStamp)
-              .output();
-        }
-        Dataset<StreamElement> filtered = Filter.of(ds)
-            .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
-            .output();
-        return MapElements.of(filtered)
-            .using(TypedStreamElement::of)
-            .output();
-      };
-      return Stream.wrap(
-          createExecutor(eventTime),
-          (DatasetBuilder) builder,
-          this::resetFlow,
-          this::unboundedStreamInterrupt);
-    }
-    throw new IllegalStateException(
-        "Can create stream with direct operator only. Add more functionality");
+    return streamProvider.getStream(
+        position, stopAtCurrent, eventTime,
+        this::unboundedStreamInterrupt,
+        attrDesc);
   }
 
   @SuppressWarnings("unchecked")
@@ -276,238 +202,51 @@ public class Console {
       boolean stopAtCurrent,
       AttributeDescriptorProvider<?>... descriptors) {
 
-    Set<String> names = Arrays.stream(descriptors)
-        .map(p -> p.desc().getName())
-        .collect(Collectors.toSet());
+    List<AttributeDescriptor<?>> attrs = Arrays.stream(descriptors)
+        .map(AttributeDescriptorProvider::desc)
+        .collect(Collectors.toList());
 
-    if (direct.isPresent()) {
-      return Arrays.stream(descriptors)
-          .map(desc ->
-              direct.get().getFamiliesForAttribute(desc.desc())
-                  .stream()
-                  .filter(af -> af.getDesc().getAccess().canReadCommitLog())
-                  // sort primary families on top
-                  .sorted((l, r) -> Integer.compare(
-                      l.getDesc().getType().ordinal(), r.getDesc().getType().ordinal()))
-                  .findFirst()
-                  .orElseThrow(() -> new IllegalArgumentException(
-                      "Missing commit log for " + desc)))
-          .distinct()
-          .map(af -> af.getCommitLogReader()
-              .orElseThrow(() -> new IllegalStateException(
-                  "Family " + af + " has no commit log")))
-          .map(reader -> {
-            final DatasetBuilder<StreamElement> builder;
-            builder = () -> {
-              final DataSource source = createSourceFromReader(
-                  reader, stopAtCurrent, position);
+    return streamProvider.getStream(
+        position, stopAtCurrent, eventTime,
+        this::unboundedStreamInterrupt,
+        attrs.toArray(new AttributeDescriptor[attrs.size()]));
 
-              Dataset<StreamElement> ds = flow.get().createInput(source);
-
-              if (eventTime) {
-                ds = AssignEventTime.of(ds)
-                    .using(StreamElement::getStamp)
-                    .output();
-              }
-              return Filter.of(ds)
-                  .by(t -> names.contains(t.getAttributeDescriptor().getName()))
-                  .output();
-            };
-            Stream<StreamElement> ret = Stream.wrap(
-                createExecutor(eventTime),
-                (DatasetBuilder<StreamElement>) builder,
-                this::resetFlow,
-                this::unboundedStreamInterrupt);
-            if (stopAtCurrent) {
-              return ret.windowAll();
-            }
-            return ret;
-          })
-          .reduce((a, b) -> a.union(b))
-          .orElseThrow(() -> new IllegalStateException("Pass non-empty descriptors"));
-    }
-    throw new IllegalStateException(
-        "Can create stream with direct operator only. Add more functionality");
   }
 
-  private DataSource createSourceFromReader(
-      CommitLogReader reader,
-      boolean stopAtCurrent,
-      Position position) {
-
-    if (stopAtCurrent) {
-      return BoundedStreamSource.of(reader, position);
-    }
-    return UnboundedStreamSource.of(reader, position);
-  }
-
-  public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
-      AttributeDescriptor<T> attrDesc) {
+  public WindowedStream<StreamElement> getBatchSnapshot(
+      AttributeDescriptor<?> attrDesc) {
 
     return getBatchSnapshot(attrDesc, Long.MIN_VALUE, Long.MAX_VALUE);
   }
 
 
   @SuppressWarnings("unchecked")
-  public <T> WindowedStream<TypedStreamElement<T>, GlobalWindowing> getBatchSnapshot(
-      AttributeDescriptor<T> attrDesc,
-      long fromStamp,
-      long toStamp) {
-
-    if (direct.isPresent()) {
-      DatasetBuilder<StreamElement> builder = () -> {
-        final Dataset<StreamElement> ds;
-        DirectAttributeFamilyDescriptor family;
-        family = direct.get().getFamiliesForAttribute(attrDesc)
-            .stream()
-            .filter(af -> af.getDesc().getAccess().canReadBatchSnapshot())
-            .filter(af -> af.getBatchObservable().isPresent())
-            .findAny()
-            .orElse(null);
-
-        if (family == null || fromStamp > Long.MIN_VALUE || toStamp < Long.MAX_VALUE) {
-          ds = reduceUpdatesToSnapshot(attrDesc, fromStamp, toStamp);
-        } else {
-          Dataset<StreamElement> raw = flow.get().createInput(BatchSource.of(
-              family.getBatchObservable().get(),
-              family.getDesc(),
-              fromStamp,
-              toStamp));
-          ds = Filter.of(raw)
-              .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
-              .output();
-        }
-
-        String prefix = attrDesc.toAttributePrefix();
-        return Filter.of(ds)
-            .by(t -> t.getAttributeDescriptor().toAttributePrefix().equals(prefix))
-            .output();
-      };
-
-      return Stream.wrap(
-          createExecutor(false),
-          (DatasetBuilder) builder,
-          this::resetFlow,
-          this::unboundedStreamInterrupt).windowAll();
-    }
-    throw new IllegalStateException(
-        "Can create snapshot with direct operator only. Add more functionality");
-  }
-
-  private Dataset<StreamElement> reduceUpdatesToSnapshot(
+  public WindowedStream<StreamElement> getBatchSnapshot(
       AttributeDescriptor<?> attrDesc,
       long fromStamp,
       long toStamp) {
 
-    if (direct.isPresent()) {
-      // create the data by reducing stream updates
-      CommitLogReader reader = direct.get().getFamiliesForAttribute(attrDesc)
-          .stream()
-          .filter(af -> af.getDesc().getAccess().isStateCommitLog())
-          .sorted((l, r) -> Integer.compare(
-              l.getDesc().getType().ordinal(), r.getDesc().getType().ordinal()))
-          .map(af -> af.getCommitLogReader().get())
-          .findFirst()
-          .orElseThrow(() -> new IllegalStateException(
-              "Cannot create batch snapshot, missing random access family "
-                  + "and state commit log for " + attrDesc));
-      Dataset<StreamElement> stream = flow.get().createInput(
-          UnboundedStreamSource.of(reader, Position.OLDEST));
-      // filter by stamp
-      stream = Filter.of(stream)
-          .by(i -> i.getStamp() >= fromStamp && i.getStamp() < toStamp)
-          .output();
-      final Dataset<Pair<Pair<String, String>, StreamElement>> reduced;
-      reduced = ReduceByKey.of(stream)
-          .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
-          .combineBy(values -> {
-            StreamElement res = null;
-            Iterable<StreamElement> iter = values::iterator;
-            for (StreamElement v : iter) {
-              if (res == null || v.getStamp() > res.getStamp()) {
-                res = v;
-              }
-            }
-            return res;
-          })
-          .output();
-      return FlatMap.of(reduced)
-          .using((
-              Pair<Pair<String, String>, StreamElement> e,
-              Collector<StreamElement> ctx) -> {
-            if (e.getSecond().getValue() != null) {
-              ctx.collect(e.getSecond());
-            }
-          })
-          .output();
-    }
-    throw new IllegalStateException(
-        "Can create stream with direct operator only. Add more functionality");
+    return streamProvider.getBatchSnapshot(
+        fromStamp, toStamp,
+        this::unboundedStreamInterrupt,
+        attrDesc);
   }
 
 
   @SuppressWarnings("unchecked")
-  public WindowedStream<StreamElement, GlobalWindowing> getBatchUpdates(
+  public WindowedStream<StreamElement> getBatchUpdates(
       long startStamp,
       long endStamp,
       AttributeDescriptorProvider<?>... attrs) {
 
-    Set<String> descriptors = Arrays.stream(attrs)
+    List<AttributeDescriptor<?>> attrList = Arrays.stream(attrs)
         .map(AttributeDescriptorProvider::desc)
-        .map(AttributeDescriptor::toAttributePrefix)
-        .collect(Collectors.toSet());
+        .collect(Collectors.toList());
 
-    if (direct.isPresent()) {
-      DatasetBuilder<StreamElement> builder = () -> {
-        Dataset<StreamElement> ds = Arrays.stream(attrs)
-            .map(AttributeDescriptorProvider::desc)
-            .map(attrDesc ->
-                direct.get().getFamiliesForAttribute(attrDesc)
-                    .stream()
-                    .filter(af -> af.getDesc().getAccess().canReadBatchUpdates())
-                    .filter(af -> af.getBatchObservable().isPresent())
-                    .findAny()
-                    .orElseThrow(() -> new IllegalStateException("Attribute "
-                        + attrDesc.getName() + " has no batch log observable reader")))
-            .distinct()
-            .map(family ->
-                flow.get().createInput(BatchSource.of(
-                    family.getBatchObservable().get(),
-                    family.getAttributes(),
-                    startStamp, endStamp)))
-            .reduce((left, right) -> Union.of(left, right).output())
-            .orElseThrow(() -> new IllegalArgumentException(
-                "Please pass non-empty list of attributes, got "
-                    + Arrays.toString(attrs)));
-
-        ds = Filter.of(ds)
-            .by(i -> i.getStamp() >= startStamp && i.getStamp() < endStamp)
-            .output();
-
-        Dataset<StreamElement> filtered = Filter.of(ds)
-            .by(t -> descriptors.contains(
-                t.getAttributeDescriptor().toAttributePrefix()))
-            .output();
-
-        if (attrs.length == 1) {
-          filtered = (Dataset) MapElements.of(filtered)
-              .using(TypedStreamElement::of)
-              .output();
-        }
-
-        return AssignEventTime.of(filtered)
-            .using(StreamElement::getStamp)
-            .output();
-      };
-
-      return Stream.wrap(
-          createExecutor(false),
-          (DatasetBuilder) builder,
-          this::resetFlow,
-          this::unboundedStreamInterrupt).windowAll();
-    }
-    throw new IllegalStateException(
-        "Can create stream with direct operator only. Add more functionality");
+    return streamProvider.getBatchUpdates(
+        startStamp, endStamp,
+        this::unboundedStreamInterrupt,
+        attrList.toArray(new AttributeDescriptor[attrList.size()]));
   }
 
 
@@ -714,32 +453,6 @@ public class Console {
 
   private int takeInputChar() throws InterruptedException {
     return input.take();
-  }
-
-  private Executor createExecutor(boolean eventTime) {
-    Config executorConfig = config.atPath(EXECUTOR_CONF_PREFIX);
-    return executorFactory.apply(repo, executorConfig, eventTime);
-  }
-
-  private static LocalExecutor createLocalExecutor(boolean eventTime) {
-    return new LocalExecutor()
-        .setTriggeringSchedulerSupplier(() ->
-            eventTime
-                ? new WatermarkTriggerScheduler(500)
-                : new ProcessingTimeTriggerScheduler())
-        .setWatermarkEmitStrategySupplier(WatermarkEmitStrategy.Default::new);
-  }
-
-  @SuppressWarnings("unchecked")
-  private TriFunction<Repository, Config, Boolean, Executor> getExecutorFactory(
-      Config config) {
-
-    String path = EXECUTOR_CONF_PREFIX + "." + EXECUTOR_FACTORY;
-    if (config.hasPath(path)) {
-      return Classpath.newInstance(
-          Classpath.findClass(config.getString(path), TriFunction.class));
-    }
-    return (repository, cfg, eventTime) -> Console.createLocalExecutor(eventTime);
   }
 
 }

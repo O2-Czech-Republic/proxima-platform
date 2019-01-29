@@ -16,8 +16,7 @@
 package cz.o2.proxima.tools.groovy;
 
 import com.google.common.collect.Sets;
-import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
-import cz.seznam.euphoria.core.client.util.Pair;
+import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,12 +29,16 @@ import org.junit.Test;
 /**
  * Abstract base class for windowed streams test.
  */
-abstract class AbstractWindowedStreamTest extends StreamTest {
+public abstract class AbstractWindowedStreamTest extends StreamTest {
+
+  protected AbstractWindowedStreamTest(TestStreamProvider provider) {
+    super(provider);
+  }
 
   @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllReduce() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Object> result = new ArrayList<>();
     intoSingleWindow(stream)
         .reduce(
@@ -64,7 +67,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
 
   @Test
   public void testWindowAllReduceWithValue() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Object> result = new ArrayList<>();
     intoSingleWindow(stream)
         .reduce(
@@ -99,7 +102,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
 
   @Test
   public void testWindowAllFlatReduce() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Object> result = new ArrayList<>();
     intoSingleWindow(stream)
         .flatReduce(
@@ -129,7 +132,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
 
   @Test
   public void testWindowAllCombine() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Object> result = new ArrayList<>();
     intoSingleWindow(stream)
         .combine(
@@ -159,7 +162,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllCombineWithValue() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Object> result = new ArrayList<>();
     intoSingleWindow(stream)
         .combine(
@@ -194,7 +197,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
 
   @Test
   public void testWindowAllCountByKey() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Object> result = new ArrayList<>();
     intoSingleWindow(stream)
         .countByKey(
@@ -217,7 +220,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllAverage() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Object> result = new ArrayList<>();
     intoSingleWindow(stream)
         .average(
@@ -240,7 +243,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllAverageByKey() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     Set<Object> result = new HashSet<>();
     intoSingleWindow(stream)
         .averageByKey(
@@ -272,8 +275,8 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testJoin() {
-    Stream<Integer> stream1 = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
-    Stream<Integer> stream2 = Stream.wrap(executor(), builder(3, 4), () -> { });
+    Stream<Integer> stream1 = stream(1, 2, 3, 4);
+    Stream<Integer> stream2 = stream(3, 4);
     Closure<Integer> keyExtractor = new Closure<Integer>(this) {
 
       @Override
@@ -303,8 +306,8 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testLeftJoin() {
-    Stream<Integer> stream1 = Stream.wrap(executor(), builder(3), () -> { });
-    Stream<Integer> stream2 = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream1 = stream(3);
+    Stream<Integer> stream2 = stream(1, 2, 3, 4);
     Closure<Integer> keyExtractor = new Closure<Integer>(this) {
 
       @Override
@@ -331,7 +334,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
 
   @Test
   public void testWindowAllSorted() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(4, 3, 2, 1), () -> { });
+    Stream<Integer> stream = stream(4, 3, 2, 1);
     List<Object> result = new ArrayList<>();
     intoSingleWindow(stream)
         .sorted()
@@ -349,7 +352,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
 
   @Test
   public void testWindowAllSortedWithComparator() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Object> result = new ArrayList<>();
     intoSingleWindow(stream)
         .sorted(new Closure<Integer>(this) {
@@ -373,7 +376,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
 
   @Test
   public void testWindowAllCount() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(4, 3, 2, 1), () -> { });
+    Stream<Integer> stream = stream(4, 3, 2, 1);
     List<Object> result = new ArrayList<>();
     intoSingleWindow(stream)
         .count()
@@ -391,7 +394,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
 
   @Test
   public void testWindowAllSum() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(4, 3, 2, 1), () -> { });
+    Stream<Integer> stream = stream(4, 3, 2, 1);
     List<Object> result = new ArrayList<>();
     intoSingleWindow(stream)
         .sum(new Closure<Double>(this) {
@@ -415,7 +418,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllSumByKey() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(4, 3, 2, 1), () -> { });
+    Stream<Integer> stream = stream(4, 3, 2, 1);
     Set<Object> result = new HashSet<>();
     intoSingleWindow(stream)
         .sumByKey(
@@ -448,7 +451,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testStreamWindowAllDontAffectStatelessOperations() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Integer> result = new ArrayList<>();
     intoSingleWindow(stream)
         .filter(new Closure<Boolean>(this) {
@@ -470,8 +473,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllDistinct() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(
-        4, 3, 2, 1, 1, 2, 3), () -> { });
+    Stream<Integer> stream = stream(4, 3, 2, 1, 1, 2, 3);
     Set<Object> result = new HashSet<>();
     intoSingleWindow(stream)
         .distinct()
@@ -490,8 +492,7 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllDistinctWithMapper() {
-    Stream<Object> stream = Stream.wrap(executor(), builder(
-        4, 3, 2, 1, "1", "2", "3"), () -> { });
+    Stream<Object> stream = stream(4, 3, 2, 1, "1", "2", "3");
     Set<Object> result = new HashSet<>();
     intoSingleWindow(stream)
         .distinct(new Closure<Integer>(this) {
@@ -522,7 +523,6 @@ abstract class AbstractWindowedStreamTest extends StreamTest {
   /**
    * Pack this stream into single window by whatever strategy chosen.
    */
-  abstract <T, W extends Windowing<T, ?>> WindowedStream<T, W> intoSingleWindow(
-      Stream<T> stream);
+  abstract <T> WindowedStream<T> intoSingleWindow(Stream<T> stream);
 
 }

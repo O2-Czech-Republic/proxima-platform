@@ -13,17 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package cz.o2.proxima.storage.commitlog;
 
-package cz.o2.proxima.tools.groovy;
-
-import cz.seznam.euphoria.core.client.dataset.Dataset;
+import cz.o2.proxima.storage.StreamElement;
 
 /**
- * Lazy initialized Dataset.
+ * Partitioner that always send the ingest into first partition.
  */
-@FunctionalInterface
-public interface DatasetBuilder<T> {
+public class FirstPartitionPartitioner implements Partitioner {
 
-  Dataset<T> build();
+  @Override
+  public int getPartitionId(StreamElement element) {
+    return 0;
+  }
 
 }

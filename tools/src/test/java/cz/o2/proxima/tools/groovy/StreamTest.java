@@ -29,11 +29,15 @@ import static org.junit.Assert.*;
 /**
  * Test suite for {@link Stream}.
  */
-public class StreamTest extends AbstractStreamTest {
+public abstract class StreamTest extends AbstractStreamTest {
+
+  protected StreamTest(TestStreamProvider provider) {
+    super(provider);
+  }
 
   @Test
   public void testStreamFilter() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Object> result = new ArrayList<>();
     stream
         .filter(new Closure<Boolean>(this) {
@@ -54,7 +58,7 @@ public class StreamTest extends AbstractStreamTest {
 
   @Test
   public void testStreamMap() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
+    Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Object> result = new ArrayList<>();
     stream
         .map(new Closure<Integer>(this) {
@@ -75,8 +79,8 @@ public class StreamTest extends AbstractStreamTest {
 
   @Test
   public void testStreamUnion() {
-    Stream<Integer> stream1 = Stream.wrap(executor(), builder(1, 2), () -> { });
-    Stream<Integer> stream2 = Stream.wrap(executor(), builder(3, 4), () -> { });
+    Stream<Integer> stream1 = stream(1, 2);
+    Stream<Integer> stream2 = stream(3, 4);
     Set<Object> result = new HashSet<>();
     stream1.union(stream2)
         .forEach(new Closure<Void>(this) {
@@ -91,8 +95,8 @@ public class StreamTest extends AbstractStreamTest {
 
   @Test
   public void testCollect() {
-    Stream<Integer> stream1 = Stream.wrap(executor(), builder(1, 2), () -> { });
-    Stream<Integer> stream2 = Stream.wrap(executor(), builder(3, 4), () -> { });
+    Stream<Integer> stream1 = stream(1, 2);
+    Stream<Integer> stream2 = stream(3, 4);
     Set<Integer> result = stream1.union(stream2)
         .collect()
         .stream().collect(Collectors.toSet());

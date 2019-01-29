@@ -37,6 +37,7 @@ import org.junit.Test;
 /**
  * Test suite for {@link GroovyEnv}.
  */
+@Ignore("Enable and test against beam")
 public class GroovyEnvTest {
 
   final Config cfg = ConfigFactory.load("test-reference.conf").resolve();

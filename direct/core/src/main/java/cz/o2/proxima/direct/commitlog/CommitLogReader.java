@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.Partition;
 import java.io.Closeable;

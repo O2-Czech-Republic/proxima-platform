@@ -663,8 +663,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   }
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("kafka-test");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("kafka-test") ? Accept.ACCEPT : Accept.REJECT;
   }
 
 

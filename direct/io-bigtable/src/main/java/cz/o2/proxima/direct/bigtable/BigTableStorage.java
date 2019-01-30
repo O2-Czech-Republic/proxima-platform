@@ -52,8 +52,8 @@ public class BigTableStorage implements DataAccessorFactory {
     });
   }
 
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("bigtable");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("bigtable") ? Accept.ACCEPT : Accept.REJECT;
   }
 
 }

@@ -725,8 +725,8 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("inmem");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("inmem") ? Accept.ACCEPT : Accept.REJECT;
   }
 
   @Override

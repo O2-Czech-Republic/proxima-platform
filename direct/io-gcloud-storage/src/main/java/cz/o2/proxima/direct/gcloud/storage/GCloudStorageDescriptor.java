@@ -34,8 +34,8 @@ public class GCloudStorageDescriptor implements DataAccessorFactory {
   }
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("gs");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("gs") ? Accept.ACCEPT : Accept.REJECT;
   }
 
 }

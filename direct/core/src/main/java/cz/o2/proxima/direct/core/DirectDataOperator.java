@@ -28,6 +28,7 @@ import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StorageType;
+import cz.o2.proxima.storage.internal.DataAccessorLoader;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,7 +39,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -77,14 +77,12 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       });
 
   private final Context context;
-  private final List<DataAccessorFactory> factories = new ArrayList<>();
+  private final DataAccessorLoader<DataAccessorFactory> loader = DataAccessorLoader.of(
+      DataAccessorFactory.class);
 
   DirectDataOperator(Repository repo) {
     this.repo = repo;
     this.context = new Context(familyMap::get, executorFactory);
-    ServiceLoader<DataAccessorFactory> loader = ServiceLoader.load(
-        DataAccessorFactory.class);
-    Iterables.addAll(factories, loader);
     reload();
   }
 
@@ -184,14 +182,11 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   }
 
   private DataAccessor findFor(AttributeFamilyDescriptor desc) {
-    for (DataAccessorFactory daf : factories) {
-      if (daf.accepts(desc.getStorageUri())) {
-        return daf.create(desc.getEntity(), desc.getStorageUri(), desc.getCfg());
-      }
-    }
-    throw new IllegalStateException(
-        "No DataAccessor for URI " + desc.getStorageUri()
-            + " found. You might be missing some dependency.");
+    return loader.findForUri(desc.getStorageUri())
+        .map(f -> f.create(desc.getEntity(), desc.getStorageUri(), desc.getCfg()))
+        .orElseThrow(() -> new IllegalStateException(
+            "No DataAccessor for URI " + desc.getStorageUri()
+                + " found. You might be missing some dependency."));
   }
 
   /**
@@ -231,10 +226,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional {@link DataAccessorFactory} for specified URI
    */
   public Optional<DataAccessorFactory> getAccessorFactory(URI uri) {
-    return factories
-        .stream()
-        .filter(f -> f.accepts(uri))
-        .findAny();
+    return loader.findForUri(uri);
   }
 
   /**

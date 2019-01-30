@@ -29,8 +29,8 @@ import java.util.Optional;
 public class StdoutStorage implements DataAccessorFactory {
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("stdout");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("stdout") ? Accept.ACCEPT : Accept.REJECT;
   }
 
   @Override

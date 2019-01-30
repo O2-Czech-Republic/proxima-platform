@@ -26,12 +26,16 @@
     <version>0.3-SNAPSHOT</version>
   </parent>
 
-  <artifactId>proxima-direct</artifactId>
+  <artifactId>proxima-beam</artifactId>
   <packaging>pom</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
 
-  <description>Proxima platform's direct module is in process implementation of data access patterns defined by core module.</description>
+  <description>Proxima platform's Apache Beam module.</description>
+
+  <properties>
+    <apache.beam.version>2.9.0</apache.beam.version>
+  </properties>
 
   <dependencyManagement>
     <dependencies>
@@ -46,6 +50,62 @@
             <artifactId>guava</artifactId>
           </exclusion>
         </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>proxima-direct-core</artifactId>
+        <version>${project.version}</version>
+        <scope>provided</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.beam</groupId>
+        <artifactId>beam-sdks-java-core</artifactId>
+        <version>${apache.beam.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.beam</groupId>
+        <artifactId>beam-sdks-java-extensions-euphoria</artifactId>
+        <version>${apache.beam.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.beam</groupId>
+        <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
+        <version>${apache.beam.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.beam</groupId>
+        <artifactId>beam-sdks-java-io-kafka</artifactId>
+        <version>${apache.beam.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.beam</groupId>
+        <artifactId>beam-sdks-java-io-hdfs</artifactId>
+        <version>${apache.beam.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.beam</groupId>
+        <artifactId>beam-sdks-java-io-hbase</artifactId>
+        <version>${apache.beam.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.beam</groupId>
+        <artifactId> beam-sdks-java-io-cassandra</artifactId>
+        <version>${apache.beam.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.beam</groupId>
+        <artifactId>beam-runners-direct-java</artifactId>
+        <version>${apache.beam.version}</version>
+        <scope>test</scope>
       </dependency>
 
       <dependency>
@@ -100,20 +160,18 @@
   </dependencyManagement>
 
   <modules>
-    <module>compiler</module>
+    <!--module>compiler</module-->
     <module>core</module>
-    <module>ingest-client</module>    
-    <module>ingest-server</module>    
-    <module>io-bigtable</module>
-    <module>io-cassandra</module>
-    <module>io-gcloud-storage</module>
-    <module>io-hbase</module>
-    <module>io-hbase-bindings</module>
-    <module>io-hdfs</module>
-    <module>io-http</module>
-    <module>io-kafka</module>
-    <module>io-pubsub</module>
-    <module>rpc</module>
+    <!--module>io-bigtable</module-->
+    <!--module>io-cassandra</module-->
+    <!--module>io-gcloud-storage</module-->
+    <!--module>io-hbase</module-->
+    <!--module>io-hbase-bindings</module-->
+    <!--module>io-hdfs</module-->
+    <!--module>io-http</module-->
+    <!--module>io-kafka</module-->
+    <!--module>io-pubsub</module-->
+    <!--module>tools</module-->
   </modules>
 
 </project>

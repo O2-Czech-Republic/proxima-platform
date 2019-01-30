@@ -27,8 +27,8 @@ import java.util.Map;
 public class HBaseStorageDescriptor implements DataAccessorFactory {
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("hbase");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("hbase") ? Accept.ACCEPT : Accept.REJECT;
   }
 
   @Override

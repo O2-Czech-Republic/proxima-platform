@@ -13,30 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.pubsub;
+package cz.o2.proxima.beam.core;
 
-import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.direct.core.DataAccessor;
-import cz.o2.proxima.direct.core.DataAccessorFactory;
-import cz.o2.proxima.repository.EntityDescriptor;
-import java.net.URI;
-import java.util.Map;
+import cz.o2.proxima.repository.DataOperator;
+import cz.o2.proxima.repository.DataOperatorFactory;
+import cz.o2.proxima.repository.Repository;
 
 /**
- * A {@link DataAccessorFactory} for PubSub.
+ * A {@link DataOperatorFactory} for {@link BeamDataOperator}.
  */
-@Stable
-public class PubSubStorage implements DataAccessorFactory {
+public class BeamDataOperatorFactory
+    implements DataOperatorFactory<BeamDataOperator> {
 
   @Override
-  public DataAccessor create(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-    return new PubSubAccessor(entityDesc, uri, cfg);
+  public String getOperatorName() {
+    return "beam";
   }
 
   @Override
-  public Accept accepts(URI uri) {
-    return uri.getScheme().equals("gps") ? Accept.ACCEPT : Accept.REJECT;
+  public boolean isOfType(Class<? extends DataOperator> cls) {
+    return cls.isAssignableFrom(BeamDataOperator.class);
+  }
+
+  @Override
+  public BeamDataOperator create(Repository repo) {
+    return new BeamDataOperator(repo);
   }
 
 }

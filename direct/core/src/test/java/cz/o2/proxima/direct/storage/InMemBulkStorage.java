@@ -174,8 +174,8 @@ public class InMemBulkStorage implements DataAccessorFactory {
   private final NavigableMap<String, Pair<Long, byte[]>> data = new TreeMap<>();
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("inmem-bulk");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("inmem-bulk") ? Accept.ACCEPT : Accept.REJECT;
   }
 
   @Override

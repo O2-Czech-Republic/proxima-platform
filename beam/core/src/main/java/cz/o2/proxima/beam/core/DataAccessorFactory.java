@@ -13,28 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.kafka;
+package cz.o2.proxima.beam.core;
 
-import cz.o2.proxima.direct.core.DataAccessorFactory;
-import cz.o2.proxima.repository.EntityDescriptor;
-import java.net.URI;
-import java.util.Map;
+import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory;
 
-/**
- * Storage using {@code KafkaProducer}.
- */
-public class KafkaStorage implements DataAccessorFactory {
-
-  @Override
-  public KafkaAccessor create(EntityDescriptor entityDesc, URI uri,
-      Map<String, Object> cfg) {
-
-    return new KafkaAccessor(entityDesc, uri, cfg);
-  }
-
-  @Override
-  public Accept accepts(URI uri) {
-    return uri.getScheme().equals("kafka") ? Accept.ACCEPT : Accept.REJECT;
-  }
+@Internal
+public interface DataAccessorFactory extends AbstractDataAccessorFactory<DataAccessor> {
 
 }

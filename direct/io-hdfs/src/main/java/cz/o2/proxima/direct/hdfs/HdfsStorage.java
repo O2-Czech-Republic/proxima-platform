@@ -56,8 +56,9 @@ public class HdfsStorage implements DataAccessorFactory {
   }
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("hdfs") || uri.getScheme().equals("hadoop");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("hdfs") || uri.getScheme().equals("hadoop")
+        ? Accept.ACCEPT : Accept.REJECT;
   }
 
 }

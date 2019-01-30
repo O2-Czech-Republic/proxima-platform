@@ -36,8 +36,9 @@ public class HttpStorage implements DataAccessorFactory {
   }
 
   @Override
-  public boolean accepts(URI uri) {
-    return Sets.newHashSet("http", "https", "ws", "wss").contains(uri.getScheme());
+  public Accept accepts(URI uri) {
+    return Sets.newHashSet("http", "https", "ws", "wss").contains(uri.getScheme())
+        ? Accept.ACCEPT : Accept.REJECT;
   }
 
 }

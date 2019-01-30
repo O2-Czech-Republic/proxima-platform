@@ -13,29 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.cassandra;
+package cz.o2.proxima.storage.internal;
 
-import cz.o2.proxima.direct.core.DataAccessorFactory;
-import cz.o2.proxima.repository.EntityDescriptor;
-
-import java.net.URI;
-import java.util.Map;
+import cz.o2.proxima.annotations.Internal;
+import java.io.Serializable;
 
 /**
- * Storage descriptor for Apache Cassandra.
+ * Interface for all modules data accessors to extend.
  */
-public class CassandraStorageDescriptor implements DataAccessorFactory {
-
-  @Override
-  public CassandraDBAccessor create(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-
-    return new CassandraDBAccessor(entityDesc, uri, cfg);
-  }
-
-  @Override
-  public Accept accepts(URI uri) {
-    return uri.getScheme().equals("cassandra") ? Accept.ACCEPT : Accept.REJECT;
-  }
+@Internal
+public interface AbstractDataAccessor extends Serializable {
 
 }

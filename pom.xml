@@ -409,6 +409,7 @@
   </dependencyManagement>
 
   <modules>
+    <module>beam</module>
     <module>core</module>
     <module>direct</module>
     <module>example</module>

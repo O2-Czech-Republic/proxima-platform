@@ -21,6 +21,7 @@ import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
@@ -652,7 +653,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   }
 
   @Override
-  public Accessor create(
+  public Accessor createAccessor(
+      DirectDataOperator direct,
       EntityDescriptor entityDesc,
       URI uri,
       Map<String, Object> cfg) {

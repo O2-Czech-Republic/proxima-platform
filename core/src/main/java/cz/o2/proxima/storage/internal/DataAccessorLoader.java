@@ -17,6 +17,7 @@ package cz.o2.proxima.storage.internal;
 
 import com.google.common.collect.Streams;
 import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.repository.DataOperator;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -29,10 +30,16 @@ import java.util.stream.Collectors;
  * Loader for various implementations of {@link AbstractDataAccessorFactory}.
  */
 @Internal
-public class DataAccessorLoader<T extends AbstractDataAccessorFactory>
+public class DataAccessorLoader<
+      OP extends DataOperator,
+      A extends AbstractDataAccessor,
+      T extends AbstractDataAccessorFactory<OP, A>>
     implements Serializable {
 
-  public static <T extends AbstractDataAccessorFactory> DataAccessorLoader<T> of(
+  public static <
+        OP extends DataOperator,
+        A extends AbstractDataAccessor,
+        T extends AbstractDataAccessorFactory<OP, A>> DataAccessorLoader<OP, A, T> of(
       Class<T> cls) {
 
     return new DataAccessorLoader<>(cls);

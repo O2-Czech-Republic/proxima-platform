@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.core;
 
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.DataOperator;
@@ -27,6 +28,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
 import org.apache.beam.sdk.values.PCollection;
@@ -37,13 +39,20 @@ import org.apache.beam.sdk.values.PCollection;
 public class BeamDataOperator implements DataOperator {
 
   private final Repository repo;
-  private final DataAccessorLoader<DataAccessorFactory> loader = DataAccessorLoader.of(
-      DataAccessorFactory.class);
+  private final Optional<DirectDataOperator> direct;
+  private final DataAccessorLoader<
+        BeamDataOperator,
+        DataAccessor,
+        DataAccessorFactory> loader = DataAccessorLoader.of(
+            DataAccessorFactory.class);
   private final Map<AttributeFamilyDescriptor, DataAccessor> accessorMap;
 
   BeamDataOperator(Repository repo) {
     this.repo = repo;
     this.accessorMap = Collections.synchronizedMap(new HashMap<>());
+    this.direct = repo.hasOperator("direct")
+        ? Optional.of(repo.asDataOperator(DirectDataOperator.class))
+        : Optional.empty();
   }
 
   @Override
@@ -98,9 +107,18 @@ public class BeamDataOperator implements DataOperator {
 
     URI uri = family.getStorageUri();
     return loader.findForUri(uri)
-        .map(f -> f.create(family.getEntity(), uri, family.getCfg()))
+        .map(f -> f.createAccessor(this, family.getEntity(), uri, family.getCfg()))
         .orElseThrow(() -> new IllegalStateException(
             "No accessor for URI " + family.getStorageUri()));
+  }
+
+  @Override
+  public Repository getRepository() {
+    return repo;
+  }
+
+  public Optional<DirectDataOperator> getDirect() {
+    return direct;
   }
 
 }

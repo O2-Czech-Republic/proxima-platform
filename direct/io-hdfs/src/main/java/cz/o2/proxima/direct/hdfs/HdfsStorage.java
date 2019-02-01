@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,8 +34,11 @@ import java.util.Map;
 public class HdfsStorage implements DataAccessorFactory {
 
   @Override
-  public DataAccessor create(EntityDescriptor entityDesc,
-                                  URI uri, Map<String, Object> cfg) {
+  public DataAccessor createAccessor(
+      DirectDataOperator direct,
+      EntityDescriptor entityDesc,
+      URI uri,
+      Map<String, Object> cfg) {
 
     return new HdfsDataAccessor(entityDesc, remap(uri), cfg);
   }

@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.bigtable;
 import com.google.cloud.bigtable.hbase1_x.BigtableConnection;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.direct.hbase.HBaseDataAccessor;
 import java.net.URI;
@@ -31,8 +32,11 @@ import org.apache.hadoop.hbase.client.Connection;
 public class BigTableStorage implements DataAccessorFactory {
 
   @Override
-  public DataAccessor create(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public DataAccessor createAccessor(
+      DirectDataOperator direct,
+      EntityDescriptor entityDesc,
+      URI uri,
+      Map<String, Object> cfg) {
 
     return new HBaseDataAccessor(entityDesc, uri, cfg, (m, u) -> {
       Configuration ret = new Configuration();

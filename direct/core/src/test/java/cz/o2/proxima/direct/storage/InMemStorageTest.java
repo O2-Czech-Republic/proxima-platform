@@ -53,8 +53,8 @@ public class InMemStorageTest implements Serializable {
       throws URISyntaxException, InterruptedException {
 
     InMemStorage storage = new InMemStorage();
-    DataAccessor accessor = storage.create(
-        entity, new URI("inmem:///inmemstoragetest"),
+    DataAccessor accessor = storage.createAccessor(
+        direct, entity, new URI("inmem:///inmemstoragetest"),
         Collections.emptyMap());
     CommitLogReader reader = accessor.getCommitLogReader(direct.getContext())
         .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));

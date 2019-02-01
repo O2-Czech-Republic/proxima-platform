@@ -44,7 +44,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -54,7 +53,6 @@ import lombok.extern.slf4j.Slf4j;
 public class DirectDataOperator implements DataOperator, ContextProvider {
 
   /** Repository. */
-  @Getter
   private final Repository repo;
 
   /** AttributeFamilyDescriptor with associated DirectAttributeFamilyDescriptor. */
@@ -77,8 +75,10 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       });
 
   private final Context context;
-  private final DataAccessorLoader<DataAccessorFactory> loader = DataAccessorLoader.of(
-      DataAccessorFactory.class);
+  private final DataAccessorLoader<
+      DirectDataOperator,
+      DataAccessor,
+      DataAccessorFactory> loader = DataAccessorLoader.of(DataAccessorFactory.class);
 
   DirectDataOperator(Repository repo) {
     this.repo = repo;
@@ -183,7 +183,8 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
 
   private DataAccessor findFor(AttributeFamilyDescriptor desc) {
     return loader.findForUri(desc.getStorageUri())
-        .map(f -> f.create(desc.getEntity(), desc.getStorageUri(), desc.getCfg()))
+        .map(f -> f.createAccessor(
+            this, desc.getEntity(), desc.getStorageUri(), desc.getCfg()))
         .orElseThrow(() -> new IllegalStateException(
             "No DataAccessor for URI " + desc.getStorageUri()
                 + " found. You might be missing some dependency."));
@@ -378,6 +379,11 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    */
   public Stream<DirectAttributeFamilyDescriptor> getAllFamilies() {
     return repo.getAllFamilies().map(this::resolveRequired);
+  }
+
+  @Override
+  public Repository getRepository() {
+    return repo;
   }
 
 }

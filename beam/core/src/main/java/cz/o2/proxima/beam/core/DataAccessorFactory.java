@@ -19,6 +19,7 @@ import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory;
 
 @Internal
-public interface DataAccessorFactory extends AbstractDataAccessorFactory<DataAccessor> {
+public interface DataAccessorFactory
+    extends AbstractDataAccessorFactory<BeamDataOperator, DataAccessor> {
 
 }

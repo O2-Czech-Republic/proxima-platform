@@ -34,8 +34,11 @@ public class StdoutStorage implements DataAccessorFactory {
   }
 
   @Override
-  public DataAccessor create(
-      EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
+  public DataAccessor createAccessor(
+      DirectDataOperator op,
+      EntityDescriptor entity,
+      URI uri,
+      Map<String, Object> cfg) {
 
     return new DataAccessor() {
 

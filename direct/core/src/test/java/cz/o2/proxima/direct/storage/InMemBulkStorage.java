@@ -24,6 +24,7 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -179,8 +180,11 @@ public class InMemBulkStorage implements DataAccessorFactory {
   }
 
   @Override
-  public DataAccessor create(
-      EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
+  public DataAccessor createAccessor(
+      DirectDataOperator op,
+      EntityDescriptor entity,
+      URI uri,
+      Map<String, Object> cfg) {
 
     return new InMemBulkAccessor(entity, uri);
   }

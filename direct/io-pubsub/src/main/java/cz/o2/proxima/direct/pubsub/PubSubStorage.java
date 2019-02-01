@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.pubsub;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.Map;
@@ -29,8 +30,12 @@ import java.util.Map;
 public class PubSubStorage implements DataAccessorFactory {
 
   @Override
-  public DataAccessor create(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public DataAccessor createAccessor(
+      DirectDataOperator direct,
+      EntityDescriptor entityDesc,
+      URI uri,
+      Map<String, Object> cfg) {
+
     return new PubSubAccessor(entityDesc, uri, cfg);
   }
 

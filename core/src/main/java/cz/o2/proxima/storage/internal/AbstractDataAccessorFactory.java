@@ -16,6 +16,7 @@
 package cz.o2.proxima.storage.internal;
 
 import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.io.Serializable;
 import java.net.URI;
@@ -26,8 +27,9 @@ import java.util.Map;
  * @param <T> the module specific data accessor
  */
 @Internal
-public interface AbstractDataAccessorFactory<T extends AbstractDataAccessor>
-    extends Serializable {
+public interface AbstractDataAccessorFactory<
+    OP extends DataOperator,
+    T extends AbstractDataAccessor> extends Serializable {
 
   /**
    * Marker for acceptance of given URI to this factory.
@@ -61,11 +63,16 @@ public interface AbstractDataAccessorFactory<T extends AbstractDataAccessor>
 
   /**
    * Create the accessor for given URI.
+   * @param operator operator to create the accessor for
    * @param entity the descriptor of entity to create accessor for
    * @param uri the URI to create accessor for
    * @param cfg optional additional configuration
-   * @return the accessor
+   * @return {@link AbstractDataAccessor} for given operator and family
    */
-  T create(EntityDescriptor entity, URI uri, Map<String, Object> cfg);
+  T createAccessor(
+      OP operator,
+      EntityDescriptor entity,
+      URI uri,
+      Map<String, Object> cfg);
 
 }

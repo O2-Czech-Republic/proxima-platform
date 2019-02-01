@@ -28,7 +28,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Objects;
+import javax.annotation.Nullable;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
 import org.apache.beam.sdk.values.PCollection;
@@ -39,7 +40,8 @@ import org.apache.beam.sdk.values.PCollection;
 public class BeamDataOperator implements DataOperator {
 
   private final Repository repo;
-  private final Optional<DirectDataOperator> direct;
+  @Nullable
+  private final DirectDataOperator direct;
   private final DataAccessorLoader<
         BeamDataOperator,
         DataAccessor,
@@ -51,8 +53,8 @@ public class BeamDataOperator implements DataOperator {
     this.repo = repo;
     this.accessorMap = Collections.synchronizedMap(new HashMap<>());
     this.direct = repo.hasOperator("direct")
-        ? Optional.of(repo.asDataOperator(DirectDataOperator.class))
-        : Optional.empty();
+        ? repo.asDataOperator(DirectDataOperator.class)
+        : null;
   }
 
   @Override
@@ -117,8 +119,12 @@ public class BeamDataOperator implements DataOperator {
     return repo;
   }
 
-  public Optional<DirectDataOperator> getDirect() {
-    return direct;
+  public DirectDataOperator getDirect() {
+    return Objects.requireNonNull(direct);
+  }
+
+  public boolean hasDirect() {
+    return direct != null;
   }
 
 }

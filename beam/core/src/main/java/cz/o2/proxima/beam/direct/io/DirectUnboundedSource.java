@@ -15,9 +15,13 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.List;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.io.UnboundedSource;
@@ -29,13 +33,16 @@ import org.apache.beam.sdk.options.PipelineOptions;
 class DirectUnboundedSource
     extends UnboundedSource<StreamElement, DirectUnboundedSource.Checkpoint> {
 
-  static DirectUnboundedSource of(CommitLogReader reader) {
-    return new DirectUnboundedSource(reader);
+  static DirectUnboundedSource of(
+      Repository repo, CommitLogReader reader, Position position) {
+    
+    return new DirectUnboundedSource(repo, reader);
   }
 
+  private final Repository repo;
   private final CommitLogReader reader;
 
-  static class Checkpoint implements UnboundedSource.CheckpointMark {
+  static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
 
     public Checkpoint() {
     }
@@ -46,7 +53,8 @@ class DirectUnboundedSource
     }
   }
 
-  DirectUnboundedSource(CommitLogReader reader) {
+  DirectUnboundedSource(Repository repo, CommitLogReader reader) {
+    this.repo = repo;
     this.reader = reader;
   }
 
@@ -67,6 +75,11 @@ class DirectUnboundedSource
   @Override
   public Coder<Checkpoint> getCheckpointMarkCoder() {
     throw new UnsupportedOperationException("Not supported yet.");
+  }
+
+  @Override
+  public Coder<StreamElement> getOutputCoder() {
+    return StreamElementCoder.of(repo);
   }
 
 }

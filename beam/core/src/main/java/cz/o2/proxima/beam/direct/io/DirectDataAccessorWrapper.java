@@ -16,7 +16,9 @@
 package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.beam.core.DataAccessor;
+import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.Context;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import org.apache.beam.sdk.Pipeline;
@@ -28,13 +30,16 @@ import org.apache.beam.sdk.values.PCollection;
  */
 public class DirectDataAccessorWrapper implements DataAccessor {
 
+  private final Repository repo;
   private final cz.o2.proxima.direct.core.DataAccessor direct;
   private final Context context;
 
   public DirectDataAccessorWrapper(
+      Repository repo,
       cz.o2.proxima.direct.core.DataAccessor direct,
       Context context) {
 
+    this.repo = repo;
     this.direct = direct;
     this.context = context;
   }
@@ -44,11 +49,19 @@ public class DirectDataAccessorWrapper implements DataAccessor {
       Pipeline pipeline, Position position, boolean stopAtCurrent,
       boolean eventTime) {
 
-    return pipeline.apply(Read.from(
-        DirectUnboundedSource.of(
-            direct.getCommitLogReader(context)
-                .orElseThrow(() -> new IllegalArgumentException(
-                    "Cannot create commit log from " + direct)))));
+    CommitLogReader reader = direct
+        .getCommitLogReader(context)
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Cannot create commit log from " + direct));
+    if (stopAtCurrent) {
+      // bounded
+      return pipeline.apply(
+          Read.from(DirectBoundedSource.of(repo, reader, position)));
+    } else {
+      // unbounded
+      return pipeline.apply(
+          Read.from(DirectUnboundedSource.of(repo, reader, position)));
+    }
   }
 
 }

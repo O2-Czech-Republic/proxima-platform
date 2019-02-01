@@ -65,12 +65,13 @@ public class DirectDataAccessorFactory implements DataAccessorFactory {
   public DataAccessor createAccessor(
       BeamDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
-    if (op.getDirect().isPresent()) {
-      cz.o2.proxima.direct.core.DataAccessor directAccessor = directLoader.findForUri(uri)
+    if (op.hasDirect()) {
+      cz.o2.proxima.direct.core.DataAccessor directAccessor = op.getDirect()
+          .getAccessorFactory(uri)
           .orElseThrow(() -> new IllegalStateException("Missing directLoader?"))
-          .createAccessor(op.getDirect().get(), entity, uri, cfg);
+          .createAccessor(op.getDirect(), entity, uri, cfg);
       return new DirectDataAccessorWrapper(
-          directAccessor, op.getDirect().get().getContext());
+          op.getRepository(), directAccessor, op.getDirect().getContext());
     }
     throw new IllegalStateException(
         "Missing direct operator. Cannot create accessor");

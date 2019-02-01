@@ -126,6 +126,14 @@
     </dependency>
 
     <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-core</artifactId>
+      <version>${project.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
       <groupId>org.apache.beam</groupId>
       <artifactId>beam-runners-direct-java</artifactId>
     </dependency>
@@ -138,6 +146,11 @@
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-all</artifactId>
     </dependency>
 
     <dependency>

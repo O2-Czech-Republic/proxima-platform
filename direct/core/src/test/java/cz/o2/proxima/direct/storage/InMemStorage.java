@@ -63,11 +63,11 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import cz.o2.proxima.direct.view.CachedView;
+import java.io.ObjectStreamException;
 
 /**
  * InMemStorage for testing purposes.
@@ -339,12 +339,6 @@ public class InMemStorage implements DataAccessorFactory {
         synchronized (data) {
           String prefix = getUri().getPath() + "/";
           int prefixLength = prefix.length();
-          CountDownLatch latch = new CountDownLatch(
-              (int) data
-                  .entrySet()
-                  .stream()
-                  .filter(e -> e.getKey().startsWith(prefix))
-                  .count());
           data.entrySet()
               .stream()
               .filter(e -> e.getKey().startsWith(prefix))
@@ -366,10 +360,8 @@ public class InMemStorage implements DataAccessorFactory {
                   if (!succ) {
                     throw new IllegalStateException("Error in observing old data", exc);
                   }
-                  latch.countDown();
                 });
               });
-          latch.await();
         }
       }
     }
@@ -715,6 +707,8 @@ public class InMemStorage implements DataAccessorFactory {
 
   }
 
+  private static InMemStorage INSTANCE;
+
   @Getter
   private final NavigableMap<String, Pair<Long, byte[]>> data;
 
@@ -723,6 +717,10 @@ public class InMemStorage implements DataAccessorFactory {
   public InMemStorage() {
     this.data = Collections.synchronizedNavigableMap(new TreeMap<>());
     this.observers = new ConcurrentHashMap<>();
+    if (INSTANCE == null) {
+      // store the first created instance for deserialization purposes
+      INSTANCE = this;
+    }
   }
 
   @Override
@@ -814,6 +812,14 @@ public class InMemStorage implements DataAccessorFactory {
 
     return ObserverUtils.asOnNextContext(
         committer, PARTITION, () -> System.currentTimeMillis() - 100);
+  }
+
+  // disable deserialization
+  private Object readResolve() throws ObjectStreamException {
+    if (INSTANCE != null) {
+      return INSTANCE;
+    }
+    return this;
   }
 
 }

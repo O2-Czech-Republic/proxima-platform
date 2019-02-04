@@ -22,6 +22,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
 import org.apache.beam.sdk.io.Read;
 import org.apache.beam.sdk.values.PCollection;
 
@@ -55,8 +56,17 @@ public class DirectDataAccessorWrapper implements DataAccessor {
             "Cannot create commit log from " + direct));
     if (stopAtCurrent) {
       // bounded
-      return pipeline.apply(
+      PCollection<StreamElement> ret = pipeline.apply(
           Read.from(DirectBoundedSource.of(repo, reader, position)));
+      if (eventTime) {
+        return AssignEventTime
+            .named("AssignEventTime::" + reader.getUri())
+            .of(ret)
+            .using(StreamElement::getStamp)
+            .output()
+            .setCoder(ret.getCoder());
+      }
+      return ret;
     } else {
       // unbounded
       return pipeline.apply(

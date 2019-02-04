@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.core;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -25,9 +26,12 @@ import cz.o2.proxima.storage.commitlog.Position;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
 import org.apache.beam.sdk.testing.PAssert;
+import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
+import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptors;
+import org.joda.time.Duration;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -54,7 +58,7 @@ public class BeamDataOperatorTest {
 
   @SuppressWarnings("unchecked")
   @Test
-  public void testCommitLogConsumption() {
+  public void testBoundedCommitLogConsumption() {
     direct.getWriter(armed)
         .orElseThrow(() -> new IllegalStateException("Missing writer for armed"))
         .write(StreamElement.update(gateway, armed, "uuid", "key", armed.getName(),
@@ -67,5 +71,35 @@ public class BeamDataOperatorTest {
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L));
     pipeline.run();
   }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testBoundedCommitLogConsumptionWithWindow() {
+    OnlineAttributeWriter writer = direct.getWriter(armed)
+        .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
+
+    writer.write(StreamElement.update(
+        gateway, armed, "uuid", "key", armed.getName(),
+            now, new byte[] { 1, 2, 3}), (succ, exc) -> { });
+    writer.write(StreamElement.update(
+        gateway, armed, "uuid", "key", armed.getName(),
+            now + 5000, new byte[] { 1, 2, 3}), (succ, exc) -> { });
+
+    PCollection<StreamElement> stream = beam.getStream(
+        pipeline, Position.OLDEST, true, true, armed);
+
+    PCollection<KV<String, Long>> counted = CountByKey.of(stream)
+        .keyBy(e -> "", TypeDescriptors.strings())
+        .windowBy(FixedWindows.of(Duration.millis(1000)))
+        .triggeredBy(AfterWatermark.pastEndOfWindow())
+        .discardingFiredPanes()
+        .withAllowedLateness(Duration.ZERO)
+        .output();
+
+    PAssert.that(counted).containsInAnyOrder(KV.of("", 1L));
+    pipeline.run();
+
+  }
+
 
 }

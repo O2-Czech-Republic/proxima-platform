@@ -48,7 +48,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
   @Override
   public PCollection<StreamElement> getCommitLog(
       Pipeline pipeline, Position position, boolean stopAtCurrent,
-      boolean eventTime) {
+      boolean eventTime, long limit) {
 
     CommitLogReader reader = direct
         .getCommitLogReader(context)
@@ -57,7 +57,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     if (stopAtCurrent) {
       // bounded
       PCollection<StreamElement> ret = pipeline.apply(
-          Read.from(DirectBoundedSource.of(repo, reader, position)));
+          Read.from(DirectBoundedSource.of(repo, reader, position, limit)));
       if (eventTime) {
         return AssignEventTime
             .named("AssignEventTime::" + reader.getUri())
@@ -70,7 +70,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     } else {
       // unbounded
       return pipeline.apply(
-          Read.from(DirectUnboundedSource.of(repo, reader, position)));
+          Read.from(DirectUnboundedSource.of(repo, reader, position, limit)));
     }
   }
 

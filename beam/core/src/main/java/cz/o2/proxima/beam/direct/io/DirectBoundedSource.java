@@ -17,7 +17,6 @@ package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
@@ -25,13 +24,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
-import org.joda.time.Instant;
 
 /**
  * An {@link BoundedSource} created from direct operator's {@link CommitLogReader}.
@@ -40,27 +36,30 @@ import org.joda.time.Instant;
 class DirectBoundedSource extends BoundedSource<StreamElement> {
 
   static DirectBoundedSource of(
-      Repository repo, CommitLogReader reader, Position position) {
+      Repository repo, CommitLogReader reader, Position position, long limit) {
 
-    return new DirectBoundedSource(repo, reader, position, -1);
+    return new DirectBoundedSource(repo, reader, position, limit, -1);
   }
 
   private final Repository repo;
   private final CommitLogReader reader;
   private final Position position;
   private final int partitions;
+  private final long limit;
   private final int splitId;
 
   DirectBoundedSource(
       Repository repo,
       CommitLogReader reader,
       Position position,
+      long limit,
       int splitId) {
 
     this.repo = repo;
     this.reader = reader;
     this.position = position;
     this.partitions = reader.getPartitions().size();
+    this.limit = limit;
     this.splitId = splitId;
   }
 
@@ -73,7 +72,8 @@ class DirectBoundedSource extends BoundedSource<StreamElement> {
     }
     List<BoundedSource<StreamElement>> ret = new ArrayList<>();
     for (int i = 0; i < partitions; i++) {
-      ret.add(new DirectBoundedSource(repo, reader, position, i));
+      ret.add(new DirectBoundedSource(
+          repo, reader, position, limit / partitions, i));
     }
     return ret;
   }
@@ -92,68 +92,8 @@ class DirectBoundedSource extends BoundedSource<StreamElement> {
         position,
         splitId);
 
-    BlockingQueueLogObserver observer = BlockingQueueLogObserver.create();
-    ObserveHandle handle = reader.observeBulkPartitions(
-        Arrays.asList(reader.getPartitions().get(splitId)),
-        position, true, observer);
-
-    return new BoundedReader<StreamElement>() {
-
-      boolean finished = false;
-      StreamElement current;
-
-      @Override
-      public BoundedSource<StreamElement> getCurrentSource() {
-        return DirectBoundedSource.this;
-      }
-
-      @Override
-      public boolean start() throws IOException {
-        return advance();
-      }
-
-      @Override
-      public boolean advance() throws IOException {
-        try {
-          if (!finished) {
-            Optional<StreamElement> taken = observer.take();
-            if (taken.isPresent()) {
-              current = taken.get();
-              log.info(" *** taken " + current);
-              return true;
-            }
-          }
-          Throwable error = observer.getError();
-          if (error != null) {
-            throw new IOException(error);
-          }
-        } catch (InterruptedException ex) {
-          Thread.currentThread().interrupt();
-        }
-        finished = true;
-        return false;
-      }
-
-      @Override
-      public Instant getCurrentTimestamp() throws NoSuchElementException {
-        if (!finished) {
-          return new Instant(Long.MIN_VALUE);
-        }
-        return new Instant(Long.MAX_VALUE);
-      }
-
-      @Override
-      public StreamElement getCurrent() throws NoSuchElementException {
-        return current;
-      }
-
-      @Override
-      public void close() throws IOException {
-        handle.cancel();
-        reader.close();
-      }
-
-    };
+    return BeamCommitLogReader.bounded(
+        this, reader, position, limit, splitId);
   }
 
   @Override

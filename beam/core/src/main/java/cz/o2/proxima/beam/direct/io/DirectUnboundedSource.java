@@ -17,13 +17,17 @@ package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.beam.sdk.coders.Coder;
+import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.io.UnboundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
 
@@ -34,52 +38,82 @@ class DirectUnboundedSource
     extends UnboundedSource<StreamElement, DirectUnboundedSource.Checkpoint> {
 
   static DirectUnboundedSource of(
-      Repository repo, CommitLogReader reader, Position position) {
-    
-    return new DirectUnboundedSource(repo, reader);
-  }
+      Repository repo, CommitLogReader reader, Position position, long limit) {
 
-  private final Repository repo;
-  private final CommitLogReader reader;
+    return new DirectUnboundedSource(repo, reader, position, limit, -1);
+  }
 
   static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
 
-    public Checkpoint() {
+    Offset offset;
+    Checkpoint() {
+
     }
 
     @Override
     public void finalizeCheckpoint() throws IOException {
-      throw new UnsupportedOperationException("Not supported yet.");
+      // commit offset if needed
     }
+
   }
 
-  DirectUnboundedSource(Repository repo, CommitLogReader reader) {
+  private final Repository repo;
+  private final CommitLogReader reader;
+  private final Position position;
+  private final int partitions;
+  private final long limit;
+  private final int splitId;
+
+  DirectUnboundedSource(
+      Repository repo, CommitLogReader reader,
+      Position position, long limit, int splitId) {
+
     this.repo = repo;
     this.reader = reader;
+    this.position = position;
+    this.partitions = reader.getPartitions().size();
+    this.limit = limit;
+    this.splitId = splitId;
   }
 
   @Override
-  public List<? extends UnboundedSource<StreamElement, Checkpoint>> split(
+  public List<UnboundedSource<StreamElement, Checkpoint>> split(
       int desiredNumSplits, PipelineOptions options) throws Exception {
 
-    throw new UnsupportedOperationException("Not supported yet.");
+    if (splitId != -1) {
+      return Arrays.asList(this);
+    }
+    List<UnboundedSource<StreamElement, Checkpoint>> ret = new ArrayList<>();
+    for (int i = 0; i < partitions; i++) {
+      ret.add(new DirectUnboundedSource(
+          repo, reader, position, limit / partitions, i));
+    }
+    return ret;
   }
 
   @Override
   public UnboundedReader<StreamElement> createReader(
       PipelineOptions po, Checkpoint cmt) throws IOException {
 
-    throw new UnsupportedOperationException("Not supported yet.");
+    return BeamCommitLogReader.unbounded(
+        this, new Checkpoint(), reader, position, limit, splitId);
   }
 
   @Override
   public Coder<Checkpoint> getCheckpointMarkCoder() {
-    throw new UnsupportedOperationException("Not supported yet.");
+    return KryoCoder.of();
   }
 
   @Override
   public Coder<StreamElement> getOutputCoder() {
     return StreamElementCoder.of(repo);
+  }
+
+  @Override
+  public boolean requiresDeduping() {
+    // FIXME: this might be read from capabilities from CommitLogReader
+    // @todo
+    return true;
   }
 
 }

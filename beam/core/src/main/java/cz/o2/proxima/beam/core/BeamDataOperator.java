@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.core;
 
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
@@ -85,6 +86,32 @@ public class BeamDataOperator implements DataOperator {
       boolean useEventTime,
       AttributeDescriptor<?>... attrs) {
 
+    return getStream(
+        pipeline, position, stopAtCurrent, useEventTime,
+        Long.MAX_VALUE, attrs);
+  }
+
+  /**
+   * Create {@link PCollection} in given {@link Pipeline} from commit log
+   * for given attributes limiting number of elements read.
+   * @param pipeline the {@link Pipeline} to create {@link PCollection} in.
+   * @param position position in commit log to read from
+   * @param stopAtCurrent {@code true} to stop at recent data
+   * @param useEventTime {@code true} to use event time
+   * @param limit number of elements to read from the source
+   * @param attrs the attributes to create {@link PCollection} for
+   * @return the {@link PCollection}
+   */
+  @VisibleForTesting
+  @SafeVarargs
+  final PCollection<StreamElement> getStream(
+      Pipeline pipeline,
+      Position position,
+      boolean stopAtCurrent,
+      boolean useEventTime,
+      long limit,
+      AttributeDescriptor<?>... attrs) {
+
     return Arrays
         .stream(attrs)
         .map(desc ->
@@ -99,7 +126,8 @@ public class BeamDataOperator implements DataOperator {
                     "Missing commit log for " + desc)))
         .distinct()
         .map(this::accessorFor)
-        .map(da -> da.getCommitLog(pipeline, position, stopAtCurrent, useEventTime))
+        .map(da -> da.getCommitLog(
+            pipeline, position, stopAtCurrent, useEventTime, limit))
         .reduce((left, right) -> Union.of(left, right).output())
         .orElseThrow(() -> new IllegalArgumentException(
             "Pass non empty attribute list"));

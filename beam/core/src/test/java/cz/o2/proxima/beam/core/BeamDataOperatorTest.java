@@ -79,11 +79,11 @@ public class BeamDataOperatorTest {
         .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
 
     writer.write(StreamElement.update(
-        gateway, armed, "uuid", "key", armed.getName(),
-            now, new byte[] { 1, 2, 3}), (succ, exc) -> { });
+        gateway, armed, "uuid", "key1", armed.getName(),
+            now - 5000, new byte[] { 1, 2, 3}), (succ, exc) -> { });
     writer.write(StreamElement.update(
-        gateway, armed, "uuid", "key", armed.getName(),
-            now + 5000, new byte[] { 1, 2, 3}), (succ, exc) -> { });
+        gateway, armed, "uuid", "key2", armed.getName(),
+            now, new byte[] { 1, 2, 3}), (succ, exc) -> { });
 
     PCollection<StreamElement> stream = beam.getStream(
         pipeline, Position.OLDEST, true, true, armed);
@@ -96,10 +96,40 @@ public class BeamDataOperatorTest {
         .withAllowedLateness(Duration.ZERO)
         .output();
 
-    PAssert.that(counted).containsInAnyOrder(KV.of("", 1L));
+    PAssert.that(counted).containsInAnyOrder(KV.of("", 1L), KV.of("", 1L));
     pipeline.run();
 
   }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testUnboundedCommitLogConsumptionWithWindow() {
+    OnlineAttributeWriter writer = direct.getWriter(armed)
+        .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
+
+    writer.write(StreamElement.update(
+        gateway, armed, "uuid", "key1", armed.getName(),
+            now - 5000, new byte[] { 1, 2, 3}), (succ, exc) -> { });
+    writer.write(StreamElement.update(
+        gateway, armed, "uuid", "key2", armed.getName(),
+            now, new byte[] { 1, 2, 3}), (succ, exc) -> { });
+
+    PCollection<StreamElement> stream = beam.getStream(
+        pipeline, Position.OLDEST, false, true, 2, armed);
+
+    PCollection<KV<String, Long>> counted = CountByKey.of(stream)
+        .keyBy(e -> "", TypeDescriptors.strings())
+        .windowBy(FixedWindows.of(Duration.millis(1000)))
+        .triggeredBy(AfterWatermark.pastEndOfWindow())
+        .discardingFiredPanes()
+        .withAllowedLateness(Duration.ZERO)
+        .output();
+
+    PAssert.that(counted).containsInAnyOrder(KV.of("", 1L), KV.of("", 1L));
+    pipeline.run();
+
+  }
+
 
 
 }

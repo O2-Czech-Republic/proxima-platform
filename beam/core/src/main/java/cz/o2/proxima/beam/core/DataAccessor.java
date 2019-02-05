@@ -34,10 +34,14 @@ public interface DataAccessor extends AbstractDataAccessor {
    * @param position to read from
    * @param stopAtCurrent stop reading at current data
    * @param eventTime {@code true} to use event time
+   * @param limit limit number of elements read. Note that the number of elements
+   * might be actually lower, because it is divided by number of partitions
+   * It is useful mostly for testing purposes
    * @return {@link PCollection} representing the commit log
    */
   PCollection<StreamElement> getCommitLog(
       Pipeline pipeline, Position position,
-      boolean stopAtCurrent, boolean eventTime);
+      boolean stopAtCurrent, boolean eventTime,
+      long limit);
 
 }

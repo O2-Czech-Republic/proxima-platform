@@ -73,6 +73,12 @@
 
       <dependency>
         <groupId>org.apache.beam</groupId>
+        <artifactId>beam-sdks-java-extensions-kryo</artifactId>
+        <version>${apache.beam.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.beam</groupId>
         <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
         <version>${apache.beam.version}</version>
       </dependency>

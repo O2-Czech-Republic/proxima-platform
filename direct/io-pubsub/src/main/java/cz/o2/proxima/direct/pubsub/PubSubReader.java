@@ -486,4 +486,10 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     return Optional.empty();
   }
 
+  @Override
+  public boolean hasExternalizableOffsets() {
+    // all offsets represent the same read position
+    return false;
+  }
+
 }

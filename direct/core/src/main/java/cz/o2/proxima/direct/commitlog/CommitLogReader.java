@@ -301,4 +301,14 @@ public interface CommitLogReader extends Closeable, Serializable {
       Collection<Offset> offsets,
       LogObserver observer);
 
+
+  /**
+   * Signals the user that offsets used by this reader can be externalized
+   * and reused later.
+   * @return {@code true} if {@link Offset}s of this reader are externalizable
+   */
+  default boolean hasExternalizableOffsets() {
+    return false;
+  }
+
 }

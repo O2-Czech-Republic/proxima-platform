@@ -36,12 +36,14 @@ import org.apache.beam.sdk.options.PipelineOptions;
 class DirectBoundedSource extends BoundedSource<StreamElement> {
 
   static DirectBoundedSource of(
-      Repository repo, CommitLogReader reader, Position position, long limit) {
+      Repository repo, String name,
+      CommitLogReader reader, Position position, long limit) {
 
-    return new DirectBoundedSource(repo, reader, position, limit, -1);
+    return new DirectBoundedSource(repo, name, reader, position, limit, -1);
   }
 
   private final Repository repo;
+  private final String name;
   private final CommitLogReader reader;
   private final Position position;
   private final int partitions;
@@ -50,12 +52,14 @@ class DirectBoundedSource extends BoundedSource<StreamElement> {
 
   DirectBoundedSource(
       Repository repo,
+      String name,
       CommitLogReader reader,
       Position position,
       long limit,
       int splitId) {
 
     this.repo = repo;
+    this.name = name;
     this.reader = reader;
     this.position = position;
     this.partitions = reader.getPartitions().size();
@@ -73,7 +77,7 @@ class DirectBoundedSource extends BoundedSource<StreamElement> {
     List<BoundedSource<StreamElement>> ret = new ArrayList<>();
     for (int i = 0; i < partitions; i++) {
       ret.add(new DirectBoundedSource(
-          repo, reader, position, limit / partitions, i));
+          repo, name, reader, position, limit / partitions, i));
     }
     return ret;
   }
@@ -93,7 +97,7 @@ class DirectBoundedSource extends BoundedSource<StreamElement> {
         splitId);
 
     return BeamCommitLogReader.bounded(
-        this, reader, position, limit, splitId);
+        this, name, reader, position, limit, splitId);
   }
 
   @Override

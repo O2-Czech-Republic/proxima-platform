@@ -30,6 +30,7 @@ public interface DataAccessor extends AbstractDataAccessor {
 
   /**
    * Create {@link PCollection} for given attribute family.
+   * @param name name of the consumer
    * @param pipeline pipeline to create {@link PCollection} in
    * @param position to read from
    * @param stopAtCurrent stop reading at current data
@@ -40,7 +41,7 @@ public interface DataAccessor extends AbstractDataAccessor {
    * @return {@link PCollection} representing the commit log
    */
   PCollection<StreamElement> getCommitLog(
-      Pipeline pipeline, Position position,
+      String name, Pipeline pipeline, Position position,
       boolean stopAtCurrent, boolean eventTime,
       long limit);
 

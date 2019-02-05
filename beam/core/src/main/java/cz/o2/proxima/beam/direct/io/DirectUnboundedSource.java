@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -26,6 +27,9 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import javax.annotation.Nullable;
+import lombok.Getter;
+import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.serializers.JavaSerializer;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.io.UnboundedSource;
@@ -38,26 +42,39 @@ class DirectUnboundedSource
     extends UnboundedSource<StreamElement, DirectUnboundedSource.Checkpoint> {
 
   static DirectUnboundedSource of(
-      Repository repo, CommitLogReader reader, Position position, long limit) {
+      Repository repo, String name,
+      CommitLogReader reader, Position position, long limit) {
 
-    return new DirectUnboundedSource(repo, reader, position, limit, -1);
+    return new DirectUnboundedSource(repo, name, reader, position, limit, -1);
   }
 
   static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
 
-    Offset offset;
-    Checkpoint() {
+    @Getter
+    @Nullable
+    private final Offset offset;
+    @Getter
+    private final long limit;
+    @Nullable
+    private final transient OffsetCommitter committer;
 
+    Checkpoint(Offset offset, long limit, OffsetCommitter committer) {
+      this.offset = offset;
+      this.limit = limit;
+      this.committer = committer;
     }
 
     @Override
     public void finalizeCheckpoint() throws IOException {
-      // commit offset if needed
+      if (committer != null) {
+        committer.confirm();
+      }
     }
 
   }
 
   private final Repository repo;
+  private final String name;
   private final CommitLogReader reader;
   private final Position position;
   private final int partitions;
@@ -65,10 +82,11 @@ class DirectUnboundedSource
   private final int splitId;
 
   DirectUnboundedSource(
-      Repository repo, CommitLogReader reader,
+      Repository repo, String name, CommitLogReader reader,
       Position position, long limit, int splitId) {
 
     this.repo = repo;
+    this.name = name;
     this.reader = reader;
     this.position = position;
     this.partitions = reader.getPartitions().size();
@@ -86,7 +104,7 @@ class DirectUnboundedSource
     List<UnboundedSource<StreamElement, Checkpoint>> ret = new ArrayList<>();
     for (int i = 0; i < partitions; i++) {
       ret.add(new DirectUnboundedSource(
-          repo, reader, position, limit / partitions, i));
+          repo, name, reader, position, limit / partitions, i));
     }
     return ret;
   }
@@ -95,13 +113,16 @@ class DirectUnboundedSource
   public UnboundedReader<StreamElement> createReader(
       PipelineOptions po, Checkpoint cmt) throws IOException {
 
+    Offset offset = cmt == null ? null : cmt.getOffset();
+    long readerLimit = cmt == null ? limit : cmt.getLimit();
     return BeamCommitLogReader.unbounded(
-        this, new Checkpoint(), reader, position, limit, splitId);
+        this, name, reader, position, readerLimit, splitId, offset);
   }
 
   @Override
   public Coder<Checkpoint> getCheckpointMarkCoder() {
-    return KryoCoder.of();
+    return KryoCoder.of(kryo ->
+      kryo.addDefaultSerializer(Serializable.class, new JavaSerializer()));
   }
 
   @Override
@@ -111,9 +132,9 @@ class DirectUnboundedSource
 
   @Override
   public boolean requiresDeduping() {
-    // FIXME: this might be read from capabilities from CommitLogReader
-    // @todo
-    return true;
+    // when offsets are externalizable we have certainty that we can pause and
+    // continue without duplicates
+    return !reader.hasExternalizableOffsets();
   }
 
 }

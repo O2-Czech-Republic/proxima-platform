@@ -16,21 +16,23 @@
 package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.annotation.Nullable;
+import lombok.Getter;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.io.BoundedSource.BoundedReader;
 import org.apache.beam.sdk.io.Source.Reader;
-import org.apache.beam.sdk.io.UnboundedSource;
-import org.apache.beam.sdk.io.UnboundedSource.CheckpointMark;
 import org.apache.beam.sdk.io.UnboundedSource.UnboundedReader;
+import org.apache.beam.vendor.grpc.v1_13_1.com.google.common.base.Preconditions;
 import org.joda.time.Instant;
 
 /**
@@ -42,15 +44,111 @@ class BeamCommitLogReader extends Reader<StreamElement> {
   private static final Instant HIGHEST_INSTANT = new Instant(Long.MAX_VALUE);
   private static final byte[] EMPTY_BYTES = new byte[] { };
 
+  static class UnboundedCommitLogReader extends UnboundedReader<StreamElement> {
+
+    private final AtomicLong watermark = new AtomicLong(Long.MIN_VALUE);
+    private final DirectUnboundedSource source;
+    @Getter
+    private final BeamCommitLogReader reader;
+
+    UnboundedCommitLogReader(
+        String name,
+        DirectUnboundedSource source,
+        CommitLogReader reader,
+        Position position,
+        long limit,
+        int splitId,
+        @Nullable
+        Offset offset) {
+
+      this.source = source;
+      this.reader = new BeamCommitLogReader(
+          name, reader, position, splitId, offset, limit, false);
+    }
+
+    @Override
+    public DirectUnboundedSource getCurrentSource() {
+      return source;
+    }
+
+    @Override
+    public boolean start() throws IOException {
+      return reader.start();
+    }
+
+    @Override
+    public boolean advance() throws IOException {
+      boolean next = reader.advance();
+      if (next) {
+        long stamp = reader.getCurrent().getStamp();
+        watermark.accumulateAndGet(stamp, Math::max);
+      } else {
+        watermark.accumulateAndGet(reader.getCurrentTimestamp().getMillis(), Math::max);
+      }
+      return next;
+    }
+
+    @Override
+    public StreamElement getCurrent() throws NoSuchElementException {
+      return reader.getCurrent();
+    }
+
+    @Override
+    public void close() throws IOException {
+      reader.close();
+    }
+
+    @Override
+    public Instant getWatermark() {
+      return new Instant(watermark.get());
+    }
+
+    @Override
+    public DirectUnboundedSource.Checkpoint getCheckpointMark() {
+      return new DirectUnboundedSource.Checkpoint(
+          reader.getCurrentOffset(),
+          reader.getLimit(),
+          reader.hasExternalizableOffsets() ? null : reader.getLastCommitter());
+    }
+
+    @Override
+    public Instant getCurrentTimestamp() throws NoSuchElementException {
+      Instant boundedPos = reader.getCurrentTimestamp();
+      if (boundedPos == HIGHEST_INSTANT) {
+        watermark.set(boundedPos.getMillis());
+        return boundedPos;
+      }
+      StreamElement current = reader.getCurrent();
+      if (current != null) {
+        return new Instant(current.getStamp());
+      }
+      throw new NoSuchElementException();
+    }
+
+    @Override
+    public byte[] getCurrentRecordId() throws NoSuchElementException {
+      StreamElement el = getCurrent();
+      if (el == null) {
+        throw new NoSuchElementException();
+      }
+      if (getCurrentSource().requiresDeduping()) {
+        return el.getUuid().getBytes(StandardCharsets.US_ASCII);
+      }
+      return EMPTY_BYTES;
+    }
+
+  }
+
   static BoundedReader<StreamElement> bounded(
       BoundedSource<StreamElement> source,
+      String name,
       CommitLogReader reader,
       Position position,
       long limit,
       int splitId) {
 
     BeamCommitLogReader r = new BeamCommitLogReader(
-        reader, position, splitId, limit);
+        name, reader, position, splitId, null, limit, true);
 
     return new BoundedReader<StreamElement>() {
 
@@ -88,109 +186,58 @@ class BeamCommitLogReader extends Reader<StreamElement> {
 
   }
 
-  static <C extends CheckpointMark> UnboundedReader<StreamElement> unbounded(
-      UnboundedSource<StreamElement, C> source,
-      C checkpointMark,
+  static UnboundedCommitLogReader unbounded(
+      DirectUnboundedSource source,
+      String name,
       CommitLogReader reader,
       Position position,
       long limit,
-      int splitId) {
+      int splitId,
+      @Nullable
+      Offset offset) {
 
-    BeamCommitLogReader r = new BeamCommitLogReader(
-        reader, position, splitId, limit);
-    AtomicLong watermark = new AtomicLong(Long.MIN_VALUE);
-
-    return new UnboundedReader<StreamElement>() {
-
-      @Override
-      public UnboundedSource<StreamElement, ?> getCurrentSource() {
-        return source;
-      }
-
-      @Override
-      public boolean start() throws IOException {
-        return r.start();
-      }
-
-      @Override
-      public boolean advance() throws IOException {
-        boolean next = r.advance();
-        if (next) {
-          long stamp = r.getCurrent().getStamp();
-          watermark.accumulateAndGet(stamp, Math::max);
-        } else {
-          watermark.accumulateAndGet(r.getCurrentTimestamp().getMillis(), Math::max);
-        }
-        return next;
-      }
-
-      @Override
-      public StreamElement getCurrent() throws NoSuchElementException {
-        return r.getCurrent();
-      }
-
-      @Override
-      public void close() throws IOException {
-        r.close();
-      }
-
-      @Override
-      public Instant getWatermark() {
-        return new Instant(watermark.get());
-      }
-
-      @Override
-      public C getCheckpointMark() {
-        return checkpointMark;
-      }
-
-      @Override
-      public Instant getCurrentTimestamp() throws NoSuchElementException {
-        Instant boundedPos = r.getCurrentTimestamp();
-        if (boundedPos == HIGHEST_INSTANT) {
-          watermark.set(boundedPos.getMillis());
-          return boundedPos;
-        }
-        StreamElement current = r.getCurrent();
-        if (current != null) {
-          return new Instant(current.getStamp());
-        }
-        throw new NoSuchElementException();
-      }
-
-      @Override
-      public byte[] getCurrentRecordId() throws NoSuchElementException {
-        StreamElement el = getCurrent();
-        if (el == null) {
-          throw new NoSuchElementException();
-        }
-        if (getCurrentSource().requiresDeduping()) {
-          return el.getUuid().getBytes(StandardCharsets.US_ASCII);
-        }
-        return EMPTY_BYTES;
-      }
-
-    };
+    return new UnboundedCommitLogReader(
+        name, source, reader, position, limit, splitId, offset);
 
   }
 
+  @Getter
+  private final int splitId;
+  @Getter
+  private transient ObserveHandle handle;
+
+  private final String name;
   private final CommitLogReader reader;
   private final Position position;
-  private final int splitId;
-  private transient ObserveHandle handle;
+  private final boolean stopAtCurrent;
+  private boolean finished = false;
+  @Getter
+  private long limit;
+  @Nullable
+  private final Offset offset;
   private transient BlockingQueueLogObserver observer;
-  boolean finished = false;
-  StreamElement current;
-  long limit;
+  private transient StreamElement current;
 
   private BeamCommitLogReader(
-      CommitLogReader reader, Position position,
-      int splitId, long limit) {
+      String name, CommitLogReader reader, Position position,
+      int splitId, @Nullable Offset offset, long limit,
+      boolean stopAtCurrent) {
 
+    this.name = name;
     this.reader = reader;
     this.position = position;
     this.splitId = splitId;
+    this.stopAtCurrent = stopAtCurrent;
+    this.offset = offset;
     this.limit = limit;
+
+    Preconditions.checkArgument(
+        splitId != -1 || offset != null,
+        "Either splitId has to be non-negative or offset has to be non-null");
+
+    Preconditions.checkArgument(
+        offset == null || !stopAtCurrent,
+        "Offset can be used only for streaming reader");
   }
 
   @Override
@@ -200,10 +247,15 @@ class BeamCommitLogReader extends Reader<StreamElement> {
 
   @Override
   public boolean start() throws IOException {
-    this.observer = BlockingQueueLogObserver.create();
-    this.handle = reader.observeBulkPartitions(
-        Arrays.asList(reader.getPartitions().get(splitId)),
-        position, true, observer);
+    this.observer = BlockingQueueLogObserver.create(name, limit);
+    if (offset != null) {
+      this.handle = reader.observeBulkOffsets(
+          Arrays.asList(offset), observer);
+    } else {
+      this.handle = reader.observeBulkPartitions(
+          name, Arrays.asList(reader.getPartitions().get(splitId)),
+          position, stopAtCurrent, observer);
+    }
     return advance();
   }
 
@@ -211,11 +263,8 @@ class BeamCommitLogReader extends Reader<StreamElement> {
   public boolean advance() throws IOException {
     try {
       if (!finished) {
-        Optional<StreamElement> taken = limit-- > 0L
-            ? observer.take()
-            : Optional.empty();
-        if (taken.isPresent()) {
-          current = taken.get();
+        current = limit-- > 0L ? observer.take() : null;
+        if (current != null) {
           return true;
         }
       }
@@ -247,6 +296,20 @@ class BeamCommitLogReader extends Reader<StreamElement> {
   public void close() throws IOException {
     handle.cancel();
     reader.close();
+  }
+
+  private @Nullable Offset getCurrentOffset() {
+    return observer.getLastContext() == null
+        ? null
+        : observer.getLastContext().getOffset();
+  }
+
+  private boolean hasExternalizableOffsets() {
+    return reader.hasExternalizableOffsets();
+  }
+
+  private @Nullable OffsetCommitter getLastCommitter() {
+    return observer.getLastContext();
   }
 
 }

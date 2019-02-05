@@ -87,13 +87,38 @@ public class BeamDataOperator implements DataOperator {
       AttributeDescriptor<?>... attrs) {
 
     return getStream(
-        pipeline, position, stopAtCurrent, useEventTime,
+        null, pipeline, position, stopAtCurrent, useEventTime, attrs);
+  }
+
+  /**
+   * Create {@link PCollection} in given {@link Pipeline} from commit log
+   * for given attributes.
+   * @param name name of the consumer
+   * @param pipeline the {@link Pipeline} to create {@link PCollection} in.
+   * @param position position in commit log to read from
+   * @param stopAtCurrent {@code true} to stop at recent data
+   * @param useEventTime {@code true} to use event time
+   * @param attrs the attributes to create {@link PCollection} for
+   * @return the {@link PCollection}
+   */
+  @SafeVarargs
+  public final PCollection<StreamElement> getStream(
+      @Nullable String name,
+      Pipeline pipeline,
+      Position position,
+      boolean stopAtCurrent,
+      boolean useEventTime,
+      AttributeDescriptor<?>... attrs) {
+
+    return getStream(
+        name, pipeline, position, stopAtCurrent, useEventTime,
         Long.MAX_VALUE, attrs);
   }
 
   /**
    * Create {@link PCollection} in given {@link Pipeline} from commit log
    * for given attributes limiting number of elements read.
+   * @param name name of the consumer
    * @param pipeline the {@link Pipeline} to create {@link PCollection} in.
    * @param position position in commit log to read from
    * @param stopAtCurrent {@code true} to stop at recent data
@@ -105,6 +130,7 @@ public class BeamDataOperator implements DataOperator {
   @VisibleForTesting
   @SafeVarargs
   final PCollection<StreamElement> getStream(
+      String name,
       Pipeline pipeline,
       Position position,
       boolean stopAtCurrent,
@@ -127,7 +153,7 @@ public class BeamDataOperator implements DataOperator {
         .distinct()
         .map(this::accessorFor)
         .map(da -> da.getCommitLog(
-            pipeline, position, stopAtCurrent, useEventTime, limit))
+            name, pipeline, position, stopAtCurrent, useEventTime, limit))
         .reduce((left, right) -> Union.of(left, right).output())
         .orElseThrow(() -> new IllegalArgumentException(
             "Pass non empty attribute list"));

@@ -47,31 +47,37 @@ public class DirectDataAccessorWrapper implements DataAccessor {
 
   @Override
   public PCollection<StreamElement> getCommitLog(
-      Pipeline pipeline, Position position, boolean stopAtCurrent,
-      boolean eventTime, long limit) {
+      String name,
+      Pipeline pipeline,
+      Position position,
+      boolean stopAtCurrent,
+      boolean eventTime,
+      long limit) {
 
     CommitLogReader reader = direct
         .getCommitLogReader(context)
         .orElseThrow(() -> new IllegalArgumentException(
             "Cannot create commit log from " + direct));
+
+    final PCollection<StreamElement> ret;
     if (stopAtCurrent) {
       // bounded
-      PCollection<StreamElement> ret = pipeline.apply(
-          Read.from(DirectBoundedSource.of(repo, reader, position, limit)));
-      if (eventTime) {
-        return AssignEventTime
-            .named("AssignEventTime::" + reader.getUri())
-            .of(ret)
-            .using(StreamElement::getStamp)
-            .output()
-            .setCoder(ret.getCoder());
-      }
-      return ret;
+      ret = pipeline.apply(
+          Read.from(DirectBoundedSource.of(repo, name, reader, position, limit)));
     } else {
       // unbounded
-      return pipeline.apply(
-          Read.from(DirectUnboundedSource.of(repo, reader, position, limit)));
+      ret = pipeline.apply(
+          Read.from(DirectUnboundedSource.of(repo, name, reader, position, limit)));
     }
+    if (eventTime) {
+      return AssignEventTime
+          .named("AssignEventTime::" + reader.getUri())
+          .of(ret)
+          .using(StreamElement::getStamp)
+          .output()
+          .setCoder(ret.getCoder());
+    }
+    return ret;
   }
 
 }

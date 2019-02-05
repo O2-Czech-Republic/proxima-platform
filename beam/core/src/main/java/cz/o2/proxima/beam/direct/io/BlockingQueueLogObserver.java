@@ -17,11 +17,12 @@ package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.storage.StreamElement;
-import java.util.Optional;
-import java.util.concurrent.ArrayBlockingQueue;
+import cz.o2.proxima.util.Pair;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
+import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -30,21 +31,21 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class BlockingQueueLogObserver implements LogObserver {
 
-  static BlockingQueueLogObserver create() {
-    return new BlockingQueueLogObserver(BlockingQueueLogObserver::createQueue);
+  static BlockingQueueLogObserver create(String name, long limit) {
+    return new BlockingQueueLogObserver(name, limit);
   }
 
-  private static BlockingQueue<Optional<StreamElement>> createQueue() {
-    return new ArrayBlockingQueue<>(100);
-  }
-
+  private final String name;
   private final AtomicReference<Throwable> error = new AtomicReference<>();
-  private final BlockingQueue<Optional<StreamElement>> queue;
+  private final BlockingQueue<Pair<StreamElement, OnNextContext>> queue;
+  @Getter
+  private OnNextContext lastContext;
+  private long limit;
 
-  private BlockingQueueLogObserver(
-      Supplier<BlockingQueue<Optional<StreamElement>>> queueSupplier) {
-
-    queue = queueSupplier.get();
+  private BlockingQueueLogObserver(String name, long limit) {
+    this.name = name;
+    this.limit = limit;
+    queue = new SynchronousQueue<>();
   }
 
   @Override
@@ -56,24 +57,44 @@ class BlockingQueueLogObserver implements LogObserver {
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
     log.debug("Received next element {}", ingest);
-    queue.add(Optional.of(ingest));
-    return true;
+    try {
+      if (limit-- > 0) {
+        queue.put(Pair.of(ingest, context));
+        context.getOffset();
+        return true;
+      }
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+    }
+    return false;
   }
 
   @Override
   public void onCancelled() {
-    queue.add(Optional.empty());
+    log.debug("Cancelled {} consumption by request.", name);
   }
 
   @Override
   public void onCompleted() {
-    queue.add(Optional.empty());
+    try {
+      queue.put(Pair.of(null, null));
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      log.warn("Interrupted while passing end-of-stream.", ex);
+    }
   }
 
-  Optional<StreamElement> take() throws InterruptedException {
-    return queue.take();
+  @Nullable
+  StreamElement take() throws InterruptedException {
+    Pair<StreamElement, OnNextContext> taken = queue.take();
+    if (taken.getFirst() != null) {
+      lastContext = taken.getSecond();
+      return taken.getFirst();
+    }
+    return null;
   }
 
+  @Nullable
   Throwable getError() {
     return error.get();
   }

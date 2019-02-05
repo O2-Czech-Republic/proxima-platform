@@ -19,6 +19,7 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -29,7 +30,10 @@ import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
@@ -94,9 +98,136 @@ public class InMemStorageTest implements Serializable {
                 .orElseThrow(() -> new IllegalStateException(
                     "Missing attribute data")),
             UUID.randomUUID().toString(), "key", "data",
-            System.currentTimeMillis(), new byte[] { 1, 2, 3}),
+            System.currentTimeMillis(), new byte[] { 1, 2, 3 }),
         (succ, exc) -> { });
     latch.get().await();
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveCancel()
+      throws URISyntaxException, InterruptedException {
+
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor = storage.createAccessor(
+        direct, entity, new URI("inmem:///inmemstoragetest"),
+        Collections.emptyMap());
+    CommitLogReader reader = accessor.getCommitLogReader(direct.getContext())
+        .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    AttributeWriterBase writer = accessor.getWriter(direct.getContext())
+        .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    List<Byte> received = new ArrayList<>();
+    ObserveHandle handle = reader.observePartitions(
+        reader.getPartitions(), new LogObserver() {
+
+          @Override
+          public void onRepartition(LogObserver.OnRepartitionContext context) {
+            assertEquals(1, context.partitions().size());
+          }
+
+          @Override
+          public boolean onNext(
+              StreamElement ingest, LogObserver.OnNextContext context) {
+
+            assertEquals(0, context.getPartition().getId());
+            assertEquals("key", ingest.getKey());
+            context.confirm();
+            received.add(ingest.getValue()[0]);
+            return false;
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+
+        });
+
+    writer.online().write(
+        StreamElement.update(
+            entity, entity.findAttribute("data")
+                .orElseThrow(() -> new IllegalStateException(
+                    "Missing attribute data")),
+            UUID.randomUUID().toString(), "key", "data",
+            System.currentTimeMillis(), new byte[] { 1 }),
+        (succ, exc) -> { });
+    List<Offset> offsets = handle.getCurrentOffsets();
+    assertEquals(1, offsets.size());
+    assertEquals(Arrays.asList((byte) 1), received);
+    handle.cancel();
+    writer.online().write(
+        StreamElement.update(
+            entity, entity.findAttribute("data")
+                .orElseThrow(() -> new IllegalStateException(
+                    "Missing attribute data")),
+            UUID.randomUUID().toString(), "key", "data",
+            System.currentTimeMillis(), new byte[] { 2 }),
+        (succ, exc) -> { });
+    assertEquals(Arrays.asList((byte) 1), received);
+  }
+
+
+  @Test(timeout = 10000)
+  public void testObserveOffsets()
+      throws URISyntaxException, InterruptedException {
+
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor = storage.createAccessor(
+        direct, entity, new URI("inmem:///inmemstoragetest"),
+        Collections.emptyMap());
+    CommitLogReader reader = accessor.getCommitLogReader(direct.getContext())
+        .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    AttributeWriterBase writer = accessor.getWriter(direct.getContext())
+        .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    List<Byte> received = new ArrayList<>();
+    LogObserver observer = new LogObserver() {
+
+      @Override
+      public void onRepartition(LogObserver.OnRepartitionContext context) {
+        assertEquals(1, context.partitions().size());
+      }
+
+      @Override
+      public boolean onNext(
+          StreamElement ingest, LogObserver.OnNextContext context) {
+
+        assertEquals(0, context.getPartition().getId());
+        assertEquals("key", ingest.getKey());
+        context.confirm();
+        received.add(ingest.getValue()[0]);
+        return false;
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+    };
+    ObserveHandle handle = reader.observePartitions(
+        reader.getPartitions(), observer);
+
+    writer.online().write(
+        StreamElement.update(
+            entity, entity.findAttribute("data")
+                .orElseThrow(() -> new IllegalStateException(
+                    "Missing attribute data")),
+            UUID.randomUUID().toString(), "key", "data",
+            System.currentTimeMillis(), new byte[] { 1 }),
+        (succ, exc) -> { });
+    List<Offset> offsets = handle.getCurrentOffsets();
+    assertEquals(1, offsets.size());
+    assertEquals(Arrays.asList((byte) 1), received);
+    handle.cancel();
+    reader.observeBulkOffsets(offsets, observer);
+    writer.online().write(
+        StreamElement.update(
+            entity, entity.findAttribute("data")
+                .orElseThrow(() -> new IllegalStateException(
+                    "Missing attribute data")),
+            UUID.randomUUID().toString(), "key", "data",
+            System.currentTimeMillis(), new byte[] { 2 }),
+        (succ, exc) -> { });
+    assertEquals(Arrays.asList((byte) 1, (byte) 2), received);
   }
 
 }

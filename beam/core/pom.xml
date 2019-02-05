@@ -165,6 +165,13 @@
       <scope>provided</scope>
     </dependency>
 
+    <!-- remove when beam dependency is 2.11.0 or higher -->
+    <dependency>
+      <groupId>com.esotericsoftware</groupId>
+      <artifactId>kryo</artifactId>
+      <version>4.0.2</version>
+    </dependency>
+
   </dependencies>
 
 </project>

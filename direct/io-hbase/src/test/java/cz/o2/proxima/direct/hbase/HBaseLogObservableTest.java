@@ -215,7 +215,7 @@ public class HBaseLogObservableTest {
           }
 
           @Override
-          public void onError(Throwable error) {
+          public boolean onError(Throwable error) {
             throw new RuntimeException(error);
           }
 

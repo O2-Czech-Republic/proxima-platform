@@ -522,8 +522,8 @@ public class DirectAttributeFamilyProxyDescriptor
       }
 
       @Override
-      public void onError(Throwable error) {
-        observer.onError(error);
+      public boolean onError(Throwable error) {
+        return observer.onError(error);
       }
 
     };

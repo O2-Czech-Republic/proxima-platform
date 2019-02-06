@@ -16,9 +16,11 @@
 package cz.o2.proxima.beam.core;
 
 import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.storage.internal.AbstractDataAccessor;
+import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.values.PCollection;
 
@@ -29,7 +31,7 @@ import org.apache.beam.sdk.values.PCollection;
 public interface DataAccessor extends AbstractDataAccessor {
 
   /**
-   * Create {@link PCollection} for given attribute family.
+   * Create {@link PCollection} for given attribute family's commit log.
    * @param name name of the consumer
    * @param pipeline pipeline to create {@link PCollection} in
    * @param position to read from
@@ -44,5 +46,32 @@ public interface DataAccessor extends AbstractDataAccessor {
       String name, Pipeline pipeline, Position position,
       boolean stopAtCurrent, boolean eventTime,
       long limit);
+
+  /**
+   * Create {@link PCollection} for given attribute family's batch updates storage.
+   * @param pipeline pipeline to create {@link PCollection} in
+   * @param attrs attributes to read
+   * @param startStamp minimal update timestamp (inclusive)
+   * @param endStamp maximal update timestamp (exclusive)
+   * @return {@link PCollection} representing the batch updates
+   */
+  PCollection<StreamElement> getBatchUpdates(
+      Pipeline pipeline,
+      List<AttributeDescriptor<?>> attrs,
+      long startStamp,
+      long endStamp);
+
+  /**
+   * Create {@link PCollection} for given attribute family's batch snapshot storage.
+   * @param pipeline pipeline to create {@link PCollection} in
+   * @param attrs attributes to read
+   * @param untilStamp read only updates older than this timestamp (i.e. if this
+   * method was called at the given timestamp)
+   * @return {@link PCollection} representing the batch snapshot
+   */
+  PCollection<StreamElement> getBatchSnapshot(
+      Pipeline pipeline,
+      List<AttributeDescriptor<?>> attrs,
+      long untilStamp);
 
 }

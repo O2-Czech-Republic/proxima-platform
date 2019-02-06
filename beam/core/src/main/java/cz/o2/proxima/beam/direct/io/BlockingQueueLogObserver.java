@@ -15,7 +15,9 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import java.util.concurrent.BlockingQueue;
@@ -29,16 +31,22 @@ import lombok.extern.slf4j.Slf4j;
  * A {@link LogObserver} that caches data in {@link BlockingQueue}.
  */
 @Slf4j
-class BlockingQueueLogObserver implements LogObserver {
+class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
+
+  static BlockingQueueLogObserver create() {
+    return create(null, Long.MAX_VALUE);
+  }
 
   static BlockingQueueLogObserver create(String name, long limit) {
     return new BlockingQueueLogObserver(name, limit);
   }
 
+  @Nullable
   private final String name;
   private final AtomicReference<Throwable> error = new AtomicReference<>();
   private final BlockingQueue<Pair<StreamElement, OnNextContext>> queue;
   @Getter
+  @Nullable
   private OnNextContext lastContext;
   private long limit;
 
@@ -57,10 +65,19 @@ class BlockingQueueLogObserver implements LogObserver {
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
     log.debug("Received next element {}", ingest);
+    return enqueue(ingest, context);
+  }
+
+  @Override
+  public boolean onNext(StreamElement element, Partition partition) {
+    log.debug("Received next element {}", element);
+    return enqueue(element, null);
+  }
+
+  private boolean enqueue(StreamElement element, OnNextContext context) {
     try {
       if (limit-- > 0) {
-        queue.put(Pair.of(ingest, context));
-        context.getOffset();
+        queue.put(Pair.of(element, context));
         return true;
       }
     } catch (InterruptedException ex) {

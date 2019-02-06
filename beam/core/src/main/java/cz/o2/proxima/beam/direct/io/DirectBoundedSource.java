@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
-import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -24,8 +23,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
 
@@ -33,7 +32,7 @@ import org.apache.beam.sdk.options.PipelineOptions;
  * An {@link BoundedSource} created from direct operator's {@link CommitLogReader}.
  */
 @Slf4j
-class DirectBoundedSource extends BoundedSource<StreamElement> {
+class DirectBoundedSource extends AbstractDirectBoundedSource {
 
   static DirectBoundedSource of(
       Repository repo, String name,
@@ -42,7 +41,6 @@ class DirectBoundedSource extends BoundedSource<StreamElement> {
     return new DirectBoundedSource(repo, name, reader, position, limit, -1);
   }
 
-  private final Repository repo;
   private final String name;
   private final CommitLogReader reader;
   private final Position position;
@@ -58,9 +56,9 @@ class DirectBoundedSource extends BoundedSource<StreamElement> {
       long limit,
       int splitId) {
 
-    this.repo = repo;
+    super(repo);
     this.name = name;
-    this.reader = reader;
+    this.reader = Objects.requireNonNull(reader);
     this.position = position;
     this.partitions = reader.getPartitions().size();
     this.limit = limit;
@@ -82,10 +80,6 @@ class DirectBoundedSource extends BoundedSource<StreamElement> {
     return ret;
   }
 
-  @Override
-  public long getEstimatedSizeBytes(PipelineOptions options) throws Exception {
-    return -1L;
-  }
 
   @Override
   public BoundedReader<StreamElement> createReader(
@@ -100,9 +94,5 @@ class DirectBoundedSource extends BoundedSource<StreamElement> {
         this, name, reader, position, limit, splitId);
   }
 
-  @Override
-  public Coder<StreamElement> getOutputCoder() {
-    return StreamElementCoder.of(repo);
-  }
 
 }

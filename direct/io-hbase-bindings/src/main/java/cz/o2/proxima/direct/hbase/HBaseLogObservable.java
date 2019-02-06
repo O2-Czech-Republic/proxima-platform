@@ -120,7 +120,10 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
         observer.onCompleted();
       } catch (Throwable ex) {
         log.warn("Failed to observe partitions {}", partitions, ex);
-        observer.onError(ex);
+        if (observer.onError(ex)) {
+          log.info("Restaring processing by request");
+          observe(partitions, attributes, observer);
+        }
       }
     });
   }

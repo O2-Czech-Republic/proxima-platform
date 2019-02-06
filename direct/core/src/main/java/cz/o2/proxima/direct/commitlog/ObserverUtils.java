@@ -28,7 +28,7 @@ public class ObserverUtils {
 
   public static LogObserver.OnNextContext asOnNextContext(
       LogObserver.OffsetCommitter committer,
-      Partition partition,
+      Offset offset,
       WatermarkSupplier watermarkSupplier) {
 
     return new LogObserver.OnNextContext() {
@@ -40,7 +40,12 @@ public class ObserverUtils {
 
       @Override
       public Partition getPartition() {
-        return partition;
+        return offset.getPartition();
+      }
+
+      @Override
+      public Offset getOffset() {
+        return offset;
       }
 
       @Override

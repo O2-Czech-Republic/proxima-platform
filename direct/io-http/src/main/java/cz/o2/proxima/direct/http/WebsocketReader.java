@@ -48,6 +48,7 @@ import org.java_websocket.handshake.ServerHandshake;
 public class WebsocketReader extends AbstractStorage implements CommitLogReader {
 
   private static final Partition PARTITION = () -> 0;
+  private static final Offset OFFSET = () -> PARTITION;
 
   private final AttributeDescriptor<?> attr;
   private final UnaryFunction<String, String> keyExtractor;
@@ -207,7 +208,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   private OnNextContext nullContext() {
     return asOnNextContext(
         (succ, err) -> { },
-        PARTITION,
+        OFFSET,
         System::currentTimeMillis);
   }
 

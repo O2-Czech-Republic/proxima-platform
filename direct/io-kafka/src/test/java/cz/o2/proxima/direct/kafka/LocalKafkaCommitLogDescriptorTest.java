@@ -635,7 +635,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testObserveMovesWatermark() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -680,7 +681,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testEmptyPollMovesWatermark() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));

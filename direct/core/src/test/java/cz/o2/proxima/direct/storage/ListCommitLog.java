@@ -25,7 +25,8 @@ import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.direct.storage.InMemStorage.IntOffset;
+import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.net.URI;
@@ -105,14 +106,15 @@ public class ListCommitLog implements CommitLogReader {
   public ObserveHandle observe(
       String name, Position position, LogObserver observer) {
 
-    pushTo(element -> observer.onNext(
+    pushTo((element, offset) -> observer.onNext(
         element,
         asOnNextContext(
             (succ, exc) -> {
               if (!succ) {
                 observer.onError(exc);
               }
-            })),
+            },
+            new IntOffset(offset))),
         observer::onCompleted);
     return new NopObserveHandle();
   }
@@ -131,13 +133,14 @@ public class ListCommitLog implements CommitLogReader {
       LogObserver observer) {
 
     observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION)));
-    pushTo(element -> observer.onNext(
+    pushTo((element, offset) -> observer.onNext(
         element, asOnNextContext(
             (succ, exc) -> {
               if (!succ) {
                 observer.onError(exc);
               }
-            })),
+            },
+            new IntOffset(offset))),
         observer::onCompleted);
     return new NopObserveHandle();
   }
@@ -163,11 +166,14 @@ public class ListCommitLog implements CommitLogReader {
   }
 
   private void pushTo(
-      Consumer<StreamElement> consumer,
+      BiConsumer<StreamElement, Integer> consumer,
       Runnable finish) {
 
     executor().execute(() -> {
-      data.forEach(consumer::accept);
+      int index = 0;
+      for (StreamElement el : data) {
+        consumer.accept(el, index++);
+      }
       finish.run();
     });
   }
@@ -180,10 +186,10 @@ public class ListCommitLog implements CommitLogReader {
   }
 
   private static LogObserver.OnNextContext asOnNextContext(
-      LogObserver.OffsetCommitter offsetCommitter) {
+      LogObserver.OffsetCommitter offsetCommitter, Offset offset) {
 
     return ObserverUtils.asOnNextContext(
-        offsetCommitter, PARTITION, System::currentTimeMillis);
+        offsetCommitter, offset, System::currentTimeMillis);
   }
 
 

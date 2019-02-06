@@ -70,7 +70,9 @@ import cz.o2.proxima.storage.commitlog.Position;
 import java.io.ObjectStreamException;
 import java.util.HashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * InMemStorage for testing purposes.
@@ -80,12 +82,12 @@ public class InMemStorage implements DataAccessorFactory {
 
   private static final Partition PARTITION = () -> 0;
 
-  private static class InMemOffset implements Offset {
+  static class IntOffset implements Offset {
 
     @Getter
     final long offset;
 
-    public InMemOffset(long offset) {
+    public IntOffset(long offset) {
       this.offset = offset;
     }
 
@@ -204,16 +206,7 @@ public class InMemStorage implements DataAccessorFactory {
 
       log.debug("Observing {} as {}", getUri(), name);
 
-      int id = createConsumerId(stopAtCurrent);
-      observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION)));
-      AtomicLong offsetTracker = flushBasedOnPosition(
-          position,
-          0L,
-          id,
-          stopAtCurrent,
-          observer);
-
-      return createHandle(id, observer, offsetTracker);
+      return doObserve(position, offset, stopAtCurrent, observer);
     }
 
     @Override
@@ -245,16 +238,7 @@ public class InMemStorage implements DataAccessorFactory {
         LogObserver observer) {
 
 
-      int id = createConsumerId(stopAtCurrent);
-
-      AtomicLong offsetTracker = flushBasedOnPosition(
-          position,
-          offset,
-          id,
-          stopAtCurrent,
-          observer);
-
-      return createHandle(id, observer, offsetTracker);
+      return doObserve(position, offset, stopAtCurrent, observer);
     }
 
     @Override
@@ -272,17 +256,36 @@ public class InMemStorage implements DataAccessorFactory {
     public ObserveHandle observeBulkOffsets(
         Collection<Offset> offsets, LogObserver observer) {
 
-      int id = createConsumerId(false);
-
-      AtomicLong offsetTracker = flushBasedOnPosition(
-          Position.OLDEST,
-          ((InMemOffset) Iterables.getOnlyElement(offsets)).getOffset(),
-          id,
+      return doObserve(Position.OLDEST,
+          ((IntOffset) Iterables.getOnlyElement(offsets)).getOffset(),
           false,
           observer);
-
-      return createHandle(id, observer, offsetTracker);
     }
+
+    private ObserveHandle doObserve(
+        Position position,
+        long offset,
+        boolean stopAtCurrent,
+        LogObserver observer) {
+
+      int id = createConsumerId(stopAtCurrent);
+
+      observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION)));
+      AtomicReference<Thread> threadInterrupt = new AtomicReference<>();
+      AtomicBoolean killSwitch = new AtomicBoolean();
+      AtomicLong offsetTracker = flushBasedOnPosition(
+          position,
+          offset,
+          id,
+          stopAtCurrent,
+          killSwitch,
+          threadInterrupt,
+          observer);
+
+      return createHandle(
+          id, observer, offsetTracker, killSwitch, threadInterrupt);
+    }
+
 
     private int createConsumerId(boolean stopAtCurrent) {
       final int id;
@@ -299,19 +302,24 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     private ObserveHandle createHandle(
-        int consumerId, LogObserver observer, AtomicLong offsetTracker) {
+        int consumerId, LogObserver observer,
+        AtomicLong offsetTracker,
+        AtomicBoolean killSwitch,
+        AtomicReference<Thread> threadInterrupt) {
 
       return new ObserveHandle() {
 
         @Override
         public void cancel() {
           observers.remove(consumerId);
+          killSwitch.set(true);
+          threadInterrupt.get().interrupt();
           observer.onCancelled();
         }
 
         @Override
         public List<Offset> getCommittedOffsets() {
-          return Arrays.asList(new InMemOffset(0));
+          return Arrays.asList(new IntOffset(0));
         }
 
         @Override
@@ -321,7 +329,7 @@ public class InMemStorage implements DataAccessorFactory {
 
         @Override
         public List<Offset> getCurrentOffsets() {
-          return Arrays.asList(new InMemOffset(offsetTracker.get()));
+          return Arrays.asList(new IntOffset(offsetTracker.get()));
         }
 
         @Override
@@ -337,53 +345,83 @@ public class InMemStorage implements DataAccessorFactory {
         long offset,
         int consumerId,
         boolean stopAtCurrent,
+        AtomicBoolean killSwitch,
+        AtomicReference<Thread> observeThread,
         LogObserver observer) {
 
       AtomicLong offsetTracker = new AtomicLong(offset);
       CountDownLatch latch = new CountDownLatch(1);
+      observeThread.set(new Thread(() -> handleFlushDataBaseOnPosition(
+          position, offset, consumerId, stopAtCurrent, killSwitch,
+          offsetTracker, latch, observer)));
+      observeThread.get().start();
+      try {
+        latch.await();
+      } catch (InterruptedException ex) {
+        log.warn("Interrupted.", ex);
+      }
+      return offsetTracker;
+    }
+
+    private void handleFlushDataBaseOnPosition(
+        Position position,
+        long offset,
+        int consumerId,
+        boolean stopAtCurrent,
+        AtomicBoolean killSwitch,
+        AtomicLong offsetTracker,
+        CountDownLatch latch,
+        LogObserver observer) {
+
+
+      AtomicLong restartedOffset = new AtomicLong();
+
       BiConsumer<StreamElement, OffsetCommitter> consumer = (el, committer) -> {
-        offsetTracker.incrementAndGet();
-        el = cloneAndUpdateAttribute(getEntityDescriptor(), el);
         try {
-          observer.onNext(el, asOnNextContext(committer));
+          if (!killSwitch.get()) {
+            long off = offsetTracker.incrementAndGet();
+            el = cloneAndUpdateAttribute(getEntityDescriptor(), el);
+            killSwitch.compareAndSet(false,
+                !observer.onNext(el, asOnNextContext(committer, new IntOffset(off))));
+          }
         } catch (Exception ex) {
           observer.onError(ex);
         }
       };
 
-      AtomicLong restartedOffset = new AtomicLong();
-      new Thread(() -> {
-        if (position == Position.OLDEST) {
-          synchronized (data) {
-            latch.countDown();
-            String prefix = getUri().getPath() + "/";
-            int prefixLength = prefix.length();
-            data.entrySet()
-                .stream()
-                .filter(e -> e.getKey().startsWith(prefix))
-                .sorted((a, b) ->
-                    Long.compare(a.getValue().getFirst(), b.getValue().getFirst()))
-                .forEachOrdered(e -> {
-                  if (restartedOffset.getAndIncrement() < offset) {
-                    return;
+
+      if (position == Position.OLDEST) {
+        synchronized (data) {
+          latch.countDown();
+          String prefix = getUri().getPath() + "/";
+          int prefixLength = prefix.length();
+          data.entrySet()
+              .stream()
+              .filter(e -> e.getKey().startsWith(prefix))
+              .sorted((a, b) ->
+                  Long.compare(a.getValue().getFirst(), b.getValue().getFirst()))
+              .forEachOrdered(e -> {
+                if (restartedOffset.getAndIncrement() < offset) {
+                  return;
+                }
+                String[] parts = e.getKey().substring(prefixLength).split("#");
+                String key = parts[0];
+                String attribute = parts[1];
+                AttributeDescriptor<?> desc = getEntityDescriptor()
+                    .findAttribute(attribute, true)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                        "Missing attribute " + attribute));
+                byte[] value = e.getValue().getSecond();
+                StreamElement element = StreamElement.update(
+                    getEntityDescriptor(), desc, UUID.randomUUID().toString(),
+                    key, attribute, e.getValue().getFirst(), value);
+                consumer.accept(element, (succ, exc) -> {
+                  if (!succ) {
+                    throw new IllegalStateException("Error in observing old data", exc);
                   }
-                  String[] parts = e.getKey().substring(prefixLength).split("#");
-                  String key = parts[0];
-                  String attribute = parts[1];
-                  AttributeDescriptor<?> desc = getEntityDescriptor()
-                      .findAttribute(attribute, true)
-                      .orElseThrow(() -> new IllegalArgumentException(
-                          "Missing attribute " + attribute));
-                  byte[] value = e.getValue().getSecond();
-                  StreamElement element = StreamElement.update(
-                      getEntityDescriptor(), desc, UUID.randomUUID().toString(),
-                      key, attribute, e.getValue().getFirst(), value);
-                  consumer.accept(element, (succ, exc) -> {
-                    if (!succ) {
-                      throw new IllegalStateException("Error in observing old data", exc);
-                    }
-                  });
                 });
+              });
+          if (!killSwitch.get()) {
             if (!stopAtCurrent) {
               observers.put(
                   consumerId,
@@ -392,23 +430,17 @@ public class InMemStorage implements DataAccessorFactory {
               observer.onCompleted();
             }
           }
-        } else {
-          if (!stopAtCurrent) {
-            observers.put(
-                consumerId,
-                el -> consumer.accept(el, (succ, exc) -> { }));
-          } else {
-            observer.onCompleted();
-          }
-          latch.countDown();
         }
-      }).start();
-      try {
-        latch.await();
-      } catch (InterruptedException ex) {
-        log.warn("Interrupted.", ex);
+      } else {
+        if (!stopAtCurrent) {
+          observers.put(
+              consumerId,
+              el -> consumer.accept(el, (succ, exc) -> { }));
+        } else {
+          observer.onCompleted();
+        }
+        latch.countDown();
       }
-      return offsetTracker;
     }
 
   }
@@ -853,10 +885,10 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   private static LogObserver.OnNextContext asOnNextContext(
-      LogObserver.OffsetCommitter committer) {
+      LogObserver.OffsetCommitter committer, Offset offset) {
 
     return ObserverUtils.asOnNextContext(
-        committer, PARTITION, () -> System.currentTimeMillis() - 100);
+        committer, offset, () -> System.currentTimeMillis() - 100);
   }
 
   // disable deserialization

@@ -133,7 +133,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         }
       };
       try {
-        boolean ret = observer.onNext(e, asOnNextContext(committer, PARTITION, w));
+        boolean ret = observer.onNext(e, asOnNextContext(committer, offset, w));
         if (!ret) {
           observer.onCompleted();
         }
@@ -196,7 +196,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
           // ensure explicit synchronization here
           synchronized (lock) {
             try {
-              if (!observer.onNext(e, asOnNextContext(committer, PARTITION, w))) {
+              if (!observer.onNext(e, asOnNextContext(committer, offset, w))) {
                 observer.onCompleted();
                 return false;
               }

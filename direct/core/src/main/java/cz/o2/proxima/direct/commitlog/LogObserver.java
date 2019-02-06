@@ -87,6 +87,12 @@ public interface LogObserver extends Serializable {
      * @return watermark in milliseconds
      */
     long getWatermark();
+     
+    /**
+     * Retrieve {@link Offset} of current record.
+     * @return {@link Offset} of current record.
+     */
+    Offset getOffset();
 
     @Override
     default void commit(boolean success, Throwable error) {
@@ -98,6 +104,7 @@ public interface LogObserver extends Serializable {
   /**
    * Context passed to {@link #onRepartition}.
    */
+  @Stable
   interface OnRepartitionContext {
 
     /**

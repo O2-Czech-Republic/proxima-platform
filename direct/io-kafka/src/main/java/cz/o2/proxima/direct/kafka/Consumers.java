@@ -114,8 +114,8 @@ class Consumers {
                 errorHandler.accept(exc);
               }
             },
-            tp::partition,
-            watermarkSupplier::getWatermark));
+            new TopicOffset(tp.partition(), offset),
+            watermarkSupplier));
       }
       committed.compute(
           tp.partition(),
@@ -217,8 +217,8 @@ class Consumers {
               errorHandler.accept(err);
             }
           },
-          tp::partition,
-          watermarkSupplier::getWatermark);
+          new TopicOffset(tp.partition(), offset),
+          watermarkSupplier);
     }
 
     @Override

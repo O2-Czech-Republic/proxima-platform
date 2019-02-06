@@ -143,6 +143,7 @@ public class CassandraDBAccessorTest {
       return mock(BoundStatement.class);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public <T> KvIterable<T> getListAllStatement(
         String key, Offsets.Raw offset, int limit, Session session) {

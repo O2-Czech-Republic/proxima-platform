@@ -34,7 +34,7 @@ public interface AbstractDataAccessorFactory<
   /**
    * Marker for acceptance of given URI to this factory.
    */
-  public static enum Accept {
+  public enum Accept {
 
     /**
      * The URI is accepted.

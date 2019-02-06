@@ -204,7 +204,7 @@ class BeamCommitLogReader extends Reader<StreamElement> {
   @Getter
   private final int splitId;
   @Getter
-  private transient ObserveHandle handle;
+  private ObserveHandle handle;
 
   private final String name;
   private final CommitLogReader reader;
@@ -215,8 +215,8 @@ class BeamCommitLogReader extends Reader<StreamElement> {
   private long limit;
   @Nullable
   private final Offset offset;
-  private transient BlockingQueueLogObserver observer;
-  private transient StreamElement current;
+  private BlockingQueueLogObserver observer;
+  private StreamElement current;
 
   private BeamCommitLogReader(
       String name, CommitLogReader reader, Position position,
@@ -280,7 +280,7 @@ class BeamCommitLogReader extends Reader<StreamElement> {
   }
 
   @Override
-  public Instant getCurrentTimestamp() throws NoSuchElementException {
+  public Instant getCurrentTimestamp() {
     if (!finished) {
       return LOWEST_INSTANT;
     }
@@ -289,6 +289,9 @@ class BeamCommitLogReader extends Reader<StreamElement> {
 
   @Override
   public StreamElement getCurrent() throws NoSuchElementException {
+    if (current == null) {
+      throw new NoSuchElementException();
+    }
     return current;
   }
 

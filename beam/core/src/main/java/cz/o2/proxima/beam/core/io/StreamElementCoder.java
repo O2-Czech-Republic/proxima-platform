@@ -27,16 +27,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import javax.annotation.Nullable;
-import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.coders.CustomCoder;
 
 public class StreamElementCoder extends CustomCoder<StreamElement> {
 
-  private static enum Type {
+  private enum Type {
     UPDATE,
     DELETE,
     DELETE_WILDCARD
-  };
+  }
 
   /**
    * Create coder for StreamElements originating in given {@link Repository}.
@@ -55,16 +54,18 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
 
   @Override
   public void encode(StreamElement value, OutputStream outStream)
-      throws CoderException, IOException {
+      throws IOException {
+
     final DataOutput output = new DataOutputStream(outStream);
     output.writeUTF(value.getEntityDescriptor().getName());
     output.writeUTF(value.getUuid());
     output.writeUTF(value.getKey());
-    Type type = value.isDelete()
-        ? value.isDeleteWildcard()
-            ? Type.DELETE_WILDCARD
-            : Type.DELETE
-        : Type.UPDATE;
+    final Type type;
+    if (value.isDelete()) {
+      type = value.isDeleteWildcard() ? Type.DELETE_WILDCARD : Type.DELETE;
+    } else {
+      type = Type.UPDATE;
+    }
     output.writeInt(type.ordinal());
     String attribute = value.getAttribute();
     output.writeUTF(attribute == null
@@ -75,7 +76,8 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
   }
 
   @Override
-  public StreamElement decode(InputStream inStream) throws CoderException, IOException {
+  public StreamElement decode(InputStream inStream) throws IOException {
+
     final DataInput input = new DataInputStream(inStream);
 
     final String entityName = input.readUTF();

@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -151,8 +152,7 @@ public class BeamDataOperator implements DataOperator {
         .map(da -> da.createStream(
             name, pipeline, position, stopAtCurrent, useEventTime, limit))
         .reduce((left, right) -> Union.of(left, right).output())
-        .orElseThrow(() -> new IllegalArgumentException(
-            "Pass non empty attribute list"));
+        .orElseThrow(failEmpty());
   }
 
   /**
@@ -192,8 +192,7 @@ public class BeamDataOperator implements DataOperator {
         af -> af.getAccess().canReadBatchUpdates(), "batch-updates", attrs)
         .map(da -> da.createBatch(pipeline, attrList, startStamp, endStamp))
         .reduce((left, right) -> Union.of(left, right).output())
-        .orElseThrow(() -> new IllegalArgumentException(
-            "Pass non empty attribute list"));
+        .orElseThrow(failEmpty());
   }
 
   /**
@@ -244,8 +243,7 @@ public class BeamDataOperator implements DataOperator {
           .distinct()
           .map(a -> a.createBatch(pipeline, attrList, Long.MIN_VALUE, untilStamp))
           .reduce((left, right) -> Union.of(left, right).output())
-          .orElseThrow(() -> new IllegalArgumentException(
-              "Pass non empty attribute list"));
+          .orElseThrow(failEmpty());
     }
     return reduceAsSnapshot(
         getBatchUpdates(pipeline, Long.MIN_VALUE, untilStamp, attrs));
@@ -317,6 +315,10 @@ public class BeamDataOperator implements DataOperator {
 
   public boolean hasDirect() {
     return direct != null;
+  }
+
+  private static Supplier<IllegalArgumentException> failEmpty() {
+    return () -> new IllegalArgumentException("Pass non empty attribute list");
   }
 
 }

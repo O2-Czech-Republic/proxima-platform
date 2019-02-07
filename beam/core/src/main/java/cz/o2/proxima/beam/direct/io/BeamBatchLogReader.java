@@ -96,9 +96,9 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
             && (current.getStamp() < startStamp || current.getStamp() >= endStamp)) {
 
           current = null;
-          continue;
+        } else {
+          break;
         }
-        break;
       }
       if (current != null) {
         return true;

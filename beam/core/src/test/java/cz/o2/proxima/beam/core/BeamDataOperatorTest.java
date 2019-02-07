@@ -58,7 +58,7 @@ public class BeamDataOperatorTest {
     beam = repo.asDataOperator(BeamDataOperator.class);
     direct = beam.getDirect();
     pipeline = Pipeline.create();
-    long now = System.currentTimeMillis();
+    now = System.currentTimeMillis();
   }
 
   @SuppressWarnings("unchecked")

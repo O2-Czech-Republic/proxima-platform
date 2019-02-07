@@ -148,7 +148,7 @@ public class BeamDataOperator implements DataOperator {
 
     return findSuitableAccessors(
         af -> af.getAccess().canReadCommitLog(), "commit-log", attrs)
-        .map(da -> da.getCommitLog(
+        .map(da -> da.createStream(
             name, pipeline, position, stopAtCurrent, useEventTime, limit))
         .reduce((left, right) -> Union.of(left, right).output())
         .orElseThrow(() -> new IllegalArgumentException(
@@ -190,7 +190,7 @@ public class BeamDataOperator implements DataOperator {
 
     return findSuitableAccessors(
         af -> af.getAccess().canReadBatchUpdates(), "batch-updates", attrs)
-        .map(da -> da.getBatchUpdates(pipeline, attrList, startStamp, endStamp))
+        .map(da -> da.createBatch(pipeline, attrList, startStamp, endStamp))
         .reduce((left, right) -> Union.of(left, right).output())
         .orElseThrow(() -> new IllegalArgumentException(
             "Pass non empty attribute list"));
@@ -242,7 +242,7 @@ public class BeamDataOperator implements DataOperator {
           .map(p -> p.getSecond().get())
           .map(this::accessorFor)
           .distinct()
-          .map(a -> a.getBatchSnapshot(pipeline, attrList, untilStamp))
+          .map(a -> a.createBatch(pipeline, attrList, Long.MIN_VALUE, untilStamp))
           .reduce((left, right) -> Union.of(left, right).output())
           .orElseThrow(() -> new IllegalArgumentException(
               "Pass non empty attribute list"));

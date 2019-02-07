@@ -18,6 +18,7 @@ package cz.o2.proxima.beam.core;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -28,6 +29,7 @@ import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.Sessions;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptors;
@@ -45,17 +47,18 @@ public class BeamDataOperatorTest {
       .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
   final AttributeDescriptor<?> armed = gateway.findAttribute("armed")
       .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
-  final long now = System.currentTimeMillis();
 
   BeamDataOperator beam;
   DirectDataOperator direct;
   Pipeline pipeline;
+  long now;
 
   @Before
   public void setUp() {
     beam = repo.asDataOperator(BeamDataOperator.class);
     direct = beam.getDirect();
     pipeline = Pipeline.create();
+    long now = System.currentTimeMillis();
   }
 
   @SuppressWarnings("unchecked")
@@ -131,51 +134,39 @@ public class BeamDataOperatorTest {
     pipeline.run();
   }
 
-  @SuppressWarnings("unchecked")
   @Test(timeout = 60000)
   public void testUnboundedCommitLogConsumptionWithWindowMany() {
     for (int round = 0; round < 10; round++) {
       setUp();
-      OnlineAttributeWriter writer = direct
-          .getWriter(armed)
-          .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
       final long elements = 99L;
-
-      for (int i = 0; i < elements; i++) {
-        writer.write(StreamElement.update(
-            gateway, armed, "uuid", "key" + i, armed.getName(),
-                now - 2000 - i, new byte[] { 1, 2, 3}), (succ, exc) -> { });
-      }
-
-      writer.write(StreamElement.update(
-          gateway, armed, "uuid", "key-last", armed.getName(),
-              now, new byte[] { 1, 2, 3}), (succ, exc) -> { });
-
-
-      PCollection<StreamElement> stream = beam.getStream(
-          "", pipeline, Position.OLDEST, false,
-          true, elements + 1, armed);
-
-      PCollection<KV<String, Long>> counted = CountByKey.of(stream)
-          .keyBy(e -> "", TypeDescriptors.strings())
-          .windowBy(FixedWindows.of(Duration.millis(1000)))
-          .triggeredBy(AfterWatermark.pastEndOfWindow())
-          .discardingFiredPanes()
-          .withAllowedLateness(Duration.millis(1000))
-          .output();
-
-      PAssert.that(counted).containsInAnyOrder(KV.of("", elements), KV.of("", 1L));
-      pipeline.run();
+      now += round * elements;
+      validatePCollectionWindowedRead(
+          () -> beam.getStream(
+              "", pipeline, Position.OLDEST, false,
+              true, elements + 1, armed),
+          elements);
     }
   }
 
-  @SuppressWarnings("unchecked")
+  @Test(timeout = 60000)
+  public void testBatchUpdatesConsumptionWithWindowMany() {
+    validatePCollectionWindowedRead(
+        () -> beam.getBatchUpdates(pipeline, armed), 99L);
+  }
+
   @Test(timeout = 60000)
   public void testBatchSnapshotConsumptionWithWindowMany() {
+    validatePCollectionWindowedRead(
+        () -> beam.getBatchSnapshot(pipeline, armed), 99L);
+  }
+
+  @SuppressWarnings("unchecked")
+  private void validatePCollectionWindowedRead(
+      Factory<PCollection<StreamElement>> input, long elements) {
+
     OnlineAttributeWriter writer = direct
         .getWriter(armed)
         .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
-    final long elements = 99L;
 
     for (int i = 0; i < elements; i++) {
       writer.write(StreamElement.update(
@@ -187,12 +178,9 @@ public class BeamDataOperatorTest {
         gateway, armed, "uuid", "key-last", armed.getName(),
             now, new byte[] { 1, 2, 3}), (succ, exc) -> { });
 
-
-    PCollection<StreamElement> stream = beam.getBatchUpdates(pipeline, armed);
-
-    PCollection<KV<String, Long>> counted = CountByKey.of(stream)
+    PCollection<KV<String, Long>> counted = CountByKey.of(input.apply())
         .keyBy(e -> "", TypeDescriptors.strings())
-        .windowBy(FixedWindows.of(Duration.millis(1000)))
+        .windowBy(Sessions.withGapDuration(Duration.millis(1000)))
         .triggeredBy(AfterWatermark.pastEndOfWindow())
         .discardingFiredPanes()
         .withAllowedLateness(Duration.millis(1000))
@@ -201,6 +189,5 @@ public class BeamDataOperatorTest {
     PAssert.that(counted).containsInAnyOrder(KV.of("", elements), KV.of("", 1L));
     pipeline.run();
   }
-
 
 }

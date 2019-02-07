@@ -49,7 +49,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
   }
 
   @Override
-  public PCollection<StreamElement> getCommitLog(
+  public PCollection<StreamElement> createStream(
       String name,
       Pipeline pipeline,
       Position position,
@@ -83,7 +83,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
   }
 
   @Override
-  public PCollection<StreamElement> getBatchUpdates(
+  public PCollection<StreamElement> createBatch(
       Pipeline pipeline, List<AttributeDescriptor<?>> attrs,
       long startStamp, long endStamp) {
 
@@ -100,14 +100,6 @@ public class DirectDataAccessorWrapper implements DataAccessor {
         .using(StreamElement::getStamp)
         .output()
         .setCoder(ret.getCoder());
-  }
-
-  @Override
-  public PCollection<StreamElement> getBatchSnapshot(
-      Pipeline pipeline, List<AttributeDescriptor<?>> attrs,
-      long untilStamp) {
-
-    throw new UnsupportedOperationException("Not supported yet.");
   }
 
 }

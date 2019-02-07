@@ -42,7 +42,7 @@ public interface DataAccessor extends AbstractDataAccessor {
    * It is useful mostly for testing purposes
    * @return {@link PCollection} representing the commit log
    */
-  PCollection<StreamElement> getCommitLog(
+  PCollection<StreamElement> createStream(
       String name, Pipeline pipeline, Position position,
       boolean stopAtCurrent, boolean eventTime,
       long limit);
@@ -55,23 +55,10 @@ public interface DataAccessor extends AbstractDataAccessor {
    * @param endStamp maximal update timestamp (exclusive)
    * @return {@link PCollection} representing the batch updates
    */
-  PCollection<StreamElement> getBatchUpdates(
+  PCollection<StreamElement> createBatch(
       Pipeline pipeline,
       List<AttributeDescriptor<?>> attrs,
       long startStamp,
       long endStamp);
-
-  /**
-   * Create {@link PCollection} for given attribute family's batch snapshot storage.
-   * @param pipeline pipeline to create {@link PCollection} in
-   * @param attrs attributes to read
-   * @param untilStamp read only updates older than this timestamp (i.e. if this
-   * method was called at the given timestamp)
-   * @return {@link PCollection} representing the batch snapshot
-   */
-  PCollection<StreamElement> getBatchSnapshot(
-      Pipeline pipeline,
-      List<AttributeDescriptor<?>> attrs,
-      long untilStamp);
 
 }

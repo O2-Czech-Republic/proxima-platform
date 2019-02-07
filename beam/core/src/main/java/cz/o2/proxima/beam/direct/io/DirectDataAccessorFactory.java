@@ -20,7 +20,7 @@ import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.internal.DataAccessorLoader;
+import cz.o2.proxima.repository.Repository;
 import java.net.URI;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -35,29 +35,18 @@ import lombok.extern.slf4j.Slf4j;
 public class DirectDataAccessorFactory implements DataAccessorFactory {
 
   @Nullable
-  final DataAccessorLoader<
-      DirectDataOperator,
-      cz.o2.proxima.direct.core.DataAccessor,
-      cz.o2.proxima.direct.core.DataAccessorFactory> directLoader;
+  private DirectDataOperator direct;
 
-  public DirectDataAccessorFactory() {
-    DataAccessorLoader<
-        DirectDataOperator,
-        cz.o2.proxima.direct.core.DataAccessor,
-        cz.o2.proxima.direct.core.DataAccessorFactory> loader = null;
-    try {
-      loader = DataAccessorLoader.of(
-          cz.o2.proxima.direct.core.DataAccessorFactory.class);
-    } catch (NoClassDefFoundError ex) {
-      log.debug("Failed to instantiate direct operator loader", ex);
-    }
-    directLoader = loader;
+  @Override
+  public void setup(Repository repo) {
+    direct = repo.hasOperator("direct")
+        ? repo.getOrCreateOperator(DirectDataOperator.class)
+        : null;
   }
 
   @Override
   public Accept accepts(URI uri) {
-    return directLoader != null
-        && directLoader.findForUri(uri).isPresent()
+    return direct != null && direct.getAccessorFactory(uri).isPresent()
         ? Accept.ACCEPT_IF_NEEDED : Accept.REJECT;
   }
 

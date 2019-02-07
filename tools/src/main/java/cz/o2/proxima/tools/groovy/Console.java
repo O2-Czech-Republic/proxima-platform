@@ -141,7 +141,7 @@ public class Console {
     this.config = config;
     this.repo = repo;
     this.direct = repo.hasOperator("direct")
-        ? Optional.of(repo.asDataOperator(DirectDataOperator.class))
+        ? Optional.of(repo.getOrCreateOperator(DirectDataOperator.class))
         : Optional.empty();
     ClassLoader old = Thread.currentThread().getContextClassLoader();
     Thread.currentThread().setContextClassLoader(new GroovyClassLoader(old));
@@ -154,6 +154,7 @@ public class Console {
     ServiceLoader<StreamProvider> loader = ServiceLoader.load(StreamProvider.class);
     streamProvider = Streams.stream(loader).findAny()
         .orElseThrow(() -> new IllegalArgumentException("No StreamProvider found"));
+    streamProvider.init(repo);
   }
 
   public GroovyObject getEnv() throws Exception {

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -32,7 +33,6 @@ import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.io.BoundedSource.BoundedReader;
 import org.apache.beam.sdk.io.Source.Reader;
 import org.apache.beam.sdk.io.UnboundedSource.UnboundedReader;
-import org.apache.beam.vendor.grpc.v1_13_1.com.google.common.base.Preconditions;
 import org.joda.time.Instant;
 
 /**

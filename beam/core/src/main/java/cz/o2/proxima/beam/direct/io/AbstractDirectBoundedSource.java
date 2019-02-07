@@ -28,6 +28,7 @@ import org.apache.beam.sdk.options.PipelineOptions;
 abstract class AbstractDirectBoundedSource extends BoundedSource<StreamElement> {
 
   final Repository repo;
+  
   AbstractDirectBoundedSource(Repository repo) {
     this.repo = repo;
   }

@@ -16,6 +16,7 @@
 package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.util.function.Predicate;
@@ -28,6 +29,15 @@ public interface StreamProvider {
   @FunctionalInterface
   interface TerminatePredicate {
     boolean check();
+  }
+
+
+  /**
+   * Initialize the provider with given repository.
+   * @param repo the repository
+   */
+  default void init(Repository repo) {
+
   }
 
   /**

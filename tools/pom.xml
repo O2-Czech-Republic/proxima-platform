@@ -48,6 +48,20 @@
           </execution>
         </executions>
       </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.0.2</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
     </plugins>
   </build>
 
@@ -87,29 +101,6 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-all</artifactId>
-      <version>${grpc.version}</version>
-      <exclusions>
-        <!-- do not use protobuf-lite, use protobuf-java -->
-        <exclusion>
-          <groupId>com.google.protobuf</groupId>
-          <artifactId>protobuf-lite</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>io.grpc</groupId>
-          <artifactId>grpc-protobuf-nano</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>io.grpc</groupId>
-          <artifactId>grpc-okhttp</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.protobuf</groupId>
-      <artifactId>protobuf-java</artifactId>
-      <scope>compile</scope>
-      <version>${proto.version}</version>
     </dependency>
 
     <dependency>
@@ -152,7 +143,6 @@
       <artifactId>proxima-ingest-client</artifactId>
       <version>${project.version}</version>
     </dependency>
-
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>

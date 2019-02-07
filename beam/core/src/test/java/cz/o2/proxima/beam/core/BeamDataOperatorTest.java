@@ -103,7 +103,6 @@ public class BeamDataOperatorTest {
 
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L), KV.of("", 1L));
     pipeline.run();
-
   }
 
   @SuppressWarnings("unchecked")

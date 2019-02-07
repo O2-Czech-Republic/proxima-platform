@@ -18,6 +18,7 @@ package cz.o2.proxima.storage.internal;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Map;
@@ -53,6 +54,15 @@ public interface AbstractDataAccessorFactory<
     REJECT
 
   }
+
+  /**
+   * Setup the factory for using given {@link Repository}.
+   * @param repo the repository that will be used with the factory
+   */
+  default void setup(Repository repo) {
+
+  }
+
 
   /**
    * Check if this factory can create accessors for given URI.

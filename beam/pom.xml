@@ -184,7 +184,7 @@
     <!--module>io-http</module-->
     <!--module>io-kafka</module-->
     <!--module>io-pubsub</module-->
-    <!--module>tools</module-->
+    <module>tools</module>
   </modules>
 
 </project>

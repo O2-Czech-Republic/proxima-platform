@@ -28,7 +28,6 @@ import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +39,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.Pipeline;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.ReduceByKey;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
 import org.apache.beam.sdk.values.PCollection;
 
@@ -55,15 +53,15 @@ public class BeamDataOperator implements DataOperator {
   private final DataAccessorLoader<
         BeamDataOperator,
         DataAccessor,
-        DataAccessorFactory> loader = DataAccessorLoader.of(
-            DataAccessorFactory.class);
+        DataAccessorFactory> loader;
   private final Map<AttributeFamilyDescriptor, DataAccessor> accessorMap;
 
   BeamDataOperator(Repository repo) {
     this.repo = repo;
     this.accessorMap = Collections.synchronizedMap(new HashMap<>());
+    this.loader = DataAccessorLoader.of(repo, DataAccessorFactory.class);
     this.direct = repo.hasOperator("direct")
-        ? repo.asDataOperator(DirectDataOperator.class)
+        ? repo.getOrCreateOperator(DirectDataOperator.class)
         : null;
   }
 
@@ -207,7 +205,7 @@ public class BeamDataOperator implements DataOperator {
       Pipeline pipeline,
       AttributeDescriptor<?>... attrs) {
 
-    return getBatchSnapshot(pipeline, Long.MAX_VALUE, attrs);
+    return getBatchSnapshot(pipeline, Long.MIN_VALUE, Long.MAX_VALUE, attrs);
   }
 
   /**
@@ -215,6 +213,7 @@ public class BeamDataOperator implements DataOperator {
    * The snapshot is either read from available storage or
    * created by reduction of updates.
    * @param pipeline {@link Pipeline} to create the {@link PCollection} in
+   * @param fromStamp ignore updates older than this stamp
    * @param untilStamp read only updates older than this timestamp (i.e. if this
    * method was called at the given timestamp)
    * @param attrs attributes to read snapshot for
@@ -222,6 +221,7 @@ public class BeamDataOperator implements DataOperator {
    */
   public final PCollection<StreamElement> getBatchSnapshot(
       Pipeline pipeline,
+      long fromStamp,
       long untilStamp,
       AttributeDescriptor<?>... attrs) {
 
@@ -241,12 +241,12 @@ public class BeamDataOperator implements DataOperator {
           .map(p -> p.getSecond().get())
           .map(this::accessorFor)
           .distinct()
-          .map(a -> a.createBatch(pipeline, attrList, Long.MIN_VALUE, untilStamp))
+          .map(a -> a.createBatch(pipeline, attrList, fromStamp, untilStamp))
           .reduce((left, right) -> Union.of(left, right).output())
           .orElseThrow(failEmpty());
     }
-    return reduceAsSnapshot(
-        getBatchUpdates(pipeline, Long.MIN_VALUE, untilStamp, attrs));
+    return PCollectionTools.reduceAsSnapshot(
+        getBatchUpdates(pipeline, fromStamp, untilStamp, attrs));
   }
 
   @SuppressWarnings("unchecked")
@@ -291,17 +291,6 @@ public class BeamDataOperator implements DataOperator {
         .map(f -> f.createAccessor(this, family.getEntity(), uri, family.getCfg()))
         .orElseThrow(() -> new IllegalStateException(
             "No accessor for URI " + family.getStorageUri()));
-  }
-
-  @VisibleForTesting
-  PCollection<StreamElement> reduceAsSnapshot(PCollection<StreamElement> other) {
-    Comparator<StreamElement> compare = (left, right) -> Long.compare(
-        left.getStamp(), right.getStamp());
-    return ReduceByKey.of(other)
-        .keyBy(e -> e.getKey() + "#" + e.getAttribute())
-        .combineBy(values -> values.collect(Collectors.maxBy(compare))
-            .orElseThrow(() -> new IllegalStateException("Empty key?")))
-        .outputValues();
   }
 
   @Override

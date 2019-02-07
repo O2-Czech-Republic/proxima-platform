@@ -78,11 +78,12 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   private final DataAccessorLoader<
       DirectDataOperator,
       DataAccessor,
-      DataAccessorFactory> loader = DataAccessorLoader.of(DataAccessorFactory.class);
+      DataAccessorFactory> loader;
 
   DirectDataOperator(Repository repo) {
     this.repo = repo;
     this.context = new Context(familyMap::get, executorFactory);
+    this.loader = DataAccessorLoader.of(repo, DataAccessorFactory.class);
     reload();
   }
 

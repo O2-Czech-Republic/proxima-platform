@@ -235,9 +235,7 @@ public class BeamDataOperator implements DataOperator {
         .collect(Collectors.toList());
 
     boolean unresolved = resolvedAttrs.stream()
-        .filter(p -> !p.getSecond().isPresent())
-        .findAny()
-        .isPresent();
+        .anyMatch(p -> !p.getSecond().isPresent());
 
     if (!unresolved) {
       return resolvedAttrs.stream()

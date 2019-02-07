@@ -26,11 +26,15 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.io.BoundedSource.BoundedReader;
+import org.joda.time.Instant;
 
 /**
  * A {@link BoundedReader} reading from {@link BatchLogObservable}.
  */
 class BeamBatchLogReader extends BoundedReader<StreamElement> {
+
+  private static final Instant LOWEST_INSTANT = new Instant(Long.MIN_VALUE);
+  private static final Instant HIGHEST_INSTANT = new Instant(Long.MAX_VALUE);
 
   static BeamBatchLogReader of(
       DirectBatchSource source,
@@ -48,9 +52,12 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
   private final BatchLogObservable reader;
   private final List<AttributeDescriptor<?>> attrs;
   private final Partition split;
+  private final long startStamp;
+  private final long endStamp;
 
   private StreamElement current;
   private BlockingQueueLogObserver observer;
+  private boolean finished = false;
 
   private BeamBatchLogReader(
       DirectBatchSource source,
@@ -64,6 +71,8 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
     this.reader = Objects.requireNonNull(reader);
     this.attrs = Objects.requireNonNull(attrs);
     this.split = Objects.requireNonNull(split);
+    this.startStamp = startStamp;
+    this.endStamp = endStamp;
   }
 
   @Override
@@ -81,10 +90,20 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
   @Override
   public boolean advance() throws IOException {
     try {
-      current = observer.take();
+      for (;;) {
+        current = observer.take();
+        if (current != null
+            && (current.getStamp() < startStamp || current.getStamp() >= endStamp)) {
+
+          current = null;
+          continue;
+        }
+        break;
+      }
       if (current != null) {
         return true;
       }
+      finished = true;
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
     }
@@ -108,6 +127,14 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
     // nop?
     // missing observe handle in observing batch log
     // @todo
+  }
+
+  @Override
+  public Instant getCurrentTimestamp() throws NoSuchElementException {
+    if (!finished) {
+      return LOWEST_INSTANT;
+    }
+    return HIGHEST_INSTANT;
   }
 
 }

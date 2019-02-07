@@ -16,6 +16,8 @@
 package cz.o2.proxima.direct.storage;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -23,6 +25,8 @@ import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -51,6 +55,9 @@ public class InMemStorageTest implements Serializable {
   final EntityDescriptor entity = repo
       .findEntity("dummy")
       .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
+  final AttributeDescriptor<?> data = entity.findAttribute("data")
+                .orElseThrow(() -> new IllegalStateException(
+                    "Missing attribute data"));
 
   @Test(timeout = 10000)
   public void testObservePartitions()
@@ -94,14 +101,51 @@ public class InMemStorageTest implements Serializable {
 
     writer.online().write(
         StreamElement.update(
-            entity, entity.findAttribute("data")
-                .orElseThrow(() -> new IllegalStateException(
-                    "Missing attribute data")),
-            UUID.randomUUID().toString(), "key", "data",
+            entity, data,
+            UUID.randomUUID().toString(), "key", data.getName(),
             System.currentTimeMillis(), new byte[] { 1, 2, 3 }),
         (succ, exc) -> { });
     latch.get().await();
   }
+
+  @Test(timeout = 10000)
+  public void testObserveBatch()
+      throws URISyntaxException, InterruptedException {
+
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor = storage.createAccessor(
+        direct, entity, new URI("inmem:///inmemstoragetest"),
+        Collections.emptyMap());
+    BatchLogObservable reader = accessor.getBatchLogObservable(direct.getContext())
+        .orElseThrow(() -> new IllegalStateException("Missing batch log observable"));
+    AttributeWriterBase writer = accessor.getWriter(direct.getContext())
+        .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    CountDownLatch latch = new CountDownLatch(1);
+    writer.online().write(
+        StreamElement.update(
+            entity, data,
+            UUID.randomUUID().toString(), "key", data.getName(),
+            System.currentTimeMillis(), new byte[] { 1, 2, 3 }),
+        (succ, exc) -> { });
+    reader.observe(reader.getPartitions(), Arrays.asList(data), new BatchLogObserver() {
+
+      @Override
+      public boolean onNext(StreamElement ingest, Partition partition) {
+        assertEquals(0, partition.getId());
+        assertEquals("key", ingest.getKey());
+        latch.countDown();
+        return false;
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+    });
+    latch.await();
+  }
+
 
   @Test(timeout = 10000)
   public void testObserveCancel()
@@ -144,10 +188,8 @@ public class InMemStorageTest implements Serializable {
 
     writer.online().write(
         StreamElement.update(
-            entity, entity.findAttribute("data")
-                .orElseThrow(() -> new IllegalStateException(
-                    "Missing attribute data")),
-            UUID.randomUUID().toString(), "key", "data",
+            entity, data,
+            UUID.randomUUID().toString(), "key", data.getName(),
             System.currentTimeMillis(), new byte[] { 1 }),
         (succ, exc) -> { });
     List<Offset> offsets = handle.getCurrentOffsets();
@@ -156,10 +198,8 @@ public class InMemStorageTest implements Serializable {
     handle.cancel();
     writer.online().write(
         StreamElement.update(
-            entity, entity.findAttribute("data")
-                .orElseThrow(() -> new IllegalStateException(
-                    "Missing attribute data")),
-            UUID.randomUUID().toString(), "key", "data",
+            entity, data,
+            UUID.randomUUID().toString(), "key", data.getName(),
             System.currentTimeMillis(), new byte[] { 2 }),
         (succ, exc) -> { });
     assertEquals(Arrays.asList((byte) 1), received);
@@ -208,10 +248,8 @@ public class InMemStorageTest implements Serializable {
 
     writer.online().write(
         StreamElement.update(
-            entity, entity.findAttribute("data")
-                .orElseThrow(() -> new IllegalStateException(
-                    "Missing attribute data")),
-            UUID.randomUUID().toString(), "key", "data",
+            entity, data,
+            UUID.randomUUID().toString(), "key", data.getName(),
             System.currentTimeMillis(), new byte[] { 1 }),
         (succ, exc) -> { });
     List<Offset> offsets = handle.getCurrentOffsets();
@@ -221,10 +259,8 @@ public class InMemStorageTest implements Serializable {
     reader.observeBulkOffsets(offsets, observer);
     writer.online().write(
         StreamElement.update(
-            entity, entity.findAttribute("data")
-                .orElseThrow(() -> new IllegalStateException(
-                    "Missing attribute data")),
-            UUID.randomUUID().toString(), "key", "data",
+            entity, data,
+            UUID.randomUUID().toString(), "key", data.getName(),
             System.currentTimeMillis(), new byte[] { 2 }),
         (succ, exc) -> { });
     assertEquals(Arrays.asList((byte) 1, (byte) 2), received);

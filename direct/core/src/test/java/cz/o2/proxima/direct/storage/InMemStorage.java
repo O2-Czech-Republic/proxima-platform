@@ -623,20 +623,22 @@ public class InMemStorage implements DataAccessorFactory {
       Preconditions.checkArgument(
           partitions.size() == 1,
           "This observable works on single partition only, got " + partitions);
-      int prefix = getUri().getPath().length() + 1;
+      int prefixLength = getUri().getPath().length() + 1;
       executor().execute(() -> {
         try {
           data.forEach((k, v) -> {
-            String[] parts = k.substring(prefix).split("#");
+            String[] parts = k.substring(prefixLength).split("#");
             String key = parts[0];
             String attribute = parts[1];
             getEntityDescriptor().findAttribute(attribute, true)
                 .flatMap(desc -> attributes.contains(desc)
                     ? Optional.of(desc) : Optional.empty())
                 .ifPresent(desc -> {
-                  observer.onNext(StreamElement.update(
-                      getEntityDescriptor(), desc, UUID.randomUUID().toString(), key,
-                      attribute, v.getFirst(), v.getSecond()));
+                  observer.onNext(
+                      StreamElement.update(getEntityDescriptor(),
+                          desc, UUID.randomUUID().toString(), key,
+                          attribute, v.getFirst(), v.getSecond()),
+                      PARTITION);
                 });
           });
           observer.onCompleted();

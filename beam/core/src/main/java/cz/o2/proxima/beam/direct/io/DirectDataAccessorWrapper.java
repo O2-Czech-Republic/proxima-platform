@@ -17,7 +17,6 @@ package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
-import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -93,10 +92,9 @@ public class DirectDataAccessorWrapper implements DataAccessor {
         .orElseThrow(() -> new IllegalArgumentException(
             "Cannot create commit log from " + direct));
 
-    BatchLogObserver observer;
-    final PCollection<StreamElement> ret;
-    ret = pipeline.apply(
+    PCollection<StreamElement> ret = pipeline.apply(
         Read.from(DirectBatchSource.of(repo, reader, attrs, startStamp, endStamp)));
+
     return AssignEventTime
         .of(ret)
         .using(StreamElement::getStamp)

@@ -23,7 +23,7 @@ import java.util.Arrays;
  */
 abstract class AbstractStreamTest implements Serializable {
 
-  final TestStreamProvider provider;
+  final transient TestStreamProvider provider;
 
   protected AbstractStreamTest(TestStreamProvider provider) {
     this.provider = provider;

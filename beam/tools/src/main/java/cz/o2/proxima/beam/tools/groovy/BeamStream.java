@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.tools.groovy;
 
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
+import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.functional.Consumer;
@@ -34,6 +35,7 @@ import cz.o2.proxima.util.Pair;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import groovy.lang.Closure;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -45,20 +47,37 @@ import org.apache.beam.sdk.coders.CoderRegistry;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
+import org.apache.beam.sdk.options.PipelineOptions;
+import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
+import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
-import org.apache.beam.sdk.transforms.windowing.Window;
+import org.apache.beam.sdk.transforms.windowing.Sessions;
+import org.apache.beam.sdk.transforms.windowing.SlidingWindows;
+import org.apache.beam.sdk.transforms.windowing.WindowFn;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PDone;
 import org.apache.beam.sdk.values.TypeDescriptor;
+import org.apache.beam.sdk.values.WindowingStrategy;
+import org.joda.time.Duration;
 
 /**
  * A {@link Stream} implementation based on beam.
  */
 class BeamStream<T> implements Stream<T> {
+
+  static <T, S extends BeamStream<T>> S withRegisteredTypes(
+      Repository repo, S in) {
+
+    return in.addRegistrar(r -> r.registerCoderForClass(
+        StreamElement.class, StreamElementCoder.of(repo)));
+  }
 
   static Stream<StreamElement> stream(
       BeamDataOperator beam,
@@ -66,10 +85,12 @@ class BeamStream<T> implements Stream<T> {
       StreamProvider.TerminatePredicate terminateCheck,
       AttributeDescriptor<?>[] attrs) {
 
-    return new BeamStream<>(
-        stopAtCurrent,
-        pipeline -> beam.getStream(
-            pipeline, position, stopAtCurrent, eventTime, attrs));
+    return withRegisteredTypes(
+        beam.getRepository(),
+        new BeamStream<>(
+            stopAtCurrent,
+            pipeline -> beam.getStream(
+                pipeline, position, stopAtCurrent, eventTime, attrs)));
   }
 
   static WindowedStream<StreamElement> batchUpdates(
@@ -78,9 +99,12 @@ class BeamStream<T> implements Stream<T> {
       StreamProvider.TerminatePredicate terminateCheck,
       AttributeDescriptor<?>[] attrs) {
 
-    return new BeamStream<>(
-        true,
-        pipeline -> beam.getBatchUpdates(pipeline, startStamp, endStamp, attrs))
+    return withRegisteredTypes(
+        beam.getRepository(),
+        new BeamStream<>(
+            true,
+            pipeline -> beam.getBatchUpdates(
+                pipeline, startStamp, endStamp, attrs)))
         .windowAll();
   }
 
@@ -90,37 +114,45 @@ class BeamStream<T> implements Stream<T> {
       StreamProvider.TerminatePredicate terminateCheck,
       AttributeDescriptor<?>[] attrs) {
 
-    return new BeamStream<>(
-        true,
-        pipeline -> beam.getBatchSnapshot(pipeline, fromStamp, toStamp, attrs))
+    return withRegisteredTypes(
+        beam.getRepository(),
+        new BeamStream<>(
+            true,
+            pipeline -> beam.getBatchSnapshot(
+                pipeline, fromStamp, toStamp, attrs)))
         .windowAll();
   }
 
   final boolean bounded;
   final PCollectionProvider<T> collection;
+  final List<Consumer<CoderRegistry>> registrars = new ArrayList<>();
 
   BeamStream(boolean bounded, PCollectionProvider<T> input) {
     this.bounded = bounded;
     this.collection = input;
   }
 
+  @SuppressWarnings("unchecked")
+  <S extends BeamStream<T>> S addRegistrar(Consumer<CoderRegistry> registrar) {
+    registrars.add(registrar);
+    return (S) this;
+  }
+
   @Override
   public <X> Stream<X> map(Closure<X> mapper) {
     Closure<X> dehydrated = mapper.dehydrate();
-    TypeDescriptor<X> type = TypeDescriptor.of(Types.returnClass(dehydrated));
-    return new BeamStream<>(
-        bounded,
+    TypeDescriptor<X> typeDesc = typeOf(dehydrated);
+    return descendant(
         pipeline -> MapElements
             .of(collection.materialize(pipeline))
-            .using(e -> dehydrated.call(e), type)
+            .using(e -> dehydrated.call(e), typeDesc)
             .output());
   }
 
   @Override
   public Stream<T> filter(Closure<Boolean> predicate) {
     Closure<Boolean> dehydrated = predicate.dehydrate();
-    return new BeamStream<>(
-        bounded,
+    return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
           return Filter
@@ -134,14 +166,14 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public Stream<T> assignEventTime(Closure<Long> assigner) {
     Closure<Long> dehydrated = assigner.dehydrate();
-    return new BeamStream<>(
-        bounded,
+    return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
           return AssignEventTime
               .of(in)
               .using(dehydrated::call)
               .output()
+              .setTypeDescriptor(in.getTypeDescriptor())
               .setCoder(in.getCoder());
         });
   }
@@ -149,8 +181,7 @@ class BeamStream<T> implements Stream<T> {
   @SuppressWarnings("unchecked")
   @Override
   public Stream<Pair<Object, T>> withWindow() {
-    return new BeamStream<>(
-        bounded,
+    return descendant(
         pipeline -> {
           try {
             PCollection<T> in = collection.materialize(pipeline);
@@ -244,36 +275,89 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public WindowedStream<T> timeWindow(long millis) {
-    throw new UnsupportedOperationException("timeWindow");
+    return windowed(
+        collection,
+        FixedWindows.of(Duration.millis(millis)));
   }
 
   @Override
   public WindowedStream<T> timeSlidingWindow(long millis, long slide) {
-    throw new UnsupportedOperationException("timeSlidingWindow");
+    return windowed(
+        collection,
+        SlidingWindows.of(Duration.millis(millis)).every(Duration.millis(slide)));
   }
 
   @Override
   public <K> WindowedStream<Pair<K, T>> sessionWindow(
       Closure<K> keyExtractor, long gapDuration) {
 
-    throw new UnsupportedOperationException("sessionWindow");
+    Closure<K> dehydrated = keyExtractor.dehydrate();
+    TypeDescriptor<K> type = typeOf(keyExtractor);
+
+    return windowed(
+        pipeline -> {
+          PCollection<T> in = collection.materialize(pipeline);
+          return MapElements.of(in)
+              .using(
+                  e -> Pair.of(dehydrated.call(e), e),
+                  PairCoder.descriptor(type, in.getTypeDescriptor()))
+              .output()
+              .setTypeDescriptor(PairCoder.descriptor(
+                  type, in.getTypeDescriptor()));
+        },
+        Sessions.withGapDuration(Duration.millis(gapDuration)));
   }
 
   @Override
   public WindowedStream<T> windowAll() {
-    return new BeamWindowedStream<>(
-        bounded,
-        pipeline -> collection.materialize(pipeline)
-            .apply(Window.into(new GlobalWindows())));
+    return windowed(collection, new GlobalWindows());
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public Stream<T> union(Stream<T> other) {
-    throw new UnsupportedOperationException("union");
+    return descendant(
+        pipeline -> {
+          PCollection<T> left = collection.materialize(pipeline);
+          PCollection<T> right = ((BeamStream<T>) other)
+              .collection.materialize(pipeline);
+          return PCollectionList.of(Arrays.asList(left, right))
+              .apply(Flatten.pCollections())
+              .setTypeDescriptor(left.getTypeDescriptor())
+              .setCoder(left.getCoder());
+        });
+  }
+
+  <X> BeamStream<X> descendant(PCollectionProvider<X> provider) {
+    return new BeamStream<>(
+        bounded,
+        provider);
   }
 
   Pipeline createPipeline() {
-    return Pipeline.create();
+    PipelineOptions opts = PipelineOptionsFactory.create();
+    Pipeline ret = Pipeline.create(opts);
+    registerCoders(ret.getCoderRegistry());
+    return ret;
+  }
+
+  <T> TypeDescriptor<T> typeOf(Closure<T> closure) {
+    return TypeDescriptor.of(Types.returnClass(closure));
+  }
+
+  <X> BeamWindowedStream<X> windowed(
+      PCollectionProvider<X> provider,
+      WindowFn<? super X, ?> window) {
+
+    return new BeamWindowedStream<>(
+        bounded, provider, window,
+        WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES);
+  }
+
+  private void registerCoders(CoderRegistry registry) {
+    registry.registerCoderForClass(
+        GlobalWindow.class, GlobalWindow.Coder.INSTANCE);
+    registrars.forEach(r -> r.accept(registry));
   }
 
   private static <T> DoFn<T, Void> asDoFn(Consumer<T> consumer) {
@@ -296,11 +380,16 @@ class BeamStream<T> implements Stream<T> {
     };
   }
 
-  private static <W extends BoundedWindow, T> DoFn<T, Pair<W, T>> extractWindow() {
-    return new DoFn<T, Pair<W, T>>() {
+  @SuppressWarnings("unchecked")
+  private static <T> DoFn<T, Pair<BoundedWindow, T>> extractWindow() {
+    return new DoFn<T, Pair<BoundedWindow, T>>() {
       @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
       @ProcessElement
-      public void process(@Element T elem, W window, OutputReceiver output) {
+      public void process(
+          @Element T elem,
+          BoundedWindow window,
+          OutputReceiver<Pair<BoundedWindow, T>> output) {
+
         output.output(Pair.of(window, elem));
       }
     };
@@ -319,12 +408,26 @@ class BeamStream<T> implements Stream<T> {
       return INSTANCE;
     }
 
+    @Override
+    public void add(int index, T element) {
+      synchronized (INSTANCE) {
+        super.add(index, element);
+      }
+    }
+
+    @Override
+    public boolean add(T e) {
+      synchronized (INSTANCE) {
+        return super.add(e);
+      }
+    }
+
   }
 
   @SuppressWarnings("unchecked")
   private static <T> List<T> newUnserializableList() {
     SingletonList.INSTANCE.clear();
-    return (List) SingletonList.INSTANCE;
+    return SingletonList.INSTANCE;
   }
 
 }

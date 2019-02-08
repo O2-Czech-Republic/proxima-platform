@@ -15,11 +15,20 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
+import cz.o2.proxima.tools.groovy.JavaTypedClosure;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamTest;
 import cz.o2.proxima.tools.groovy.TestStreamProvider;
+import groovy.lang.Closure;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.windowing.WindowFn;
+import org.apache.beam.sdk.values.TypeDescriptor;
 
 public class BeamStreamTest extends StreamTest {
 
@@ -29,12 +38,82 @@ public class BeamStreamTest extends StreamTest {
 
   static TestStreamProvider provider() {
     return new TestStreamProvider() {
+      @SuppressWarnings("unchecked")
       @Override
       public <T> Stream<T> of(List<T> values) {
-        return new BeamStream<>(true, pipeline ->
-          pipeline.apply(Create.of(values)));
+        Set<Class<?>> classes = values.stream()
+            .map(Object::getClass).collect(Collectors.toSet());
+
+        Preconditions.checkArgument(
+            classes.size() == 1,
+            "Please pass uniform object types, got " + classes);
+
+        TypeDescriptor<T> typeDesc = TypeDescriptor.of(
+            (Class) Iterables.getOnlyElement(classes));
+
+        return injectTypeOf(
+            new BeamStream<>(
+                true,
+                p -> p.apply(Create.of(values)).setTypeDescriptor(typeDesc)));
       }
     };
   }
+
+  static <T> BeamStream<T> injectTypeOf(BeamStream<T> delegate) {
+    return new BeamStream<T>(delegate.isBounded(), delegate.collection) {
+      @Override
+      <T> TypeDescriptor<T> typeOf(Closure<T> closure) {
+        return getTypeOf(closure).orElseGet(() -> super.typeOf(closure));
+      }
+
+      @Override
+      <X> BeamWindowedStream<X> windowed(
+          PCollectionProvider<X> provider,
+          WindowFn<? super X, ?> window) {
+
+        return injectTypeOf(super.windowed(provider, window));
+      }
+
+      @Override
+      <X> BeamStream<X> descendant(PCollectionProvider<X> provider) {
+        return injectTypeOf(super.descendant(provider));
+      }
+
+    };
+  }
+
+  static <T> BeamWindowedStream<T> injectTypeOf(BeamWindowedStream<T> delegate) {
+    return new BeamWindowedStream<T>(
+        delegate.isBounded(), delegate.collection,
+        delegate.getWindowing(), delegate.getMode()) {
+
+      @Override
+      <T> TypeDescriptor<T> typeOf(Closure<T> closure) {
+        return getTypeOf(closure).orElseGet(() -> super.typeOf(closure));
+      }
+
+      @Override
+      <X> BeamWindowedStream<X> windowed(
+          PCollectionProvider<X> provider,
+          WindowFn<? super X, ?> window) {
+
+        return injectTypeOf(super.windowed(provider, window));
+      }
+
+      @Override
+      <X> BeamWindowedStream<X> descendant(PCollectionProvider<X> provider) {
+        return injectTypeOf(super.descendant(provider));
+      }
+    };
+  }
+
+  @SuppressWarnings("unchecked")
+  static <T> Optional<TypeDescriptor<T>> getTypeOf(Closure<T> closure) {
+    if (closure instanceof JavaTypedClosure) {
+      return Optional.of(TypeDescriptor.of(((JavaTypedClosure) closure).getType()));
+    }
+    return Optional.empty();
+  }
+
 
 }

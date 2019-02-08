@@ -28,6 +28,7 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
 import org.apache.beam.sdk.io.Read;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.TypeDescriptor;
 
 /**
  * Wrapper of direct data accessor to beam one.
@@ -72,6 +73,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
       ret = pipeline.apply(
           Read.from(DirectUnboundedSource.of(repo, name, reader, position, limit)));
     }
+    ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
     if (eventTime) {
       return AssignEventTime
           .of(ret)
@@ -95,6 +97,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     PCollection<StreamElement> ret = pipeline.apply(
         Read.from(DirectBatchSource.of(repo, reader, attrs, startStamp, endStamp)));
 
+    ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
     return AssignEventTime
         .of(ret)
         .using(StreamElement::getStamp)

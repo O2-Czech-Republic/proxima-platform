@@ -24,68 +24,200 @@ import groovy.lang.Closure;
  */
 public interface WindowedStream<T> extends Stream<T> {
 
+  /**
+   * Reduce stream via given reducer.
+   * @param <K> key type
+   * @param <V> value type
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initialValue zero element
+   * @param reducer the reduce function
+   * @return reduced stream
+   */
   <K, V> WindowedStream<Pair<K, V>> reduce(
       Closure<K> keyExtractor,
       Closure<V> valueExtractor,
       V initialValue,
       Closure<V> reducer);
 
+  /**
+   * Reduce stream via given reducer.
+   * @param <K> key type
+   * @param <V> value type
+   * @param keyExtractor extractor of key
+   * @param initialValue zero element
+   * @param reducer the reduce function
+   * @return reduced stream
+   */
   <K, V> WindowedStream<Pair<K, V>> reduce(
       Closure<K> keyExtractor,
       V initialValue,
       Closure<V> reducer);
 
+  /**
+   * Reduce stream to latest values only.
+   * @return reduced stream
+   */
   WindowedStream<StreamElement> reduceToLatest();
 
+  /**
+   * Reduce stream with reduce function taking list of values.
+   * @param <K> key type
+   * @param <V> value type
+   * @param keyExtractor extractor of key
+   * @param listReduce the reduce function taking list of elements
+   * @return reduced stream
+   */
   <K, V> WindowedStream<Pair<K, V>> flatReduce(
       Closure<K> keyExtractor,
       Closure<V> listReduce);
 
+  /**
+   * Apply combine transform to stream.
+   * @param <K> key type
+   * @param <V> value type
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initial zero element
+   * @param combine combine function
+   * @return the new stream
+   */
   <K, V> WindowedStream<Pair<K, V>> combine(
       Closure<K> keyExtractor,
       Closure<V> valueExtractor,
       V initial,
       Closure<V> combine);
 
+  /**
+   * Apply combine transform to stream.
+   * @param <K> key type
+   * @param keyExtractor extractor of key
+   * @param initial zero element
+   * @param combine combine function
+   * @return the new stream
+   */
   <K> WindowedStream<Pair<K, T>> combine(
       Closure<K> keyExtractor,
       T initial,
       Closure<T> combine);
 
+  /**
+   * Count elements of stream by key.
+   * @param <K> key type
+   * @param keyExtractor extractor of key
+   * @return stream with elements counted
+   */
   <K> WindowedStream<Pair<K, Long>> countByKey(Closure<K> keyExtractor);
 
+  /**
+   * Average elements of stream.
+   * @param valueExtractor extractor of double value to be averaged
+   * @return the stream with average values
+   */
   WindowedStream<Double> average(Closure<Double> valueExtractor);
 
+  /**
+   * Average elements of stream by key.
+   * @param <K> key type
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of double value
+   * @return stream with avverage values per key
+   */
   <K> WindowedStream<Pair<K, Double>> averageByKey(
       Closure<K> keyExtractor,
       Closure<Double> valueExtractor);
 
-  <LEFT, RIGHT> WindowedStream<Pair<T, RIGHT>> join(
-      WindowedStream<RIGHT> right,
-      Closure<LEFT> leftKey,
-      Closure<RIGHT> rightKey);
+  /**
+   * Join with other stream.
+   * @param <K> type of join key
+   * @param <OTHER> type of other stream
+   * @param right the right stream
+   * @param leftKey extractor applied on left stream
+   * @param rightKey extractor applied on right stream
+   * @return joined stream
+   */
+  <K, OTHER> WindowedStream<Pair<T, OTHER>> join(
+      WindowedStream<OTHER> right,
+      Closure<K> leftKey,
+      Closure<K> rightKey);
 
-  <LEFT, RIGHT> WindowedStream<Pair<T, RIGHT>> leftJoin(
-      WindowedStream<RIGHT> right,
-      Closure<LEFT> leftKey,
-      Closure<RIGHT> rightKey);
 
+  /**
+   * Left join with other stream.
+   * @param <K> type of join key
+   * @param <OTHER> type of other stream
+   * @param right the right stream
+   * @param leftKey extractor applied on left stream
+   * @param rightKey extractor applied on right stream
+   * @return joined stream
+   */
+  <K, OTHER> WindowedStream<Pair<T, OTHER>> leftJoin(
+      WindowedStream<OTHER> right,
+      Closure<K> leftKey,
+      Closure<K> rightKey);
+
+  /**
+   * Sort stream.
+   * @param compareFn comparison function
+   * @return sorted stram
+   */
   WindowedStream<T> sorted(Closure<Integer> compareFn);
 
+  /**
+   * Sort stream consisting of {@link Comparable}s.
+   * @return sorted stream
+   */
   WindowedStream<Comparable<T>> sorted();
 
+  /**
+   * Count elements.
+   * @return stream with element counts
+   */
   WindowedStream<Long> count();
 
+  /**
+   * Sum elements.
+   * @param valueExtractor extractor of double value
+   * @return stream with sums
+   */
   WindowedStream<Double> sum(Closure<Double> valueExtractor);
 
+  /**
+   * Sum elements by key.
+   * @param <K> type of key
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of double value
+   * @return stream with sums per key
+   */
   <K> WindowedStream<Pair<K, Double>> sumByKey(
       Closure<K> keyExtractor,
       Closure<Double> valueExtractor);
 
+  /**
+   * Output distinct elements.
+   * @return stream with distinct elements
+   */
   WindowedStream<T> distinct();
 
+  /**
+   * Output distinct elements through given mapper.
+   * @param mapper map values by given function before comparison
+   * @return distinct stream
+   */
   WindowedStream<T> distinct(Closure<?> mapper);
 
+  /**
+   * Specify early emitting for windowed operations
+   * @param duration the duration (in processing time) of the early emitting
+   * @return stream with early emitting specified
+   */
   WindowedStream<T> withEarlyEmitting(long duration);
+
+  /**
+   * Specify allowed lateness for windowed operations.
+   * @param lateness the allowed lateness
+   * @return stream with allowed lateness specified
+   */
+  WindowedStream<T> withAllowedLateness(long lateness);
 
 }

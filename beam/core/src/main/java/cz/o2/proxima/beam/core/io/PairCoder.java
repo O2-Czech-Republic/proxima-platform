@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.core.io;
 
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.InputStream;
@@ -22,14 +23,27 @@ import java.io.OutputStream;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.coders.CustomCoder;
+import org.apache.beam.sdk.values.TypeDescriptor;
+import org.apache.beam.sdk.values.TypeParameter;
 
 /**
  * A coder for {@link Pair}s.
  */
+@Internal
 public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
 
   public static <K, V> PairCoder<K, V> of(Coder<K> keyCoder, Coder<V> valueCoder) {
     return new PairCoder<>(keyCoder, valueCoder);
+  }
+
+  public static <K, V> TypeDescriptor<Pair<K, V>> descriptor(
+      TypeDescriptor<K> key, TypeDescriptor<V> value) {
+
+    TypeDescriptor<Pair<K, V>> typeDescriptor =
+        new TypeDescriptor<Pair<K, V>>() {}.where(new TypeParameter<K>() {}, key)
+            .where(new TypeParameter<V>() {}, value);
+
+    return typeDescriptor;
   }
 
   private final Coder<K> keyCoder;

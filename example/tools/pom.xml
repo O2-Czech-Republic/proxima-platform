@@ -131,6 +131,12 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-scheme</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-tools</artifactId>
       <version>${project.version}</version>
     </dependency>

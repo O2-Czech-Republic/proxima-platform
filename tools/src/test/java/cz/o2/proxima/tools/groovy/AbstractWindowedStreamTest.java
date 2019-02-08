@@ -18,11 +18,10 @@ package cz.o2.proxima.tools.groovy;
 import com.google.common.collect.Sets;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import static org.junit.Assert.assertEquals;
 import org.junit.Test;
 
@@ -39,92 +38,71 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   @Test
   public void testWindowAllReduce() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Object> result = new ArrayList<>();
-    intoSingleWindow(stream)
+    List<Pair<Integer, Integer>> result = intoSingleWindow(stream)
         .reduce(
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object argument) {
                 return 0;
               }
-            },
+            }, Integer.class),
             1,
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object... args) {
                 return (int) args[0] + (int) args[1];
               }
-            })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
-    assertEquals(Arrays.asList(Pair.of(0, 11)), result);
+            }, Integer.class))
+        .collect();
+    assertUnorderedEquals(result, Pair.of(0, 11));
   }
 
   @Test
   public void testWindowAllReduceWithValue() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Object> result = new ArrayList<>();
-    intoSingleWindow(stream)
+    List<Pair<Integer, Integer>> result =  intoSingleWindow(stream)
         .reduce(
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object argument) {
                 return 0;
               }
-            },
-            new Closure<Integer>(this) {
+            }, Integer.class),
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object argument) {
                 return (int) argument + 1;
               }
-            },
+            }, Integer.class),
             1,
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object... args) {
                 return (int) args[0] + (int) args[1];
               }
-            })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
-    assertEquals(Arrays.asList(Pair.of(0, 15)), result);
+            }, Integer.class))
+        .collect();
+    assertUnorderedEquals(result, Pair.of(0, 15));
   }
 
   @Test
   public void testWindowAllFlatReduce() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Object> result = new ArrayList<>();
-    intoSingleWindow(stream)
+    List<Pair<Integer, List>> result = intoSingleWindow(stream)
         .flatReduce(
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object argument) {
                 return 0;
               }
-            },
-            new Closure<Object>(this) {
+            }, Integer.class),
+            wrap(new Closure<List>(this) {
               @Override
-              public Object call(Object... arguments) {
+              public List call(Object... arguments) {
                 return Arrays.asList(arguments);
               }
-            })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
+            }, List.class))
+        .collect();
     // this is because how groovy closures works for different types
     assertEquals(2, result.size());
     assertEquals(Pair.of(0, Arrays.asList(1, 2, 3, 4)), result.get(1));
@@ -133,87 +111,67 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   @Test
   public void testWindowAllCombine() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Object> result = new ArrayList<>();
-    intoSingleWindow(stream)
+    List<Pair<Integer, Integer>> result = intoSingleWindow(stream)
         .combine(
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object argument) {
                 return 0;
               }
-            },
+            }, Integer.class),
             0, /* if this is non-zero element, then the result is undefined */
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object... args) {
                 return (int) args[0] + (int) args[1];
               }
-            })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
-    assertEquals(Arrays.asList(Pair.of(0, 10)), result);
+            }, Integer.class))
+        .collect();
+
+    assertUnorderedEquals(result, Pair.of(0, 10));
   }
 
   @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllCombineWithValue() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Object> result = new ArrayList<>();
-    intoSingleWindow(stream)
+    List<Pair<Integer, Integer>> result =  intoSingleWindow(stream)
         .combine(
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object argument) {
                 return 0;
               }
-            },
-            new Closure<Integer>(this) {
+            }, Integer.class),
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object argument) {
                 return (int) argument + 1;
               }
-            },
+            }, Integer.class),
             0, /* if this is non-zero element, then the result is undefined */
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object... args) {
                 return (int) args[0] + (int) args[1];
               }
-            })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
+            }, Integer.class))
+        .collect();
     assertEquals(Arrays.asList(Pair.of(0, 14)), result);
   }
 
   @Test
   public void testWindowAllCountByKey() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Object> result = new ArrayList<>();
-    intoSingleWindow(stream)
+    List<Pair<Integer, Long>> result = intoSingleWindow(stream)
         .countByKey(
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object argument) {
                 return 0;
               }
-            })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
+            }, Integer.class))
+        .collect();
     assertEquals(Arrays.asList(Pair.of(0, 4L)), result);
   }
 
@@ -221,22 +179,15 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   @Test
   public void testWindowAllAverage() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Object> result = new ArrayList<>();
-    intoSingleWindow(stream)
+    List<Double> result = intoSingleWindow(stream)
         .average(
-            new Closure<Double>(this) {
+            wrap(new Closure<Double>(this) {
               @Override
               public Double call(Object argument) {
                 return (double) ((int) argument + 1);
               }
-            })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
+            }, Double.class))
+        .collect();
     assertEquals(Arrays.asList(14 / 4.), result);
   }
 
@@ -244,28 +195,24 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   @Test
   public void testWindowAllAverageByKey() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    Set<Object> result = new HashSet<>();
-    intoSingleWindow(stream)
+    Set<Pair<Integer, Double>> result = intoSingleWindow(stream)
         .averageByKey(
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object argument) {
                 return (int) argument % 2;
               }
-            },
-            new Closure<Double>(this) {
+            }, Integer.class),
+            wrap(new Closure<Double>(this) {
               @Override
               public Double call(Object argument) {
                 return (double) ((int) argument + 1);
               }
-            })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add((Pair<Integer, Double>) argument);
-            return null;
-          }
-        });
+            }, Double.class))
+        .collect()
+        .stream()
+        .collect(Collectors.toSet());
+
     assertEquals(Sets.newHashSet(
         Pair.of(0, 4.0),
         Pair.of(1, 3.0)),
@@ -277,30 +224,23 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   public void testJoin() {
     Stream<Integer> stream1 = stream(1, 2, 3, 4);
     Stream<Integer> stream2 = stream(3, 4);
-    Closure<Integer> keyExtractor = new Closure<Integer>(this) {
-
+    Closure<Integer> keyExtractor = wrap(new Closure<Integer>(this) {
       @Override
       public Integer call(Object argument) {
         return (int) argument % 2;
       }
-
-    };
-    Set<Object> result = new HashSet<>();
-    intoSingleWindow(stream1)
+    }, Integer.class);
+    
+    List<Pair<Integer, Integer>> result = intoSingleWindow(stream1)
         .join(intoSingleWindow(stream2), keyExtractor, keyExtractor)
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
-    assertEquals(Sets.newHashSet(
+        .collect();
+
+    assertUnorderedEquals(
+        result,
         Pair.of(2, 4),
         Pair.of(4, 4),
         Pair.of(1, 3),
-        Pair.of(3, 3)),
-        result);
+        Pair.of(3, 3));
   }
 
   @SuppressWarnings("unchecked")
@@ -308,24 +248,20 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   public void testLeftJoin() {
     Stream<Integer> stream1 = stream(3);
     Stream<Integer> stream2 = stream(1, 2, 3, 4);
-    Closure<Integer> keyExtractor = new Closure<Integer>(this) {
+    Closure<Integer> keyExtractor = wrap(new Closure<Integer>(this) {
 
       @Override
       public Integer call(Object argument) {
         return (int) argument % 2;
       }
 
-    };
-    Set<Object> result = new HashSet<>();
-    intoSingleWindow(stream1)
+    }, Integer.class);
+    Set<Object> result = intoSingleWindow(stream1)
         .leftJoin(    intoSingleWindow(stream2), keyExtractor, keyExtractor)
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
+        .collect()
+        .stream()
+        .collect(Collectors.toSet());
+
     assertEquals(Sets.newHashSet(
         Pair.of(3, 3),
         Pair.of(3, 1)),
@@ -335,16 +271,10 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   @Test
   public void testWindowAllSorted() {
     Stream<Integer> stream = stream(4, 3, 2, 1);
-    List<Object> result = new ArrayList<>();
-    intoSingleWindow(stream)
+    List<Comparable<Integer>> result = intoSingleWindow(stream)
         .sorted()
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
+        .collect();
+
     assertEquals(
         Arrays.asList(1, 2, 3, 4),
         result);
@@ -353,22 +283,16 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   @Test
   public void testWindowAllSortedWithComparator() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Object> result = new ArrayList<>();
-    intoSingleWindow(stream)
-        .sorted(new Closure<Integer>(this) {
+    List<Integer> result = intoSingleWindow(stream)
+        .sorted(wrap(new Closure<Integer>(this) {
           @Override
           public Integer call(Object... args) {
             // reversed
             return Integer.compare((int) args[1], (int) args[0]);
           }
-        })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
+        }, Integer.class))
+        .collect();
+
     assertEquals(
         Arrays.asList(4, 3, 2, 1),
         result);
@@ -377,70 +301,52 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   @Test
   public void testWindowAllCount() {
     Stream<Integer> stream = stream(4, 3, 2, 1);
-    List<Object> result = new ArrayList<>();
-    intoSingleWindow(stream)
+    List<Long> result = intoSingleWindow(stream)
         .count()
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
-    assertEquals(
-        Arrays.asList(4L),
-        result);
+        .collect();
+
+    assertUnorderedEquals(result, 4L);
   }
 
   @Test
   public void testWindowAllSum() {
     Stream<Integer> stream = stream(4, 3, 2, 1);
-    List<Object> result = new ArrayList<>();
-    intoSingleWindow(stream)
-        .sum(new Closure<Double>(this) {
+    List<Double> result = intoSingleWindow(stream)
+        .sum(wrap(new Closure<Double>(this) {
           @Override
           public Double call(Object argument) {
             return (double) (int) argument;
           }
-        })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
-    assertEquals(
-        Arrays.asList(10.0),
-        result);
+        }, Double.class))
+        .collect();
+
+    assertUnorderedEquals(
+        result,
+        10.0);
   }
 
   @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllSumByKey() {
     Stream<Integer> stream = stream(4, 3, 2, 1);
-    Set<Object> result = new HashSet<>();
-    intoSingleWindow(stream)
+    Set<Pair<Integer, Double>> result = intoSingleWindow(stream)
         .sumByKey(
-            new Closure<Integer>(this) {
+            wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object argument) {
                 return (int) argument % 2;
               }
-            },
-            new Closure<Double>(this) {
+            }, Integer.class),
+            wrap(new Closure<Double>(this) {
               @Override
               public Double call(Object argument) {
                 return (double) (int) argument;
               }
-            })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
+            }, Double.class))
+        .collect()
+        .stream()
+        .collect(Collectors.toSet());
+
     assertEquals(Sets.newHashSet(
         Pair.of(0, 6.0),
         Pair.of(1, 4.0)),
@@ -452,38 +358,26 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   @Test
   public void testStreamWindowAllDontAffectStatelessOperations() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Integer> result = new ArrayList<>();
-    intoSingleWindow(stream)
-        .filter(new Closure<Boolean>(this) {
+    List<Integer> result = intoSingleWindow(stream)
+        .filter(wrap(new Closure<Boolean>(this) {
           @Override
           public Boolean call(Object... args) {
             return (int) args[0] % 2 == 0;
           }
-        })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add((int) argument);
-            return null;
-          }
-        });
-    assertEquals(Arrays.asList(2, 4), result);
+        }, Boolean.class))
+        .collect();
+    assertUnorderedEquals(result, 2, 4);
   }
 
   @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllDistinct() {
     Stream<Integer> stream = stream(4, 3, 2, 1, 1, 2, 3);
-    Set<Object> result = new HashSet<>();
-    intoSingleWindow(stream)
+    Set<Object> result = intoSingleWindow(stream)
         .distinct()
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
+        .collect()
+        .stream()
+        .collect(Collectors.toSet());
     assertEquals(
         Sets.newHashSet(1, 2, 3, 4),
         result);
@@ -492,28 +386,24 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testWindowAllDistinctWithMapper() {
-    Stream<Object> stream = stream(4, 3, 2, 1, "1", "2", "3");
-    Set<Object> result = new HashSet<>();
-    intoSingleWindow(stream)
-        .distinct(new Closure<Integer>(this) {
+    Stream<Object> stream = stream("4", "3", "2", "1", "1.", "2.", "3.");
+    Set<Object> result = intoSingleWindow(stream)
+        .distinct(wrap(new Closure<Integer>(this) {
           @Override
           public Integer call(Object argument) {
-            return Integer.valueOf(argument.toString());
+            return Integer.valueOf(argument.toString().substring(0, 1));
           }
-        })
-        .map(new Closure<String>(this) {
+        }, Integer.class))
+        .map(wrap(new Closure<String>(this) {
           @Override
           public String call(Object argument) {
-            return argument.toString();
+            return argument.toString().substring(0, 1);
           }
-        })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
+        }, String.class))
+        .collect()
+        .stream()
+        .collect(Collectors.toSet());
+
     assertEquals(
         Sets.newHashSet("1", "2", "3", "4"),
         result);

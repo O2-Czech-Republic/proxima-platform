@@ -791,7 +791,7 @@ public class InMemStorage implements DataAccessorFactory {
     holder.clear();
   }
 
-  NavigableMap<String, Pair<Long, byte[]>> getData() {
+  public NavigableMap<String, Pair<Long, byte[]>> getData() {
     return holder.data;
   }
 

@@ -28,7 +28,6 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 
 /**
  * Repository of all entities configured in the system.
@@ -94,10 +93,9 @@ public abstract class Repository implements Serializable {
    * Retrieve value serializer for given scheme.
    *
    * @param scheme scheme of the {@link cz.o2.proxima.scheme.ValueSerializerFactory}
-   * @return {@link ValueSerializerFactory} for the scheme
+   * @return optional {@link ValueSerializerFactory} for the scheme
    */
-  @Nullable
-  public abstract ValueSerializerFactory getValueSerializerFactory(
+  public abstract Optional<ValueSerializerFactory> getValueSerializerFactory(
       String scheme);
 
   /**

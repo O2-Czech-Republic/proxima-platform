@@ -46,7 +46,7 @@ class Environment implements RepositoryProvider {
       
           private final Console console = Environment.this.console
           private final AttributeDescriptor desc = ${entity.classname}Descriptor.this.desc.findAttribute("${attribute.origname}").get()
-          private final Class type = ${attribute.typeclass}
+          private final Class type = ${attribute.type}
           private final String name = "${attribute.name}"
           private final cz.o2.proxima.scheme.ValueSerializer serializer = desc.getValueSerializer()
 

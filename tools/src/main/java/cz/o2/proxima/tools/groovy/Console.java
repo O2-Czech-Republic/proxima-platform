@@ -30,6 +30,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.Position;
@@ -549,7 +550,14 @@ public class Console {
           "Can write with direct operator only. Add runtime dependecncy");
     }
     if (attrDesc.getSchemeUri().getScheme().equals("proto")) {
-      String protoClass = attrDesc.getValueSerializer().getClassType().getName();
+      ValueSerializerFactory factory = repo.getValueSerializerFactory(
+          attrDesc.getSchemeUri().getScheme())
+          .orElseThrow(() -> new IllegalStateException(
+              "Unable to get ValueSerializerFactory for attribute " + attrDesc.getName()
+                  + " with scheme " + attrDesc.getSchemeUri().toString() + ".")
+          );
+
+      String protoClass = factory.getClassName(attrDesc.getSchemeUri());
       Class<AbstractMessage> cls = Classpath.findClass(protoClass, AbstractMessage.class);
       byte[] payload = null;
       if (textFormat != null) {

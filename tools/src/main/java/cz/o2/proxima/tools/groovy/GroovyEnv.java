@@ -16,6 +16,7 @@
 package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.scheme.ValueSerializerFactory;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import groovy.lang.GroovyClassLoader;
@@ -52,12 +53,16 @@ public class GroovyEnv {
 
       List<Map<String, Object>> attributes = entityDesc.getAllAttributes().stream()
           .map(a -> {
+            ValueSerializerFactory serializerFactory = repo
+                .getValueSerializerFactory(a.getSchemeUri().getScheme())
+                .orElseThrow(() -> new IllegalStateException(
+                    "Unable to get ValueSerializerFactory for attribute " + a.getName()
+                        + " with scheme " + a.getSchemeUri().toString() + "."));
+
             Map<String, Object> ret = new HashMap<>();
             String name = a.toAttributePrefix(false);
             ret.put("classname", toFirstUpper(name));
-            ret.put("type", toClassSpec(a.getValueSerializer().getClassType()));
-            ret.put("typeclass", toClassSpec(
-                a.getValueSerializer().getClassType()) + ".class");
+            ret.put("type", serializerFactory.getClassName(a.getSchemeUri()));
             ret.put("origname", a.getName());
             ret.put("name", name);
             ret.put("fieldname", name.toLowerCase());
@@ -89,13 +94,6 @@ public class GroovyEnv {
     char[] charArray = name.toCharArray();
     charArray[0] = Character.toUpperCase(charArray[0]);
     return new String(charArray);
-  }
-
-  private static String toClassSpec(Class<?> cls) {
-    if (cls.isAssignableFrom(byte[].class)) {
-      return "byte[]";
-    }
-    return cls.getName();
   }
 
   private GroovyEnv() {

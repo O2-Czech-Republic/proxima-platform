@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.repository;
 
-import cz.o2.proxima.transform.ProxyTransform;
-import cz.o2.proxima.transform.Transformation;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
@@ -29,10 +27,13 @@ import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transform.ProxyTransform;
+import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.CamelCase;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.Pair;
-import java.util.ServiceLoader;
+import lombok.Getter;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.URI;
@@ -47,12 +48,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
-import lombok.Getter;
-import lombok.Value;
 
 /**
  * Repository of all entities configured in the system.
@@ -295,15 +294,6 @@ public class ConfigRepository extends Repository {
 
     operators.forEach(DataOperator::reload);
 
-  }
-
-  private <T> @Nullable T newInstance(String name, Class<T> cls) {
-    try {
-      Class<T> forName = Classpath.findClass(name, cls);
-      return forName.newInstance();
-    } catch (InstantiationException | IllegalAccessException ex) {
-      throw new IllegalArgumentException("Cannot instantiate class " + name, ex);
-    }
   }
 
   private void readSchemeSerializers(Iterable<ValueSerializerFactory> serializers) {
@@ -728,7 +718,7 @@ public class ConfigRepository extends Repository {
   private ProxyTransform getProxyTransform(Map<String, Object> map) {
     return Optional.ofNullable(map.get("apply"))
         .map(Object::toString)
-        .map(s -> newInstance(s, ProxyTransform.class))
+        .map(s -> Classpath.newInstance(s, ProxyTransform.class))
         .orElseThrow(() -> new IllegalArgumentException(
             "Missing required field `apply'"));
   }
@@ -767,6 +757,9 @@ public class ConfigRepository extends Repository {
     try {
       if (shouldValidate) {
         getValueSerializerFactory(schemeUri.getScheme())
+            .orElseThrow(() -> new IllegalStateException(
+                "Unable to get ValueSerializerFactory for scheme "
+                    + schemeUri.getScheme() + "."))
             .getValueSerializer(schemeUri)
             .isValid(new byte[] { });
       }
@@ -815,16 +808,18 @@ public class ConfigRepository extends Repository {
   }
 
   @Override
-  public @Nullable ValueSerializerFactory getValueSerializerFactory(String scheme) {
+  public Optional<ValueSerializerFactory>
+      getValueSerializerFactory(String scheme) {
+
     ValueSerializerFactory serializer = serializersMap.get(scheme);
     if (serializer == null) {
       if (shouldValidate) {
         throw new IllegalArgumentException("Missing serializer for scheme " + scheme);
       } else {
-        return null;
+        return Optional.empty();
       }
     }
-    return serializer;
+    return Optional.of(serializer);
   }
 
   private void readAttributeFamilies(Config cfg) {
@@ -936,7 +931,7 @@ public class ConfigRepository extends Repository {
       }
     }
 
-    family.setFilter(newInstance(filter, StorageFilter.class));
+    family.setFilter(Classpath.newInstance(filter, StorageFilter.class));
   }
 
 
@@ -1719,7 +1714,7 @@ public class ConfigRepository extends Repository {
               String.format("Entity `%s` doesn't exist",
                   transformation.get(ENTITY))));
 
-      Transformation t = newInstance(
+      Transformation t = Classpath.newInstance(
           readStr("using", transformation, name), Transformation.class);
 
       List<AttributeDescriptor<?>> attrs = readList(ATTRIBUTES, transformation, name)
@@ -1735,7 +1730,7 @@ public class ConfigRepository extends Repository {
       Optional
           .ofNullable(transformation.get(FILTER))
           .map(Object::toString)
-          .map(s -> newInstance(s, StorageFilter.class))
+          .map(s -> Classpath.newInstance(s, StorageFilter.class))
           .ifPresent(desc::setFilter);
 
       this.transformations.put(name, desc.build());

@@ -57,6 +57,16 @@
         <dependencies>
           <dependency>
             <groupId>cz.o2.proxima</groupId>
+            <artifactId>proxima-scheme-proto</artifactId>
+            <version>${project.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>cz.o2.proxima.example</groupId>
+            <artifactId>example-proto</artifactId>
+            <version>${project.version}</version>
+          </dependency>
+          <dependency>
+            <groupId>cz.o2.proxima</groupId>
             <artifactId>proxima-direct-compiler-plugin</artifactId>
             <version>${project.version}</version>
           </dependency>
@@ -76,13 +86,13 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-scheme</artifactId>
+      <artifactId>proxima-scheme-proto</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-scheme</artifactId>
+      <artifactId>proxima-scheme-proto</artifactId>
       <version>${project.version}</version>
       <type>test-jar</type>
       <scope>test</scope>

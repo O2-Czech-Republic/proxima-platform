@@ -261,7 +261,9 @@ public class ConfigRepository extends Repository {
       throw new IllegalArgumentException("Cannot read config settings", ex);
     }
 
-    ConfigRepository.LOCAL_REPO_INSTANCE = this;
+    synchronized (ConfigRepository.class) {
+      ConfigRepository.LOCAL_REPO_INSTANCE = this;
+    }
   }
 
   public final void reloadConfig(boolean loadFamilies, Config conf) {
@@ -1902,11 +1904,13 @@ public class ConfigRepository extends Repository {
 
   // ensure that when we deserialize Repository in JVM that already
   // has other instance, that one is used
-  private Object readResolve() {
-    if (LOCAL_REPO_INSTANCE == null) {
-      LOCAL_REPO_INSTANCE = this;
+  protected Object readResolve() {
+    synchronized (ConfigRepository.class) {
+      if (LOCAL_REPO_INSTANCE == null) {
+        LOCAL_REPO_INSTANCE = this;
+      }
+      return LOCAL_REPO_INSTANCE;
     }
-    return LOCAL_REPO_INSTANCE;
   }
 
 }

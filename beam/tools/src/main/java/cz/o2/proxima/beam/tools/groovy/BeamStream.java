@@ -226,7 +226,7 @@ class BeamStream<T> implements Stream<T> {
   public void persistIntoTargetReplica(
       RepositoryProvider repoProvider, String replicationName, String target) {
 
-
+    // @todo
   }
 
   @Override
@@ -265,6 +265,7 @@ class BeamStream<T> implements Stream<T> {
       try {
         latch.await();
       } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
         throw new RuntimeException(ex);
       }
       if (err.get() != null) {

@@ -21,7 +21,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import org.apache.beam.sdk.coders.Coder;
-import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.coders.CustomCoder;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeParameter;
@@ -39,11 +38,9 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
   public static <K, V> TypeDescriptor<Pair<K, V>> descriptor(
       TypeDescriptor<K> key, TypeDescriptor<V> value) {
 
-    TypeDescriptor<Pair<K, V>> typeDescriptor =
-        new TypeDescriptor<Pair<K, V>>() {}.where(new TypeParameter<K>() {}, key)
-            .where(new TypeParameter<V>() {}, value);
-
-    return typeDescriptor;
+    return new TypeDescriptor<Pair<K, V>>() {}
+        .where(new TypeParameter<K>() {}, key)
+        .where(new TypeParameter<V>() {}, value);
   }
 
   private final Coder<K> keyCoder;
@@ -56,17 +53,14 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
 
   @Override
   public void encode(
-      Pair<K, V> value, OutputStream outStream)
-      throws CoderException, IOException {
+      Pair<K, V> value, OutputStream outStream) throws IOException {
 
     keyCoder.encode(value.getFirst(), outStream);
     valueCoder.encode(value.getSecond(), outStream);
   }
 
   @Override
-  public Pair<K, V> decode(InputStream inStream)
-      throws CoderException, IOException {
-
+  public Pair<K, V> decode(InputStream inStream) throws IOException {
     return Pair.of(keyCoder.decode(inStream), valueCoder.decode(inStream));
   }
 

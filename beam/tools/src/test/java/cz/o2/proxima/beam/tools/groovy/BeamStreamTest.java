@@ -103,7 +103,8 @@ public class BeamStreamTest extends StreamTest {
     return new BeamWindowedStream<T>(
         delegate.isBounded(), delegate.collection,
         delegate.getWindowing(), delegate.getMode(),
-        delegate.terminateCheck) {
+        delegate.terminateCheck,
+        delegate.pipelineFactory) {
 
       @Override
       <T> TypeDescriptor<T> typeOf(Closure<T> closure) {
@@ -144,7 +145,7 @@ public class BeamStreamTest extends StreamTest {
     SynchronousQueue<Boolean> interrupt = new SynchronousQueue<>();
     Stream<StreamElement> stream = BeamStream.stream(
         op, Position.OLDEST, false, true, interrupt::take,
-        armed);
+        BeamStream::createPipelineDefault, armed);
     CountDownLatch latch = new CountDownLatch(1);
     new Thread(() -> {
       // collect endless stream

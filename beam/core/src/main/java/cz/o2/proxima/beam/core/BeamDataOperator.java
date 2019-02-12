@@ -67,6 +67,7 @@ public class BeamDataOperator implements DataOperator {
 
   @Override
   public void close() {
+    direct.close();
     accessorMap.clear();
   }
 

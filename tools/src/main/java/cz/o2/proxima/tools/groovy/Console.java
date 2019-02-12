@@ -410,6 +410,8 @@ public class Console {
 
   private void close() {
     readers.forEach(ConsoleRandomReader::close);
+    streamProvider.close();
+    executor.shutdownNow();
   }
 
   private boolean unboundedStreamInterrupt() {

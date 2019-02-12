@@ -340,8 +340,12 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       Runnable onRestart,
       Runnable onCancel) {
 
-    name = name != null ? name : "unnamed-consumer-" + UUID.randomUUID().toString();
-    ProjectSubscriptionName subscription = ProjectSubscriptionName.of(project, name);
+    String consumerName = name != null
+        ? name : "unnamed-consumer-" + UUID.randomUUID().toString();
+
+    ProjectSubscriptionName subscription = ProjectSubscriptionName.of(
+        project, consumerName);
+    
     AtomicReference<Subscriber> subscriber = new AtomicReference<>();
     AtomicBoolean stopProcessing = new AtomicBoolean();
     AtomicReference<MessageReceiver> receiver = new AtomicReference<>();
@@ -366,6 +370,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
       @Override
       public void cancel() {
+        log.debug("Cancelling observer {}", consumerName);
         stopProcessing.set(true);
         Subscriber sub = stopAsync(subscriber);
         if (sub != null) {

@@ -21,6 +21,7 @@ import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -33,7 +34,6 @@ import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.tools.groovy.util.Types;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import groovy.lang.Closure;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -89,6 +89,7 @@ class BeamStream<T> implements Stream<T> {
       BeamDataOperator beam,
       Position position, boolean stopAtCurrent, boolean eventTime,
       StreamProvider.TerminatePredicate terminateCheck,
+      Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>... attrs) {
 
     return withRegisteredTypes(
@@ -97,13 +98,15 @@ class BeamStream<T> implements Stream<T> {
             stopAtCurrent,
             pipeline -> beam.getStream(
                 pipeline, position, stopAtCurrent, eventTime, attrs),
-            terminateCheck));
+            terminateCheck,
+            pipelineFactory));
   }
 
   static WindowedStream<StreamElement> batchUpdates(
       BeamDataOperator beam,
       long startStamp, long endStamp,
       StreamProvider.TerminatePredicate terminateCheck,
+      Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
     return withRegisteredTypes(
@@ -112,7 +115,8 @@ class BeamStream<T> implements Stream<T> {
             true,
             pipeline -> beam.getBatchUpdates(
                 pipeline, startStamp, endStamp, attrs),
-            terminateCheck))
+            terminateCheck,
+            pipelineFactory))
         .windowAll();
   }
 
@@ -120,6 +124,7 @@ class BeamStream<T> implements Stream<T> {
       BeamDataOperator beam,
       long fromStamp, long toStamp,
       StreamProvider.TerminatePredicate terminateCheck,
+      Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
     return withRegisteredTypes(
@@ -128,7 +133,8 @@ class BeamStream<T> implements Stream<T> {
             true,
             pipeline -> beam.getBatchSnapshot(
                 pipeline, fromStamp, toStamp, attrs),
-            terminateCheck))
+            terminateCheck,
+            pipelineFactory))
         .windowAll();
   }
 
@@ -136,14 +142,25 @@ class BeamStream<T> implements Stream<T> {
   final PCollectionProvider<T> collection;
   final List<Consumer<CoderRegistry>> registrars = new ArrayList<>();
   final StreamProvider.TerminatePredicate terminateCheck;
+  final Factory<Pipeline> pipelineFactory;
 
   BeamStream(
       boolean bounded, PCollectionProvider<T> input,
       StreamProvider.TerminatePredicate terminateCheck) {
 
+    this(bounded, input, terminateCheck, BeamStream::createPipelineDefault);
+  }
+
+
+  BeamStream(
+      boolean bounded, PCollectionProvider<T> input,
+      StreamProvider.TerminatePredicate terminateCheck,
+      Factory<Pipeline> pipelineFactory) {
+
     this.bounded = bounded;
     this.collection = input;
     this.terminateCheck = terminateCheck;
+    this.pipelineFactory = pipelineFactory;
   }
 
   @SuppressWarnings("unchecked")
@@ -218,29 +235,41 @@ class BeamStream<T> implements Stream<T> {
     AtomicReference<PipelineResult> result = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
     Thread running = runThread("pipeline-start-thread", () -> {
-      result.set(pipeline.run());
-      result.get().waitUntilFinish();
-      latch.countDown();
+      try {
+        result.set(pipeline.run());
+        result.get().waitUntilFinish();
+      } catch (Exception ex) {
+        if (!(ex.getCause() instanceof InterruptedException)) {
+          throw ex;
+        } else {
+          log.debug("Swallowing interrupted exception.", ex);
+        }
+      } finally {
+        latch.countDown();
+      }
     });
     runWatchThread(() -> {
-      PipelineResult res = result.getAndSet(null);
-      if (res != null) {
-        try {
-          res.cancel();
-        } catch (IOException ex) {
-          log.warn("Failed to cancel pipeline", ex);
-        }
-      }
+      cancelIfResultExists(result);
       running.interrupt();
-      latch.countDown();
+      ExceptionUtils.unchecked(latch::await);
+      cancelIfResultExists(result);
     });
-    ExceptionUtils.unchecked(() -> latch.await());
+    ExceptionUtils.unchecked(latch::await);
   }
 
   @Override
   public void forEach(Closure<?> consumer) {
     Closure<?> dehydrated = consumer.dehydrate();
-    forEach(dehydrated::call);
+    forEach(asConsumer(dehydrated));
+  }
+
+  private static <T> Consumer<T> asConsumer(Closure<?> dehydrated) {
+    return new Consumer<T>() {
+      @Override
+      public void accept(T input) {
+        dehydrated.call(input);
+      }
+    };
   }
 
   @Override
@@ -363,15 +392,20 @@ class BeamStream<T> implements Stream<T> {
   }
 
   <X> BeamStream<X> descendant(PCollectionProvider<X> provider) {
-    return new BeamStream<>(bounded, provider, terminateCheck);
+    return new BeamStream<>(bounded, provider, terminateCheck, pipelineFactory);
   }
 
   Pipeline createPipeline() {
-    PipelineOptions opts = PipelineOptionsFactory.create();
-    Pipeline ret = Pipeline.create(opts);
+    Pipeline ret = pipelineFactory.apply();
     registerCoders(ret.getCoderRegistry());
     return ret;
   }
+
+  static Pipeline createPipelineDefault() {
+    PipelineOptions opts = PipelineOptionsFactory.create();
+    return Pipeline.create(opts);
+  }
+
 
   <T> TypeDescriptor<T> typeOf(Closure<T> closure) {
     return TypeDescriptor.of(Types.returnClass(closure));
@@ -384,7 +418,7 @@ class BeamStream<T> implements Stream<T> {
     return new BeamWindowedStream<>(
         bounded, provider, window,
         WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES,
-        terminateCheck);
+        terminateCheck, pipelineFactory);
   }
 
   private void registerCoders(CoderRegistry registry) {
@@ -393,14 +427,34 @@ class BeamStream<T> implements Stream<T> {
     registrars.forEach(r -> r.accept(registry));
   }
 
+  private static class ConsumeFn<T> extends DoFn<T, Void> {
+
+    private final Consumer<T> consumer;
+
+    ConsumeFn(Consumer<T> consumer) {
+      this.consumer = consumer;
+    }
+
+    @ProcessElement
+    public void process(@Element T elem) {
+      consumer.accept(elem);
+    }
+
+  }
+
+  private static class ExtractWindow<T> extends DoFn<T, Pair<BoundedWindow, T>> {
+    @ProcessElement
+    public void process(
+        @Element T elem,
+        BoundedWindow window,
+        OutputReceiver<Pair<BoundedWindow, T>> output) {
+
+      output.output(Pair.of(window, elem));
+    }
+  }
+
   private static <T> DoFn<T, Void> asDoFn(Consumer<T> consumer) {
-    return new DoFn<T, Void>() {
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @ProcessElement
-      public void process(@Element T elem) {
-        consumer.accept(elem);
-      }
-    };
+    return new ConsumeFn<>(consumer);
   }
 
   private static <T> PTransform<PCollection<T>, PDone> write(DoFn<T, ?> doFn) {
@@ -413,19 +467,8 @@ class BeamStream<T> implements Stream<T> {
     };
   }
 
-  @SuppressWarnings("unchecked")
   private static <T> DoFn<T, Pair<BoundedWindow, T>> extractWindow() {
-    return new DoFn<T, Pair<BoundedWindow, T>>() {
-      @SuppressFBWarnings("UMAC_UNCALLABLE_METHOD_OF_ANONYMOUS_CLASS")
-      @ProcessElement
-      public void process(
-          @Element T elem,
-          BoundedWindow window,
-          OutputReceiver<Pair<BoundedWindow, T>> output) {
-
-        output.output(Pair.of(window, elem));
-      }
-    };
+    return new ExtractWindow<>();
   }
 
   private void runWatchThread(Runnable terminate) {
@@ -448,11 +491,14 @@ class BeamStream<T> implements Stream<T> {
     return ret;
   }
 
-  private void cancel(PipelineResult result) {
-    try {
-      result.cancel();
-    } catch (IOException ex) {
-      log.warn("Failed to cancel pipeline.", ex);
+  private void cancelIfResultExists(AtomicReference<PipelineResult> result) {
+    PipelineResult res = result.getAndSet(null);
+    if (res != null) {
+      try {
+        res.cancel();
+      } catch (IOException ex) {
+        log.warn("Failed to cancel pipeline", ex);
+      }
     }
   }
 

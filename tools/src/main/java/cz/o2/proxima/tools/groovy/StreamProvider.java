@@ -41,6 +41,11 @@ public interface StreamProvider {
   }
 
   /**
+   * Close and release all resources.
+   */
+  void close();
+  
+  /**
    * Create stream from commit log(s).
    * @param position position in commit log
    * @param stopAtCurrent {@code true} to stop at current data

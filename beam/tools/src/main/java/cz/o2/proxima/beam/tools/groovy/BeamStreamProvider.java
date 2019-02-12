@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.tools.groovy;
 
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.core.BeamDataOperator;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -24,11 +25,12 @@ import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.tools.groovy.WindowedStream;
+import org.apache.beam.sdk.Pipeline;
 
 /**
  * A {@link StreamProvider} for groovy tools based on beam.
  */
-public class BeamStreamProvider implements StreamProvider {
+public abstract class BeamStreamProvider implements StreamProvider {
 
   Repository repo;
   BeamDataOperator beam;
@@ -49,7 +51,8 @@ public class BeamStreamProvider implements StreamProvider {
       AttributeDescriptor<?>... attrs) {
 
     return BeamStream.stream(
-        beam, position, stopAtCurrent, eventTime, terminateCheck, attrs);
+        beam, position, stopAtCurrent, eventTime, terminateCheck,
+        getPipelineFactory(), attrs);
   }
 
   @Override
@@ -59,7 +62,7 @@ public class BeamStreamProvider implements StreamProvider {
       AttributeDescriptor<?>... attrs) {
 
     return BeamStream.batchUpdates(
-        beam, startStamp, endStamp, terminateCheck, attrs);
+        beam, startStamp, endStamp, terminateCheck, getPipelineFactory(), attrs);
   }
 
   @Override
@@ -69,7 +72,18 @@ public class BeamStreamProvider implements StreamProvider {
       AttributeDescriptor<?>... attrs) {
 
     return BeamStream.batchSnapshot(
-        beam, fromStamp, toStamp, terminateCheck, attrs);
+        beam, fromStamp, toStamp, terminateCheck, getPipelineFactory(), attrs);
   }
+
+  @Override
+  public void close() {
+    beam.close();
+  }
+
+  /**
+   * Create factory to be used for pipeline creation.
+   * @return the factory
+   */
+  protected abstract Factory<Pipeline> getPipelineFactory();
 
 }

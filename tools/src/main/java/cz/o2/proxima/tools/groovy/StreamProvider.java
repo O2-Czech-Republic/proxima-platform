@@ -28,7 +28,7 @@ public interface StreamProvider {
 
   @FunctionalInterface
   interface TerminatePredicate {
-    boolean check();
+    boolean check() throws InterruptedException;
   }
 
 

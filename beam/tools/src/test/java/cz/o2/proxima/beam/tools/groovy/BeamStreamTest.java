@@ -17,6 +17,13 @@ package cz.o2.proxima.beam.tools.groovy;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.beam.core.BeamDataOperator;
+import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.tools.groovy.JavaTypedClosure;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamTest;
@@ -25,10 +32,14 @@ import groovy.lang.Closure;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
 import org.apache.beam.sdk.values.TypeDescriptor;
+import org.junit.Test;
 
 public class BeamStreamTest extends StreamTest {
 
@@ -54,13 +65,19 @@ public class BeamStreamTest extends StreamTest {
         return injectTypeOf(
             new BeamStream<>(
                 true,
-                p -> p.apply(Create.of(values)).setTypeDescriptor(typeDesc)));
+                p -> p.apply(Create.of(values)).setTypeDescriptor(typeDesc),
+                () -> {
+                  LockSupport.park();
+                  return false;
+                }));
       }
     };
   }
 
   static <T> BeamStream<T> injectTypeOf(BeamStream<T> delegate) {
-    return new BeamStream<T>(delegate.isBounded(), delegate.collection) {
+    return new BeamStream<T>(
+        delegate.isBounded(), delegate.collection, delegate.terminateCheck) {
+
       @Override
       <T> TypeDescriptor<T> typeOf(Closure<T> closure) {
         return getTypeOf(closure).orElseGet(() -> super.typeOf(closure));
@@ -85,7 +102,8 @@ public class BeamStreamTest extends StreamTest {
   static <T> BeamWindowedStream<T> injectTypeOf(BeamWindowedStream<T> delegate) {
     return new BeamWindowedStream<T>(
         delegate.isBounded(), delegate.collection,
-        delegate.getWindowing(), delegate.getMode()) {
+        delegate.getWindowing(), delegate.getMode(),
+        delegate.terminateCheck) {
 
       @Override
       <T> TypeDescriptor<T> typeOf(Closure<T> closure) {
@@ -113,6 +131,30 @@ public class BeamStreamTest extends StreamTest {
       return Optional.of(TypeDescriptor.of(((JavaTypedClosure) closure).getType()));
     }
     return Optional.empty();
+  }
+
+  @Test(timeout = 10000)
+  public void testInterruptible() throws InterruptedException {
+    Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
+    BeamDataOperator op = repo.asDataOperator(BeamDataOperator.class);
+    EntityDescriptor gateway = repo.findEntity("gateway")
+        .orElseThrow(() -> new IllegalStateException("Missing gateway"));
+    AttributeDescriptor<?> armed = gateway.findAttribute("armed")
+        .orElseThrow(() -> new IllegalStateException("Missing armed"));
+    SynchronousQueue<Boolean> interrupt = new SynchronousQueue<>();
+    Stream<StreamElement> stream = BeamStream.stream(
+        op, Position.OLDEST, false, true, interrupt::take,
+        armed);
+    CountDownLatch latch = new CountDownLatch(1);
+    new Thread(() -> {
+      // collect endless stream
+      stream.collect();
+      latch.countDown();
+    }).start();
+    // terminate
+    interrupt.put(true);
+    // and wait until the pipeline terminates
+    latch.await();
   }
 
 

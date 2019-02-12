@@ -18,6 +18,7 @@ package cz.o2.proxima.beam.tools.groovy;
 import cz.o2.proxima.beam.core.PCollectionTools;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
@@ -57,9 +58,10 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   BeamWindowedStream(
       boolean bounded, PCollectionProvider<T> input,
       WindowFn<? super T, ?> windowing,
-      WindowingStrategy.AccumulationMode mode) {
+      WindowingStrategy.AccumulationMode mode,
+      StreamProvider.TerminatePredicate terminateCheck) {
 
-    super(bounded, input);
+    super(bounded, input, terminateCheck);
     this.windowing = (WindowFn) windowing;
     this.mode = mode;
   }
@@ -496,7 +498,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     /*
     Distinct
         .of(collection.materialize(pipeline))
-        .mapped(...)
+        .projected(...)
         .windowBy(windowing)
         .triggeredBy(createTrigger())
         .accumulationMode(mode)
@@ -522,7 +524,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   @Override
   <X> BeamWindowedStream<X> descendant(PCollectionProvider<X> provider) {
     return new BeamWindowedStream<>(
-        bounded, provider, (WindowFn) windowing, mode);
+        bounded, provider, (WindowFn) windowing, mode, terminateCheck);
   }
 
   private static <K, V> PCollection<Pair<K, V>> asPairs(

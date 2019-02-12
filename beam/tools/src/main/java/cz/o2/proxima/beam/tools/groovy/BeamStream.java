@@ -31,16 +31,20 @@ import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.tools.groovy.util.Types;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import groovy.lang.Closure;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderRegistry;
@@ -70,6 +74,7 @@ import org.joda.time.Duration;
 /**
  * A {@link Stream} implementation based on beam.
  */
+@Slf4j
 class BeamStream<T> implements Stream<T> {
 
   static <T, S extends BeamStream<T>> S withRegisteredTypes(
@@ -79,18 +84,20 @@ class BeamStream<T> implements Stream<T> {
         StreamElement.class, StreamElementCoder.of(repo)));
   }
 
+  @SafeVarargs
   static Stream<StreamElement> stream(
       BeamDataOperator beam,
       Position position, boolean stopAtCurrent, boolean eventTime,
       StreamProvider.TerminatePredicate terminateCheck,
-      AttributeDescriptor<?>[] attrs) {
+      AttributeDescriptor<?>... attrs) {
 
     return withRegisteredTypes(
         beam.getRepository(),
         new BeamStream<>(
             stopAtCurrent,
             pipeline -> beam.getStream(
-                pipeline, position, stopAtCurrent, eventTime, attrs)));
+                pipeline, position, stopAtCurrent, eventTime, attrs),
+            terminateCheck));
   }
 
   static WindowedStream<StreamElement> batchUpdates(
@@ -104,7 +111,8 @@ class BeamStream<T> implements Stream<T> {
         new BeamStream<>(
             true,
             pipeline -> beam.getBatchUpdates(
-                pipeline, startStamp, endStamp, attrs)))
+                pipeline, startStamp, endStamp, attrs),
+            terminateCheck))
         .windowAll();
   }
 
@@ -119,17 +127,23 @@ class BeamStream<T> implements Stream<T> {
         new BeamStream<>(
             true,
             pipeline -> beam.getBatchSnapshot(
-                pipeline, fromStamp, toStamp, attrs)))
+                pipeline, fromStamp, toStamp, attrs),
+            terminateCheck))
         .windowAll();
   }
 
   final boolean bounded;
   final PCollectionProvider<T> collection;
   final List<Consumer<CoderRegistry>> registrars = new ArrayList<>();
+  final StreamProvider.TerminatePredicate terminateCheck;
 
-  BeamStream(boolean bounded, PCollectionProvider<T> input) {
+  BeamStream(
+      boolean bounded, PCollectionProvider<T> input,
+      StreamProvider.TerminatePredicate terminateCheck) {
+
     this.bounded = bounded;
     this.collection = input;
+    this.terminateCheck = terminateCheck;
   }
 
   @SuppressWarnings("unchecked")
@@ -201,7 +215,26 @@ class BeamStream<T> implements Stream<T> {
     Pipeline pipeline = createPipeline();
     PCollection<T> materialized = collection.materialize(pipeline);
     materialized.apply(write(asDoFn(consumer)));
-    pipeline.run();
+    AtomicReference<PipelineResult> result = new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    Thread running = runThread("pipeline-start-thread", () -> {
+      result.set(pipeline.run());
+      result.get().waitUntilFinish();
+      latch.countDown();
+    });
+    runWatchThread(() -> {
+      PipelineResult res = result.getAndSet(null);
+      if (res != null) {
+        try {
+          res.cancel();
+        } catch (IOException ex) {
+          log.warn("Failed to cancel pipeline", ex);
+        }
+      }
+      running.interrupt();
+      latch.countDown();
+    });
+    ExceptionUtils.unchecked(() -> latch.await());
   }
 
   @Override
@@ -330,9 +363,7 @@ class BeamStream<T> implements Stream<T> {
   }
 
   <X> BeamStream<X> descendant(PCollectionProvider<X> provider) {
-    return new BeamStream<>(
-        bounded,
-        provider);
+    return new BeamStream<>(bounded, provider, terminateCheck);
   }
 
   Pipeline createPipeline() {
@@ -352,7 +383,8 @@ class BeamStream<T> implements Stream<T> {
 
     return new BeamWindowedStream<>(
         bounded, provider, window,
-        WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES);
+        WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES,
+        terminateCheck);
   }
 
   private void registerCoders(CoderRegistry registry) {
@@ -394,6 +426,34 @@ class BeamStream<T> implements Stream<T> {
         output.output(Pair.of(window, elem));
       }
     };
+  }
+
+  private void runWatchThread(Runnable terminate) {
+    runThread("pipeline-terminate-check", () -> {
+      try {
+        while (!terminateCheck.check()) {
+          // nop
+        }
+      } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+      }
+      terminate.run();
+    });
+  }
+
+  private Thread runThread(String name, Runnable runnable) {
+    Thread ret = new Thread(runnable, name);
+    ret.setDaemon(true);
+    ret.start();
+    return ret;
+  }
+
+  private void cancel(PipelineResult result) {
+    try {
+      result.cancel();
+    } catch (IOException ex) {
+      log.warn("Failed to cancel pipeline.", ex);
+    }
   }
 
   // this is hackish and should be replaced with

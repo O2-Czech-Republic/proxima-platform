@@ -95,7 +95,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
     final String attribute = attributeName;
 
     AttributeDescriptor<?> attributeDescriptor = entityDescriptor
-        .findAttribute(attribute)
+        .findAttribute(attribute, true)
         .orElseThrow(() -> new IOException(
             "Unable to find attribute " + attribute + " of entity " + entityName));
     final long stamp = input.readLong();

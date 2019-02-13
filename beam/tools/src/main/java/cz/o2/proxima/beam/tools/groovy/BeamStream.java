@@ -41,6 +41,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
@@ -248,13 +249,22 @@ class BeamStream<T> implements Stream<T> {
         latch.countDown();
       }
     });
-    runWatchThread(() -> {
-      cancelIfResultExists(result);
-      running.interrupt();
-      ExceptionUtils.unchecked(latch::await);
-      cancelIfResultExists(result);
+    AtomicBoolean watchTerminating = new AtomicBoolean();
+    AtomicBoolean gracefulExit = new AtomicBoolean();
+    Thread watch = runWatchThread(() -> {
+      watchTerminating.set(true);
+      if (!gracefulExit.get()) {
+        cancelIfResultExists(result);
+        running.interrupt();
+        ExceptionUtils.unchecked(latch::await);
+        cancelIfResultExists(result);
+      }
     });
     ExceptionUtils.unchecked(latch::await);
+    gracefulExit.set(true);
+    if (!watchTerminating.get()) {
+      watch.interrupt();
+    }
   }
 
   @Override
@@ -471,16 +481,16 @@ class BeamStream<T> implements Stream<T> {
     return new ExtractWindow<>();
   }
 
-  private void runWatchThread(Runnable terminate) {
-    runThread("pipeline-terminate-check", () -> {
+  private Thread runWatchThread(Runnable terminate) {
+    return runThread("pipeline-terminate-check", () -> {
       try {
         while (!terminateCheck.check()) {
           // nop
         }
+        terminate.run();
       } catch (InterruptedException ex) {
         Thread.currentThread().interrupt();
       }
-      terminate.run();
     });
   }
 
@@ -496,6 +506,8 @@ class BeamStream<T> implements Stream<T> {
     if (res != null) {
       try {
         res.cancel();
+      } catch (UnsupportedOperationException ex) {
+        log.debug("Ignoring UnsupportedOperationException from cancel()");
       } catch (IOException ex) {
         log.warn("Failed to cancel pipeline", ex);
       }

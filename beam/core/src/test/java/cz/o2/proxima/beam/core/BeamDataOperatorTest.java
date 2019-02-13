@@ -26,6 +26,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
+import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
@@ -47,6 +48,10 @@ public class BeamDataOperatorTest {
       .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
   final AttributeDescriptor<?> armed = gateway.findAttribute("armed")
       .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+  final EntityDescriptor proxied = repo.findEntity("proxied")
+      .orElseThrow(() -> new IllegalStateException("Missing entity proxied"));
+  final AttributeDescriptor<?> event = proxied.findAttribute("event.*")
+      .orElseThrow(() -> new IllegalStateException("Missing attribute event.*"));
 
   BeamDataOperator beam;
   DirectDataOperator direct;
@@ -157,6 +162,26 @@ public class BeamDataOperatorTest {
   public void testBatchSnapshotConsumptionWithWindowMany() {
     validatePCollectionWindowedRead(
         () -> beam.getBatchSnapshot(pipeline, armed), 99L);
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test(timeout = 60000)
+  public void testBoundedCommitLogConsumptionFromProxy() {
+    direct.getWriter(event)
+        .orElseThrow(() -> new IllegalStateException("Missing writer for event"))
+        .write(StreamElement.update(gateway, event, "uuid", "key",
+            event.toAttributePrefix() + "1",
+            now, new byte[] { 1, 2, 3}), (succ, exc) -> { });
+    PCollection<StreamElement> stream = beam.getStream(
+        pipeline, Position.OLDEST, true, true, event);
+    stream = Filter.of(stream)
+        .by(e -> e.getAttributeDescriptor().toAttributePrefix().startsWith("event"))
+        .output();
+    PCollection<KV<String, Long>> counted = CountByKey.of(stream)
+        .keyBy(e -> "", TypeDescriptors.strings())
+        .output();
+    PAssert.that(counted).containsInAnyOrder(KV.of("", 1L));
+    pipeline.run();
   }
 
   @SuppressWarnings("unchecked")

@@ -59,6 +59,8 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Override
   public boolean onError(Throwable error) {
     this.error.set(error);
+    // unblock any waiting thread
+    queue.offer(Pair.of(null, null));
     return false;
   }
 

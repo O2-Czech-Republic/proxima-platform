@@ -100,16 +100,15 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
           break;
         }
       }
+      if (observer.getError() != null) {
+        throw new IOException(observer.getError());
+      }
       if (current != null) {
         return true;
       }
       finished = true;
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
-    }
-    Throwable error = observer.getError();
-    if (error != null) {
-      throw new IOException(error);
     }
     return false;
   }

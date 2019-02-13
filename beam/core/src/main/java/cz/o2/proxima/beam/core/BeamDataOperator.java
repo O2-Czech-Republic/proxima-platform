@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -287,6 +288,13 @@ public class BeamDataOperator implements DataOperator {
 
   private DataAccessor accessorFor(AttributeFamilyDescriptor family) {
 
+    if (family.isProxy()) {
+      AttributeFamilyProxyDescriptor proxy = family.toProxy();
+      DataAccessor readAccessor = accessorFor(proxy.getTargetFamilyRead());
+      DataAccessor writeAccessor = accessorFor(proxy.getTargetFamilyWrite());
+      return AttributeFamilyProxyDataAccessor.of(
+          proxy, readAccessor, writeAccessor);
+    }
     URI uri = family.getStorageUri();
     return loader.findForUri(uri)
         .map(f -> f.createAccessor(this, family.getEntity(), uri, family.getCfg()))

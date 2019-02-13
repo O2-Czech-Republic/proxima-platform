@@ -213,7 +213,7 @@ public class GCloudLogObservable
 
               reader.forEach(e -> {
                 if (attrs.contains(e.getAttributeDescriptor())) {
-                  observer.onNext(e);
+                  observer.onNext(e, p);
                 }
               });
             } catch (IOException ex) {

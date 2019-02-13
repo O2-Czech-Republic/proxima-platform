@@ -17,6 +17,7 @@ package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
 
@@ -75,6 +76,22 @@ public interface Stream<T> {
   boolean isBounded();
 
   /**
+   * Convert elements to {@link StreamElement}s.
+   * @param repoProvider provider of {@link Repository}
+   * @param entity the entity of elements
+   * @param keyExtractor extractor of keys
+   * @param attributeExtractor extractor of attributes
+   * @param valueExtractor extractor of values
+   * @param timeExtractor extractor of time
+   * @return stream with {@link StreamElement}s inside
+   */
+  Stream<StreamElement> asStreamElements(
+      RepositoryProvider repoProvider, EntityDescriptor entity,
+      Closure<String> keyExtractor, Closure<String> attributeExtractor,
+      Closure<T> valueExtractor, Closure<Long> timeExtractor);
+
+
+  /**
    * Persist this stream to replication.
    * @param repoProvider provider of {@link Repository}.
    * @param replicationName name of replication to persist stream to
@@ -101,6 +118,14 @@ public interface Stream<T> {
       Closure<String> attributeExtractor,
       Closure<T> valueExtractor,
       Closure<Long> timeExtractor);
+
+  /**
+   * Directly write this stream to repository.
+   * Note that the stream has to contain {@link StreamElement}s (e.g. created by
+   * {@link #asStreamElements}.
+   * @param repoProvider provider of repository
+   */
+  void write(RepositoryProvider repoProvider);
 
 
   /**

@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,8 +50,10 @@ import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderRegistry;
+import org.apache.beam.sdk.extensions.euphoria.core.client.io.Collector;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
+import org.apache.beam.sdk.extensions.euphoria.core.client.operator.FlatMap;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -232,7 +235,7 @@ class BeamStream<T> implements Stream<T> {
   private void forEach(Consumer<T> consumer) {
     Pipeline pipeline = createPipeline();
     PCollection<T> materialized = collection.materialize(pipeline);
-    materialized.apply(write(asDoFn(consumer)));
+    materialized.apply(asWriteTransform(asDoFn(consumer)));
     AtomicReference<PipelineResult> result = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
     Thread running = runThread("pipeline-start-thread", () -> {
@@ -270,16 +273,7 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public void forEach(Closure<?> consumer) {
     Closure<?> dehydrated = consumer.dehydrate();
-    forEach(asConsumer(dehydrated));
-  }
-
-  private static <T> Consumer<T> asConsumer(Closure<?> dehydrated) {
-    return new Consumer<T>() {
-      @Override
-      public void accept(T input) {
-        dehydrated.call(input);
-      }
-    };
+    forEach(dehydrated::call);
   }
 
   @Override
@@ -298,11 +292,35 @@ class BeamStream<T> implements Stream<T> {
   public void persistIntoTargetReplica(
       RepositoryProvider repoProvider, String replicationName, String target) {
 
-    // @todo
+    @SuppressWarnings("unchecked")
+    BeamStream<StreamElement> toWrite = descendant(pipeline -> FlatMap
+        .of((PCollection<StreamElement>) collection.materialize(pipeline))
+        .using((StreamElement in, Collector<StreamElement> ctx) -> {
+          String key = in.getKey();
+          String attribute = in.getAttribute();
+          EntityDescriptor entity = in.getEntityDescriptor();
+          String replicatedName = String.format(
+              "_%s_%s$%s", replicationName, target, attribute);
+          Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(
+              replicatedName, true);
+          if (attr.isPresent()) {
+            long stamp = in.getStamp();
+            byte[] value = in.getValue();
+            ctx.collect(StreamElement.update(
+                entity, attr.get(),
+                UUID.randomUUID().toString(),
+                key, replicatedName, stamp, value));
+          } else {
+            log.warn("Cannot find attribute {} in {}", replicatedName, entity);
+          }
+        })
+        .output());
+
+    toWrite.write(repoProvider);
   }
 
   @Override
-  public void persist(
+  public BeamStream<StreamElement> asStreamElements(
       RepositoryProvider repoProvider, EntityDescriptor entity,
       Closure<String> keyExtractor, Closure<String> attributeExtractor,
       Closure<T> valueExtractor, Closure<Long> timeExtractor) {
@@ -313,21 +331,51 @@ class BeamStream<T> implements Stream<T> {
     Closure<T> valueDehydrated = valueExtractor.dehydrate();
     Closure<Long> timeDehydrated = timeExtractor.dehydrate();
 
-    forEach(data -> {
-      String key = keyDehydrated.call(data);
-      String attribute = attributeDehydrated.call(data);
-      AttributeDescriptor<Object> attrDesc = entity.findAttribute(attribute, true)
-          .orElseThrow(() -> new IllegalArgumentException(
-              "No attribute " + attribute + " in " + entity));
-      long timestamp = timeDehydrated.call(data);
-      byte[] value = attrDesc.getValueSerializer().serialize(valueDehydrated.call(data));
-      StreamElement el = StreamElement.update(
-          entity, attrDesc, UUID.randomUUID().toString(), key, attribute,
-          timestamp, value);
+    return descendant(pipeline -> MapElements
+        .of(collection.materialize(pipeline))
+        .using(data -> {
+          String key = keyDehydrated.call(data);
+          String attribute = attributeDehydrated.call(data);
+          AttributeDescriptor<Object> attrDesc = entity.findAttribute(attribute, true)
+              .orElseThrow(() -> new IllegalArgumentException(
+                  "No attribute " + attribute + " in " + entity));
+          long timestamp = timeDehydrated.call(data);
+          byte[] value = attrDesc.getValueSerializer()
+              .serialize(valueDehydrated.call(data));
+          return StreamElement.update(
+              entity, attrDesc, UUID.randomUUID().toString(), key, attribute,
+              timestamp, value);
+        }, TypeDescriptor.of(StreamElement.class))
+        .output()
+        .setCoder(StreamElementCoder.of(repo)));
+  }
+
+
+  @Override
+  public void persist(
+      RepositoryProvider repoProvider, EntityDescriptor entity,
+      Closure<String> keyExtractor, Closure<String> attributeExtractor,
+      Closure<T> valueExtractor, Closure<Long> timeExtractor) {
+
+    asStreamElements(
+        repoProvider, entity, keyExtractor, attributeExtractor,
+        valueExtractor, timeExtractor)
+        .write(repoProvider);
+  }
+
+  @Override
+  public void write(RepositoryProvider repoProvider) {
+
+    Repository repo = repoProvider.getRepo();
+    
+    @SuppressWarnings("unchecked")
+    BeamStream<StreamElement> elements = (BeamStream<StreamElement>) this;
+
+    elements.forEach(el -> {
       CountDownLatch latch = new CountDownLatch(1);
       AtomicReference<Throwable> err = new AtomicReference<>();
       OnlineAttributeWriter writer = repo.getOrCreateOperator(DirectDataOperator.class)
-          .getWriter(attrDesc)
+          .getWriter(el.getAttributeDescriptor())
           .orElseThrow(() -> new IllegalStateException("Missing writer for " + el));
 
       writer.write(el, (succ, exc) -> {
@@ -467,7 +515,7 @@ class BeamStream<T> implements Stream<T> {
     return new ConsumeFn<>(consumer);
   }
 
-  private static <T> PTransform<PCollection<T>, PDone> write(DoFn<T, ?> doFn) {
+  private static <T> PTransform<PCollection<T>, PDone> asWriteTransform(DoFn<T, ?> doFn) {
     return new PTransform<PCollection<T>, PDone>() {
       @Override
       public PDone expand(PCollection<T> input) {

@@ -89,13 +89,13 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
   }
 
   private StreamElement transformSingleRead(StreamElement input) {
-    AttributeProxyDescriptor<?> proxy = lookupRead.get(input.getAttributeDescriptor());
-    if (proxy != null) {
-      ProxyTransform transform = proxy.getReadTransform();
+    AttributeProxyDescriptor<?> attr = lookupRead.get(input.getAttributeDescriptor());
+    if (attr != null) {
+      ProxyTransform transform = attr.getReadTransform();
       String attribute = transform.toProxy(input.getAttribute());
       return StreamElement.update(
           input.getEntityDescriptor(),
-          proxy,
+          attr,
           input.getUuid(),
           input.getKey(),
           attribute,

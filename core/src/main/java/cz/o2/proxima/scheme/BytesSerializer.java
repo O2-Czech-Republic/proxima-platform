@@ -52,12 +52,11 @@ public class BytesSerializer implements ValueSerializerFactory {
         return value;
       }
 
-      @Override
-      public Class<byte[]> getClassType() {
-        return byte[].class;
-      }
-
     };
   }
 
+  @Override
+  public String getClassName(URI scheme) {
+    return "byte[]";
+  }
 }

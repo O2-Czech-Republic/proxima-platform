@@ -24,6 +24,7 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.util.CamelCase;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
@@ -168,11 +169,11 @@ public class ModelGenerator {
 
   private List<Map<String, Object>> getEntities(Repository repo) {
     List<Map<String, Object>> ret = new ArrayList<>();
-    repo.getAllEntities().forEach(e -> ret.add(getEntityDict(e)));
+    repo.getAllEntities().forEach(e -> ret.add(getEntityDict(e, repo)));
     return ret;
   }
 
-  private Map<String, Object> getEntityDict(EntityDescriptor e) {
+  Map<String, Object> getEntityDict(EntityDescriptor e, Repository repo) {
     Map<String, Object> ret = new HashMap<>();
     ret.put("classname", toClassName(e.getName()));
     ret.put("name", e.getName());
@@ -180,6 +181,14 @@ public class ModelGenerator {
 
     List<Map<String, Object>> attributes = e.getAllAttributes().stream()
         .map(attr -> {
+          ValueSerializerFactory serializerFactory = repo
+              .getValueSerializerFactory(attr.getSchemeUri().getScheme())
+              .orElseThrow(() -> new IllegalStateException(
+                  "Unable to retrieve serializer factory for scheme "
+                      + attr.getSchemeUri().getScheme()
+                      + ". Looks like missing dependency for maven plugin.")
+              );
+
           Map<String, Object> attrMap = new HashMap<>();
           String nameModified = attr.toAttributePrefix(false);
           attrMap.put("wildcard", attr.isWildcard());
@@ -187,8 +196,7 @@ public class ModelGenerator {
           attrMap.put("name", nameModified);
           attrMap.put("nameCamel", CamelCase.apply(nameModified));
           attrMap.put("nameUpper", nameModified.toUpperCase());
-          // FIXME: this is working just for protobufs
-          attrMap.put("type", attr.getSchemeUri().getSchemeSpecificPart());
+          attrMap.put("type", serializerFactory.getClassName(attr.getSchemeUri()));
           return attrMap;
         })
         .collect(Collectors.toList());

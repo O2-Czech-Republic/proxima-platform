@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.util;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,6 +39,9 @@ public class Classpath {
 
     Class clz;
     if ((clz = findClass(name)) != null) {
+      Preconditions.checkState(
+          superClass.isAssignableFrom(clz),
+            "Class %s is not assignable for %s", clz, superClass);
       return clz;
     }
     while (true) {
@@ -52,6 +56,9 @@ public class Classpath {
       }
       name = newName;
       if ((clz = findClass(name)) != null) {
+        Preconditions.checkState(
+            superClass.isAssignableFrom(clz),
+              "Class %s is not assignable for %s", clz, superClass);
         return clz;
       }
     }
@@ -68,13 +75,31 @@ public class Classpath {
     }
   }
 
-
+  /**
+   * Create new instance of given class
+   * @param cls name of class
+   * @param <T> type of the superclass
+   * @return instance of requested class
+   */
   public static <T> T newInstance(Class<T> cls) {
     try {
       return cls.newInstance();
     } catch (InstantiationException | IllegalAccessException ex) {
       throw new RuntimeException(ex);
     }
+  }
+
+  /**
+   * Create new instance of given class
+   * @param name name of class
+   * @param superClass class or interface the found class should extend
+   * @param <T> type of the superclass
+   * @return instance of requested class
+   */
+  public static <T> T newInstance(String name, Class<T> superClass) {
+    return Classpath.newInstance(
+        Classpath.findClass(name, superClass)
+    );
   }
 
   private Classpath() {

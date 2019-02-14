@@ -21,6 +21,7 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Objects;
+import java.util.Optional;
 
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -59,15 +60,14 @@ public interface AttributeDescriptor<T> extends Serializable {
       Objects.requireNonNull(entity, "Please specify entity");
       Objects.requireNonNull(schemeUri, "Please specify scheme URI");
 
-      ValueSerializerFactory factory = repo.getValueSerializerFactory(
+      Optional<ValueSerializerFactory> factory = repo.getValueSerializerFactory(
           schemeUri.getScheme());
 
       return new AttributeDescriptorImpl<>(
           name, entity,
           schemeUri,
-          factory == null
-              ? null
-              : factory.getValueSerializer(schemeUri),
+          factory.map(f -> (ValueSerializer<T>)f.getValueSerializer(schemeUri))
+              .orElse(null),
           replica);
     }
   }

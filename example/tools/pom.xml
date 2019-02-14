@@ -131,7 +131,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-scheme</artifactId>
+      <artifactId>proxima-scheme-proto</artifactId>
       <version>${project.version}</version>
     </dependency>
 

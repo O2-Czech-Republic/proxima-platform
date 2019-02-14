@@ -36,7 +36,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
   BeamDataOperator beam;
 
   @Override
-  public void init(Repository repo) {
+  public void init(Repository repo, String[] args) {
     this.repo = repo;
     Preconditions.checkArgument(
         this.repo.hasOperator("beam"),
@@ -77,7 +77,9 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
   @Override
   public void close() {
-    beam.close();
+    if (beam != null) {
+      beam.close();
+    }
   }
 
   /**

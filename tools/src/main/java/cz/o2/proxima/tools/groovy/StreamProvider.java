@@ -35,8 +35,9 @@ public interface StreamProvider {
   /**
    * Initialize the provider with given repository.
    * @param repo the repository
+   * @param args command line arguments passed to {@link Console}
    */
-  default void init(Repository repo) {
+  default void init(Repository repo, String[] args) {
 
   }
 
@@ -44,7 +45,7 @@ public interface StreamProvider {
    * Close and release all resources.
    */
   void close();
-  
+
   /**
    * Create stream from commit log(s).
    * @param position position in commit log

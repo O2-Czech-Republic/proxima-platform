@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.tools.groovy;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.AbstractMessage.Builder;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -42,7 +41,6 @@ import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyObject;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -93,9 +91,8 @@ public class Console {
     return INSTANCE.get();
   }
 
-  @VisibleForTesting
   public static Console create(Config config, Repository repo) {
-    INSTANCE.set(new Console(config, repo));
+    INSTANCE.set(new Console(config, repo, new String[] { }));
     return INSTANCE.get();
   }
 
@@ -129,15 +126,15 @@ public class Console {
     return t;
   });
 
-  Console(String[] paths) {
-    this(getConfig(paths));
+  Console(String[] args) {
+    this(getConfig(), args);
   }
 
-  Console(Config config) {
-    this(config, Repository.of(config));
+  Console(Config config, String[] args) {
+    this(config, Repository.of(config), args);
   }
 
-  Console(Config config, Repository repo) {
+  private Console(Config config, Repository repo, String[] args) {
     this.config = config;
     this.repo = repo;
     this.direct = repo.hasOperator("direct")
@@ -154,7 +151,7 @@ public class Console {
     ServiceLoader<StreamProvider> loader = ServiceLoader.load(StreamProvider.class);
     streamProvider = Streams.stream(loader).findAny()
         .orElseThrow(() -> new IllegalArgumentException("No StreamProvider found"));
-    streamProvider.init(repo);
+    streamProvider.init(repo, args == null ? new String[] {} : args);
   }
 
   public GroovyObject getEnv() throws Exception {
@@ -163,16 +160,8 @@ public class Console {
         repo);
   }
 
-  private static Config getConfig(String[] paths) {
-    Config ret;
-    if (paths.length > 0) {
-      ret = Arrays.stream(paths)
-          .map(p -> ConfigFactory.parseFile(new File(p)))
-          .reduce(ConfigFactory.empty(), (a, b) -> b.withFallback(a));
-    } else {
-      ret = ConfigFactory.load();
-    }
-    return ret.resolve();
+  private static Config getConfig() {
+    return ConfigFactory.load();
   }
 
   @SuppressWarnings("unchecked")

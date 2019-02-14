@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.tools.groovy;
 
 import cz.o2.proxima.functional.Factory;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 
 public class TestBeamStreamProvider extends BeamStreamProvider {
 
@@ -24,8 +25,16 @@ public class TestBeamStreamProvider extends BeamStreamProvider {
    * Create factory to be used for pipeline creation.
    * @return the factory
    */
+  @Override
   protected Factory<Pipeline> getPipelineFactory() {
-    return BeamStream::createPipelineDefault;
+    return () -> {
+      Pipeline p = BeamStream.createPipelineDefault();
+      // register kryo for object
+      // remove this as soon as we figure out how to correctly
+      // pass type information around in groovy DSL
+      p.getCoderRegistry().registerCoderForClass(Object.class, KryoCoder.of());
+      return p;
+    };
   }
 
 

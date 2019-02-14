@@ -19,12 +19,13 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import java.io.Closeable;
 import java.util.function.Predicate;
 
 /**
  * Provider of {@link Stream} based on various parameters.
  */
-public interface StreamProvider {
+public interface StreamProvider extends Closeable {
 
   @FunctionalInterface
   interface TerminatePredicate {
@@ -44,6 +45,7 @@ public interface StreamProvider {
   /**
    * Close and release all resources.
    */
+  @Override
   void close();
 
   /**

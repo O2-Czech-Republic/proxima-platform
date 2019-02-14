@@ -5,6 +5,7 @@
 
 import cz.o2.proxima.direct.core.DirectDataOperator
 import cz.o2.proxima.direct.randomaccess.KeyValue
+import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.repository.Repository
 import cz.o2.proxima.repository.AttributeDescriptor
 import cz.o2.proxima.repository.EntityDescriptor
@@ -16,7 +17,10 @@ import cz.o2.proxima.tools.groovy.RepositoryProvider
 import cz.o2.proxima.tools.groovy.Stream
 import cz.o2.proxima.tools.groovy.WindowedStream
 import cz.o2.proxima.tools.io.ConsoleRandomReader
+import cz.o2.proxima.util.Pair;
 
+/* @groovy.transform.TypeChecked */
+@groovy.transform.CompileStatic
 class Environment implements RepositoryProvider {
 
   private final Console console = Console.get()
@@ -30,8 +34,12 @@ class Environment implements RepositoryProvider {
       private final String name = "${entity.name}"
       private final ConsoleRandomReader reader = console.getRandomAccessReader("${entity.name}")
 
-      def cz.o2.proxima.repository.EntityDescriptor desc() {
+      def cz.o2.proxima.repository.EntityDescriptor getDesc() {
         return desc
+      }
+
+      def ConsoleRandomReader getReader() {
+        return reader
       }
 
       def String name() {
@@ -141,7 +149,7 @@ class Environment implements RepositoryProvider {
             }
           <#else>
             def ${attribute.type} get(String key) {
-              return ${entity.classname}Descriptor.this.reader.get(key, name)?.getValue()
+              return (${attribute.type}) ${entity.classname}Descriptor.this.reader.get(key, name)?.getValue()
             }
             def void put(String key, String textFormat) {
               console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), textFormat)
@@ -163,7 +171,7 @@ class Environment implements RepositoryProvider {
 
       </#list>
 
-      def void listKeys(java.util.function.Consumer<String> consumer) {
+      def void listKeys(java.util.function.Consumer<Pair<RandomOffset, String>> consumer) {
         reader.listKeys(consumer)
       }
 

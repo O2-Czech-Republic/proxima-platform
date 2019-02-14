@@ -25,6 +25,12 @@ import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.tools.groovy.WindowedStream;
+import groovy.lang.GroovyClassLoader;
+import java.io.File;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.beam.sdk.Pipeline;
 
 /**
@@ -87,5 +93,56 @@ public abstract class BeamStreamProvider implements StreamProvider {
    * @return the factory
    */
   protected abstract Factory<Pipeline> getPipelineFactory();
+
+  /**
+   * List all UDFs created.
+   * @return set of all UDFs
+   */
+  protected Set<Class> listUdfClassNames() {
+    GroovyClassLoader loader = (GroovyClassLoader) Thread.currentThread()
+        .getContextClassLoader();
+    return Arrays.stream(loader.getLoadedClasses())
+        .filter(cl -> cl.getName().contains("closure"))
+        .collect(Collectors.toSet());
+  }
+
+  /**
+   * Create jar from UDFs and register this jar into pipeline
+   * @param pipeline the pipeline to register jar for
+   */
+  void createUdfJarAndRegisterToPipeline(Pipeline pipeline) {
+    String runnerName = pipeline.getOptions().getRunner().getSimpleName();
+    try {
+      File path = createJarFromUdfs();
+      switch (runnerName) {
+        case "DirectRunner":
+          injectJarIntoDirectRunner(pipeline, path);
+          break;
+        case "FlinkRunner":
+          injectJarIntoFlinkRunner(pipeline, path);
+          break;
+        case "SparkRunner":
+          throw new UnsupportedOperationException("Spark unsupported for now.");
+        default:
+          throw new IllegalStateException(
+              "Don't know how to inject jar into " + runnerName);
+      }
+    } catch (IOException ex) {
+      throw new RuntimeException(ex);
+    }
+  }
+
+  private File createJarFromUdfs() throws IOException {
+    Set<Class> classes = listUdfClassNames();
+    return File.createTempFile("proxima-tools", ".tmp");
+  }
+
+  private void injectJarIntoDirectRunner(Pipeline pipeline, File path) {
+    // nop
+  }
+
+  private void injectJarIntoFlinkRunner(Pipeline pipeline, File path) {
+    // @todo
+  }
 
 }

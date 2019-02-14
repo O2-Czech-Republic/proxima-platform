@@ -33,10 +33,12 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.internal.shaded.com.google.common.collect.Streams;
+import cz.o2.proxima.tools.groovy.internal.ProximaInterpreter;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
 import cz.o2.proxima.util.Classpath;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
+import groovy.lang.Binding;
 import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyObject;
 import io.grpc.Channel;
@@ -101,19 +103,23 @@ public class Console {
     Runtime.getRuntime().addShutdownHook(new Thread(console::close));
 
     console.runInputForwarding();
-    Groovysh shell = new Groovysh(new IO(
-        console.getInputStream(), System.out, System.err));
-    shell.run("env = " + Console.class.getName() + ".get().getEnv()");
+    Binding binding = new Binding();
+    console.setShell(new Groovysh(
+        Thread.currentThread().getContextClassLoader(),
+        binding,
+        new IO(console.getInputStream(), System.out, System.err),
+        null,
+        null,
+        new ProximaInterpreter(Thread.currentThread().getContextClassLoader(), binding)));
+    console.runShell("env = " + Console.class.getName() + ".get().getEnv()");
     System.out.println();
     console.close();
   }
 
+  final String[] args;
   final BlockingQueue<Byte> input = new ArrayBlockingQueue<>(1000);
   @Getter
   final Repository repo;
-  final StreamProvider streamProvider;
-  @Getter
-  final Optional<DirectDataOperator> direct;
   final List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;
   final Config config;
@@ -125,6 +131,11 @@ public class Console {
         log.error("Error in thread {}", thrd.getName(), err));
     return t;
   });
+  StreamProvider streamProvider;
+  @Getter
+  Optional<DirectDataOperator> direct;
+  GroovyClassLoader classLoader;
+  Groovysh shell;
 
   Console(String[] args) {
     this(getConfig(), args);
@@ -135,29 +146,36 @@ public class Console {
   }
 
   private Console(Config config, Repository repo, String[] args) {
+    this.args = args;
     this.config = config;
     this.repo = repo;
-    this.direct = repo.hasOperator("direct")
-        ? Optional.of(repo.getOrCreateOperator(DirectDataOperator.class))
-        : Optional.empty();
-    ClassLoader old = Thread.currentThread().getContextClassLoader();
-    Thread.currentThread().setContextClassLoader(new GroovyClassLoader(old));
     conf = new Configuration(Configuration.VERSION_2_3_23);
     conf.setDefaultEncoding("utf-8");
     conf.setClassForTemplateLoading(getClass(), "/");
     conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
     conf.setLogTemplateExceptions(false);
+  }
 
+  private void setShell(Groovysh shell) {
+    this.shell = shell;
+    this.classLoader = shell.getInterp().getClassLoader();
+  }
+
+  public GroovyObject getEnv() throws Exception {
     ServiceLoader<StreamProvider> loader = ServiceLoader.load(StreamProvider.class);
     streamProvider = Streams.stream(loader).findAny()
         .orElseThrow(() -> new IllegalArgumentException("No StreamProvider found"));
     streamProvider.init(repo, args == null ? new String[] {} : args);
-  }
 
-  public GroovyObject getEnv() throws Exception {
+    this.direct = repo.hasOperator("direct")
+        ? Optional.of(repo.getOrCreateOperator(DirectDataOperator.class))
+        : Optional.empty();
+    log.debug("Creating GroovyEnv in classloader {}", classLoader);
+    if (!(Thread.currentThread().getContextClassLoader() instanceof GroovyClassLoader)) {
+      Thread.currentThread().setContextClassLoader(classLoader);
+    }
     return GroovyEnv.of(conf,
-        (GroovyClassLoader) Thread.currentThread().getContextClassLoader(),
-        repo);
+        (GroovyClassLoader) Thread.currentThread().getContextClassLoader(), repo);
   }
 
   private static Config getConfig() {
@@ -399,7 +417,9 @@ public class Console {
 
   private void close() {
     readers.forEach(ConsoleRandomReader::close);
-    streamProvider.close();
+    if (streamProvider != null) {
+      streamProvider.close();
+    }
     executor.shutdownNow();
   }
 
@@ -445,6 +465,10 @@ public class Console {
 
   private int takeInputChar() throws InterruptedException {
     return input.take();
+  }
+
+  private void runShell(String script) {
+    this.shell.run(script);
   }
 
 }

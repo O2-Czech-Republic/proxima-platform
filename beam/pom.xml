@@ -114,6 +114,12 @@
         <scope>test</scope>
       </dependency>
 
+      <dependency> 
+        <groupId>org.apache.beam</groupId> 
+        <artifactId>beam-runners-flink_2.11</artifactId>
+        <version>${apache.beam.version}</version>
+      </dependency> 
+
       <dependency>
         <groupId>org.projectlombok</groupId>
         <artifactId>lombok</artifactId>

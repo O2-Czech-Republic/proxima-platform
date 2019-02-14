@@ -55,6 +55,7 @@ import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventT
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.FlatMap;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
+import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -240,6 +241,9 @@ class BeamStream<T> implements Stream<T> {
     CountDownLatch latch = new CountDownLatch(1);
     Thread running = runThread("pipeline-start-thread", () -> {
       try {
+        log.debug("Running pipeline with class loader {}, pipeline classloader {}",
+            Thread.currentThread().getContextClassLoader(),
+            pipeline.getClass().getClassLoader());
         result.set(pipeline.run());
         result.get().waitUntilFinish();
       } catch (Exception ex) {
@@ -272,8 +276,16 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public void forEach(Closure<?> consumer) {
-    Closure<?> dehydrated = consumer.dehydrate();
-    forEach(dehydrated::call);
+    forEach(asConsumer(consumer.dehydrate()));
+  }
+
+  private static <T> Consumer<T> asConsumer(Closure<?> consumer) {
+    return new Consumer<T>() {
+      @Override
+      public void accept(T input) {
+        consumer.call(input);
+      }
+    };
   }
 
   @Override
@@ -367,7 +379,7 @@ class BeamStream<T> implements Stream<T> {
   public void write(RepositoryProvider repoProvider) {
 
     Repository repo = repoProvider.getRepo();
-    
+
     @SuppressWarnings("unchecked")
     BeamStream<StreamElement> elements = (BeamStream<StreamElement>) this;
 
@@ -483,6 +495,8 @@ class BeamStream<T> implements Stream<T> {
     registry.registerCoderForClass(
         GlobalWindow.class, GlobalWindow.Coder.INSTANCE);
     registrars.forEach(r -> r.accept(registry));
+    // FIXME: need to get rid of this fallback
+    registry.registerCoderForClass(Object.class, KryoCoder.of());
   }
 
   private static class ConsumeFn<T> extends DoFn<T, Void> {

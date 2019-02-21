@@ -49,10 +49,10 @@ public class AvroSerializerFactory implements ValueSerializerFactory {
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
     return (ValueSerializer<T>) serializersCache.computeIfAbsent(
-        specifier, this::createSerializer);
+        specifier, AvroSerializerFactory::createSerializer);
   }
 
-  private <M extends SpecificRecord> ValueSerializer<M> createSerializer(URI uri) {
+  private static <M extends SpecificRecord> ValueSerializer<M> createSerializer(URI uri) {
     return new ValueSerializer<M>() {
       final String avroClassName = uri.getSchemeSpecificPart();
 
@@ -102,21 +102,23 @@ public class AvroSerializerFactory implements ValueSerializerFactory {
         }
         return defaultInstance;
       }
+
+
+      private Schema getAvroSchemaForClass(String avroClassName) {
+        try {
+          Class<SpecificRecord> avroClass = Classpath
+              .findClass(avroClassName, SpecificRecord.class);
+          Method method = avroClass.getMethod("getSchema");
+          return (Schema) method.invoke(avroClass.newInstance());
+        } catch (IllegalAccessException | IllegalArgumentException
+            | NoSuchMethodException | SecurityException | InvocationTargetException
+            | InstantiationException ex) {
+
+          throw new IllegalArgumentException(
+              "Cannot get schema from class " + avroClassName, ex);
+        }
+
+      }
     };
-  }
-  private Schema getAvroSchemaForClass(String avroClassName) {
-    try {
-      Class<SpecificRecord> avroClass = Classpath
-          .findClass(avroClassName, SpecificRecord.class);
-      Method method = avroClass.getMethod("getSchema");
-      return (Schema) method.invoke(avroClass.newInstance());
-    } catch (IllegalAccessException | IllegalArgumentException
-        | NoSuchMethodException | SecurityException | InvocationTargetException
-        | InstantiationException ex) {
-
-      throw new IllegalArgumentException(
-          "Cannot get schema from class " + avroClassName, ex);
-    }
-
   }
 }

@@ -36,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Scheme factory for `json-proto` scheme, which transforms json data
@@ -46,7 +47,7 @@ import java.util.Optional;
 public class JsonProtoSerializerFactory implements ValueSerializerFactory {
 
   private static final Charset CHARSET = StandardCharsets.UTF_8;
-  private final Map<URI, ValueSerializer<?>> serializers = new HashMap<>();
+  private final Map<URI, ValueSerializer<?>> serializers = new ConcurrentHashMap<>();
 
   @Override
   public String getAcceptableScheme() {
@@ -57,17 +58,15 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
     return (ValueSerializer) serializers.computeIfAbsent(
-        specifier, this::createSerializer);
+        specifier, JsonProtoSerializerFactory::createSerializer);
   }
 
   @SuppressWarnings("unchecked")
-  private ValueSerializer createSerializer(URI uri) {
+  private static ValueSerializer createSerializer(URI uri) {
 
     return new ValueSerializer() {
 
       final String protoClass = uri.getSchemeSpecificPart();
-      final Class clz = Classpath.findClass(protoClass, AbstractMessage.class);
-      final JsonProtoSerializerFactory factory = JsonProtoSerializerFactory.this;
       final boolean strictScheme = Optional
           .ofNullable(UriUtil.parseQuery(uri).get("strictScheme"))
           .map(Boolean::valueOf)

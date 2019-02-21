@@ -30,6 +30,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Serializer from protobuffers.
@@ -37,7 +38,7 @@ import java.util.Optional;
 @Slf4j
 public class ProtoSerializerFactory implements ValueSerializerFactory {
 
-  private final Map<URI, ValueSerializer<?>> parsers = new HashMap<>();
+  private final Map<URI, ValueSerializer<?>> parsers = new ConcurrentHashMap<>();
 
   @Override
   public String getAcceptableScheme() {
@@ -45,14 +46,11 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
   }
 
   @SuppressWarnings("unchecked")
-  private <M extends AbstractMessage> ValueSerializer<M> createSerializer(URI uri) {
+  private static <M extends AbstractMessage> ValueSerializer<M>
+      createSerializer(URI uri) {
     return new ValueSerializer<M>() {
 
       final String protoClass = uri.getSchemeSpecificPart();
-      @SuppressWarnings("unchecked")
-      final Class<M> clz = (Class<M>) Classpath.findClass(
-          protoClass, AbstractMessage.class);
-      final ProtoSerializerFactory factory = ProtoSerializerFactory.this;
       @Nullable
       transient M defVal = null;
 
@@ -61,7 +59,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
       @Override
       public Optional<M> deserialize(byte[] input) {
         if (parser == null) {
-          parser = factory.getParserForClass(protoClass);
+          parser = getParserForClass(protoClass);
         }
         try {
           return Optional.of((M) parser.parseFrom(input));
@@ -84,30 +82,30 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
         return value.toByteArray();
       }
 
+
+      @SuppressWarnings("unchecked")
+      private Parser<?> getParserForClass(String protoClassName) {
+
+        try {
+          Class<?> protoClass = Classpath
+              .findClass(protoClassName, AbstractMessage.class);
+          Method parser = protoClass.getMethod("parser");
+          return (Parser) parser.invoke(null);
+        } catch (IllegalAccessException | IllegalArgumentException
+            | NoSuchMethodException | SecurityException | InvocationTargetException ex) {
+
+          throw new IllegalArgumentException(
+              "Cannot create parser from class " + protoClassName, ex);
+        }
+      }
+
     };
   }
-
-  @SuppressWarnings("unchecked")
-  private Parser<?> getParserForClass(String protoClassName) {
-
-    try {
-      Class<?> protoClass = Classpath.findClass(protoClassName, AbstractMessage.class);
-      Method parser = protoClass.getMethod("parser");
-      return (Parser) parser.invoke(null);
-    } catch (IllegalAccessException | IllegalArgumentException
-        | NoSuchMethodException | SecurityException | InvocationTargetException ex) {
-
-      throw new IllegalArgumentException(
-          "Cannot create parser from class " + protoClassName, ex);
-    }
-  }
-
-  // this method is synchronized because of the cache
   @SuppressWarnings("unchecked")
   @Override
-  public synchronized <T> ValueSerializer<T> getValueSerializer(URI scheme) {
+  public <T> ValueSerializer<T> getValueSerializer(URI scheme) {
     return (ValueSerializer) parsers.computeIfAbsent(
-        scheme, this::createSerializer);
+        scheme, ProtoSerializerFactory::createSerializer);
   }
 
   @SuppressWarnings("unchecked")

@@ -42,7 +42,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class JavaSerializer implements ValueSerializerFactory {
   private final Map<URI, ValueSerializer<?>> cache = new ConcurrentHashMap<>();
-  private final List<String> javaPackages = Arrays.asList("java.lang");
+  private static final List<String> javaPackages = Arrays.asList("java.lang");
 
   @Override
   public String getAcceptableScheme() {
@@ -52,10 +52,11 @@ public class JavaSerializer implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
-    return (ValueSerializer<T>) cache.computeIfAbsent(specifier, this::createSerializer);
+    return (ValueSerializer<T>)
+        cache.computeIfAbsent(specifier, JavaSerializer::createSerializer);
   }
 
-  private <T> ValueSerializer<T> createSerializer(URI scheme) {
+  private static <T> ValueSerializer<T> createSerializer(URI scheme) {
     return new ValueSerializer<T>() {
       final String className = scheme.getSchemeSpecificPart();
       transient T defaultValue = null;

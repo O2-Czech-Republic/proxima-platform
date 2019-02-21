@@ -57,73 +57,86 @@ public class JavaSerializer implements ValueSerializerFactory {
   }
 
   private static <T> ValueSerializer<T> createSerializer(URI scheme) {
-    return new ValueSerializer<T>() {
-      final String className = scheme.getSchemeSpecificPart();
-      transient T defaultValue = null;
+    log.warn("Using JavaSerializer for URI {}. This can result in low performance, "
+        + "please use with caution.", scheme);
+    return new JavaValueSerializer<>(scheme);
+  }
 
-      @SuppressWarnings("unchecked")
-      @Override
-      public Optional<T> deserialize(byte[] input) {
-        if (input.length == 0) {
-          return Optional.of(getDefault());
-        }
-        try (
-            final ObjectInputStream inputStream = new ObjectInputStream(
-                new ByteArrayInputStream(input))) {
+  /**
+   * Serializer implementation
+   */
+  private static final class JavaValueSerializer<T> implements ValueSerializer<T> {
+    private final URI scheme;
+    private final String className;
+    transient T defaultValue = null;
 
-          return Optional.of((T) inputStream.readObject());
-        } catch (IOException | ClassNotFoundException e) {
-          log.warn("Unable to deserialize value for scheme: {}.", scheme, e);
-        }
-        return Optional.empty();
+    JavaValueSerializer(URI scheme) {
+      this.scheme = scheme;
+      this.className = scheme.getSchemeSpecificPart();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Optional<T> deserialize(byte[] input) {
+      if (input.length == 0) {
+        return Optional.of(getDefault());
       }
+      try (
+          final ObjectInputStream inputStream = new ObjectInputStream(
+              new ByteArrayInputStream(input))) {
 
-      @Override
-      public byte[] serialize(T value) {
-        try (
-            final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            final ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-
-          oos.writeObject(value);
-          return baos.toByteArray();
-
-        } catch (IOException e) {
-          throw new SerializationException(
-              "Unable to serialize value for scheme: " + scheme + ".", e);
-        }
+        return Optional.of((T) inputStream.readObject());
+      } catch (IOException | ClassNotFoundException e) {
+        log.warn("Unable to deserialize value for scheme: {}.", scheme, e);
       }
+      return Optional.empty();
+    }
 
-      @SuppressWarnings("unchecked")
-      @Override
-      public T getDefault() {
-        if (defaultValue == null) {
-          Class<T> clazz = null;
-          try {
-            clazz = (Class<T>) Classpath.findClass(className, Serializable.class);
-          } catch (RuntimeException e) {
-            //This is a little bit dirty - noop
-          }
-          if (clazz == null) {
-            for (String p : javaPackages) {
-              try {
-                clazz = (Class<T>) Classpath
-                    .findClass(p + "." + className, Serializable.class);
-                if (clazz != null) {
-                  break;
-                }
-              } catch (RuntimeException e) {
-                //This is a little bit dirty - noop
+    @Override
+    public byte[] serialize(T value) {
+      try (
+          final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+          final ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+
+        oos.writeObject(value);
+        return baos.toByteArray();
+
+      } catch (IOException e) {
+        throw new SerializationException(
+            "Unable to serialize value for scheme: " + scheme + ".", e);
+      }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public T getDefault() {
+      if (defaultValue == null) {
+        Class<T> clazz = null;
+        try {
+          clazz = (Class<T>) Classpath.findClass(className, Serializable.class);
+        } catch (RuntimeException e) {
+          //This is a little bit dirty - noop
+        }
+        if (clazz == null) {
+          for (String p : javaPackages) {
+            try {
+              clazz = (Class<T>) Classpath
+                  .findClass(p + "." + className, Serializable.class);
+              if (clazz != null) {
+                break;
               }
+            } catch (RuntimeException e) {
+              //This is a little bit dirty - noop
             }
           }
-          if (clazz == null) {
-            throw new SerializationException(
-                "Unable to find class for scheme: " + scheme + ".");
-          }
-          defaultValue = Classpath.newInstance(clazz);
         }
-        return defaultValue;
+        if (clazz == null) {
+          throw new SerializationException(
+              "Unable to find class for scheme: " + scheme + ".");
+        }
+        defaultValue = Classpath.newInstance(clazz);
       }
-    };
+      return defaultValue;
+    }
   }
 }

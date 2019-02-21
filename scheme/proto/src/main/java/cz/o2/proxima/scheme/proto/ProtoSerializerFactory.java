@@ -27,7 +27,6 @@ import javax.annotation.Nullable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -87,10 +86,10 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
       private Parser<?> getParserForClass(String protoClassName) {
 
         try {
-          Class<?> protoClass = Classpath
+          Class<?> proto = Classpath
               .findClass(protoClassName, AbstractMessage.class);
-          Method parser = protoClass.getMethod("parser");
-          return (Parser) parser.invoke(null);
+          Method p = proto.getMethod("parser");
+          return (Parser) p.invoke(null);
         } catch (IllegalAccessException | IllegalArgumentException
             | NoSuchMethodException | SecurityException | InvocationTargetException ex) {
 

@@ -107,29 +107,10 @@ public class JavaSerializer implements ValueSerializerFactory {
       }
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public T getDefault() {
       if (defaultValue == null) {
-        Class<T> clazz = null;
-        try {
-          clazz = (Class<T>) Classpath.findClass(className, Serializable.class);
-        } catch (RuntimeException e) {
-          //This is a little bit dirty - noop
-        }
-        if (clazz == null) {
-          for (String p : javaPackages) {
-            try {
-              clazz = (Class<T>) Classpath
-                  .findClass(p + "." + className, Serializable.class);
-              if (clazz != null) {
-                break;
-              }
-            } catch (RuntimeException e) {
-              //This is a little bit dirty - noop
-            }
-          }
-        }
+        Class<T> clazz = findClass();
         if (clazz == null) {
           throw new SerializationException(
               "Unable to find class for scheme: " + scheme + ".");
@@ -137,6 +118,30 @@ public class JavaSerializer implements ValueSerializerFactory {
         defaultValue = Classpath.newInstance(clazz);
       }
       return defaultValue;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Class<T> findClass() {
+      Class<T> clazz = null;
+      try {
+        clazz = (Class<T>) Classpath.findClass(className, Serializable.class);
+      } catch (RuntimeException e) {
+        //This is a little bit dirty - noop
+      }
+      if (clazz == null) {
+        for (String p : javaPackages) {
+          try {
+            clazz = (Class<T>) Classpath
+                .findClass(p + "." + className, Serializable.class);
+            if (clazz != null) {
+              break;
+            }
+          } catch (RuntimeException e) {
+            //This is a little bit dirty - noop
+          }
+        }
+      }
+      return clazz;
     }
   }
 }

@@ -35,7 +35,8 @@ public class SchemaRegistrySerializerFactory implements ValueSerializerFactory {
     return "schema-registry";
   }
 
-  private <M extends GenericContainer> ValueSerializer<M> createSerializer(URI scheme) {
+  private static <M extends GenericContainer> ValueSerializer<M>
+      createSerializer(URI scheme) {
     try {
       return new SchemaRegistryValueSerializer<>(scheme);
     } catch (Exception e) {
@@ -46,7 +47,8 @@ public class SchemaRegistrySerializerFactory implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI scheme) {
-    return (ValueSerializer<T>) cache.computeIfAbsent(scheme, this::createSerializer);
+    return (ValueSerializer<T>)
+        cache.computeIfAbsent(scheme, SchemaRegistrySerializerFactory::createSerializer);
   }
 
   @Override

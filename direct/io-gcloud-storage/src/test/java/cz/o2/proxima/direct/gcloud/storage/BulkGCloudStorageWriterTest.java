@@ -18,7 +18,7 @@ package cz.o2.proxima.direct.gcloud.storage;
 import com.google.cloud.storage.Blob;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.internal.shaded.com.google.common.collect.Iterables;
+import com.google.common.collect.Iterables;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -42,8 +42,11 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import static org.junit.Assert.*;
+
+import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import static org.mockito.Mockito.*;
@@ -53,6 +56,7 @@ import static org.mockito.Mockito.*;
  */
 @RunWith(Parameterized.class)
 public class BulkGCloudStorageWriterTest {
+  @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   final Repository repo = Repository.of(ConfigFactory.load().resolve());
   final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
@@ -93,7 +97,7 @@ public class BulkGCloudStorageWriterTest {
   }
 
   @Before
-  public void setUp() throws URISyntaxException {
+  public void setUp() throws URISyntaxException, IOException {
     blobs = Collections.synchronizedNavigableSet(new TreeSet<>());
     onFlushToBlob.set(null);
     written = Collections.synchronizedMap(new HashMap<>());
@@ -308,11 +312,12 @@ public class BulkGCloudStorageWriterTest {
     }
   }
 
-  private Map<String, Object> cfg() {
+  private Map<String, Object> cfg() throws IOException {
     Map<String, Object> ret = new HashMap<>();
     ret.put("log-roll-interval", "1000");
     ret.put("allowed-lateness-ms", 500);
     ret.put("flush-delay-ms", 50);
+    ret.put("tmp.dir", tempFolder.newFolder().getAbsolutePath());
     if (gzip) {
       ret.put("gzip", "true");
     }

@@ -31,7 +31,8 @@ import java.lang.reflect.Method
  * unique closure classnames.
  */
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings("LI_LAZY_INIT_STATIC")
-@groovy.transform.CompileStatic
+// compile static as soon as groovysh patch is available
+// @groovy.transform.CompileStatic
 public class ProximaInterpreter extends Interpreter {
 
   private final AtomicInteger scriptNo = new AtomicInteger()

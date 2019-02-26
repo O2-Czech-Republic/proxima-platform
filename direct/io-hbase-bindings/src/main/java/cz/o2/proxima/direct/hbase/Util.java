@@ -37,7 +37,8 @@ class Util {
     Configuration conf = HBaseConfiguration.create();
     List<String> paths = UriUtil.parsePath(uri);
     if (paths.size() > 1) {
-      conf.set(HConstants.ZOOKEEPER_ZNODE_PARENT, paths.get(0));
+      conf.set(HConstants.ZOOKEEPER_ZNODE_PARENT,
+          String.join("/", paths.subList(0, paths.size() - 1)));
     }
     conf.set(HConstants.ZOOKEEPER_QUORUM, uri.getAuthority());
     return conf;

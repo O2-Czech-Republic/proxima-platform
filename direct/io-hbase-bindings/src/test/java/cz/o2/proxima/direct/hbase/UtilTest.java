@@ -59,6 +59,14 @@ public class UtilTest {
     Configuration conf = Util.getConf(uri);
     assertEquals("localhost:2181", conf.get(HConstants.ZOOKEEPER_QUORUM));
     assertEquals("hbase-secure", conf.get(HConstants.ZOOKEEPER_ZNODE_PARENT));
+    uri = new URI("hbase://localhost:2181/hbase-secure/my/zookeeper/table?family=f");
+    assertEquals("table", Util.getTable(uri));
+    assertEquals("f", new String(Util.getFamily(uri)));
+    conf = Util.getConf(uri);
+    assertEquals("localhost:2181", conf.get(HConstants.ZOOKEEPER_QUORUM));
+    assertEquals(
+        "hbase-secure/my/zookeeper", conf.get(HConstants.ZOOKEEPER_ZNODE_PARENT));
+
   }
 
   @Test

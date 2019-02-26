@@ -21,7 +21,6 @@ import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.Repository;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
-import groovy.lang.GroovyClassLoader;
 import groovy.lang.Script;
 import org.junit.Before;
 
@@ -33,18 +32,17 @@ public class GroovyTest {
   final Config cfg = ConfigFactory.load("test-reference.conf").resolve();
   final Repository repo = ConfigRepository.of(cfg);
   Configuration conf;
-  GroovyClassLoader loader;
+  ToolsClassLoader loader;
 
   @Before
-  public void setUp() {
+  public void setUp() throws Exception {
     conf = new Configuration(Configuration.VERSION_2_3_23);
     conf.setDefaultEncoding("utf-8");
     conf.setClassForTemplateLoading(getClass(), "/");
     conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
     conf.setLogTemplateExceptions(false);
 
-    loader = new GroovyClassLoader(Thread.currentThread().getContextClassLoader());
-    Thread.currentThread().setContextClassLoader(loader);
+    loader = (ToolsClassLoader) Thread.currentThread().getContextClassLoader();
   }
 
   @SuppressWarnings(value = "unchecked")

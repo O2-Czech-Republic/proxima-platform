@@ -19,7 +19,6 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
-import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyObject;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,7 +36,7 @@ import java.util.stream.Collectors;
 public class GroovyEnv {
 
   public static GroovyObject of(Configuration conf,
-      GroovyClassLoader loader, Repository repo) throws Exception {
+      ToolsClassLoader loader, Repository repo) throws Exception {
 
     String source = getSource(conf, repo);
     return (GroovyObject) loader.parseClass(source).newInstance();

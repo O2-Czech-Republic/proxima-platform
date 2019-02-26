@@ -41,7 +41,6 @@ import cz.o2.proxima.util.Classpath;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.Binding;
-import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyObject;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
@@ -99,18 +98,19 @@ public class Console {
   }
 
   public static void main(String[] args) {
+    ClassLoader loader = new ToolsClassLoader();
+    Thread.currentThread().setContextClassLoader(loader);
     Console console = Console.get(args);
-    Runtime.getRuntime().addShutdownHook(new Thread(console::close));
-
-    console.runInputForwarding();
     Binding binding = new Binding();
+    console.runInputForwarding();
     console.setShell(new Groovysh(
-        Thread.currentThread().getContextClassLoader(),
+        loader,
         binding,
         new IO(console.getInputStream(), System.out, System.err),
         null,
         null,
-        new ProximaInterpreter(Thread.currentThread().getContextClassLoader(), binding)));
+        new ProximaInterpreter(loader, binding)));
+    Runtime.getRuntime().addShutdownHook(new Thread(console::close));
     console.runShell("env = " + Console.class.getName() + ".get().getEnv()");
     System.out.println();
     console.close();
@@ -134,7 +134,6 @@ public class Console {
   StreamProvider streamProvider;
   @Getter
   Optional<DirectDataOperator> direct;
-  GroovyClassLoader classLoader;
   Groovysh shell;
 
   Console(String[] args) {
@@ -154,11 +153,12 @@ public class Console {
     conf.setClassForTemplateLoading(getClass(), "/");
     conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
     conf.setLogTemplateExceptions(false);
+
+    updateClassLoader();
   }
 
   private void setShell(Groovysh shell) {
     this.shell = shell;
-    this.classLoader = shell.getInterp().getClassLoader();
   }
 
   public GroovyObject getEnv() throws Exception {
@@ -170,12 +170,18 @@ public class Console {
     this.direct = repo.hasOperator("direct")
         ? Optional.of(repo.getOrCreateOperator(DirectDataOperator.class))
         : Optional.empty();
+
+    updateClassLoader();
+    ToolsClassLoader classLoader = (ToolsClassLoader) Thread
+        .currentThread().getContextClassLoader();
     log.debug("Creating GroovyEnv in classloader {}", classLoader);
-    if (!(Thread.currentThread().getContextClassLoader() instanceof GroovyClassLoader)) {
-      Thread.currentThread().setContextClassLoader(classLoader);
+    return GroovyEnv.of(conf, classLoader, repo);
+  }
+
+  private void updateClassLoader() {
+    if (!(Thread.currentThread().getContextClassLoader() instanceof ToolsClassLoader)) {
+      Thread.currentThread().setContextClassLoader(new ToolsClassLoader());
     }
-    return GroovyEnv.of(conf,
-        (GroovyClassLoader) Thread.currentThread().getContextClassLoader(), repo);
   }
 
   private static Config getConfig() {

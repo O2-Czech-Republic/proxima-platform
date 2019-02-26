@@ -15,9 +15,10 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
-import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.functional.UnaryFunction;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
+import org.apache.beam.sdk.options.PipelineOptions;
 
 public class TestBeamStreamProvider extends BeamStreamProvider {
 
@@ -26,14 +27,14 @@ public class TestBeamStreamProvider extends BeamStreamProvider {
    * @return the factory
    */
   @Override
-  protected Factory<Pipeline> getPipelineFactory() {
-    return () -> {
-      Pipeline p = BeamStream.createPipelineDefault();
+  protected UnaryFunction<PipelineOptions, Pipeline> getCreatePipelineFromOpts() {
+    return opts -> {
+      Pipeline ret = Pipeline.create(opts);
       // register kryo for object
       // remove this as soon as we figure out how to correctly
       // pass type information around in groovy DSL
-      p.getCoderRegistry().registerCoderForClass(Object.class, KryoCoder.of());
-      return p;
+      ret.getCoderRegistry().registerCoderForClass(Object.class, KryoCoder.of());
+      return ret;
     };
   }
 

@@ -18,24 +18,35 @@ package cz.o2.proxima.beam.tools.groovy;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamProvider;
+import cz.o2.proxima.tools.groovy.ToolsClassLoader;
 import cz.o2.proxima.tools.groovy.WindowedStream;
-import groovy.lang.GroovyClassLoader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.utils.IOUtils;
+import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.options.PipelineOptions;
+import org.apache.beam.sdk.options.PipelineOptionsFactory;
 
 /**
  * A {@link StreamProvider} for groovy tools based on beam.
  */
+@Slf4j
 public abstract class BeamStreamProvider implements StreamProvider {
 
   Repository repo;
@@ -58,7 +69,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
     return BeamStream.stream(
         beam, position, stopAtCurrent, eventTime, terminateCheck,
-        getPipelineFactory(), attrs);
+        getJarRegisteringPipelineFactory(), attrs);
   }
 
   @Override
@@ -68,7 +79,8 @@ public abstract class BeamStreamProvider implements StreamProvider {
       AttributeDescriptor<?>... attrs) {
 
     return BeamStream.batchUpdates(
-        beam, startStamp, endStamp, terminateCheck, getPipelineFactory(), attrs);
+        beam, startStamp, endStamp, terminateCheck,
+        getJarRegisteringPipelineFactory(), attrs);
   }
 
   @Override
@@ -78,7 +90,8 @@ public abstract class BeamStreamProvider implements StreamProvider {
       AttributeDescriptor<?>... attrs) {
 
     return BeamStream.batchSnapshot(
-        beam, fromStamp, toStamp, terminateCheck, getPipelineFactory(), attrs);
+        beam, fromStamp, toStamp, terminateCheck,
+        getJarRegisteringPipelineFactory(), attrs);
   }
 
   @Override
@@ -92,34 +105,53 @@ public abstract class BeamStreamProvider implements StreamProvider {
    * Create factory to be used for pipeline creation.
    * @return the factory
    */
-  protected abstract Factory<Pipeline> getPipelineFactory();
+  protected Factory<PipelineOptions> getPipelineOptionsFactory() {
+    return PipelineOptionsFactory::create;
+  }
 
   /**
    * List all UDFs created.
    * @return set of all UDFs
    */
-  protected Set<Class> listUdfClassNames() {
-    GroovyClassLoader loader = (GroovyClassLoader) Thread.currentThread()
+  protected Set<String> listUdfClassNames() {
+    ToolsClassLoader loader = (ToolsClassLoader) Thread.currentThread()
         .getContextClassLoader();
-    return Arrays.stream(loader.getLoadedClasses())
-        .filter(cl -> cl.getName().contains("closure"))
-        .collect(Collectors.toSet());
+    return loader.getDefinedClasses();
+  }
+
+  Factory<Pipeline> getJarRegisteringPipelineFactory() {
+    Factory<PipelineOptions> factory = getPipelineOptionsFactory();
+    UnaryFunction<PipelineOptions, Pipeline> createPipeline = getCreatePipelineFromOpts();
+    return () -> {
+      PipelineOptions opts = factory.apply();
+      createUdfJarAndRegisterToPipeline(opts);
+      return createPipeline.apply(opts);
+    };
+  }
+
+  /**
+   * Convert {@link PipelineOptions} into {@link Pipeline}.
+   * @return function to use for creating pipeline from options
+   */
+  protected UnaryFunction<PipelineOptions, Pipeline> getCreatePipelineFromOpts() {
+    return Pipeline::create;
   }
 
   /**
    * Create jar from UDFs and register this jar into pipeline
-   * @param pipeline the pipeline to register jar for
+   * @param opts the pipeline to register jar for
    */
-  void createUdfJarAndRegisterToPipeline(Pipeline pipeline) {
-    String runnerName = pipeline.getOptions().getRunner().getSimpleName();
+  void createUdfJarAndRegisterToPipeline(PipelineOptions opts) {
+    String runnerName = opts.getRunner().getSimpleName();
     try {
       File path = createJarFromUdfs();
+      log.info("Injecting generated jar at {} into {}", path, runnerName);
       switch (runnerName) {
         case "DirectRunner":
-          injectJarIntoDirectRunner(pipeline, path);
+          // nop
           break;
         case "FlinkRunner":
-          injectJarIntoFlinkRunner(pipeline, path);
+          injectJarIntoFlinkRunner(opts, path);
           break;
         case "SparkRunner":
           throw new UnsupportedOperationException("Spark unsupported for now.");
@@ -133,16 +165,33 @@ public abstract class BeamStreamProvider implements StreamProvider {
   }
 
   private File createJarFromUdfs() throws IOException {
-    Set<Class> classes = listUdfClassNames();
-    return File.createTempFile("proxima-tools", ".tmp");
+    Set<String> classes = listUdfClassNames();
+    ToolsClassLoader loader = (ToolsClassLoader) Thread
+        .currentThread().getContextClassLoader();
+    log.info(
+        "Building jar from classes {} retrieved from {}",
+        classes, loader);
+    File out = File.createTempFile("proxima-tools", ".jar");
+
+    out.deleteOnExit();
+    try (JarOutputStream output = new JarOutputStream(new FileOutputStream(out))) {
+      long now = System.currentTimeMillis();
+      for (String cls : classes) {
+        String name = cls.replace('.', '/') + ".class";
+        JarEntry entry = new JarEntry(name);
+        entry.setTime(now);
+        output.putNextEntry(entry);
+        InputStream input = new ByteArrayInputStream(loader.getClassByteCode(cls));
+        IOUtils.copy(input, output);
+        output.closeEntry();
+      }
+    }
+    return out;
   }
 
-  private void injectJarIntoDirectRunner(Pipeline pipeline, File path) {
-    // nop
-  }
-
-  private void injectJarIntoFlinkRunner(Pipeline pipeline, File path) {
-    // @todo
+  private void injectJarIntoFlinkRunner(PipelineOptions opts, File path) {
+    FlinkPipelineOptions flinkOpts = opts.as(FlinkPipelineOptions.class);
+    flinkOpts.setFilesToStage(Arrays.asList(path.getAbsolutePath()));
   }
 
 }

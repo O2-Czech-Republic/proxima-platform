@@ -21,6 +21,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import groovy.lang.Script;
 import java.util.List;
+import java.util.stream.Collectors;
 import static org.junit.Assert.*;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -141,6 +142,19 @@ public abstract class GroovyEnvTest extends GroovyTest {
     assertEquals(1, result.size());
   }
 
+  @Test
+  public void testClosureByteCodeAvailability() throws Exception {
+    Script compiled = compile("a = { it }");
+    compiled.run();
+    List<String> closures = loader.getDefinedClasses()
+        .stream()
+        .filter(n -> n.contains(("_run_closure")))
+        .collect(Collectors.toList());
+    List<byte[]> codes = closures.stream()
+        .map(loader::getClassByteCode)
+        .collect(Collectors.toList());
+    assertEquals(closures.size(), codes.size());
+  }
 
   @Ignore(
       "This has to be implemented, reduceToLatest must take wildcard deletes "

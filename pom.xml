@@ -292,6 +292,7 @@
             <avsc>JAVADOC_STYLE</avsc>
           </mapping>
           <excludes>
+            <exclude>**/license-header.txt</exclude>
             <exclude>**/.idea/**</exclude>
             <exclude>**/README</exclude>
             <exclude>**/LICENSE</exclude>

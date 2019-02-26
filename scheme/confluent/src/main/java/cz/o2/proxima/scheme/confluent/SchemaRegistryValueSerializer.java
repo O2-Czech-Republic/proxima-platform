@@ -16,9 +16,11 @@
 package cz.o2.proxima.scheme.confluent;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.scheme.SerializationException;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.avro.AvroSerializer;
+import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.util.Classpath;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
@@ -33,6 +35,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -208,8 +211,10 @@ class SchemaRegistryValueSerializer<M extends GenericContainer>
   }
 
   private String getSchemaRegistrySubject(URI uri) {
-    String[] splits = uri.getPath().split("/");
-    return splits[splits.length - 1];
+    List<String> paths = UriUtil.parsePath(uri);
+    Preconditions.checkArgument(
+        !paths.isEmpty(),"Subject cannot be empty! Uri: {}!", uri);
+    return paths.get(paths.size() - 1);
   }
 
 }

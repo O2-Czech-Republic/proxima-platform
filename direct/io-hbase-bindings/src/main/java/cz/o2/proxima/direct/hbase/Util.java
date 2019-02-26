@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
+import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
@@ -35,18 +36,19 @@ class Util {
 
   static Configuration getConf(URI uri) {
     Configuration conf = HBaseConfiguration.create();
+    List<String> paths = UriUtil.parsePath(uri);
+    if (paths.size() > 1) {
+      conf.set(HConstants.ZOOKEEPER_ZNODE_PARENT, paths.get(0));
+    }
     conf.set(HConstants.ZOOKEEPER_QUORUM, uri.getAuthority());
     return conf;
   }
 
   static String getTable(URI uri) {
-    String table = uri.getPath().substring(1);
-    Preconditions.checkArgument(
-        !Strings.isNullOrEmpty(table), "Table cannot be empty in " + uri + "!");
-    while (table.endsWith("/")) {
-      table = table.substring(0, table.length() - 1);
-    }
-    return table;
+    List<String> paths = UriUtil.parsePath(uri);
+    Preconditions.checkArgument(!paths.isEmpty(),
+        "Table cannot be empty in uri: {}!", uri);
+    return paths.get(paths.size() - 1);
   }
 
   static byte[] getFamily(URI uri) {

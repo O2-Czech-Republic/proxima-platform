@@ -23,6 +23,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.NavigableMap;
 import java.util.UUID;
@@ -39,7 +40,7 @@ import org.junit.After;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
-import static cz.o2.proxima.direct.hbase.TestUtil.bytes;
+import static cz.o2.proxima.direct.hbase.HbaseTestUtil.bytes;
 
 /**
  * Test {@code HBaseWriter} via a local instance of HBase cluster.
@@ -69,6 +70,21 @@ public class HBaseWriterTest {
   @After
   public void tearDown() throws Exception {
     cluster.shutdown();
+  }
+
+  @Test
+  public void testWriteIntoNotExistsTable() throws URISyntaxException {
+    long now = 1500000000000L;
+    HBaseWriter failWriter = new HBaseWriter(
+        new URI("hbase://localhost:2181/not-exists?family=u"),
+        cluster.getConfiguration(),
+        Collections.emptyMap());
+    failWriter.write(StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "entity", "dummy", now, new byte[] { 1, 2}),
+        ((success, error) -> {
+          assertFalse(success);
+        }));
   }
 
   @Test(timeout = 10000)

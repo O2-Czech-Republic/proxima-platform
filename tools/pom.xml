@@ -39,7 +39,7 @@
         <version>1.5</version>
         <executions>
           <execution>
-            <phase>generate-sources</phase>
+            <phase>process-sources</phase>
             <goals>
               <goal>addSources</goal>
               <goal>addTestSources</goal>
@@ -89,9 +89,9 @@
     </dependency>
 
     <dependency>
-      <groupId>org.codehaus.groovy</groupId>
-      <artifactId>groovy-groovysh</artifactId>
-      <version>${groovy.version}</version>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-groovy-groovysh</artifactId>
+      <version>${project.version}</version>
     </dependency>
 
     <dependency>

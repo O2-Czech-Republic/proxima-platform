@@ -16,13 +16,14 @@
 
 package cz.o2.proxima.tools.groovy.internal
 
+import cz.o2.proxima.repackaged.groovy.tools.shell.Groovysh
+import cz.o2.proxima.repackaged.groovy.tools.shell.Interpreter
+import cz.o2.proxima.repackaged.groovy.tools.shell.Parser
+
 import java.util.concurrent.atomic.AtomicInteger
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.codehaus.groovy.runtime.MethodClosure
-import org.codehaus.groovy.tools.shell.Groovysh
-import org.codehaus.groovy.tools.shell.Interpreter
-import org.codehaus.groovy.tools.shell.Parser
 
 import java.lang.reflect.Method
 
@@ -31,8 +32,7 @@ import java.lang.reflect.Method
  * unique closure classnames.
  */
 @edu.umd.cs.findbugs.annotations.SuppressFBWarnings("LI_LAZY_INIT_STATIC")
-// compile static as soon as groovysh patch is available
-// @groovy.transform.CompileStatic
+@groovy.transform.CompileStatic
 public class ProximaInterpreter extends Interpreter {
 
   private final AtomicInteger scriptNo = new AtomicInteger()

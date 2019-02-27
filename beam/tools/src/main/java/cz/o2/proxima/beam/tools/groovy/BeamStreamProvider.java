@@ -32,13 +32,14 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
+import java.lang.reflect.Method;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.utils.IOUtils;
-import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
@@ -148,10 +149,9 @@ public abstract class BeamStreamProvider implements StreamProvider {
       log.info("Injecting generated jar at {} into {}", path, runnerName);
       switch (runnerName) {
         case "DirectRunner":
-          // nop
-          break;
         case "FlinkRunner":
-          injectJarIntoFlinkRunner(opts, path);
+          injectJarIntoClassloader(
+              (URLClassLoader) opts.getRunner().getClassLoader(), path);
           break;
         case "SparkRunner":
           throw new UnsupportedOperationException("Spark unsupported for now.");
@@ -189,9 +189,17 @@ public abstract class BeamStreamProvider implements StreamProvider {
     return out;
   }
 
-  private void injectJarIntoFlinkRunner(PipelineOptions opts, File path) {
-    FlinkPipelineOptions flinkOpts = opts.as(FlinkPipelineOptions.class);
-    flinkOpts.setFilesToStage(Arrays.asList(path.getAbsolutePath()));
+  // this is hackish, but we need to inject the jar into ClassLoader
+  // that loaded the runner class
+  private void injectJarIntoClassloader(URLClassLoader loader, File path) {
+    try {
+      Method addUrl = URLClassLoader.class.getDeclaredMethod(
+          "addURL", new Class[] { URL.class });
+      addUrl.setAccessible(true);
+      addUrl.invoke(loader, new URL("file://" + path.getAbsolutePath()));
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
   }
 
 }

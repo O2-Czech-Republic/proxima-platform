@@ -16,6 +16,7 @@
 package cz.o2.proxima.tools.groovy;
 
 import groovy.lang.GroovyClassLoader;
+import java.net.URL;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -46,9 +47,12 @@ public class ToolsClassLoader extends GroovyClassLoader {
 
   final Map<String, byte[]> bytecodes = new ConcurrentHashMap<>();
 
+  public void addUrl(URL url) {
+    super.addURL(url);
+  }
+
   @Override
   protected ClassCollector createCollector(CompilationUnit unit, SourceUnit su) {
-
     ClassCollector collector = super.createCollector(unit, su);
     return new Collector(
         (InnerLoader) collector.getDefiningClassLoader(), unit, su);

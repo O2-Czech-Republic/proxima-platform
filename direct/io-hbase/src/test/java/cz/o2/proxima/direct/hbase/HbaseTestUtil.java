@@ -20,10 +20,11 @@ import java.nio.charset.Charset;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Table;
 
+
 /**
  * Various test related utilities.
  */
-class TestUtil {
+class HbaseTestUtil {
 
   static byte[] bytes(String s) {
     return s.getBytes(Charset.forName("UTF-8"));
@@ -38,6 +39,7 @@ class TestUtil {
     client.put(p);
   }
 
-  private TestUtil() { }
-  
+  private HbaseTestUtil() { }
+
+
 }

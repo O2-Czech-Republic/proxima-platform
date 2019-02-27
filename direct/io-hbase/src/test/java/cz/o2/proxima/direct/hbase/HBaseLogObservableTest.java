@@ -43,7 +43,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import static cz.o2.proxima.direct.hbase.TestUtil.bytes;
+import static cz.o2.proxima.direct.hbase.HbaseTestUtil.bytes;
 
 /**
  * Test suite for {@link HBaseLogObservable}.
@@ -229,7 +229,7 @@ public class HBaseLogObservableTest {
   private void write(
       String key, String attribute, String value,
       long stamp) throws IOException {
-    TestUtil.write(key, attribute, value, stamp, client);
+    HbaseTestUtil.write(key, attribute, value, stamp, client);
   }
 
 

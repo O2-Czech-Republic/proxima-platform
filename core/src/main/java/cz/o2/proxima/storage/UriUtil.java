@@ -21,6 +21,7 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -30,8 +31,13 @@ import java.util.stream.Collectors;
 @Internal
 public class UriUtil {
 
+  /**
+   * Parse query string from URI
+   * @param uri uri for parsing
+   * @return Map of query params
+   */
   public static Map<String, String> parseQuery(URI uri) {
-    String query = uri.getQuery();
+    String query = uri.getRawQuery();
     if (query == null) {
       return Collections.emptyMap();
     }
@@ -66,6 +72,22 @@ public class UriUtil {
     return p;
   }
 
+  /**
+   * Parse path from URI
+   * @param uri uri for parsing
+   * @return list of paths as string
+   */
+  public static List<String> parsePath(URI uri) {
+    String path = uri.getRawPath();
+    if (path.startsWith("/")) {
+      path = path.substring(1);
+    }
+    if (path.isEmpty()) {
+      return Collections.emptyList();
+    }
+    return Arrays.stream(path.split("/")).map(UriUtil::decode)
+        .collect(Collectors.toList());
+  }
   private UriUtil() {
     
   }

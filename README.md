@@ -213,5 +213,3 @@ First, let's introduce some glossary:
  [Apache Spark](https://spark.apache.org/), [Apache Flink](https://flink.apache.org/) and a special executor called
  _direct runner_ are supported.
  
- ## Build dependency
-  * rename command

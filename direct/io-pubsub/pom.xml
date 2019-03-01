@@ -81,29 +81,6 @@
         </executions>
       </plugin>
 
-      <plugin>
-        <artifactId>exec-maven-plugin</artifactId>
-        <groupId>org.codehaus.mojo</groupId>
-        <version>1.6.0</version>
-        <executions>
-          <execution>
-            <id>Services shade</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>${basedir}/shade-grpc-services.sh</executable>
-              <arguments>
-                <argument>${project.build.directory}/proxima-direct-io-pubsub-${project.version}.jar</argument>
-                <argument>io.grpc</argument>
-                <argument>${shadePattern}.io.grpc</argument>
-              </arguments>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
       <plugin>         
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>

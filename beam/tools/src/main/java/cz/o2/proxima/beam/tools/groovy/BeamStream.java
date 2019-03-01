@@ -298,8 +298,19 @@ class BeamStream<T> implements Stream<T> {
   public void print() {
     try (RemoteConsumer<T> printer = RemoteConsumer.create(
         this, config.getCollectHostname(), config.getPreferredCollectPort(),
-        System.out::println)) {
+        BeamStream::print)) {
       forEach(printer::add);
+    }
+  }
+
+  private static <T> void print(T what) {
+    if (what instanceof StreamElement) {
+      StreamElement el = (StreamElement) what;
+      System.out.println(String.format(
+          "%s %s %s %d %s", el.getKey(), el.getAttribute(), el.getUuid(),
+          el.getStamp(), el.getValue() != null ? el.getParsed().get() : "(null)"));
+    } else {
+      System.out.println(what);
     }
   }
 

@@ -210,7 +210,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   @Test
   public void testPrintln() throws Exception {
     Script compiled = compile(
-        "env.batch.data.batchUpdates().forEach({ println it })");
+        "env.batch.data.batchUpdates().print()");
     write(StreamElement.update(batch, data, "uuid",
             "key", data.getName(), System.currentTimeMillis(), new byte[] { }));
     compiled.run();

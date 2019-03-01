@@ -34,8 +34,19 @@ import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.tools.groovy.util.Types;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
+import fi.iki.elonen.NanoHTTPD;
+import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
 import groovy.lang.Closure;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.Serializable;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -45,6 +56,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.utils.IOUtils;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
@@ -97,9 +109,9 @@ class BeamStream<T> implements Stream<T> {
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>... attrs) {
 
-    return withRegisteredTypes(
-        beam.getRepository(),
+    return withRegisteredTypes(beam.getRepository(),
         new BeamStream<>(
+            asConfig(beam),
             stopAtCurrent,
             pipeline -> beam.getStream(
                 pipeline, position, stopAtCurrent, eventTime, attrs),
@@ -117,6 +129,7 @@ class BeamStream<T> implements Stream<T> {
     return withRegisteredTypes(
         beam.getRepository(),
         new BeamStream<>(
+            asConfig(beam),
             true,
             pipeline -> beam.getBatchUpdates(
                 pipeline, startStamp, endStamp, attrs),
@@ -135,6 +148,7 @@ class BeamStream<T> implements Stream<T> {
     return withRegisteredTypes(
         beam.getRepository(),
         new BeamStream<>(
+            asConfig(beam),
             true,
             pipeline -> beam.getBatchSnapshot(
                 pipeline, fromStamp, toStamp, attrs),
@@ -143,6 +157,11 @@ class BeamStream<T> implements Stream<T> {
         .windowAll();
   }
 
+  private static StreamConfig asConfig(BeamDataOperator beam) {
+    return StreamConfig.of(beam);
+  }
+
+  final StreamConfig config;
   final boolean bounded;
   final PCollectionProvider<T> collection;
   final List<Consumer<CoderRegistry>> registrars = new ArrayList<>();
@@ -150,18 +169,19 @@ class BeamStream<T> implements Stream<T> {
   final Factory<Pipeline> pipelineFactory;
 
   BeamStream(
-      boolean bounded, PCollectionProvider<T> input,
+      StreamConfig config, boolean bounded, PCollectionProvider<T> input,
       StreamProvider.TerminatePredicate terminateCheck) {
 
-    this(bounded, input, terminateCheck, BeamStream::createPipelineDefault);
+    this(config, bounded, input, terminateCheck, BeamStream::createPipelineDefault);
   }
 
 
   BeamStream(
-      boolean bounded, PCollectionProvider<T> input,
+      StreamConfig config, boolean bounded, PCollectionProvider<T> input,
       StreamProvider.TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory) {
 
+    this.config = config;
     this.bounded = bounded;
     this.collection = input;
     this.terminateCheck = terminateCheck;
@@ -275,24 +295,23 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @Override
-  public void forEach(Closure<?> consumer) {
-    forEach(asConsumer(consumer.dehydrate()));
-  }
-
-  private static <T> Consumer<T> asConsumer(Closure<?> consumer) {
-    return new Consumer<T>() {
-      @Override
-      public void accept(T input) {
-        consumer.call(input);
-      }
-    };
+  public void print() {
+    try (RemoteConsumer<T> printer = RemoteConsumer.create(
+        this, config.getCollectHostname(), config.getPreferredCollectPort(),
+        System.out::println)) {
+      forEach(printer::add);
+    }
   }
 
   @Override
   public List<T> collect() {
-    List<T> result = newUnserializableList();
-    forEach(result::add);
-    return result;
+    List<T> ret = new ArrayList<>();
+    try (RemoteConsumer<T> collector = RemoteConsumer.create(
+        this, config.getCollectHostname(), config.getPreferredCollectPort(),
+        ret::add)) {
+      forEach(collector::add);
+    }
+    return ret;
   }
 
   @Override
@@ -462,7 +481,7 @@ class BeamStream<T> implements Stream<T> {
   }
 
   <X> BeamStream<X> descendant(PCollectionProvider<X> provider) {
-    return new BeamStream<>(bounded, provider, terminateCheck, pipelineFactory);
+    return new BeamStream<>(config, bounded, provider, terminateCheck, pipelineFactory);
   }
 
   Pipeline createPipeline() {
@@ -486,7 +505,7 @@ class BeamStream<T> implements Stream<T> {
       WindowFn<? super X, ?> window) {
 
     return new BeamWindowedStream<>(
-        bounded, provider, window,
+        config, bounded, provider, window,
         WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES,
         terminateCheck, pipelineFactory);
   }
@@ -576,39 +595,113 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
-  // this is hackish and should be replaced with
-  // implementation that is able to store data even remotely
-  // this implies serializalization safety
+  // iterable that collects elements using HTTP
+  // this is first shot implementation with no optimizations
+  private static class RemoteConsumer<T> implements Serializable, AutoCloseable {
 
-  private static class SingletonList<T> extends ArrayList<T> {
+    private static <T> RemoteConsumer<T> create(
+        Object seed, String hostname, int preferredPort, Consumer<T> consumer) {
 
-    @SuppressWarnings("unchecked")
-    private static final SingletonList INSTANCE = new SingletonList<>();
-
-    Object readResolve() {
-      return INSTANCE;
-    }
-
-    @Override
-    public void add(int index, T element) {
-      synchronized (INSTANCE) {
-        super.add(index, element);
+      try {
+        // start HTTP server and store host and port
+        int port = getPort(preferredPort, System.identityHashCode(seed));
+        RemoteConsumer<T> ret = new RemoteConsumer<>(hostname, port, consumer);
+        ret.start();
+        return ret;
+      } catch (Exception ex) {
+        throw new RuntimeException(ex);
       }
     }
 
-    @Override
-    public boolean add(T e) {
-      synchronized (INSTANCE) {
-        return super.add(e);
+    static int getPort(int preferredPort, int seed) {
+      return preferredPort > 0
+          ? preferredPort
+          : (((int) (seed * Math.random()))
+            & Integer.MAX_VALUE) % 50000 + 10000;
+    }
+
+    private class Server extends NanoHTTPD {
+
+      Server(int port) {
+        super(port);
+      }
+
+      @Override
+      public NanoHTTPD.Response serve(NanoHTTPD.IHTTPSession session) {
+        synchronized (RemoteConsumer.this) {
+          try {
+            consumer.accept(deserialize(session.getInputStream()));
+            return newFixedLengthResponse("OK");
+          } catch (IOException ex) {
+            throw new RuntimeException(ex);
+          }
+        }
+      }
+
+    }
+
+    private final Coder<T> coder = KryoCoder.of();
+    final URL url;
+    private final transient Consumer<T> consumer;
+    private final transient Server server;
+
+    private RemoteConsumer(String hostname, int port, Consumer<T> consumer)
+        throws UnknownHostException, MalformedURLException {
+
+      this.server = new Server(port);
+      this.url = new URL("http://" + hostname + ":" + port);
+      this.consumer = consumer;
+    }
+
+    public void add(T what) {
+      HttpURLConnection connection = null;
+      try {
+        connection = (HttpURLConnection) url.openConnection();
+        connection.setDoInput(true);
+        connection.setDoOutput(true);
+        connection.setRequestMethod("PUT");
+        connection.setRequestProperty("Connection", "close");
+        IOUtils.copy(serialize(what), connection.getOutputStream());
+        connection.connect();
+        String response = new String(IOUtils.toByteArray(
+            connection.getInputStream()), StandardCharsets.US_ASCII);
+        if (!"OK".equals(response)) {
+          throw new IllegalStateException("Server replied " + response);
+        }
+      } catch (IOException ex) {
+        throw new RuntimeException(ex);
+      } finally {
+        if (connection != null) {
+          connection.disconnect();
+        }
       }
     }
 
-  }
+    void stop() {
+      server.stop();
+    }
 
-  @SuppressWarnings("unchecked")
-  private static <T> List<T> newUnserializableList() {
-    SingletonList.INSTANCE.clear();
-    return SingletonList.INSTANCE;
+    void start() throws IOException {
+      server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, true);
+    }
+
+    InputStream serialize(T what) throws IOException {
+      try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        coder.encode(what, baos);
+        baos.close();
+        return new ByteArrayInputStream(baos.toByteArray());
+      }
+    }
+
+    T deserialize(InputStream in) throws IOException {
+      return coder.decode(in);
+    }
+
+    @Override
+    public void close() {
+      stop();
+    }
+
   }
 
 }

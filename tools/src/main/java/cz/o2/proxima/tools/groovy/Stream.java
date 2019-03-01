@@ -57,10 +57,9 @@ public interface Stream<T> {
   Stream<Pair<Object, T>> withWindow();
 
   /**
-   * Perform action on each element of the stream.
-   * @param consumer consumer of the stream elements
+   * Print all elements to console.
    */
-  void forEach(Closure<?> consumer);
+  void print();
 
   /**
    * Collect stream as list.

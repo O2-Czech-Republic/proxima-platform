@@ -64,6 +64,7 @@ public class BeamStreamTest extends StreamTest {
 
         return injectTypeOf(
             new BeamStream<>(
+                StreamConfig.empty(),
                 true,
                 p -> p.apply(Create.of(values)).setTypeDescriptor(typeDesc),
                 () -> {
@@ -76,7 +77,8 @@ public class BeamStreamTest extends StreamTest {
 
   static <T> BeamStream<T> injectTypeOf(BeamStream<T> delegate) {
     return new BeamStream<T>(
-        delegate.isBounded(), delegate.collection, delegate.terminateCheck) {
+        StreamConfig.empty(), delegate.isBounded(),
+        delegate.collection, delegate.terminateCheck) {
 
       @Override
       <T> TypeDescriptor<T> typeOf(Closure<T> closure) {
@@ -101,7 +103,7 @@ public class BeamStreamTest extends StreamTest {
 
   static <T> BeamWindowedStream<T> injectTypeOf(BeamWindowedStream<T> delegate) {
     return new BeamWindowedStream<T>(
-        delegate.isBounded(), delegate.collection,
+        StreamConfig.empty(), delegate.isBounded(), delegate.collection,
         delegate.getWindowing(), delegate.getMode(),
         delegate.terminateCheck,
         delegate.pipelineFactory) {

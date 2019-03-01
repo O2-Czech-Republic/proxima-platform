@@ -58,13 +58,13 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @SuppressWarnings("unchecked")
   BeamWindowedStream(
-      boolean bounded, PCollectionProvider<T> input,
+      StreamConfig config, boolean bounded, PCollectionProvider<T> input,
       WindowFn<? super T, ?> windowing,
       WindowingStrategy.AccumulationMode mode,
       StreamProvider.TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory) {
 
-    super(bounded, input, terminateCheck, pipelineFactory);
+    super(config, bounded, input, terminateCheck, pipelineFactory);
     this.windowing = (WindowFn) windowing;
     this.mode = mode;
   }
@@ -527,7 +527,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   @Override
   <X> BeamWindowedStream<X> descendant(PCollectionProvider<X> provider) {
     return new BeamWindowedStream<>(
-        bounded, provider, (WindowFn) windowing, mode, terminateCheck,
+        config, bounded, provider, (WindowFn) windowing, mode, terminateCheck,
         pipelineFactory);
   }
 

@@ -36,17 +36,14 @@ import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.Arrays;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.utils.IOUtils;
-import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.options.PipelineOptionsValidator;
 
 /**
  * A {@link StreamProvider} for groovy tools based on beam.
@@ -158,7 +155,6 @@ public abstract class BeamStreamProvider implements StreamProvider {
         case "FlinkRunner":
           injectJarIntoClassloader(
               (URLClassLoader) opts.getRunner().getClassLoader(), path);
-          setFlinkFilesToStage(opts, path);
           break;
         case "SparkRunner":
           throw new UnsupportedOperationException("Spark unsupported for now.");
@@ -213,12 +209,6 @@ public abstract class BeamStreamProvider implements StreamProvider {
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
-  }
-
-  private void setFlinkFilesToStage(PipelineOptions opts, File path) {
-    PipelineOptionsValidator
-        .validate(FlinkPipelineOptions.class, opts)
-        .setFilesToStage(Arrays.asList(path.toURI().toString()));
   }
 
 }

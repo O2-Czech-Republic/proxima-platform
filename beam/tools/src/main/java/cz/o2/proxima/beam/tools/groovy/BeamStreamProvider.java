@@ -33,16 +33,20 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Arrays;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.utils.IOUtils;
+import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.options.PipelineOptionsValidator;
 
 /**
  * A {@link StreamProvider} for groovy tools based on beam.
@@ -149,9 +153,12 @@ public abstract class BeamStreamProvider implements StreamProvider {
       log.info("Injecting generated jar at {} into {}", path, runnerName);
       switch (runnerName) {
         case "DirectRunner":
+          // nop
+          break;
         case "FlinkRunner":
           injectJarIntoClassloader(
               (URLClassLoader) opts.getRunner().getClassLoader(), path);
+          setFlinkFilesToStage(opts, path);
           break;
         case "SparkRunner":
           throw new UnsupportedOperationException("Spark unsupported for now.");
@@ -191,15 +198,27 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
   // this is hackish, but we need to inject the jar into ClassLoader
   // that loaded the runner class
-  private void injectJarIntoClassloader(URLClassLoader loader, File path) {
+  private void injectJarIntoClassloader(URLClassLoader loader, File path)
+      throws MalformedURLException {
+
+    injectUrlIntoClassloader(loader, new URL("file://" + path.getAbsolutePath()));
+  }
+
+  private void injectUrlIntoClassloader(URLClassLoader loader, URL url) {
     try {
       Method addUrl = URLClassLoader.class.getDeclaredMethod(
           "addURL", new Class[] { URL.class });
       addUrl.setAccessible(true);
-      addUrl.invoke(loader, new URL("file://" + path.getAbsolutePath()));
+      addUrl.invoke(loader, url);
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
+  }
+
+  private void setFlinkFilesToStage(PipelineOptions opts, File path) {
+    PipelineOptionsValidator
+        .validate(FlinkPipelineOptions.class, opts)
+        .setFilesToStage(Arrays.asList(path.toURI().toString()));
   }
 
 }

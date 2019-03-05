@@ -45,12 +45,12 @@ import java.io.Serializable;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -255,52 +255,50 @@ class BeamStream<T> implements Stream<T> {
 
   private void forEach(Consumer<T> consumer) {
     Pipeline pipeline = createPipeline();
-    PCollection<T> materialized = collection.materialize(pipeline);
-    materialized.apply(asWriteTransform(asDoFn(consumer)));
-    AtomicReference<PipelineResult> result = new AtomicReference<>();
-    CountDownLatch latch = new CountDownLatch(1);
-    Thread running = runThread("pipeline-start-thread", () -> {
-      try {
-        log.debug("Running pipeline with class loader {}, pipeline classloader {}",
-            Thread.currentThread().getContextClassLoader(),
-            pipeline.getClass().getClassLoader());
-        result.set(pipeline.run());
-        result.get().waitUntilFinish();
-      } catch (Exception ex) {
-        if (!(ex.getCause() instanceof InterruptedException)) {
-          throw ex;
-        } else {
-          log.debug("Swallowing interrupted exception.", ex);
+    PCollection<T> pcoll = collection.materialize(pipeline);
+    try (RemoteConsumer<T> remoteConsumer = createRemoteConsumer(pcoll, consumer)) {
+      pcoll.apply(asWriteTransform(asDoFn(remoteConsumer::add)));
+      AtomicReference<PipelineResult> result = new AtomicReference<>();
+      CountDownLatch latch = new CountDownLatch(1);
+      Thread running = runThread("pipeline-start-thread", () -> {
+        try {
+          log.debug("Running pipeline with class loader {}, pipeline classloader {}",
+              Thread.currentThread().getContextClassLoader(),
+              pipeline.getClass().getClassLoader());
+          result.set(pipeline.run());
+          result.get().waitUntilFinish();
+        } catch (Exception ex) {
+          if (!(ex.getCause() instanceof InterruptedException)) {
+            throw ex;
+          } else {
+            log.debug("Swallowing interrupted exception.", ex);
+          }
+        } finally {
+          latch.countDown();
         }
-      } finally {
-        latch.countDown();
+      });
+      AtomicBoolean watchTerminating = new AtomicBoolean();
+      AtomicBoolean gracefulExit = new AtomicBoolean();
+      Thread watch = runWatchThread(() -> {
+        watchTerminating.set(true);
+        if (!gracefulExit.get()) {
+          cancelIfResultExists(result);
+          running.interrupt();
+          ExceptionUtils.unchecked(latch::await);
+          cancelIfResultExists(result);
+        }
+      });
+      ExceptionUtils.unchecked(latch::await);
+      gracefulExit.set(true);
+      if (!watchTerminating.get()) {
+        watch.interrupt();
       }
-    });
-    AtomicBoolean watchTerminating = new AtomicBoolean();
-    AtomicBoolean gracefulExit = new AtomicBoolean();
-    Thread watch = runWatchThread(() -> {
-      watchTerminating.set(true);
-      if (!gracefulExit.get()) {
-        cancelIfResultExists(result);
-        running.interrupt();
-        ExceptionUtils.unchecked(latch::await);
-        cancelIfResultExists(result);
-      }
-    });
-    ExceptionUtils.unchecked(latch::await);
-    gracefulExit.set(true);
-    if (!watchTerminating.get()) {
-      watch.interrupt();
     }
   }
 
   @Override
   public void print() {
-    try (RemoteConsumer<T> printer = RemoteConsumer.create(
-        this, config.getCollectHostname(), config.getPreferredCollectPort(),
-        BeamStream::print)) {
-      forEach(printer::add);
-    }
+    forEach(BeamStream::print);
   }
 
   private static <T> void print(T what) {
@@ -317,11 +315,7 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public List<T> collect() {
     List<T> ret = new ArrayList<>();
-    try (RemoteConsumer<T> collector = RemoteConsumer.create(
-        this, config.getCollectHostname(), config.getPreferredCollectPort(),
-        ret::add)) {
-      forEach(collector::add);
-    }
+    forEach(ret::add);
     return ret;
   }
 
@@ -529,6 +523,14 @@ class BeamStream<T> implements Stream<T> {
     registry.registerCoderForClass(Object.class, KryoCoder.of());
   }
 
+  private <T> RemoteConsumer<T> createRemoteConsumer(
+      PCollection<T> collection, Consumer<T> consumer) {
+
+    return RemoteConsumer.create(
+        this, config.getCollectHostname(),
+        config.getPreferredCollectPort(), consumer, collection);
+  }
+
   private static class ConsumeFn<T> extends DoFn<T, Void> {
 
     private final Consumer<T> consumer;
@@ -610,13 +612,22 @@ class BeamStream<T> implements Stream<T> {
   // this is first shot implementation with no optimizations
   private static class RemoteConsumer<T> implements Serializable, AutoCloseable {
 
+    private static final Random RANDOM = new Random();
+
     private static <T> RemoteConsumer<T> create(
-        Object seed, String hostname, int preferredPort, Consumer<T> consumer) {
+        Object seed, String hostname, int preferredPort,
+        Consumer<T> consumer, PCollection<T> collection) {
 
       try {
         // start HTTP server and store host and port
         int port = getPort(preferredPort, System.identityHashCode(seed));
-        RemoteConsumer<T> ret = new RemoteConsumer<>(hostname, port, consumer);
+        Coder<T> coder = collection.getCoder();
+        if (coder == null) {
+          // can this happen?
+          coder = collection.getPipeline().getCoderRegistry()
+              .getCoder(collection.getTypeDescriptor());
+        }
+        RemoteConsumer<T> ret = new RemoteConsumer<>(hostname, port, consumer, coder);
         ret.start();
         return ret;
       } catch (Exception ex) {
@@ -627,8 +638,7 @@ class BeamStream<T> implements Stream<T> {
     static int getPort(int preferredPort, int seed) {
       return preferredPort > 0
           ? preferredPort
-          : (((int) (seed * Math.random()))
-            & Integer.MAX_VALUE) % 50000 + 10000;
+          : RANDOM.nextInt(seed & Integer.MAX_VALUE) % 50000 + 10000;
     }
 
     private class Server extends NanoHTTPD {
@@ -651,17 +661,19 @@ class BeamStream<T> implements Stream<T> {
 
     }
 
-    private final Coder<T> coder = KryoCoder.of();
+    private final Coder<T> coder;
     final URL url;
     private final transient Consumer<T> consumer;
     private final transient Server server;
 
-    private RemoteConsumer(String hostname, int port, Consumer<T> consumer)
-        throws UnknownHostException, MalformedURLException {
+    private RemoteConsumer(
+        String hostname, int port, Consumer<T> consumer,
+        Coder<T> coder) throws MalformedURLException {
 
       this.server = new Server(port);
       this.url = new URL("http://" + hostname + ":" + port);
       this.consumer = consumer;
+      this.coder = coder;
     }
 
     public void add(T what) {
@@ -699,7 +711,6 @@ class BeamStream<T> implements Stream<T> {
     InputStream serialize(T what) throws IOException {
       try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
         coder.encode(what, baos);
-        baos.close();
         return new ByteArrayInputStream(baos.toByteArray());
       }
     }

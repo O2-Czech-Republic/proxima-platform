@@ -202,8 +202,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
   private void injectUrlIntoClassloader(URLClassLoader loader, URL url) {
     try {
-      Method addUrl = URLClassLoader.class.getDeclaredMethod(
-          "addURL", new Class[] { URL.class });
+      Method addUrl = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
       addUrl.setAccessible(true);
       addUrl.invoke(loader, url);
     } catch (Exception ex) {

@@ -88,7 +88,7 @@
             </relocation>
             <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.com.google.common.</shadedPattern>
+              <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.protobuf.</pattern>
@@ -159,6 +159,7 @@
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
       <version>${guava.version}</version>
+      <scope>provided</scope>
     </dependency>
 
   </dependencies>

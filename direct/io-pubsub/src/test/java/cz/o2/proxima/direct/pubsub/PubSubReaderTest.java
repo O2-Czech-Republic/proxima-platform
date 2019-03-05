@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.pubsub;
 
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
+import com.google.common.collect.Sets;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.typesafe.config.ConfigFactory;
@@ -28,7 +29,6 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import static cz.o2.proxima.direct.pubsub.Util.delete;
 import static cz.o2.proxima.direct.pubsub.Util.deleteWildcard;
 import static cz.o2.proxima.direct.pubsub.Util.update;
-import cz.o2.proxima.internal.shaded.com.google.common.collect.Sets;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorImpl;
 import cz.o2.proxima.repository.ConfigRepository;

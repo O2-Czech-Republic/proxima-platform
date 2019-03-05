@@ -16,12 +16,12 @@
 package cz.o2.proxima.direct.core;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.internal.shaded.com.google.common.collect.Sets;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;

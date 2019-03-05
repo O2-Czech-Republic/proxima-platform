@@ -183,7 +183,7 @@
             </relocation>
             <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>${shadePattern}.com.google.common.</shadedPattern>
+              <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.auth.</pattern>

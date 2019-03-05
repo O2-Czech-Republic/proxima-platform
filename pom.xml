@@ -91,6 +91,7 @@
     <!-- checkstyle config -->
     <checkstyle.config.location>checkstyle.xml</checkstyle.config.location>
     <spotbugs.version>3.1.8</spotbugs.version>
+    <coreShade>cz.o2.proxima.internal.shaded</coreShade>
   </properties>
 
   <profiles>

@@ -56,7 +56,7 @@ public class Compiler {
     if (!parsed.hasOption("o")) {
       throw new IllegalStateException("Missing config option 'o' for output");
     }
-    output = parsed.getOptionValue("o");
+    output = parsed.getOptionValue("o").replace("/", File.separator);
     configs = parsed.getArgList();
 
     conf.setDefaultEncoding(StandardCharsets.UTF_8.name());

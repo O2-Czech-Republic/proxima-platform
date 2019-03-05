@@ -163,7 +163,7 @@ public class ModelGenerator {
   }
 
   private File getOutputDirForPackage(File outputPath, String javaPackage) {
-    String packagePath = javaPackage.replaceAll("\\.", File.separator);
+    String packagePath = javaPackage.replace(".", File.separator);
     return new File(outputPath, packagePath);
   }
 

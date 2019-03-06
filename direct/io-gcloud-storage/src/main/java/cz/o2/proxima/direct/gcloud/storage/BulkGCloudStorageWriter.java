@@ -142,7 +142,7 @@ public class BulkGCloudStorageWriter
     tmpDir = Optional.ofNullable(cfg.get("tmp.dir"))
         .map(Object::toString)
         .map(File::new)
-        .orElse(new File(System.getProperty("java.io.tmpdir") + File.pathSeparator
+        .orElse(new File(System.getProperty("java.io.tmpdir") + File.separator
             + "bulk-cloud-storage-" + UUID.randomUUID()));
 
     rollPeriod = Optional.ofNullable(cfg.get("log-roll-interval"))

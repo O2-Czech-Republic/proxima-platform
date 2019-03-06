@@ -42,6 +42,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
+import java.net.BindException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -618,21 +619,29 @@ class BeamStream<T> implements Stream<T> {
         Object seed, String hostname, int preferredPort,
         Consumer<T> consumer, PCollection<T> collection) {
 
-      try {
-        // start HTTP server and store host and port
+      int retries = 3;
+      while (retries > 0) {
+        retries--;
         int port = getPort(preferredPort, System.identityHashCode(seed));
-        Coder<T> coder = collection.getCoder();
-        if (coder == null) {
-          // can this happen?
-          coder = collection.getPipeline().getCoderRegistry()
-              .getCoder(collection.getTypeDescriptor());
+        try {
+          // start HTTP server and store host and port
+
+          Coder<T> coder = collection.getCoder();
+          if (coder == null) {
+            // can this happen?
+            coder = collection.getPipeline().getCoderRegistry()
+                .getCoder(collection.getTypeDescriptor());
+          }
+          RemoteConsumer<T> ret = new RemoteConsumer<>(hostname, port, consumer, coder);
+          ret.start();
+          return ret;
+        } catch (BindException ex) {
+          log.debug("Failed to bind on port {}", port, ex);
+        } catch (Exception ex) {
+          throw new RuntimeException(ex);
         }
-        RemoteConsumer<T> ret = new RemoteConsumer<>(hostname, port, consumer, coder);
-        ret.start();
-        return ret;
-      } catch (Exception ex) {
-        throw new RuntimeException(ex);
       }
+      throw new RuntimeException("Retries exhausted trying to start server");
     }
 
     static int getPort(int preferredPort, int seed) {

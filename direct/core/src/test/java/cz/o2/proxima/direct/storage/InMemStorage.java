@@ -606,21 +606,30 @@ public class InMemStorage implements DataAccessorFactory {
       int prefixLength = getUri().getPath().length() + 1;
       executor().execute(() -> {
         try {
-          getData().forEach((k, v) -> {
-            String[] parts = k.substring(prefixLength).split("#");
-            String key = parts[0];
-            String attribute = parts[1];
-            getEntityDescriptor().findAttribute(attribute, true)
-                .flatMap(desc -> attributes.contains(desc)
-                    ? Optional.of(desc) : Optional.empty())
-                .ifPresent(desc -> {
-                  observer.onNext(
-                      StreamElement.update(getEntityDescriptor(),
-                          desc, UUID.randomUUID().toString(), key,
-                          attribute, v.getFirst(), v.getSecond()),
-                      PARTITION);
-                });
-          });
+          NavigableMap<String, Pair<Long, byte[]>> data = getData();
+          synchronized (data) {
+            for (Map.Entry<String, Pair<Long, byte[]>> e : data.entrySet()) {
+              String k = e.getKey();
+              Pair<Long, byte[]> v = e.getValue();
+              String[] parts = k.substring(prefixLength).split("#");
+              String key = parts[0];
+              String attribute = parts[1];
+              boolean shouldContinue = getEntityDescriptor()
+                  .findAttribute(attribute, true)
+                  .flatMap(desc -> attributes.contains(desc)
+                      ? Optional.of(desc) : Optional.empty())
+                  .map(desc ->
+                      observer.onNext(
+                          StreamElement.update(getEntityDescriptor(),
+                              desc, UUID.randomUUID().toString(), key,
+                              attribute, v.getFirst(), v.getSecond()),
+                          PARTITION))
+                  .orElse(true);
+              if (!shouldContinue) {
+                break;
+              }
+            }
+          }
           observer.onCompleted();
         } catch (Throwable err) {
           observer.onError(err);

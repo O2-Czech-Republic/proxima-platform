@@ -36,6 +36,7 @@ import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Arrays;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -50,6 +51,25 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
  */
 @Slf4j
 public abstract class BeamStreamProvider implements StreamProvider {
+
+  public static class Default extends BeamStreamProvider {
+
+    private String[] args;
+
+    @Override
+    public void init(Repository repo, String[] args) {
+      super.init(repo, args);
+      this.args = args;
+      log.info("Created {} arguments {}", getClass().getName(), Arrays.toString(args));
+    }
+
+    @Override
+    protected Factory<PipelineOptions> getPipelineOptionsFactory() {
+      return () -> PipelineOptionsFactory.fromArgs(args).create();
+    }
+
+
+  }
 
   Repository repo;
   BeamDataOperator beam;

@@ -22,6 +22,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -112,6 +113,29 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     }
     return null;
   }
+
+
+  /**
+   * Take next element waiting for timeout milliseconds at most.
+   * @param timeout the timeout
+   * @param collector collector to receive the element if present until timeout
+   * @return {@code} true if any data was collected (note that is doesn't mean
+   * that collector.get() will return non-null, null value would mean end of stream
+   * in that case)
+   * @throws InterruptedException when interrupted
+   */
+  boolean take(long timeout, AtomicReference<StreamElement> collector)
+      throws InterruptedException {
+
+    Pair<StreamElement, OnNextContext> taken = queue.poll(timeout, TimeUnit.MILLISECONDS);
+    if (taken != null && taken.getFirst() != null) {
+      lastContext = taken.getSecond();
+      collector.set(taken.getFirst());
+      return true;
+    }
+    return taken != null;
+  }
+
 
   @Nullable
   Throwable getError() {

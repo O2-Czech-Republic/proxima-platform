@@ -26,7 +26,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import org.apache.beam.sdk.io.BoundedSource;
@@ -38,11 +40,12 @@ import org.joda.time.Instant;
 /**
  * A {@link Reader} created from {@link CommitLogReader}.
  */
-class BeamCommitLogReader extends Reader<StreamElement> {
+class BeamCommitLogReader {
 
-  private static final Instant LOWEST_INSTANT = new Instant(Long.MIN_VALUE);
   private static final Instant HIGHEST_INSTANT = new Instant(Long.MAX_VALUE);
   private static final byte[] EMPTY_BYTES = new byte[] { };
+  // FIXME: configuration
+  private static final long AUTO_WATERMARK_LAG_MS = 500;
 
   static class UnboundedCommitLogReader extends UnboundedReader<StreamElement> {
 
@@ -206,6 +209,7 @@ class BeamCommitLogReader extends Reader<StreamElement> {
   @Getter
   private ObserveHandle handle;
 
+  @Nullable
   private final String name;
   private final CommitLogReader reader;
   private final Position position;
@@ -217,6 +221,7 @@ class BeamCommitLogReader extends Reader<StreamElement> {
   private final Offset offset;
   private BlockingQueueLogObserver observer;
   private StreamElement current;
+  private long maxTimestamp = Long.MIN_VALUE;
 
   private BeamCommitLogReader(
       String name, CommitLogReader reader, Position position,
@@ -224,8 +229,8 @@ class BeamCommitLogReader extends Reader<StreamElement> {
       boolean stopAtCurrent) {
 
     this.name = name;
-    this.reader = reader;
-    this.position = position;
+    this.reader = Objects.requireNonNull(reader);
+    this.position = Objects.requireNonNull(position);
     this.splitId = splitId;
     this.stopAtCurrent = stopAtCurrent;
     this.offset = offset;
@@ -240,12 +245,10 @@ class BeamCommitLogReader extends Reader<StreamElement> {
         "Offset can be used only for streaming reader");
   }
 
-  @Override
   public BoundedSource<StreamElement> getCurrentSource() {
     throw new UnsupportedOperationException("Unsupported.");
   }
 
-  @Override
   public boolean start() throws IOException {
     this.observer = BlockingQueueLogObserver.create(name, limit);
     if (offset != null) {
@@ -259,12 +262,21 @@ class BeamCommitLogReader extends Reader<StreamElement> {
     return advance();
   }
 
-  @Override
   public boolean advance() throws IOException {
     try {
       if (!finished) {
-        current = limit-- > 0L ? observer.take() : null;
+        AtomicReference<StreamElement> collector = new AtomicReference<>();
+        boolean next = limit-- > 0L
+            ? observer.take(AUTO_WATERMARK_LAG_MS, collector)
+            : true;
+        if (!next) {
+          return false;
+        }
+        current = collector.getAndSet(null);
         if (current != null) {
+          if (maxTimestamp < current.getStamp()) {
+            maxTimestamp = current.getStamp();
+          }
           return true;
         }
       }
@@ -279,15 +291,13 @@ class BeamCommitLogReader extends Reader<StreamElement> {
     return false;
   }
 
-  @Override
   public Instant getCurrentTimestamp() {
     if (!finished) {
-      return LOWEST_INSTANT;
+      return new Instant(maxTimestamp - AUTO_WATERMARK_LAG_MS);
     }
     return HIGHEST_INSTANT;
   }
 
-  @Override
   public StreamElement getCurrent() throws NoSuchElementException {
     if (current == null) {
       throw new NoSuchElementException();
@@ -295,9 +305,11 @@ class BeamCommitLogReader extends Reader<StreamElement> {
     return current;
   }
 
-  @Override
   public void close() throws IOException {
-    handle.cancel();
+    if (handle != null) {
+      handle.cancel();
+      handle = null;
+    }
     reader.close();
   }
 

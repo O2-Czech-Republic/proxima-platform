@@ -121,11 +121,11 @@
                 </fileSet>
                 <fileSet>
                   <sourceFile>${project.build.directory}/classes/META-INF/native/io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll</sourceFile>
-                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_pubsub_shaded_io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_pubsub_shaded_grpc_io_netty_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
                 </fileSet>
                 <fileSet>
                   <sourceFile>${project.build.directory}/classes/META-INF/native/libio_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib</sourceFile>
-                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_shaded_io_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib</destinationFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_shaded_grpc_io_netty_shaded_netty_tcnative_osx_x86_64.jnilib</destinationFile>
                 </fileSet>
               </fileSets>
             </configuration>
@@ -145,8 +145,15 @@
               <exclude>cz.o2.proxima:proxima-direct-core</exclude>
             </excludes>
           </artifactSet>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+          </transformers>
           <shadeTestJar>true</shadeTestJar>
           <relocations>
+            <relocation>
+              <pattern>io.grpc.netty.shaded.</pattern>
+              <shadedPattern>${shadePattern}.io.grpc.netty.shaded.</shadedPattern>
+            </relocation>
             <relocation>
               <pattern>io.grpc.</pattern>
               <shadedPattern>${shadePattern}.io.grpc.</shadedPattern>
@@ -217,7 +224,7 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <version>0.38.0-beta</version>
+      <version>1.64.0</version>
     </dependency>
 
     <dependency>

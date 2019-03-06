@@ -113,11 +113,6 @@
       <scope>test</scope>
     </dependency>
 
-    <dependency>
-      <groupId>org.apache.beam</groupId>
-      <artifactId>beam-runners-direct-java</artifactId>
-    </dependency>
-
     <dependency> 
       <groupId>org.apache.beam</groupId> 
       <artifactId>beam-runners-flink_2.11</artifactId> 

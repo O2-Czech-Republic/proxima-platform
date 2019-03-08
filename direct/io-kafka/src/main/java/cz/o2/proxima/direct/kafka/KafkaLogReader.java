@@ -683,19 +683,18 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         }
         clock.set(VectorClock.of(parts.size()));
 
-        Optional.ofNullable(kafka.get()).ifPresent(c -> {
-          consumer.onAssign(c, parts.stream().map(tp -> {
-            final long offset;
-            if (name != null) {
-              offset = Optional.ofNullable(c.committed(tp))
-                .map(OffsetAndMetadata::offset)
-                .orElse(0L);
-            } else {
-              offset = c.position(tp);
-            }
-            return new TopicOffset(tp.partition(), offset);
-          }).collect(Collectors.toList()));
-        });
+        Optional.ofNullable(kafka.get()).ifPresent(c ->
+            consumer.onAssign(c, parts.stream().map(tp -> {
+              final long offset;
+              if (name != null) {
+                offset = Optional.ofNullable(c.committed(tp))
+                  .map(OffsetAndMetadata::offset)
+                  .orElse(0L);
+              } else {
+                offset = c.position(tp);
+              }
+              return new TopicOffset(tp.partition(), offset);
+            }).collect(Collectors.toList())));
       }
     };
   }

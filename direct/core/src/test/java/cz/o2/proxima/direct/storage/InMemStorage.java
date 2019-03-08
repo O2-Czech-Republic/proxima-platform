@@ -49,6 +49,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.time.WatermarkSupplier;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.net.URI;
@@ -358,14 +359,19 @@ public class InMemStorage implements DataAccessorFactory {
 
 
       AtomicLong restartedOffset = new AtomicLong();
+      AtomicLong watermark = new AtomicLong(Long.MIN_VALUE);
 
       BiConsumer<StreamElement, OffsetCommitter> consumer = (el, committer) -> {
         try {
           if (!killSwitch.get()) {
-            long off = offsetTracker.incrementAndGet();
             el = cloneAndUpdateAttribute(getEntityDescriptor(), el);
+            long stamp = el.getStamp();
+            long off = offsetTracker.incrementAndGet();
+            watermark.getAndUpdate(current -> Math.max(current, stamp));
             killSwitch.compareAndSet(false,
-                !observer.onNext(el, asOnNextContext(committer, new IntOffset(off))));
+                !observer.onNext(
+                    el,
+                    asOnNextContext(committer, new IntOffset(off), watermark::get)));
           }
         } catch (Exception ex) {
           observer.onError(ex);
@@ -891,10 +897,10 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   private static LogObserver.OnNextContext asOnNextContext(
-      LogObserver.OffsetCommitter committer, Offset offset) {
+      LogObserver.OffsetCommitter committer, Offset offset,
+      WatermarkSupplier supplier) {
 
-    return ObserverUtils.asOnNextContext(
-        committer, offset, () -> System.currentTimeMillis() - 100);
+    return ObserverUtils.asOnNextContext(committer, offset, supplier);
   }
 
 }

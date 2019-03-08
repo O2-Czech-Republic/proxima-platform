@@ -50,7 +50,6 @@ import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.util.Pair;
-import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Arrays;
@@ -896,14 +895,6 @@ public class InMemStorage implements DataAccessorFactory {
 
     return ObserverUtils.asOnNextContext(
         committer, offset, () -> System.currentTimeMillis() - 100);
-  }
-
-  // disable deserialization
-  private Object readResolve() throws ObjectStreamException {
-    if (INSTANCE != null) {
-      return INSTANCE;
-    }
-    return this;
   }
 
 }

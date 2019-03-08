@@ -35,6 +35,7 @@ import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.time.WatermarkEstimator;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -48,6 +49,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
@@ -96,6 +98,11 @@ public class PubSubReaderTest {
       return MockSubscriber.create(
           subscription, receiver, supplier, acked, nacked,
           context.getExecutorService());
+    }
+
+    @Override
+    WatermarkEstimator createWatermarkEstimator() {
+      return WatermarkEstimator.of(1, 1);
     }
 
   }
@@ -188,6 +195,46 @@ public class PubSubReaderTest {
     assertTrue(cancelled.get());
     assertEquals(Sets.newHashSet(0, 1, 2), reader.acked);
   }
+
+  @Test
+  public void testObserveWatermark() throws InterruptedException {
+    long now = System.currentTimeMillis();
+    Deque<PubsubMessage> inputs = new LinkedList<>(
+        Arrays.asList(
+            update("key1", "attr", new byte[] { 1, 2 }, now),
+            delete("key2", "attr", now + 1000),
+            deleteWildcard("key3", wildcard, now)));
+    reader.setSupplier(() -> {
+      if (inputs.isEmpty()) {
+        LockSupport.park();
+      }
+      return inputs.pop();
+    });
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicLong watermark = new AtomicLong();
+    reader.observe("dummy", new LogObserver() {
+      @Override
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
+        context.confirm();
+        watermark.set(context.getWatermark());
+        latch.countDown();
+        return false;
+      }
+
+      @Override
+      public void onCancelled() {
+
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+    });
+    latch.await();
+    assertTrue(watermark.get() > 0);
+  }
+
 
   @Test(timeout = 10000)
   public void testObserveError() throws InterruptedException {

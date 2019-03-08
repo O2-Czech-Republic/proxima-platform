@@ -42,7 +42,7 @@ public class WatermarkEstimatorTest {
   @Test
   public void testInitializedSameStamp() {
     WatermarkEstimator est = new WatermarkEstimator(1000, 250, stamp::get);
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 4; i++) {
       assertEquals(Long.MIN_VALUE, est.getWatermark());
       stamp.accumulateAndGet(i * 250, (a, b) -> a + b);
       est.add(1);
@@ -57,7 +57,14 @@ public class WatermarkEstimatorTest {
       stamp.accumulateAndGet(i * 250, (a, b) -> a + b);
       est.add(i);
     }
-    assertEquals(5, est.getWatermark());
+    assertEquals(6, est.getWatermark());
+  }
+
+  @Test
+  public void testSingleUpdateIncresesStamp() {
+    WatermarkEstimator est = WatermarkEstimator.of(1, 1);
+    est.add(1);
+    assertEquals(1, est.getWatermark());
   }
 
 

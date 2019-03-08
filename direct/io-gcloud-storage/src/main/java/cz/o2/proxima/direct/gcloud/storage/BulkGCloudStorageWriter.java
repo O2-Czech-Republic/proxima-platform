@@ -193,11 +193,12 @@ public class BulkGCloudStorageWriter
       bucketData.getWriter().write(data);
       bucketData.setLastWriteSeqNo(writeSeqNo++);
       bucketData.setLastWriteWatermark(watermark);
+      long now = watermark - allowedLateness;
       if (lastFlushAttempt == Long.MIN_VALUE
-          || watermark - lastFlushAttempt >= flushAttemptDelay) {
+          || now - lastFlushAttempt >= flushAttemptDelay) {
 
-        flushWriters(watermark - allowedLateness);
-        lastFlushAttempt = watermark - allowedLateness;
+        flushWriters(now);
+        lastFlushAttempt = now;
       }
     } catch (Exception ex) {
       log.warn("Exception writing data {}", data, ex);

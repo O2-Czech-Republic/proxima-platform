@@ -45,6 +45,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.time.WatermarkSupplier;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.net.URI;
@@ -179,7 +180,7 @@ public class InMemStorage implements DataAccessorFactory {
         flushBasedOnPosition(
             position,
             (el, committer) -> observer.onNext(el, asOnNextContext(
-                committer::accept)));
+                committer::accept, el::getStamp)));
       } catch (InterruptedException ex) {
         log.warn("Interrupted while reading old data.", ex);
         Thread.currentThread().interrupt();
@@ -192,7 +193,7 @@ public class InMemStorage implements DataAccessorFactory {
           observers.put(id, elem -> {
             elem = cloneAndUpdateAttribute(getEntityDescriptor(), elem);
             try {
-              observer.onNext(elem, asOnNextContext((suc, err) -> { }));
+              observer.onNext(elem, asOnNextContext((suc, err) -> { }, elem::getStamp));
             } catch (Exception ex) {
               observer.onError(ex);
             }
@@ -255,7 +256,7 @@ public class InMemStorage implements DataAccessorFactory {
         flushBasedOnPosition(
             position,
             (el, committer) -> observer.onNext(el, asOnNextContext(
-                committer::accept)));
+                committer::accept, el::getStamp)));
       } catch (InterruptedException ex) {
         log.warn("Interrupted while reading old data", ex);
         Thread.currentThread().interrupt();
@@ -268,7 +269,7 @@ public class InMemStorage implements DataAccessorFactory {
           observers.put(id, elem -> {
             elem = cloneAndUpdateAttribute(getEntityDescriptor(), elem);
             try {
-              observer.onNext(elem, asOnNextContext((suc, err) -> { }));
+              observer.onNext(elem, asOnNextContext((suc, err) -> { }, elem::getStamp));
             } catch (Exception ex) {
               observer.onError(ex);
             }
@@ -806,10 +807,10 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   private static LogObserver.OnNextContext asOnNextContext(
-      LogObserver.OffsetCommitter committer) {
+      LogObserver.OffsetCommitter committer,
+      WatermarkSupplier supplier) {
 
-    return ObserverUtils.asOnNextContext(
-        committer, PARTITION, () -> System.currentTimeMillis() - 100);
+    return ObserverUtils.asOnNextContext(committer, PARTITION, supplier);
   }
 
 }

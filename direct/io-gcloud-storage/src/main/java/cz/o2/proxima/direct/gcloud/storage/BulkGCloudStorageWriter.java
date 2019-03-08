@@ -193,7 +193,9 @@ public class BulkGCloudStorageWriter
       bucketData.getWriter().write(data);
       bucketData.setLastWriteSeqNo(writeSeqNo++);
       bucketData.setLastWriteWatermark(watermark);
-      long now = watermark - allowedLateness;
+      long now = watermark > Long.MIN_VALUE + allowedLateness
+          ? watermark - allowedLateness
+          : watermark;
       if (lastFlushAttempt == Long.MIN_VALUE
           || now - lastFlushAttempt >= flushAttemptDelay) {
 
@@ -219,12 +221,20 @@ public class BulkGCloudStorageWriter
     List<Map.Entry<Long, BucketData>> flushable = new ArrayList<>();
     long lastWrittenSeqNo = -1L;
     CommitCallback confirm = null;
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Trying to flush writers at watermark {}",
+          Instant.ofEpochMilli(stamp));
+    }
     for (Map.Entry<Long, BucketData> e : buckets.entrySet()) {
       if (e.getKey() <= stamp) {
         flushable.add(e);
         if (e.getValue().getLastWriteWatermark() >= e.getKey()) {
           // the bucket was written after the closing timestamp
           // move the flushing to next bucket
+          log.info("Need to flush additional bucket, due to previous "
+              + "bucket {} being written after closing stamp {}",
+              e.getKey(), stamp);
           stamp = e.getKey() + rollPeriod;
         }
         if (e.getValue().getLastWriteSeqNo() > lastWrittenSeqNo) {

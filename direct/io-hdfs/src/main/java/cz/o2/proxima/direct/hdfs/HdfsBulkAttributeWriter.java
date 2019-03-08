@@ -48,7 +48,6 @@ import java.util.Map;
 @SuppressWarnings("squid:S2160")
 public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
 
-  @SuppressWarnings("squid:S1948")
   private final Map<String, Object> cfg;
 
   private transient FileSystem fs;
@@ -65,9 +64,9 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
   @Nullable
   private transient CommitCallback lastWrittenCallback = null;
 
-  public HdfsBulkAttributeWriter(EntityDescriptor entityDesc,
-                                 URI uri, Map<String, Object> cfg,
-                                 int minElementsToFlush, long rollInterval) {
+  public HdfsBulkAttributeWriter(
+      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg,
+      int minElementsToFlush, long rollInterval) {
 
     super(entityDesc, uri);
     this.cfg = cfg;

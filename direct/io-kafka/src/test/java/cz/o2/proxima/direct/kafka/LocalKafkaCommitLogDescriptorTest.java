@@ -662,6 +662,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     latch.await();
 
     assertTrue(watermark.get() > 0);
+    assertTrue(watermark.get() < now * 10);
   }
 
   @Test(timeout = 10000)
@@ -709,6 +710,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     // watermark should be moved
     assertTrue(watermark.get() > 0);
+    assertTrue(watermark.get() < now * 10);
   }
 
 

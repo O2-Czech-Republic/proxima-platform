@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.time;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 
 /**
@@ -45,6 +46,9 @@ public class VectorClock implements WatermarkSupplier {
   final long[] dimensions;
 
   private VectorClock(int dimensions, long initialStamp) {
+    Preconditions.checkArgument(
+        dimensions > 0,
+        "Number of dimensions must be positive");
     this.dimensions = new long[dimensions];
     for (int i = 0; i < dimensions; i++) {
       this.dimensions[i] = initialStamp;

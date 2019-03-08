@@ -343,15 +343,15 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         Map<TopicPartition, Long> endOffsets = stopAtCurrent
             ? findNonEmptyEndOffsets(kafka) : null;
 
+        // we need to poll first to initialize kafka assignments and
+        // rebalance listener
+        ConsumerRecords<String, byte[]> poll = kafka.poll(consumerPollInterval);
+
         if (offsets != null) {
           // when manual offsets are assigned, we need to ensure calling
           // onAssign by hand
           listener.onPartitionsAssigned(kafka.assignment());
         }
-
-        // we need to poll first to initialize kafka assignments and
-        // rebalance listener
-        ConsumerRecords<String, byte[]> poll = kafka.poll(consumerPollInterval);
 
         latch.countDown();
 
@@ -681,7 +681,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           partitionToClockDimension.put(partitions.get(pos), pos);
           emptyPollCount.put(partitions.get(pos), 0);
         }
-        clock.set(VectorClock.of(partitions.size()));
+        clock.set(VectorClock.of(parts.size()));
 
         Optional.ofNullable(kafka.get()).ifPresent(c ->
             consumer.onAssign(c, parts.stream().map(tp -> {

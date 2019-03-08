@@ -57,7 +57,11 @@ public class InMemBulkStorage implements DataAccessorFactory {
     }
 
     @Override
-    public void write(StreamElement data, CommitCallback statusCallback) {
+    public void write(
+        StreamElement data,
+        long watermark,
+        CommitCallback statusCallback) {
+      
       // store the data, commit after each 10 elements
       InMemBulkStorage.this.data.put(
           getUri().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),

@@ -82,6 +82,12 @@ public interface LogObserver extends Serializable {
      */
     Partition getPartition();
 
+    /**
+     * Retrieve current watermark of the observe process
+     * @return watermark in milliseconds
+     */
+    long getWatermark();
+
     @Override
     default void commit(boolean success, Throwable error) {
       committer().commit(success, error);

@@ -457,15 +457,18 @@ public class IngestServer {
 
           private void ingestBulkInternal(
               StreamElement ingest,
-              OffsetCommitter committer) {
+              OnNextContext context) {
 
             log.debug(
                 "Consumer {}: writing element {} into {}",
                 consumerName, ingest, writer);
 
-            writer.write(ingest, (succ, exc) -> confirmWrite(
-                consumerName, ingest, writer, succ, exc,
-                committer::confirm, committer::fail));
+            writer.write(
+                ingest,
+                context.getWatermark(),
+                (succ, exc) -> confirmWrite(
+                    consumerName, ingest, writer, succ, exc,
+                    context::confirm, context::fail));
           }
 
         });

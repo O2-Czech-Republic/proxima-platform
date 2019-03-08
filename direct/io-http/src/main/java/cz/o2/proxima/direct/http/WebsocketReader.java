@@ -207,7 +207,8 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   private OnNextContext nullContext() {
     return asOnNextContext(
         (succ, err) -> { },
-        PARTITION);
+        PARTITION,
+        System::currentTimeMillis);
   }
 
   private void checkSupportedPosition(Position position) {

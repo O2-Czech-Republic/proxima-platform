@@ -127,7 +127,6 @@ public class BulkGCloudStorageWriter
           + "considered serializable anymore.")
   // key is bucket end stamp
   private final NavigableMap<Long, BucketData> buckets = new TreeMap<>();
-  private long maxSeenTimestamp = Long.MIN_VALUE;
   private long lastFlushAttempt = Long.MIN_VALUE;
   private long writeSeqNo = 0L;
   private transient Executor flushExecutor;
@@ -185,7 +184,7 @@ public class BulkGCloudStorageWriter
    *   when a allowed lateness passes
    */
   @Override
-  public void write(StreamElement data, CommitCallback statusCallback) {
+  public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
     try {
       init();
       long stamp = data.getStamp();
@@ -193,18 +192,12 @@ public class BulkGCloudStorageWriter
       bucketData.setCommitter(statusCallback);
       bucketData.getWriter().write(data);
       bucketData.setLastWriteSeqNo(writeSeqNo++);
-      boolean watermarkUpdated = false;
-      // update watermark
-      if (maxSeenTimestamp < stamp) {
-        watermarkUpdated = true;
-        maxSeenTimestamp = stamp;
-      }
-      bucketData.setLastWriteWatermark(maxSeenTimestamp);
-      if (watermarkUpdated && (lastFlushAttempt == Long.MIN_VALUE
-          || stamp - lastFlushAttempt >= flushAttemptDelay)) {
+      bucketData.setLastWriteWatermark(watermark);
+      if (lastFlushAttempt == Long.MIN_VALUE
+          || watermark - lastFlushAttempt >= flushAttemptDelay) {
 
-        flushWriters(maxSeenTimestamp - allowedLateness);
-        lastFlushAttempt = stamp;
+        flushWriters(watermark - allowedLateness);
+        lastFlushAttempt = watermark - allowedLateness;
       }
     } catch (Exception ex) {
       log.warn("Exception writing data {}", data, ex);
@@ -283,7 +276,6 @@ public class BulkGCloudStorageWriter
 
   private void init(boolean force) {
     if (force) {
-      maxSeenTimestamp = Long.MIN_VALUE;
       lastFlushAttempt = Long.MIN_VALUE;
       buckets.clear();
       writeSeqNo = 0L;

@@ -29,6 +29,7 @@ import cz.o2.proxima.direct.kafka.Consumers.OnlineConsumer;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.time.VectorClock;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -308,8 +309,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       @Nullable Collection<Offset> offsets,
       Position position,
       boolean stopAtCurrent,
-      BiConsumer<TopicPartition,
-      ConsumerRecord<String, byte[]>> preWrite,
+      BiConsumer<TopicPartition, ConsumerRecord<String, byte[]>> preWrite,
       ElementConsumer consumer,
       ExecutorService executor,
       AtomicReference<ObserveHandle> handle) throws InterruptedException {
@@ -399,6 +399,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         latch.countDown();
 
         AtomicReference<Throwable> error = new AtomicReference<>();
+        VectorClock watermark = VectorClock.of(kafka.assignment().size());
         do {
           synchronized (seekOffsets) {
             if (!seekOffsets.isEmpty()) {
@@ -442,7 +443,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               }
             }
             boolean cont = consumer.consumeWithConfirm(
-                ingest, tp, r.offset(), error::set);
+                ingest, tp, r.offset(), watermark::getStamp, error::set);
             if (!cont) {
               log.info("Terminating consumption by request");
               completed.set(true);

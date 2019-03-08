@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.time.WatermarkSupplier;
 import java.util.Collection;
 
 /**
@@ -27,7 +28,8 @@ public class ObserverUtils {
 
   public static LogObserver.OnNextContext asOnNextContext(
       LogObserver.OffsetCommitter committer,
-      Partition partition) {
+      Partition partition,
+      WatermarkSupplier watermarkSupplier) {
 
     return new LogObserver.OnNextContext() {
 
@@ -39,6 +41,11 @@ public class ObserverUtils {
       @Override
       public Partition getPartition() {
         return partition;
+      }
+
+      @Override
+      public long getWatermark() {
+        return watermarkSupplier.getWatermark();
       }
 
     };

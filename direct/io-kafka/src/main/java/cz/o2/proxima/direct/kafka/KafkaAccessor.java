@@ -49,6 +49,8 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   public static final String MAX_BYTES_PER_SEC = "bytes-per-sec-max";
   /** Allowed timestamp skew between consumer and producer. */
   public static final String TIMESTAMP_SKEW = "timestamp-skew";
+  /** Number of empty polls to consider partition empty. */
+  public static final String EMPTY_POLLS = "poll.count-for-empty";
 
   public static final String WRITER_CONFIG_PREFIX = "kafka.";
   private static final int PRODUCE_CONFIG_PREFIX_LENGTH = WRITER_CONFIG_PREFIX.length();
@@ -69,6 +71,9 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Getter(AccessLevel.PACKAGE)
   private long timestampSkew = 100;
+
+  @Getter(AccessLevel.PACKAGE)
+  private int emptyPolls = (int) (1000 / consumerPollInterval);
 
   public KafkaAccessor(
       EntityDescriptor entity,
@@ -114,15 +119,20 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
         .map(v -> Long.valueOf(v.toString()))
         .orElse(timestampSkew);
 
+    this.emptyPolls = Optional.ofNullable(cfg.get(EMPTY_POLLS))
+        .map(v -> Integer.valueOf(v.toString()))
+        .orElse((int) (1000 / consumerPollInterval));
+
     log.info(
         "Configured accessor with "
             + "consumerPollInterval {},"
             + "partitionerClass {}, "
             + "maxBytesPerSec {}, "
             + "timestampSkew {}, "
+            + "emptyPolls {}, "
             + "for URI {}",
         consumerPollInterval, partitioner.getClass(), maxBytesPerSec,
-        timestampSkew, getUri());
+        timestampSkew, emptyPolls, getUri());
   }
 
 

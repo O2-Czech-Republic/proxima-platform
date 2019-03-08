@@ -459,13 +459,14 @@ public class IngestServer {
               StreamElement ingest,
               OnNextContext context) {
 
+            long watermark = context.getWatermark();
             log.debug(
-                "Consumer {}: writing element {} into {}",
+                "Consumer {}: writing element {} into {} at watermark {}",
                 consumerName, ingest, writer);
 
             writer.write(
                 ingest,
-                context.getWatermark(),
+                watermark,
                 (succ, exc) -> confirmWrite(
                     consumerName, ingest, writer, succ, exc,
                     context::confirm, context::fail));

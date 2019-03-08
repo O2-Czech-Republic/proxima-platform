@@ -15,13 +15,14 @@
  */
 package cz.o2.proxima.time;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 
 /**
  * Vector clock implementation.
  */
 @Internal
-public class VectorClock {
+public class VectorClock implements WatermarkSupplier {
 
   /**
    * Create new instance of VectorClock.
@@ -29,15 +30,28 @@ public class VectorClock {
    * @return new instance
    */
   public static VectorClock of(int dimensions) {
-    return new VectorClock(dimensions);
+    return of(dimensions, Long.MIN_VALUE);
+  }
+
+  /**
+   * Create new instance of VectorClock.
+   * @param dimensions dimensions of the clock
+   * @param initialStamp timestamp to initialize all dimensions to
+   * @return new instance
+   */
+  public static VectorClock of(int dimensions, long initialStamp) {
+    return new VectorClock(dimensions, initialStamp);
   }
 
   final long[] dimensions;
 
-  private VectorClock(int dimensions) {
+  private VectorClock(int dimensions, long initialStamp) {
+    Preconditions.checkArgument(
+        dimensions > 0,
+        "Number of dimensions must be positive");
     this.dimensions = new long[dimensions];
     for (int i = 0; i < dimensions; i++) {
-      this.dimensions[i] = Long.MIN_VALUE;
+      this.dimensions[i] = initialStamp;
     }
   }
 
@@ -55,6 +69,11 @@ public class VectorClock {
       }
     }
     return ret;
+  }
+
+  @Override
+  public long getWatermark() {
+    return getStamp();
   }
 
 }

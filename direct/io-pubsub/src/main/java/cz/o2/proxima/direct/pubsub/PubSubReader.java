@@ -28,6 +28,7 @@ import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PushConfig;
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
@@ -46,7 +47,6 @@ import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.time.WatermarkSupplier;
-import cz.seznam.euphoria.core.annotation.stability.Experimental;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -68,7 +68,7 @@ import org.threeten.bp.Duration;
 /**
  * A {@link CommitLogReader} for Google PubSub.
  */
-@Experimental
+@Stable
 @Slf4j
 class PubSubReader extends AbstractStorage implements CommitLogReader {
 

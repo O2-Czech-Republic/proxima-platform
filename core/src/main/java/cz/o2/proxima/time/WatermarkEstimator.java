@@ -64,7 +64,7 @@ public class WatermarkEstimator implements WatermarkSupplier {
       steps[i] = Long.MAX_VALUE;
     }
     rotatesToInitialize = steps.length - 1;
-    lastRotate = supplier.get();
+    lastRotate = supplier.get() - stepMs;
   }
 
   /**
@@ -100,9 +100,9 @@ public class WatermarkEstimator implements WatermarkSupplier {
       return Long.MIN_VALUE;
     }
     long ret = Long.MAX_VALUE;
-    for (long s : steps) {
-      if (s < ret) {
-        ret = s;
+    for (int pos = 0; pos < steps.length - 1; pos++) {
+      if (steps[pos] < ret) {
+        ret = steps[pos];
       }
     }
     return ret;

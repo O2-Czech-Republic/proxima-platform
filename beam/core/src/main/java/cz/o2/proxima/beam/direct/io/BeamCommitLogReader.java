@@ -27,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -49,10 +48,11 @@ class BeamCommitLogReader {
 
   static class UnboundedCommitLogReader extends UnboundedReader<StreamElement> {
 
-    private final AtomicLong watermark = new AtomicLong(Long.MIN_VALUE);
     private final DirectUnboundedSource source;
     @Getter
     private final BeamCommitLogReader reader;
+
+    private boolean finished = false;
 
     UnboundedCommitLogReader(
         String name,
@@ -81,14 +81,7 @@ class BeamCommitLogReader {
 
     @Override
     public boolean advance() throws IOException {
-      boolean next = reader.advance();
-      if (next) {
-        long stamp = reader.getCurrent().getStamp();
-        watermark.accumulateAndGet(stamp, Math::max);
-      } else {
-        watermark.accumulateAndGet(reader.getCurrentTimestamp().getMillis(), Math::max);
-      }
-      return next;
+      return reader.advance();
     }
 
     @Override
@@ -103,7 +96,10 @@ class BeamCommitLogReader {
 
     @Override
     public Instant getWatermark() {
-      return new Instant(watermark.get());
+      if (finished) {
+        return HIGHEST_INSTANT;
+      }
+      return reader.getWatermark();
     }
 
     @Override
@@ -118,7 +114,7 @@ class BeamCommitLogReader {
     public Instant getCurrentTimestamp() throws NoSuchElementException {
       Instant boundedPos = reader.getCurrentTimestamp();
       if (boundedPos == HIGHEST_INSTANT) {
-        watermark.set(boundedPos.getMillis());
+        finished = true;
         return boundedPos;
       }
       StreamElement current = reader.getCurrent();
@@ -293,7 +289,7 @@ class BeamCommitLogReader {
 
   public Instant getCurrentTimestamp() {
     if (!finished) {
-      return new Instant(maxTimestamp - AUTO_WATERMARK_LAG_MS);
+      return new Instant(getCurrent().getStamp());
     }
     return HIGHEST_INSTANT;
   }
@@ -325,6 +321,13 @@ class BeamCommitLogReader {
 
   private @Nullable OffsetCommitter getLastCommitter() {
     return observer.getLastContext();
+  }
+
+  private Instant getWatermark() {
+    if (finished) {
+      return HIGHEST_INSTANT;
+    }
+    return new Instant(observer.getWatermark());
   }
 
 }

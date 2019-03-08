@@ -50,6 +50,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Nullable
   private OnNextContext lastContext;
   private long limit;
+  private long watermark;
 
   private BlockingQueueLogObserver(String name, long limit) {
     this.name = name;
@@ -68,6 +69,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
     log.debug("Received next element {}", ingest);
+    watermark = context.getWatermark();
     return enqueue(ingest, context);
   }
 
@@ -140,6 +142,10 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Nullable
   Throwable getError() {
     return error.get();
+  }
+
+  long getWatermark() {
+    return watermark;
   }
 
 }

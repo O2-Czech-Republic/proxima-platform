@@ -18,7 +18,7 @@ package cz.o2.proxima.direct.storage;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
-import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
+import cz.o2.proxima.direct.commitlog.ObserverUtils;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Position;
@@ -34,7 +34,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A bounded {@link CommitLogReader} containing predefined data.
@@ -43,6 +42,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * to the provided observer.
  */
 public class ListCommitLog implements CommitLogReader {
+
+  private static final Partition PARTITION = () -> 0;
 
   public static ListCommitLog of(List<StreamElement> data, Context context) {
     return new ListCommitLog(data, context);
@@ -61,7 +62,7 @@ public class ListCommitLog implements CommitLogReader {
 
     @Override
     public List<Offset> getCommittedOffsets() {
-      return Arrays.asList((Offset) () -> () -> 0);
+      return Arrays.asList((Offset) () -> PARTITION);
     }
 
     @Override
@@ -97,7 +98,7 @@ public class ListCommitLog implements CommitLogReader {
 
   @Override
   public List<Partition> getPartitions() {
-    return Arrays.asList(() -> 0);
+    return Arrays.asList(PARTITION);
   }
 
   @Override
@@ -111,8 +112,7 @@ public class ListCommitLog implements CommitLogReader {
               if (!succ) {
                 observer.onError(exc);
               }
-            },
-            () -> 0)),
+            })),
         observer::onCompleted);
     return new NopObserveHandle();
   }
@@ -130,15 +130,14 @@ public class ListCommitLog implements CommitLogReader {
       String name, Position position, boolean stopAtCurrent,
       LogObserver observer) {
 
-    observer.onRepartition(asRepartitionContext(Arrays.asList(() -> 0)));
+    observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION)));
     pushTo(element -> observer.onNext(
         element, asOnNextContext(
             (succ, exc) -> {
               if (!succ) {
                 observer.onError(exc);
               }
-            },
-            () -> 0)),
+            })),
         observer::onCompleted);
     return new NopObserveHandle();
   }
@@ -166,7 +165,7 @@ public class ListCommitLog implements CommitLogReader {
   private void pushTo(
       Consumer<StreamElement> consumer,
       Runnable finish) {
-    AtomicInteger toPush = new AtomicInteger(data.size());
+
     executor().execute(() -> {
       data.forEach(consumer::accept);
       finish.run();
@@ -179,5 +178,14 @@ public class ListCommitLog implements CommitLogReader {
     }
     return executor;
   }
+
+  private static LogObserver.OnNextContext asOnNextContext(
+      LogObserver.OffsetCommitter offsetCommitter) {
+
+    return ObserverUtils.asOnNextContext(
+        offsetCommitter, PARTITION, System::currentTimeMillis);
+  }
+
+
 
 }

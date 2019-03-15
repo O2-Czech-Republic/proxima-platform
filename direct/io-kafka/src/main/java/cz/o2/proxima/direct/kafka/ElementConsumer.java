@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.kafka;
 
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.time.WatermarkSupplier;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -42,6 +43,7 @@ interface ElementConsumer {
   boolean consumeWithConfirm(
       @Nullable StreamElement element,
       TopicPartition tp, long offset,
+      WatermarkSupplier watermarkSupplier,
       Consumer<Throwable> errorHandler);
 
   /**

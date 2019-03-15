@@ -34,6 +34,7 @@ import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
+import cz.o2.proxima.time.WatermarkSupplier;
 
 /**
  * Placeholder class for consumers.
@@ -96,6 +97,7 @@ class Consumers {
     public boolean consumeWithConfirm(
         @Nullable StreamElement element,
         TopicPartition tp, long offset,
+        WatermarkSupplier watermarkSupplier,
         Consumer<Throwable> errorHandler) {
 
       processing.put(tp.partition(), offset);
@@ -112,7 +114,8 @@ class Consumers {
                 errorHandler.accept(exc);
               }
             },
-            tp::partition));
+            tp::partition,
+            watermarkSupplier::getWatermark));
       }
       committed.compute(
           tp.partition(),
@@ -187,18 +190,21 @@ class Consumers {
     public boolean consumeWithConfirm(
         @Nullable StreamElement element,
         TopicPartition tp, long offset,
+        WatermarkSupplier watermarkSupplier,
         Consumer<Throwable> errorHandler) {
 
       processing.put(tp.partition(), offset);
       if (element != null) {
         return observer.onNext(
-            element, context(tp, offset, errorHandler));
+            element, context(tp, offset, watermarkSupplier, errorHandler));
       }
       return true;
     }
 
     private OnNextContext context(
-        TopicPartition tp, long offset, Consumer<Throwable> errorHandler) {
+        TopicPartition tp, long offset,
+        WatermarkSupplier watermarkSupplier,
+        Consumer<Throwable> errorHandler) {
 
       return asOnNextContext(
           (succ, err) -> {
@@ -211,7 +217,8 @@ class Consumers {
               errorHandler.accept(err);
             }
           },
-          tp::partition);
+          tp::partition,
+          watermarkSupplier::getWatermark);
     }
 
     @Override

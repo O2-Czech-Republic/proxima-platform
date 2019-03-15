@@ -48,7 +48,6 @@ import java.util.Map;
 @SuppressWarnings("squid:S2160")
 public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
 
-  @SuppressWarnings("squid:S1948")
   private final Map<String, Object> cfg;
 
   private transient FileSystem fs;
@@ -61,14 +60,13 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
   private long elementsSinceFlush = 0;
   private long minElementStamp = Long.MAX_VALUE;
   private long maxElementStamp = Long.MIN_VALUE;
-  private long monothonicTime = 0L;
 
   @Nullable
   private transient CommitCallback lastWrittenCallback = null;
 
-  public HdfsBulkAttributeWriter(EntityDescriptor entityDesc,
-                                 URI uri, Map<String, Object> cfg,
-                                 int minElementsToFlush, long rollInterval) {
+  public HdfsBulkAttributeWriter(
+      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg,
+      int minElementsToFlush, long rollInterval) {
 
     super(entityDesc, uri);
     this.cfg = cfg;
@@ -92,15 +90,14 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
   }
 
   @Override
-  public void write(StreamElement data, CommitCallback commitCallback) {
+  public void write(
+      StreamElement data, long watermark, CommitCallback commitCallback) {
+
     try {
 
-      if (data.getStamp() > monothonicTime) {
-        monothonicTime = data.getStamp();
-      }
       if (writer == null) {
         clearTmpDir();
-        openWriter(monothonicTime);
+        openWriter(watermark);
       }
       if (minElementStamp > data.getStamp()) {
         minElementStamp = data.getStamp();
@@ -118,7 +115,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
         log.debug("Hflushed chunk {}", writerTmpPath);
         elementsSinceFlush = 0;
       }
-      if (monothonicTime - lastRoll >= rollInterval) {
+      if (watermark - lastRoll >= rollInterval) {
         flush();
       }
     } catch (Exception ex) {

@@ -21,7 +21,7 @@ import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
-import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
+import cz.o2.proxima.direct.commitlog.ObserverUtils;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Position;
@@ -45,6 +45,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.time.WatermarkSupplier;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.net.URI;
@@ -73,6 +74,8 @@ import cz.o2.proxima.direct.view.CachedView;
  */
 @Slf4j
 public class InMemStorage implements DataAccessorFactory {
+
+  private static final Partition PARTITION = () -> 0;
 
   @FunctionalInterface
   private interface InMemIngestWriter extends Serializable {
@@ -153,7 +156,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public List<Partition> getPartitions() {
-      return Collections.singletonList(() -> 0);
+      return Collections.singletonList(PARTITION);
     }
 
     @Override
@@ -172,13 +175,12 @@ public class InMemStorage implements DataAccessorFactory {
         LogObserver observer) {
 
       log.debug("Observing {} as {}", getUri(), name);
-      observer.onRepartition(asRepartitionContext(Arrays.asList(() -> 0)));
+      observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION)));
       try {
         flushBasedOnPosition(
             position,
             (el, committer) -> observer.onNext(el, asOnNextContext(
-                committer::accept,
-                () -> 0)));
+                committer::accept, el::getStamp)));
       } catch (InterruptedException ex) {
         log.warn("Interrupted while reading old data.", ex);
         Thread.currentThread().interrupt();
@@ -191,7 +193,7 @@ public class InMemStorage implements DataAccessorFactory {
           observers.put(id, elem -> {
             elem = cloneAndUpdateAttribute(getEntityDescriptor(), elem);
             try {
-              observer.onNext(elem, asOnNextContext((suc, err) -> { }, () -> 0));
+              observer.onNext(elem, asOnNextContext((suc, err) -> { }, elem::getStamp));
             } catch (Exception ex) {
               observer.onError(ex);
             }
@@ -211,7 +213,7 @@ public class InMemStorage implements DataAccessorFactory {
 
         @Override
         public List<Offset> getCommittedOffsets() {
-          return Arrays.asList(() -> () -> 0);
+          return Arrays.asList(() -> PARTITION);
         }
 
         @Override
@@ -254,8 +256,7 @@ public class InMemStorage implements DataAccessorFactory {
         flushBasedOnPosition(
             position,
             (el, committer) -> observer.onNext(el, asOnNextContext(
-                committer::accept,
-                () -> 0)));
+                committer::accept, el::getStamp)));
       } catch (InterruptedException ex) {
         log.warn("Interrupted while reading old data", ex);
         Thread.currentThread().interrupt();
@@ -268,9 +269,7 @@ public class InMemStorage implements DataAccessorFactory {
           observers.put(id, elem -> {
             elem = cloneAndUpdateAttribute(getEntityDescriptor(), elem);
             try {
-              observer.onNext(elem, asOnNextContext(
-                  (suc, err) -> { },
-                  () -> 0));
+              observer.onNext(elem, asOnNextContext((suc, err) -> { }, elem::getStamp));
             } catch (Exception ex) {
               observer.onError(ex);
             }
@@ -289,7 +288,7 @@ public class InMemStorage implements DataAccessorFactory {
 
         @Override
         public List<Offset> getCommittedOffsets() {
-          return Arrays.asList(() -> () -> 0);
+          return Arrays.asList(() -> PARTITION);
         }
 
         @Override
@@ -543,7 +542,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public List<Partition> getPartitions(long startStamp, long endStamp) {
-      return Arrays.asList(() -> 0);
+      return Arrays.asList(PARTITION);
     }
 
     @Override
@@ -635,7 +634,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public Collection<Partition> getAssigned() {
-      return Arrays.asList(() -> 0);
+      return Arrays.asList(PARTITION);
     }
 
     @Override
@@ -711,7 +710,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public Collection<Partition> getPartitions() {
-      return Arrays.asList(() -> 0);
+      return Arrays.asList(PARTITION);
     }
 
   }
@@ -805,6 +804,13 @@ public class InMemStorage implements DataAccessorFactory {
 
   private static String toMapKey(URI uri, String key, String attribute) {
     return uri.getPath() + "/" + key + "#" + attribute;
+  }
+
+  private static LogObserver.OnNextContext asOnNextContext(
+      LogObserver.OffsetCommitter committer,
+      WatermarkSupplier supplier) {
+
+    return ObserverUtils.asOnNextContext(committer, PARTITION, supplier);
   }
 
 }

@@ -46,8 +46,12 @@ public interface BulkAttributeWriter extends AttributeWriterBase {
    * Write given serialized attribute value to given entity.
    * Use the statusCallback to commit the whole bulk (of not yet committed elements).
    * @param data the data to writer
+   * @param watermark watermark of data being written
    * @param statusCallback callback to commit the data
    */
-  void write(StreamElement data, CommitCallback statusCallback);
+  void write(
+      StreamElement data,
+      long watermark,
+      CommitCallback statusCallback);
 
 }

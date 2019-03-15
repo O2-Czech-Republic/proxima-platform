@@ -19,6 +19,7 @@ import com.google.cloud.storage.Blob;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import com.google.common.collect.Iterables;
+import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -147,10 +148,10 @@ public class BulkGCloudStorageWriterTest {
     StreamElement second = StreamElement.update(entity, wildcard,
         UUID.randomUUID().toString(),
         "key", "wildcard.1", now + 200, new byte[] { 3 });
-    writer.write(first, (succ, exc) -> {
+    write(first, (succ, exc) -> {
       // this one will not get committed
     });
-    writer.write(second, (succ, exc) -> {
+    write(second, (succ, exc) -> {
       assertTrue("Exception " + exc, succ);
       assertNull(exc);
       latch.get().countDown();
@@ -176,12 +177,12 @@ public class BulkGCloudStorageWriterTest {
     StreamElement second = StreamElement.update(entity, wildcard,
         UUID.randomUUID().toString(),
         "key", "wildcard.1", now + 2000, new byte[] { 3 });
-    writer.write(first, (succ, exc) -> {
+    write(first, (succ, exc) -> {
       assertTrue("Exception " + exc, succ);
       assertNull(exc);
       latch.get().countDown();
     });
-    writer.write(second, (succ, exc) -> {
+    write(second, (succ, exc) -> {
       assertTrue("Exception " + exc, succ);
       assertNull(exc);
     });
@@ -216,7 +217,7 @@ public class BulkGCloudStorageWriterTest {
           UUID.randomUUID().toString(),
           "key", "wildcard.1", now + 2000, new byte[] { 1, 2, 3, 4, 5 })
     };
-    Arrays.stream(elements).forEach(e -> writer.write(e, (succ, exc) -> {
+    Arrays.stream(elements).forEach(e -> write(e, (succ, exc) -> {
       assertTrue("Exception " + exc, succ);
       assertNull(exc);
       assertEquals(now + 500, e.getStamp());
@@ -253,9 +254,11 @@ public class BulkGCloudStorageWriterTest {
           "key", "wildcard.1", now + 500, new byte[] { 1, 2, 3, 4 }),
       StreamElement.update(entity, wildcard,
           UUID.randomUUID().toString(),
-          "key", "wildcard.1", now + 2000, new byte[] { 1, 2, 3, 4, 5 })
+          "key", "wildcard.1", now + 3000, new byte[] { 1, 2, 3, 4, 5 })
     };
-    Arrays.stream(elements).forEach(e -> writer.write(e, (succ, exc) -> {
+    List<Long> watermarks = new ArrayList<>(
+        Arrays.asList(now, now, now + 500, now + 500, now + 2500));
+    Arrays.stream(elements).forEach(e -> write(e, watermarks.remove(0), (succ, exc) -> {
       assertTrue("Exception " + exc, succ);
       assertNull(exc);
       assertEquals(now + 500, e.getStamp());
@@ -289,7 +292,7 @@ public class BulkGCloudStorageWriterTest {
           UUID.randomUUID().toString(),
           "key", "wildcard.1", now, new byte[] { 1, 2 }),
     };
-    Arrays.stream(elements).forEach(e -> writer.write(e, (succ, exc) -> {
+    Arrays.stream(elements).forEach(e -> write(e, (succ, exc) -> {
       assertFalse(succ);
       assertNotNull(exc);
       latch.get().countDown();
@@ -323,5 +326,15 @@ public class BulkGCloudStorageWriterTest {
     }
     return ret;
   }
+
+  private void write(StreamElement elem, CommitCallback commit) {
+    write(elem, elem.getStamp(), commit);
+  }
+
+  private void write(StreamElement elem, long watermark, CommitCallback commit) {
+    writer.write(elem, watermark, commit);
+  }
+
+
 
 }

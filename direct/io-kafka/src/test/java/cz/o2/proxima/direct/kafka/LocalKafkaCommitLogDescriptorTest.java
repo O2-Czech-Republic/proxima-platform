@@ -74,6 +74,7 @@ import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 import cz.o2.proxima.direct.view.CachedView;
+import cz.o2.proxima.functional.UnaryFunction;
 
 /**
  * Test suite for {@code LocalKafkaCommitLogDescriptorTest}.
@@ -617,6 +618,99 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     // single partition has committed one element
     assertEquals(1, sum);
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveMovesWatermark() throws InterruptedException {
+    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+
+    long now = System.currentTimeMillis();
+    final UnaryFunction<Integer, StreamElement> update = pos -> StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key" + pos, attr.getName(), now + pos, new byte[] { 1, 2 });
+
+    AtomicLong watermark = new AtomicLong();
+    CountDownLatch latch = new CountDownLatch(100);
+    reader.observe("test", Position.NEWEST, new LogObserver() {
+
+      @Override
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
+        watermark.set(context.getWatermark());
+        latch.countDown();
+        return true;
+      }
+
+      @Override
+      public void onCompleted() {
+        fail("This should not be called");
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+    }).waitUntilReady();
+
+    for (int i = 0; i < 100; i++) {
+      writer.write(update.apply(i), (succ, e) -> { });
+    }
+
+    latch.await();
+
+    assertTrue(watermark.get() > 0);
+    assertTrue(watermark.get() < now * 10);
+  }
+
+  @Test(timeout = 10000)
+  public void testEmptyPollMovesWatermark() throws InterruptedException {
+    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+
+    long now = System.currentTimeMillis();
+    final StreamElement update = StreamElement.update(
+        entity, attr, UUID.randomUUID().toString(),
+        "key", attr.getName(), now + 2000, new byte[] { 1, 2 });
+
+    AtomicLong watermark = new AtomicLong();
+    CountDownLatch latch = new CountDownLatch(1);
+    reader.observe("test", Position.NEWEST, new LogObserver() {
+
+      @Override
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
+        watermark.set(context.getWatermark());
+        latch.countDown();
+        return true;
+      }
+
+      @Override
+      public void onCompleted() {
+        fail("This should not be called");
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+    }).waitUntilReady();
+
+    // for two seconds we have empty data
+    TimeUnit.SECONDS.sleep(2);
+
+    // then we write single element
+    writer.write(update, (succ, e) -> { });
+
+    latch.await();
+
+    // watermark should be moved
+    assertTrue(watermark.get() > 0);
+    assertTrue(watermark.get() < now * 10);
   }
 
 

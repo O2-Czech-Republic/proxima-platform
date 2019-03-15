@@ -221,7 +221,11 @@ public class BulkGCloudStorageWriter
     List<Map.Entry<Long, BucketData>> flushable = new ArrayList<>();
     long lastWrittenSeqNo = -1L;
     CommitCallback confirm = null;
-    log.info("Trying to flush writers at watermark {}", Instant.ofEpochMilli(stamp));
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Trying to flush writers at watermark {}",
+          Instant.ofEpochMilli(stamp));
+    }
     for (Map.Entry<Long, BucketData> e : buckets.entrySet()) {
       if (e.getKey() <= stamp) {
         flushable.add(e);

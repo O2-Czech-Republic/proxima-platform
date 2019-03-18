@@ -51,6 +51,8 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   public static final String TIMESTAMP_SKEW = "timestamp-skew";
   /** Number of empty polls to consider partition empty. */
   public static final String EMPTY_POLLS = "poll.count-for-empty";
+  /** Number of records per poll() */
+  public static final String MAX_POLL_RECORDS = "max.poll.records";
 
   /**
    * Minimal time poll() has to return empty records, before first moving
@@ -84,7 +86,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   private int emptyPolls = (int) (1000 / consumerPollInterval);
 
   @Getter(AccessLevel.PACKAGE)
-  private int emptyPollTime = 10000;
+  private int maxPollRecords = 500;
 
   public KafkaAccessor(
       EntityDescriptor entity,
@@ -127,9 +129,9 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
         .map(v -> Integer.valueOf(v.toString()))
         .orElse((int) (1000 / consumerPollInterval));
 
-    this.emptyPollTime = Optional.ofNullable(cfg.get(EMPTY_POLL_TIME))
+    this.maxPollRecords = Optional.ofNullable(cfg.get(MAX_POLL_RECORDS))
         .map(v -> Integer.valueOf(v.toString()))
-        .orElse(emptyPollTime);
+        .orElse(maxPollRecords);
 
     log.info(
         "Configured accessor with "
@@ -138,9 +140,10 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
             + "maxBytesPerSec {}, "
             + "timestampSkew {}, "
             + "emptyPolls {}, "
+            + "maxPollRecords {}, "
             + "for URI {}",
         consumerPollInterval, partitioner.getClass(), maxBytesPerSec,
-        timestampSkew, emptyPolls, getUri());
+        timestampSkew, emptyPolls, maxPollRecords, getUri());
   }
 
 
@@ -153,6 +156,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
             e.getValue().toString());
       }
     }
+    props.put(MAX_POLL_RECORDS, maxPollRecords);
     return props;
   }
 

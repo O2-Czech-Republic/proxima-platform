@@ -101,14 +101,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
         .orElse(consumerPollInterval);
 
     this.partitioner = Optional.ofNullable((String) cfg.get(PARTITIONER_CLASS))
-        .map(cls -> Classpath.findClass(cls, Partitioner.class))
-        .map(cls -> {
-          try {
-            return cls.newInstance();
-          } catch (InstantiationException | IllegalAccessException ex) {
-            throw new RuntimeException(ex);
-          }
-        })
+        .map(cls -> Classpath.newInstance(cls, Partitioner.class))
         .orElse(this.partitioner);
 
     this.maxBytesPerSec = Optional.ofNullable(cfg.get(MAX_BYTES_PER_SEC))

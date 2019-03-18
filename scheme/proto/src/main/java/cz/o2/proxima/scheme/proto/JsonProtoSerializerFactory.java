@@ -133,7 +133,7 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   static Method getBuilder(String protoClass) {
     try {
-      Class<AbstractMessage> cls = Classpath.findClass(
+      Class<? extends AbstractMessage> cls = Classpath.findClass(
           protoClass, AbstractMessage.class);
       return cls.getMethod("newBuilder");
     } catch (Exception ex) {

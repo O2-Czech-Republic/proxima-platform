@@ -27,6 +27,7 @@ import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.tools.groovy.ToolsClassLoader;
 import cz.o2.proxima.tools.groovy.WindowedStream;
+import cz.o2.proxima.util.Classpath;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -40,9 +41,11 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.utils.IOUtils;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 
@@ -55,17 +58,29 @@ public abstract class BeamStreamProvider implements StreamProvider {
   public static class Default extends BeamStreamProvider {
 
     private String[] args;
+    @Nullable
+    private String runner = null;
 
     @Override
     public void init(Repository repo, String[] args) {
       super.init(repo, args);
       this.args = args;
-      log.info("Created {} arguments {}", getClass().getName(), Arrays.toString(args));
+      log.info(
+          "Created {} arguments {}",
+          getClass().getName(), Arrays.toString(args));
+      runner = System.getenv("RUNNER");
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     protected Factory<PipelineOptions> getPipelineOptionsFactory() {
-      return () -> PipelineOptionsFactory.fromArgs(args).create();
+      return () -> {
+        PipelineOptions opts = PipelineOptionsFactory.fromArgs(args).create();
+        if (runner != null) {
+          opts.setRunner((Class) Classpath.findClass(runner, PipelineRunner.class));
+        }
+        return opts;
+      };
     }
 
 

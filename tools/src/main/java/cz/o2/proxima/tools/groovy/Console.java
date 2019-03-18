@@ -311,7 +311,8 @@ public class Console {
           );
 
       String protoClass = factory.getClassName(attrDesc.getSchemeUri());
-      Class<AbstractMessage> cls = Classpath.findClass(protoClass, AbstractMessage.class);
+      Class<? extends AbstractMessage> cls = Classpath.findClass(
+          protoClass, AbstractMessage.class);
       byte[] payload = null;
       if (textFormat != null) {
         Method newBuilder = cls.getDeclaredMethod("newBuilder");

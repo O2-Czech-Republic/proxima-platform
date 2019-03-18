@@ -1525,7 +1525,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     return new byte[] { };
   }
 
-  static final class FirstBytePartitioner implements Partitioner {
+  public static final class FirstBytePartitioner implements Partitioner {
     @Override
     public int getPartitionId(StreamElement element) {
       if (!element.isDelete()) {

@@ -71,6 +71,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   private final long maxBytesPerSec;
   private final long timestampSkew;
   private final int emptyPolls;
+  private final int emptyPollTime;
   private final String topic;
 
   KafkaLogReader(KafkaAccessor accessor, Context context) {
@@ -81,6 +82,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     this.maxBytesPerSec = accessor.getMaxBytesPerSec();
     this.timestampSkew = accessor.getTimestampSkew();
     this.emptyPolls = accessor.getEmptyPolls();
+    this.emptyPollTime = accessor.getEmptyPollTime();
     this.topic = accessor.getTopic();
   }
 
@@ -356,6 +358,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         latch.countDown();
 
         AtomicReference<Throwable> error = new AtomicReference<>();
+        boolean anyPolled = false;
+        int emptyPolled = 0;
         do {
           synchronized (seekOffsets) {
             if (!seekOffsets.isEmpty()) {
@@ -374,6 +378,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           long bytesPolled = 0L;
           // increase all partition's empty poll counter by 1
           emptyPollCount.replaceAll((k, v) -> v + 1);
+          anyPolled |= !poll.isEmpty();
+          if (!anyPolled) {
+            emptyPolled++;
+          }
           for (ConsumerRecord<String, byte[]> r : poll) {
             bytesPolled += r.serializedKeySize() + r.serializedValueSize();
             String key = r.key();
@@ -418,7 +426,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               }
             }
           }
-          increaseWatermarkOnEmptyPolls(emptyPollCount, partitionToClockDimension, clock);
+          if (anyPolled || emptyPolled > emptyPollTime / consumerPollInterval) {
+            increaseWatermarkOnEmptyPolls(
+                emptyPollCount, partitionToClockDimension, clock);
+          }
           flushCommits(kafka, consumer);
           rethrowErrorIfPresent(error);
           terminateIfConsumed(stopAtCurrent, endOffsets, completed);

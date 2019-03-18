@@ -52,6 +52,14 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   /** Number of empty polls to consider partition empty. */
   public static final String EMPTY_POLLS = "poll.count-for-empty";
 
+  /**
+   * Minimal time poll() has to return empty records, before first moving
+   * watermark to processing time. This controls time needed to initialize
+   * kafka consumer.
+   */
+  public static final String EMPTY_POLL_TIME =
+      "poll.allowed-empty-before-watermark-move";
+
   public static final String WRITER_CONFIG_PREFIX = "kafka.";
   private static final int PRODUCE_CONFIG_PREFIX_LENGTH = WRITER_CONFIG_PREFIX.length();
 
@@ -74,6 +82,9 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Getter(AccessLevel.PACKAGE)
   private int emptyPolls = (int) (1000 / consumerPollInterval);
+
+  @Getter(AccessLevel.PACKAGE)
+  private int emptyPollTime = 10000;
 
   public KafkaAccessor(
       EntityDescriptor entity,
@@ -115,6 +126,10 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
     this.emptyPolls = Optional.ofNullable(cfg.get(EMPTY_POLLS))
         .map(v -> Integer.valueOf(v.toString()))
         .orElse((int) (1000 / consumerPollInterval));
+
+    this.emptyPollTime = Optional.ofNullable(cfg.get(EMPTY_POLL_TIME))
+        .map(v -> Integer.valueOf(v.toString()))
+        .orElse(emptyPollTime);
 
     log.info(
         "Configured accessor with "

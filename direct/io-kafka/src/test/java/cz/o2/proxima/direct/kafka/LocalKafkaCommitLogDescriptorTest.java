@@ -667,7 +667,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testEmptyPollMovesWatermark() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    Accessor accessor = kafka.create(entity, storageUri, and(
+        partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -712,7 +713,6 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertTrue(watermark.get() > 0);
     assertTrue(watermark.get() < now * 10);
   }
-
 
   @Test(timeout = 10000)
   public void testObserveWithException() throws InterruptedException {
@@ -1497,6 +1497,13 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     return Arrays.stream(pairs)
         .filter(Objects::nonNull)
         .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+  }
+
+  private static Map<String, Object> and(
+      Map<String, Object> left, Map<String, Object> right) {
+
+    return Stream.concat(left.entrySet().stream(), right.entrySet().stream())
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private static byte[] emptyValue() {

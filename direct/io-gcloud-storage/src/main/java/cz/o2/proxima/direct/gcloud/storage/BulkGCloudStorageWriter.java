@@ -181,7 +181,7 @@ public class BulkGCloudStorageWriter
    *   that belongs to different month
    * - flushing is done in event time, but multiple writers
    *   can be opened in single time frame, each writer is flushed
-   *   when a allowed lateness passes
+   *   when allowed lateness passes
    */
   @Override
   public void write(StreamElement data, long watermark, CommitCallback statusCallback) {

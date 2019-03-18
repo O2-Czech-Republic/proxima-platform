@@ -679,7 +679,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         "key", attr.getName(), now + 2000, new byte[] { 1, 2 });
 
     AtomicLong watermark = new AtomicLong();
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch latch = new CountDownLatch(2);
     reader.observe("test", Position.NEWEST, new LogObserver() {
 
       @Override
@@ -701,10 +701,13 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     }).waitUntilReady();
 
+    // then we write single element
+    writer.write(update, (succ, e) -> { });
+
     // for two seconds we have empty data
     TimeUnit.SECONDS.sleep(2);
 
-    // then we write single element
+    // finally, last update to save watermark
     writer.write(update, (succ, e) -> { });
 
     latch.await();
@@ -713,6 +716,52 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertTrue(watermark.get() > 0);
     assertTrue(watermark.get() < now * 10);
   }
+
+  @Test(timeout = 10000)
+  public void testSlowPollMovesWatermarkSlowly() throws InterruptedException {
+    Accessor accessor = kafka.create(entity, storageUri, and(
+        partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+
+    long now = System.currentTimeMillis() - 10000;
+    for (int i = 0; i < 20000; i++) {
+      StreamElement update = StreamElement.update(
+          entity, attr, UUID.randomUUID().toString(),
+          "key" + i, attr.getName(), now + 2000, new byte[] { 1, 2 });
+      // then we write single element
+      writer.write(update, (succ, e) -> { });
+    }
+
+    AtomicLong watermark = new AtomicLong();
+    CountDownLatch latch = new CountDownLatch(1);
+    reader.observeBulk("test", Position.OLDEST, true, new LogObserver() {
+
+      @Override
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
+        watermark.set(context.getWatermark());
+        return true;
+      }
+
+      @Override
+      public void onCompleted() {
+        latch.countDown();
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+    }).waitUntilReady();
+
+    latch.await();
+
+    // watermark should be moved to now + 2000
+    assertEquals(watermark.get(), now + 2000);
+  }
+
 
   @Test(timeout = 10000)
   public void testObserveWithException() throws InterruptedException {
@@ -1364,7 +1413,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(3, calls.get());
   }
 
-  @Test
+  @Test(timeout = 10000)
   public void testRewriteAndPrefetch() throws InterruptedException, IOException {
     Accessor accessor = kafka.create(
         entity, storageUri, partitionsCfg(3, KeyPartitioner.class));

@@ -831,16 +831,12 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     KafkaConsumer<String, byte[]> consumer =
         ((LocalKafkaCommitLogDescriptor.LocalKafkaLogReader) reader).getConsumer();
     String topic = accessor.getTopic();
-    try {
-      assertEquals(100, handle.getCommittedOffsets().stream()
-          .map(o -> new TopicPartition(topic, o.getPartition().getId()))
-          .map(consumer::committed)
-          .mapToLong(OffsetAndMetadata::offset)
-          .sum());
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
-    }
+
+    assertEquals(100, handle.getCommittedOffsets().stream()
+        .map(o -> new TopicPartition(topic, o.getPartition().getId()))
+        .map(consumer::committed)
+        .mapToLong(OffsetAndMetadata::offset)
+        .sum());
   }
 
   @Test(timeout = 10000)

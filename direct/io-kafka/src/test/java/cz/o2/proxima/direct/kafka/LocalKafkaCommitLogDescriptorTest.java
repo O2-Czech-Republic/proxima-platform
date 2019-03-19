@@ -790,7 +790,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     for (int i = 0; i < 100; i++) {
       StreamElement update = StreamElement.update(
           entity, attr, UUID.randomUUID().toString(),
-          "key" + i, attr.getName(), now + 2000, new byte[] { 1, 2 });
+          "key-" + i, attr.getName(), now + 2000, new byte[] { 1, 2 });
       // then we write single element
       writer.write(update, (succ, e) -> { });
     }
@@ -798,17 +798,18 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     ObserveHandle handle = reader.observeBulk(
         "test", Position.OLDEST, true, new LogObserver() {
 
-          OffsetCommitter last = null;
+          int processed = 0;
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
-            last = context;
+            if (++processed == 100) {
+              context.confirm();
+            }
             return true;
           }
 
           @Override
           public void onCompleted() {
-            last.confirm();
             latch.countDown();
           }
 
@@ -827,6 +828,19 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     assertEquals(100, offsetSum);
 
+    KafkaConsumer<String, byte[]> consumer =
+        ((LocalKafkaCommitLogDescriptor.LocalKafkaLogReader) reader).getConsumer();
+    String topic = accessor.getTopic();
+    try {
+      assertEquals(100, handle.getCommittedOffsets().stream()
+          .map(o -> new TopicPartition(topic, o.getPartition().getId()))
+          .map(consumer::committed)
+          .mapToLong(OffsetAndMetadata::offset)
+          .sum());
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
+    }
   }
 
   @Test(timeout = 10000)

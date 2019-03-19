@@ -585,8 +585,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   }
 
   /** Create kafka consumer for the data. */
+  @VisibleForTesting
   @SuppressWarnings("unchecked")
-  private KafkaConsumer<String, byte[]> createConsumer(
+  KafkaConsumer<String, byte[]> createConsumer(
       @Nullable String name,
       @Nullable Collection<Offset> offsets,
       @Nullable ConsumerRebalanceListener listener,

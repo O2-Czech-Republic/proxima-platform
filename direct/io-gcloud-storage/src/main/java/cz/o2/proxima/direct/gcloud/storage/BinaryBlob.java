@@ -18,9 +18,12 @@ package cz.o2.proxima.direct.gcloud.storage;
 import com.google.common.collect.AbstractIterator;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Parser;
+import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.gcloud.storage.proto.Serialization;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -283,6 +286,31 @@ public class BinaryBlob {
 
   public BinaryBlob(File path) {
     this.path = path;
+  }
+
+
+  /**
+   * Tool for dumping binary blobs read from stdin to stdout.
+   */
+  public static class DumpTool {
+
+    private static void usage() {
+      System.err.println("Usage: DumpTool <entity name>");
+      System.err.println("Reads binary blob from stdin and dups to stdout");
+      System.exit(1);
+    }
+
+    public static void main(String[] args) throws IOException {
+      if (args.length != 1) {
+        usage();
+      }
+      Repository repo = ConfigRepository.of(ConfigFactory.load().resolve());
+      EntityDescriptor entity = repo.findEntity(args[0]).orElseThrow(
+          () -> new IllegalArgumentException("Cannot find entity " + args[0]));
+      Reader reader = new Reader(entity, "stdin", System.in);
+      reader.forEach(e -> System.out.println(e.dump()));
+    }
+
   }
 
 }

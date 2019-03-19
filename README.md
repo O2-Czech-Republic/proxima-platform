@@ -13,7 +13,7 @@ High level design document can be found [here](https://docs.google.com/document/
 ## Scheme definition
 First, let's introduce some glossary:
  * _entity_: a named dictionary consisting of string **key** and one or more _attributes_
- * _attribute_: an atomic field of entity with string **name** and **scheme** definining it's data-type
+ * _attribute_: an atomic field of entity with string **name** and **scheme** definining its data-type
  * _attribute family_: a logical grouping of attributes of the same entity into a named group
  * _storage_: a physical store for data
  

@@ -762,6 +762,55 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(watermark.get(), now + 2000);
   }
 
+  @Test(timeout = 10000)
+  public void testObserveBulkCommitsCorrectly() throws InterruptedException {
+    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+
+    long now = System.currentTimeMillis();
+    for (int i = 0; i < 100; i++) {
+      StreamElement update = StreamElement.update(
+          entity, attr, UUID.randomUUID().toString(),
+          "key" + i, attr.getName(), now + 2000, new byte[] { 1, 2 });
+      // then we write single element
+      writer.write(update, (succ, e) -> { });
+    }
+    CountDownLatch latch = new CountDownLatch(1);
+    ObserveHandle handle = reader.observeBulk(
+        "test", Position.OLDEST, true, new LogObserver() {
+
+          OffsetCommitter last = null;
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            last = context;
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            last.confirm();
+            latch.countDown();
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+
+        });
+
+    latch.await();
+
+    long offsetSum = handle.getCommittedOffsets().stream()
+        .mapToLong(o -> ((TopicOffset) o).getOffset())
+        .sum();
+
+    assertEquals(100, offsetSum);
+
+  }
 
   @Test(timeout = 10000)
   public void testObserveWithException() throws InterruptedException {

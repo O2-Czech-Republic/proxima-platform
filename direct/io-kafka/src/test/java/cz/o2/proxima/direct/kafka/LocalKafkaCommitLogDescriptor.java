@@ -15,8 +15,10 @@
  */
 package cz.o2.proxima.direct.kafka;
 
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.Position;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
@@ -556,6 +558,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   @Slf4j
   public static class LocalKafkaLogReader extends KafkaLogReader {
 
+    private KafkaConsumer<String, byte[]> consumer = null;
+
     public LocalKafkaLogReader(KafkaAccessor accessor, Context context) {
       super(accessor, context);
     }
@@ -616,6 +620,21 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     public Accessor getAccessor() {
       return (Accessor) accessor;
     }
+
+    @VisibleForTesting
+    KafkaConsumer<String, byte[]> getConsumer() {
+      return Objects.requireNonNull(consumer);
+    }
+
+    @Override
+    KafkaConsumer<String, byte[]> createConsumer(
+        String name, Collection<Offset> offsets,
+        ConsumerRebalanceListener listener, Position position) {
+
+      return consumer = super.createConsumer(name, offsets, listener, position);
+    }
+
+
 
   }
 

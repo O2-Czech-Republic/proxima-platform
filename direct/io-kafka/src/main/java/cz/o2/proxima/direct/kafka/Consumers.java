@@ -214,7 +214,8 @@ class Consumers {
                   committed.compute(
                       part,
                       (k, v) -> Math.max(MoreObjects.firstNonNull(v, 0L), off + 1)));
-              commit.accept(tp, offset);
+              committed.forEach((p, o) ->
+                  commit.accept(new TopicPartition(tp.topic(), p), o));
             } else {
               errorHandler.accept(err);
             }

@@ -133,7 +133,7 @@ public class Console {
   });
   StreamProvider streamProvider;
   @Getter
-  Optional<DirectDataOperator> direct;
+  final Optional<DirectDataOperator> direct;
   Groovysh shell;
 
   Console(String[] args) {
@@ -148,6 +148,9 @@ public class Console {
     this.args = args;
     this.config = config;
     this.repo = repo;
+    this.direct = repo.hasOperator("direct")
+        ? Optional.of(repo.getOrCreateOperator(DirectDataOperator.class))
+        : Optional.empty();
     conf = new Configuration(Configuration.VERSION_2_3_23);
     conf.setDefaultEncoding("utf-8");
     conf.setClassForTemplateLoading(getClass(), "/");
@@ -166,10 +169,6 @@ public class Console {
     streamProvider = Streams.stream(loader).findAny()
         .orElseThrow(() -> new IllegalArgumentException("No StreamProvider found"));
     streamProvider.init(repo, args == null ? new String[] {} : args);
-
-    this.direct = repo.hasOperator("direct")
-        ? Optional.of(repo.getOrCreateOperator(DirectDataOperator.class))
-        : Optional.empty();
 
     updateClassLoader();
     ToolsClassLoader classLoader = (ToolsClassLoader) Thread

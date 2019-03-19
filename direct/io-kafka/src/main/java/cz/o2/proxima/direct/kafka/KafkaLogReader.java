@@ -71,7 +71,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   private final long maxBytesPerSec;
   private final long timestampSkew;
   private final int emptyPolls;
-  private final int emptyPollTime;
+  private final int maxPollRecords;
   private final String topic;
 
   KafkaLogReader(KafkaAccessor accessor, Context context) {
@@ -82,7 +82,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     this.maxBytesPerSec = accessor.getMaxBytesPerSec();
     this.timestampSkew = accessor.getTimestampSkew();
     this.emptyPolls = accessor.getEmptyPolls();
-    this.emptyPollTime = accessor.getEmptyPollTime();
+    this.maxPollRecords = accessor.getMaxPollRecords();
     this.topic = accessor.getTopic();
   }
 
@@ -193,7 +193,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
     Preconditions.checkArgument(
         name != null || offsets != null,
-        "Either name of offsets have to be non null");
+        "Either name or offsets have to be non null");
 
     Preconditions.checkArgument(
         position != null,
@@ -358,9 +358,21 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         latch.countDown();
 
         AtomicReference<Throwable> error = new AtomicReference<>();
-        boolean anyPolled = false;
-        int emptyPolled = 0;
+        int nonEmptyNotFullPolled = 0;
         do {
+          if (poll.count() < maxPollRecords) {
+            if (!poll.isEmpty()) {
+              nonEmptyNotFullPolled++;
+            }
+          } else {
+            nonEmptyNotFullPolled = 0;
+          }
+          if (log.isDebugEnabled()) {
+            log.debug(
+                "Current watermark of consumer name {} with offsets {} "
+                    + "on {} poll'd records is {}",
+                name, offsets, poll.count(), clock.get().getStamp());
+          }
           synchronized (seekOffsets) {
             if (!seekOffsets.isEmpty()) {
               Utils.seekToOffsets(topic, offsets, kafka);
@@ -376,11 +388,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               ? Math.max(1L, maxBytesPerSec / (1000L * consumerPollInterval))
               : Long.MAX_VALUE;
           long bytesPolled = 0L;
-          // increase all partition's empty poll counter by 1
-          emptyPollCount.replaceAll((k, v) -> v + 1);
-          anyPolled |= !poll.isEmpty();
-          if (!anyPolled) {
-            emptyPolled++;
+          if (nonEmptyNotFullPolled > 0 && poll.isEmpty()) {
+            // increase all partition's empty poll counter by 1
+            emptyPollCount.replaceAll((k, v) -> v + 1);
           }
           for (ConsumerRecord<String, byte[]> r : poll) {
             bytesPolled += r.serializedKeySize() + r.serializedValueSize();
@@ -426,7 +436,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               }
             }
           }
-          if (anyPolled || emptyPolled > emptyPollTime / consumerPollInterval) {
+          if (nonEmptyNotFullPolled > 0) {
             increaseWatermarkOnEmptyPolls(
                 emptyPollCount, partitionToClockDimension, clock);
           }
@@ -604,8 +614,11 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     if (position == Position.OLDEST) {
       // seek all partitions to oldest data
       if (offsets == null) {
-        log.info("Seeking consumer name {} to beginning of partitions", name);
-        consumer.seekToBeginning(consumer.assignment());
+        Set<TopicPartition> assignment = consumer.assignment();
+        log.info(
+            "Seeking consumer name {} to beginning of partitions {}",
+            name, assignment);
+        consumer.seekToBeginning(assignment);
       } else {
         List<TopicPartition> tps = offsets.stream()
             .map(p -> new TopicPartition(topic, p.getPartition().getId()))

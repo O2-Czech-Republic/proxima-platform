@@ -225,6 +225,21 @@ public class StreamElement implements Serializable {
     return uuid.hashCode();
   }
 
+  /**
+   * Dump in more verbose way into given stream.
+   * @return string representing the dumped element
+   */
+  public String dump() {
+    return "StreamElement(uuid=" + uuid
+        + ", entityDesc=" + entityDescriptor
+        + ", attributeDesc=" + attributeDescriptor
+        + ", key=" + key + ", attribute=" + attribute
+        + ", stamp=" + stamp
+        + ", value=" + (value == null
+            ? "(null)"
+            : getParsed().get().toString())
+        + ")";
+  }
 
 
 }

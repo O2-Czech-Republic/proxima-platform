@@ -193,7 +193,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
     Preconditions.checkArgument(
         name != null || offsets != null,
-        "Either name of offsets have to be non null");
+        "Either name or offsets have to be non null");
 
     Preconditions.checkArgument(
         position != null,
@@ -388,6 +388,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               ? Math.max(1L, maxBytesPerSec / (1000L * consumerPollInterval))
               : Long.MAX_VALUE;
           long bytesPolled = 0L;
+          if (nonEmptyNotFullPolled > 0 && poll.isEmpty()) {
+            // increase all partition's empty poll counter by 1
+            emptyPollCount.replaceAll((k, v) -> v + 1);
+          }
           for (ConsumerRecord<String, byte[]> r : poll) {
             bytesPolled += r.serializedKeySize() + r.serializedValueSize();
             String key = r.key();
@@ -433,10 +437,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
             }
           }
           if (nonEmptyNotFullPolled > 0) {
-            if (poll.isEmpty()) {
-              // increase all partition's empty poll counter by 1
-              emptyPollCount.replaceAll((k, v) -> v + 1);
-            }
             increaseWatermarkOnEmptyPolls(
                 emptyPollCount, partitionToClockDimension, clock);
           }

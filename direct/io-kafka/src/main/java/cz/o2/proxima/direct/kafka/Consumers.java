@@ -206,12 +206,14 @@ class Consumers {
         WatermarkSupplier watermarkSupplier,
         Consumer<Throwable> errorHandler) {
 
+      Map<Integer, Long> toCommit = new HashMap<>(this.processing);
       return asOnNextContext(
           (succ, err) -> {
             if (succ) {
-              committed.compute(
-                  tp.partition(),
-                  (k, v) -> Math.max(MoreObjects.firstNonNull(v, 0L), offset + 1));
+              toCommit.forEach((part, off) ->
+                  committed.compute(
+                      part,
+                      (k, v) -> Math.max(MoreObjects.firstNonNull(v, 0L), off + 1)));
               commit.accept(tp, offset);
             } else {
               errorHandler.accept(err);

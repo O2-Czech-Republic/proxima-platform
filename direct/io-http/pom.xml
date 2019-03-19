@@ -48,7 +48,7 @@
           <relocations>
             <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.o2.proxima.http.shaded.com.google.common.</shadedPattern>
+              <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>org.java_websocket.</pattern>

@@ -23,6 +23,7 @@ import cz.o2.proxima.util.Pair;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -50,7 +51,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Nullable
   private OnNextContext lastContext;
   private long limit;
-  private long watermark = Long.MIN_VALUE;
+  private AtomicLong watermark = new AtomicLong(Long.MIN_VALUE);
 
   private BlockingQueueLogObserver(String name, long limit) {
     this.name = name;
@@ -68,7 +69,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
-    watermark = context.getWatermark();
+    watermark.set(context.getWatermark());
     log.trace("Received next element {} at watermark {}", ingest, watermark);
     return enqueue(ingest, context);
   }
@@ -104,6 +105,11 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
       Thread.currentThread().interrupt();
       log.warn("Interrupted while passing end-of-stream.", ex);
     }
+  }
+
+  @Override
+  public void onIdle(OnIdleContext context) {
+    watermark.set(context.getWatermark());
   }
 
   @Nullable
@@ -145,7 +151,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   }
 
   long getWatermark() {
-    return watermark;
+    return watermark.get();
   }
 
 }

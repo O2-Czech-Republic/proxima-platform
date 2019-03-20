@@ -733,6 +733,52 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test(timeout = 10000)
+  public void testEmptyPollWithNoDataMovesWatermark() throws InterruptedException {
+    Accessor accessor = kafka.createAccessor(direct, entity, storageUri, and(
+        partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+    final long now = System.currentTimeMillis();
+    AtomicLong watermark = new AtomicLong();
+    CountDownLatch latch = new CountDownLatch(30);
+    reader.observe("test", Position.NEWEST, new LogObserver() {
+
+      @Override
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
+        return true;
+      }
+
+      @Override
+      public void onCompleted() {
+        fail("This should not be called");
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+      @Override
+      public void onIdle(OnIdleContext context) {
+        watermark.set(context.getWatermark());
+        latch.countDown();
+      }
+
+    }).waitUntilReady();
+
+
+    // for two seconds we have empty data
+    TimeUnit.SECONDS.sleep(2);
+
+    latch.await();
+
+    // watermark should be moved
+    assertTrue(watermark.get() > 0);
+    assertTrue(watermark.get() < now * 10);
+  }
+
+
+  @Test(timeout = 10000)
   public void testSlowPollMovesWatermarkSlowly() throws InterruptedException {
     Accessor accessor = kafka.createAccessor(
         direct, entity, storageUri, and(

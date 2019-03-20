@@ -62,6 +62,12 @@ public class ObserverUtils {
     return () -> assigned;
   }
 
+  public static LogObserver.OnIdleContext asOnIdleContext(
+      WatermarkSupplier supplier) {
+
+    return supplier::getWatermark;
+  }
+
   private ObserverUtils() { }
 
 }

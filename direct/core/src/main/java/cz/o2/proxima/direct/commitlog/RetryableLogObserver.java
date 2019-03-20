@@ -112,7 +112,9 @@ public class RetryableLogObserver
     observer.onRepartition(context);
   }
 
-
-
+  @Override
+  public void onIdle(OnIdleContext context) {
+    observer.onIdle(context);
+  }
 
 }

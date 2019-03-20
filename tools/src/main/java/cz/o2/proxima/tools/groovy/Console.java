@@ -157,6 +157,7 @@ public class Console {
     conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
     conf.setLogTemplateExceptions(false);
 
+    initializeStreamProvider();
     updateClassLoader();
   }
 
@@ -165,16 +166,18 @@ public class Console {
   }
 
   public GroovyObject getEnv() throws Exception {
-    ServiceLoader<StreamProvider> loader = ServiceLoader.load(StreamProvider.class);
-    streamProvider = Streams.stream(loader).findAny()
-        .orElseThrow(() -> new IllegalArgumentException("No StreamProvider found"));
-    streamProvider.init(repo, args == null ? new String[] {} : args);
-
     updateClassLoader();
     ToolsClassLoader classLoader = (ToolsClassLoader) Thread
         .currentThread().getContextClassLoader();
     log.debug("Creating GroovyEnv in classloader {}", classLoader);
     return GroovyEnv.of(conf, classLoader, repo);
+  }
+
+  private void initializeStreamProvider() {
+    ServiceLoader<StreamProvider> loader = ServiceLoader.load(StreamProvider.class);
+    streamProvider = Streams.stream(loader).findAny()
+        .orElseThrow(() -> new IllegalArgumentException("No StreamProvider found"));
+    streamProvider.init(repo, args == null ? new String[] {} : args);
   }
 
   private void updateClassLoader() {

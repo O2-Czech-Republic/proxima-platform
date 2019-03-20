@@ -16,7 +16,8 @@
 package cz.o2.proxima.beam.core;
 
 import cz.o2.proxima.storage.StreamElement;
-import java.util.stream.Collectors;
+import cz.o2.proxima.util.Optionals;
+import java.util.Comparator;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.ReduceByKey;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
@@ -38,10 +39,8 @@ public class PCollectionTools {
     return ReduceByKey.of(other)
         .keyBy(e -> e.getKey() + "#" + e.getAttribute(), TypeDescriptors.strings())
         .valueBy(e -> e, TypeDescriptor.of(StreamElement.class))
-        .combineBy(values -> values.collect(
-            Collectors.maxBy(
-                (left, right) -> Long.compare(left.getStamp(), right.getStamp())))
-            .orElseThrow(() -> new IllegalStateException("Empty key?")),
+        .combineBy(values -> Optionals.get(values.max(
+            Comparator.comparingLong(value -> value.getStamp()))),
             TypeDescriptor.of(StreamElement.class))
         .outputValues();
   }

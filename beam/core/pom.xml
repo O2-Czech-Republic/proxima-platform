@@ -48,7 +48,7 @@
           <relocations>
             <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.o2.proxima.internal.shaded.com.google.common.</shadedPattern>
+              <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -101,7 +101,7 @@
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
       <version>${guava.version}</version>
-      <!--scope>provided</scope-->
+      <scope>provided</scope>
     </dependency>
 
     <dependency>

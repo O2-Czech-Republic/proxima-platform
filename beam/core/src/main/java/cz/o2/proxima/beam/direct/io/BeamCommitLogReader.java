@@ -262,9 +262,7 @@ class BeamCommitLogReader {
     try {
       if (!finished) {
         AtomicReference<StreamElement> collector = new AtomicReference<>();
-        boolean next = limit-- > 0L
-            ? observer.take(AUTO_WATERMARK_LAG_MS, collector)
-            : true;
+        boolean next = limit-- <= 0L || observer.take(AUTO_WATERMARK_LAG_MS, collector);
         if (!next) {
           return false;
         }

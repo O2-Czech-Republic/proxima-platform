@@ -68,14 +68,14 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
-    log.debug("Received next element {}", ingest);
+    log.trace("Received next element {}", ingest);
     watermark = context.getWatermark();
     return enqueue(ingest, context);
   }
 
   @Override
   public boolean onNext(StreamElement element, Partition partition) {
-    log.debug("Received next element {}", element);
+    log.trace("Received next element {}", element);
     return enqueue(element, null);
   }
 

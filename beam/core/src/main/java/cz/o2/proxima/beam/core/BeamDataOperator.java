@@ -29,6 +29,7 @@ import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -280,10 +281,8 @@ public class BeamDataOperator implements DataOperator {
         .map(desc -> Pair.of(desc, repo.getFamiliesForAttribute(desc)
                 .stream()
                 .filter(predicate)
-                // sort primary families on top
-                .sorted((l, r) -> Integer.compare(
-                    l.getType().ordinal(), r.getType().ordinal()))
-                .findFirst()));
+                // primary families have precedence
+                . min(Comparator.comparingInt(a -> a.getType().ordinal()))));
   }
 
   private DataAccessor accessorFor(AttributeFamilyDescriptor family) {

@@ -58,6 +58,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.utils.IOUtils;
+import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.Kryo;
+import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.org.objenesis.strategy.StdInstantiatorStrategy;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
@@ -521,7 +523,11 @@ class BeamStream<T> implements Stream<T> {
         GlobalWindow.class, GlobalWindow.Coder.INSTANCE);
     registrars.forEach(r -> r.accept(registry));
     // FIXME: need to get rid of this fallback
-    registry.registerCoderForClass(Object.class, KryoCoder.of());
+    registry.registerCoderForClass(
+        Object.class,
+        KryoCoder.of(
+            kryo -> kryo.setInstantiatorStrategy(
+                new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy()))));
   }
 
   private <T> RemoteConsumer<T> createRemoteConsumer(

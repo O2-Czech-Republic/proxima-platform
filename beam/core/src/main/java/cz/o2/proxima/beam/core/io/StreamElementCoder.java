@@ -143,4 +143,16 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
     return null;
   }
 
+  @Override
+  public boolean equals(Object obj) {
+    return obj instanceof StreamElementCoder;
+  }
+
+  @Override
+  public int hashCode() {
+    return 0;
+  }
+
+
+
 }

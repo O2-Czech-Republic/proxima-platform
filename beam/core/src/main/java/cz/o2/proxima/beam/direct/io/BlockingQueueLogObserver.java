@@ -50,7 +50,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Nullable
   private OnNextContext lastContext;
   private long limit;
-  private long watermark;
+  private long watermark = Long.MIN_VALUE;
 
   private BlockingQueueLogObserver(String name, long limit) {
     this.name = name;
@@ -68,8 +68,8 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
-    log.trace("Received next element {}", ingest);
     watermark = context.getWatermark();
+    log.trace("Received next element {} at watermark {}", ingest, watermark);
     return enqueue(ingest, context);
   }
 

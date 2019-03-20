@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.io.BoundedSource.BoundedReader;
 import org.apache.beam.sdk.io.Source.Reader;
@@ -39,6 +40,7 @@ import org.joda.time.Instant;
 /**
  * A {@link Reader} created from {@link CommitLogReader}.
  */
+@Slf4j
 class BeamCommitLogReader {
 
   private static final Instant HIGHEST_INSTANT = new Instant(Long.MAX_VALUE);

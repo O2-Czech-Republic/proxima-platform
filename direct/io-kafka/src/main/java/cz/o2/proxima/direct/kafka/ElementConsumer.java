@@ -94,5 +94,10 @@ interface ElementConsumer {
    */
   void onStart();
 
+  /**
+   * Called when consumer is idle.
+   */
+  void onIdle(WatermarkSupplier watermarkSupplier);
+
 }
 

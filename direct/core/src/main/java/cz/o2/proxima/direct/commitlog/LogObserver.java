@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.commitlog;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.time.WatermarkSupplier;
 import java.io.Serializable;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -68,7 +69,7 @@ public interface LogObserver extends Serializable {
    * Context passed to {@link #onNext}.
    */
   @Stable
-  interface OnNextContext extends OffsetCommitter {
+  interface OnNextContext extends OffsetCommitter, WatermarkSupplier {
 
     /**
      * Retrieve committer for currently processed record.
@@ -86,12 +87,24 @@ public interface LogObserver extends Serializable {
      * Retrieve current watermark of the observe process
      * @return watermark in milliseconds
      */
+    @Override
     long getWatermark();
 
     @Override
     default void commit(boolean success, Throwable error) {
       committer().commit(success, error);
     }
+
+  }
+
+  /**
+   * Context passed to {@link #onIdle}.
+   */
+  @Stable
+  interface OnIdleContext extends Serializable, WatermarkSupplier {
+
+    @Override
+    long getWatermark();
 
   }
 
@@ -147,6 +160,20 @@ public interface LogObserver extends Serializable {
    * @param context context of the repartition
    */
   default void onRepartition(OnRepartitionContext context) {
+
+  }
+
+  /**
+   * Called when the observer is idle.
+   * Note that the definition of idle is commit-log dependent and it might event
+   * not be called at all, if the commit log guarantees that as long as there
+   * are *any* data flowing in, then {@link #onNext} will be called eventually.
+   *
+   * Typical example of commit log with no need to call {@link #onIdle} is
+   * google PubSub, having virtually single shared partition which loads
+   * balances incoming data.
+   */
+  default void onIdle(OnIdleContext context) {
 
   }
 

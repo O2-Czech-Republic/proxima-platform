@@ -359,14 +359,21 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
         AtomicReference<Throwable> error = new AtomicReference<>();
         int nonEmptyNotFullPolled = 0;
+        int emptyPolled = 0;
         do {
-          if (poll.count() < maxPollRecords) {
-            if (!poll.isEmpty()) {
-              nonEmptyNotFullPolled++;
-            }
+          if (poll.isEmpty()) {
+            emptyPolled++;
+            consumer.onIdle(clock.get());
           } else {
-            nonEmptyNotFullPolled = 0;
+            emptyPolled = 0;
+            if (poll.count() < maxPollRecords) {
+              nonEmptyNotFullPolled++;
+            } else {
+              nonEmptyNotFullPolled = 0;
+            }
           }
+          boolean moveWatemarkToProcessingTime = nonEmptyNotFullPolled > 0
+              || emptyPolled >= emptyPolls;
           if (log.isDebugEnabled()) {
             log.debug(
                 "Current watermark of consumer name {} with offsets {} "
@@ -388,7 +395,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               ? Math.max(1L, maxBytesPerSec / (1000L * consumerPollInterval))
               : Long.MAX_VALUE;
           long bytesPolled = 0L;
-          if (nonEmptyNotFullPolled > 0 && poll.isEmpty()) {
+          if (moveWatemarkToProcessingTime && poll.isEmpty()) {
             // increase all partition's empty poll counter by 1
             emptyPollCount.replaceAll((k, v) -> v + 1);
           }
@@ -436,7 +443,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               }
             }
           }
-          if (nonEmptyNotFullPolled > 0) {
+          if (moveWatemarkToProcessingTime) {
             increaseWatermarkOnEmptyPolls(
                 emptyPollCount, partitionToClockDimension, clock);
           }

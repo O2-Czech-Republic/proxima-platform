@@ -80,6 +80,7 @@ public interface CqlFactory extends Serializable {
    * @param offset offset to start from (return next attribute)
    * @param limit maximum number of items to return
    * @param session the connection session
+   * @param <T> type of {@link KvIterable}
    * @return iterable over keyvalues
    */
   <T> KvIterable<T> getListAllStatement(

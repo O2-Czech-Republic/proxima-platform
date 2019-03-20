@@ -92,6 +92,7 @@
     <checkstyle.config.location>checkstyle.xml</checkstyle.config.location>
     <spotbugs.version>3.1.8</spotbugs.version>
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
+    <lombok.version>1.18.4</lombok.version>
   </properties>
 
   <profiles>
@@ -289,6 +290,8 @@
           <mapping>
             <proto>JAVADOC_STYLE</proto>
             <avsc>JAVADOC_STYLE</avsc>
+            <Makefile>SCRIPT_STYLE</Makefile>
+            <conf>JAVADOC_STYLE</conf>
           </mapping>
           <excludes>
             <exclude>**/.idea/**</exclude>
@@ -327,6 +330,9 @@
             </goals>
           </execution>
         </executions>
+        <configuration>
+          <source>8</source>
+        </configuration>
       </plugin>
 
       <!-- checkstyle -->
@@ -361,7 +367,7 @@
       <dependency>
         <groupId>org.projectlombok</groupId>
         <artifactId>lombok</artifactId>
-        <version>1.16.16</version>
+        <version>${lombok.version}</version>
         <scope>provided</scope>
       </dependency>
 

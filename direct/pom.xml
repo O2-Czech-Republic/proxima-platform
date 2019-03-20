@@ -53,18 +53,12 @@
         <groupId>${project.groupId}</groupId>
         <artifactId>proxima-core</artifactId>
         <version>${project.version}</version>
-        <exclusions>
-          <exclusion>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-          </exclusion>
-        </exclusions>
       </dependency>
 
       <dependency>
         <groupId>org.projectlombok</groupId>
         <artifactId>lombok</artifactId>
-        <version>1.16.16</version>
+        <version>${lombok.version}</version>
         <scope>provided</scope>
       </dependency>
 

@@ -32,6 +32,7 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnIdleContext;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 import cz.o2.proxima.time.WatermarkSupplier;
@@ -162,6 +163,11 @@ class Consumers {
       committer.clear();
     }
 
+    @Override
+    public void onIdle(WatermarkSupplier watermarkSupplier) {
+      observer.onIdle(asOnIdleContext(watermarkSupplier));
+    }
+
   }
 
   static final class BulkConsumer extends ConsumerBase {
@@ -262,6 +268,11 @@ class Consumers {
     @Override
     public void onStart() {
       onStart.run();
+    }
+
+    @Override
+    public void onIdle(WatermarkSupplier watermarkSupplier) {
+      observer.onIdle(asOnIdleContext(watermarkSupplier));
     }
 
   }

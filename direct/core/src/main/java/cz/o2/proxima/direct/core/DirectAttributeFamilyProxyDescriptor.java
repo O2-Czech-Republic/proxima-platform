@@ -475,6 +475,11 @@ public class DirectAttributeFamilyProxyDescriptor
       }
 
       @Override
+      public void onIdle(OnIdleContext context) {
+        observer.onIdle(context);
+      }
+
+      @Override
       public void onCompleted() {
         observer.onCompleted();
       }

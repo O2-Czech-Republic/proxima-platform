@@ -20,7 +20,6 @@ import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
-import java.util.Collection;
 import javax.annotation.Nullable;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 
@@ -56,17 +55,6 @@ public interface PartitionedLogObserver<T> extends LogObserver {
     }
 
   }
-
-  /**
-   * A repartitioning operation has just happened.
-   * This method is called before first element is processed and
-   * then after each repartition.
-   * @param assigned collection of assigned partitions
-   */
-  default void onRepartition(Collection<Partition> assigned) {
-
-  }
-
 
   /**
    * Process next record in the commit log.

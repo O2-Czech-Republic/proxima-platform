@@ -66,11 +66,11 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
     subscriptionAutoCreate = Optional.ofNullable(cfg.get(CFG_SUBSCRIPTION_AUTOCREATE))
         .map(Object::toString)
         .map(Boolean::valueOf)
-        .orElse(false);
+        .orElse(true);
     subscriptionAckDeadline = Optional.ofNullable(cfg.get(CFG_SUBSCRIPTION_ACK_DEADLINE))
         .map(Object::toString)
         .map(Integer::valueOf)
-        .orElse(10);
+        .orElse(600);
 
     Preconditions.checkArgument(
         !Strings.isNullOrEmpty(project), "Authority cannot be empty");

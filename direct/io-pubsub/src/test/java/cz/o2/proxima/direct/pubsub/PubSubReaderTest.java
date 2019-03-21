@@ -65,7 +65,7 @@ public class PubSubReaderTest {
   private final Repository repo = ConfigRepository.of(ConfigFactory.load().resolve());
   private final DirectDataOperator direct = repo.asDataOperator(
       DirectDataOperator.class, op -> op.withExecutorFactory(
-          () -> Executors.newCachedThreadPool()));
+          Executors::newCachedThreadPool));
   private final Context context = direct.getContext();
   private final AttributeDescriptorImpl<?> attr;
   private final AttributeDescriptorImpl<?> wildcard;

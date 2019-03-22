@@ -83,6 +83,102 @@ public class IngestClientTest {
   }
 
   @Test(timeout = 10000)
+  public void testSingleSimpleIngest() throws InterruptedException {
+    IngestClient client = create(new Options());
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Rpc.Status> status = new AtomicReference<>();
+    statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
+    client.ingest(
+        "gw1",
+        "gateway",
+        "armed",
+        ByteString.EMPTY,
+        s -> {
+          status.set(s);
+          latch.countDown();
+        }
+    );
+    latch.await();
+    assertNotNull(status.get());
+    assertEquals(200, status.get().getStatus());
+  }
+
+  @Test(timeout = 10000)
+  public void testSingleSimpleDelete() throws InterruptedException {
+    IngestClient client = create(new Options());
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Rpc.Status> status = new AtomicReference<>();
+    statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
+    client.delete(
+        "gw1",
+        "gateway",
+        "armed",
+        s -> {
+          status.set(s);
+          latch.countDown();
+        }
+    );
+    latch.await();
+    assertNotNull(status.get());
+    assertEquals(200, status.get().getStatus());
+  }
+
+  @Test(timeout = 10000)
+  public void testSingleDelete() throws InterruptedException {
+    IngestClient client = create(new Options());
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Rpc.Status> status = new AtomicReference<>();
+    statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
+    client.delete(
+        UUID.randomUUID().toString(),
+        "gw1",
+        "gateway",
+        "armed",
+        System.currentTimeMillis(),
+        s -> {
+          status.set(s);
+          latch.countDown();
+        }
+    );
+    latch.await();
+    assertNotNull(status.get());
+    assertEquals(200, status.get().getStatus());
+  }
+
+  @Test(timeout = 10000)
+  public void testMultiDelete() throws InterruptedException {
+    IngestClient client = create(new Options());
+    CountDownLatch latch = new CountDownLatch(1);
+    List<Rpc.Status> received = new ArrayList<>();
+    statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
+    statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
+    client.delete(
+        UUID.randomUUID().toString(),
+        "gw1",
+        "gateway",
+        "armed",
+        System.currentTimeMillis(),
+        s -> {
+          received.add(s);
+          latch.countDown();
+        }
+    );
+    client.delete(
+        UUID.randomUUID().toString(),
+        "gw1",
+        "gateway",
+        "armed",
+        System.currentTimeMillis(),
+        s -> {
+          received.add(s);
+          latch.countDown();
+        }
+    );
+    latch.await();
+    assertEquals(2, received.size());
+  }
+
+  @Test(timeout = 10000)
   public void testMultiRequests() throws InterruptedException {
     IngestClient client = create(new Options());
     CountDownLatch latch = new CountDownLatch(2);

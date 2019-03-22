@@ -1,3 +1,18 @@
+/**
+ * Copyright 2017-2019 O2 Czech Republic, a.s.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package cz.o2.proxima.client;
 
 import com.google.protobuf.ByteString;
@@ -57,6 +72,14 @@ public class RetrieveServiceTest {
   }
 
   @Test
+  public void testSimpleGet() {
+    mockRetrieveService(
+        Collections.singletonList(Rpc.GetResponse.newBuilder().setStatus(200).build()));
+    Rpc.GetResponse response = client.get("gateway", "gw1", "armed");
+    assertEquals(200, response.getStatus());
+  }
+
+  @Test
   public void testSynchronousBadRequestGet() {
     mockRetrieveService(
         Collections.singletonList(Rpc.GetResponse.newBuilder().setStatus(400).build()));
@@ -84,6 +107,23 @@ public class RetrieveServiceTest {
         .setKey("gw1")
         .build()
     );
+    assertEquals(200, response.getStatus());
+    assertEquals(1, response.getValueCount());
+    Rpc.ListResponse.AttrValue value = response.getValue(0);
+    assertEquals("armed", value.getAttribute());
+  }
+
+  @Test
+  public void testSimpleListAttributes() {
+    mockRetrieveService(Collections.singletonList(
+        Rpc.ListResponse.newBuilder().setStatus(200).addValue(
+            Rpc.ListResponse.AttrValue.newBuilder()
+                .setAttribute("armed")
+                .setValue(ByteString.EMPTY)
+                .build()
+        ).build()
+    ));
+    Rpc.ListResponse response = client.listAttributes("gateway", "gw1");
     assertEquals(200, response.getStatus());
     assertEquals(1, response.getValueCount());
     Rpc.ListResponse.AttrValue value = response.getValue(0);

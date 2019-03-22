@@ -17,6 +17,7 @@ package cz.o2.proxima.client;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.TextFormat;
 import cz.o2.proxima.proto.service.IngestServiceGrpc;
 import cz.o2.proxima.proto.service.IngestServiceGrpc.IngestServiceStub;
@@ -29,9 +30,11 @@ import lombok.Getter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -236,13 +239,108 @@ public class IngestClient implements AutoCloseable {
    * Send the request with timeout.
    * @param ingest the data
    * @param timeout timeout
-   * @param unit timeunit of timeout
+   * @param unit time unit of timeout
    * @param statusConsumer callback for receiving status
    */
   public void send(Rpc.Ingest ingest, long timeout,
       TimeUnit unit, Consumer<Rpc.Status> statusConsumer) {
 
     sendTry(ingest, timeout, unit, statusConsumer, false);
+  }
+
+  /**
+   * Send ingest request.
+   * @param key entity key value.
+   * @param entity entity name.
+   * @param attribute attribute name.
+   * @param value ingested value.
+   * @param statusConsumer callback for receiving status.
+   */
+  public void ingest(String key, String entity, String attribute,
+                     ByteString value, Consumer<Rpc.Status> statusConsumer) {
+    ingest(UUID.randomUUID().toString(), key, entity, attribute, value,
+        System.currentTimeMillis(), statusConsumer);
+  }
+
+  /**
+   * Send ingest request.
+   * @param uuid request UUID.
+   * @param key entity key value.
+   * @param entity entity name.
+   * @param attribute attribute name.
+   * @param value ingested value.
+   * @param statusConsumer callback for receiving status.
+   */
+  public void ingest(String uuid, String key, String entity, String attribute,
+                    ByteString value, Consumer<Rpc.Status> statusConsumer) {
+    ingest(uuid, key, entity, attribute, value, System.currentTimeMillis(),
+        statusConsumer);
+  }
+
+  /**
+   * Send ingest request.
+   * @param uuid request UUID.
+   * @param key entity key value.
+   * @param entity entity name.
+   * @param attribute attribute name.
+   * @param value attribute value
+   * @param stamp timestamp.
+   * @param statusConsumer callback for receiving status.
+   */
+  public void ingest(String uuid, String key, String entity, String attribute,
+      @Nullable ByteString value, long stamp, Consumer<Rpc.Status> statusConsumer) {
+    Rpc.Ingest.Builder requestBuilder = Rpc.Ingest.newBuilder()
+        .setUuid(uuid)
+        .setKey(key)
+        .setEntity(entity)
+        .setAttribute(attribute)
+        .setStamp(stamp);
+    if (value == null) {
+      requestBuilder.setDelete(true);
+    } else {
+      requestBuilder.setValue(value);
+    }
+    send(requestBuilder.build(), statusConsumer);
+  }
+
+  /**
+   * Send delete request.
+   * @param uuid request UUID.
+   * @param key entity key value.
+   * @param entity entity name.
+   * @param attribute attribute name.
+   * @param stamp timestamp.
+   * @param statusConsumer callback for receiving status.
+   */
+  public void delete(String uuid, String key, String entity, String attribute, long stamp,
+                     Consumer<Rpc.Status> statusConsumer) {
+    ingest(uuid, key, entity, attribute, null, stamp, statusConsumer);
+  }
+
+  /**
+   * Send delete request.
+   * @param key entity key value.
+   * @param entity entity name.
+   * @param attribute attribute name.
+   * @param statusConsumer callback for receiving status.
+   */
+  public void delete(String key, String entity, String attribute,
+                     Consumer<Rpc.Status> statusConsumer) {
+    delete(UUID.randomUUID().toString(), key, entity, attribute,
+        System.currentTimeMillis(), statusConsumer);
+  }
+
+  /**
+   * Send delete request.
+   * @param uuid request UUID.
+   * @param key entity key value.
+   * @param entity entity name.
+   * @param attribute attribute name.
+   * @param statusConsumer callback for receiving status.
+   */
+  public void delete(String uuid, String key, String entity, String attribute,
+                     Consumer<Rpc.Status> statusConsumer) {
+    delete(uuid, key, entity, attribute, System.currentTimeMillis(), statusConsumer);
   }
 
   /**
@@ -258,8 +356,26 @@ public class IngestClient implements AutoCloseable {
   }
 
   /**
+   * Sends synchronously {@link cz.o2.proxima.proto.service.Rpc.GetRequest}
+   * to retrieve data from system.
+   *
+   * @param entity entity name.
+   * @param key entity key.
+   * @param attribute attribute name.
+   * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.GetResponse}.
+   */
+  public Rpc.GetResponse get(String entity, String key, String attribute) {
+    Rpc.GetRequest get = Rpc.GetRequest.newBuilder()
+        .setEntity(entity)
+        .setKey(key)
+        .setAttribute(attribute)
+        .build();
+    return get(get);
+  }
+
+  /**
    * Send synchronously {@link cz.o2.proxima.proto.service.Rpc.ListRequest}
-   * to retrieve data for attribute.
+   * to retrieve attributes for entity.
    *
    * @param request Instance of {@link cz.o2.proxima.proto.service.Rpc.ListRequest}.
    * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.ListResponse}.
@@ -267,6 +383,40 @@ public class IngestClient implements AutoCloseable {
   public Rpc.ListResponse listAttributes(Rpc.ListRequest request) {
     ensureChannel();
     return retrieveStub.listAttributes(request);
+  }
+
+  /**
+   * Send synchronously {@link cz.o2.proxima.proto.service.Rpc.ListRequest}
+   * to retrieve attributes for entity.
+   *
+   * @param entity entity name
+   * @param key entity key value.
+   * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.ListResponse}.
+   */
+  public Rpc.ListResponse listAttributes(String entity, String key) {
+    return listAttributes(entity, key, null, -1);
+  }
+
+  /**
+   * Send synchronously {@link cz.o2.proxima.proto.service.Rpc.ListRequest}
+   * to retrieve attributes for entity.
+   *
+   * @param entity entity name
+   * @param key entity key value.
+   * @param offset random offset.
+   * @param limit limit of values (-1 for all).
+   * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.ListResponse}.
+   */
+  public Rpc.ListResponse listAttributes(String entity, String key,
+                                         @Nullable String offset, int limit) {
+    Rpc.ListRequest.Builder list = Rpc.ListRequest.newBuilder()
+        .setEntity(entity)
+        .setKey(key)
+        .setLimit(limit);
+    if (offset != null) {
+      list.setOffset(offset);
+    }
+    return listAttributes(list.build());
   }
 
   /** Send the request with timeout. */

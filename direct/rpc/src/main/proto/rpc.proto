@@ -56,7 +56,7 @@ message Status {
 
   /** Status code:
    *   200 - OK - the request was processed and is ingested
-   *   400 - Bad request - the requset was missing some key parts
+   *   400 - Bad request - the request was missing some key parts
    *   404 - Not found - the entity or attribute not found in the settings
    *   412 - Not acceptable - the message has unknown format (unable to validate the scheme)
    *   502 - Bad gateway - cannot connect to the target storage
@@ -162,7 +162,7 @@ message GetResponse {
 }
 
 /**
- * Request to list attributes of given enitty by known wildcard prefix.
+ * Request to list attributes of given entity by known wildcard prefix.
  */
 message ListRequest {
 
@@ -229,7 +229,7 @@ service RetrieveService {
   /** Synchronous request to fetch a value of a specified attribute. */
   rpc get (GetRequest) returns (GetResponse);
 
-  /** Synchronous request to list attributes of a specified entitity by prefix. */
+  /** Synchronous request to list attributes of a specified entity by prefix. */
   rpc listAttributes (ListRequest) returns (ListResponse);
 
 }

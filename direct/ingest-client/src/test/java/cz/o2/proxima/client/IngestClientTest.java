@@ -28,9 +28,10 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.mock;
 
 /**
@@ -141,8 +142,8 @@ public class IngestClientTest {
       @Override
       void createChannelAndStub() {
         this.channel = mockChannel();
-        this.stub = IngestServiceGrpc.newStub(channel);
-        this.requestObserver = new StreamObserver<Rpc.IngestBulk>() {
+        this.ingestStub = IngestServiceGrpc.newStub(channel);
+        this.ingestRequestObserver = new StreamObserver<Rpc.IngestBulk>() {
 
           @Override
           public void onNext(Rpc.IngestBulk bulk) {

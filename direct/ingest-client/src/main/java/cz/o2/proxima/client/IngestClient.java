@@ -111,9 +111,10 @@ public class IngestClient implements AutoCloseable {
   Channel channel = null;
 
   @VisibleForTesting
-  IngestServiceStub stub = null;
+  IngestServiceStub ingestStub = null;
 
-  private RetrieveServiceGrpc.RetrieveServiceBlockingStub getStub = null;
+  @VisibleForTesting
+  RetrieveServiceGrpc.RetrieveServiceBlockingStub retrieveStub = null;
   private final Rpc.IngestBulk.Builder bulkBuilder = Rpc.IngestBulk.newBuilder();
   private final CountDownLatch closedLatch = new CountDownLatch(1);
 
@@ -125,7 +126,7 @@ public class IngestClient implements AutoCloseable {
   private final AtomicReference<Throwable> flushThreadExc = new AtomicReference<>();
 
   @VisibleForTesting
-  StreamObserver<Rpc.IngestBulk> requestObserver;
+  StreamObserver<Rpc.IngestBulk> ingestRequestObserver;
 
   private final ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1);
 
@@ -211,9 +212,9 @@ public class IngestClient implements AutoCloseable {
   }
 
   private synchronized void onError(Throwable thrwbl) {
-    stub = null;
+    ingestStub = null;
     try {
-      log.warn("Error on channel, closing stub", thrwbl);
+      log.warn("Error on channel, closing ingestStub", thrwbl);
       TimeUnit.SECONDS.sleep(1);
     } catch (InterruptedException ex) {
       log.warn("Interrupted while waiting before channel open retry.", ex);
@@ -253,7 +254,19 @@ public class IngestClient implements AutoCloseable {
    */
   public Rpc.GetResponse get(Rpc.GetRequest request) {
     ensureChannel();
-    return getStub.get(request);
+    return retrieveStub.get(request);
+  }
+
+  /**
+   * Send synchronously {@link cz.o2.proxima.proto.service.Rpc.ListRequest}
+   * to retrieve data for attribute.
+   *
+   * @param request Instance of {@link cz.o2.proxima.proto.service.Rpc.ListRequest}.
+   * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.ListResponse}.
+   */
+  public Rpc.ListResponse listAttributes(Rpc.ListRequest request) {
+    ensureChannel();
+    return retrieveStub.listAttributes(request);
   }
 
   /** Send the request with timeout. */
@@ -338,10 +351,10 @@ public class IngestClient implements AutoCloseable {
           .build();
     }
 
-    getStub = RetrieveServiceGrpc.newBlockingStub(channel);
-    stub = IngestServiceGrpc.newStub(channel);
+    retrieveStub = RetrieveServiceGrpc.newBlockingStub(channel);
+    ingestStub = IngestServiceGrpc.newStub(channel);
 
-    requestObserver = stub.ingestBulk(statusObserver);
+    ingestRequestObserver = ingestStub.ingestBulk(statusObserver);
 
     synchronized (inFlightRequests) {
       inFlightRequests.values().forEach(Request::retry);
@@ -378,7 +391,7 @@ public class IngestClient implements AutoCloseable {
         }
       }
       synchronized (this) {
-        requestObserver.onCompleted();
+        ingestRequestObserver.onCompleted();
       }
 
       flushThread.interrupt();
@@ -395,8 +408,8 @@ public class IngestClient implements AutoCloseable {
 
   private synchronized void flush() {
     if (bulkBuilder.getIngestCount() > 0) {
-      if (requestObserver != null) {
-        requestObserver.onNext(bulkBuilder.build());
+      if (ingestRequestObserver != null) {
+        ingestRequestObserver.onNext(bulkBuilder.build());
       } else {
         log.warn(
             "Cannot send bulk due to null observer. "

@@ -257,7 +257,7 @@ public class IngestClient implements AutoCloseable {
    * @param statusConsumer callback for receiving status.
    */
   public void ingest(String key, String entity, String attribute,
-                     ByteString value, Consumer<Rpc.Status> statusConsumer) {
+      ByteString value, Consumer<Rpc.Status> statusConsumer) {
     ingest(UUID.randomUUID().toString(), key, entity, attribute, value,
         System.currentTimeMillis(), statusConsumer);
   }
@@ -272,7 +272,7 @@ public class IngestClient implements AutoCloseable {
    * @param statusConsumer callback for receiving status.
    */
   public void ingest(String uuid, String key, String entity, String attribute,
-                    ByteString value, Consumer<Rpc.Status> statusConsumer) {
+      ByteString value, Consumer<Rpc.Status> statusConsumer) {
     ingest(uuid, key, entity, attribute, value, System.currentTimeMillis(),
         statusConsumer);
   }
@@ -313,7 +313,7 @@ public class IngestClient implements AutoCloseable {
    * @param statusConsumer callback for receiving status.
    */
   public void delete(String uuid, String key, String entity, String attribute, long stamp,
-                     Consumer<Rpc.Status> statusConsumer) {
+      Consumer<Rpc.Status> statusConsumer) {
     ingest(uuid, key, entity, attribute, null, stamp, statusConsumer);
   }
 
@@ -325,7 +325,7 @@ public class IngestClient implements AutoCloseable {
    * @param statusConsumer callback for receiving status.
    */
   public void delete(String key, String entity, String attribute,
-                     Consumer<Rpc.Status> statusConsumer) {
+      Consumer<Rpc.Status> statusConsumer) {
     delete(UUID.randomUUID().toString(), key, entity, attribute,
         System.currentTimeMillis(), statusConsumer);
   }
@@ -339,7 +339,7 @@ public class IngestClient implements AutoCloseable {
    * @param statusConsumer callback for receiving status.
    */
   public void delete(String uuid, String key, String entity, String attribute,
-                     Consumer<Rpc.Status> statusConsumer) {
+      Consumer<Rpc.Status> statusConsumer) {
     delete(uuid, key, entity, attribute, System.currentTimeMillis(), statusConsumer);
   }
 
@@ -408,7 +408,7 @@ public class IngestClient implements AutoCloseable {
    * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.ListResponse}.
    */
   public Rpc.ListResponse listAttributes(String entity, String key,
-                                         @Nullable String offset, int limit) {
+      @Nullable String offset, int limit) {
     Rpc.ListRequest.Builder list = Rpc.ListRequest.newBuilder()
         .setEntity(entity)
         .setKey(key)

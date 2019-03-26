@@ -29,7 +29,7 @@ public class WatermarkEstimatorTest {
 
   @Before
   public void setUp() {
-    stamp = new AtomicLong(System.currentTimeMillis());
+    stamp = new AtomicLong(0L);
   }
 
   @Test
@@ -42,9 +42,9 @@ public class WatermarkEstimatorTest {
   @Test
   public void testInitializedSameStamp() {
     WatermarkEstimator est = new WatermarkEstimator(1000, 250, stamp::get);
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 3; i++) {
       assertEquals(Long.MIN_VALUE, est.getWatermark());
-      stamp.accumulateAndGet(i * 250, (a, b) -> a + b);
+      stamp.accumulateAndGet(250, (a, b) -> a + b);
       est.add(1);
     }
     assertEquals(1, est.getWatermark());
@@ -54,18 +54,42 @@ public class WatermarkEstimatorTest {
   public void testInitializedIncreasingStamp() {
     WatermarkEstimator est = new WatermarkEstimator(1000, 250, stamp::get);
     for (int i = 0; i < 10; i++) {
-      stamp.accumulateAndGet(i * 250, (a, b) -> a + b);
+      stamp.accumulateAndGet(250, (a, b) -> a + b);
       est.add(i);
     }
     assertEquals(6, est.getWatermark());
   }
 
   @Test
+  public void testInitializedIncreasingStamp2() {
+    WatermarkEstimator est = new WatermarkEstimator(1000, 250, stamp::get);
+    for (int i = 0; i < 10; i++) {
+      stamp.accumulateAndGet(i * 250, (a, b) -> a + b);
+      est.add(i);
+    }
+    assertEquals(9, est.getWatermark());
+  }
+
+
+  @Test
   public void testSingleUpdateIncresesStamp() {
-    WatermarkEstimator est = WatermarkEstimator.of(1, 1);
+    WatermarkEstimator est = new WatermarkEstimator(1, 1, stamp::get);
     est.add(1);
+    stamp.incrementAndGet();
     assertEquals(1, est.getWatermark());
   }
+
+  @Test
+  public void testLargeUpdate() {
+    WatermarkEstimator est = new WatermarkEstimator(1, 1, stamp::get);
+    stamp.set(10000);
+    est.add(1);
+    stamp.set(20000L);
+    est.add(15000L);
+    est.add(15001L);
+    assertEquals(15000L, est.getWatermark());
+  }
+
 
 
 }

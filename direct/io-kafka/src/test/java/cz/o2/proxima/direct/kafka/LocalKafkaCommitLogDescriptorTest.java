@@ -780,35 +780,23 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testSlowPollMovesWatermarkSlowly() throws InterruptedException {
-    Accessor accessor = kafka.createAccessor(
-        direct, entity, storageUri, and(
-            partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
-    LocalKafkaWriter writer = accessor.newWriter();
+    Accessor accessor = kafka.createAccessor(direct, entity, storageUri, and(
+        partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
-
-    long now = System.currentTimeMillis() - 10000;
-    for (int i = 0; i < 20000; i++) {
-      StreamElement update = StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key" + i, attr.getName(), now + 2000, new byte[] { 1, 2 });
-      // then we write single element
-      writer.write(update, (succ, e) -> { });
-    }
-
+    final long now = System.currentTimeMillis();
     AtomicLong watermark = new AtomicLong();
-    CountDownLatch latch = new CountDownLatch(1);
-    reader.observeBulk("test", Position.OLDEST, true, new LogObserver() {
+    CountDownLatch latch = new CountDownLatch(30);
+    reader.observe("test", Position.NEWEST, new LogObserver() {
 
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {
-        watermark.set(context.getWatermark());
         return true;
       }
 
       @Override
       public void onCompleted() {
-        latch.countDown();
+        fail("This should not be called");
       }
 
       @Override
@@ -816,12 +804,23 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         throw new RuntimeException(error);
       }
 
+      @Override
+      public void onIdle(OnIdleContext context) {
+        watermark.set(context.getWatermark());
+        latch.countDown();
+      }
+
     }).waitUntilReady();
+
+
+    // for two seconds we have empty data
+    TimeUnit.SECONDS.sleep(2);
 
     latch.await();
 
-    // watermark should be moved to now + 2000
-    assertEquals(watermark.get(), now + 2000);
+    // watermark should be moved
+    assertTrue(watermark.get() > 0);
+    assertTrue(watermark.get() < now * 10);
   }
 
   @Test(timeout = 10000)

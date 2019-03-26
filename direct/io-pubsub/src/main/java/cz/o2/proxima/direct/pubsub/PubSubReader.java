@@ -25,11 +25,14 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.FieldMask;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PushConfig;
+import com.google.pubsub.v1.Subscription;
+import com.google.pubsub.v1.UpdateSubscriptionRequest;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
@@ -443,7 +446,29 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
               + " as requested",
           subscription, topicName, subscriptionAckDeadline);
     } catch (AlreadyExistsException ex) {
-      log.debug("Subscription {} already exists. Skipping creation.", subscription);
+      Subscription subs = client.getSubscription(subscription);
+      if (!subs.getTopic().equals(ProjectTopicName.of(project,topic).toString())) {
+        throw new IllegalStateException("Existed subscription "
+            + subscription.getSubscription() + " use topic " + subs.getTopic()
+            + " which is different than configured " + ProjectTopicName.of(project, topic)
+            + ".");
+      }
+      if (subs.getAckDeadlineSeconds() != this.subscriptionAckDeadline) {
+        client.updateSubscription(UpdateSubscriptionRequest.newBuilder()
+            .setUpdateMask(FieldMask.newBuilder()
+                .addPaths("ack_deadline_seconds")
+                .build())
+            .setSubscription(Subscription.newBuilder()
+                .setAckDeadlineSeconds(this.subscriptionAckDeadline)
+                .setName(subscription.toString())
+                .build())
+            .build());
+        log.info("Subscription ack deadline {} for subscription {} was different than "
+                + "configured: {}. Subscription updated.",
+            subs.getAckDeadlineSeconds(), subscription, this.subscriptionAckDeadline);
+      } else {
+        log.debug("Subscription {} already exists. Skipping creation.", subscription);
+      }
     }
   }
 

@@ -20,10 +20,14 @@ import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Estimator of watermark based on timestamps of flowing elements.
  */
+@Slf4j
 @Internal
 public class WatermarkEstimator implements WatermarkSupplier {
 
@@ -39,21 +43,43 @@ public class WatermarkEstimator implements WatermarkSupplier {
    * @return the estimator
    */
   public static WatermarkEstimator of(long durationMs, long stepMs) {
+    return of(durationMs, stepMs, Long.MIN_VALUE);
+  }
+
+  /**
+   * Create estimator of watermark with given parameters.
+   * @param durationMs duration of the window for aggregation of timestamps
+   * @param stepMs step (window slide)
+   * @param watermark minimal watermark that has already passed at time of
+   * creation of this estimator
+   * @return the estimator
+   */
+  public static WatermarkEstimator of(long durationMs, long stepMs, long watermark) {
     return new WatermarkEstimator(durationMs, stepMs, System::currentTimeMillis);
   }
 
-  final long durationMs;
-  final long stepMs;
-  final TimestampSupplier timestampSupplier;
-  final long[] steps;
-  long lastRotate;
-  int rotatesToInitialize;
+
+  private final long stepMs;
+  private final TimestampSupplier timestampSupplier;
+  private final long[] steps;
+  private final AtomicLong lastRotate;
+  private final AtomicInteger rotatesToInitialize;
+  private final AtomicLong watermark;
 
   @VisibleForTesting
-  WatermarkEstimator(long durationMs, long stepMs, TimestampSupplier supplier) {
-    this.durationMs = durationMs;
+  WatermarkEstimator(
+      long durationMs, long stepMs, TimestampSupplier supplier) {
+
+    this(durationMs, stepMs, supplier, Long.MIN_VALUE);
+  }
+
+  WatermarkEstimator(
+      long durationMs, long stepMs, TimestampSupplier supplier,
+      long minWatermark) {
+
     this.stepMs = stepMs;
     this.timestampSupplier = Objects.requireNonNull(supplier);
+    this.watermark = new AtomicLong(minWatermark);
     Preconditions.checkArgument(durationMs > 0, "durationMs must be positive");
     Preconditions.checkArgument(stepMs > 0, "stepMs must be positive");
     Preconditions.checkArgument(
@@ -63,8 +89,8 @@ public class WatermarkEstimator implements WatermarkSupplier {
     for (int i = 0; i < steps.length; i++) {
       steps[i] = Long.MAX_VALUE;
     }
-    rotatesToInitialize = steps.length - 1;
-    lastRotate = supplier.get() - stepMs;
+    rotatesToInitialize = new AtomicInteger(steps.length - 1);
+    lastRotate = new AtomicLong(supplier.get() - stepMs);
   }
 
   /**
@@ -72,22 +98,10 @@ public class WatermarkEstimator implements WatermarkSupplier {
    * @param stamp the stamp to accumulate
    */
   public void add(long stamp) {
-    long now = timestampSupplier.get();
-    if (now - lastRotate >= stepMs) {
-      rotate(now);
-    }
+    rotateIfNeeded();
     if (steps[0] > stamp) {
       steps[0] = stamp;
     }
-  }
-
-  private void rotate(long now) {
-    System.arraycopy(steps, 0, steps, 1, steps.length - 1);
-    if (rotatesToInitialize > 0) {
-      rotatesToInitialize--;
-    }
-    steps[0] = Long.MAX_VALUE;
-    lastRotate = now;
   }
 
   /**
@@ -96,7 +110,8 @@ public class WatermarkEstimator implements WatermarkSupplier {
    */
   @Override
   public long getWatermark() {
-    if (rotatesToInitialize > 0) {
+    rotateIfNeeded();
+    if (rotatesToInitialize.get() > 0) {
       return Long.MIN_VALUE;
     }
     long ret = Long.MAX_VALUE;
@@ -105,7 +120,29 @@ public class WatermarkEstimator implements WatermarkSupplier {
         ret = steps[pos];
       }
     }
-    return ret;
+    if (ret < Long.MAX_VALUE) {
+      return watermark.accumulateAndGet(ret, Math::max);
+    }
+    return watermark.get();
+  }
+
+  private void rotateIfNeeded() {
+    long now = timestampSupplier.get();
+    if (now > lastRotate.get() + stepMs) {
+      rotate(now, (int) ((now - lastRotate.get()) / stepMs));
+    }
+  }
+
+  private void rotate(long now, int moveCount) {
+    moveCount = Math.min(steps.length - 1, moveCount);
+    System.arraycopy(steps, 0, steps, moveCount, steps.length - moveCount);
+    if (rotatesToInitialize.get() > 0) {
+      rotatesToInitialize.addAndGet(-moveCount);
+    }
+    for (int i = 0; i < moveCount; i++) {
+      steps[i] = now;
+    }
+    lastRotate.set(now);
   }
 
 }

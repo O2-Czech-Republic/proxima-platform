@@ -17,6 +17,8 @@ package cz.o2.proxima.direct.core;
 
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
 
 /**
  * Interface representing a partition of the commit log.
@@ -47,6 +49,22 @@ public interface Partition extends Serializable {
    */
   default long size() {
     return -1L;
+  }
+
+  /**
+   * Verify if this partition can be split into two when reading.
+   * @return {@code true} when the partition can be split and read
+   * independently in two consumers.
+   */
+  default boolean isSplittable() {
+    return false;
+  }
+
+  /**
+   * Split this partition to given number of sub-partitions.
+   */
+  default Collection<Partition> split(int desiredCount) {
+    return Arrays.asList(this);
   }
 
 }

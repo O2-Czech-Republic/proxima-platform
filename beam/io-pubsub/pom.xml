@@ -26,10 +26,15 @@
     <version>0.3-SNAPSHOT</version>
   </parent>
 
-  <artifactId>proxima-beam-core</artifactId>
+  <artifactId>proxima-beam-io-pubsub</artifactId>
   <packaging>jar</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
+
+  <properties>
+    <grpc.version>1.17.1</grpc.version>
+    <shadePattern>cz.o2.proxima.beam.io.pubsub</shadePattern>
+  </properties>
 
   <build>
     <plugins>
@@ -41,14 +46,18 @@
           <shadeTestJar>true</shadeTestJar>
           <artifactSet>
             <excludes>
-              <exclude>org.slf4j:slf4j-api:jar:</exclude>
-              <exclude>cz.o2.proxima:proxima-core</exclude>
+              <exclude>${project.groupId}:proxima-core</exclude>
+              <exclude>${project.groupId}:proxima-beam-core</exclude>
             </excludes>
           </artifactSet>
           <relocations>
             <relocation>
               <pattern>com.google.common.</pattern>
               <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.</pattern>
+              <shadedPattern>${shadePattern}.io.grpc.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -62,6 +71,36 @@
         </executions>
       </plugin>
 
+      <plugin>
+        <groupId>com.coderplus.maven.plugins</groupId>
+        <artifactId>copy-rename-maven-plugin</artifactId>
+        <version>1.0</version>
+        <executions>
+          <execution>
+            <id>copy-and-rename-tcnative</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>rename</goal>
+            </goals>
+            <configuration>
+              <fileSets>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libio_grpc_netty_shaded_netty_tcnative_linux_x86_64.so</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_beam_io_pubsub_shaded_io_grpc_netty_shaded_netty_tcnative_linux_x86_64.so</destinationFile>
+                </fileSet>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_pubsub_beam_io_pubsub_shaded_grpc_io_netty_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
+                </fileSet>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libio_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_beam_io_pubsub_shaded_grpc_io_netty_shaded_netty_tcnative_osx_x86_64.jnilib</destinationFile>
+                </fileSet>
+              </fileSets>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
@@ -74,7 +113,14 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-direct-core</artifactId>
+      <artifactId>proxima-beam-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-io-pubsub</artifactId>
+      <version>${project.version}</version>
     </dependency>
 
     <dependency>
@@ -83,18 +129,14 @@
     </dependency>
 
     <dependency>
-      <groupId>org.apache.beam</groupId>
-      <artifactId>beam-sdks-java-extensions-euphoria</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.beam</groupId>
-      <artifactId>beam-sdks-java-extensions-kryo</artifactId>
-    </dependency>
-
-    <dependency>
       <groupId>org.projectlombok</groupId>
       <artifactId>lombok</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.beam</groupId>
+      <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
+      <version>2.12.0-SNAPSHOT</version>
     </dependency>
 
     <dependency>

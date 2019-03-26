@@ -19,14 +19,16 @@ import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.serializers.JavaSerializer;
@@ -45,7 +47,7 @@ class DirectUnboundedSource
       Repository repo, String name,
       CommitLogReader reader, Position position, long limit) {
 
-    return new DirectUnboundedSource(repo, name, reader, position, limit, -1);
+    return new DirectUnboundedSource(repo, name, reader, position, limit, null);
   }
 
   static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
@@ -77,36 +79,45 @@ class DirectUnboundedSource
   private final String name;
   private final CommitLogReader reader;
   private final Position position;
-  private final int partitions;
+  private final List<Partition> partitions;
   private final long limit;
-  private final int splitId;
+  private final @Nullable Partition partition;
 
   DirectUnboundedSource(
       Repository repo, String name, CommitLogReader reader,
-      Position position, long limit, int splitId) {
+      Position position, long limit, @Nullable Partition partition) {
 
     this.repo = repo;
     this.name = name;
     this.reader = reader;
     this.position = position;
-    this.partitions = reader.getPartitions().size();
+    this.partitions = reader.getPartitions();
     this.limit = limit;
-    this.splitId = splitId;
+    this.partition = partition;
   }
 
   @Override
   public List<UnboundedSource<StreamElement, Checkpoint>> split(
       int desiredNumSplits, PipelineOptions options) throws Exception {
 
-    if (splitId != -1) {
+    if (partition != null) {
       return Arrays.asList(this);
     }
-    List<UnboundedSource<StreamElement, Checkpoint>> ret = new ArrayList<>();
-    for (int i = 0; i < partitions; i++) {
-      ret.add(new DirectUnboundedSource(
-          repo, name, reader, position, limit / partitions, i));
-    }
-    return ret;
+
+    long splittable = partitions.stream()
+        .filter(Partition::isSplittable).count();
+    long nonSplittable = partitions.size() - splittable;
+    int splitDesired = splittable > 0
+        ? Math.max(0, (int) ((desiredNumSplits - nonSplittable) / splittable))
+        : 0;
+    int resulting = (int) (partitions.size() - splittable + splittable * splitDesired);
+    return partitions.stream()
+        .flatMap(p -> p.isSplittable() && splitDesired > 0
+            ? p.split(splitDesired).stream()
+            : Stream.of(p))
+        .map(p -> new DirectUnboundedSource(
+            repo, name, reader, position, limit / resulting, p))
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -116,7 +127,7 @@ class DirectUnboundedSource
     Offset offset = cmt == null ? null : cmt.getOffset();
     long readerLimit = cmt == null ? limit : cmt.getLimit();
     return BeamCommitLogReader.unbounded(
-        this, name, reader, position, readerLimit, splitId, offset);
+        this, name, reader, position, readerLimit, partition, offset);
   }
 
   @Override

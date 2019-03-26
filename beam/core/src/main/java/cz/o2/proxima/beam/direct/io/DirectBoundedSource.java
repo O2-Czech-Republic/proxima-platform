@@ -16,6 +16,7 @@
 package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
@@ -38,15 +40,14 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
       Repository repo, String name,
       CommitLogReader reader, Position position, long limit) {
 
-    return new DirectBoundedSource(repo, name, reader, position, limit, -1);
+    return new DirectBoundedSource(repo, name, reader, position, limit, null);
   }
 
   private final String name;
   private final CommitLogReader reader;
   private final Position position;
-  private final int partitions;
   private final long limit;
-  private final int splitId;
+  private final Partition partition;
 
   DirectBoundedSource(
       Repository repo,
@@ -54,28 +55,28 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
       CommitLogReader reader,
       Position position,
       long limit,
-      int splitId) {
+      @Nullable Partition partition) {
 
     super(repo);
     this.name = name;
     this.reader = Objects.requireNonNull(reader);
     this.position = position;
-    this.partitions = reader.getPartitions().size();
     this.limit = limit;
-    this.splitId = splitId;
+    this.partition = partition;
   }
 
   @Override
   public List<BoundedSource<StreamElement>> split(
       long desiredBundleSizeBytes, PipelineOptions opts) throws Exception {
 
-    if (splitId != -1) {
+    if (partition != null) {
       return Arrays.asList(this);
     }
     List<BoundedSource<StreamElement>> ret = new ArrayList<>();
-    for (int i = 0; i < partitions; i++) {
+    List<Partition> partitions = reader.getPartitions();
+    for (Partition p : partitions) {
       ret.add(new DirectBoundedSource(
-          repo, name, reader, position, limit / partitions, i));
+          repo, name, reader, position, limit / partitions.size(), p));
     }
     return ret;
   }
@@ -88,10 +89,10 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
     log.debug(
         "Creating reader reading from position {} on partition {}",
         position,
-        splitId);
+        partition);
 
     return BeamCommitLogReader.bounded(
-        this, name, reader, position, limit, splitId);
+        this, name, reader, position, limit, partition);
   }
 
 

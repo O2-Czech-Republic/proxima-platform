@@ -20,6 +20,7 @@ import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
@@ -62,13 +63,12 @@ class BeamCommitLogReader {
         CommitLogReader reader,
         Position position,
         long limit,
-        int splitId,
-        @Nullable
-        Offset offset) {
+        @Nullable Partition partition,
+        @Nullable Offset offset) {
 
       this.source = source;
       this.reader = new BeamCommitLogReader(
-          name, reader, position, splitId, offset, limit, false);
+          name, reader, position, partition, offset, limit, false);
     }
 
     @Override
@@ -146,10 +146,10 @@ class BeamCommitLogReader {
       CommitLogReader reader,
       Position position,
       long limit,
-      int splitId) {
+      Partition partition) {
 
     BeamCommitLogReader r = new BeamCommitLogReader(
-        name, reader, position, splitId, null, limit, true);
+        name, reader, position, partition, null, limit, true);
 
     return new BoundedReader<StreamElement>() {
 
@@ -193,17 +193,16 @@ class BeamCommitLogReader {
       CommitLogReader reader,
       Position position,
       long limit,
-      int splitId,
-      @Nullable
-      Offset offset) {
+      @Nullable Partition partition,
+      @Nullable Offset offset) {
 
     return new UnboundedCommitLogReader(
-        name, source, reader, position, limit, splitId, offset);
+        name, source, reader, position, limit, partition, offset);
 
   }
 
   @Getter
-  private final int splitId;
+  private final Partition partition;
   @Getter
   private ObserveHandle handle;
 
@@ -223,20 +222,20 @@ class BeamCommitLogReader {
 
   private BeamCommitLogReader(
       String name, CommitLogReader reader, Position position,
-      int splitId, @Nullable Offset offset, long limit,
+      @Nullable Partition partition, @Nullable Offset offset, long limit,
       boolean stopAtCurrent) {
 
     this.name = name;
     this.reader = Objects.requireNonNull(reader);
     this.position = Objects.requireNonNull(position);
-    this.splitId = splitId;
-    this.stopAtCurrent = stopAtCurrent;
+    this.partition = partition;
     this.offset = offset;
     this.limit = limit;
+    this.stopAtCurrent = stopAtCurrent;
 
     Preconditions.checkArgument(
-        splitId != -1 || offset != null,
-        "Either splitId has to be non-negative or offset has to be non-null");
+        partition != null || offset != null,
+        "Either partition or offset has to be non-null");
 
     Preconditions.checkArgument(
         offset == null || !stopAtCurrent,
@@ -250,11 +249,10 @@ class BeamCommitLogReader {
   public boolean start() throws IOException {
     this.observer = BlockingQueueLogObserver.create(name, limit);
     if (offset != null) {
-      this.handle = reader.observeBulkOffsets(
-          Arrays.asList(offset), observer);
+      this.handle = reader.observeBulkOffsets(Arrays.asList(offset), observer);
     } else {
       this.handle = reader.observeBulkPartitions(
-          name, Arrays.asList(reader.getPartitions().get(splitId)),
+          name, Arrays.asList(partition),
           position, stopAtCurrent, observer);
     }
     return advance();

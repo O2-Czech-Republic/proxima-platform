@@ -34,7 +34,7 @@
   <description>Proxima platform's Apache Beam module.</description>
 
   <properties>
-    <apache.beam.version>2.11.0</apache.beam.version>
+    <apache.beam.version>2.12.0-SNAPSHOT</apache.beam.version>
   </properties>
 
   <dependencyManagement>
@@ -183,7 +183,7 @@
     <!--module>io-hdfs</module-->
     <!--module>io-http</module-->
     <!--module>io-kafka</module-->
-    <!--module>io-pubsub</module-->
+    <module>io-pubsub</module>
     <module>tools</module>
   </modules>
 

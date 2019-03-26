@@ -24,8 +24,11 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.direct.pubsub.PubSubReader.PubSubOffset;
 import static cz.o2.proxima.direct.pubsub.Util.delete;
 import static cz.o2.proxima.direct.pubsub.Util.deleteWildcard;
 import static cz.o2.proxima.direct.pubsub.Util.update;
@@ -35,6 +38,7 @@ import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.WatermarkEstimator;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -53,6 +57,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
@@ -101,8 +106,8 @@ public class PubSubReaderTest {
     }
 
     @Override
-    WatermarkEstimator createWatermarkEstimator() {
-      return WatermarkEstimator.of(1, 1);
+    WatermarkEstimator createWatermarkEstimator(long minWatermark) {
+      return WatermarkEstimator.of(1, 1, minWatermark);
     }
 
   }
@@ -235,6 +240,109 @@ public class PubSubReaderTest {
     assertTrue(watermark.get() > 0);
   }
 
+  @Test
+  public void testObserveCommittedOffset() throws InterruptedException {
+    long now = System.currentTimeMillis();
+    Deque<PubsubMessage> inputs = new LinkedList<>(
+        Arrays.asList(
+            update("key1", "attr", new byte[] { 1, 2 }, now),
+            delete("key2", "attr", now + 1000),
+            deleteWildcard("key3", wildcard, now)));
+    reader.setSupplier(() -> {
+      if (inputs.isEmpty()) {
+        LockSupport.park();
+      }
+      return inputs.pop();
+    });
+    CountDownLatch latch = new CountDownLatch(1);
+    ObserveHandle handle = reader.observe("dummy", new LogObserver() {
+      @Override
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
+        context.confirm();
+        latch.countDown();
+        return false;
+      }
+
+      @Override
+      public void onCancelled() {
+
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+    });
+    latch.await();
+    assertEquals(1, handle.getCommittedOffsets().size());
+    assertTrue(((PubSubOffset) handle.getCommittedOffsets().get(0)).getWatermark() > 0);
+  }
+
+  @Test
+  public void testObserveBulkOffsetsWithWatermark() throws InterruptedException {
+    long now = System.currentTimeMillis();
+    Offset off = new PubSubOffset("dummy", now);
+    reader.setSupplier(() -> {
+      LockSupport.park();
+      return null;
+    });
+    List<Offset> offsets = Arrays.asList(off);
+    ObserveHandle handle = reader.observeBulkOffsets(offsets, new LogObserver() {
+      @Override
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
+        context.confirm();
+        return false;
+      }
+
+      @Override
+      public void onCancelled() {
+
+      }
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+    });
+    handle.waitUntilReady();
+    assertEquals(1, handle.getCommittedOffsets().size());
+    assertEquals(now, ((PubSubOffset) handle.getCommittedOffsets().get(0))
+        .getWatermark());
+    handle.cancel();
+  }
+
+  @Test
+  public void testPartitionsSplit() throws InterruptedException {
+    long now = System.currentTimeMillis();
+    List<Partition> partitions = reader.getPartitions();
+    assertEquals(1, partitions.size());
+    partitions = partitions.get(0).split(3).stream().collect(Collectors.toList());
+    assertEquals(3, partitions.size());
+    reader.setSupplier(() -> {
+      LockSupport.park();
+      return null;
+    });
+    ObserveHandle handle = reader.observeBulkPartitions(
+        partitions, Position.NEWEST, new LogObserver() {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            context.confirm();
+            return false;
+          }
+
+          @Override
+          public void onCancelled() {
+
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        });
+    handle.waitUntilReady();
+    handle.cancel();
+  }
 
   @Test(timeout = 10000)
   public void testObserveError() throws InterruptedException {

@@ -21,6 +21,8 @@ import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -53,7 +55,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -61,7 +65,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.threeten.bp.Duration;
 
@@ -72,13 +78,72 @@ import org.threeten.bp.Duration;
 @Slf4j
 class PubSubReader extends AbstractStorage implements CommitLogReader {
 
-  private static final Partition PARTITION = () -> 0;
+  static final class PubSubPartition implements Partition {
 
-  private static class PubSubOffset implements Offset {
+    @Getter
+    private final String consumerName;
+
+    PubSubPartition(String consumerName) {
+      this.consumerName = Objects.requireNonNull(consumerName);
+    }
+
+    @Override
+    public int getId() {
+      return 0;
+    }
+
+    @Override
+    public boolean isSplittable() {
+      return true;
+    }
+
+    @Override
+    public Collection<Partition> split(int desiredCount) {
+      return IntStream.range(0, desiredCount)
+          .mapToObj(i -> this)
+          .collect(Collectors.toList());
+    }
+
+  }
+
+  @VisibleForTesting
+  static class PubSubOffset implements Offset {
+
+    @Getter
+    private final String consumerName;
+    @Getter
+    private final long watermark;
+
+    PubSubOffset(String consumerName, long watermark) {
+      this.consumerName = Objects.requireNonNull(consumerName);
+      this.watermark = watermark;
+    }
+
     @Override
     public Partition getPartition() {
-      return PARTITION;
+      return new PubSubPartition(consumerName);
     }
+
+    @Override
+    public String toString() {
+      return "PubSubOffset(consumerName=" + consumerName
+          + ", watermark=" + watermark + ")";
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof PubSubOffset) {
+        PubSubOffset off = (PubSubOffset) obj;
+        return off.consumerName.equals(consumerName) && off.watermark == watermark;
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(consumerName, watermark);
+    }
+
   }
 
   @FunctionalInterface
@@ -90,7 +155,6 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   private final Context context;
   private final String project;
   private final String topic;
-  private final PubSubOffset offset = new PubSubOffset();
   private final int maxAckDeadline;
   private final int subscriptionAckDeadline;
   private final boolean subscriptionAutoCreate;
@@ -109,19 +173,29 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
   @Override
   public List<Partition> getPartitions() {
-    // pubsub has only single partition from the client perspective
-    return Arrays.asList(PARTITION);
+    // pubsub has only single (splittable) partition from the client perspective
+    return Arrays.asList(new PubSubPartition(asConsumerName(null)));
   }
 
   @Override
   public ObserveHandle observe(
       @Nullable String name, Position position, LogObserver observer) {
 
+    return observe(name, position, Long.MIN_VALUE, observer);
+  }
+
+  private ObserveHandle observe(
+      @Nullable String name, Position position, long minWatermark,
+      LogObserver observer) {
+
     validatePosition(position);
-    return consume(name, (e, w, c) -> {
+    String consumerName = asConsumerName(name);
+    AtomicLong committedWatermark = new AtomicLong(minWatermark);
+    return consume(consumerName, (e, w, c) -> {
       OffsetCommitter committer = (succ, exc) -> {
         if (succ) {
           log.debug("Confirming message {} to PubSub", e);
+          committedWatermark.set(w.getWatermark());
           c.ack();
         } else {
           if (exc != null) {
@@ -133,6 +207,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         }
       };
       try {
+        long watermark = w.getWatermark();
+        Offset offset = new PubSubOffset(consumerName, watermark);
         boolean ret = observer.onNext(e, asOnNextContext(committer, offset, w));
         if (!ret) {
           observer.onCompleted();
@@ -143,7 +219,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         committer.fail(ex);
         throw new RuntimeException(ex);
       }
-    }, observer::onError, null, () -> { }, observer::onCancelled);
+    }, observer::onError, null, () -> { }, observer::onCancelled,
+    committedWatermark);
   }
 
   @Override
@@ -152,6 +229,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       boolean stopAtCurrent, LogObserver observer) {
 
     validateNotStopAtCurrent(stopAtCurrent);
+    name = findConsumerFromPartitions(name, partitions);
     return observe(name, position, observer);
   }
 
@@ -169,8 +247,19 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
    */
   @Override
   public ObserveHandle observeBulk(
-      @Nullable String name, Position position,
+      @Nullable String name,
+      Position position,
       boolean stopAtCurrent,
+      LogObserver observer) {
+
+    return observeBulk(name, position, stopAtCurrent, Long.MIN_VALUE, observer);
+  }
+
+  private ObserveHandle observeBulk(
+      @Nullable String name,
+      Position position,
+      boolean stopAtCurrent,
+      long minWatermark,
       LogObserver observer) {
 
     validateNotStopAtCurrent(stopAtCurrent);
@@ -181,21 +270,26 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     Object lock = new Object();
     Object listLock = new Object();
     AtomicLong globalOffset = new AtomicLong();
-    return consume(name,
+    String consumerName = asConsumerName(name);
+    AtomicLong committedWatermark = new AtomicLong(minWatermark);
+    PubSubPartition partition = new PubSubPartition(consumerName);
+    return consume(consumerName,
         (e, w, c) -> {
-          AtomicLong confirmUntil = new AtomicLong();
+          final long confirmUntil;
           synchronized (listLock) {
             List<AckReplyConsumer> list = unconfirmed.get();
             list.add(c);
-            confirmUntil.set(list.size() + globalOffset.get());
+            confirmUntil = list.size() + globalOffset.get();
           }
           OffsetCommitter committer = createBulkCommitter(
-              listLock, confirmUntil, globalOffset, unconfirmed);
+              listLock, confirmUntil, globalOffset, unconfirmed,
+              w, committedWatermark);
 
           // our observers are not supposed to be thread safe, so we must
           // ensure explicit synchronization here
           synchronized (lock) {
             try {
+              Offset offset = new PubSubOffset(consumerName, w.getWatermark());
               if (!observer.onNext(e, asOnNextContext(committer, offset, w))) {
                 observer.onCompleted();
                 return false;
@@ -208,27 +302,31 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
             }
           }
         }, observer::onError,
-        () -> observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION))),
-        () -> observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION))),
-        observer::onCancelled);
+        () -> observer.onRepartition(asRepartitionContext(Arrays.asList(partition))),
+        () -> observer.onRepartition(asRepartitionContext(Arrays.asList(partition))),
+        observer::onCancelled,
+        committedWatermark);
   }
 
   private OffsetCommitter createBulkCommitter(
       Object listLock,
-      AtomicLong confirmUntil,
+      long confirmUntil,
       AtomicLong globalOffset,
-      AtomicReference<List<AckReplyConsumer>> unconfirmed) {
+      AtomicReference<List<AckReplyConsumer>> unconfirmed,
+      WatermarkSupplier watermarkSupplier,
+      AtomicLong committedWatermark) {
 
     return (succ, exc) -> {
       // the implementation can use some other
       // thread for this, so we need to synchronize this
       synchronized (listLock) {
-        int confirmCount = (int) (confirmUntil.get() - globalOffset.get());
+        int confirmCount = (int) (confirmUntil - globalOffset.get());
         if (confirmCount > 0) {
           final Consumer<AckReplyConsumer> apply;
           if (succ) {
             log.debug("Bulk confirming {} messages", confirmCount);
             apply = AckReplyConsumer::ack;
+            committedWatermark.set(watermarkSupplier.getWatermark());
           } else {
             if (exc != null) {
               log.warn("Error during processing of last bulk", exc);
@@ -242,8 +340,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
             apply.accept(list.get(i));
           }
           globalOffset.addAndGet(confirmCount);
-          unconfirmed.set(Lists.newArrayList(
-              list.subList(confirmCount, list.size())));
+          unconfirmed.set(Lists.newArrayList(list.subList(confirmCount, list.size())));
         }
       }
     };
@@ -257,18 +354,51 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       boolean stopAtCurrent,
       LogObserver observer) {
 
+    name = findConsumerFromPartitions(name, partitions);
+    return observeBulkWithMinWatermark(
+        name, position, stopAtCurrent, Long.MIN_VALUE, observer);
+  }
+
+  private ObserveHandle observeBulkWithMinWatermark(
+      @Nullable String name,
+      Position position,
+      boolean stopAtCurrent,
+      long minWatermark,
+      LogObserver observer) {
+
     validateNotStopAtCurrent(stopAtCurrent);
 
-    return observeBulk(name, position, observer);
+    return observeBulk(
+        name,
+        position,
+        false,
+        minWatermark,
+        observer);
   }
 
   @Override
   public ObserveHandle observeBulkOffsets(
       Collection<Offset> offsets, LogObserver observer) {
 
-    return observeBulkPartitions(
-        offsets.stream().map(Offset::getPartition).collect(Collectors.toList()),
-        Position.NEWEST, observer);
+    List<String> names = offsets.stream()
+        .map(o -> ((PubSubOffset) o).getConsumerName())
+        .distinct()
+        .collect(Collectors.toList());
+    Preconditions.checkArgument(
+        names.size() == 1,
+        "Offsets should be reading same consumer, got %s",
+        names);
+    String name = Iterables.getOnlyElement(names);
+    long watermark = offsets.stream()
+        .mapToLong(o -> ((PubSubOffset) o).getWatermark())
+        .min()
+        .orElse(Long.MIN_VALUE);
+    return observeBulkWithMinWatermark(
+        asConsumerName(name),
+        Position.NEWEST,
+        false,
+        watermark,
+        observer);
   }
 
   @Override
@@ -295,21 +425,23 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   }
 
   @VisibleForTesting
-  WatermarkEstimator createWatermarkEstimator() {
-    int duration = subscriptionAckDeadline / 10 * 10;
-    return WatermarkEstimator.of(duration, 10);
+  WatermarkEstimator createWatermarkEstimator(long minWatermark) {
+    int duration = (subscriptionAckDeadline * 1000) / 100 * 100;
+    return WatermarkEstimator.of(duration, 100, minWatermark);
   }
 
   private void createSubscription(
       SubscriptionAdminClient client, ProjectSubscriptionName subscription) {
 
     try {
+      ProjectTopicName topicName = ProjectTopicName.of(project, topic);
       client.createSubscription(
-          subscription, ProjectTopicName.of(project, topic),
+          subscription, topicName,
           PushConfig.newBuilder().build(), this.subscriptionAckDeadline);
       log.info(
-          "Automatically creating subscription {} for topic {} as requested",
-          subscription, topic);
+          "Automatically creating subscription {} for topic {} with ackDeadline {}"
+              + " as requested",
+          subscription, topicName, subscriptionAckDeadline);
     } catch (AlreadyExistsException ex) {
       log.debug("Subscription {} already exists. Skipping creation.", subscription);
     }
@@ -332,24 +464,29 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         "PubSub can observe only current data.");
   }
 
+  private String asConsumerName(String name) {
+    return name != null
+        ? name
+        : "unnamed-consumer-" + UUID.randomUUID().toString();
+  }
+
   private ObserveHandle consume(
-      @Nullable String name,
+      String consumerName,
       PubSubConsumer consumer,
       UnaryFunction<Throwable, Boolean> errorHandler,
       @Nullable Runnable onInit,
       Runnable onRestart,
-      Runnable onCancel) {
-
-    String consumerName = name != null
-        ? name : "unnamed-consumer-" + UUID.randomUUID().toString();
+      Runnable onCancel,
+      AtomicLong committedWatermark) {
 
     ProjectSubscriptionName subscription = ProjectSubscriptionName.of(
         project, consumerName);
-    
+
     AtomicReference<Subscriber> subscriber = new AtomicReference<>();
     AtomicBoolean stopProcessing = new AtomicBoolean();
     AtomicReference<MessageReceiver> receiver = new AtomicReference<>();
-    WatermarkEstimator watermarkEstimator = createWatermarkEstimator();
+    WatermarkEstimator watermarkEstimator = createWatermarkEstimator(
+        committedWatermark.get());
     receiver.set(createMessageReceiver(
         subscription, subscriber, stopProcessing, consumer,
         watermarkEstimator, errorHandler, onRestart, receiver));
@@ -381,7 +518,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
       @Override
       public List<Offset> getCommittedOffsets() {
-        return Arrays.asList(offset);
+        return Arrays.asList(new PubSubOffset(
+            consumerName, committedWatermark.get()));
       }
 
       @Override
@@ -495,6 +633,22 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   public boolean hasExternalizableOffsets() {
     // all offsets represent the same read position
     return false;
+  }
+
+  private String findConsumerFromPartitions(
+      String name, Collection<Partition> partitions) {
+
+    if (name != null) {
+      return name;
+    }
+    Set<String> names = partitions.stream()
+        .map(p -> ((PubSubPartition) p).getConsumerName())
+        .collect(Collectors.toSet());
+    Preconditions.checkArgument(
+        names.size() == 1,
+        "Please provide partitions originating from single #split partition. Got %s",
+        partitions);
+    return Iterables.getOnlyElement(names);
   }
 
 }

@@ -165,8 +165,8 @@ public interface LogObserver extends Serializable {
 
   /**
    * Called when the observer is idle.
-   * Note that the definition of idle is commit-log dependent and it might event
-   * not be called at all, if the commit log guarantees that as long as there
+   * Note that the definition of idle is commit-log dependent and it even might
+   * NOT be called at all, if the commit log guarantees that as long as there
    * are *any* data flowing in, then {@link #onNext} will be called eventually.
    *
    * Typical example of commit log with no need to call {@link #onIdle} is

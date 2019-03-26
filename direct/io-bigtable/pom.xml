@@ -171,6 +171,10 @@
               <pattern>com.fasterxml.</pattern>
               <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>
+            <relocation>
+              <pattern>org.apache.commons.</pattern>
+              <shadedPattern>${shadePattern}.org.apache.commons.</shadedPattern>
+            </relocation>
           </relocations>
         </configuration>
         <executions>

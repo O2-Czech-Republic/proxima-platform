@@ -31,8 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 @Internal
 public class WatermarkEstimator implements WatermarkSupplier {
 
+  @Internal
   @FunctionalInterface
-  interface TimestampSupplier extends Serializable {
+  public interface TimestampSupplier extends Serializable {
     long get();
   }
 
@@ -56,6 +57,22 @@ public class WatermarkEstimator implements WatermarkSupplier {
    */
   public static WatermarkEstimator of(long durationMs, long stepMs, long watermark) {
     return new WatermarkEstimator(durationMs, stepMs, System::currentTimeMillis);
+  }
+
+  /**
+   * Create estimator of watermark with given parameters.
+   * @param durationMs duration of the window for aggregation of timestamps
+   * @param stepMs step (window slide)
+   * @param watermark minimal watermark that has already passed at time of
+   * creation of this estimator
+   * @param timestampSupplier supplier of time (used in testing)
+   * @return the estimator
+   */
+  public static WatermarkEstimator of(
+      long durationMs, long stepMs, long watermark,
+      TimestampSupplier timestampSupplier) {
+
+    return new WatermarkEstimator(durationMs, stepMs, timestampSupplier);
   }
 
 

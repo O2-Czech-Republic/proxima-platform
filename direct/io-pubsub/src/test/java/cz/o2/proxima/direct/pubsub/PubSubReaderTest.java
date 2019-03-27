@@ -76,6 +76,7 @@ public class PubSubReaderTest {
   private final AttributeDescriptorImpl<?> wildcard;
   private final EntityDescriptor entity;
   private final PubSubAccessor accessor;
+  private final AtomicLong timestampSupplier = new AtomicLong();
   private TestPubSubReader reader;
 
   private class TestPubSubReader extends PubSubReader {
@@ -107,7 +108,7 @@ public class PubSubReaderTest {
 
     @Override
     WatermarkEstimator createWatermarkEstimator(long minWatermark) {
-      return WatermarkEstimator.of(1, 1, minWatermark);
+      return WatermarkEstimator.of(1, 1, minWatermark, timestampSupplier::get);
     }
 
   }
@@ -136,6 +137,7 @@ public class PubSubReaderTest {
   @Before
   public void setUp() {
     reader = new TestPubSubReader(context);
+    timestampSupplier.set(System.currentTimeMillis());
   }
 
   @Test(timeout = 10000)
@@ -220,6 +222,7 @@ public class PubSubReaderTest {
     reader.observe("dummy", new LogObserver() {
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {
+        timestampSupplier.addAndGet(1000);
         context.confirm();
         watermark.set(context.getWatermark());
         latch.countDown();
@@ -258,6 +261,7 @@ public class PubSubReaderTest {
     ObserveHandle handle = reader.observe("dummy", new LogObserver() {
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {
+        timestampSupplier.addAndGet(1000);
         context.confirm();
         latch.countDown();
         return false;
@@ -275,7 +279,8 @@ public class PubSubReaderTest {
     });
     latch.await();
     assertEquals(1, handle.getCommittedOffsets().size());
-    assertTrue(((PubSubOffset) handle.getCommittedOffsets().get(0)).getWatermark() > 0);
+    assertTrue(((PubSubOffset) handle.getCommittedOffsets().get(0))
+        .getWatermark() > 0);
   }
 
   @Test

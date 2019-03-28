@@ -18,6 +18,8 @@ package cz.o2.proxima.tools.groovy;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
+import groovy.transform.stc.ClosureParams;
+import groovy.transform.stc.FromString;
 
 /**
  * A stream that is windowed.
@@ -35,10 +37,12 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return reduced stream
    */
   <K, V> WindowedStream<Pair<K, V>> reduce(
-      Closure<K> keyExtractor,
-      Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<V> valueExtractor,
       V initialValue,
-      Closure<V> reducer);
+      @ClosureParams(value = FromString.class, options = "V, V") Closure<V> reducer);
 
   /**
    * Reduce stream via given reducer.
@@ -50,9 +54,10 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return reduced stream
    */
   <K, V> WindowedStream<Pair<K, V>> reduce(
-      Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
       V initialValue,
-      Closure<V> reducer);
+      @ClosureParams(value = FromString.class, options = "V, V") Closure<V> reducer);
 
   /**
    * Reduce stream to latest values only.
@@ -69,8 +74,10 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return reduced stream
    */
   <K, V> WindowedStream<Pair<K, V>> flatReduce(
-      Closure<K> keyExtractor,
-      Closure<V> listReduce);
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = {"Object, List<T>"})
+          Closure<V> listReduce);
 
   /**
    * Apply combine transform to stream.
@@ -83,10 +90,13 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return the new stream
    */
   <K, V> WindowedStream<Pair<K, V>> combine(
-      Closure<K> keyExtractor,
-      Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<V> valueExtractor,
       V initial,
-      Closure<V> combine);
+      @ClosureParams(value = FromString.class, options = "V, V")
+          Closure<V> combine);
 
   /**
    * Apply combine transform to stream.
@@ -97,9 +107,9 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return the new stream
    */
   <K> WindowedStream<Pair<K, T>> combine(
-      Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       T initial,
-      Closure<T> combine);
+      @ClosureParams(value = FromString.class, options = "T, T") Closure<T> combine);
 
   /**
    * Count elements of stream by key.
@@ -107,14 +117,17 @@ public interface WindowedStream<T> extends Stream<T> {
    * @param keyExtractor extractor of key
    * @return stream with elements counted
    */
-  <K> WindowedStream<Pair<K, Long>> countByKey(Closure<K> keyExtractor);
+  <K> WindowedStream<Pair<K, Long>> countByKey(
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor);
 
   /**
    * Average elements of stream.
    * @param valueExtractor extractor of double value to be averaged
    * @return the stream with average values
    */
-  WindowedStream<Double> average(Closure<Double> valueExtractor);
+  WindowedStream<Double> average(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor);
 
   /**
    * Average elements of stream by key.
@@ -124,8 +137,9 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return stream with avverage values per key
    */
   <K> WindowedStream<Pair<K, Double>> averageByKey(
-      Closure<K> keyExtractor,
-      Closure<Double> valueExtractor);
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor);
 
   /**
    * Join with other stream.
@@ -138,8 +152,10 @@ public interface WindowedStream<T> extends Stream<T> {
    */
   <K, OTHER> WindowedStream<Pair<T, OTHER>> join(
       WindowedStream<OTHER> right,
-      Closure<K> leftKey,
-      Closure<K> rightKey);
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> leftKey,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> rightKey);
 
 
   /**
@@ -153,15 +169,19 @@ public interface WindowedStream<T> extends Stream<T> {
    */
   <K, OTHER> WindowedStream<Pair<T, OTHER>> leftJoin(
       WindowedStream<OTHER> right,
-      Closure<K> leftKey,
-      Closure<K> rightKey);
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> leftKey,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> rightKey);
 
   /**
    * Sort stream.
    * @param compareFn comparison function
    * @return sorted stram
    */
-  WindowedStream<T> sorted(Closure<Integer> compareFn);
+  WindowedStream<T> sorted(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Integer> compareFn);
 
   /**
    * Sort stream consisting of {@link Comparable}s.
@@ -180,7 +200,9 @@ public interface WindowedStream<T> extends Stream<T> {
    * @param valueExtractor extractor of double value
    * @return stream with sums
    */
-  WindowedStream<Double> sum(Closure<Double> valueExtractor);
+  WindowedStream<Double> sum(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor);
 
   /**
    * Sum elements by key.
@@ -190,8 +212,9 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return stream with sums per key
    */
   <K> WindowedStream<Pair<K, Double>> sumByKey(
-      Closure<K> keyExtractor,
-      Closure<Double> valueExtractor);
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor);
 
   /**
    * Output distinct elements.
@@ -204,7 +227,8 @@ public interface WindowedStream<T> extends Stream<T> {
    * @param mapper map values by given function before comparison
    * @return distinct stream
    */
-  WindowedStream<T> distinct(Closure<?> mapper);
+  WindowedStream<T> distinct(
+      @ClosureParams(value = FromString.class, options = "T") Closure<?> mapper);
 
   /**
    * Specify early emitting for windowed operations

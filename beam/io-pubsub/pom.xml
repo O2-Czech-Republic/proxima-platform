@@ -50,6 +50,9 @@
               <exclude>${project.groupId}:proxima-beam-core</exclude>
             </excludes>
           </artifactSet>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+          </transformers>
           <relocations>
             <relocation>
               <pattern>com.google.common.</pattern>

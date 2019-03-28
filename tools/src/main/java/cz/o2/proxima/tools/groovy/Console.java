@@ -41,7 +41,6 @@ import cz.o2.proxima.util.Classpath;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.Binding;
-import groovy.lang.GroovyObject;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import java.io.IOException;
@@ -72,6 +71,8 @@ public class Console {
 
   private static AtomicReference<Console> INSTANCE = new AtomicReference<>();
 
+  public static final String INITIAL_STATEMENT = "env = new Environment()";
+
   /**
    * This is supposed to be called only from the groovysh initialized in this
    * main method.
@@ -97,7 +98,7 @@ public class Console {
     return INSTANCE.get();
   }
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws Exception {
     ClassLoader loader = new ToolsClassLoader();
     Thread.currentThread().setContextClassLoader(loader);
     Console console = Console.get(args);
@@ -111,7 +112,8 @@ public class Console {
         null,
         new ProximaInterpreter(loader, binding)));
     Runtime.getRuntime().addShutdownHook(new Thread(console::close));
-    console.runShell("env = " + Console.class.getName() + ".get().getEnv()");
+    console.createWrapperClass();
+    console.runShell(INITIAL_STATEMENT);
     System.out.println();
     console.close();
   }
@@ -165,12 +167,12 @@ public class Console {
     this.shell = shell;
   }
 
-  public GroovyObject getEnv() throws Exception {
+  public void createWrapperClass() throws Exception {
     updateClassLoader();
     ToolsClassLoader classLoader = (ToolsClassLoader) Thread
         .currentThread().getContextClassLoader();
-    log.debug("Creating GroovyEnv in classloader {}", classLoader);
-    return GroovyEnv.of(conf, classLoader, repo);
+    log.debug("Creating Environment class in classloader {}", classLoader);
+    GroovyEnv.createWrapperInLoader(conf, repo, classLoader);
   }
 
   private void initializeStreamProvider() {

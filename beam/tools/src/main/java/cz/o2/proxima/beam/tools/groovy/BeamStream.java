@@ -237,23 +237,37 @@ class BeamStream<T> implements Stream<T> {
         });
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public Stream<Pair<Object, T>> withWindow() {
-    return descendant(
-        pipeline -> {
-          try {
-            PCollection<T> in = collection.materialize(pipeline);
-            TypeDescriptor<BoundedWindow> windowType = (TypeDescriptor)
-                in.getWindowingStrategy().getWindowFn().getWindowTypeDescriptor();
-            CoderRegistry registry = pipeline.getCoderRegistry();
-            Coder<BoundedWindow> windowCoder = registry.getCoder(windowType);
-            return (PCollection) in.apply(ParDo.of(extractWindow()))
-                .setCoder(PairCoder.of(windowCoder, in.getCoder()));
-          } catch (CannotProvideCoderException ex) {
-            throw new RuntimeException(ex);
-          }
-        });
+    return descendant(pipeline -> {
+      PCollection<T> in = collection.materialize(pipeline);
+      return applyExtractWindow(in, pipeline);
+    });
+  }
+
+  @SuppressWarnings("unchecked")
+  static <T> PCollection<Pair<Object, T>> applyExtractWindow(
+      PCollection<T> in, Pipeline pipeline) {
+
+    try {
+      TypeDescriptor<Object> windowType = (TypeDescriptor)
+          in.getWindowingStrategy().getWindowFn().getWindowTypeDescriptor();
+      CoderRegistry registry = pipeline.getCoderRegistry();
+      Coder<Object> windowCoder = registry.getCoder(windowType);
+
+      final PCollection<Pair<Object, T>> ret;
+      ret = (PCollection) in.apply(ParDo.of(extractWindow()))
+          .setCoder((Coder) PairCoder.of(windowCoder, in.getCoder()));
+
+      if (in.getTypeDescriptor() != null) {
+        ret.setTypeDescriptor(PairCoder.descriptor(
+            windowType, in.getTypeDescriptor()));
+      }
+
+      return ret;
+    } catch (CannotProvideCoderException ex) {
+      throw new RuntimeException(ex);
+    }
   }
 
   private void forEach(Consumer<T> consumer) {
@@ -359,15 +373,15 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @Override
-  public BeamStream<StreamElement> asStreamElements(
+  public <V> BeamStream<StreamElement> asStreamElements(
       RepositoryProvider repoProvider, EntityDescriptor entity,
       Closure<String> keyExtractor, Closure<String> attributeExtractor,
-      Closure<T> valueExtractor, Closure<Long> timeExtractor) {
+      Closure<V> valueExtractor, Closure<Long> timeExtractor) {
 
     Repository repo = repoProvider.getRepo();
     Closure<String> keyDehydrated = keyExtractor.dehydrate();
     Closure<String> attributeDehydrated = attributeExtractor.dehydrate();
-    Closure<T> valueDehydrated = valueExtractor.dehydrate();
+    Closure<V> valueDehydrated = valueExtractor.dehydrate();
     Closure<Long> timeDehydrated = timeExtractor.dehydrate();
 
     return descendant(pipeline -> MapElements
@@ -391,10 +405,10 @@ class BeamStream<T> implements Stream<T> {
 
 
   @Override
-  public void persist(
+  public <V> void persist(
       RepositoryProvider repoProvider, EntityDescriptor entity,
       Closure<String> keyExtractor, Closure<String> attributeExtractor,
-      Closure<T> valueExtractor, Closure<Long> timeExtractor) {
+      Closure<V> valueExtractor, Closure<Long> timeExtractor) {
 
     asStreamElements(
         repoProvider, entity, keyExtractor, attributeExtractor,
@@ -578,7 +592,7 @@ class BeamStream<T> implements Stream<T> {
     };
   }
 
-  private static <T> DoFn<T, Pair<BoundedWindow, T>> extractWindow() {
+  static <T> DoFn<T, Pair<BoundedWindow, T>> extractWindow() {
     return new ExtractWindow<>();
   }
 

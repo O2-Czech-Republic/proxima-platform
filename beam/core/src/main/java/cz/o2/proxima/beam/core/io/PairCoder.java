@@ -20,6 +20,7 @@ import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import lombok.Getter;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CustomCoder;
 import org.apache.beam.sdk.values.TypeDescriptor;
@@ -43,7 +44,9 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
         .where(new TypeParameter<V>() {}, value);
   }
 
+  @Getter
   private final Coder<K> keyCoder;
+  @Getter
   private final Coder<V> valueCoder;
 
   private PairCoder(Coder<K> keyCoder, Coder<V> valueCoder) {

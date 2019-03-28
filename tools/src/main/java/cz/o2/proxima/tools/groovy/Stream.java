@@ -20,6 +20,8 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
+import groovy.transform.stc.ClosureParams;
+import groovy.transform.stc.FromString;
 
 import java.util.List;
 
@@ -34,21 +36,24 @@ public interface Stream<T> {
    * @param mapper the mapping closure
    * @return remapped stream
    */
-  <X> Stream<X> map(Closure<X> mapper);
+  <X> Stream<X> map(
+      @ClosureParams(value = FromString.class, options = "T") Closure<X> mapper);
 
   /**
    * Filter stream based on predicate
    * @param predicate the predicate to filter on
    * @return filtered stream
    */
-  Stream<T> filter(Closure<Boolean> predicate);
+  Stream<T> filter(
+      @ClosureParams(value = FromString.class, options = "T") Closure<Boolean> predicate);
 
   /**
    * Assign event time to elements.
    * @param assigner assigner of event time
    * @return stream with elements assigned event time
    */
-  Stream<T> assignEventTime(Closure<Long> assigner);
+  Stream<T> assignEventTime(
+      @ClosureParams(value = FromString.class, options = "T") Closure<Long> assigner);
 
   /**
    * Add window to each element in the stream.
@@ -76,6 +81,7 @@ public interface Stream<T> {
 
   /**
    * Convert elements to {@link StreamElement}s.
+   * @param <V> type of value
    * @param repoProvider provider of {@link Repository}
    * @param entity the entity of elements
    * @param keyExtractor extractor of keys
@@ -84,10 +90,17 @@ public interface Stream<T> {
    * @param timeExtractor extractor of time
    * @return stream with {@link StreamElement}s inside
    */
-  Stream<StreamElement> asStreamElements(
-      RepositoryProvider repoProvider, EntityDescriptor entity,
-      Closure<String> keyExtractor, Closure<String> attributeExtractor,
-      Closure<T> valueExtractor, Closure<Long> timeExtractor);
+  <V> Stream<StreamElement> asStreamElements(
+      RepositoryProvider repoProvider,
+      EntityDescriptor entity,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<String> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<String> attributeExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Long> timeExtractor);
 
 
   /**
@@ -103,6 +116,7 @@ public interface Stream<T> {
 
   /**
    * Persist this stream as attribute of entity
+   * @param <V> type of value extracted
    * @param repoProvider provider of repository
    * @param entity the entity to store the stream to
    * @param keyExtractor extractor of key for elements
@@ -110,13 +124,17 @@ public interface Stream<T> {
    * @param valueExtractor extractor of values for elements
    * @param timeExtractor extractor of event time
    */
-  void persist(
+  <V> void persist(
       RepositoryProvider repoProvider,
       EntityDescriptor entity,
-      Closure<String> keyExtractor,
-      Closure<String> attributeExtractor,
-      Closure<T> valueExtractor,
-      Closure<Long> timeExtractor);
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<String> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<String> attributeExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Long> timeExtractor);
 
   /**
    * Directly write this stream to repository.
@@ -150,7 +168,8 @@ public interface Stream<T> {
    * @return session windowed stream
    */
   <K> WindowedStream<Pair<K, T>> sessionWindow(
-      Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
       long gapDuration);
 
   /**

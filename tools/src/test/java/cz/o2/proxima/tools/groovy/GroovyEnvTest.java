@@ -19,8 +19,10 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.Pair;
 import groovy.lang.Script;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import static org.junit.Assert.*;
 import org.junit.Ignore;
@@ -57,7 +59,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   @Override
   Script compile(String script) throws Exception {
     String source = GroovyEnv.getSource(conf, repo) + "\n"
-        + "env = cz.o2.proxima.tools.groovy.Console.get().getEnv()" + "\n" + script;
+        + "def env = new Environment()\n" + script;
     return super.compile(source);
   }
 
@@ -144,7 +146,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
 
   @Test
   public void testClosureByteCodeAvailability() throws Exception {
-    Script compiled = compile("a = { it }");
+    Script compiled = compile("def a = { it }");
     compiled.run();
     List<String> closures = loader.getDefinedClasses()
         .stream()
@@ -214,6 +216,28 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(StreamElement.update(batch, data, "uuid",
             "key", data.getName(), System.currentTimeMillis(), new byte[] { }));
     compiled.run();
+  }
+
+  @Test
+  public void testFlatReduce() throws Exception {
+    final Script compiled = compile(
+        "env.batch.data.batchUpdates().flatReduce("
+            + "{ it.key }, { w, el -> el.size() }).collect()");
+
+    write(StreamElement.update(batch, data, "uuid1",
+            "key1", data.getName(), System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid2",
+            "key2", data.getName(), System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid3",
+            "key1", data.getName(), System.currentTimeMillis(), new byte[] { }));
+
+    @SuppressWarnings("unchecked")
+    List<Pair<Object, List<Object>>> result = (List) compiled.run();
+    Map<Object, List<Object>> resultMap = result
+        .stream()
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+    assertEquals((Integer) 2, resultMap.get("key1").get(1));
+    assertEquals((Integer) 1, resultMap.get("key2").get(1));
   }
 
 

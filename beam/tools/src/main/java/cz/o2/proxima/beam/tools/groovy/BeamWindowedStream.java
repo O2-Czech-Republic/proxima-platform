@@ -71,8 +71,10 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @Override
   public <K, V> WindowedStream<Pair<K, V>> reduce(
-      Closure<K> keyExtractor, Closure<V> valueExtractor,
-      V initialValue, Closure<V> reducer) {
+      Closure<K> keyExtractor,
+      Closure<V> valueExtractor,
+      V initialValue,
+      Closure<V> reducer) {
 
     Closure<K> keyDehydrated = keyExtractor.dehydrate();
     Closure<V> valueDehydrated = valueExtractor.dehydrate();
@@ -151,14 +153,16 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
     return descendant(pipeline -> {
       PCollection<T> in = collection.materialize(pipeline);
+      PCollection<Pair<Object, T>> withWindow = applyExtractWindow(in, pipeline);
       PCollection<KV<K, V>> kvs = ReduceByKey
-          .of(in)
-          .keyBy(keyDehydrated::call, keyDesc)
-          .valueBy(e -> e, in.getTypeDescriptor())
-          .reduceBy((java.util.stream.Stream<T> values) -> {
-            List<T> list = values.collect(Collectors.toList());
-            // FIXME: we need access to window here
-            return reducerDehydrated.call(null, list);
+          .of(withWindow)
+          .keyBy(p -> keyDehydrated.call(p.getSecond()), keyDesc)
+          .valueBy(e -> e, withWindow.getTypeDescriptor())
+          .reduceBy(values -> {
+            List<Pair<Object, T>> list = values.collect(Collectors.toList());
+            Object window = list.stream().map(Pair::getFirst).findAny().orElse(null);
+            return reducerDehydrated.call(window, list.stream()
+                .map(Pair::getSecond).collect(Collectors.toList()));
           }, valueDesc)
           .windowBy(windowing)
           .triggeredBy(createTrigger())

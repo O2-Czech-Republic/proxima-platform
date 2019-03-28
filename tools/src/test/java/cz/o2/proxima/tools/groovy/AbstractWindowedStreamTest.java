@@ -85,11 +85,12 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     assertUnorderedEquals(result, Pair.of(0, 15));
   }
 
+  @SuppressWarnings("unchecked")
   @Test
-  public void testWindowAllFlatReduce() {
+  public void testWindowAllGroupReduce() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Pair<Integer, List>> result = intoSingleWindow(stream)
-        .flatReduce(
+        .groupReduce(
             wrap(new Closure<Integer>(this) {
               @Override
               public Integer call(Object argument) {
@@ -99,13 +100,14 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
             wrap(new Closure<List>(this) {
               @Override
               public List call(Object... arguments) {
-                return Arrays.asList(arguments);
+                return Arrays.stream(arguments).collect(Collectors.toList());
               }
             }, List.class))
         .collect();
-    // this is because how groovy closures works for different types
-    assertEquals(2, result.size());
-    assertEquals(Pair.of(0, Arrays.asList(1, 2, 3, 4)), result.get(1));
+    assertEquals(1, result.size());
+    assertEquals(
+        Sets.newHashSet(1, 2, 3, 4),
+        Sets.newHashSet(((Iterable) result.get(0).getSecond().get(1))));
   }
 
   @Test
@@ -230,7 +232,7 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
         return (int) argument % 2;
       }
     }, Integer.class);
-    
+
     List<Pair<Integer, Integer>> result = intoSingleWindow(stream1)
         .join(intoSingleWindow(stream2), keyExtractor, keyExtractor)
         .collect();

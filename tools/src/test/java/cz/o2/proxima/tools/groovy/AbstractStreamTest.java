@@ -17,6 +17,7 @@ package cz.o2.proxima.tools.groovy;
 
 import java.io.Serializable;
 import java.util.Arrays;
+import java.util.stream.Collectors;
 
 /**
  * Base class for tests of all stream classes.
@@ -31,7 +32,7 @@ abstract class AbstractStreamTest implements Serializable {
 
   @SafeVarargs
   final <T> Stream<T> stream(T... items) {
-    return provider.of(Arrays.asList(items));
+    return provider.of(Arrays.stream(items).collect(Collectors.toList()));
   }
 
 }

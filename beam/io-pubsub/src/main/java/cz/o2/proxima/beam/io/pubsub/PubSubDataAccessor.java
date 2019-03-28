@@ -16,11 +16,13 @@
 package cz.o2.proxima.beam.io.pubsub;
 
 import cz.o2.proxima.beam.core.DataAccessor;
+import cz.o2.proxima.beam.core.io.StreamElementCoder;
 // FIXME: move this to separate module
 import cz.o2.proxima.direct.pubsub.proto.PubSub;
 import cz.o2.proxima.pubsub.shaded.com.google.protobuf.InvalidProtocolBufferException;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.util.Arrays;
@@ -35,6 +37,7 @@ import org.apache.beam.sdk.extensions.euphoria.core.client.operator.FlatMap;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubIO;
 import org.apache.beam.sdk.io.gcp.pubsub.PubsubMessage;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.TypeDescriptor;
 import org.joda.time.Duration;
 
 /**
@@ -43,10 +46,17 @@ import org.joda.time.Duration;
 @Slf4j
 public class PubSubDataAccessor implements DataAccessor {
 
+  private final Repository repo;
   private final EntityDescriptor entity;
   private final String topic;
 
-  PubSubDataAccessor(EntityDescriptor entity, String project, String topic) {
+  PubSubDataAccessor(
+      Repository repo,
+      EntityDescriptor entity,
+      String project,
+      String topic) {
+
+    this.repo = repo;
     this.entity = entity;
     this.topic = String.format("projects/%s/topics/%s", project, topic);
   }
@@ -89,11 +99,17 @@ public class PubSubDataAccessor implements DataAccessor {
         PubsubIO.readMessages().fromTopic(topic));
     PCollection<StreamElement> parsed = FlatMap.of(input)
         .using((PubsubMessage in, Collector<StreamElement> ctx) ->
-            toElement(entity, in.getPayload()).ifPresent(ctx::collect))
-        .output();
-    return AssignEventTime.of(parsed)
-        .using(StreamElement::getStamp, Duration.millis(5000))
-        .output();
+            toElement(entity, in.getPayload()).ifPresent(ctx::collect),
+            TypeDescriptor.of(StreamElement.class))
+        .output()
+        .setCoder(StreamElementCoder.of(repo));
+    if (eventTime) {
+      return AssignEventTime.of(parsed)
+          .using(StreamElement::getStamp, Duration.millis(5000))
+          .output()
+          .setCoder(parsed.getCoder());
+    }
+    return parsed;
   }
 
   @Override

@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
@@ -48,14 +50,15 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.utils.IOUtils;
 import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.Kryo;
@@ -200,12 +203,15 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public <X> Stream<X> map(Closure<X> mapper) {
     Closure<X> dehydrated = mapper.dehydrate();
-    TypeDescriptor<X> typeDesc = typeOf(dehydrated);
     return descendant(
-        pipeline -> MapElements
+        pipeline -> {
+          Coder<X> coder = coderOf(pipeline, dehydrated);
+          return MapElements
             .of(collection.materialize(pipeline))
-            .using(e -> dehydrated.call(e), typeDesc)
-            .output());
+            .using(e -> dehydrated.call(e))
+            .output()
+            .setCoder(coder);
+        });
   }
 
   @Override
@@ -249,25 +255,12 @@ class BeamStream<T> implements Stream<T> {
   static <T> PCollection<Pair<Object, T>> applyExtractWindow(
       PCollection<T> in, Pipeline pipeline) {
 
-    try {
-      TypeDescriptor<Object> windowType = (TypeDescriptor)
-          in.getWindowingStrategy().getWindowFn().getWindowTypeDescriptor();
-      CoderRegistry registry = pipeline.getCoderRegistry();
-      Coder<Object> windowCoder = registry.getCoder(windowType);
+    TypeDescriptor<Object> windowType = (TypeDescriptor)
+        in.getWindowingStrategy().getWindowFn().getWindowTypeDescriptor();
+    Coder<Object> windowCoder = getCoder(pipeline, windowType);
 
-      final PCollection<Pair<Object, T>> ret;
-      ret = (PCollection) in.apply(ParDo.of(extractWindow()))
-          .setCoder((Coder) PairCoder.of(windowCoder, in.getCoder()));
-
-      if (in.getTypeDescriptor() != null) {
-        ret.setTypeDescriptor(PairCoder.descriptor(
-            windowType, in.getTypeDescriptor()));
-      }
-
-      return ret;
-    } catch (CannotProvideCoderException ex) {
-      throw new RuntimeException(ex);
-    }
+    return (PCollection) in.apply(ParDo.of(extractWindow()))
+        .setCoder((Coder) PairCoder.of(windowCoder, in.getCoder()));
   }
 
   private void forEach(Consumer<T> consumer) {
@@ -466,18 +459,16 @@ class BeamStream<T> implements Stream<T> {
       Closure<K> keyExtractor, long gapDuration) {
 
     Closure<K> dehydrated = keyExtractor.dehydrate();
-    TypeDescriptor<K> type = typeOf(keyExtractor);
 
     return windowed(
         pipeline -> {
+          Coder<K> coder = coderOf(pipeline, dehydrated);
           PCollection<T> in = collection.materialize(pipeline);
           return MapElements.of(in)
               .using(
-                  e -> Pair.of(dehydrated.call(e), e),
-                  PairCoder.descriptor(type, in.getTypeDescriptor()))
+                  e -> Pair.of(dehydrated.call(e), e))
               .output()
-              .setTypeDescriptor(PairCoder.descriptor(
-                  type, in.getTypeDescriptor()));
+              .setCoder(PairCoder.of(coder, in.getCoder()));
         },
         Sessions.withGapDuration(Duration.millis(gapDuration)));
   }
@@ -489,16 +480,24 @@ class BeamStream<T> implements Stream<T> {
 
   @SuppressWarnings("unchecked")
   @Override
-  public Stream<T> union(Stream<T> other) {
+  public Stream<T> union(List<Stream<T>> others) {
     return descendant(
         pipeline -> {
-          PCollection<T> left = collection.materialize(pipeline);
-          PCollection<T> right = ((BeamStream<T>) other)
-              .collection.materialize(pipeline);
-          return PCollectionList.of(Arrays.asList(left, right))
+          List<PCollection<T>> streams = java.util.stream.Stream.concat(
+              java.util.stream.Stream.of(this),
+              others.stream())
+              .map(s -> ((BeamStream<T>) s).collection.materialize(pipeline))
+              .collect(Collectors.toList());
+          PCollection<T> any = streams.stream().findAny().orElse(null);
+          Set<TypeDescriptor<T>> types = streams.stream()
+              .map(PCollection::getTypeDescriptor)
+              .collect(Collectors.toSet());
+          Preconditions.checkArgument(types.size() == 1,
+              "Cannot union streams with different types: %s",
+              types);
+          return PCollectionList.of(streams)
               .apply(Flatten.pCollections())
-              .setTypeDescriptor(left.getTypeDescriptor())
-              .setCoder(left.getCoder());
+              .setCoder(any.getCoder());
         });
   }
 
@@ -518,8 +517,17 @@ class BeamStream<T> implements Stream<T> {
   }
 
 
-  <T> TypeDescriptor<T> typeOf(Closure<T> closure) {
-    return TypeDescriptor.of(Types.returnClass(closure));
+  @VisibleForTesting
+  <T> Coder<T> coderOf(Pipeline pipeline, Closure<T> closure) {
+    return getCoder(pipeline, TypeDescriptor.of(Types.returnClass(closure)));
+  }
+
+  static <T> Coder<T> getCoder(Pipeline pipeline, TypeDescriptor<T> type) {
+    try {
+      return pipeline.getCoderRegistry().getCoder(type);
+    } catch (CannotProvideCoderException ex) {
+      throw new IllegalArgumentException(ex);
+    }
   }
 
   <X> BeamWindowedStream<X> windowed(
@@ -532,16 +540,20 @@ class BeamStream<T> implements Stream<T> {
         terminateCheck, pipelineFactory);
   }
 
+  @SuppressWarnings("unchecked")
   private void registerCoders(CoderRegistry registry) {
     registry.registerCoderForClass(
         GlobalWindow.class, GlobalWindow.Coder.INSTANCE);
     registrars.forEach(r -> r.accept(registry));
     // FIXME: need to get rid of this fallback
+    KryoCoder<Object> coder = KryoCoder.of(
+        kryo -> kryo.setInstantiatorStrategy(
+            new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())));
     registry.registerCoderForClass(
         Object.class,
-        KryoCoder.of(
-            kryo -> kryo.setInstantiatorStrategy(
-                new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy()))));
+        coder);
+    registry.registerCoderForClass(
+        Pair.class, PairCoder.of(coder, coder));
   }
 
   private <T> RemoteConsumer<T> createRemoteConsumer(
@@ -649,15 +661,14 @@ class BeamStream<T> implements Stream<T> {
           Coder<T> coder = collection.getCoder();
           if (coder == null) {
             // can this happen?
-            coder = collection.getPipeline().getCoderRegistry()
-                .getCoder(collection.getTypeDescriptor());
+            coder = getCoder(collection.getPipeline(), collection.getTypeDescriptor());
           }
           RemoteConsumer<T> ret = new RemoteConsumer<>(hostname, port, consumer, coder);
           ret.start();
           return ret;
         } catch (BindException ex) {
           log.debug("Failed to bind on port {}", port, ex);
-        } catch (Exception ex) {
+        } catch (IOException ex) {
           throw new RuntimeException(ex);
         }
       }

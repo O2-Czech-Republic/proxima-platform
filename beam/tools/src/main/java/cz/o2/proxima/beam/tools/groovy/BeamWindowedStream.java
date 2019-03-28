@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.Coder;
+import org.apache.beam.sdk.coders.KvCoder;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Join;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.LeftJoin;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
@@ -39,7 +41,6 @@ import org.apache.beam.sdk.transforms.windowing.Trigger;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
-import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.sdk.values.WindowingStrategy;
 import org.joda.time.Duration;
@@ -79,25 +80,25 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<K> keyDehydrated = keyExtractor.dehydrate();
     Closure<V> valueDehydrated = valueExtractor.dehydrate();
     Closure<V> reducerDehydrated = reducer.dehydrate();
-    TypeDescriptor<K> keyDesc = typeOf(keyDehydrated);
-    TypeDescriptor<V> valueDesc = typeOf(valueDehydrated);
-
     return descendant(pipeline -> {
+      Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
+      Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
       PCollection<KV<K, V>> kvs = ReduceByKey
           .of(collection.materialize(pipeline))
-          .keyBy(keyDehydrated::call, keyDesc)
-          .valueBy(valueDehydrated::call, valueDesc)
+          .keyBy(keyDehydrated::call, keyCoder.getEncodedTypeDescriptor())
+          .valueBy(valueDehydrated::call, valueCoder.getEncodedTypeDescriptor())
           .reduceBy((java.util.stream.Stream<V> in) -> {
             V current = initialValue;
             return in.reduce(current, reducerDehydrated::call);
-          }, valueDesc)
+          }, valueCoder.getEncodedTypeDescriptor())
           .windowBy(windowing)
           .triggeredBy(createTrigger())
           .accumulationMode(mode)
           .withAllowedLateness(Duration.millis(allowedLateness))
-          .output();
+          .output()
+          .setCoder(KvCoder.of(keyCoder, valueCoder));
 
-      return asPairs(kvs, keyDesc, valueDesc);
+      return asPairs(kvs, keyCoder, valueCoder);
     });
   }
 
@@ -107,14 +108,13 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
     Closure<K> keyDehydrated = keyExtractor.dehydrate();
     Closure<V> reducerDehydrated = reducer.dehydrate();
-    TypeDescriptor<K> keyDesc = typeOf(keyDehydrated);
-    TypeDescriptor<V> valueDesc = typeOf(reducerDehydrated);
-
     return descendant(pipeline -> {
+      Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
+      Coder<V> valueCoder = coderOf(pipeline, reducerDehydrated);
       PCollection<T> c = collection.materialize(pipeline);
       return asPairs(
           ReduceByKey.of(c)
-              .keyBy(keyDehydrated::call, keyDesc)
+              .keyBy(keyDehydrated::call, keyCoder.getEncodedTypeDescriptor())
               .valueBy(e -> e, c.getTypeDescriptor())
               .reduceBy((java.util.stream.Stream<T> in) -> {
                 V current = initialValue;
@@ -123,14 +123,14 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
                   current = reducerDehydrated.call(current, v);
                 }
                 return current;
-              }, valueDesc)
+              }, valueCoder.getEncodedTypeDescriptor())
               .windowBy(windowing)
               .triggeredBy(createTrigger())
               .accumulationMode(mode)
               .withAllowedLateness(Duration.millis(allowedLateness))
               .output()
-              .setTypeDescriptor(TypeDescriptors.kvs(keyDesc, valueDesc)),
-          keyDesc, valueDesc);
+              .setCoder(KvCoder.of(keyCoder, valueCoder)),
+          keyCoder, valueCoder);
     });
   }
 
@@ -142,35 +142,36 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   }
 
   @Override
-  public <K, V> WindowedStream<Pair<K, V>> flatReduce(
+  public <K, V> WindowedStream<Pair<K, V>> groupReduce(
       Closure<K> keyExtractor, Closure<V> listReduce) {
 
 
     Closure<K> keyDehydrated = keyExtractor.dehydrate();
     Closure<V> reducerDehydrated = listReduce.dehydrate();
-    TypeDescriptor<K> keyDesc = typeOf(keyExtractor);
-    TypeDescriptor<V> valueDesc = typeOf(listReduce);
 
     return descendant(pipeline -> {
+      Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+      Coder<V> valueCoder = coderOf(pipeline, listReduce);
       PCollection<T> in = collection.materialize(pipeline);
       PCollection<Pair<Object, T>> withWindow = applyExtractWindow(in, pipeline);
       PCollection<KV<K, V>> kvs = ReduceByKey
           .of(withWindow)
-          .keyBy(p -> keyDehydrated.call(p.getSecond()), keyDesc)
-          .valueBy(e -> e, withWindow.getTypeDescriptor())
+          .keyBy(p -> keyDehydrated.call(p.getSecond()))
+          //.valueBy(e -> e, withWindow.getCoder().getEncodedTypeDescriptor())
           .reduceBy(values -> {
             List<Pair<Object, T>> list = values.collect(Collectors.toList());
             Object window = list.stream().map(Pair::getFirst).findAny().orElse(null);
-            return reducerDehydrated.call(window, list.stream()
-                .map(Pair::getSecond).collect(Collectors.toList()));
-          }, valueDesc)
+            return reducerDehydrated.call(window,
+                list.stream().map(Pair::getSecond).collect(Collectors.toList()));
+          }, valueCoder.getEncodedTypeDescriptor())
           .windowBy(windowing)
           .triggeredBy(createTrigger())
           .accumulationMode(mode)
           .withAllowedLateness(Duration.millis(allowedLateness))
-          .output();
+          .output()
+          .setCoder(KvCoder.of(keyCoder, valueCoder));
 
-      return asPairs(kvs, keyDesc, valueDesc);
+      return asPairs(kvs, keyCoder, valueCoder);
     });
 
   }
@@ -184,22 +185,23 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<V> valueDehydrated = valueExtractor.dehydrate();
     Closure<V> combineDehydrated = combine.dehydrate();
 
-    TypeDescriptor<K> keyDesc = typeOf(keyDehydrated);
-    TypeDescriptor<V> valueDesc = typeOf(valueDehydrated);
-
-    return descendant(pipeline ->
-        asPairs(
-            ReduceByKey.of(collection.materialize(pipeline))
-                .keyBy(keyDehydrated::call, keyDesc)
-                .valueBy(valueDehydrated::call, valueDesc)
-                .combineBy((java.util.stream.Stream<V> in) ->
-                    in.reduce(initial, combineDehydrated::call), valueDesc)
-                .windowBy(windowing)
-                .triggeredBy(createTrigger())
-                .accumulationMode(mode)
-                .withAllowedLateness(Duration.millis(allowedLateness))
-                .output(),
-            keyDesc, valueDesc));
+    return descendant(pipeline -> {
+      Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+      Coder<V> valueCoder = coderOf(pipeline, valueExtractor);
+      return asPairs(
+          ReduceByKey.of(collection.materialize(pipeline))
+              .keyBy(keyDehydrated::call, keyCoder.getEncodedTypeDescriptor())
+              .valueBy(valueDehydrated::call, valueCoder.getEncodedTypeDescriptor())
+              .combineBy((java.util.stream.Stream<V> in) ->
+                  in.reduce(initial, combineDehydrated::call))
+              .windowBy(windowing)
+              .triggeredBy(createTrigger())
+              .accumulationMode(mode)
+              .withAllowedLateness(Duration.millis(allowedLateness))
+              .output()
+              .setCoder(KvCoder.of(keyCoder, valueCoder)),
+          keyCoder, valueCoder);
+    });
   }
 
   @Override
@@ -210,23 +212,24 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<K> keyDehydrated = keyExtractor.dehydrate();
     Closure<T> combineDehydrated = combine.dehydrate();
 
-    TypeDescriptor<K> keyDesc = typeOf(keyDehydrated);
-    TypeDescriptor<T> valueDesc = typeOf(combineDehydrated);
-
-    return descendant(pipeline ->
-        asPairs(
-            ReduceByKey.of(collection.materialize(pipeline))
-                .keyBy(keyDehydrated::call, keyDesc)
-                .valueBy(e -> e, valueDesc)
-                .combineBy((java.util.stream.Stream<T> in) ->
-                    in.reduce(initial, combineDehydrated::call), valueDesc)
-                .windowBy(windowing)
-                .triggeredBy(createTrigger())
-                .accumulationMode(mode)
-                .withAllowedLateness(Duration.millis(allowedLateness))
-                .output()
-                .setTypeDescriptor(TypeDescriptors.kvs(keyDesc, valueDesc)),
-            keyDesc, valueDesc));
+    return descendant(pipeline -> {
+      Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+      Coder<T> valueCoder = coderOf(pipeline, combine);
+      return asPairs(
+          ReduceByKey.of(collection.materialize(pipeline))
+              .keyBy(keyDehydrated::call, keyCoder.getEncodedTypeDescriptor())
+              .valueBy(e -> e, valueCoder.getEncodedTypeDescriptor())
+              .combineBy(
+                  in -> in.reduce(initial, combineDehydrated::call),
+                  valueCoder.getEncodedTypeDescriptor())
+              .windowBy(windowing)
+              .triggeredBy(createTrigger())
+              .accumulationMode(mode)
+              .withAllowedLateness(Duration.millis(allowedLateness))
+              .output()
+              .setCoder(KvCoder.of(keyCoder, valueCoder)),
+          keyCoder, valueCoder);
+    });
   }
 
   @Override
@@ -234,19 +237,21 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       Closure<K> keyExtractor) {
 
     Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    TypeDescriptor<K> keyDesc = typeOf(keyDehydrated);
-    return descendant(pipeline ->
-        asPairs(
-            ReduceByKey.of(collection.materialize(pipeline))
-                .keyBy(keyDehydrated::call, keyDesc)
-                .valueBy(e -> 1L, TypeDescriptors.longs())
-                .combineBy(Sums.ofLongs(), TypeDescriptors.longs())
-                .windowBy(windowing)
-                .triggeredBy(createTrigger())
-                .accumulationMode(mode)
-                .withAllowedLateness(Duration.millis(allowedLateness))
-                .output(),
-            keyDesc, TypeDescriptors.longs()));
+    return descendant(pipeline -> {
+      Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+      Coder<Long> valueCoder = getCoder(pipeline, TypeDescriptors.longs());
+      return asPairs(
+          ReduceByKey.of(collection.materialize(pipeline))
+              .keyBy(keyDehydrated::call, keyCoder.getEncodedTypeDescriptor())
+              .valueBy(e -> 1L, TypeDescriptors.longs())
+              .combineBy(Sums.ofLongs(), TypeDescriptors.longs())
+              .windowBy(windowing)
+              .triggeredBy(createTrigger())
+              .accumulationMode(mode)
+              .withAllowedLateness(Duration.millis(allowedLateness))
+              .output(),
+          keyCoder, valueCoder);
+    });
   }
 
   @Override
@@ -283,28 +288,34 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
     Closure<K> keyDehydrated = keyExtractor.dehydrate();
     Closure<Double> valueDehydrated = valueExtractor.dehydrate();
-    TypeDescriptor<K> keyDesc = typeOf(keyDehydrated);
 
     return descendant(pipeline -> {
+      Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+      Coder<KV<Double, Long>> valueCoder = getCoder(pipeline, TypeDescriptors.kvs(
+          TypeDescriptors.doubles(), TypeDescriptors.longs()));
       PCollection<KV<K, KV<Double, Long>>> intermediate = ReduceByKey
           .of(collection.materialize(pipeline))
-          .keyBy(keyDehydrated::call, keyDesc)
+          .keyBy(keyDehydrated::call, keyCoder.getEncodedTypeDescriptor())
           .valueBy(
               e -> KV.of(valueDehydrated.call(e), 1L),
               TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
           .combineBy(Fold.of(
-              (a, b) -> KV.of(a.getKey() + b.getKey(), a.getValue() + b.getValue())))
+              (a, b) -> KV.of(a.getKey() + b.getKey(), a.getValue() + b.getValue())),
+              TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
           .windowBy(windowing)
           .triggeredBy(createTrigger())
           .accumulationMode(mode)
           .withAllowedLateness(Duration.millis(allowedLateness))
-          .output();
+          .output()
+          .setCoder(KvCoder.of(keyCoder, valueCoder));
       return MapElements.of(intermediate)
           .using(
               p -> Pair.of(
-                  p.getKey(), p.getValue().getKey() / p.getValue().getValue()),
-              PairCoder.descriptor(keyDesc, TypeDescriptors.doubles()))
-          .output();
+                  p.getKey(), p.getValue().getKey() / p.getValue().getValue()))
+          .output()
+          .setCoder(PairCoder.of(
+              keyCoder,
+              getCoder(pipeline, TypeDescriptors.doubles())));
     });
   }
 
@@ -315,21 +326,23 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
     Closure<K> leftKeyDehydrated = leftKey.dehydrate();
     Closure<K> rightKeyDehydrated = rightKey.dehydrate();
-    TypeDescriptor<K> keyType = typeOf(leftKey);
     return descendant(
         pipeline -> {
+          Coder<K> keyCoder = coderOf(pipeline, leftKey);
           PCollection<T> lc = collection.materialize(pipeline);
           PCollection<OTHER> rc = ((BeamWindowedStream<OTHER>) right)
               .collection.materialize(pipeline);
           return Join.of(lc, rc)
-              .by(leftKeyDehydrated::call, rightKeyDehydrated::call, keyType)
+              .by(leftKeyDehydrated::call, rightKeyDehydrated::call,
+                  keyCoder.getEncodedTypeDescriptor())
               .using((l, r, ctx) -> ctx.collect(Pair.of(l, r)),
                   PairCoder.descriptor(lc.getTypeDescriptor(), rc.getTypeDescriptor()))
               .windowBy(windowing)
               .triggeredBy(createTrigger())
               .accumulationMode(mode)
               .withAllowedLateness(Duration.millis(allowedLateness))
-              .outputValues();
+              .outputValues()
+              .setCoder(PairCoder.of(lc.getCoder(), rc.getCoder()));
         });
   }
 
@@ -340,15 +353,16 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
     Closure<K> leftKeyDehydrated = leftKey.dehydrate();
     Closure<K> rightKeyDehydrated = rightKey.dehydrate();
-    TypeDescriptor<K> keyType = typeOf(leftKey);
 
     return descendant(
         pipeline -> {
+          Coder<K> keyCoder = coderOf(pipeline, leftKey);
           PCollection<T> lc = collection.materialize(pipeline);
           PCollection<RIGHT> rc = ((BeamWindowedStream<RIGHT>) right)
               .collection.materialize(pipeline);
           return LeftJoin.of(lc, rc)
-              .by(leftKeyDehydrated::call, rightKeyDehydrated::call, keyType)
+              .by(leftKeyDehydrated::call, rightKeyDehydrated::call,
+                  keyCoder.getEncodedTypeDescriptor())
               .using((l, r, ctx) ->
                   ctx.collect(Pair.of(l, r.orElse(null))),
                   PairCoder.descriptor(lc.getTypeDescriptor(), rc.getTypeDescriptor()))
@@ -356,7 +370,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
               .triggeredBy(createTrigger())
               .accumulationMode(mode)
               .withAllowedLateness(Duration.millis(allowedLateness))
-              .outputValues();
+              .outputValues()
+              .setCoder(PairCoder.of(lc.getCoder(), rc.getCoder()));
         });
   }
 
@@ -435,17 +450,22 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
     Closure<K> keyDehydrated = keyExtractor.dehydrate();
     Closure<Double> valueDehydrated = valueExtractor.dehydrate();
-    TypeDescriptor<K> keyType = typeOf(keyExtractor);
-    return descendant(pipeline ->
-        asPairs(ReduceByKey.of(collection.materialize(pipeline))
-            .keyBy(keyDehydrated::call, keyType)
-            .valueBy(valueDehydrated::call, TypeDescriptors.doubles())
-            .combineBy(Fold.of(0.0, (a, b) -> a + b), TypeDescriptors.doubles())
-            .windowBy(windowing)
-            .triggeredBy(createTrigger())
-            .accumulationMode(mode)
-            .withAllowedLateness(Duration.millis(allowedLateness))
-            .output(), keyType, TypeDescriptors.doubles()));
+    return descendant(pipeline -> {
+      Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+      Coder<Double> valueCoder = getCoder(pipeline, TypeDescriptors.doubles());
+      return asPairs(
+          ReduceByKey.of(collection.materialize(pipeline))
+              .keyBy(keyDehydrated::call, keyCoder.getEncodedTypeDescriptor())
+              .valueBy(valueDehydrated::call, TypeDescriptors.doubles())
+              .combineBy(Fold.of(0.0, (a, b) -> a + b), TypeDescriptors.doubles())
+              .windowBy(windowing)
+              .triggeredBy(createTrigger())
+              .accumulationMode(mode)
+              .withAllowedLateness(Duration.millis(allowedLateness))
+              .output()
+              .setCoder(KvCoder.of(keyCoder, valueCoder)),
+          keyCoder, valueCoder);
+    });
   }
 
   @Override
@@ -484,12 +504,12 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   @Override
   public WindowedStream<T> distinct(Closure<?> mapper) {
     Closure<Object> dehydrated = (Closure) mapper.dehydrate();
-    TypeDescriptor<Object> keyType = (TypeDescriptor) typeOf(mapper);
     return descendant(pipeline -> {
+      Coder<Object> keyCoder = (Coder) coderOf(pipeline, mapper);
       PCollection<T> in = collection.materialize(pipeline);
       return ReduceByKey
         .of(in)
-        .keyBy(dehydrated::call, keyType)
+        .keyBy(dehydrated::call, keyCoder.getEncodedTypeDescriptor())
         .valueBy(e -> e, in.getTypeDescriptor())
         .combineBy(e -> e.findAny().orElseThrow(
             () -> new IllegalStateException("Processing empty key?")),
@@ -498,7 +518,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         .triggeredBy(createTrigger())
         .accumulationMode(mode)
         .withAllowedLateness(Duration.millis(allowedLateness))
-        .outputValues();
+        .outputValues()
+        .setCoder(in.getCoder());
     });
 
     /* Beam 2.11.0: */
@@ -537,13 +558,13 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   private static <K, V> PCollection<Pair<K, V>> asPairs(
       PCollection<KV<K, V>> kvs,
-      TypeDescriptor<K> keyDesc,
-      TypeDescriptor<V> valueDesc) {
+      Coder<K> keyCoder,
+      Coder<V> valueCoder) {
 
     return MapElements.of(kvs)
-        .using(kv -> Pair.of(kv.getKey(), kv.getValue()),
-            PairCoder.descriptor(keyDesc, valueDesc))
-        .output();
+        .using(kv -> Pair.of(kv.getKey(), kv.getValue()))
+        .output()
+        .setCoder(PairCoder.of(keyCoder, valueCoder));
   }
 
   private Trigger createTrigger() {

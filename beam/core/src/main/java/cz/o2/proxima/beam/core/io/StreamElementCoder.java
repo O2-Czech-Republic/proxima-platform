@@ -28,6 +28,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.coders.CustomCoder;
+import org.apache.beam.sdk.values.TypeDescriptor;
 
 public class StreamElementCoder extends CustomCoder<StreamElement> {
 
@@ -122,6 +123,11 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
     // deterministic
   }
 
+  @Override
+  public TypeDescriptor<StreamElement> getEncodedTypeDescriptor() {
+    return TypeDescriptor.of(StreamElement.class);
+  }
+
   private static void writeBytes(@Nullable byte[] value, DataOutput output)
       throws IOException {
 
@@ -152,7 +158,6 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
   public int hashCode() {
     return 0;
   }
-
 
 
 }

@@ -36,11 +36,15 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.junit.Test;
 
+@Slf4j
 public class BeamStreamTest extends StreamTest {
 
   public BeamStreamTest() {
@@ -80,9 +84,17 @@ public class BeamStreamTest extends StreamTest {
         StreamConfig.empty(), delegate.isBounded(),
         delegate.collection, delegate.terminateCheck) {
 
+      @SuppressWarnings("unchecked")
       @Override
-      <T> TypeDescriptor<T> typeOf(Closure<T> closure) {
-        return getTypeOf(closure).orElseGet(() -> super.typeOf(closure));
+      <T> Coder<T> coderOf(Pipeline pipeline, Closure<T> closure) {
+        try {
+          return getTypeOf(closure)
+              .map(type -> getCoder(pipeline, type))
+              .orElseGet(() -> super.coderOf(pipeline, closure));
+        } catch (IllegalStateException ex) {
+          log.debug("Error fetching coder for {}", closure, ex);
+          return (Coder) getCoder(pipeline, TypeDescriptor.of(Object.class));
+        }
       }
 
       @Override
@@ -108,9 +120,17 @@ public class BeamStreamTest extends StreamTest {
         delegate.terminateCheck,
         delegate.pipelineFactory) {
 
+      @SuppressWarnings("unchecked")
       @Override
-      <T> TypeDescriptor<T> typeOf(Closure<T> closure) {
-        return getTypeOf(closure).orElseGet(() -> super.typeOf(closure));
+      <T> Coder<T> coderOf(Pipeline pipeline, Closure<T> closure) {
+        try {
+          return getTypeOf(closure)
+              .map(type -> getCoder(pipeline, type))
+              .orElseGet(() -> super.coderOf(pipeline, closure));
+        } catch (IllegalStateException ex) {
+          log.debug("Error fetching coder for {}", closure, ex);
+          return (Coder) getCoder(pipeline, TypeDescriptor.of(Object.class));
+        }
       }
 
       @Override

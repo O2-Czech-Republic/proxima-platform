@@ -67,4 +67,11 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
     return Pair.of(keyCoder.decode(inStream), valueCoder.decode(inStream));
   }
 
+  @Override
+  public TypeDescriptor<Pair<K, V>> getEncodedTypeDescriptor() {
+    return descriptor(
+        keyCoder.getEncodedTypeDescriptor(),
+        valueCoder.getEncodedTypeDescriptor());
+  }
+
 }

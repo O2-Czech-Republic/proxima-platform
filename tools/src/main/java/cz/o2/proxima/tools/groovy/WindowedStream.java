@@ -73,7 +73,7 @@ public interface WindowedStream<T> extends Stream<T> {
    * @param listReduce the reduce function taking list of elements
    * @return reduced stream
    */
-  <K, V> WindowedStream<Pair<K, V>> flatReduce(
+  <K, V> WindowedStream<Pair<K, V>> groupReduce(
       @ClosureParams(value = FromString.class, options = "T")
           Closure<K> keyExtractor,
       @ClosureParams(value = FromString.class, options = {"Object, List<T>"})

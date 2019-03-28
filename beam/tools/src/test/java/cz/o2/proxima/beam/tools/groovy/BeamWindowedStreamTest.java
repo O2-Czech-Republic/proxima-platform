@@ -39,11 +39,15 @@ public class BeamWindowedStreamTest extends WindowedStreamTest {
     super.testWindowAllSorted();
   }
 
-  @Ignore("FlatReduce not implemented yet")
   @Test
   @Override
-  public void testWindowAllFlatReduce() {
-    super.testWindowAllFlatReduce();
+  public void testWindowAllGroupReduce() {
+    try {
+      super.testWindowAllGroupReduce();
+    } catch (Exception ex) {
+      ex.printStackTrace();
+      throw ex;
+    }
   }
 
 }

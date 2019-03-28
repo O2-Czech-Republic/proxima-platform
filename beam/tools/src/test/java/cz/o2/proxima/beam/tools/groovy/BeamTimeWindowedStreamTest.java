@@ -39,11 +39,13 @@ public class BeamTimeWindowedStreamTest extends TimeWindowedStreamTest {
     super.testWindowAllSorted();
   }
 
+  /*
   @Ignore("FlatReduce not implemented yet")
   @Test
   @Override
-  public void testWindowAllFlatReduce() {
-    super.testWindowAllFlatReduce();
+  public void testWindowAllGroupReduce() {
+    super.testWindowAllGroupReduce();
   }
-  
+  */
+
 }

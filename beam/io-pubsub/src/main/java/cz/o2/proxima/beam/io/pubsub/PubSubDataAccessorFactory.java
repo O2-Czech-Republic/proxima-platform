@@ -41,8 +41,8 @@ public class PubSubDataAccessorFactory implements DataAccessorFactory {
       Map<String, Object> cfg) {
 
     return new PubSubDataAccessor(
-        entity, uri.getAuthority(),
-        UriUtil.getPathNormalized(uri));
+        operator.getRepository(), entity,
+        uri.getAuthority(), UriUtil.getPathNormalized(uri));
   }
 
 }

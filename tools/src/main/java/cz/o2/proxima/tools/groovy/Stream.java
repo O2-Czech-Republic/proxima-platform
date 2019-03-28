@@ -22,6 +22,7 @@ import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.FromString;
+import java.util.Arrays;
 
 import java.util.List;
 
@@ -180,9 +181,18 @@ public interface Stream<T> {
 
   /**
    * Merge two streams together.
-   * @param other the other stream
+   * @param other the other stream(s)
    * @return merged stream
    */
-  Stream<T> union(Stream<T> other);
+  default Stream<T> union(Stream<T> other) {
+    return union(Arrays.asList(other));
+  }
+
+  /**
+   * Merge multiple streams together.
+   * @param streams other streams
+   * @return merged stream
+   */
+  Stream<T> union(List<Stream<T>> streams);
 
 }

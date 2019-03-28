@@ -219,17 +219,20 @@ public abstract class GroovyEnvTest extends GroovyTest {
   }
 
   @Test
-  public void testFlatReduce() throws Exception {
+  public void testGroupReduce() throws Exception {
     final Script compiled = compile(
-        "env.batch.data.batchUpdates().flatReduce("
-            + "{ it.key }, { w, el -> el.size() }).collect()");
+        "env.batch.wildcard.batchUpdates().groupReduce("
+            + "{ it.key }, { w, el -> [w.toString(), el.size()] }).collect()");
 
-    write(StreamElement.update(batch, data, "uuid1",
-            "key1", data.getName(), System.currentTimeMillis(), new byte[] { }));
-    write(StreamElement.update(batch, data, "uuid2",
-            "key2", data.getName(), System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid1",
+            "key1", wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid2",
+            "key2", wildcard.toAttributePrefix() + "2",
+            System.currentTimeMillis(), new byte[] { }));
     write(StreamElement.update(batch, data, "uuid3",
-            "key1", data.getName(), System.currentTimeMillis(), new byte[] { }));
+            "key1", wildcard.toAttributePrefix() + "3",
+            System.currentTimeMillis(), new byte[] { }));
 
     @SuppressWarnings("unchecked")
     List<Pair<Object, List<Object>>> result = (List) compiled.run();

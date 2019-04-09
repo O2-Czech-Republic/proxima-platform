@@ -16,7 +16,6 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
@@ -53,7 +52,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -238,7 +236,6 @@ class BeamStream<T> implements Stream<T> {
               .of(in)
               .using(dehydrated::call)
               .output()
-              .setTypeDescriptor(in.getTypeDescriptor())
               .setCoder(in.getCoder());
         });
   }
@@ -489,12 +486,6 @@ class BeamStream<T> implements Stream<T> {
               .map(s -> ((BeamStream<T>) s).collection.materialize(pipeline))
               .collect(Collectors.toList());
           PCollection<T> any = streams.stream().findAny().orElse(null);
-          Set<TypeDescriptor<T>> types = streams.stream()
-              .map(PCollection::getTypeDescriptor)
-              .collect(Collectors.toSet());
-          Preconditions.checkArgument(types.size() == 1,
-              "Cannot union streams with different types: %s",
-              types);
           return PCollectionList.of(streams)
               .apply(Flatten.pCollections())
               .setCoder(any.getCoder());
@@ -659,10 +650,6 @@ class BeamStream<T> implements Stream<T> {
           // start HTTP server and store host and port
 
           Coder<T> coder = collection.getCoder();
-          if (coder == null) {
-            // can this happen?
-            coder = getCoder(collection.getPipeline(), collection.getTypeDescriptor());
-          }
           RemoteConsumer<T> ret = new RemoteConsumer<>(hostname, port, consumer, coder);
           ret.start();
           return ret;

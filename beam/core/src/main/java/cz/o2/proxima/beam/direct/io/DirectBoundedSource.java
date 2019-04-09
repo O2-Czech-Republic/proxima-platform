@@ -78,6 +78,7 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
       ret.add(new DirectBoundedSource(
           repo, name, reader, position, limit / partitions.size(), p));
     }
+    log.debug("Split source {} into {}", this, ret);
     return ret;
   }
 

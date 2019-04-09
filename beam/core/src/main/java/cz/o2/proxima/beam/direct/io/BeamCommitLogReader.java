@@ -62,13 +62,15 @@ class BeamCommitLogReader {
         DirectUnboundedSource source,
         CommitLogReader reader,
         Position position,
+        boolean eventTime,
         long limit,
         @Nullable Partition partition,
         @Nullable Offset offset) {
 
       this.source = source;
       this.reader = new BeamCommitLogReader(
-          name, reader, position, partition, offset, limit, false);
+          name, reader, position, eventTime,
+          partition, offset, limit, false);
     }
 
     @Override
@@ -149,7 +151,7 @@ class BeamCommitLogReader {
       Partition partition) {
 
     BeamCommitLogReader r = new BeamCommitLogReader(
-        name, reader, position, partition, null, limit, true);
+        name, reader, position, true, partition, null, limit, true);
 
     return new BoundedReader<StreamElement>() {
 
@@ -192,12 +194,14 @@ class BeamCommitLogReader {
       String name,
       CommitLogReader reader,
       Position position,
+      boolean eventTime,
       long limit,
       @Nullable Partition partition,
       @Nullable Offset offset) {
 
     return new UnboundedCommitLogReader(
-        name, source, reader, position, limit, partition, offset);
+        name, source, reader, position, eventTime,
+        limit, partition, offset);
 
   }
 
@@ -210,6 +214,7 @@ class BeamCommitLogReader {
   private final String name;
   private final CommitLogReader reader;
   private final Position position;
+  private final boolean eventTime;
   private final boolean stopAtCurrent;
   private boolean finished = false;
   @Getter
@@ -218,16 +223,18 @@ class BeamCommitLogReader {
   private final Offset offset;
   private BlockingQueueLogObserver observer;
   private StreamElement current;
+  private Instant currentProcessingTime = Instant.now();
   private long maxTimestamp = Long.MIN_VALUE;
 
   private BeamCommitLogReader(
-      String name, CommitLogReader reader, Position position,
+      String name, CommitLogReader reader, Position position, boolean eventTime,
       @Nullable Partition partition, @Nullable Offset offset, long limit,
       boolean stopAtCurrent) {
 
     this.name = name;
     this.reader = Objects.requireNonNull(reader);
     this.position = Objects.requireNonNull(position);
+    this.eventTime = eventTime;
     this.partition = partition;
     this.offset = offset;
     this.limit = limit;
@@ -268,6 +275,9 @@ class BeamCommitLogReader {
         }
         current = collector.getAndSet(null);
         if (current != null) {
+          if (!eventTime) {
+            currentProcessingTime = Instant.now();
+          }
           if (maxTimestamp < current.getStamp()) {
             maxTimestamp = current.getStamp();
           }
@@ -287,7 +297,10 @@ class BeamCommitLogReader {
 
   public Instant getCurrentTimestamp() {
     if (!finished) {
-      return new Instant(getCurrent().getStamp());
+      if (eventTime) {
+        return new Instant(getCurrent().getStamp());
+      }
+      return currentProcessingTime;
     }
     return HIGHEST_INSTANT;
   }
@@ -325,7 +338,10 @@ class BeamCommitLogReader {
     if (finished) {
       return HIGHEST_INSTANT;
     }
-    return new Instant(observer.getWatermark());
+    if (eventTime) {
+      return new Instant(observer.getWatermark());
+    }
+    return Instant.now();
   }
 
 }

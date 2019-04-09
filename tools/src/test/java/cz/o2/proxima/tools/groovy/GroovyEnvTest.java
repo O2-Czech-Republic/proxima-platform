@@ -243,6 +243,34 @@ public abstract class GroovyEnvTest extends GroovyTest {
     assertEquals((Integer) 1, resultMap.get("key2").get(1));
   }
 
+  @Test
+  public void testGroupReduceConsumed() throws Exception {
+    final Script compiled = compile(
+        "env.batch.wildcard.batchUpdates()"
+        + ".groupReduce({ it.key }, { w, el -> [w.toString(), el.size()] })"
+        + ".filter({ true })"
+        + ".collect()");
+
+    write(StreamElement.update(batch, wildcard, "uuid1",
+            "key1", wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid2",
+            "key2", wildcard.toAttributePrefix() + "2",
+            System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid3",
+            "key1", wildcard.toAttributePrefix() + "3",
+            System.currentTimeMillis(), new byte[] { }));
+
+    @SuppressWarnings("unchecked")
+    List<Pair<Object, List<Object>>> result = (List) compiled.run();
+    Map<Object, List<Object>> resultMap = result
+        .stream()
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+    assertEquals((Integer) 2, resultMap.get("key1").get(1));
+    assertEquals((Integer) 1, resultMap.get("key2").get(1));
+  }
+
+
 
   protected abstract void write(StreamElement element);
 

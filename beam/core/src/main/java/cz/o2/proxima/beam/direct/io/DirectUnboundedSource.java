@@ -45,9 +45,11 @@ class DirectUnboundedSource
 
   static DirectUnboundedSource of(
       Repository repo, String name,
-      CommitLogReader reader, Position position, long limit) {
+      CommitLogReader reader, Position position,
+      boolean eventTime, long limit) {
 
-    return new DirectUnboundedSource(repo, name, reader, position, limit, null);
+    return new DirectUnboundedSource(
+        repo, name, reader, position, eventTime, limit, null);
   }
 
   static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
@@ -79,18 +81,21 @@ class DirectUnboundedSource
   private final String name;
   private final CommitLogReader reader;
   private final Position position;
+  private final boolean eventTime;
   private final List<Partition> partitions;
   private final long limit;
   private final @Nullable Partition partition;
 
   DirectUnboundedSource(
       Repository repo, String name, CommitLogReader reader,
-      Position position, long limit, @Nullable Partition partition) {
+      Position position, boolean eventTime,
+      long limit, @Nullable Partition partition) {
 
     this.repo = repo;
     this.name = name;
     this.reader = reader;
     this.position = position;
+    this.eventTime = eventTime;
     this.partitions = reader.getPartitions();
     this.limit = limit;
     this.partition = partition;
@@ -116,7 +121,7 @@ class DirectUnboundedSource
             ? p.split(splitDesired).stream()
             : Stream.of(p))
         .map(p -> new DirectUnboundedSource(
-            repo, name, reader, position, limit / resulting, p))
+            repo, name, reader, position, eventTime, limit / resulting, p))
         .collect(Collectors.toList());
   }
 
@@ -127,7 +132,8 @@ class DirectUnboundedSource
     Offset offset = cmt == null ? null : cmt.getOffset();
     long readerLimit = cmt == null ? limit : cmt.getLimit();
     return BeamCommitLogReader.unbounded(
-        this, name, reader, position, readerLimit, partition, offset);
+        this, name, reader, position, eventTime,
+        readerLimit, partition, offset);
   }
 
   @Override

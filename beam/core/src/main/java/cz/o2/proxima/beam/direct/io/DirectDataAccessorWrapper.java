@@ -16,6 +16,7 @@
 package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.beam.core.DataAccessor;
+import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.Context;
@@ -71,17 +72,12 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     } else {
       // unbounded
       ret = pipeline.apply(
-          Read.from(DirectUnboundedSource.of(repo, name, reader, position, limit)));
+          Read.from(DirectUnboundedSource.of(
+              repo, name, reader, position, eventTime, limit)));
     }
-    ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
-    if (eventTime) {
-      return AssignEventTime
-          .of(ret)
-          .using(StreamElement::getStamp)
-          .output()
-          .setCoder(ret.getCoder());
-    }
-    return ret;
+    return ret
+        .setCoder(StreamElementCoder.of(repo))
+        .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
   }
 
   @Override
@@ -97,12 +93,15 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     PCollection<StreamElement> ret = pipeline.apply(
         Read.from(DirectBatchSource.of(repo, reader, attrs, startStamp, endStamp)));
 
-    ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
+    ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class))
+        .setCoder(StreamElementCoder.of(repo));
+    
     return AssignEventTime
         .of(ret)
         .using(StreamElement::getStamp)
         .output()
-        .setCoder(ret.getCoder());
+        .setCoder(ret.getCoder())
+        .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
   }
 
 }

@@ -313,6 +313,7 @@ class BeamCommitLogReader {
   }
 
   public void close() throws IOException {
+    observer.stop();
     if (handle != null) {
       handle.cancel();
       handle = null;

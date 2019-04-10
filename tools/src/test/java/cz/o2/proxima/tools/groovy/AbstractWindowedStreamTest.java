@@ -89,7 +89,7 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   @Test
   public void testWindowAllGroupReduce() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Pair<Integer, List>> result = intoSingleWindow(stream)
+    List<Pair<Integer, Object>> result = intoSingleWindow(stream)
         .groupReduce(
             wrap(new Closure<Integer>(this) {
               @Override
@@ -97,17 +97,17 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
                 return 0;
               }
             }, Integer.class),
-            wrap(new Closure<List>(this) {
+            (Closure<Iterable<Object>>) wrap(new Closure<Iterable<Object>>(this) {
               @Override
               public List call(Object... arguments) {
                 return Arrays.stream(arguments).collect(Collectors.toList());
               }
-            }, List.class))
+            }, (Class<List<Object>>) (Class) List.class))
         .collect();
-    assertEquals(1, result.size());
+    assertEquals(2, result.size());
     assertEquals(
         Sets.newHashSet(1, 2, 3, 4),
-        Sets.newHashSet(((Iterable) result.get(0).getSecond().get(1))));
+        Sets.newHashSet(((Iterable) result.get(1).getSecond())));
   }
 
   @Test

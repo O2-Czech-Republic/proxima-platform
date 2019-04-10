@@ -19,10 +19,12 @@ import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -46,12 +48,13 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Nullable
   private final String name;
   private final AtomicReference<Throwable> error = new AtomicReference<>();
+  private final AtomicLong watermark = new AtomicLong(Long.MIN_VALUE);
   private final BlockingQueue<Pair<StreamElement, OnNextContext>> queue;
+  AtomicBoolean stopped = new AtomicBoolean();
   @Getter
   @Nullable
   private OnNextContext lastContext;
   private long limit;
-  private AtomicLong watermark = new AtomicLong(Long.MIN_VALUE);
 
   private BlockingQueueLogObserver(String name, long limit) {
     this.name = name;
@@ -62,8 +65,9 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Override
   public boolean onError(Throwable error) {
     this.error.set(error);
+    AtomicReference ref;
     // unblock any waiting thread
-    queue.offer(Pair.of(null, null));
+    ExceptionUtils.unchecked(() -> putToQueue(null, null));
     return false;
   }
 
@@ -83,8 +87,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   private boolean enqueue(StreamElement element, OnNextContext context) {
     try {
       if (limit-- > 0) {
-        queue.put(Pair.of(element, context));
-        return true;
+        return putToQueue(element, context);
       }
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
@@ -100,12 +103,26 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Override
   public void onCompleted() {
     try {
-      queue.put(Pair.of(null, null));
+      putToQueue(null, null);
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
       log.warn("Interrupted while passing end-of-stream.", ex);
     }
   }
+
+  private boolean putToQueue(
+      @Nullable StreamElement element,
+      @Nullable OnNextContext context) throws InterruptedException {
+
+    Pair<StreamElement, OnNextContext> p = Pair.of(element, context);
+    while (!stopped.get()) {
+      if (queue.offer(p, 50, TimeUnit.MILLISECONDS)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
 
   @Override
   public void onIdle(OnIdleContext context) {
@@ -114,8 +131,14 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Nullable
   StreamElement take() throws InterruptedException {
-    Pair<StreamElement, OnNextContext> taken = queue.take();
-    if (taken.getFirst() != null) {
+    Pair<StreamElement, OnNextContext> taken = null;
+    while (!stopped.get()) {
+      taken = queue.poll(50, TimeUnit.MILLISECONDS);
+      if (taken != null) {
+        break;
+      }
+    }
+    if (taken != null && taken.getFirst() != null) {
       lastContext = taken.getSecond();
       return taken.getFirst();
     }
@@ -135,7 +158,11 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   boolean take(long timeout, AtomicReference<StreamElement> collector)
       throws InterruptedException {
 
-    Pair<StreamElement, OnNextContext> taken = queue.poll(timeout, TimeUnit.MILLISECONDS);
+    final Pair<StreamElement, OnNextContext> taken;
+    if (stopped.get()) {
+      return true;
+    }
+    taken = queue.poll(timeout, TimeUnit.MILLISECONDS);
     if (taken != null && taken.getFirst() != null) {
       lastContext = taken.getSecond();
       collector.set(taken.getFirst());
@@ -152,6 +179,10 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   long getWatermark() {
     return watermark.get();
+  }
+
+  void stop() {
+    stopped.set(true);
   }
 
 }

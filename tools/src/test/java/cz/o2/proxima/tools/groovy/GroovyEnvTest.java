@@ -222,7 +222,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   public void testGroupReduce() throws Exception {
     final Script compiled = compile(
         "env.batch.wildcard.batchUpdates().groupReduce("
-            + "{ it.key }, { w, el -> [w.toString(), el.size()] }).collect()");
+            + "{ it.key }, { w, el -> [[w.toString(), el.size()]] }).collect()");
 
     write(StreamElement.update(batch, wildcard, "uuid1",
             "key1", wildcard.toAttributePrefix() + "1",
@@ -247,7 +247,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   public void testGroupReduceConsumed() throws Exception {
     final Script compiled = compile(
         "env.batch.wildcard.batchUpdates()"
-        + ".groupReduce({ it.key }, { w, el -> [w.toString(), el.size()] })"
+        + ".groupReduce({ it.key }, { w, el -> [[w.toString(), el.size()]] })"
         + ".filter({ true })"
         + ".collect()");
 

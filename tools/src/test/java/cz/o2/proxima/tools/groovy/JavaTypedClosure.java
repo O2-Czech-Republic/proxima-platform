@@ -23,15 +23,15 @@ import lombok.Getter;
  */
 public class JavaTypedClosure<T> extends Closure<T> {
 
-  static <T> Closure<T> wrap(Closure<T> w, Class<T> cls) {
+  static <T> Closure<T> wrap(Closure<T> w, Class<? extends T> cls) {
     return new JavaTypedClosure<>(w, cls);
   }
 
   final Closure<T> delegate;
   @Getter
-  final Class<T> type;
+  final Class<? extends T> type;
 
-  JavaTypedClosure(Closure<T> delegate, Class<T> type) {
+  JavaTypedClosure(Closure<T> delegate, Class<? extends T> type) {
     super(delegate.getOwner(), delegate.getThisObject());
     this.delegate = delegate;
     this.type = type;

@@ -116,7 +116,7 @@ public abstract class StreamTest extends AbstractStreamTest {
             Function.identity(), Collectors.summingInt(e -> 1)));
   }
 
-  <T> Closure<T> wrap(Closure<T> c, Class<T> cls) {
+  <T> Closure<T> wrap(Closure<T> c, Class<? extends T> cls) {
     return JavaTypedClosure.wrap(c, cls);
   }
 

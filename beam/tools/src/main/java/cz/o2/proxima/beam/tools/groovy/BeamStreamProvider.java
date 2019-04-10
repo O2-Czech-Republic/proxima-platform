@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.functional.Factory;
@@ -37,11 +38,16 @@ import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.utils.IOUtils;
 import org.apache.beam.sdk.Pipeline;
@@ -55,14 +61,25 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 @Slf4j
 public abstract class BeamStreamProvider implements StreamProvider {
 
+  @FunctionalInterface
+  public static interface RunnerRegistrar {
+    void apply(PipelineOptions opts);
+  }
+
   public static class Default extends BeamStreamProvider {
 
+    @VisibleForTesting
+    @Getter(AccessLevel.PACKAGE)
     private String[] args;
     @Nullable
     private String runner = null;
+    @VisibleForTesting
+    @Getter(AccessLevel.PACKAGE)
+    private final List<RunnerRegistrar> registrars = new ArrayList<>();
 
     @Override
     public void init(Repository repo, String[] args) {
+      args = readAndRemoveRegistrars(args, registrars);
       super.init(repo, args);
       this.args = args;
       log.info(
@@ -79,10 +96,26 @@ public abstract class BeamStreamProvider implements StreamProvider {
         if (runner != null) {
           opts.setRunner((Class) Classpath.findClass(runner, PipelineRunner.class));
         }
+        registrars.forEach(r -> r.apply(opts));
         return opts;
       };
     }
 
+    private String[] readAndRemoveRegistrars(
+        String[] args,
+        List<RunnerRegistrar> registrars) {
+
+      List<String> argsList = Arrays.stream(args).collect(Collectors.toList());
+      List<String> remaining = new ArrayList<>();
+      for (String arg : argsList) {
+        if (arg.startsWith("--runnerRegistrar=")) {
+          registrars.add(Classpath.newInstance(arg.substring(18), RunnerRegistrar.class));
+        } else {
+          remaining.add(arg);
+        }
+      }
+      return remaining.toArray(new String[remaining.size()]);
+    }
 
   }
 

@@ -648,6 +648,11 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     this.shutdown.set(true);
   }
 
+  @Override
+  public boolean hasExternalizableOffsets() {
+    return true;
+  }
+
   private static Collection<Offset> asOffsets(Collection<Partition> partitions) {
     if (partitions != null) {
       return partitions.stream()

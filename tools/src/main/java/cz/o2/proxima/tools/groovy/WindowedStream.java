@@ -77,7 +77,7 @@ public interface WindowedStream<T> extends Stream<T> {
       @ClosureParams(value = FromString.class, options = "T")
           Closure<K> keyExtractor,
       @ClosureParams(value = FromString.class, options = {"Object, List<T>"})
-          Closure<V> listReduce);
+          Closure<Iterable<V>> listReduce);
 
   /**
    * Apply combine transform to stream.

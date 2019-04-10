@@ -152,15 +152,18 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @Override
   public <K, V> WindowedStream<Pair<K, V>> groupReduce(
-      Closure<K> keyExtractor, Closure<V> listReduce) {
+      Closure<K> keyExtractor, Closure<Iterable<V>> listReduce) {
 
 
     Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<V> reducerDehydrated = listReduce.dehydrate();
+    Closure<Iterable<V>> reducerDehydrated = listReduce.dehydrate();
 
     return descendant(pipeline -> {
       final Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
-      final Coder<V> valueCoder = coderOf(pipeline, listReduce);
+      // FIXME: need a way to retrieve inner type of the list
+      @SuppressWarnings("unchecked")
+      final Coder<V> valueCoder = (Coder) getCoder(
+          pipeline, TypeDescriptor.of(Object.class));
       PCollection<T> in = collection.materialize(pipeline);
       // use native beam, beamphoria doesn't allow access
       // to window label as of 2.12
@@ -178,9 +181,9 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   private static class GroupReduce<K, T, O> extends DoFn<KV<K, Iterable<T>>, Pair<K, O>> {
 
-    private final Closure<O> reducer;
+    private final Closure<Iterable<O>> reducer;
 
-    GroupReduce(Closure<O> reducer) {
+    GroupReduce(Closure<Iterable<O>> reducer) {
       this.reducer = reducer;
     }
 
@@ -190,7 +193,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         BoundedWindow window,
         OutputReceiver<Pair<K, O>> output) {
 
-      output.output(Pair.of(elem.getKey(), reducer.call(window, elem.getValue())));
+      Iterable<O> res = reducer.call(window, elem.getValue());
+      res.forEach(o -> output.output(Pair.of(elem.getKey(), o)));
     }
 
     @SuppressWarnings("unchecked")
@@ -203,7 +207,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
 
   private static <K, V, T> PCollection<Pair<K, V>> applyGroupReduce(
-      PCollection<KV<K, Iterable<T>>> in, Closure<V> reducer) {
+      PCollection<KV<K, Iterable<T>>> in, Closure<Iterable<V>> reducer) {
 
     return in.apply(ParDo.of(new GroupReduce<>(reducer)));
   }

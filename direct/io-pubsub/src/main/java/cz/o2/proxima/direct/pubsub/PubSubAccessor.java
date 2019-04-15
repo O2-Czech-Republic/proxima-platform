@@ -39,6 +39,8 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
       "pubsub.subscription.auto-create";
   public static final String CFG_SUBSCRIPTION_ACK_DEADLINE =
       "pubsub.subscription.ack-deadline";
+  public static final String CFG_WATERMARK_ESTIMATE_DURATION =
+      "pubsub.watermark.estimate-duration";
 
   @Getter
   private final String project;
@@ -55,22 +57,33 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
   @Getter
   private final boolean subscriptionAutoCreate;
 
+  @Getter
+  private final long watermarkEstimateDuration;
+
   PubSubAccessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
     super(entity, uri);
     project = uri.getAuthority();
     topic = UriUtil.getPathNormalized(uri);
-    maxAckDeadline = Optional.ofNullable(cfg.get(CFG_MAX_ACK_DEADLINE))
+    maxAckDeadline = Optional
+        .ofNullable(cfg.get(CFG_MAX_ACK_DEADLINE))
         .map(Object::toString)
         .map(Integer::valueOf)
         .orElse(60000);
-    subscriptionAutoCreate = Optional.ofNullable(cfg.get(CFG_SUBSCRIPTION_AUTOCREATE))
+    subscriptionAutoCreate = Optional
+        .ofNullable(cfg.get(CFG_SUBSCRIPTION_AUTOCREATE))
         .map(Object::toString)
         .map(Boolean::valueOf)
         .orElse(true);
-    subscriptionAckDeadline = Optional.ofNullable(cfg.get(CFG_SUBSCRIPTION_ACK_DEADLINE))
+    subscriptionAckDeadline = Optional
+        .ofNullable(cfg.get(CFG_SUBSCRIPTION_ACK_DEADLINE))
         .map(Object::toString)
         .map(Integer::valueOf)
         .orElse(600);
+    watermarkEstimateDuration = Optional
+        .ofNullable(cfg.get(CFG_WATERMARK_ESTIMATE_DURATION))
+        .map(Object::toString)
+        .map(Integer::valueOf)
+        .orElse(subscriptionAckDeadline * 1000);
 
     Preconditions.checkArgument(
         !Strings.isNullOrEmpty(project), "Authority cannot be empty");

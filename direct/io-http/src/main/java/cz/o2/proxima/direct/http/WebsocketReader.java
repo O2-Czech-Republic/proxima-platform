@@ -48,7 +48,17 @@ import org.java_websocket.handshake.ServerHandshake;
 public class WebsocketReader extends AbstractStorage implements CommitLogReader {
 
   private static final Partition PARTITION = () -> 0;
-  private static final Offset OFFSET = () -> PARTITION;
+  private static final Offset OFFSET = new Offset() {
+    @Override
+    public Partition getPartition() {
+      return PARTITION;
+    }
+
+    @Override
+    public long getWatermark() {
+      return System.currentTimeMillis();
+    }
+  };
 
   private final AttributeDescriptor<?> attr;
   private final UnaryFunction<String, String> keyExtractor;
@@ -144,7 +154,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
       @Override
       public List<Offset> getCommittedOffsets() {
-        return Arrays.asList(() -> PARTITION);
+        return Arrays.asList(OFFSET);
       }
 
       @Override
@@ -206,10 +216,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   }
 
   private OnNextContext nullContext() {
-    return asOnNextContext(
-        (succ, err) -> { },
-        OFFSET,
-        System::currentTimeMillis);
+    return asOnNextContext((succ, err) -> { }, OFFSET);
   }
 
   private void checkSupportedPosition(Position position) {

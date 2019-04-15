@@ -47,6 +47,7 @@ class Consumers {
 
     final Map<Integer, Long> committed = Collections.synchronizedMap(new HashMap<>());
     final Map<Integer, Long> processing = Collections.synchronizedMap(new HashMap<>());
+    long watermark;
 
     @Override
     public void onCompleted() {
@@ -102,6 +103,7 @@ class Consumers {
         Consumer<Throwable> errorHandler) {
 
       processing.put(tp.partition(), offset);
+      watermark = watermarkSupplier.getWatermark();
       if (element != null) {
         return observer.onNext(
             element,
@@ -115,8 +117,7 @@ class Consumers {
                 errorHandler.accept(exc);
               }
             },
-            new TopicOffset(tp.partition(), offset),
-            watermarkSupplier));
+            new TopicOffset(tp.partition(), offset, watermark)));
       }
       committed.compute(
           tp.partition(),
@@ -127,12 +128,12 @@ class Consumers {
 
     @Override
     public List<TopicOffset> getCurrentOffsets() {
-      return TopicOffset.fromMap(processing);
+      return TopicOffset.fromMap(processing, watermark);
     }
 
     @Override
     public List<TopicOffset> getCommittedOffsets() {
-      return TopicOffset.fromMap(committed);
+      return TopicOffset.fromMap(committed, watermark);
     }
 
     @Override
@@ -200,6 +201,7 @@ class Consumers {
         Consumer<Throwable> errorHandler) {
 
       processing.put(tp.partition(), offset);
+      watermark = watermarkSupplier.getWatermark();
       if (element != null) {
         return observer.onNext(
             element, context(tp, offset, watermarkSupplier, errorHandler));
@@ -226,18 +228,17 @@ class Consumers {
               errorHandler.accept(err);
             }
           },
-          new TopicOffset(tp.partition(), offset),
-          watermarkSupplier);
+          new TopicOffset(tp.partition(), offset, watermarkSupplier.getWatermark()));
     }
 
     @Override
     public List<TopicOffset> getCurrentOffsets() {
-      return TopicOffset.fromMap(processing);
+      return TopicOffset.fromMap(processing, watermark);
     }
 
     @Override
     public List<TopicOffset> getCommittedOffsets() {
-      return TopicOffset.fromMap(committed);
+      return TopicOffset.fromMap(committed, watermark);
     }
 
     @Override

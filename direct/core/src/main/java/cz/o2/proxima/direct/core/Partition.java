@@ -62,6 +62,8 @@ public interface Partition extends Serializable {
 
   /**
    * Split this partition to given number of sub-partitions.
+   * @param desiredCount desired number of split partitions
+   * @return collection of split partitions
    */
   default Collection<Partition> split(int desiredCount) {
     return Arrays.asList(this);

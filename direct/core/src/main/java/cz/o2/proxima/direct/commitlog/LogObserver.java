@@ -179,6 +179,8 @@ public interface LogObserver extends Serializable {
    * Typical example of commit log with no need to call {@link #onIdle} is
    * google PubSub, having virtually single shared partition which loads
    * balances incoming data.
+   *
+   * @param context the context for on idle processing
    */
   default void onIdle(OnIdleContext context) {
 

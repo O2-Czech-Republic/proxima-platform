@@ -217,7 +217,7 @@ public class PubSubReaderTest {
       }
       return inputs.pop();
     });
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch latch = new CountDownLatch(3);
     AtomicLong watermark = new AtomicLong();
     reader.observe("dummy", new LogObserver() {
       @Override

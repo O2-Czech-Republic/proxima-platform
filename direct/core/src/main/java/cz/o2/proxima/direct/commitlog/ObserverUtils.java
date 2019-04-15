@@ -28,8 +28,7 @@ public class ObserverUtils {
 
   public static LogObserver.OnNextContext asOnNextContext(
       LogObserver.OffsetCommitter committer,
-      Offset offset,
-      WatermarkSupplier watermarkSupplier) {
+      Offset offset) {
 
     return new LogObserver.OnNextContext() {
 
@@ -50,7 +49,7 @@ public class ObserverUtils {
 
       @Override
       public long getWatermark() {
-        return watermarkSupplier.getWatermark();
+        return offset.getWatermark();
       }
 
     };

@@ -49,7 +49,6 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.time.WatermarkSupplier;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.net.URI;
@@ -70,6 +69,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
@@ -87,15 +87,42 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Getter
     final long offset;
+    @Getter
+    final long watermark;
 
-    public IntOffset(long offset) {
+    public IntOffset(long offset, long watermark) {
       this.offset = offset;
+      this.watermark = watermark;
     }
 
     @Override
     public Partition getPartition() {
       return PARTITION;
     }
+
+    @Override
+    public String toString() {
+      return "IntOffset("
+          + "offset=" + offset
+          + ", watermark=" + watermark
+          + ")";
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof IntOffset) {
+        IntOffset other = (IntOffset) obj;
+        return other.offset == this.offset
+            && other.watermark == this.watermark;
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return (int) ((offset ^ watermark) % Integer.MAX_VALUE);
+    }
+
   }
 
   @FunctionalInterface
@@ -177,13 +204,14 @@ public class InMemStorage implements DataAccessorFactory {
         boolean stopAtCurrent,
         LogObserver observer) {
 
-      return observe(name, position, 0L, stopAtCurrent, observer);
+      return observe(
+          name, position, new IntOffset(0L, Long.MIN_VALUE), stopAtCurrent, observer);
     }
 
     private ObserveHandle observe(
         String name,
         Position position,
-        long offset,
+        IntOffset offset,
         boolean stopAtCurrent,
         LogObserver observer) {
 
@@ -210,16 +238,16 @@ public class InMemStorage implements DataAccessorFactory {
         boolean stopAtCurrent,
         LogObserver observer) {
 
-      return observeBulk(name, position, 0L, stopAtCurrent, observer);
+      return observeBulk(
+          name, position, new IntOffset(0L, Long.MIN_VALUE), stopAtCurrent, observer);
     }
 
     private ObserveHandle observeBulk(
         String name,
         Position position,
-        long offset,
+        IntOffset offset,
         boolean stopAtCurrent,
         LogObserver observer) {
-
 
       return doObserve(position, offset, stopAtCurrent, observer);
     }
@@ -240,14 +268,14 @@ public class InMemStorage implements DataAccessorFactory {
         Collection<Offset> offsets, LogObserver observer) {
 
       return doObserve(Position.OLDEST,
-          ((IntOffset) Iterables.getOnlyElement(offsets)).getOffset(),
+          ((IntOffset) Iterables.getOnlyElement(offsets)),
           false,
           observer);
     }
 
     private ObserveHandle doObserve(
         Position position,
-        long offset,
+        IntOffset offset,
         boolean stopAtCurrent,
         LogObserver observer) {
 
@@ -256,7 +284,7 @@ public class InMemStorage implements DataAccessorFactory {
       observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION)));
       AtomicReference<Thread> threadInterrupt = new AtomicReference<>();
       AtomicBoolean killSwitch = new AtomicBoolean();
-      AtomicLong offsetTracker = flushBasedOnPosition(
+      Supplier<IntOffset> offsetSupplier = flushBasedOnPosition(
           position,
           offset,
           id,
@@ -266,7 +294,7 @@ public class InMemStorage implements DataAccessorFactory {
           observer);
 
       return createHandle(
-          id, observer, offsetTracker, killSwitch, threadInterrupt);
+          id, observer, offsetSupplier, killSwitch, threadInterrupt);
     }
 
 
@@ -287,7 +315,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     private ObserveHandle createHandle(
         int consumerId, LogObserver observer,
-        AtomicLong offsetTracker,
+        Supplier<IntOffset> offsetTracker,
         AtomicBoolean killSwitch,
         AtomicReference<Thread> threadInterrupt) {
 
@@ -303,7 +331,8 @@ public class InMemStorage implements DataAccessorFactory {
 
         @Override
         public List<Offset> getCommittedOffsets() {
-          return Arrays.asList(new IntOffset(0));
+          // no commits supported for now
+          return Arrays.asList(new IntOffset(0, Long.MIN_VALUE));
         }
 
         @Override
@@ -313,7 +342,7 @@ public class InMemStorage implements DataAccessorFactory {
 
         @Override
         public List<Offset> getCurrentOffsets() {
-          return Arrays.asList(new IntOffset(offsetTracker.get()));
+          return Arrays.asList(offsetTracker.get());
         }
 
         @Override
@@ -324,42 +353,42 @@ public class InMemStorage implements DataAccessorFactory {
       };
     }
 
-    private AtomicLong flushBasedOnPosition(
+    private Supplier<IntOffset> flushBasedOnPosition(
         Position position,
-        long offset,
+        IntOffset offset,
         int consumerId,
         boolean stopAtCurrent,
         AtomicBoolean killSwitch,
         AtomicReference<Thread> observeThread,
         LogObserver observer) {
 
-      AtomicLong offsetTracker = new AtomicLong(offset);
+      AtomicLong offsetTracker = new AtomicLong(offset.getOffset());
+      AtomicLong watermark = new AtomicLong(offset.getWatermark());
       CountDownLatch latch = new CountDownLatch(1);
       observeThread.set(new Thread(() -> handleFlushDataBaseOnPosition(
           position, offset, consumerId, stopAtCurrent, killSwitch,
-          offsetTracker, latch, observer)));
+          offsetTracker, watermark, latch, observer)));
       observeThread.get().start();
       try {
         latch.await();
       } catch (InterruptedException ex) {
         log.warn("Interrupted.", ex);
       }
-      return offsetTracker;
+      return () -> new IntOffset(offsetTracker.get(), watermark.get());
     }
 
     private void handleFlushDataBaseOnPosition(
         Position position,
-        long offset,
+        IntOffset offset,
         int consumerId,
         boolean stopAtCurrent,
         AtomicBoolean killSwitch,
         AtomicLong offsetTracker,
+        AtomicLong watermark,
         CountDownLatch latch,
         LogObserver observer) {
 
-
       AtomicLong restartedOffset = new AtomicLong();
-      AtomicLong watermark = new AtomicLong(Long.MIN_VALUE);
 
       BiConsumer<StreamElement, OffsetCommitter> consumer = (el, committer) -> {
         try {
@@ -371,7 +400,7 @@ public class InMemStorage implements DataAccessorFactory {
             killSwitch.compareAndSet(false,
                 !observer.onNext(
                     el,
-                    asOnNextContext(committer, new IntOffset(off), watermark::get)));
+                    asOnNextContext(committer, new IntOffset(off, watermark.get()))));
           }
         } catch (Exception ex) {
           observer.onError(ex);
@@ -390,7 +419,7 @@ public class InMemStorage implements DataAccessorFactory {
               .sorted((a, b) ->
                   Long.compare(a.getValue().getFirst(), b.getValue().getFirst()))
               .forEachOrdered(e -> {
-                if (restartedOffset.getAndIncrement() < offset) {
+                if (restartedOffset.getAndIncrement() < offset.getOffset()) {
                   return;
                 }
                 String[] parts = e.getKey().substring(prefixLength).split("#");
@@ -405,7 +434,7 @@ public class InMemStorage implements DataAccessorFactory {
                     getEntityDescriptor(), desc, UUID.randomUUID().toString(),
                     key, attribute, e.getValue().getFirst(), value);
                 consumer.accept(element, (succ, exc) -> {
-                  if (!succ) {
+                  if (!succ && exc != null) {
                     throw new IllegalStateException("Error in observing old data", exc);
                   }
                 });
@@ -897,10 +926,9 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   private static LogObserver.OnNextContext asOnNextContext(
-      LogObserver.OffsetCommitter committer, Offset offset,
-      WatermarkSupplier supplier) {
+      LogObserver.OffsetCommitter committer, Offset offset) {
 
-    return ObserverUtils.asOnNextContext(committer, offset, supplier);
+    return ObserverUtils.asOnNextContext(committer, offset);
   }
 
 }

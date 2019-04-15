@@ -32,15 +32,22 @@ class TopicOffset implements Offset {
   private final int partition;
   @Getter
   private final long offset;
+  @Getter
+  private final long watermark;
 
-  TopicOffset(int partition, long offset) {
+  TopicOffset(int partition, long offset, long watermark) {
     this.partition = partition;
     this.offset = offset;
+    this.watermark = watermark;
   }
 
   @Override
   public String toString() {
-    return "TopicOffset(partition=" + partition + ", offset=" + offset + ")";
+    return "TopicOffset("
+        + "partition=" + partition
+        + ", offset=" + offset
+        + ", watermark=" + watermark
+        + ")";
   }
 
   @Override
@@ -52,20 +59,21 @@ class TopicOffset implements Offset {
   public boolean equals(Object obj) {
     if (obj instanceof TopicOffset) {
       TopicOffset other = (TopicOffset) obj;
-      return other.partition == partition && other.offset == offset;
+      return other.partition == partition && other.offset == offset
+          && other.watermark == watermark;
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(partition, offset);
+    return Objects.hash(partition, offset, watermark);
   }
 
 
-  static List<TopicOffset> fromMap(Map<Integer, Long> offsetMap) {
+  static List<TopicOffset> fromMap(Map<Integer, Long> offsetMap, long watermark) {
     return offsetMap.entrySet().stream()
-        .map(e -> new TopicOffset(e.getKey(), e.getValue()))
+        .map(e -> new TopicOffset(e.getKey(), e.getValue(), watermark))
         .collect(Collectors.toList());
   }
 

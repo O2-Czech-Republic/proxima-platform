@@ -63,7 +63,7 @@ public class ListCommitLog implements CommitLogReader {
 
     @Override
     public List<Offset> getCommittedOffsets() {
-      return Arrays.asList((Offset) () -> PARTITION);
+      return Arrays.asList(new IntOffset(0L, Long.MIN_VALUE));
     }
 
     @Override
@@ -114,7 +114,7 @@ public class ListCommitLog implements CommitLogReader {
                 observer.onError(exc);
               }
             },
-            new IntOffset(offset))),
+            new IntOffset(offset, System.currentTimeMillis()))),
         observer::onCompleted);
     return new NopObserveHandle();
   }
@@ -140,7 +140,7 @@ public class ListCommitLog implements CommitLogReader {
                 observer.onError(exc);
               }
             },
-            new IntOffset(offset))),
+            new IntOffset(offset, System.currentTimeMillis()))),
         observer::onCompleted);
     return new NopObserveHandle();
   }
@@ -188,8 +188,7 @@ public class ListCommitLog implements CommitLogReader {
   private static LogObserver.OnNextContext asOnNextContext(
       LogObserver.OffsetCommitter offsetCommitter, Offset offset) {
 
-    return ObserverUtils.asOnNextContext(
-        offsetCommitter, offset, System::currentTimeMillis);
+    return ObserverUtils.asOnNextContext(offsetCommitter, offset);
   }
 
 

@@ -384,7 +384,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
             if (!seekOffsets.isEmpty()) {
               Utils.seekToOffsets(topic, offsets, kafka);
               consumer.onAssign(kafka, kafka.assignment().stream()
-                  .map(tp -> new TopicOffset(tp.partition(), kafka.position(tp)))
+                  .map(tp -> new TopicOffset(
+                      tp.partition(), kafka.position(tp), clock.get().getWatermark()))
                   .collect(Collectors.toList()));
               log.info("Seeked consumer to offsets {} as requested", seekOffsets);
               seekOffsets.clear();
@@ -656,7 +657,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   private static Collection<Offset> asOffsets(Collection<Partition> partitions) {
     if (partitions != null) {
       return partitions.stream()
-          .map(p -> new TopicOffset(p.getId(), -1))
+          .map(p -> new TopicOffset(p.getId(), -1, Long.MIN_VALUE))
           .collect(Collectors.toList());
     }
     return null;
@@ -730,7 +731,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               } else {
                 offset = c.position(tp);
               }
-              return new TopicOffset(tp.partition(), offset);
+              return new TopicOffset(tp.partition(), offset, clock.get().getWatermark());
             }).collect(Collectors.toList())));
       }
     };

@@ -75,6 +75,17 @@ class DirectUnboundedSource
       }
     }
 
+    @Override
+    public String toString() {
+      return "DirectUnboundedSource.Checkpoint("
+          + "offset=" + offset
+          + ", limit=" + limit
+          + ", committer=" + committer
+          + ")";
+    }
+
+
+
   }
 
   private final Repository repo;

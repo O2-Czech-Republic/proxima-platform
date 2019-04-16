@@ -86,9 +86,9 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       V initialValue,
       Closure<V> reducer) {
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<V> valueDehydrated = valueExtractor.dehydrate();
-    Closure<V> reducerDehydrated = reducer.dehydrate();
+    Closure<K> keyDehydrated = dehydrate(keyExtractor);
+    Closure<V> valueDehydrated = dehydrate(valueExtractor);
+    Closure<V> reducerDehydrated = dehydrate(reducer);
     return descendant(pipeline -> {
       Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
       Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
@@ -115,8 +115,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   public <K, V> WindowedStream<Pair<K, V>> reduce(
       Closure<K> keyExtractor, V initialValue, Closure<V> reducer) {
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<V> reducerDehydrated = reducer.dehydrate();
+    Closure<K> keyDehydrated = dehydrate(keyExtractor);
+    Closure<V> reducerDehydrated = dehydrate(reducer);
     return descendant(pipeline -> {
       Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
       Coder<V> valueCoder = coderOf(pipeline, reducerDehydrated);
@@ -155,8 +155,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       Closure<K> keyExtractor, Closure<Iterable<V>> listReduce) {
 
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<Iterable<V>> reducerDehydrated = listReduce.dehydrate();
+    Closure<K> keyDehydrated = dehydrate(keyExtractor);
+    Closure<Iterable<V>> reducerDehydrated = dehydrate(listReduce);
 
     return descendant(pipeline -> {
       final Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
@@ -235,9 +235,9 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       Closure<K> keyExtractor, Closure<V> valueExtractor,
       V initial, Closure<V> combine) {
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<V> valueDehydrated = valueExtractor.dehydrate();
-    Closure<V> combineDehydrated = combine.dehydrate();
+    Closure<K> keyDehydrated = dehydrate(keyExtractor);
+    Closure<V> valueDehydrated = dehydrate(valueExtractor);
+    Closure<V> combineDehydrated = dehydrate(combine);
 
     return descendant(pipeline -> {
       Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
@@ -263,8 +263,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       Closure<K> keyExtractor, T initial, Closure<T> combine) {
 
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<T> combineDehydrated = combine.dehydrate();
+    Closure<K> keyDehydrated = dehydrate(keyExtractor);
+    Closure<T> combineDehydrated = dehydrate(combine);
 
     return descendant(pipeline -> {
       Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
@@ -288,7 +288,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   public <K> WindowedStream<Pair<K, Long>> countByKey(
       Closure<K> keyExtractor) {
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
+    Closure<K> keyDehydrated = dehydrate(keyExtractor);
     return descendant(pipeline -> {
       Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
       Coder<Long> valueCoder = getCoder(pipeline, TypeDescriptors.longs());
@@ -309,7 +309,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   @Override
   public WindowedStream<Double> average(Closure<Double> valueExtractor) {
 
-    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
+    Closure<Double> valueDehydrated = dehydrate(valueExtractor);
     return descendant(pipeline -> {
       PCollection<KV<Double, Long>> intermediate = ReduceByKey
           .of(collection.materialize(pipeline))
@@ -339,8 +339,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   public <K> WindowedStream<Pair<K, Double>> averageByKey(
       Closure<K> keyExtractor, Closure<Double> valueExtractor) {
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
+    Closure<K> keyDehydrated = dehydrate(keyExtractor);
+    Closure<Double> valueDehydrated = dehydrate(valueExtractor);
 
     return descendant(pipeline -> {
       Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
@@ -377,8 +377,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       WindowedStream<OTHER> right, Closure<K> leftKey,
       Closure<K> rightKey) {
 
-    Closure<K> leftKeyDehydrated = leftKey.dehydrate();
-    Closure<K> rightKeyDehydrated = rightKey.dehydrate();
+    Closure<K> leftKeyDehydrated = dehydrate(leftKey);
+    Closure<K> rightKeyDehydrated = dehydrate(rightKey);
     return descendant(
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, leftKey);
@@ -403,8 +403,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       WindowedStream<RIGHT> right, Closure<K> leftKey,
       Closure<K> rightKey) {
 
-    Closure<K> leftKeyDehydrated = leftKey.dehydrate();
-    Closure<K> rightKeyDehydrated = rightKey.dehydrate();
+    Closure<K> leftKeyDehydrated = dehydrate(leftKey);
+    Closure<K> rightKeyDehydrated = dehydrate(rightKey);
 
     return descendant(
         pipeline -> {
@@ -427,7 +427,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @Override
   public WindowedStream<T> sorted(Closure<Integer> compareFn) {
-    Closure<Integer> dehydrated = compareFn.dehydrate();
+    Closure<Integer> dehydrated = dehydrate(compareFn);
     return descendant(pipeline -> {
       PCollection<T> in = collection.materialize(pipeline);
       return ReduceByKey
@@ -480,7 +480,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @Override
   public WindowedStream<Double> sum(Closure<Double> valueExtractor) {
-    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
+    Closure<Double> valueDehydrated = dehydrate(valueExtractor);
     return descendant(pipeline ->
         ReduceByKey
             .of(collection.materialize(pipeline))
@@ -498,8 +498,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   public <K> WindowedStream<Pair<K, Double>> sumByKey(
       Closure<K> keyExtractor, Closure<Double> valueExtractor) {
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
+    Closure<K> keyDehydrated = dehydrate(keyExtractor);
+    Closure<Double> valueDehydrated = dehydrate(valueExtractor);
     return descendant(pipeline -> {
       Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
       Coder<Double> valueCoder = getCoder(pipeline, TypeDescriptors.doubles());
@@ -554,7 +554,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   @SuppressWarnings("unchecked")
   @Override
   public WindowedStream<T> distinct(Closure<?> mapper) {
-    Closure<Object> dehydrated = (Closure) mapper.dehydrate();
+    Closure<Object> dehydrated = (Closure) dehydrate(mapper);
     return descendant(pipeline -> {
       Coder<Object> keyCoder = (Coder) coderOf(pipeline, mapper);
       PCollection<T> in = collection.materialize(pipeline);

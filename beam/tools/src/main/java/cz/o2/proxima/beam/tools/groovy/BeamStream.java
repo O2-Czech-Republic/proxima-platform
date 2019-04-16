@@ -200,7 +200,7 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public <X> Stream<X> map(Closure<X> mapper) {
-    Closure<X> dehydrated = mapper.dehydrate();
+    Closure<X> dehydrated = dehydrate(mapper);
     return descendant(
         pipeline -> {
           Coder<X> coder = coderOf(pipeline, dehydrated);
@@ -214,7 +214,7 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public Stream<T> filter(Closure<Boolean> predicate) {
-    Closure<Boolean> dehydrated = predicate.dehydrate();
+    Closure<Boolean> dehydrated = dehydrate(predicate);
     return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
@@ -228,7 +228,7 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public Stream<T> assignEventTime(Closure<Long> assigner) {
-    Closure<Long> dehydrated = assigner.dehydrate();
+    Closure<Long> dehydrated = dehydrate(assigner);
     return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
@@ -369,10 +369,10 @@ class BeamStream<T> implements Stream<T> {
       Closure<V> valueExtractor, Closure<Long> timeExtractor) {
 
     Repository repo = repoProvider.getRepo();
-    Closure<String> keyDehydrated = keyExtractor.dehydrate();
-    Closure<String> attributeDehydrated = attributeExtractor.dehydrate();
-    Closure<V> valueDehydrated = valueExtractor.dehydrate();
-    Closure<Long> timeDehydrated = timeExtractor.dehydrate();
+    Closure<String> keyDehydrated = dehydrate(keyExtractor);
+    Closure<String> attributeDehydrated = dehydrate(attributeExtractor);
+    Closure<V> valueDehydrated = dehydrate(valueExtractor);
+    Closure<Long> timeDehydrated = dehydrate(timeExtractor);
 
     return descendant(pipeline -> MapElements
         .of(collection.materialize(pipeline))
@@ -455,7 +455,7 @@ class BeamStream<T> implements Stream<T> {
   public <K> WindowedStream<Pair<K, T>> sessionWindow(
       Closure<K> keyExtractor, long gapDuration) {
 
-    Closure<K> dehydrated = keyExtractor.dehydrate();
+    Closure<K> dehydrated = dehydrate(keyExtractor);
 
     return windowed(
         pipeline -> {
@@ -751,6 +751,13 @@ class BeamStream<T> implements Stream<T> {
       stop();
     }
 
+  }
+
+  <X> Closure<X> dehydrate(Closure<X> closure) {
+    if (closure.getOwner() instanceof Serializable) {
+      return closure;
+    }
+    return closure.dehydrate();
   }
 
 }

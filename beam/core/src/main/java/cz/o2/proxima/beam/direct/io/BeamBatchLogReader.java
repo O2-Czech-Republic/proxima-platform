@@ -26,6 +26,7 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.io.BoundedSource.BoundedReader;
+import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.joda.time.Instant;
 
 /**
@@ -33,8 +34,8 @@ import org.joda.time.Instant;
  */
 class BeamBatchLogReader extends BoundedReader<StreamElement> {
 
-  private static final Instant LOWEST_INSTANT = new Instant(Long.MIN_VALUE);
-  private static final Instant HIGHEST_INSTANT = new Instant(Long.MAX_VALUE);
+  private static final Instant LOWEST_INSTANT = BoundedWindow.TIMESTAMP_MIN_VALUE;
+  private static final Instant HIGHEST_INSTANT = BoundedWindow.TIMESTAMP_MAX_VALUE;
 
   static BeamBatchLogReader of(
       DirectBatchSource source,
@@ -82,34 +83,33 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
 
   @Override
   public boolean start() throws IOException {
-    this.observer = BlockingQueueLogObserver.create();
+    this.observer = BlockingQueueLogObserver.create(LOWEST_INSTANT.getMillis());
     reader.observe(Arrays.asList(split), attrs, observer);
     return advance();
   }
 
   @Override
   public boolean advance() throws IOException {
-    try {
-      for (;;) {
-        current = observer.take();
-        if (current != null
-            && (current.getStamp() < startStamp || current.getStamp() >= endStamp)) {
-
-          current = null;
-        } else {
+    for (;;) {
+      try {
+        current = observer.takeBlocking();
+        if (current == null || current.getStamp() >= startStamp
+            && current.getStamp() < endStamp) {
           break;
         }
+      } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+        close();
+        return false;
       }
-      if (observer.getError() != null) {
-        throw new IOException(observer.getError());
-      }
-      if (current != null) {
-        return true;
-      }
-      finished = true;
-    } catch (InterruptedException ex) {
-      Thread.currentThread().interrupt();
     }
+    if (observer.getError() != null) {
+      throw new IOException(observer.getError());
+    }
+    if (current != null) {
+      return true;
+    }
+    finished = true;
     return false;
   }
 
@@ -123,9 +123,9 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
 
   @Override
   public void close() throws IOException {
-    // nop?
     // missing observe handle in observing batch log
     // @todo
+    observer.stop();
   }
 
   @Override

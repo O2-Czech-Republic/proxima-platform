@@ -21,8 +21,10 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -37,18 +39,19 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
-  static BlockingQueueLogObserver create() {
-    return create(null, Long.MAX_VALUE);
+  static BlockingQueueLogObserver create(long startingWatermark) {
+    return create(null, Long.MAX_VALUE, startingWatermark);
   }
 
-  static BlockingQueueLogObserver create(String name, long limit) {
-    return new BlockingQueueLogObserver(name, limit);
+  static BlockingQueueLogObserver create(
+      String name, long limit, long startingWatermark) {
+    return new BlockingQueueLogObserver(name, limit, startingWatermark);
   }
 
   @Nullable
   private final String name;
   private final AtomicReference<Throwable> error = new AtomicReference<>();
-  private final AtomicLong watermark = new AtomicLong(Long.MIN_VALUE);
+  private final AtomicLong watermark;
   private final BlockingQueue<Pair<StreamElement, OnNextContext>> queue;
   AtomicBoolean stopped = new AtomicBoolean();
   @Getter
@@ -56,10 +59,14 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   private OnNextContext lastContext;
   private long limit;
 
-  private BlockingQueueLogObserver(String name, long limit) {
+  private BlockingQueueLogObserver(
+      String name, long limit, long startingWatermark) {
+
     this.name = name;
+    this.watermark = new AtomicLong(startingWatermark);
     this.limit = limit;
-    queue = new SynchronousQueue<>();
+    //queue = new SynchronousQueue<>();
+    queue = new ArrayBlockingQueue<>(100);
   }
 
   @Override
@@ -129,48 +136,40 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     watermark.set(context.getWatermark());
   }
 
+  /**
+   * Take next element without blocking.
+   * @return {@code} element that was taken without blocking or {@code null}
+   * otherwise
+   */
   @Nullable
-  StreamElement take() throws InterruptedException {
+  StreamElement take() {
     Pair<StreamElement, OnNextContext> taken = null;
-    while (!stopped.get()) {
-      taken = queue.poll(50, TimeUnit.MILLISECONDS);
-      if (taken != null) {
-        break;
-      }
+    if (!stopped.get()) {
+      taken = queue.poll();
     }
+    return consumeTaken(taken);
+  }
+
+  /**
+   * Take next element waiting for input if necessary.
+   * @return {@code} element that was taken or {@code null} on end of input
+   */
+  @Nullable
+  StreamElement takeBlocking() throws InterruptedException {
+    Pair<StreamElement, OnNextContext> taken = null;
+    if (!stopped.get()) {
+      taken = queue.take();
+    }
+    return consumeTaken(taken);
+  }
+
+  private StreamElement consumeTaken(Pair<StreamElement, OnNextContext> taken) {
     if (taken != null && taken.getFirst() != null) {
       lastContext = taken.getSecond();
       return taken.getFirst();
     }
     return null;
   }
-
-
-  /**
-   * Take next element waiting for timeout milliseconds at most.
-   * @param timeout the timeout
-   * @param collector collector to receive the element if present until timeout
-   * @return {@code} true if any data was collected (note that is doesn't mean
-   * that collector.get() will return non-null, null value would mean end of stream
-   * in that case)
-   * @throws InterruptedException when interrupted
-   */
-  boolean take(long timeout, AtomicReference<StreamElement> collector)
-      throws InterruptedException {
-
-    final Pair<StreamElement, OnNextContext> taken;
-    if (stopped.get()) {
-      return true;
-    }
-    taken = queue.poll(timeout, TimeUnit.MILLISECONDS);
-    if (taken != null && taken.getFirst() != null) {
-      lastContext = taken.getSecond();
-      collector.set(taken.getFirst());
-      return true;
-    }
-    return taken != null;
-  }
-
 
   @Nullable
   Throwable getError() {
@@ -183,6 +182,9 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   void stop() {
     stopped.set(true);
+    List<Pair<StreamElement, OnNextContext>> drop = new ArrayList<>();
+    queue.drainTo(drop);
+    drop.forEach(p -> p.getSecond().nack());
   }
 
 }

@@ -28,7 +28,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +35,7 @@ import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.io.BoundedSource.BoundedReader;
 import org.apache.beam.sdk.io.Source.Reader;
 import org.apache.beam.sdk.io.UnboundedSource.UnboundedReader;
+import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.joda.time.Instant;
 
 /**
@@ -44,7 +44,8 @@ import org.joda.time.Instant;
 @Slf4j
 class BeamCommitLogReader {
 
-  private static final Instant HIGHEST_INSTANT = new Instant(Long.MAX_VALUE);
+  private static final Instant LOWEST_INSTANT = BoundedWindow.TIMESTAMP_MIN_VALUE;
+  private static final Instant HIGHEST_INSTANT = BoundedWindow.TIMESTAMP_MAX_VALUE;
   private static final byte[] EMPTY_BYTES = new byte[] { };
   // FIXME: configuration
   private static final long AUTO_WATERMARK_LAG_MS = 500;
@@ -108,10 +109,11 @@ class BeamCommitLogReader {
 
     @Override
     public DirectUnboundedSource.Checkpoint getCheckpointMark() {
-      return new DirectUnboundedSource.Checkpoint(
+      DirectUnboundedSource.Checkpoint ret = new DirectUnboundedSource.Checkpoint(
           reader.getCurrentOffset(),
           reader.getLimit(),
           reader.hasExternalizableOffsets() ? null : reader.getLastCommitter());
+      return ret;
     }
 
     @Override
@@ -216,15 +218,16 @@ class BeamCommitLogReader {
   private final Position position;
   private final boolean eventTime;
   private final boolean stopAtCurrent;
-  private boolean finished = false;
+  private boolean finished;
   @Getter
   private long limit;
   @Nullable
   private final Offset offset;
+  private final long offsetWatermark;
+  @Nullable
   private BlockingQueueLogObserver observer;
   private StreamElement current;
   private Instant currentProcessingTime = Instant.now();
-  private long maxTimestamp = Long.MIN_VALUE;
 
   private BeamCommitLogReader(
       String name, CommitLogReader reader, Position position, boolean eventTime,
@@ -237,8 +240,12 @@ class BeamCommitLogReader {
     this.eventTime = eventTime;
     this.partition = partition;
     this.offset = offset;
+    this.offsetWatermark = offset == null
+        ? LOWEST_INSTANT.getMillis()
+        : offset.getWatermark();
     this.limit = limit;
     this.stopAtCurrent = stopAtCurrent;
+    this.finished = limit <= 0;
 
     Preconditions.checkArgument(
         partition != null || offset != null,
@@ -254,45 +261,55 @@ class BeamCommitLogReader {
   }
 
   public boolean start() throws IOException {
-    this.observer = BlockingQueueLogObserver.create(name, limit);
-    if (offset != null) {
-      this.handle = reader.observeBulkOffsets(Arrays.asList(offset), observer);
-    } else {
-      this.handle = reader.observeBulkPartitions(
-          name, Arrays.asList(partition),
-          position, stopAtCurrent, observer);
+    this.observer = BlockingQueueLogObserver.create(name, limit, offsetWatermark);
+    if (!finished) {
+      if (offset != null) {
+        this.handle = reader.observeBulkOffsets(Arrays.asList(offset), observer);
+      } else {
+        this.handle = reader.observeBulkPartitions(
+            name, Arrays.asList(partition),
+            position, stopAtCurrent, observer);
+      }
     }
     return advance();
   }
 
   public boolean advance() throws IOException {
-    try {
-      if (!finished) {
-        AtomicReference<StreamElement> collector = new AtomicReference<>();
-        boolean next = limit-- <= 0L || observer.take(AUTO_WATERMARK_LAG_MS, collector);
-        if (!next) {
-          return false;
+    if (!finished) {
+      try {
+        if (limit > 0) {
+          current = takeNext();
+          if (current == null) {
+            return false;
+          }
+        } else {
+          current = null;
         }
-        current = collector.getAndSet(null);
+        limit--;
         if (current != null) {
           if (!eventTime) {
             currentProcessingTime = Instant.now();
           }
-          if (maxTimestamp < current.getStamp()) {
-            maxTimestamp = current.getStamp();
-          }
           return true;
         }
+      } catch (InterruptedException ex) {
+        Thread.currentThread().interrupt();
+        return false;
       }
-      Throwable error = observer.getError();
-      if (error != null) {
-        throw new IOException(error);
-      }
-    } catch (InterruptedException ex) {
-      Thread.currentThread().interrupt();
+    }
+    Throwable error = observer.getError();
+    if (error != null) {
+      throw new IOException(error);
     }
     finished = true;
     return false;
+  }
+
+  private StreamElement takeNext() throws InterruptedException {
+    if (stopAtCurrent) {
+      return observer.takeBlocking();
+    }
+    return observer.take();
   }
 
   public Instant getCurrentTimestamp() {
@@ -322,7 +339,7 @@ class BeamCommitLogReader {
   }
 
   private @Nullable Offset getCurrentOffset() {
-    return observer.getLastContext() == null
+    return observer == null || observer.getLastContext() == null
         ? null
         : observer.getLastContext().getOffset();
   }
@@ -332,7 +349,7 @@ class BeamCommitLogReader {
   }
 
   private @Nullable OffsetCommitter getLastCommitter() {
-    return observer.getLastContext();
+    return observer == null ? null : observer.getLastContext();
   }
 
   private Instant getWatermark() {
@@ -342,7 +359,7 @@ class BeamCommitLogReader {
     if (eventTime) {
       return new Instant(observer.getWatermark());
     }
-    return Instant.now();
+    return new Instant(System.currentTimeMillis() - AUTO_WATERMARK_LAG_MS);
   }
 
 }

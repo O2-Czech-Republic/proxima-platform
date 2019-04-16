@@ -33,6 +33,7 @@ public interface Offset extends Serializable {
 
   /**
    * Retrieve watermark associated with this offset.
+   * @return watermark associated with this offset
    */
   long getWatermark();
 

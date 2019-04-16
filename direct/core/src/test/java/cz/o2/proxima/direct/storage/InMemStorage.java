@@ -83,6 +83,8 @@ public class InMemStorage implements DataAccessorFactory {
 
   private static final Partition PARTITION = () -> 0;
 
+  private static long BOUNDED_OUT_OF_ORDERNESS = 5000;
+
   static class IntOffset implements Offset {
 
     @Getter
@@ -396,11 +398,12 @@ public class InMemStorage implements DataAccessorFactory {
             el = cloneAndUpdateAttribute(getEntityDescriptor(), el);
             long stamp = el.getStamp();
             long off = offsetTracker.incrementAndGet();
-            watermark.getAndUpdate(current -> Math.max(current, stamp));
+            long w = watermark.updateAndGet(current -> Math.max(
+                current, stamp - BOUNDED_OUT_OF_ORDERNESS));
             killSwitch.compareAndSet(false,
                 !observer.onNext(
                     el,
-                    asOnNextContext(committer, new IntOffset(off, watermark.get()))));
+                    asOnNextContext(committer, new IntOffset(off, w))));
           }
         } catch (Exception ex) {
           observer.onError(ex);

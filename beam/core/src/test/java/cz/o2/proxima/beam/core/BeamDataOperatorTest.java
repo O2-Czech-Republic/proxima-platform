@@ -59,7 +59,7 @@ public class BeamDataOperatorTest {
   long now;
 
   @Before
-  public void setUp() {
+  public synchronized void setUp() {
     beam = repo.asDataOperator(BeamDataOperator.class);
     direct = beam.getDirect();
     pipeline = Pipeline.create();
@@ -68,7 +68,7 @@ public class BeamDataOperatorTest {
 
   @SuppressWarnings("unchecked")
   @Test(timeout = 60000)
-  public void testBoundedCommitLogConsumption() {
+  public synchronized void testBoundedCommitLogConsumption() {
     direct.getWriter(armed)
         .orElseThrow(() -> new IllegalStateException("Missing writer for armed"))
         .write(StreamElement.update(gateway, armed, "uuid", "key", armed.getName(),
@@ -84,7 +84,7 @@ public class BeamDataOperatorTest {
 
   @SuppressWarnings("unchecked")
   @Test(timeout = 60000)
-  public void testBoundedCommitLogConsumptionWithWindow() {
+  public synchronized void testBoundedCommitLogConsumptionWithWindow() {
     OnlineAttributeWriter writer = direct.getWriter(armed)
         .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
 
@@ -112,7 +112,7 @@ public class BeamDataOperatorTest {
 
   @SuppressWarnings("unchecked")
   @Test(timeout = 60000)
-  public void testUnboundedCommitLogConsumptionWithWindow() {
+  public synchronized void testUnboundedCommitLogConsumptionWithWindow() {
     OnlineAttributeWriter writer = direct.getWriter(armed)
         .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
 
@@ -131,15 +131,15 @@ public class BeamDataOperatorTest {
         .windowBy(FixedWindows.of(Duration.millis(1000)))
         .triggeredBy(AfterWatermark.pastEndOfWindow())
         .discardingFiredPanes()
-        .withAllowedLateness(Duration.ZERO)
+        .withAllowedLateness(Duration.millis(10000))
         .output();
 
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L), KV.of("", 1L));
     pipeline.run();
   }
 
-  @Test(timeout = 60000)
-  public void testUnboundedCommitLogConsumptionWithWindowMany() {
+  @Test(timeout = 30000)
+  public synchronized void testUnboundedCommitLogConsumptionWithWindowMany() {
     for (int round = 0; round < 10; round++) {
       setUp();
       final long elements = 99L;
@@ -152,21 +152,21 @@ public class BeamDataOperatorTest {
     }
   }
 
-  @Test(timeout = 60000)
-  public void testBatchUpdatesConsumptionWithWindowMany() {
+  @Test(timeout = 5000)
+  public synchronized void testBatchUpdatesConsumptionWithWindowMany() {
     validatePCollectionWindowedRead(
         () -> beam.getBatchUpdates(pipeline, armed), 99L);
   }
 
-  @Test(timeout = 60000)
-  public void testBatchSnapshotConsumptionWithWindowMany() {
+  @Test(timeout = 5000)
+  public synchronized void testBatchSnapshotConsumptionWithWindowMany() {
     validatePCollectionWindowedRead(
         () -> beam.getBatchSnapshot(pipeline, armed), 99L);
   }
 
   @SuppressWarnings("unchecked")
   @Test(timeout = 60000)
-  public void testBoundedCommitLogConsumptionFromProxy() {
+  public synchronized void testBoundedCommitLogConsumptionFromProxy() {
     direct.getWriter(event)
         .orElseThrow(() -> new IllegalStateException("Missing writer for event"))
         .write(StreamElement.update(gateway, event, "uuid", "key",
@@ -185,7 +185,7 @@ public class BeamDataOperatorTest {
   }
 
   @SuppressWarnings("unchecked")
-  private void validatePCollectionWindowedRead(
+  private synchronized void validatePCollectionWindowedRead(
       Factory<PCollection<StreamElement>> input, long elements) {
 
     OnlineAttributeWriter writer = direct
@@ -207,7 +207,7 @@ public class BeamDataOperatorTest {
         .windowBy(Sessions.withGapDuration(Duration.millis(1000)))
         .triggeredBy(AfterWatermark.pastEndOfWindow())
         .discardingFiredPanes()
-        .withAllowedLateness(Duration.millis(1000))
+        .withAllowedLateness(Duration.millis(10000))
         .output();
 
     PAssert.that(counted).containsInAnyOrder(KV.of("", elements), KV.of("", 1L));

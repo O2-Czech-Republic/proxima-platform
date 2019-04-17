@@ -61,17 +61,33 @@ class DirectUnboundedSource
     private final long limit;
     @Nullable
     private final transient OffsetCommitter committer;
+    @Nullable
+    private final transient OffsetCommitter nackCommitter;
+    @Nullable
+    private final transient BeamCommitLogReader reader;
 
-    Checkpoint(Offset offset, long limit, OffsetCommitter committer) {
-      this.offset = offset;
-      this.limit = limit;
-      this.committer = committer;
+    Checkpoint(BeamCommitLogReader reader) {
+      this.offset = reader.getCurrentOffset();
+      this.limit = reader.getLimit();
+      this.committer = reader.hasExternalizableOffsets()
+          ? null : reader.getLastReadCommitter();
+      this.nackCommitter = reader.hasExternalizableOffsets()
+          ? null : reader.getLastWrittenCommitter();
+      this.reader = reader;
     }
 
     @Override
     public void finalizeCheckpoint() throws IOException {
       if (committer != null) {
         committer.confirm();
+      }
+      if (nackCommitter != null) {
+        // return any possibly uncommitted, but already read data back to
+        // commit log reader
+        nackCommitter.nack();
+      }
+      if (reader != null && !reader.hasExternalizableOffsets()) {
+        reader.clearIncomingQueue();
       }
     }
 
@@ -81,6 +97,7 @@ class DirectUnboundedSource
           + "offset=" + offset
           + ", limit=" + limit
           + ", committer=" + committer
+          + ", nackCommitter=" + nackCommitter
           + ")";
     }
 
@@ -150,7 +167,7 @@ class DirectUnboundedSource
   @Override
   public Coder<Checkpoint> getCheckpointMarkCoder() {
     return KryoCoder.of(kryo ->
-      kryo.addDefaultSerializer(Serializable.class, new JavaSerializer()));
+      kryo.addDefaultSerializer(Checkpoint.class, new JavaSerializer()));
   }
 
   @Override

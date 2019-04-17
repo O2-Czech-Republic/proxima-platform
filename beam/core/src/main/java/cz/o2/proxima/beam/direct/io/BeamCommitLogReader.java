@@ -110,9 +110,7 @@ class BeamCommitLogReader {
     @Override
     public DirectUnboundedSource.Checkpoint getCheckpointMark() {
       DirectUnboundedSource.Checkpoint ret = new DirectUnboundedSource.Checkpoint(
-          reader.getCurrentOffset(),
-          reader.getLimit(),
-          reader.hasExternalizableOffsets() ? null : reader.getLastCommitter());
+          reader);
       return ret;
     }
 
@@ -335,21 +333,32 @@ class BeamCommitLogReader {
       handle.cancel();
       handle = null;
     }
+    if (observer.getLastWrittenContext() != null) {
+      observer.getLastWrittenContext().nack();
+    }
     reader.close();
   }
 
-  private @Nullable Offset getCurrentOffset() {
-    return observer == null || observer.getLastContext() == null
+  @Nullable Offset getCurrentOffset() {
+    return observer == null || observer.getLastReadContext() == null
         ? null
-        : observer.getLastContext().getOffset();
+        : observer.getLastReadContext().getOffset();
   }
 
-  private boolean hasExternalizableOffsets() {
+  boolean hasExternalizableOffsets() {
     return reader.hasExternalizableOffsets();
   }
 
-  private @Nullable OffsetCommitter getLastCommitter() {
-    return observer == null ? null : observer.getLastContext();
+  @Nullable OffsetCommitter getLastReadCommitter() {
+    return observer == null ? null : observer.getLastReadContext();
+  }
+
+  @Nullable OffsetCommitter getLastWrittenCommitter() {
+    return observer == null ? null : observer.getLastWrittenContext();
+  }
+
+  void clearIncomingQueue() {
+    observer.clearIncomingQueue();
   }
 
   private Instant getWatermark() {

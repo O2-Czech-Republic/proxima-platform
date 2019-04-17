@@ -464,6 +464,11 @@ public class InMemStorage implements DataAccessorFactory {
       }
     }
 
+    @Override
+    public boolean hasExternalizableOffsets() {
+      return true;
+    }
+
   }
 
   private final class Reader

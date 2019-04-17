@@ -56,7 +56,10 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   AtomicBoolean stopped = new AtomicBoolean();
   @Getter
   @Nullable
-  private OnNextContext lastContext;
+  private OnNextContext lastWrittenContext;
+  @Getter
+  @Nullable
+  private OnNextContext lastReadContext;
   private long limit;
 
   private BlockingQueueLogObserver(
@@ -93,6 +96,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   private boolean enqueue(StreamElement element, OnNextContext context) {
     try {
+      lastWrittenContext = context;
       if (limit-- > 0) {
         return putToQueue(element, context);
       }
@@ -165,7 +169,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   private StreamElement consumeTaken(Pair<StreamElement, OnNextContext> taken) {
     if (taken != null && taken.getFirst() != null) {
-      lastContext = taken.getSecond();
+      lastReadContext = taken.getSecond();
       return taken.getFirst();
     }
     return null;
@@ -185,6 +189,10 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     List<Pair<StreamElement, OnNextContext>> drop = new ArrayList<>();
     queue.drainTo(drop);
     drop.forEach(p -> p.getSecond().nack());
+  }
+
+  void clearIncomingQueue() {
+    queue.clear();
   }
 
 }

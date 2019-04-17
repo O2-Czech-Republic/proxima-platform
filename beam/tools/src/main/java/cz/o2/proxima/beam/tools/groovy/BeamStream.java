@@ -261,45 +261,60 @@ class BeamStream<T> implements Stream<T> {
   }
 
   private void forEach(Consumer<T> consumer) {
+    forEach(consumer, true);
+  }
+
+  private void forEach(Consumer<T> consumer, boolean gatherLocally) {
     Pipeline pipeline = createPipeline();
     PCollection<T> pcoll = collection.materialize(pipeline);
-    try (RemoteConsumer<T> remoteConsumer = createRemoteConsumer(pcoll, consumer)) {
-      pcoll.apply(asWriteTransform(asDoFn(remoteConsumer::add)));
-      AtomicReference<PipelineResult> result = new AtomicReference<>();
-      CountDownLatch latch = new CountDownLatch(1);
-      Thread running = runThread("pipeline-start-thread", () -> {
-        try {
-          log.debug("Running pipeline with class loader {}, pipeline classloader {}",
-              Thread.currentThread().getContextClassLoader(),
-              pipeline.getClass().getClassLoader());
-          result.set(pipeline.run());
-          result.get().waitUntilFinish();
-        } catch (Exception ex) {
-          if (!(ex.getCause() instanceof InterruptedException)) {
-            throw ex;
-          } else {
-            log.debug("Swallowing interrupted exception.", ex);
-          }
-        } finally {
-          latch.countDown();
-        }
-      });
-      AtomicBoolean watchTerminating = new AtomicBoolean();
-      AtomicBoolean gracefulExit = new AtomicBoolean();
-      Thread watch = runWatchThread(() -> {
-        watchTerminating.set(true);
-        if (!gracefulExit.get()) {
-          cancelIfResultExists(result);
-          running.interrupt();
-          ExceptionUtils.unchecked(latch::await);
-          cancelIfResultExists(result);
-        }
-      });
-      ExceptionUtils.unchecked(latch::await);
-      gracefulExit.set(true);
-      if (!watchTerminating.get()) {
-        watch.interrupt();
+    if (gatherLocally) {
+      try (RemoteConsumer<T> remoteConsumer = createRemoteConsumer(
+          pcoll.getCoder(), consumer)) {
+        forEachRemote(pcoll, remoteConsumer::add, pipeline);
       }
+    } else {
+      forEachRemote(pcoll, consumer, pipeline);
+    }
+  }
+
+  private void forEachRemote(
+      PCollection<T> pcoll, Consumer<T> consumer, Pipeline pipeline) {
+
+    pcoll.apply(asWriteTransform(asDoFn(consumer)));
+    AtomicReference<PipelineResult> result = new AtomicReference<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    Thread running = runThread("pipeline-start-thread", () -> {
+      try {
+        log.debug("Running pipeline with class loader {}, pipeline classloader {}",
+            Thread.currentThread().getContextClassLoader(),
+            pipeline.getClass().getClassLoader());
+        result.set(pipeline.run());
+        result.get().waitUntilFinish();
+      } catch (Exception ex) {
+        if (!(ex.getCause() instanceof InterruptedException)) {
+          throw ex;
+        } else {
+          log.debug("Swallowing interrupted exception.", ex);
+        }
+      } finally {
+        latch.countDown();
+      }
+    });
+    AtomicBoolean watchTerminating = new AtomicBoolean();
+    AtomicBoolean gracefulExit = new AtomicBoolean();
+    Thread watch = runWatchThread(() -> {
+      watchTerminating.set(true);
+      if (!gracefulExit.get()) {
+        cancelIfResultExists(result);
+        running.interrupt();
+        ExceptionUtils.unchecked(latch::await);
+        cancelIfResultExists(result);
+      }
+    });
+    ExceptionUtils.unchecked(latch::await);
+    gracefulExit.set(true);
+    if (!watchTerminating.get()) {
+      watch.interrupt();
     }
   }
 
@@ -413,7 +428,6 @@ class BeamStream<T> implements Stream<T> {
 
     @SuppressWarnings("unchecked")
     BeamStream<StreamElement> elements = (BeamStream<StreamElement>) this;
-
     elements.forEach(el -> {
       CountDownLatch latch = new CountDownLatch(1);
       AtomicReference<Throwable> err = new AtomicReference<>();
@@ -548,11 +562,11 @@ class BeamStream<T> implements Stream<T> {
   }
 
   private <T> RemoteConsumer<T> createRemoteConsumer(
-      PCollection<T> collection, Consumer<T> consumer) {
+      Coder<T> coder, Consumer<T> consumer) {
 
     return RemoteConsumer.create(
         this, config.getCollectHostname(),
-        config.getPreferredCollectPort(), consumer, collection);
+        config.getPreferredCollectPort(), consumer, coder);
   }
 
   private static class ConsumeFn<T> extends DoFn<T, Void> {
@@ -640,7 +654,7 @@ class BeamStream<T> implements Stream<T> {
 
     private static <T> RemoteConsumer<T> create(
         Object seed, String hostname, int preferredPort,
-        Consumer<T> consumer, PCollection<T> collection) {
+        Consumer<T> consumer, Coder<T> coder) {
 
       int retries = 3;
       while (retries > 0) {
@@ -648,8 +662,6 @@ class BeamStream<T> implements Stream<T> {
         int port = getPort(preferredPort, System.identityHashCode(seed));
         try {
           // start HTTP server and store host and port
-
-          Coder<T> coder = collection.getCoder();
           RemoteConsumer<T> ret = new RemoteConsumer<>(hostname, port, consumer, coder);
           ret.start();
           return ret;

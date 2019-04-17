@@ -60,7 +60,12 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
   @Getter
   private final long watermarkEstimateDuration;
 
-  PubSubAccessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
+  PubSubAccessor(
+      PubSubStorage storage,
+      EntityDescriptor entity,
+      URI uri,
+      Map<String, Object> cfg) {
+
     super(entity, uri);
     project = uri.getAuthority();
     topic = UriUtil.getPathNormalized(uri);
@@ -68,22 +73,24 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
         .ofNullable(cfg.get(CFG_MAX_ACK_DEADLINE))
         .map(Object::toString)
         .map(Integer::valueOf)
-        .orElse(60000);
+        .orElse((int) storage.getDefaultMaxAckDeadlineMs());
     subscriptionAutoCreate = Optional
         .ofNullable(cfg.get(CFG_SUBSCRIPTION_AUTOCREATE))
         .map(Object::toString)
         .map(Boolean::valueOf)
-        .orElse(true);
+        .orElse(storage.isDefaultSubscriptionAutoCreate());
     subscriptionAckDeadline = Optional
         .ofNullable(cfg.get(CFG_SUBSCRIPTION_ACK_DEADLINE))
         .map(Object::toString)
         .map(Integer::valueOf)
-        .orElse(600);
+        .orElse(storage.getDefaultSubscriptionAckDeadlineSeconds());
     watermarkEstimateDuration = Optional
         .ofNullable(cfg.get(CFG_WATERMARK_ESTIMATE_DURATION))
         .map(Object::toString)
         .map(Integer::valueOf)
-        .orElse(subscriptionAckDeadline * 1000);
+        .orElse(storage.getDefaultWatermarkEstimateDuration() == null
+            ? subscriptionAckDeadline * 1000
+            : (int) storage.getDefaultWatermarkEstimateDuration());
 
     Preconditions.checkArgument(
         !Strings.isNullOrEmpty(project), "Authority cannot be empty");

@@ -65,6 +65,7 @@ public class PubSubWriterTest {
   private final AttributeDescriptorImpl<?> attr;
   private final AttributeDescriptorImpl<?> wildcard;
   private final EntityDescriptor entity;
+  private final PubSubStorage storage = new PubSubStorage();
   private final PubSubAccessor accessor;
   private TestPubSubWriter writer;
 
@@ -109,7 +110,8 @@ public class PubSubWriterTest {
         .build();
     assertTrue(entity.findAttribute("attr").isPresent());
     this.accessor = new PubSubAccessor(
-        entity, new URI("gps://my-project/topic"), Collections.emptyMap());
+        storage, entity, new URI("gps://my-project/topic"),
+        Collections.emptyMap());
   }
 
   @Before

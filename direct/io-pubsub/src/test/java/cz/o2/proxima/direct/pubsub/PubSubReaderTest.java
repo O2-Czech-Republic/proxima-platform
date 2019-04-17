@@ -75,6 +75,7 @@ public class PubSubReaderTest {
   private final AttributeDescriptorImpl<?> attr;
   private final AttributeDescriptorImpl<?> wildcard;
   private final EntityDescriptor entity;
+  private final PubSubStorage storage = new PubSubStorage();
   private final PubSubAccessor accessor;
   private final AtomicLong timestampSupplier = new AtomicLong();
   private TestPubSubReader reader;
@@ -131,7 +132,7 @@ public class PubSubReaderTest {
         .build();
     assertTrue(entity.findAttribute("attr").isPresent());
     this.accessor = new PubSubAccessor(
-        entity, new URI("gps://my-project/topic"), Collections.emptyMap());
+        storage, entity, new URI("gps://my-project/topic"), Collections.emptyMap());
   }
 
   @Before

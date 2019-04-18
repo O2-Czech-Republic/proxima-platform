@@ -168,6 +168,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   private final int subscriptionAckDeadline;
   private final boolean subscriptionAutoCreate;
   private final long watermarkEstimateDuration;
+  private final long allowedTimestampSkew;
 
   private transient ExecutorService executor;
 
@@ -180,6 +181,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     this.subscriptionAckDeadline = accessor.getSubscriptionAckDeadline();
     this.subscriptionAutoCreate = accessor.isSubscriptionAutoCreate();
     this.watermarkEstimateDuration = accessor.getWatermarkEstimateDuration();
+    this.allowedTimestampSkew = accessor.getAllowedTimestampSkew();
   }
 
   @Override
@@ -438,7 +440,12 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   @VisibleForTesting
   WatermarkEstimator createWatermarkEstimator(long minWatermark) {
     long duration = (watermarkEstimateDuration) / 100 * 100;
-    return WatermarkEstimator.of(duration, 100, minWatermark);
+    return WatermarkEstimator.newBuilder()
+        .withMinWatermark(minWatermark)
+        .withDurationMs(duration)
+        .withAllowedTimestampSkew(allowedTimestampSkew)
+        .withStepMs(100)
+        .build();
   }
 
   private void createSubscription(

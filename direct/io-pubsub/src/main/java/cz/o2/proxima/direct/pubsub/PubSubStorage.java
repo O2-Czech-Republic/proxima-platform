@@ -42,6 +42,8 @@ public class PubSubStorage implements DataAccessorFactory {
       "pubsub.default.subscription.ack-deadline";
   public static final String CFG_DEFAULT_WATERMARK_ESTIMATE_DURATION =
       "pubsub.default.watermark.estimate-duration";
+  public static final String CFG_DEFAULT_ALLOWED_TIMESTAMP_SKEW =
+      "pubsub.default.watermark.allowed-timestamp-skew";
 
   @Getter(AccessLevel.PACKAGE)
   private long defaultMaxAckDeadlineMs = 60000;
@@ -54,6 +56,9 @@ public class PubSubStorage implements DataAccessorFactory {
 
   @Getter(AccessLevel.PACKAGE)
   private Integer defaultWatermarkEstimateDuration = null;
+
+  @Getter(AccessLevel.PACKAGE)
+  private long defaultAllowedTimestampSkew = 200L;
 
   @Override
   public void setup(Repository repo) {
@@ -73,6 +78,10 @@ public class PubSubStorage implements DataAccessorFactory {
       if (cfg.hasPath(CFG_DEFAULT_WATERMARK_ESTIMATE_DURATION)) {
         defaultWatermarkEstimateDuration = cfg.getInt(
             CFG_DEFAULT_WATERMARK_ESTIMATE_DURATION);
+      }
+      if (cfg.hasPath(CFG_DEFAULT_ALLOWED_TIMESTAMP_SKEW)) {
+        defaultAllowedTimestampSkew = cfg.getLong(
+            CFG_DEFAULT_ALLOWED_TIMESTAMP_SKEW);
       }
     }
   }

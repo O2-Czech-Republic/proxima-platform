@@ -109,7 +109,12 @@ public class PubSubReaderTest {
 
     @Override
     WatermarkEstimator createWatermarkEstimator(long minWatermark) {
-      return WatermarkEstimator.of(1, 1, minWatermark, timestampSupplier::get);
+      return WatermarkEstimator.newBuilder()
+          .withDurationMs(1)
+          .withStepMs(1)
+          .withMinWatermark(minWatermark)
+          .withTimestampSupplier(timestampSupplier::get)
+          .build();
     }
 
   }

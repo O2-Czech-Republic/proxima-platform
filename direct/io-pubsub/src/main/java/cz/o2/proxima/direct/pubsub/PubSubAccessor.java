@@ -41,6 +41,8 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
       "pubsub.subscription.ack-deadline";
   public static final String CFG_WATERMARK_ESTIMATE_DURATION =
       "pubsub.watermark.estimate-duration";
+  public static final String CFG_ALLOWED_TIMESTAMP_SKEW =
+      "pubsub.watermark.allowed-timestamp-skew";
 
   @Getter
   private final String project;
@@ -59,6 +61,9 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
 
   @Getter
   private final long watermarkEstimateDuration;
+
+  @Getter
+  private final long allowedTimestampSkew;
 
   PubSubAccessor(
       PubSubStorage storage,
@@ -91,6 +96,11 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
         .orElse(storage.getDefaultWatermarkEstimateDuration() == null
             ? subscriptionAckDeadline * 1000
             : (int) storage.getDefaultWatermarkEstimateDuration());
+    allowedTimestampSkew = Optional
+        .ofNullable(cfg.get(CFG_ALLOWED_TIMESTAMP_SKEW))
+        .map(Object::toString)
+        .map(Long::valueOf)
+        .orElse(storage.getDefaultAllowedTimestampSkew());
 
     Preconditions.checkArgument(
         !Strings.isNullOrEmpty(project), "Authority cannot be empty");

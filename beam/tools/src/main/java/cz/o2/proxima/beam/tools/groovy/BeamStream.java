@@ -49,6 +49,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -57,6 +58,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.utils.IOUtils;
 import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.Kryo;
@@ -118,6 +120,7 @@ class BeamStream<T> implements Stream<T> {
             asConfig(beam),
             stopAtCurrent,
             pipeline -> beam.getStream(
+                "stream:" + Arrays.toString(attrs),
                 pipeline, position, stopAtCurrent, eventTime, attrs),
             terminateCheck,
             pipelineFactory));
@@ -199,40 +202,43 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @Override
-  public <X> Stream<X> map(Closure<X> mapper) {
+  public <X> Stream<X> map(@Nullable String name, Closure<X> mapper) {
     Closure<X> dehydrated = dehydrate(mapper);
     return descendant(
         pipeline -> {
           Coder<X> coder = coderOf(pipeline, dehydrated);
           return MapElements
-            .of(collection.materialize(pipeline))
-            .using(e -> dehydrated.call(e))
-            .output()
-            .setCoder(coder);
+              .named(name)
+              .of(collection.materialize(pipeline))
+              .using(e -> dehydrated.call(e))
+              .output()
+              .setCoder(coder);
         });
   }
 
   @Override
-  public Stream<T> filter(Closure<Boolean> predicate) {
+  public Stream<T> filter(@Nullable String name, Closure<Boolean> predicate) {
     Closure<Boolean> dehydrated = dehydrate(predicate);
     return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
           return Filter
-            .of(in)
-            .by(dehydrated::call)
-            .output()
-            .setCoder(in.getCoder());
+              .named(name)
+              .of(in)
+              .by(dehydrated::call)
+              .output()
+              .setCoder(in.getCoder());
         });
   }
 
   @Override
-  public Stream<T> assignEventTime(Closure<Long> assigner) {
+  public Stream<T> assignEventTime(@Nullable String name, Closure<Long> assigner) {
     Closure<Long> dehydrated = dehydrate(assigner);
     return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
           return AssignEventTime
+              .named(name)
               .of(in)
               .using(dehydrated::call)
               .output()
@@ -241,46 +247,62 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @Override
-  public Stream<Pair<Object, T>> withWindow() {
+  public Stream<Pair<Object, T>> withWindow(@Nullable String name) {
     return descendant(pipeline -> {
       PCollection<T> in = collection.materialize(pipeline);
-      return applyExtractWindow(in, pipeline);
+      return applyExtractWindow(name, in, pipeline);
     });
   }
 
   @SuppressWarnings("unchecked")
   static <T> PCollection<Pair<Object, T>> applyExtractWindow(
-      PCollection<T> in, Pipeline pipeline) {
+      @Nullable String name, PCollection<T> in, Pipeline pipeline) {
 
     TypeDescriptor<Object> windowType = (TypeDescriptor)
         in.getWindowingStrategy().getWindowFn().getWindowTypeDescriptor();
     Coder<Object> windowCoder = getCoder(pipeline, windowType);
 
-    return (PCollection) in.apply(ParDo.of(extractWindow()))
-        .setCoder((Coder) PairCoder.of(windowCoder, in.getCoder()));
+    final PCollection<Pair<Object, T>> ret;
+    if (name != null) {
+      ret = (PCollection) in.apply(name, ParDo.of(extractWindow()));
+    } else {
+      ret = (PCollection) in.apply(ParDo.of(extractWindow()));
+    }
+    return ret.setCoder((Coder) PairCoder.of(windowCoder, in.getCoder()));
   }
 
-  private void forEach(Consumer<T> consumer) {
-    forEach(consumer, true);
+  private void forEach(@Nullable String name, Consumer<T> consumer) {
+    forEach(name, consumer, true);
   }
 
-  private void forEach(Consumer<T> consumer, boolean gatherLocally) {
+  private void forEach(
+      @Nullable String name,
+      Consumer<T> consumer,
+      boolean gatherLocally) {
+
     Pipeline pipeline = createPipeline();
     PCollection<T> pcoll = collection.materialize(pipeline);
     if (gatherLocally) {
       try (RemoteConsumer<T> remoteConsumer = createRemoteConsumer(
           pcoll.getCoder(), consumer)) {
-        forEachRemote(pcoll, remoteConsumer::add, pipeline);
+        forEachRemote(name, pcoll, remoteConsumer::add, pipeline);
       }
     } else {
-      forEachRemote(pcoll, consumer, pipeline);
+      forEachRemote(name, pcoll, consumer, pipeline);
     }
   }
 
   private void forEachRemote(
-      PCollection<T> pcoll, Consumer<T> consumer, Pipeline pipeline) {
+      @Nullable String name,
+      PCollection<T> pcoll,
+      Consumer<T> consumer,
+      Pipeline pipeline) {
 
-    pcoll.apply(asWriteTransform(asDoFn(consumer)));
+    if (name != null) {
+      pcoll.apply(name, asWriteTransform(asDoFn(consumer)));
+    } else {
+      pcoll.apply(asWriteTransform(asDoFn(consumer)));
+    }
     AtomicReference<PipelineResult> result = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
     Thread running = runThread("pipeline-start-thread", () -> {
@@ -320,7 +342,7 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public void print() {
-    forEach(BeamStream::print);
+    forEach("print", BeamStream::print);
   }
 
   private static <T> void print(T what) {
@@ -337,7 +359,7 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public List<T> collect() {
     List<T> ret = new ArrayList<>();
-    forEach(ret::add);
+    forEach("collect", ret::add);
     return ret;
   }
 
@@ -352,6 +374,7 @@ class BeamStream<T> implements Stream<T> {
 
     @SuppressWarnings("unchecked")
     BeamStream<StreamElement> toWrite = descendant(pipeline -> FlatMap
+        .named("persistIntoTargetReplica")
         .of((PCollection<StreamElement>) collection.materialize(pipeline))
         .using((StreamElement in, Collector<StreamElement> ctx) -> {
           String key = in.getKey();
@@ -390,6 +413,7 @@ class BeamStream<T> implements Stream<T> {
     Closure<Long> timeDehydrated = dehydrate(timeExtractor);
 
     return descendant(pipeline -> MapElements
+        .named("asStreamElements")
         .of(collection.materialize(pipeline))
         .using(data -> {
           String key = keyDehydrated.call(data);
@@ -428,7 +452,7 @@ class BeamStream<T> implements Stream<T> {
 
     @SuppressWarnings("unchecked")
     BeamStream<StreamElement> elements = (BeamStream<StreamElement>) this;
-    elements.forEach(el -> {
+    elements.forEach("write", el -> {
       CountDownLatch latch = new CountDownLatch(1);
       AtomicReference<Throwable> err = new AtomicReference<>();
       OnlineAttributeWriter writer = repo.getOrCreateOperator(DirectDataOperator.class)
@@ -448,7 +472,7 @@ class BeamStream<T> implements Stream<T> {
       if (err.get() != null) {
         throw new RuntimeException(err.get());
       }
-    });
+    }, false);
   }
 
   @Override
@@ -491,7 +515,7 @@ class BeamStream<T> implements Stream<T> {
 
   @SuppressWarnings("unchecked")
   @Override
-  public Stream<T> union(List<Stream<T>> others) {
+  public Stream<T> union(@Nullable String name, List<Stream<T>> others) {
     return descendant(
         pipeline -> {
           List<PCollection<T>> streams = java.util.stream.Stream.concat(
@@ -500,6 +524,11 @@ class BeamStream<T> implements Stream<T> {
               .map(s -> ((BeamStream<T>) s).collection.materialize(pipeline))
               .collect(Collectors.toList());
           PCollection<T> any = streams.stream().findAny().orElse(null);
+          if (name != null) {
+            return PCollectionList.of(streams)
+                .apply(name, Flatten.pCollections())
+                .setCoder(any.getCoder());
+          }
           return PCollectionList.of(streams)
               .apply(Flatten.pCollections())
               .setCoder(any.getCoder());

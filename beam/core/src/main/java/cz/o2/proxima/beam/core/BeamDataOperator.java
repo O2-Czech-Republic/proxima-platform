@@ -249,6 +249,7 @@ public class BeamDataOperator implements DataOperator {
           .orElseThrow(failEmpty());
     }
     return PCollectionTools.reduceAsSnapshot(
+        "getBatchSnapshot:" + Arrays.toString(attrs),
         getBatchUpdates(pipeline, fromStamp, untilStamp, attrs));
   }
 

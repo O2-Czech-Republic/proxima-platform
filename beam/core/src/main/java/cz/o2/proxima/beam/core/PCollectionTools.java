@@ -18,6 +18,7 @@ package cz.o2.proxima.beam.core;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Optionals;
 import java.util.Comparator;
+import javax.annotation.Nullable;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.ReduceByKey;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
@@ -30,13 +31,17 @@ public class PCollectionTools {
 
   /**
    * Reduce given {@link PCollection} from updates to snapshot.
+   * @param name name of the operation
    * @param other the other {@link PCollection} containing updates
    * @return snapshot
    */
   public static PCollection<StreamElement> reduceAsSnapshot(
+      @Nullable String name,
       PCollection<StreamElement> other) {
 
-    return ReduceByKey.of(other)
+    return ReduceByKey
+        .named(name)
+        .of(other)
         .keyBy(e -> e.getKey() + "#" + e.getAttribute(), TypeDescriptors.strings())
         .valueBy(e -> e, TypeDescriptor.of(StreamElement.class))
         .combineBy(values -> Optionals.get(values.max(

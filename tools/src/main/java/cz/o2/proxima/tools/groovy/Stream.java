@@ -25,6 +25,7 @@ import groovy.transform.stc.FromString;
 import java.util.Arrays;
 
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * A stream abstraction with fluent style methods.
@@ -37,30 +38,84 @@ public interface Stream<T> {
    * @param mapper the mapping closure
    * @return remapped stream
    */
+  default <X> Stream<X> map(
+      @ClosureParams(value = FromString.class, options = "T") Closure<X> mapper) {
+
+    return map(null, mapper);
+  }
+
+  /**
+   * Remap the stream.
+   * @param <X> type parameter
+   * @param name stable name of the mapping operator
+   * @param mapper the mapping closure
+   * @return remapped stream
+   */
   <X> Stream<X> map(
+      @Nullable String name,
       @ClosureParams(value = FromString.class, options = "T") Closure<X> mapper);
+
 
   /**
    * Filter stream based on predicate
    * @param predicate the predicate to filter on
    * @return filtered stream
    */
+  default Stream<T> filter(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Boolean> predicate) {
+
+    return filter(null, predicate);
+  }
+
+  /**
+   * Filter stream based on predicate
+   * @param name name of the filter operator
+   * @param predicate the predicate to filter on
+   * @return filtered stream
+   */
   Stream<T> filter(
+      @Nullable String name,
       @ClosureParams(value = FromString.class, options = "T") Closure<Boolean> predicate);
+
 
   /**
    * Assign event time to elements.
    * @param assigner assigner of event time
    * @return stream with elements assigned event time
    */
+  default Stream<T> assignEventTime(
+      @ClosureParams(value = FromString.class, options = "T") Closure<Long> assigner) {
+
+    return assignEventTime(null, assigner);
+  }
+
+  /**
+   * Assign event time to elements.
+   * @param name name of the assign event time operator
+   * @param assigner assigner of event time
+   * @return stream with elements assigned event time
+   */
   Stream<T> assignEventTime(
+      @Nullable String name,
       @ClosureParams(value = FromString.class, options = "T") Closure<Long> assigner);
+
 
   /**
    * Add window to each element in the stream.
    * @return stream of pairs with window
    */
-  Stream<Pair<Object, T>> withWindow();
+  default Stream<Pair<Object, T>> withWindow() {
+    return withWindow(null);
+  }
+
+  /**
+   * Add window to each element in the stream.
+   * @param name stable name of the mapping operator
+   * @return stream of pairs with window
+   */
+  Stream<Pair<Object, T>> withWindow(@Nullable String name);
+
 
   /**
    * Print all elements to console.
@@ -189,10 +244,32 @@ public interface Stream<T> {
   }
 
   /**
+   * Merge two streams together.
+   * @param name name of the union operator
+   * @param other the other stream(s)
+   * @return merged stream
+   */
+  default Stream<T> union(@Nullable String name, Stream<T> other) {
+    return union(name, Arrays.asList(other));
+  }
+
+
+  /**
    * Merge multiple streams together.
    * @param streams other streams
    * @return merged stream
    */
-  Stream<T> union(List<Stream<T>> streams);
+  default Stream<T> union(List<Stream<T>> streams) {
+    return union(null, streams);
+  }
+
+  /**
+   * Merge multiple streams together.
+   * @param name name of the union operator
+   * @param streams other streams
+   * @return merged stream
+   */
+  Stream<T> union(@Nullable String name, List<Stream<T>> streams);
+
 
 }

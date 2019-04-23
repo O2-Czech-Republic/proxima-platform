@@ -189,7 +189,7 @@ public class Console {
   }
 
   private static Config getConfig() {
-    return ConfigFactory.load();
+    return ConfigFactory.load().resolve();
   }
 
   @SuppressWarnings("unchecked")

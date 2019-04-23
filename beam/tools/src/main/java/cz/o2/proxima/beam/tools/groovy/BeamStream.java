@@ -120,7 +120,6 @@ class BeamStream<T> implements Stream<T> {
             asConfig(beam),
             stopAtCurrent,
             pipeline -> beam.getStream(
-                "stream:" + Arrays.toString(attrs),
                 pipeline, position, stopAtCurrent, eventTime, attrs),
             terminateCheck,
             pipelineFactory));

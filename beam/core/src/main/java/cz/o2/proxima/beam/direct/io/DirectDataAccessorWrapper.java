@@ -24,6 +24,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import java.net.URI;
 import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
@@ -38,15 +39,18 @@ public class DirectDataAccessorWrapper implements DataAccessor {
 
   private final Repository repo;
   private final cz.o2.proxima.direct.core.DataAccessor direct;
+  private final URI uri;
   private final Context context;
 
   public DirectDataAccessorWrapper(
       Repository repo,
       cz.o2.proxima.direct.core.DataAccessor direct,
+      URI uri,
       Context context) {
 
     this.repo = repo;
     this.direct = direct;
+    this.uri = uri;
     this.context = context;
   }
 
@@ -67,11 +71,11 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     final PCollection<StreamElement> ret;
     if (stopAtCurrent) {
       // bounded
-      ret = pipeline.apply(
+      ret = pipeline.apply("ReadBounded:" + uri,
           Read.from(DirectBoundedSource.of(repo, name, reader, position, limit)));
     } else {
       // unbounded
-      ret = pipeline.apply(
+      ret = pipeline.apply("ReadUnbounded:" + uri,
           Read.from(DirectUnboundedSource.of(
               repo, name, reader, position, eventTime, limit)));
     }
@@ -95,7 +99,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
 
     ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class))
         .setCoder(StreamElementCoder.of(repo));
-    
+
     return AssignEventTime
         .of(ret)
         .using(StreamElement::getStamp)

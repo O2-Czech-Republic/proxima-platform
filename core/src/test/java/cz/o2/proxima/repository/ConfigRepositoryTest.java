@@ -114,11 +114,13 @@ public class ConfigRepositoryTest {
     ObjectOutputStream oos = new ObjectOutputStream(baos);
     oos.writeObject(repo);
     oos.flush();
-    ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
+    byte[] bytes = baos.toByteArray();
+    ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
     ObjectInputStream ois = new ObjectInputStream(bais);
     // must not throw
     ConfigRepository clone = (ConfigRepository) ois.readObject();
     assertNotNull(clone.getConfig());
+    assertTrue(clone.getConfig().isResolved());
   }
 
   @Test

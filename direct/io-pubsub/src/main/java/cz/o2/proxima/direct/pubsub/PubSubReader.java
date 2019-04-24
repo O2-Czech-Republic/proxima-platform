@@ -156,7 +156,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   }
 
   @FunctionalInterface
-  private interface PubSubConsumer extends Serializable {
+  private static interface PubSubConsumer extends Serializable {
     boolean consume(
         StreamElement elem, WatermarkSupplier watermark, AckReplyConsumer ack);
   }

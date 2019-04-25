@@ -49,7 +49,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -620,6 +619,14 @@ class BeamStream<T> implements Stream<T> {
         OutputReceiver<Pair<BoundedWindow, T>> output) {
 
       output.output(Pair.of(window, elem));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public TypeDescriptor<Pair<BoundedWindow, T>> getOutputTypeDescriptor() {
+      return PairCoder.descriptor(
+          TypeDescriptor.of(BoundedWindow.class),
+          (TypeDescriptor) TypeDescriptor.of(Object.class));
     }
   }
 

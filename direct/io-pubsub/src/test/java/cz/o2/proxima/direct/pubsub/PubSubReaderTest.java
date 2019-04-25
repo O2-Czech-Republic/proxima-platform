@@ -40,6 +40,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.WatermarkEstimator;
+import io.grpc.internal.GrpcUtil;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -459,6 +460,12 @@ public class PubSubReaderTest {
 
     assertTrue(cancelled.get());
     assertEquals(Sets.newHashSet(0, 1, 2), reader.acked);
+  }
+
+  @Test
+  public void testeInstantiationHttp2Error() {
+    GrpcUtil.Http2Error error = GrpcUtil.Http2Error.NO_ERROR;
+    assertNotNull(error);
   }
 
 }

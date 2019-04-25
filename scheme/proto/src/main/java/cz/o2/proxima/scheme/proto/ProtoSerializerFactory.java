@@ -116,7 +116,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
       return (M) method.invoke(null);
     } catch (Exception ex) {
       throw new IllegalArgumentException(
-          "Cannot retrieve default instance for type " + protoClass);
+          "Cannot retrieve default instance for type " + protoClass, ex);
     }
   }
 

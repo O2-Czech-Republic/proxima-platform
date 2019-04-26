@@ -61,15 +61,15 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.TransformationDescriptor;
 
 /**
- * Test repository config parsing.
+ * Test {@link DirectDataOperator}.
  */
 @Slf4j
-public class DirectOperatorTest {
+public class DirectDataOperatorTest {
 
   private final ConfigRepository repo;
   private final DirectDataOperator direct;
 
-  public DirectOperatorTest() {
+  public DirectDataOperatorTest() {
     this.repo = ConfigRepository.Builder.of(
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-reference.conf"))

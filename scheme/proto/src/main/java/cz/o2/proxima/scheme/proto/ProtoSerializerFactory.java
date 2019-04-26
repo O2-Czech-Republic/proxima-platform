@@ -16,7 +16,6 @@
 package cz.o2.proxima.scheme.proto;
 
 import com.google.protobuf.AbstractMessage;
-import com.google.protobuf.GeneratedMessage;
 import com.google.protobuf.Parser;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
@@ -110,8 +109,8 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   static <M extends AbstractMessage> M getDefaultInstance(String protoClass) {
     try {
-      Class<GeneratedMessage> cls = Classpath.findClass(
-          protoClass, GeneratedMessage.class);
+      Class<AbstractMessage> cls = Classpath.findClass(
+          protoClass, AbstractMessage.class);
       Method method = cls.getMethod("getDefaultInstance");
       return (M) method.invoke(null);
     } catch (Exception ex) {

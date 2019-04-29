@@ -148,7 +148,7 @@ public class IngestClientTest {
   @Test(timeout = 10000)
   public void testMultiDelete() throws InterruptedException {
     IngestClient client = create(new Options());
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch latch = new CountDownLatch(2);
     List<Rpc.Status> received = new ArrayList<>();
     statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
     statuses.add(Rpc.Status.newBuilder().setStatus(200).build());

@@ -35,6 +35,7 @@ import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.joda.time.Duration;
+import static org.junit.Assert.assertNotNull;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -79,7 +80,7 @@ public class BeamDataOperatorTest {
         .keyBy(e -> "", TypeDescriptors.strings())
         .output();
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L));
-    pipeline.run();
+    assertNotNull(pipeline.run());
   }
 
   @SuppressWarnings("unchecked")
@@ -107,7 +108,7 @@ public class BeamDataOperatorTest {
         .output();
 
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L), KV.of("", 1L));
-    pipeline.run();
+    assertNotNull(pipeline.run());
   }
 
   @SuppressWarnings("unchecked")
@@ -135,7 +136,7 @@ public class BeamDataOperatorTest {
         .output();
 
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L), KV.of("", 1L));
-    pipeline.run();
+    assertNotNull(pipeline.run());
   }
 
   @Test(timeout = 30000)
@@ -181,7 +182,7 @@ public class BeamDataOperatorTest {
         .keyBy(e -> "", TypeDescriptors.strings())
         .output();
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L));
-    pipeline.run();
+    assertNotNull(pipeline.run());
   }
 
   @SuppressWarnings("unchecked")
@@ -211,7 +212,7 @@ public class BeamDataOperatorTest {
         .output();
 
     PAssert.that(counted).containsInAnyOrder(KV.of("", elements), KV.of("", 1L));
-    pipeline.run();
+    assertNotNull(pipeline.run());
   }
 
 }

@@ -31,8 +31,8 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.DoubleCoder;
 import org.apache.beam.sdk.coders.KvCoder;
-import org.apache.beam.sdk.coders.VoidCoder;
 import org.apache.beam.sdk.extensions.euphoria.core.client.io.Collector;
+import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Distinct;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Join;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.LeftJoin;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
@@ -242,7 +242,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @SuppressWarnings("unchecked")
   private Window<T> createWindowFn() {
-    Window ret = (Window) Window.into(windowing);
+    Window ret = Window.into(windowing);
     switch (mode) {
       case ACCUMULATING_FIRED_PANES:
         ret = ret.accumulatingFiredPanes();
@@ -435,7 +435,6 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<K> rightKeyDehydrated = dehydrate(rightKey);
     return descendant(
         pipeline -> {
-          Coder<K> keyCoder = coderOf(pipeline, leftKey);
           PCollection<T> lc = collection.materialize(pipeline);
           PCollection<OTHER> rc = ((BeamWindowedStream<OTHER>) right)
               .collection.materialize(pipeline);
@@ -466,7 +465,6 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
     return descendant(
         pipeline -> {
-          Coder<K> keyCoder = coderOf(pipeline, leftKey);
           PCollection<T> lc = collection.materialize(pipeline);
           PCollection<RIGHT> rc = ((BeamWindowedStream<RIGHT>) right)
               .collection.materialize(pipeline);
@@ -518,7 +516,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
           .of((PCollection<Comparable<T>>) in)
           .keyBy(e -> null, TypeDescriptors.nulls())
           .reduceBy((values, ctx) ->
-              values.forEach(e -> ctx.collect(e)))
+              values.forEach(ctx::collect))
           .withSortedValues((a, b) -> a.compareTo((T) b))
           .windowBy(windowing)
           .triggeredBy(createTrigger())
@@ -597,35 +595,15 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   public WindowedStream<T> distinct(@Nullable String name) {
     return descendant(pipeline -> {
       PCollection<T> in = collection.materialize(pipeline);
-      PCollection<KV<T, Void>> distinct = ReduceByKey
-          .named(withSuffix(name, ".reduce"))
+      return Distinct
+          .named(name)
           .of(in)
-          .keyBy(e -> e)
-          .valueBy(e -> null, TypeDescriptors.nulls())
-          .combineBy(e -> null, TypeDescriptors.nulls())
           .windowBy(windowing)
           .triggeredBy(createTrigger())
           .accumulationMode(mode)
           .withAllowedLateness(Duration.millis(allowedLateness))
           .output()
-          .setCoder(KvCoder.of(in.getCoder(), VoidCoder.of()));
-
-      return MapElements
-          .named(withSuffix(name, ".format"))
-          .of(distinct)
-          .using(KV::getKey)
-          .output();
-
-        /* Beam 2.11.0: */
-        /*
-        Distinct
-            .of(collection.materialize(pipeline))
-            .windowBy(windowing)
-            .triggeredBy(createTrigger())
-            .accumulationMode(mode)
-            .withAllowedLateness(Duration.millis(allowedLateness))
-            .output());
-        */
+          .setCoder(in.getCoder());
     });
   }
 
@@ -634,34 +612,18 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   public WindowedStream<T> distinct(@Nullable String name, Closure<?> mapper) {
     Closure<Object> dehydrated = (Closure) dehydrate(mapper);
     return descendant(pipeline -> {
-      Coder<Object> keyCoder = (Coder) coderOf(pipeline, mapper);
       PCollection<T> in = collection.materialize(pipeline);
-      return ReduceByKey
+      return Distinct
           .named(name)
           .of(in)
-          .keyBy(dehydrated::call)
-          .combineBy(e -> e.findAny().orElseThrow(
-              () -> new IllegalStateException("Processing empty key?")))
+          .projected(dehydrated::call, Distinct.SelectionPolicy.NEWEST)
           .windowBy(windowing)
           .triggeredBy(createTrigger())
           .accumulationMode(mode)
           .withAllowedLateness(Duration.millis(allowedLateness))
-          .outputValues()
+          .output()
           .setCoder(in.getCoder());
     });
-
-    /* Beam 2.11.0: */
-    /*
-    Distinct
-        .of(collection.materialize(pipeline))
-        .projected(...)
-        .windowBy(windowing)
-        .triggeredBy(createTrigger())
-        .accumulationMode(mode)
-        .withAllowedLateness(Duration.millis(allowedLateness))
-        .output());
-    */
-
   }
 
   @Override

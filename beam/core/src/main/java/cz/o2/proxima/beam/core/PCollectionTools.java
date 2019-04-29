@@ -45,7 +45,7 @@ public class PCollectionTools {
         .keyBy(e -> e.getKey() + "#" + e.getAttribute(), TypeDescriptors.strings())
         .valueBy(e -> e, TypeDescriptor.of(StreamElement.class))
         .combineBy(values -> Optionals.get(values.max(
-            Comparator.comparingLong(value -> value.getStamp()))),
+            Comparator.comparingLong(StreamElement::getStamp))),
             TypeDescriptor.of(StreamElement.class))
         .outputValues();
   }

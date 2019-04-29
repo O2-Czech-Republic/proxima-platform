@@ -68,14 +68,12 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     this.name = name;
     this.watermark = new AtomicLong(startingWatermark);
     this.limit = limit;
-    //queue = new SynchronousQueue<>();
     queue = new ArrayBlockingQueue<>(100);
   }
 
   @Override
   public boolean onError(Throwable error) {
     this.error.set(error);
-    AtomicReference ref;
     // unblock any waiting thread
     ExceptionUtils.unchecked(() -> putToQueue(null, null));
     return false;

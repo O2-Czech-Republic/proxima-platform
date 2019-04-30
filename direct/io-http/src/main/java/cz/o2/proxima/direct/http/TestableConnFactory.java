@@ -15,29 +15,16 @@
  */
 package cz.o2.proxima.direct.http;
 
-import cz.o2.proxima.storage.StreamElement;
+import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
-import java.io.Serializable;
 import java.net.HttpURLConnection;
-import java.net.URI;
-import javax.annotation.Nullable;
+import java.net.URL;
 
-/**
- * A factory for connections based on input elements.
- */
-@FunctionalInterface
-public interface ConnFactory extends Serializable {
+public abstract class TestableConnFactory implements ConnFactory {
 
-  /**
-   * Open and return HTTP(S) connection to given base URI with given
-   * input stream element.
-   * The returned connection must be open and ready to retrieve status.
-   * @param base URI
-   * @param elem input element
-   * @return new connection
-   * @throws IOException on IO errors
-   */
-  @Nullable
-  HttpURLConnection openConnection(URI base, StreamElement elem) throws IOException;
+  @VisibleForTesting
+  protected HttpURLConnection newConnection(URL url) throws IOException {
+    return (HttpURLConnection) url.openConnection();
+  }
 
 }

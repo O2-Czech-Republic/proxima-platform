@@ -126,7 +126,7 @@ public class ConfigRepositoryTest {
   @Test
   public void testEntityFromOtherEntity() {
     assertTrue(repo.findEntity("replica").isPresent());
-    assertEquals(7, repo.findEntity("replica").get().getAllAttributes().size());
+    assertEquals(8, repo.findEntity("replica").get().getAllAttributes().size());
   }
 
   @Test

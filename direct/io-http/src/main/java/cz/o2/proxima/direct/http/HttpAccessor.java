@@ -19,6 +19,7 @@ import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
+import cz.o2.proxima.direct.http.opentsdb.OpenTsdbWriter;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import java.net.URI;
@@ -43,6 +44,9 @@ public class HttpAccessor extends AbstractStorage implements DataAccessor {
   public Optional<AttributeWriterBase> getWriter(Context context) {
     if (getUri().getScheme().startsWith("http")) {
       return Optional.of(new HttpWriter(getEntityDescriptor(), getUri(), cfg));
+    }
+    if (getUri().getScheme().equals("opentsdb")) {
+      return Optional.of(new OpenTsdbWriter(getEntityDescriptor(), getUri(), cfg));
     }
     return Optional.empty();
   }

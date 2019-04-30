@@ -13,35 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.http;
+package cz.o2.proxima.direct.http.opentsdb;
 
-import com.google.common.collect.Sets;
-import cz.o2.proxima.direct.core.DataAccessorFactory;
-import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.annotations.Experimental;
+import cz.o2.proxima.direct.http.ConnFactory;
+import cz.o2.proxima.direct.http.HttpWriter;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.Map;
 
 /**
- * Storage via HTTP(S) requests.
+ * A {@link HttpWriter} specialized on opentsdb.
  */
-public class HttpStorage implements DataAccessorFactory {
+@Experimental("Missing production use-case")
+public class OpenTsdbWriter extends HttpWriter {
 
-  @Override
-  public HttpAccessor createAccessor(
-      DirectDataOperator direct,
-      EntityDescriptor entityDesc,
-      URI uri,
-      Map<String, Object> cfg) {
+  public OpenTsdbWriter(
+      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
-    return new HttpAccessor(entityDesc, uri, cfg);
+    super(entityDesc, uri, cfg);
   }
 
   @Override
-  public Accept accepts(URI uri) {
-    return Sets.newHashSet(
-        "http", "https", "ws", "wss", "opentsdb").contains(uri.getScheme())
-        ? Accept.ACCEPT : Accept.REJECT;
+  protected ConnFactory getConnFactory(
+      Map<String, Object> cfg) throws InstantiationException, IllegalAccessException {
+
+    return new OpenTsdbConnectionFactory();
   }
 
 }

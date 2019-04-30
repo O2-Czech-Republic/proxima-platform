@@ -34,4 +34,10 @@ public interface DataOperator extends AutoCloseable, Serializable {
    */
   void reload();
 
+  /**
+   * Retrieve repository associated with the operator.
+   * @return {@link Repository} associated with the operator
+   */
+  Repository getRepository();
+
 }

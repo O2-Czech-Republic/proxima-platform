@@ -16,549 +16,535 @@
 package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.storage.StreamElement;
-import cz.seznam.euphoria.core.client.dataset.Dataset;
-import cz.seznam.euphoria.core.client.dataset.windowing.Window;
-import cz.seznam.euphoria.core.client.dataset.windowing.WindowedElement;
-import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
-import cz.seznam.euphoria.core.client.functional.BinaryFunction;
-import cz.seznam.euphoria.core.client.io.Collector;
-import cz.seznam.euphoria.core.client.operator.Distinct;
-import cz.seznam.euphoria.core.client.operator.Join;
-import cz.seznam.euphoria.core.client.operator.LeftJoin;
-import cz.seznam.euphoria.core.client.operator.MapElements;
-import cz.seznam.euphoria.core.client.operator.ReduceByKey;
-import cz.seznam.euphoria.core.client.operator.ReduceWindow;
-import cz.seznam.euphoria.core.client.triggers.Trigger;
-import cz.seznam.euphoria.core.client.triggers.TriggerContext;
-import cz.seznam.euphoria.core.client.util.Either;
-import cz.seznam.euphoria.core.client.util.Fold;
-import cz.seznam.euphoria.core.client.util.Pair;
-import cz.seznam.euphoria.core.client.util.Sums;
-import cz.seznam.euphoria.core.executor.Executor;
+import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
-import java.time.Duration;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.function.BooleanSupplier;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+import groovy.transform.stc.ClosureParams;
+import groovy.transform.stc.FromString;
 import javax.annotation.Nullable;
 
 /**
  * A stream that is windowed.
  */
-public class WindowedStream<T, W extends Windowing> extends Stream<T> {
+public interface WindowedStream<T> extends Stream<T> {
 
-  @SuppressWarnings("unchecked")
-  private static class JoinedWindowing<L, R, W extends Window<W>>
-      implements Windowing<Either<L, R>, W> {
-
-    private final  Windowing left;
-    private final Windowing right;
-    private long earlyEmitting = -1L;
-    private long earlyEmitStamp = -1L;
-
-    private JoinedWindowing(WindowedStream left, WindowedStream right) {
-      this.left = left.windowing;
-      this.right = right.windowing;
-    }
-
-    @Override
-    public Iterable<W> assignWindowsToElement(WindowedElement<?, Either<L, R>> el) {
-      final Iterable<W> ret;
-      if (el.getElement().isLeft()) {
-        ret = (Iterable) left.assignWindowsToElement(
-            new WindowedElement() {
-              @Override
-              public Window getWindow() {
-                return el.getWindow();
-              }
-
-              @Override
-              public long getTimestamp() {
-                return el.getTimestamp();
-              }
-
-              @Override
-              public Object getElement() {
-                return el.getElement().left();
-              }
-            });
-      } else {
-        ret = (Iterable) right.assignWindowsToElement(
-            new WindowedElement() {
-              @Override
-              public Window getWindow() {
-                return el.getWindow();
-              }
-
-              @Override
-              public long getTimestamp() {
-                return el.getTimestamp();
-              }
-
-              @Override
-              public Object getElement() {
-                return el.getElement().right();
-              }
-            });
-      }
-      return ret;
-    }
-
-    @Override
-    public Trigger<W> getTrigger() {
-      return new Trigger<W>() {
-        @Override
-        public boolean isStateful() {
-          return left.getTrigger().isStateful() || right.getTrigger().isStateful();
-        }
-
-        @Override
-        public Trigger.TriggerResult onElement(
-            long time, Window window, TriggerContext ctx) {
-
-          if (earlyEmitting > 0 && earlyEmitStamp < 0) {
-            earlyEmitStamp = time + earlyEmitting;
-            ctx.registerTimer(earlyEmitStamp, window);
-          }
-          return toResult(
-              left.getTrigger().onElement(time, window, ctx),
-              right.getTrigger().onElement(time, window, ctx));
-
-        }
-
-        private Trigger.TriggerResult toResult(
-            Trigger.TriggerResult leftTrigger,
-            Trigger.TriggerResult rightTrigger) {
-
-          if ((leftTrigger.isFlush() || rightTrigger.isFlush())
-              && (leftTrigger.isPurge() || rightTrigger.isPurge())) {
-            return Trigger.TriggerResult.FLUSH_AND_PURGE;
-          }
-          if (leftTrigger.isFlush() || rightTrigger.isFlush()) {
-            return Trigger.TriggerResult.FLUSH;
-          }
-          if (leftTrigger.isPurge() || rightTrigger.isPurge()) {
-            return Trigger.TriggerResult.PURGE;
-          }
-          return Trigger.TriggerResult.NOOP;
-        }
-
-        @Override
-        public Trigger.TriggerResult onTimer(
-            long time, W window, TriggerContext ctx) {
-
-          Trigger.TriggerResult res = toResult(
-              left.getTrigger().onTimer(time, window, ctx),
-              right.getTrigger().onTimer(time, window, ctx));
-          if (time == earlyEmitStamp) {
-            ctx.registerTimer(time + earlyEmitStamp, window);
-            return toResult(Trigger.TriggerResult.FLUSH, res);
-          }
-          return res;
-        }
-
-        @Override
-        public void onClear(W window, TriggerContext ctx) {
-          left.getTrigger().onClear(window, ctx);
-          right.getTrigger().onClear(window, ctx);
-        }
-
-        @Override
-        public void onMerge(W window, TriggerContext.TriggerMergeContext ctx) {
-          left.getTrigger().onMerge(window, ctx);
-          right.getTrigger().onMerge(window, ctx);
-        }
-
-      };
-    }
-
-    private void setEarlyEmitting(Duration earlyEmitting) {
-      this.earlyEmitting = earlyEmitting.toMillis();
-    }
-  }
-
-  final W windowing;
-  final BinaryFunction<W, Duration, W> earlyEmittingConsumer;
-  @Nullable
-  Duration earlyEmitting;
-
-  public WindowedStream(
-      Executor executor,
-      DatasetBuilder<T> dataset,
-      W windowing,
-      Runnable terminatingOperationCall,
-      BooleanSupplier unboundedStreamTerminateSignal,
-      BinaryFunction<W, Duration, W> earlyEmitting) {
-
-    super(executor, dataset, terminatingOperationCall, unboundedStreamTerminateSignal);
-    this.windowing = Objects.requireNonNull(windowing);
-    this.earlyEmittingConsumer = Objects.requireNonNull(earlyEmitting);
-  }
-
-
-
-  @Override
-  @SuppressWarnings("unchecked")
-  <X> WindowedStream<X, W> descendant(DatasetBuilder<X> dataset) {
-    return new WindowedStream(
-        executor,
-        dataset,
-        windowing,
-        terminatingOperationCall,
-        unboundedStreamTerminateSignal,
-        earlyEmittingConsumer);
-  }
-
-  <X, W1 extends Windowing> WindowedStream<X, W1> descendant(
-      DatasetBuilder<X> dataset,
-      W1 windowing,
-      BinaryFunction<W1, Duration, W1> earlyEmitting) {
-
-    return new WindowedStream<>(
-        executor,
-        dataset,
-        windowing,
-        terminatingOperationCall,
-        unboundedStreamTerminateSignal,
-        earlyEmitting);
-  }
-
-  @SuppressWarnings("unchecked")
-  public <K, V> WindowedStream<Pair<K, V>, W> reduce(
-      Closure<K> keyExtractor,
-      Closure<V> valueExtractor,
+  /**
+   * Reduce stream via given reducer.
+   * @param <K> key type
+   * @param <V> value type
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initialValue zero element
+   * @param reducer the reduce function
+   * @return reduced stream
+   */
+  default <K, V> WindowedStream<Pair<K, V>> reduce(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<V> valueExtractor,
       V initialValue,
-      Closure<V> reducer) {
+      @ClosureParams(value = FromString.class, options = "V, V") Closure<V> reducer) {
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<V> valueDehydrated = valueExtractor.dehydrate();
-    Closure<V> reducerDehydrated = reducer.dehydrate();
-    return (WindowedStream) descendant(() ->
-        ReduceByKey.of(dataset.build())
-            .keyBy(keyDehydrated::call)
-            .valueBy(valueDehydrated::call)
-            .reduceBy((java.util.stream.Stream<V> in) -> {
-              V current = initialValue;
-              return in.reduce(current, reducerDehydrated::call);
-            })
-            .windowBy(withEmitting())
-            .output());
+    return reduce(null, keyExtractor, valueExtractor, initialValue, reducer);
   }
 
-
-  @SuppressWarnings("unchecked")
-  public <K, V> WindowedStream<Pair<K, V>, W> reduce(
-      Closure<K> keyExtractor,
+  /**
+   * Reduce stream via given reducer.
+   * @param <K> key type
+   * @param <V> value type
+   * @param name name of the reduce operator
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initialValue zero element
+   * @param reducer the reduce function
+   * @return reduced stream
+   */
+  <K, V> WindowedStream<Pair<K, V>> reduce(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<V> valueExtractor,
       V initialValue,
-      Closure<V> reducer) {
+      @ClosureParams(value = FromString.class, options = "V, V") Closure<V> reducer);
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<V> reducerDehydrated = reducer.dehydrate();
-    return (WindowedStream) descendant(() ->
-        ReduceByKey.of(dataset.build())
-            .keyBy(keyDehydrated::call)
-            .reduceBy((java.util.stream.Stream<T> in) -> {
-              V current = initialValue;
-              Iterable<T> iter = in::iterator;
-              for (T v : iter) {
-                current = reducerDehydrated.call(current, v);
-              }
-              return current;
-            })
-            .windowBy(withEmitting())
-            .output());
+
+  /**
+   * Reduce stream via given reducer.
+   * @param <K> key type
+   * @param <V> value type
+   * @param keyExtractor extractor of key
+   * @param initialValue zero element
+   * @param reducer the reduce function
+   * @return reduced stream
+   */
+  default <K, V> WindowedStream<Pair<K, V>> reduce(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      V initialValue,
+      @ClosureParams(value = FromString.class, options = "V, V") Closure<V> reducer) {
+
+    return reduce(null, keyExtractor, initialValue, reducer);
   }
 
-  @SuppressWarnings("unchecked")
-  public WindowedStream<StreamElement, W> reduceToLatest() {
-    return descendant(() -> {
-      final Dataset<StreamElement> input;
-      input = (Dataset<StreamElement>) dataset.build();
-      return ReduceByKey.of(input)
-          .keyBy(i -> Pair.of(i.getKey(), i.getAttribute()))
-          .combineBy(values ->
-              StreamSupport.stream(values.spliterator(), false)
-                  .collect(Collectors.maxBy((a, b) ->
-                      Long.compare(a.getStamp(), b.getStamp())))
-                  .get())
-          .outputValues();
-    });
+  /**
+   * Reduce stream via given reducer.
+   * @param <K> key type
+   * @param <V> value type
+   * @param name name of the reduce operator
+   * @param keyExtractor extractor of key
+   * @param initialValue zero element
+   * @param reducer the reduce function
+   * @return reduced stream
+   */
+  <K, V> WindowedStream<Pair<K, V>> reduce(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      V initialValue,
+      @ClosureParams(value = FromString.class, options = "V, V") Closure<V> reducer);
+
+
+  /**
+   * Reduce stream to latest values only.
+   * @return reduced stream
+   */
+  default WindowedStream<StreamElement> reduceToLatest() {
+    return reduceToLatest(null);
   }
 
-  @SuppressWarnings("unchecked")
-  public <K, V> WindowedStream<Pair<K, V>, W> flatReduce(
-      Closure<K> keyExtractor,
-      Closure<V> listReduce) {
+  /**
+   * Reduce stream to latest values only.
+   * @param name name of the reduce operator
+   * @return reduced stream
+   */
+  WindowedStream<StreamElement> reduceToLatest(@Nullable String name);
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<V> reducerDehydrated = listReduce.dehydrate();
 
-    return descendant(() ->
-        ReduceByKey.of(dataset.build())
-            .keyBy(keyDehydrated::call)
-            .reduceBy((java.util.stream.Stream<T> in, Collector<V> ctx) -> {
-              List<V> ret = (List<V>) reducerDehydrated.call(
-                  ctx.getWindow(), in.collect(Collectors.toList()));
-              ret.forEach(ctx::collect);
-            })
-            .windowBy(withEmitting())
-            .output());
+  /**
+   * Reduce stream with reduce function taking list of values.
+   * @param <K> key type
+   * @param <V> value type
+   * @param keyExtractor extractor of key
+   * @param listReduce the reduce function taking list of elements
+   * @return reduced stream
+   */
+  default <K, V> WindowedStream<Pair<K, V>> groupReduce(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = {"Object, List<T>"})
+          Closure<Iterable<V>> listReduce) {
+
+    return groupReduce(null, keyExtractor, listReduce);
   }
 
-  @SuppressWarnings("unchecked")
-  public <K, V> WindowedStream<Pair<K, V>, W> combine(
-      Closure<K> keyExtractor,
-      Closure<V> valueExtractor,
+  /**
+   * Reduce stream with reduce function taking list of values.
+   * @param <K> key type
+   * @param <V> value type
+   * @param name name of the group reduce operator
+   * @param keyExtractor extractor of key
+   * @param listReduce the reduce function taking list of elements
+   * @return reduced stream
+   */
+  <K, V> WindowedStream<Pair<K, V>> groupReduce(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = {"Object, List<T>"})
+          Closure<Iterable<V>> listReduce);
+
+
+  /**
+   * Apply combine transform to stream.
+   * @param <K> key type
+   * @param <V> value type
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initial zero element
+   * @param combine combine function
+   * @return the new stream
+   */
+  default <K, V> WindowedStream<Pair<K, V>> combine(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<V> valueExtractor,
       V initial,
-      Closure<V> combine) {
+      @ClosureParams(value = FromString.class, options = "V, V")
+          Closure<V> combine) {
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<V> valueDehydrated = valueExtractor.dehydrate();
-    Closure<V> combineDehydrated = combine.dehydrate();
-    return descendant(() ->
-        ReduceByKey.of(dataset.build())
-            .keyBy(keyDehydrated::call)
-            .valueBy(valueDehydrated::call)
-            .combineBy((java.util.stream.Stream<V> in) ->
-                in.reduce(initial, combineDehydrated::call))
-            .windowBy(withEmitting())
-            .output());
+    return combine(null, keyExtractor, valueExtractor, initial, combine);
   }
 
-  @SuppressWarnings("unchecked")
-  public <K> WindowedStream<Pair<K, T>, W> combine(
-      Closure<K> keyExtractor,
+  /**
+   * Apply combine transform to stream.
+   * @param <K> key type
+   * @param <V> value type
+   * @param name name of the combine operator
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initial zero element
+   * @param combine combine function
+   * @return the new stream
+   */
+  <K, V> WindowedStream<Pair<K, V>> combine(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<V> valueExtractor,
+      V initial,
+      @ClosureParams(value = FromString.class, options = "V, V")
+          Closure<V> combine);
+
+
+  /**
+   * Apply combine transform to stream.
+   * @param <K> key type
+   * @param keyExtractor extractor of key
+   * @param initial zero element
+   * @param combine combine function
+   * @return the new stream
+   */
+  default <K> WindowedStream<Pair<K, T>> combine(
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       T initial,
-      Closure<T> combine) {
+      @ClosureParams(value = FromString.class, options = "T, T") Closure<T> combine) {
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<T> combineDehydrated = combine.dehydrate();
-    return descendant(() ->
-        ReduceByKey.of(dataset.build())
-            .keyBy(keyDehydrated::call)
-            .combineBy((java.util.stream.Stream<T> in) ->
-                in.reduce(initial, combineDehydrated::call))
-            .windowBy(withEmitting())
-            .output());
+    return combine(null, keyExtractor, initial, combine);
   }
 
-  @SuppressWarnings("unchecked")
-  public <K> WindowedStream<Pair<K, Long>, W> countByKey(Closure<K> keyExtractor) {
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    return descendant(() ->
-        ReduceByKey.of(dataset.build())
-            .keyBy(keyDehydrated::call)
-            .valueBy(e -> 1L)
-            .combineBy(Sums.ofLongs())
-            .windowBy(withEmitting())
-            .output());
+  /**
+   * Apply combine transform to stream.
+   * @param <K> key type
+   * @param name name of the combine operator
+   * @param keyExtractor extractor of key
+   * @param initial zero element
+   * @param combine combine function
+   * @return the new stream
+   */
+  <K> WindowedStream<Pair<K, T>> combine(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      T initial,
+      @ClosureParams(value = FromString.class, options = "T, T") Closure<T> combine);
+
+
+  /**
+   * Count elements of stream by key.
+   * @param <K> key type
+   * @param keyExtractor extractor of key
+   * @return stream with elements counted
+   */
+  default <K> WindowedStream<Pair<K, Long>> countByKey(
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor) {
+
+    return countByKey(null, keyExtractor);
   }
 
-  @SuppressWarnings("unchecked")
-  public WindowedStream<Double, W> average(Closure<Double> valueExtractor) {
-    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
-    return descendant(() -> {
-      Dataset<Pair<Double, Long>> intermediate = ReduceWindow.of(dataset.build())
-          .valueBy(e -> Pair.of(valueDehydrated.call(e), 1L))
-          .combineBy(Fold.of(
-              (a, b) -> Pair.of(
-                  a.getFirst() + b.getFirst(),
-                  a.getSecond() + b.getSecond())))
-          .windowBy(withEmitting())
-          .output();
-      return MapElements.of(intermediate)
-          .using(p -> p.getFirst() / p.getSecond())
-          .output();
-    });
+  /**
+   * Count elements of stream by key.
+   * @param <K> key type
+   * @param name name of the countByKey operator
+   * @param keyExtractor extractor of key
+   * @return stream with elements counted
+   */
+  <K> WindowedStream<Pair<K, Long>> countByKey(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor);
+
+
+  /**
+   * Average elements of stream.
+   * @param valueExtractor extractor of double value to be averaged
+   * @return the stream with average values
+   */
+  default WindowedStream<Double> average(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor) {
+
+    return average(null, valueExtractor);
   }
 
-  @SuppressWarnings("unchecked")
-  public <K> WindowedStream<Pair<K, Double>, W> averageByKey(
-      Closure<K> keyExtractor,
-      Closure<Double> valueExtractor) {
+  /**
+   * Average elements of stream.
+   * @param name name of the average operator
+   * @param valueExtractor extractor of double value to be averaged
+   * @return the stream with average values
+   */
+  WindowedStream<Double> average(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor);
 
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
-    return descendant(() -> {
-      Dataset<Pair<K, Pair<Double, Long>>> intermediate = ReduceByKey.of(dataset.build())
-          .keyBy(keyDehydrated::call)
-          .valueBy(e -> Pair.of(valueDehydrated.call(e), 1L))
-          .combineBy(Fold.of(
-              (a, b) -> Pair.of(
-                  a.getFirst() + b.getFirst(),
-                  a.getSecond() + b.getSecond())))
-          .windowBy(withEmitting())
-          .output();
-      return MapElements.of(intermediate)
-          .using(p -> Pair.of(
-              p.getFirst(),
-              p.getSecond().getFirst() / p.getSecond().getSecond()))
-          .output();
-    });
+
+  /**
+   * Average elements of stream by key.
+   * @param <K> key type
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of double value
+   * @return stream with average values per key
+   */
+  default <K> WindowedStream<Pair<K, Double>> averageByKey(
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor) {
+
+    return averageByKey(null, keyExtractor, valueExtractor);
   }
 
+  /**
+   * Average elements of stream by key.
+   * @param <K> key type
+   * @param name name of the averageByKey operator
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of double value
+   * @return stream with average values per key
+   */
+  <K> WindowedStream<Pair<K, Double>> averageByKey(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor);
 
-  @SuppressWarnings("unchecked")
-  public <LEFT, RIGHT> WindowedStream<Pair<T, RIGHT>, JoinedWindowing> join(
-      WindowedStream<RIGHT, ?> right,
-      Closure<LEFT> leftKey,
-      Closure<RIGHT> rightKey) {
 
-    Closure<LEFT> leftKeyDehydrated = leftKey.dehydrate();
-    Closure<RIGHT> rightKeyDehydrated = rightKey.dehydrate();
-    JoinedWindowing joinedWindowing = new JoinedWindowing<>(this, right);
-    return descendant(
-        () -> {
-          Dataset<Pair<Object, Pair<T, RIGHT>>> joined;
-          joined = Join.of(dataset.build(), right.dataset.build())
-              .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
-              .using((T l, RIGHT r, Collector<Pair<T, RIGHT>> ctx) ->
-                  ctx.collect(Pair.of(l, r)))
-              .windowBy(joinedWindowing)
-              .output();
-          return MapElements.of(joined)
-              .using(Pair::getSecond)
-              .output();
-        },
-        joinedWindowing,
-        (w, d) -> {
-          this.setEarlyEmitting(d);
-          right.setEarlyEmitting(d);
-          w.setEarlyEmitting(d);
-          return w;
-        });
+  /**
+   * Join with other stream.
+   * @param <K> type of join key
+   * @param <OTHER> type of other stream
+   * @param right the right stream
+   * @param leftKey extractor applied on left stream
+   * @param rightKey extractor applied on right stream
+   * @return joined stream
+   */
+  default <K, OTHER> WindowedStream<Pair<T, OTHER>> join(
+      WindowedStream<OTHER> right,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> leftKey,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> rightKey) {
+
+    return join(null, right, leftKey, rightKey);
   }
 
-  @SuppressWarnings("unchecked")
-  public <LEFT, RIGHT> WindowedStream<Pair<T, RIGHT>, JoinedWindowing> leftJoin(
-      WindowedStream<RIGHT, ?> right,
-      Closure<LEFT> leftKey,
-      Closure<RIGHT> rightKey) {
+  /**
+   * Join with other stream.
+   * @param <K> type of join key
+   * @param <OTHER> type of other stream
+   * @param name name of the join operator
+   * @param right the right stream
+   * @param leftKey extractor applied on left stream
+   * @param rightKey extractor applied on right stream
+   * @return joined stream
+   */
+  <K, OTHER> WindowedStream<Pair<T, OTHER>> join(
+      @Nullable String name,
+      WindowedStream<OTHER> right,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> leftKey,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> rightKey);
 
-    Closure<LEFT> leftKeyDehydrated = leftKey.dehydrate();
-    Closure<RIGHT> rightKeyDehydrated = rightKey.dehydrate();
-    JoinedWindowing joinedWindowing = new JoinedWindowing<>(this, right);
-    return descendant(
-        () -> {
-          final Dataset<Pair<Object, Pair<T, RIGHT>>> joined;
-          joined = LeftJoin.of(dataset.build(), right.dataset.build())
-              .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
-              .using((T l, Optional<RIGHT> r, Collector<Pair<T, RIGHT>> ctx) ->
-                  ctx.collect(Pair.of(l, r.orElse(null))))
-              .windowBy(joinedWindowing)
-              .output();
-          return MapElements.of(joined)
-              .using(Pair::getSecond)
-              .output();
-        },
-        joinedWindowing,
-        (w, d) -> {
-          this.setEarlyEmitting(d);
-          right.setEarlyEmitting(d);
-          w.setEarlyEmitting(d);
-          return w;
-        });
+
+
+  /**
+   * Left join with other stream.
+   * @param <K> type of join key
+   * @param <OTHER> type of other stream
+   * @param right the right stream
+   * @param leftKey extractor applied on left stream
+   * @param rightKey extractor applied on right stream
+   * @return joined stream
+   */
+  default <K, OTHER> WindowedStream<Pair<T, OTHER>> leftJoin(
+      WindowedStream<OTHER> right,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> leftKey,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> rightKey) {
+
+    return leftJoin(null, right, leftKey, rightKey);
   }
 
+  /**
+   * Left join with other stream.
+   * @param <K> type of join key
+   * @param <OTHER> type of other stream
+   * @param name name of the join operator
+   * @param right the right stream
+   * @param leftKey extractor applied on left stream
+   * @param rightKey extractor applied on right stream
+   * @return joined stream
+   */
+  <K, OTHER> WindowedStream<Pair<T, OTHER>> leftJoin(
+      @Nullable String name,
+      WindowedStream<OTHER> right,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> leftKey,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> rightKey);
 
-  @SuppressWarnings("unchecked")
-  public WindowedStream<T, W> sorted(Closure<Integer> compareFn) {
 
-    Closure<Integer> dehydrated = compareFn.dehydrate();
-    return descendant(() ->
-        ReduceWindow
-            .of((Dataset<T>) dataset.build())
-            .reduceBy((java.util.stream.Stream<T> in, Collector<T> ctx) ->
-                in.forEach(ctx::collect))
-            .withSortedValues(dehydrated::call)
-            .output());
+  /**
+   * Sort stream.
+   * @param compareFn comparison function
+   * @return sorted stram
+   */
+  default WindowedStream<T> sorted(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Integer> compareFn) {
+
+    return sorted(null, compareFn);
   }
 
-  @SuppressWarnings("unchecked")
-  public WindowedStream<Comparable<T>, W> sorted() {
-    return descendant(() ->
-        ReduceWindow
-            .of((Dataset<Comparable<T>>) dataset.build())
-            .reduceBy((
-                java.util.stream.Stream<Comparable<T>> in,
-                Collector<Comparable<T>> ctx) ->
-                    in.forEach(ctx::collect))
-            .withSortedValues((l, r) -> l.compareTo((T) r))
-            .output());
-  }
+  /**
+   * Sort stream.
+   * @param name name of the sort operator
+   * @param compareFn comparison function
+   * @return sorted stram
+   */
+  WindowedStream<T> sorted(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Integer> compareFn);
 
 
-  @SuppressWarnings("unchecked")
-  public WindowedStream<Long, W> count() {
-    return descendant(() ->
-        ReduceWindow.of(dataset.build())
-            .valueBy(e -> 1L)
-            .combineBy(Sums.ofLongs())
-            .windowBy(withEmitting())
-            .output());
+  /**
+   * Sort stream consisting of {@link Comparable}s.
+   * @return sorted stream
+   */
+  default WindowedStream<Comparable<T>> sorted() {
+    return sorted((String) null);
   }
 
-  @SuppressWarnings("unchecked")
-  public WindowedStream<Double, W> sum(Closure<Double> valueExtractor) {
-    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
-    return descendant(() ->
-        ReduceWindow.of(dataset.build())
-            .valueBy(valueDehydrated::call)
-            .combineBy(Fold.of(0.0, (a, b) -> a + b))
-            .windowBy(withEmitting())
-            .output());
+  /**
+   * Sort stream consisting of {@link Comparable}s.
+   * @param name name of the sort operator
+   * @return sorted stream
+   */
+  WindowedStream<Comparable<T>> sorted(@Nullable String name);
+
+
+  /**
+   * Count elements.
+   * @return stream with element counts
+   */
+  default WindowedStream<Long> count() {
+    return count(null);
   }
 
-  @SuppressWarnings("unchecked")
-  public <K> WindowedStream<Pair<K, Double>, W> sumByKey(
-      Closure<K> keyExtractor,
-      Closure<Double> valueExtractor) {
-    Closure<K> keyDehydrated = keyExtractor.dehydrate();
-    Closure<Double> valueDehydrated = valueExtractor.dehydrate();
-    return descendant(() ->
-        ReduceByKey.of(dataset.build())
-            .keyBy(keyDehydrated::call)
-            .valueBy(valueDehydrated::call)
-            .combineBy(Fold.of(0.0, (a, b) -> a + b))
-            .windowBy(withEmitting())
-            .output());
+  /**
+   * Count elements.
+   * @param name name of the count operator
+   * @return stream with element counts
+   */
+  WindowedStream<Long> count(@Nullable String name);
+
+
+  /**
+   * Sum elements.
+   * @param valueExtractor extractor of double value
+   * @return stream with sums
+   */
+  default WindowedStream<Double> sum(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor) {
+
+    return sum(null, valueExtractor);
   }
 
-  @SuppressWarnings("unchecked")
-  public WindowedStream<T, W> distinct() {
-    return descendant(() ->
-        Distinct.of(dataset.build())
-            .windowBy(withEmitting())
-            .output());
+  /**
+   * Sum elements.
+   * @param name name of the sum operator
+   * @param valueExtractor extractor of double value
+   * @return stream with sums
+   */
+  WindowedStream<Double> sum(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor);
+
+
+  /**
+   * Sum elements by key.
+   * @param <K> type of key
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of double value
+   * @return stream with sums per key
+   */
+  default <K> WindowedStream<Pair<K, Double>> sumByKey(
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor) {
+
+    return sumByKey(null, keyExtractor, valueExtractor);
   }
 
-  @SuppressWarnings("unchecked")
-  public WindowedStream<T, W> distinct(Closure<?> mapper) {
-    Closure<?> dehydrated = mapper.dehydrate();
-    return descendant(() ->
-        Distinct.of(dataset.build())
-            .mapped(dehydrated::call)
-            .windowBy(withEmitting())
-            .output());
+  /**
+   * Sum elements by key.
+   * @param <K> type of key
+   * @param name name of the sumByKey operator
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of double value
+   * @return stream with sums per key
+   */
+  <K> WindowedStream<Pair<K, Double>> sumByKey(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Double> valueExtractor);
+
+
+  /**
+   * Output distinct elements.
+   * @return stream with distinct elements
+   */
+  default WindowedStream<T> distinct() {
+    return distinct((String) null);
   }
 
-  public WindowedStream<T, W> withEarlyEmitting(long duration) {
-    this.earlyEmitting = Duration.ofMillis(duration);
-    return this;
+  /**
+   * Output distinct elements.
+   * @param name name of the distinct operator
+   * @return stream with distinct elements
+   */
+  WindowedStream<T> distinct(@Nullable String name);
+
+  /**
+   * Output distinct elements through given mapper.
+   * @param mapper map values by given function before comparison
+   * @return distinct stream
+   */
+  default WindowedStream<T> distinct(
+      @ClosureParams(value = FromString.class, options = "T") Closure<?> mapper) {
+
+    return distinct(null, mapper);
   }
 
-  W withEmitting() {
-    if (earlyEmitting != null) {
-      return earlyEmittingConsumer.apply(windowing, earlyEmitting);
-    }
-    return windowing;
-  }
+  /**
+   * Output distinct elements through given mapper.
+   * @param name name of the distinct operator
+   * @param mapper map values by given function before comparison
+   * @return distinct stream
+   */
+  WindowedStream<T> distinct(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<?> mapper);
 
-  private void setEarlyEmitting(Duration earlyEmitting) {
-    this.earlyEmitting = earlyEmitting;
-  }
+
+  /**
+   * Specify early emitting for windowed operations
+   * @param duration the duration (in processing time) of the early emitting
+   * @return stream with early emitting specified
+   */
+  WindowedStream<T> withEarlyEmitting(long duration);
+
+  /**
+   * Specify allowed lateness for windowed operations.
+   * @param lateness the allowed lateness
+   * @return stream with allowed lateness specified
+   */
+  WindowedStream<T> withAllowedLateness(long lateness);
 
 }

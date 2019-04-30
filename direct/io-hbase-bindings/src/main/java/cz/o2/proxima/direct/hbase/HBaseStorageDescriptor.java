@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.hbase;
 
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.Map;
@@ -27,13 +28,16 @@ import java.util.Map;
 public class HBaseStorageDescriptor implements DataAccessorFactory {
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("hbase");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("hbase") ? Accept.ACCEPT : Accept.REJECT;
   }
 
   @Override
-  public DataAccessor create(
-      EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
+  public DataAccessor createAccessor(
+      DirectDataOperator direct,
+      EntityDescriptor entity,
+      URI uri,
+      Map<String, Object> cfg) {
 
     return new HBaseDataAccessor(entity, uri, cfg);
   }

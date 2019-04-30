@@ -25,7 +25,6 @@ import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.direct.commitlog.Position;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.Partition;
@@ -39,7 +38,9 @@ import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.WatermarkEstimator;
+import io.grpc.internal.GrpcUtil;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -75,6 +76,7 @@ public class PubSubReaderTest {
   private final AttributeDescriptorImpl<?> attr;
   private final AttributeDescriptorImpl<?> wildcard;
   private final EntityDescriptor entity;
+  private final PubSubStorage storage = new PubSubStorage();
   private final PubSubAccessor accessor;
   private final AtomicLong timestampSupplier = new AtomicLong();
   private TestPubSubReader reader;
@@ -108,7 +110,12 @@ public class PubSubReaderTest {
 
     @Override
     WatermarkEstimator createWatermarkEstimator(long minWatermark) {
-      return WatermarkEstimator.of(1, 1, minWatermark, timestampSupplier::get);
+      return WatermarkEstimator.newBuilder()
+          .withDurationMs(1)
+          .withStepMs(1)
+          .withMinWatermark(minWatermark)
+          .withTimestampSupplier(timestampSupplier::get)
+          .build();
     }
 
   }
@@ -131,7 +138,7 @@ public class PubSubReaderTest {
         .build();
     assertTrue(entity.findAttribute("attr").isPresent());
     this.accessor = new PubSubAccessor(
-        entity, new URI("gps://my-project/topic"), Collections.emptyMap());
+        storage, entity, new URI("gps://my-project/topic"), Collections.emptyMap());
   }
 
   @Before
@@ -217,7 +224,7 @@ public class PubSubReaderTest {
       }
       return inputs.pop();
     });
-    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch latch = new CountDownLatch(3);
     AtomicLong watermark = new AtomicLong();
     reader.observe("dummy", new LogObserver() {
       @Override
@@ -453,6 +460,12 @@ public class PubSubReaderTest {
 
     assertTrue(cancelled.get());
     assertEquals(Sets.newHashSet(0, 1, 2), reader.acked);
+  }
+
+  @Test
+  public void testeInstantiationHttp2Error() {
+    GrpcUtil.Http2Error error = GrpcUtil.Http2Error.NO_ERROR;
+    assertNotNull(error);
   }
 
 }

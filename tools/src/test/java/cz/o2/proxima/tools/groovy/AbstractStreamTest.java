@@ -15,35 +15,24 @@
  */
 package cz.o2.proxima.tools.groovy;
 
-import cz.seznam.euphoria.core.client.flow.Flow;
-import cz.seznam.euphoria.core.client.io.ListDataSource;
-import cz.seznam.euphoria.executor.local.LocalExecutor;
 import java.io.Serializable;
 import java.util.Arrays;
-import org.junit.Before;
+import java.util.stream.Collectors;
 
 /**
  * Base class for tests of all stream classes.
  */
 abstract class AbstractStreamTest implements Serializable {
 
-  Flow flow;
+  final transient TestStreamProvider provider;
 
-  @Before
-  public void setUp() {
-    flow = Flow.create();
-  }
-
-  LocalExecutor executor() {
-    return new LocalExecutor();
+  protected AbstractStreamTest(TestStreamProvider provider) {
+    this.provider = provider;
   }
 
   @SafeVarargs
-  final <T> DatasetBuilder<T> builder(T... values) {
-    return () -> {
-      ListDataSource<T> source = ListDataSource.bounded(Arrays.asList(values));
-      return flow.createInput(source);
-    };
+  final <T> Stream<T> stream(T... items) {
+    return provider.of(Arrays.stream(items).collect(Collectors.toList()));
   }
 
 }

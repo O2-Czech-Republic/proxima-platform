@@ -90,6 +90,12 @@ public interface LogObserver extends Serializable {
     @Override
     long getWatermark();
 
+    /**
+     * Retrieve {@link Offset} of current record.
+     * @return {@link Offset} of current record.
+     */
+    Offset getOffset();
+
     @Override
     default void commit(boolean success, Throwable error) {
       committer().commit(success, error);
@@ -111,6 +117,7 @@ public interface LogObserver extends Serializable {
   /**
    * Context passed to {@link #onRepartition}.
    */
+  @Stable
   interface OnRepartitionContext {
 
     /**
@@ -172,6 +179,8 @@ public interface LogObserver extends Serializable {
    * Typical example of commit log with no need to call {@link #onIdle} is
    * google PubSub, having virtually single shared partition which loads
    * balances incoming data.
+   *
+   * @param context the context for on idle processing
    */
   default void onIdle(OnIdleContext context) {
 

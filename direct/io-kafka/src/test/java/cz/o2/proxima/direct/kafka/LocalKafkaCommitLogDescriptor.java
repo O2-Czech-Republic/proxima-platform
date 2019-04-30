@@ -19,13 +19,14 @@ import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.direct.commitlog.Position;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -681,7 +682,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   }
 
   @Override
-  public Accessor create(
+  public Accessor createAccessor(
+      DirectDataOperator direct,
       EntityDescriptor entityDesc,
       URI uri,
       Map<String, Object> cfg) {
@@ -692,8 +694,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   }
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("kafka-test");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("kafka-test") ? Accept.ACCEPT : Accept.REJECT;
   }
 
 

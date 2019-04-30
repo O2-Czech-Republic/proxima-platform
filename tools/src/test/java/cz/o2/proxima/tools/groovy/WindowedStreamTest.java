@@ -15,16 +15,19 @@
  */
 package cz.o2.proxima.tools.groovy;
 
-import cz.seznam.euphoria.core.client.dataset.windowing.Windowing;
 
 /**
  * Test suite for {@link WindowedStream}.
  */
-public class WindowedStreamTest extends AbstractWindowedStreamTest {
+public abstract class WindowedStreamTest extends AbstractWindowedStreamTest {
+
+  protected WindowedStreamTest(TestStreamProvider provider) {
+    super(provider);
+  }
 
   @SuppressWarnings("unchecked")
   @Override
-  <T, W extends Windowing<T, ?>> WindowedStream<T, W> intoSingleWindow(Stream<T> stream) {
+  <T> WindowedStream<T> intoSingleWindow(Stream<T> stream) {
     return (WindowedStream) stream.windowAll();
   }
 

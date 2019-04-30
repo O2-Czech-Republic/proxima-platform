@@ -16,12 +16,13 @@
 package cz.o2.proxima.tools.groovy;
 
 import com.google.common.collect.Sets;
+import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -29,75 +30,94 @@ import static org.junit.Assert.*;
 /**
  * Test suite for {@link Stream}.
  */
-public class StreamTest extends AbstractStreamTest {
+public abstract class StreamTest extends AbstractStreamTest {
+
+  protected StreamTest(TestStreamProvider provider) {
+    super(provider);
+  }
 
   @Test
   public void testStreamFilter() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
-    List<Object> result = new ArrayList<>();
-    stream
-        .filter(new Closure<Boolean>(this) {
+    Stream<Integer> stream = stream(1, 2, 3, 4);
+    List<Integer> result = stream
+        .filter(wrap(new Closure<Boolean>(this) {
           @Override
           public Boolean call(Object... args) {
             return (int) args[0] % 2 == 0;
           }
-        })
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
-    assertEquals(Arrays.asList(2, 4), result);
+        }, Boolean.class))
+        .collect();
+    assertUnorderedEquals(result, 2, 4);
   }
 
   @Test
   public void testStreamMap() {
-    Stream<Integer> stream = Stream.wrap(executor(), builder(1, 2, 3, 4), () -> { });
-    List<Object> result = new ArrayList<>();
-    stream
-        .map(new Closure<Integer>(this) {
+    Stream<Integer> stream = stream(1, 2, 3, 4);
+    List<Integer> result =  stream
+        .map(wrap(new Closure<Integer>(this) {
           @Override
           public Integer call(Object... args) {
             return (int) args[0] + 1;
           }
-        })
-        .forEach(new Closure<Void>(this) {
+        }, Integer.class))
+        .collect();
+    assertUnorderedEquals(result, 2, 3, 4, 5);
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  public void testStreamWithWindow() {
+    Stream<Integer> stream = stream(1, 2, 3, 4);
+    List<Pair> result = stream.windowAll().withWindow()
+        .map(wrap(new Closure<Pair>(this) {
           @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
+          public Pair<String, Integer> call(Object... argument) {
+            Pair<Object, Integer> p = (Pair) argument[0];
+            return Pair.of("window", p.getSecond());
           }
-        });
-    assertEquals(Arrays.asList(2, 3, 4, 5), result);
+        }, Pair.class))
+        .collect();
+    assertUnorderedEquals(result,
+        Pair.of("window", 1),
+        Pair.of("window", 2),
+        Pair.of("window", 3),
+        Pair.of("window", 4));
   }
 
   @Test
   public void testStreamUnion() {
-    Stream<Integer> stream1 = Stream.wrap(executor(), builder(1, 2), () -> { });
-    Stream<Integer> stream2 = Stream.wrap(executor(), builder(3, 4), () -> { });
-    Set<Object> result = new HashSet<>();
-    stream1.union(stream2)
-        .forEach(new Closure<Void>(this) {
-          @Override
-          public Void call(Object argument) {
-            result.add(argument);
-            return null;
-          }
-        });
-    assertEquals(Sets.newHashSet(1, 2, 3, 4), result);
-  }
-
-  @Test
-  public void testCollect() {
-    Stream<Integer> stream1 = Stream.wrap(executor(), builder(1, 2), () -> { });
-    Stream<Integer> stream2 = Stream.wrap(executor(), builder(3, 4), () -> { });
+    Stream<Integer> stream1 = stream(1, 2);
+    Stream<Integer> stream2 = stream(3, 4);
     Set<Integer> result = stream1.union(stream2)
         .collect()
         .stream().collect(Collectors.toSet());
     assertEquals(Sets.newHashSet(1, 2, 3, 4), result);
   }
 
+  @Test
+  public void testCollect() {
+    Stream<Integer> stream1 = stream(1, 2);
+    Stream<Integer> stream2 = stream(3, 4);
+    Set<Integer> result = stream1.union(stream2)
+        .collect()
+        .stream().collect(Collectors.toSet());
+    assertEquals(Sets.newHashSet(1, 2, 3, 4), result);
+  }
+
+  @SafeVarargs
+  final <T> void assertUnorderedEquals(List<T> input, T... elements) {
+    assertEquals(
+        elementCounts(Arrays.stream(elements)),
+        elementCounts(input.stream()));
+  }
+
+  private <T> Map<T, Integer> elementCounts(java.util.stream.Stream<T> input) {
+    return input.collect(Collectors.groupingBy(
+            Function.identity(), Collectors.summingInt(e -> 1)));
+  }
+
+  <T> Closure<T> wrap(Closure<T> c, Class<? extends T> cls) {
+    return JavaTypedClosure.wrap(c, cls);
+  }
 
 }

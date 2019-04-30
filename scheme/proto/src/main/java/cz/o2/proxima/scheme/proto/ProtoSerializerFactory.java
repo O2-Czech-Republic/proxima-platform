@@ -109,7 +109,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   static <M extends AbstractMessage> M getDefaultInstance(String protoClass) {
     try {
-      Class<AbstractMessage> cls = Classpath.findClass(
+      Class<? extends AbstractMessage> cls = Classpath.findClass(
           protoClass, AbstractMessage.class);
       Method method = cls.getMethod("getDefaultInstance");
       return (M) method.invoke(null);

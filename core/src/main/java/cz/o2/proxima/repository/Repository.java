@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 /**
@@ -34,6 +35,9 @@ import java.util.stream.Stream;
  */
 @Evolving
 public abstract class Repository implements Serializable {
+
+  private final Map<Class<? extends DataOperator>, DataOperator> operatorCache =
+      new ConcurrentHashMap<>();
 
   /**
    * Create {@link Repository} from given {@link Config}.
@@ -109,13 +113,13 @@ public abstract class Repository implements Serializable {
    */
   @SuppressWarnings("unchecked")
   @SafeVarargs
-  public final <T extends DataOperator> T asDataOperator(
+  public final synchronized <T extends DataOperator> T asDataOperator(
       Class<T> type, Consumer<T>... modifiers) {
 
     ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(
         DataOperatorFactory.class);
 
-    return Streams
+    T ret = Streams
         .stream(loaders)
         .filter(factory ->  factory.isOfType(type))
         .findAny()
@@ -128,6 +132,28 @@ public abstract class Repository implements Serializable {
         })
         .orElseThrow(() -> new IllegalStateException(
             "Operator " + type + " not found."));
+
+    operatorCache.put(type, ret);
+    return ret;
+  }
+
+  /**
+   * Retrieve an already created (via call to #asDataOperator} instance
+   * of data operator or create new instance with default settings.
+   * 
+   * @param <T> type of operator
+   * @param type the operator class
+   * @return the data operator of given type
+   */
+  @SuppressWarnings("unchecked")
+  public final synchronized <T extends DataOperator> T getOrCreateOperator(
+      Class<T> type) {
+
+    T ret = (T) operatorCache.get(type);
+    if (ret != null) {
+      return ret;
+    }
+    return asDataOperator(type);
   }
 
   /**

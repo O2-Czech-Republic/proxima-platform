@@ -41,7 +41,7 @@ import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.direct.commitlog.Position;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.pubsub.proto.PubSub;
@@ -102,9 +102,15 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
     @Override
     public Collection<Partition> split(int desiredCount) {
+      log.info("Splitting partition {} into {} parts", this, desiredCount);
       return IntStream.range(0, desiredCount)
           .mapToObj(i -> this)
           .collect(Collectors.toList());
+    }
+
+    @Override
+    public String toString() {
+      return "PubSubPartition(" + consumerName + ")";
     }
 
   }
@@ -150,7 +156,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   }
 
   @FunctionalInterface
-  private interface PubSubConsumer extends Serializable {
+  private static interface PubSubConsumer extends Serializable {
     boolean consume(
         StreamElement elem, WatermarkSupplier watermark, AckReplyConsumer ack);
   }
@@ -161,6 +167,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   private final int maxAckDeadline;
   private final int subscriptionAckDeadline;
   private final boolean subscriptionAutoCreate;
+  private final long watermarkEstimateDuration;
+  private final long allowedTimestampSkew;
 
   private transient ExecutorService executor;
 
@@ -172,6 +180,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     this.maxAckDeadline = accessor.getMaxAckDeadline();
     this.subscriptionAckDeadline = accessor.getSubscriptionAckDeadline();
     this.subscriptionAutoCreate = accessor.isSubscriptionAutoCreate();
+    this.watermarkEstimateDuration = accessor.getWatermarkEstimateDuration();
+    this.allowedTimestampSkew = accessor.getAllowedTimestampSkew();
   }
 
   @Override
@@ -194,7 +204,6 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     validatePosition(position);
     String consumerName = asConsumerName(name);
     AtomicLong committedWatermark = new AtomicLong(minWatermark);
-    Partition partition = new PubSubPartition(consumerName);
     return consume(consumerName, (e, w, c) -> {
       OffsetCommitter committer = (succ, exc) -> {
         if (succ) {
@@ -211,7 +220,9 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         }
       };
       try {
-        boolean ret = observer.onNext(e, asOnNextContext(committer, partition, w));
+        long watermark = w.getWatermark();
+        Offset offset = new PubSubOffset(consumerName, watermark);
+        boolean ret = observer.onNext(e, asOnNextContext(committer, offset));
         if (!ret) {
           observer.onCompleted();
         }
@@ -291,7 +302,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
           // ensure explicit synchronization here
           synchronized (lock) {
             try {
-              if (!observer.onNext(e, asOnNextContext(committer, partition, w))) {
+              Offset offset = new PubSubOffset(consumerName, w.getWatermark());
+              if (!observer.onNext(e, asOnNextContext(committer, offset))) {
                 observer.onCompleted();
                 return false;
               }
@@ -427,8 +439,13 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
   @VisibleForTesting
   WatermarkEstimator createWatermarkEstimator(long minWatermark) {
-    int duration = (subscriptionAckDeadline * 1000) / 100 * 100;
-    return WatermarkEstimator.of(duration, 100, minWatermark);
+    long duration = (watermarkEstimateDuration) / 100 * 100;
+    return WatermarkEstimator.newBuilder()
+        .withMinWatermark(minWatermark)
+        .withDurationMs(duration)
+        .withAllowedTimestampSkew(allowedTimestampSkew)
+        .withStepMs(100)
+        .build();
   }
 
   private void createSubscription(
@@ -530,6 +547,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
       @Override
       public void cancel() {
+        log.debug("Cancelling observer {}", consumerName);
         stopProcessing.set(true);
         Subscriber sub = stopAsync(subscriber);
         if (sub != null) {
@@ -580,7 +598,14 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         }
         Optional<StreamElement> elem = toElement(getEntityDescriptor(), m);
         if (elem.isPresent()) {
+          long current = watermarkEstimator.getWatermark();
           watermarkEstimator.add(elem.get().getStamp());
+          if (watermarkEstimator.getWatermark() < current) {
+            log.warn("Element {} is moving watermark backwards of {} ms. "
+                + "If this happens too often, then it is likely you need to extend "
+                + "ack deadline.", elem.get(),
+                current - watermarkEstimator.getWatermark());
+          }
           if (!consumer.consume(elem.get(), watermarkEstimator, c)) {
             log.info("Terminating consumption by request.");
             stopAsync(subscriber);
@@ -649,6 +674,12 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       log.warn("Failed to parse message {}", m, ex);
     }
     return Optional.empty();
+  }
+
+  @Override
+  public boolean hasExternalizableOffsets() {
+    // all offsets represent the same read position
+    return false;
   }
 
   private String findConsumerFromPartitions(

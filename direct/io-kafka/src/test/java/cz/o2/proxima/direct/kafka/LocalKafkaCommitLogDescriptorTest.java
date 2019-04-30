@@ -19,13 +19,13 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.KeyPartitioner;
+import cz.o2.proxima.storage.commitlog.KeyPartitioner;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.direct.commitlog.Partitioner;
-import cz.o2.proxima.direct.commitlog.Position;
+import cz.o2.proxima.storage.commitlog.Partitioner;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -135,7 +135,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testSinglePartitionWriteAndConsumeBySingleConsumerRunAfterWrite()
       throws InterruptedException {
 
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(1));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(1));
     LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
     CountDownLatch latch = new CountDownLatch(1);
@@ -168,7 +169,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testTwoPartitionsTwoWritesAndConsumeBySingleConsumerRunAfterWrite()
       throws InterruptedException {
 
-    final Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(2));
+    final Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(2));
     final LocalKafkaWriter writer = accessor.newWriter();
     final KafkaConsumer<String, byte[]> consumer;
     final CountDownLatch latch = new CountDownLatch(2);
@@ -215,7 +217,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test
   public void testEmptyPoll() {
     LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.create(entity, storageUri, partitionsCfg(2));
+    accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(2));
     KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
     assertTrue(consumer.poll(100).isEmpty());
   }
@@ -223,7 +226,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test
   public void testWriteNull() {
     LocalKafkaCommitLogDescriptor.Accessor accessor;
-    accessor = kafka.create(entity, storageUri, partitionsCfg(2));
+    accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(2));
     OnlineAttributeWriter writer = accessor.getWriter(context()).get().online();
     long now = 1234567890000L;
     KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
@@ -252,7 +256,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testTwoPartitionsTwoWritesAndConsumeBySingleConsumerRunBeforeWrite()
       throws InterruptedException {
 
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(2));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(2));
     LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<String, byte[]> consumer = accessor.createConsumerFactory().create();
     writer.write(StreamElement.update(
@@ -295,7 +300,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testTwoPartitionsTwoWritesAndTwoReads()
       throws InterruptedException {
 
-    final Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(2));
+    final Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(2));
     final LocalKafkaWriter writer = accessor.newWriter();
     final KafkaConsumer<String, byte[]> consumer;
 
@@ -328,7 +334,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 10000)
   @SuppressWarnings("unchecked")
   public void testTwoIdependentConsumers() throws InterruptedException {
-    final Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(1));
+    final Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(1));
     final LocalKafkaWriter writer = accessor.newWriter();
     final KafkaConsumer<String, byte[]>[] consumers = new KafkaConsumer[] {
       accessor.createConsumerFactory().create("dummy1"),
@@ -365,7 +372,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testManualPartitionAssignment() throws InterruptedException {
-    final Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(2));
+    final Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(2));
     final LocalKafkaWriter writer = accessor.newWriter();
     final KafkaConsumer<String, byte[]> consumer = accessor
         .createConsumerFactory().create(Arrays.asList((Partition) () -> 0));
@@ -409,7 +417,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testPollAfterWrite() throws InterruptedException {
-    final Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(1));
+    final Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(1));
     final LocalKafkaWriter writer = accessor.newWriter();
     final CountDownLatch latch = new CountDownLatch(2);
     writer.write(StreamElement.update(
@@ -438,7 +447,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testPollWithSeek() throws InterruptedException {
-    final Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(1));
+    final Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(1));
     final LocalKafkaWriter writer = accessor.newWriter();
     final CountDownLatch latch = new CountDownLatch(2);
     writer.write(StreamElement.update(
@@ -469,7 +479,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test
   public void testTwoPartitionsTwoConsumersRebalance() {
     final String name = "consumer";
-    final Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(2));
+    final Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(2));
     final LocalKafkaWriter writer = accessor.newWriter();
     final KafkaConsumer<String, byte[]> c1 = accessor.createConsumerFactory()
         .create(name);
@@ -520,7 +531,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test
   public void testSinglePartitionTwoConsumersRebalance() {
     String name = "consumer";
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(1));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(1));
     LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<String, byte[]> c1 = accessor.createConsumerFactory().create(name);
     writer.write(StreamElement.update(
@@ -568,7 +580,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testObserveSuccess() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -622,7 +635,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testObserveMovesWatermark() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -667,8 +681,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testEmptyPollMovesWatermark() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, and(
-        partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, and(
+            partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -719,7 +734,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testEmptyPollWithNoDataMovesWatermark() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, and(
+    Accessor accessor = kafka.createAccessor(direct, entity, storageUri, and(
         partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -765,34 +780,23 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testSlowPollMovesWatermarkSlowly() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, and(
+    Accessor accessor = kafka.createAccessor(direct, entity, storageUri, and(
         partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
-    LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
-
-    long now = System.currentTimeMillis() - 10000;
-    for (int i = 0; i < 20000; i++) {
-      StreamElement update = StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key" + i, attr.getName(), now + 2000, new byte[] { 1, 2 });
-      // then we write single element
-      writer.write(update, (succ, e) -> { });
-    }
-
+    final long now = System.currentTimeMillis();
     AtomicLong watermark = new AtomicLong();
-    CountDownLatch latch = new CountDownLatch(1);
-    reader.observeBulk("test", Position.OLDEST, true, new LogObserver() {
+    CountDownLatch latch = new CountDownLatch(30);
+    reader.observe("test", Position.NEWEST, new LogObserver() {
 
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {
-        watermark.set(context.getWatermark());
         return true;
       }
 
       @Override
       public void onCompleted() {
-        latch.countDown();
+        fail("This should not be called");
       }
 
       @Override
@@ -800,17 +804,29 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         throw new RuntimeException(error);
       }
 
+      @Override
+      public void onIdle(OnIdleContext context) {
+        watermark.set(context.getWatermark());
+        latch.countDown();
+      }
+
     }).waitUntilReady();
+
+
+    // for two seconds we have empty data
+    TimeUnit.SECONDS.sleep(2);
 
     latch.await();
 
-    // watermark should be moved to now + 2000
-    assertEquals(watermark.get(), now + 2000);
+    // watermark should be moved
+    assertTrue(watermark.get() > 0);
+    assertTrue(watermark.get() < now * 10);
   }
 
   @Test(timeout = 10000)
   public void testObserveBulkCommitsCorrectly() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -870,7 +886,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testObserveWithException() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -921,7 +938,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testBulkObserveWithException() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -971,7 +989,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testBulkObserveWithExceptionAndRetry() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -1017,7 +1036,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testBulkObserveSuccess() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -1076,7 +1096,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testBulkObservePartitionsSuccess() throws InterruptedException {
-    Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -1135,7 +1156,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testBulkObserveOffsets() throws InterruptedException {
-    final Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    final Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     final LocalKafkaWriter writer = accessor.newWriter();
     final CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
@@ -1204,7 +1226,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testCachedView() throws InterruptedException {
-    final Accessor accessor = kafka.create(entity, storageUri, partitionsCfg(3));
+    final Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3));
     final LocalKafkaWriter writer = accessor.newWriter();
     final CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
@@ -1238,8 +1261,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testCachedViewReload() throws InterruptedException {
-    final Accessor accessor = kafka.create(
-        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
+    final Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     final LocalKafkaWriter writer = accessor.newWriter();
     final CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
@@ -1281,8 +1304,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testCachedViewWrite() throws InterruptedException {
-    Accessor accessor = kafka.create(
-        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     List<StreamElement> updates = Arrays.asList(
@@ -1309,8 +1332,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testCachedViewWriteAndDelete() throws InterruptedException {
-    Accessor accessor = kafka.create(
-        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
@@ -1337,8 +1360,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testCachedViewWriteAndDeleteWildcard() throws InterruptedException {
-    Accessor accessor = kafka.create(
-        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
@@ -1382,8 +1405,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testCachedViewWriteAndList() throws InterruptedException {
-    Accessor accessor = kafka.create(
-        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
@@ -1421,8 +1444,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testCachedViewWriteAndListAll() throws InterruptedException {
-    Accessor accessor = kafka.create(
-        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
@@ -1460,8 +1483,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testCachedViewWritePreUpdate() throws InterruptedException {
-    Accessor accessor = kafka.create(
-        entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class));
     CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     List<StreamElement> updates = Arrays.asList(
@@ -1489,8 +1512,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testCachedViewWritePreUpdateAndDeleteWildcard()
       throws InterruptedException {
 
-    Accessor accessor = kafka.create(
-        entity, storageUri, partitionsCfg(3, KeyPartitioner.class));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3, KeyPartitioner.class));
     CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
@@ -1520,8 +1543,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testRewriteAndPrefetch() throws InterruptedException, IOException {
-    Accessor accessor = kafka.create(
-        entity, storageUri, partitionsCfg(3, KeyPartitioner.class));
+    Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, partitionsCfg(3, KeyPartitioner.class));
     CachedView view = accessor.getCachedView(context()).orElseThrow(
         () -> new IllegalStateException("Missing cached view"));
     long now = System.currentTimeMillis();
@@ -1574,8 +1597,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       long maxBytesPerSec)
       throws InterruptedException {
 
-    final Accessor accessor = kafka.create(
-        entity, storageUri, cfg(Pair.of(
+    final Accessor accessor = kafka.createAccessor(
+        direct, entity, storageUri, cfg(Pair.of(
             KafkaAccessor.MAX_BYTES_PER_SEC, maxBytesPerSec)));
     final LocalKafkaWriter writer = accessor.newWriter();
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(
@@ -1664,7 +1687,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     return new byte[] { };
   }
 
-  static final class FirstBytePartitioner implements Partitioner {
+  public static final class FirstBytePartitioner implements Partitioner {
     @Override
     public int getPartitionId(StreamElement element) {
       if (!element.isDelete()) {

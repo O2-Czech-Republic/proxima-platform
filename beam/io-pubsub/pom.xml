@@ -1,0 +1,203 @@
+<!--
+
+    Copyright 2017-2019 O2 Czech Republic, a.s.
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>cz.o2.proxima</groupId>
+    <artifactId>proxima-beam</artifactId>
+    <version>0.3-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>proxima-beam-io-pubsub</artifactId>
+  <packaging>jar</packaging>
+
+  <name>${project.groupId}:${project.artifactId}</name>
+
+  <properties>
+    <grpc.version>1.17.1</grpc.version>
+    <shadePattern>cz.o2.proxima.beam.io.pubsub</shadePattern>
+  </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>${maven.shade.version}</version>
+        <configuration>
+          <shadeTestJar>true</shadeTestJar>
+          <artifactSet>
+            <excludes>
+              <exclude>${project.groupId}:proxima-core</exclude>
+              <exclude>${project.groupId}:proxima-beam-core</exclude>
+            </excludes>
+          </artifactSet>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+          </transformers>
+          <relocations>
+            <relocation>
+              <pattern>com.google.common.</pattern>
+              <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>io.grpc.</pattern>
+              <shadedPattern>${shadePattern}.io.grpc.</shadedPattern>
+            </relocation>
+          </relocations>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>com.coderplus.maven.plugins</groupId>
+        <artifactId>copy-rename-maven-plugin</artifactId>
+        <version>1.0</version>
+        <executions>
+          <execution>
+            <id>copy-and-rename-tcnative</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>rename</goal>
+            </goals>
+            <configuration>
+              <fileSets>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libio_grpc_netty_shaded_netty_tcnative_linux_x86_64.so</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_beam_io_pubsub_shaded_io_grpc_netty_shaded_netty_tcnative_linux_x86_64.so</destinationFile>
+                </fileSet>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_pubsub_beam_io_pubsub_shaded_grpc_io_netty_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
+                </fileSet>
+                <fileSet>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libio_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_pubsub_beam_io_pubsub_shaded_grpc_io_netty_shaded_netty_tcnative_osx_x86_64.jnilib</destinationFile>
+                </fileSet>
+              </fileSets>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <dependencies>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-beam-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-io-pubsub</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.beam</groupId>
+      <artifactId>beam-sdks-java-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.beam</groupId>
+      <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
+      <version>2.12.0-SNAPSHOT</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>${guava.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-core</artifactId>
+      <version>${project.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-core</artifactId>
+      <version>${project.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.beam</groupId>
+      <artifactId>beam-runners-direct-java</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-all</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>com.github.spotbugs</groupId>
+      <artifactId>spotbugs-annotations</artifactId>
+      <version>${spotbugs.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+  </dependencies>
+
+</project>
+

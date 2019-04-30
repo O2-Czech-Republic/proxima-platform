@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.gcloud.storage;
 
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.Map;
@@ -27,15 +28,18 @@ import java.util.Map;
 public class GCloudStorageDescriptor implements DataAccessorFactory {
 
   @Override
-  public DataAccessor create(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public DataAccessor createAccessor(
+      DirectDataOperator direct,
+      EntityDescriptor entityDesc,
+      URI uri,
+      Map<String, Object> cfg) {
 
     return new GCloudStorageAccessor(entityDesc, uri, cfg);
   }
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("gs");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("gs") ? Accept.ACCEPT : Accept.REJECT;
   }
 
 }

@@ -106,7 +106,7 @@ public class AvroSerializerFactory implements ValueSerializerFactory {
 
       private Schema getAvroSchemaForClass(String avroClassName) {
         try {
-          Class<SpecificRecord> avroClass = Classpath
+          Class<? extends SpecificRecord> avroClass = Classpath
               .findClass(avroClassName, SpecificRecord.class);
           Method method = avroClass.getMethod("getSchema");
           return (Schema) method.invoke(avroClass.newInstance());

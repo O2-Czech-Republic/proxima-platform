@@ -207,15 +207,9 @@ First, let's introduce some glossary:
   ```  
   
  ## Platform's unified data processing API
- This is essentially just a wrapper around [Euphoria API](https://github.com/seznam/euphoria), currently outlined
- in `tools` package in groovy language, containing a console being able to execute data transformation _flows_.
- These flows might be executed on different _executors_, based on actual requirements of the calculation. Currently,
+ This is essentially just a wrapper around [Apache Beam](https://beam.apache.org/), currently outlined
+ in `tools` package in groovy language, containing a console being able to execute data transformation _pipelines_.
+ These flows might be executed on different _runners_, based on actual requirements of the data processing. Currently,
  [Apache Spark](https://spark.apache.org/), [Apache Flink](https://flink.apache.org/) and a special executor called
- _in-mem executor_ are supported. The support for Spark and Flink is not fully covered, because the application used
- didn't have strong use-case for them (for the time being).
+ _direct runner_ are supported.
  
- There is also some pending work on the side of the maven compiler plugin, so it can be possible to obtain a `Dataset`
- from given attributes in the same way as it is possible for simple observers. This is contained in issue #3.
-
- ## Build dependency
-  * rename command

@@ -22,7 +22,7 @@ import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.direct.commitlog.Position;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -48,6 +48,17 @@ import org.java_websocket.handshake.ServerHandshake;
 public class WebsocketReader extends AbstractStorage implements CommitLogReader {
 
   private static final Partition PARTITION = () -> 0;
+  private static final Offset OFFSET = new Offset() {
+    @Override
+    public Partition getPartition() {
+      return PARTITION;
+    }
+
+    @Override
+    public long getWatermark() {
+      return System.currentTimeMillis();
+    }
+  };
 
   private final AttributeDescriptor<?> attr;
   private final UnaryFunction<String, String> keyExtractor;
@@ -143,7 +154,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
       @Override
       public List<Offset> getCommittedOffsets() {
-        return Arrays.asList(() -> PARTITION);
+        return Arrays.asList(OFFSET);
       }
 
       @Override
@@ -205,10 +216,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   }
 
   private OnNextContext nullContext() {
-    return asOnNextContext(
-        (succ, err) -> { },
-        PARTITION,
-        System::currentTimeMillis);
+    return asOnNextContext((succ, err) -> { }, OFFSET);
   }
 
   private void checkSupportedPosition(Position position) {

@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.kafka;
 
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.Map;
@@ -26,15 +27,18 @@ import java.util.Map;
 public class KafkaStorage implements DataAccessorFactory {
 
   @Override
-  public KafkaAccessor create(EntityDescriptor entityDesc, URI uri,
+  public KafkaAccessor createAccessor(
+      DirectDataOperator direct,
+      EntityDescriptor entityDesc,
+      URI uri,
       Map<String, Object> cfg) {
 
     return new KafkaAccessor(entityDesc, uri, cfg);
   }
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("kafka");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("kafka") ? Accept.ACCEPT : Accept.REJECT;
   }
 
 }

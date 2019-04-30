@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -26,10 +27,15 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Estimator of watermark based on timestamps of flowing elements.
+ * The estimator tries to estimate when it reaches near-realtime consumption
+ * of events and holds the watermark until then.
  */
 @Slf4j
 @Internal
 public class WatermarkEstimator implements WatermarkSupplier {
+
+  @VisibleForTesting
+  static final long MIN_WATERMARK = Long.MIN_VALUE + 365 * 86400000L;
 
   @Internal
   @FunctionalInterface
@@ -38,63 +44,88 @@ public class WatermarkEstimator implements WatermarkSupplier {
   }
 
   /**
-   * Create estimator of watermark with given parameters.
-   * @param durationMs duration of the window for aggregation of timestamps
-   * @param stepMs step (window slide)
-   * @return the estimator
+   * Builder of the {@link WatermarkEstimator}.
    */
-  public static WatermarkEstimator of(long durationMs, long stepMs) {
-    return of(durationMs, stepMs, Long.MIN_VALUE);
+  public static class Builder {
+
+    private final long durationMs;
+    private final long stepMs;
+    private final long allowedTimestampSkew;
+    private final long minWatermark;
+    private final TimestampSupplier timestampSupplier;
+
+    Builder() {
+      this(10000, 200, 200, MIN_WATERMARK, System::currentTimeMillis);
+    }
+
+    private Builder(
+        long durationMs,
+        long stepMs,
+        long allowedTimestampSkew,
+        long minWatermark,
+        TimestampSupplier timestampSupplier) {
+
+      this.durationMs = durationMs;
+      this.stepMs = stepMs;
+      this.allowedTimestampSkew = allowedTimestampSkew;
+      this.minWatermark = minWatermark;
+      this.timestampSupplier = timestampSupplier;
+    }
+
+    public Builder withDurationMs(long durationMs) {
+      return new Builder(
+          durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
+    }
+
+    public Builder withStepMs(long stepMs) {
+      return new Builder(
+          durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
+    }
+
+    public Builder withAllowedTimestampSkew(long allowedTimestampSkew) {
+      return new Builder(
+          durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
+    }
+
+    public Builder withMinWatermark(long minWatermark) {
+      return new Builder(
+          durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
+    }
+
+    public Builder withTimestampSupplier(TimestampSupplier timestampSupplier) {
+      return new Builder(
+          durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
+    }
+
+    public WatermarkEstimator build() {
+      return new WatermarkEstimator(
+          durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
+    }
   }
 
-  /**
-   * Create estimator of watermark with given parameters.
-   * @param durationMs duration of the window for aggregation of timestamps
-   * @param stepMs step (window slide)
-   * @param watermark minimal watermark that has already passed at time of
-   * creation of this estimator
-   * @return the estimator
-   */
-  public static WatermarkEstimator of(long durationMs, long stepMs, long watermark) {
-    return new WatermarkEstimator(durationMs, stepMs, System::currentTimeMillis);
+  public static Builder newBuilder() {
+    return new Builder();
   }
-
-  /**
-   * Create estimator of watermark with given parameters.
-   * @param durationMs duration of the window for aggregation of timestamps
-   * @param stepMs step (window slide)
-   * @param watermark minimal watermark that has already passed at time of
-   * creation of this estimator
-   * @param timestampSupplier supplier of time (used in testing)
-   * @return the estimator
-   */
-  public static WatermarkEstimator of(
-      long durationMs, long stepMs, long watermark,
-      TimestampSupplier timestampSupplier) {
-
-    return new WatermarkEstimator(durationMs, stepMs, timestampSupplier);
-  }
-
 
   private final long stepMs;
   private final TimestampSupplier timestampSupplier;
-  private final long[] steps;
+  private final long[] stepDiffs;
+  private final long allowedTimestampSkew;
   private final AtomicLong lastRotate;
   private final AtomicInteger rotatesToInitialize;
   private final AtomicLong watermark;
+  private final AtomicLong lastStatLogged = new AtomicLong();
 
   @VisibleForTesting
   WatermarkEstimator(
-      long durationMs, long stepMs, TimestampSupplier supplier) {
-
-    this(durationMs, stepMs, supplier, Long.MIN_VALUE);
-  }
-
-  WatermarkEstimator(
-      long durationMs, long stepMs, TimestampSupplier supplier,
-      long minWatermark) {
+      long durationMs,
+      long stepMs,
+      long allowedTimestampSkew,
+      long minWatermark,
+      TimestampSupplier supplier) {
 
     this.stepMs = stepMs;
+    this.allowedTimestampSkew = allowedTimestampSkew;
     this.timestampSupplier = Objects.requireNonNull(supplier);
     this.watermark = new AtomicLong(minWatermark);
     Preconditions.checkArgument(durationMs > 0, "durationMs must be positive");
@@ -102,11 +133,11 @@ public class WatermarkEstimator implements WatermarkSupplier {
     Preconditions.checkArgument(
         durationMs / stepMs * stepMs == durationMs,
         "durationMs must be divisible by stepMs");
-    steps = new long[(int) (durationMs / stepMs) + 1];
-    for (int i = 0; i < steps.length; i++) {
-      steps[i] = Long.MAX_VALUE;
+    stepDiffs = new long[(int) (durationMs / stepMs) + 1];
+    for (int i = 0; i < stepDiffs.length; i++) {
+      stepDiffs[i] = 0;
     }
-    rotatesToInitialize = new AtomicInteger(steps.length - 1);
+    rotatesToInitialize = new AtomicInteger(stepDiffs.length - 1);
     lastRotate = new AtomicLong(supplier.get() - stepMs);
   }
 
@@ -116,8 +147,9 @@ public class WatermarkEstimator implements WatermarkSupplier {
    */
   public void add(long stamp) {
     rotateIfNeeded();
-    if (steps[0] > stamp) {
-      steps[0] = stamp;
+    long diff = timestampSupplier.get() - stamp;
+    if (stepDiffs[0] < diff) {
+      stepDiffs[0] = diff;
     }
   }
 
@@ -128,17 +160,13 @@ public class WatermarkEstimator implements WatermarkSupplier {
   @Override
   public long getWatermark() {
     rotateIfNeeded();
-    if (rotatesToInitialize.get() > 0) {
-      return Long.MIN_VALUE;
-    }
-    long ret = Long.MAX_VALUE;
-    for (int pos = 0; pos < steps.length - 1; pos++) {
-      if (steps[pos] < ret) {
-        ret = steps[pos];
+    if (rotatesToInitialize.get() <= 0) {
+      boolean isProcessingBacklog = Arrays.stream(stepDiffs)
+          .anyMatch(diff -> diff > allowedTimestampSkew);
+      if (!isProcessingBacklog) {
+        watermark.accumulateAndGet(
+            timestampSupplier.get() - allowedTimestampSkew, Math::max);
       }
-    }
-    if (ret < Long.MAX_VALUE) {
-      return watermark.accumulateAndGet(ret, Math::max);
     }
     return watermark.get();
   }
@@ -148,16 +176,22 @@ public class WatermarkEstimator implements WatermarkSupplier {
     if (now > lastRotate.get() + stepMs) {
       rotate(now, (int) ((now - lastRotate.get()) / stepMs));
     }
+    if (now - lastStatLogged.get() > 10000) {
+      log.info(
+          "Watermark delay stats: {} with allowedTimestampSkew {}",
+          Arrays.toString(stepDiffs), allowedTimestampSkew);
+      lastStatLogged.set(now);
+    }
   }
 
   private void rotate(long now, int moveCount) {
-    moveCount = Math.min(steps.length - 1, moveCount);
-    System.arraycopy(steps, 0, steps, moveCount, steps.length - moveCount);
+    moveCount = Math.min(stepDiffs.length - 1, moveCount);
+    System.arraycopy(stepDiffs, 0, stepDiffs, moveCount, stepDiffs.length - moveCount);
     if (rotatesToInitialize.get() > 0) {
       rotatesToInitialize.addAndGet(-moveCount);
     }
     for (int i = 0; i < moveCount; i++) {
-      steps[i] = now;
+      stepDiffs[i] = 0;
     }
     lastRotate.set(now);
   }

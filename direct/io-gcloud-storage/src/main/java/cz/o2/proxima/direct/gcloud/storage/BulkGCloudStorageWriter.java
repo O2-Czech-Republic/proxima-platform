@@ -25,7 +25,7 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
-import cz.seznam.euphoria.core.util.ExceptionUtils;
+import cz.o2.proxima.util.ExceptionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Hex;

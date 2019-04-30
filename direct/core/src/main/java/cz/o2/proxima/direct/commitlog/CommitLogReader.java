@@ -15,11 +15,9 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.direct.euphoria.source.UnboundedStreamSource;
 import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.storage.StreamElement;
-import cz.seznam.euphoria.core.client.io.DataSource;
 import java.io.Closeable;
 import java.io.Serializable;
 import java.net.URI;
@@ -305,23 +303,12 @@ public interface CommitLogReader extends Closeable, Serializable {
 
 
   /**
-   * Retrieve source from this reader that can be used in Euphoria processing.
-   * @param position where to start reading
-   * @return {@link DataSource} for further processing
+   * Signals the user that offsets used by this reader can be externalized
+   * and reused later.
+   * @return {@code true} if {@link Offset}s of this reader are externalizable
    */
-  default DataSource<StreamElement> getSource(Position position) {
-
-    return UnboundedStreamSource.of(this, position);
-  }
-
-  /**
-   * Retrieve source from this reader that can be used in Euphoria processing.
-   * The source reads data from newest position and continues processing
-   * as new data is incoming.
-   * @return {@link DataSource} for further processing
-   */
-  default DataSource<StreamElement> getSource() {
-    return getSource(Position.NEWEST);
+  default boolean hasExternalizableOffsets() {
+    return false;
   }
 
 }

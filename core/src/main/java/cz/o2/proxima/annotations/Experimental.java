@@ -34,6 +34,6 @@ import java.lang.annotation.Target;
 @Documented
 public @interface Experimental {
 
-  String value();
+  String value() default "";
 
 }

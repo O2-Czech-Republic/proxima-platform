@@ -82,7 +82,7 @@ public class HttpWriter
     if (factory == null) {
       return (uri, elem) -> (HttpURLConnection) uri.toURL().openConnection();
     }
-    Class<ConnFactory> cls = Classpath.findClass(factory, ConnFactory.class);
+    Class<? extends ConnFactory> cls = Classpath.findClass(factory, ConnFactory.class);
     return cls.newInstance();
   }
 

@@ -19,15 +19,15 @@ import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import java.io.Serializable;
 import java.util.Optional;
 import cz.o2.proxima.direct.view.CachedView;
+import cz.o2.proxima.storage.internal.AbstractDataAccessor;
 
 /**
  * Interface providing various types of data access patterns to storage.
  */
 @Internal
-public interface DataAccessor extends Serializable {
+public interface DataAccessor extends AbstractDataAccessor {
 
   /**
    * Retrieve writer (if applicable).

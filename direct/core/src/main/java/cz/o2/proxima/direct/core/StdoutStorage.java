@@ -29,13 +29,16 @@ import java.util.Optional;
 public class StdoutStorage implements DataAccessorFactory {
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("stdout");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("stdout") ? Accept.ACCEPT : Accept.REJECT;
   }
 
   @Override
-  public DataAccessor create(
-      EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
+  public DataAccessor createAccessor(
+      DirectDataOperator op,
+      EntityDescriptor entity,
+      URI uri,
+      Map<String, Object> cfg) {
 
     return new DataAccessor() {
 

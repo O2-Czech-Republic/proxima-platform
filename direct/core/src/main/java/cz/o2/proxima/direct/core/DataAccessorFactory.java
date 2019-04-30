@@ -15,30 +15,12 @@
  */
 package cz.o2.proxima.direct.core;
 
-import cz.o2.proxima.repository.EntityDescriptor;
-import java.io.Serializable;
-import java.net.URI;
-import java.util.Map;
+import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory;
 
 /**
  * Factory for {@link DataAccessor}s from given URI.
  */
-public interface DataAccessorFactory extends Serializable {
-
-  /**
-   * Check if this factory can create accessors for given URI.
-   * @param uri the URI to create accessor for
-   * @return {@code true} if the factory can create accessors for the URI
-   */
-  boolean accepts(URI uri);
-
-  /**
-   * Create the accessor for given URI.
-   * @param entity the descriptor of entity to create accessor for
-   * @param uri the URI to create accessor for
-   * @param cfg optional additional configuration
-   * @return the accessor
-   */
-  DataAccessor create(EntityDescriptor entity, URI uri, Map<String, Object> cfg);
+public interface DataAccessorFactory
+    extends AbstractDataAccessorFactory<DirectDataOperator, DataAccessor> {
 
 }

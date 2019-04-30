@@ -50,7 +50,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>2.4.3</version>
+        <version>${maven.shade.version}</version>
         <executions>
           <execution>
             <phase>package</phase>
@@ -131,6 +131,12 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-scheme-proto</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-tools</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -158,18 +164,6 @@
       <artifactId>example-model</artifactId>
       <version>${project.version}</version>
     </dependency> 
-
-    <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-local</artifactId>
-      <version>${euphoria.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.codehaus.groovy</groupId>
-      <artifactId>groovy-all</artifactId>
-      <version>2.4.10</version>
-    </dependency>
 
     <dependency>
       <groupId>jline</groupId>

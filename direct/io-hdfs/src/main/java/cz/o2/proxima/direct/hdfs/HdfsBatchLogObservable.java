@@ -120,8 +120,12 @@ public class HdfsBatchLogObservable implements BatchLogObservable {
           }
         }
         observer.onCompleted();
-      } catch (Throwable err) {
-        observer.onError(err);
+      } catch (Throwable ex) {
+        log.warn("Failed to observe partitions {}", partitions, ex);
+        if (observer.onError(ex)) {
+          log.info("Restaring processing by request");
+          observe(partitions, attributes, observer);
+        }
       }
     });
   }

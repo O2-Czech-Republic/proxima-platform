@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.core;
 
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
@@ -28,6 +27,7 @@ import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StorageType;
+import cz.o2.proxima.storage.internal.DataAccessorLoader;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,13 +38,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -54,7 +52,6 @@ import lombok.extern.slf4j.Slf4j;
 public class DirectDataOperator implements DataOperator, ContextProvider {
 
   /** Repository. */
-  @Getter
   private final Repository repo;
 
   /** AttributeFamilyDescriptor with associated DirectAttributeFamilyDescriptor. */
@@ -77,14 +74,15 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       });
 
   private final Context context;
-  private final List<DataAccessorFactory> factories = new ArrayList<>();
+  private final DataAccessorLoader<
+      DirectDataOperator,
+      DataAccessor,
+      DataAccessorFactory> loader;
 
   DirectDataOperator(Repository repo) {
     this.repo = repo;
     this.context = new Context(familyMap::get, executorFactory);
-    ServiceLoader<DataAccessorFactory> loader = ServiceLoader.load(
-        DataAccessorFactory.class);
-    Iterables.addAll(factories, loader);
+    this.loader = DataAccessorLoader.of(repo, DataAccessorFactory.class);
     reload();
   }
 
@@ -184,14 +182,12 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   }
 
   private DataAccessor findFor(AttributeFamilyDescriptor desc) {
-    for (DataAccessorFactory daf : factories) {
-      if (daf.accepts(desc.getStorageUri())) {
-        return daf.create(desc.getEntity(), desc.getStorageUri(), desc.getCfg());
-      }
-    }
-    throw new IllegalStateException(
-        "No DataAccessor for URI " + desc.getStorageUri()
-            + " found. You might be missing some dependency.");
+    return loader.findForUri(desc.getStorageUri())
+        .map(f -> f.createAccessor(
+            this, desc.getEntity(), desc.getStorageUri(), desc.getCfg()))
+        .orElseThrow(() -> new IllegalStateException(
+            "No DataAccessor for URI " + desc.getStorageUri()
+                + " found. You might be missing some dependency."));
   }
 
   /**
@@ -231,10 +227,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional {@link DataAccessorFactory} for specified URI
    */
   public Optional<DataAccessorFactory> getAccessorFactory(URI uri) {
-    return factories
-        .stream()
-        .filter(f -> f.accepts(uri))
-        .findAny();
+    return loader.findForUri(uri);
   }
 
   /**
@@ -386,6 +379,11 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    */
   public Stream<DirectAttributeFamilyDescriptor> getAllFamilies() {
     return repo.getAllFamilies().map(this::resolveRequired);
+  }
+
+  @Override
+  public Repository getRepository() {
+    return repo;
   }
 
 }

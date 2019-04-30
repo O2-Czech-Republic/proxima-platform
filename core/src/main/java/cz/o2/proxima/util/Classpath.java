@@ -35,7 +35,7 @@ public class Classpath {
    * @return class object of the found class
    */
   @SuppressWarnings({ "unchecked", "rawtypes" })
-  public static <T> Class<T> findClass(String name, Class<T> superClass) {
+  public static <T> Class<? extends T> findClass(String name, Class<T> superClass) {
 
     Class clz;
     if ((clz = findClass(name)) != null) {

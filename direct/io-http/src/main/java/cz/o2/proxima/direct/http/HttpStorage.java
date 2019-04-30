@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.http;
 
 import com.google.common.collect.Sets;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.Map;
@@ -27,7 +28,8 @@ import java.util.Map;
 public class HttpStorage implements DataAccessorFactory {
 
   @Override
-  public HttpAccessor create(
+  public HttpAccessor createAccessor(
+      DirectDataOperator direct,
       EntityDescriptor entityDesc,
       URI uri,
       Map<String, Object> cfg) {
@@ -36,8 +38,9 @@ public class HttpStorage implements DataAccessorFactory {
   }
 
   @Override
-  public boolean accepts(URI uri) {
-    return Sets.newHashSet("http", "https", "ws", "wss").contains(uri.getScheme());
+  public Accept accepts(URI uri) {
+    return Sets.newHashSet("http", "https", "ws", "wss").contains(uri.getScheme())
+        ? Accept.ACCEPT : Accept.REJECT;
   }
 
 }

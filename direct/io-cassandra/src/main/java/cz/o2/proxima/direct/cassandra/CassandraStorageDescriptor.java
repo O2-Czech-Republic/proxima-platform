@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.cassandra;
 
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 
 import java.net.URI;
@@ -27,15 +28,18 @@ import java.util.Map;
 public class CassandraStorageDescriptor implements DataAccessorFactory {
 
   @Override
-  public CassandraDBAccessor create(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public CassandraDBAccessor createAccessor(
+      DirectDataOperator direct,
+      EntityDescriptor entityDesc,
+      URI uri,
+      Map<String, Object> cfg) {
 
     return new CassandraDBAccessor(entityDesc, uri, cfg);
   }
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("cassandra");
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("cassandra") ? Accept.ACCEPT : Accept.REJECT;
   }
 
 }

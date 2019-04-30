@@ -21,7 +21,7 @@ import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.direct.commitlog.Position;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.kafka.Consumers.BulkConsumer;
@@ -384,7 +384,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
             if (!seekOffsets.isEmpty()) {
               Utils.seekToOffsets(topic, offsets, kafka);
               consumer.onAssign(kafka, kafka.assignment().stream()
-                  .map(tp -> new TopicOffset(tp.partition(), kafka.position(tp)))
+                  .map(tp -> new TopicOffset(
+                      tp.partition(), kafka.position(tp), clock.get().getWatermark()))
                   .collect(Collectors.toList()));
               log.info("Seeked consumer to offsets {} as requested", seekOffsets);
               seekOffsets.clear();
@@ -648,10 +649,15 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     this.shutdown.set(true);
   }
 
+  @Override
+  public boolean hasExternalizableOffsets() {
+    return true;
+  }
+
   private static Collection<Offset> asOffsets(Collection<Partition> partitions) {
     if (partitions != null) {
       return partitions.stream()
-          .map(p -> new TopicOffset(p.getId(), -1))
+          .map(p -> new TopicOffset(p.getId(), -1, Long.MIN_VALUE))
           .collect(Collectors.toList());
     }
     return null;
@@ -725,7 +731,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               } else {
                 offset = c.position(tp);
               }
-              return new TopicOffset(tp.partition(), offset);
+              return new TopicOffset(tp.partition(), offset, clock.get().getWatermark());
             }).collect(Collectors.toList())));
       }
     };

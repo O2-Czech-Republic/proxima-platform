@@ -116,7 +116,7 @@ public class IngestServer {
   protected IngestServer(Config cfg) {
     this.cfg = cfg;
     repo = Repository.of(cfg);
-    direct = repo.asDataOperator(DirectDataOperator.class);
+    direct = repo.getOrCreateOperator(DirectDataOperator.class);
     if (log.isDebugEnabled()) {
       repo.getAllEntities()
           .forEach(e -> e.getAllAttributes(true)

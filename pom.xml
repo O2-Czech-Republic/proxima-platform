@@ -71,13 +71,14 @@
   </distributionManagement>
 
   <properties>
+    <maven.shade.version>3.2.1</maven.shade.version>
+    <groovy.version>2.5.6</groovy.version>
     <hbase.version>1.3.1</hbase.version>
     <kafka.version>1.1.0</kafka.version>
-    <proto.version>3.5.1</proto.version>
-    <protoc.version>3.5.1-1</protoc.version>
-    <grpc.version>1.12.0</grpc.version>
+    <proto.version>3.7.0</proto.version>
+    <protoc.version>3.7.1</protoc.version>
+    <grpc.version>1.19.0</grpc.version>
     <guava.version>23.0</guava.version>
-    <euphoria.version>0.9-SNAPSHOT</euphoria.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <netty.version>4.1.22.Final</netty.version>
@@ -236,12 +237,12 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.22.0</version>
+        <version>2.22.1</version>
         <configuration>
           <forkCount>${surefire.forkCount}</forkCount>
           <reuseForks>false</reuseForks>
           <threadCount>1</threadCount>
-          <parallel>classes</parallel>
+          <parallel>suites</parallel>
           <useSystemClassLoader>true</useSystemClassLoader>
           <useManifestOnlyJar>false</useManifestOnlyJar>
           <argLine>@{argLine} -Xmx500m -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true</argLine>
@@ -294,6 +295,7 @@
             <conf>JAVADOC_STYLE</conf>
           </mapping>
           <excludes>
+            <exclude>**/license-header.txt</exclude>
             <exclude>**/.idea/**</exclude>
             <exclude>**/README</exclude>
             <exclude>**/LICENSE</exclude>
@@ -416,6 +418,7 @@
   </dependencyManagement>
 
   <modules>
+    <module>beam</module>
     <module>core</module>
     <module>direct</module>
     <module>example</module>

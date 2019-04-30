@@ -15,28 +15,90 @@
  */
 package cz.o2.proxima.direct.pubsub;
 
+import com.typesafe.config.Config;
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.seznam.euphoria.core.annotation.stability.Experimental;
+import cz.o2.proxima.repository.Repository;
 import java.net.URI;
 import java.util.Map;
+import lombok.AccessLevel;
+import lombok.Getter;
 
 /**
  * A {@link DataAccessorFactory} for PubSub.
  */
-@Experimental
+@Stable
 public class PubSubStorage implements DataAccessorFactory {
 
+  public static final String CFG_DEFAULT_MAX_ACK_DEADLINE =
+      "pubsub.default.deadline-max-ms";
+  public static final String CFG_DEFAULT_SUBSCRIPTION_AUTOCREATE =
+      "pubsub.default.subscription.auto-create";
+  public static final String CFG_DEFAULT_SUBSCRIPTION_ACK_DEADLINE =
+      "pubsub.default.subscription.ack-deadline";
+  public static final String CFG_DEFAULT_WATERMARK_ESTIMATE_DURATION =
+      "pubsub.default.watermark.estimate-duration";
+  public static final String CFG_DEFAULT_ALLOWED_TIMESTAMP_SKEW =
+      "pubsub.default.watermark.allowed-timestamp-skew";
+
+  @Getter(AccessLevel.PACKAGE)
+  private long defaultMaxAckDeadlineMs = 600000;
+
+  @Getter(AccessLevel.PACKAGE)
+  private boolean defaultSubscriptionAutoCreate = true;
+
+  @Getter(AccessLevel.PACKAGE)
+  private int defaultSubscriptionAckDeadlineSeconds = 600;
+
+  @Getter(AccessLevel.PACKAGE)
+  private Integer defaultWatermarkEstimateDuration = null;
+
+  @Getter(AccessLevel.PACKAGE)
+  private long defaultAllowedTimestampSkew = 200L;
+
   @Override
-  public DataAccessor create(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-    return new PubSubAccessor(entityDesc, uri, cfg);
+  public void setup(Repository repo) {
+    if (repo instanceof ConfigRepository) {
+      Config cfg = ((ConfigRepository) repo).getConfig();
+      if (cfg.hasPath(CFG_DEFAULT_MAX_ACK_DEADLINE)) {
+        defaultMaxAckDeadlineMs = cfg.getInt(CFG_DEFAULT_MAX_ACK_DEADLINE);
+      }
+      if (cfg.hasPath(CFG_DEFAULT_SUBSCRIPTION_AUTOCREATE)) {
+        defaultSubscriptionAutoCreate = cfg.getBoolean(
+            CFG_DEFAULT_SUBSCRIPTION_AUTOCREATE);
+      }
+      if (cfg.hasPath(CFG_DEFAULT_SUBSCRIPTION_ACK_DEADLINE)) {
+        defaultSubscriptionAckDeadlineSeconds = cfg.getInt(
+            CFG_DEFAULT_SUBSCRIPTION_ACK_DEADLINE);
+      }
+      if (cfg.hasPath(CFG_DEFAULT_WATERMARK_ESTIMATE_DURATION)) {
+        defaultWatermarkEstimateDuration = cfg.getInt(
+            CFG_DEFAULT_WATERMARK_ESTIMATE_DURATION);
+      }
+      if (cfg.hasPath(CFG_DEFAULT_ALLOWED_TIMESTAMP_SKEW)) {
+        defaultAllowedTimestampSkew = cfg.getLong(
+            CFG_DEFAULT_ALLOWED_TIMESTAMP_SKEW);
+      }
+    }
   }
 
   @Override
-  public boolean accepts(URI uri) {
-    return uri.getScheme().equals("gps");
+  public DataAccessor createAccessor(
+      DirectDataOperator direct,
+      EntityDescriptor entityDesc,
+      URI uri,
+      Map<String, Object> cfg) {
+
+    return new PubSubAccessor(this, entityDesc, uri, cfg);
+  }
+
+  @Override
+  public Accept accepts(URI uri) {
+    return uri.getScheme().equals("gps") ? Accept.ACCEPT : Accept.REJECT;
   }
 
 }

@@ -94,35 +94,46 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
     executor().execute(() -> {
       ensureClient();
       try {
-        for (Partition p : partitions) {
-          HBasePartition hp = (HBasePartition) p;
-          Scan scan = new Scan(hp.getStartKey(), hp.getEndKey());
-          scan.addFamily(family);
-          scan.setTimeRange(hp.getStartStamp(), hp.getEndStamp());
-          scan.setFilter(toFilter(attributes));
+        flushPartitions(partitions, attributes, observer);
+      } catch (Throwable ex) {
+        log.warn("Failed to observe partitions {}", partitions, ex);
+        if (observer.onError(ex)) {
+          log.info("Restaring processing by request");
+          observe(partitions, attributes, observer);
+        }
+      }
+    });
+  }
 
-          boolean finish = false;
-          try (ResultScanner scanner = client.getScanner(scan)) {
-            Result next;
-            while (((next = scanner.next()) != null)
-                && !Thread.currentThread().isInterrupted()) {
+  private void flushPartitions(
+      List<Partition> partitions,
+      List<AttributeDescriptor<?>> attributes,
+      BatchLogObserver observer) throws IOException {
 
-              if (!consume(next, attributes, hp, observer)) {
-                finish = true;
-                break;
-              }
-            }
-          }
-          if (finish) {
+    for (Partition p : partitions) {
+      HBasePartition hp = (HBasePartition) p;
+      Scan scan = new Scan(hp.getStartKey(), hp.getEndKey());
+      scan.addFamily(family);
+      scan.setTimeRange(hp.getStartStamp(), hp.getEndStamp());
+      scan.setFilter(toFilter(attributes));
+
+      boolean finish = false;
+      try (ResultScanner scanner = client.getScanner(scan)) {
+        Result next;
+        while (((next = scanner.next()) != null)
+            && !Thread.currentThread().isInterrupted()) {
+
+          if (!consume(next, attributes, hp, observer)) {
+            finish = true;
             break;
           }
         }
-        observer.onCompleted();
-      } catch (Throwable ex) {
-        log.warn("Failed to observe partitions {}", partitions, ex);
-        observer.onError(ex);
       }
-    });
+      if (finish) {
+        break;
+      }
+    }
+    observer.onCompleted();
   }
 
   private Executor executor() {

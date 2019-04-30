@@ -213,7 +213,7 @@ public class GCloudLogObservable
 
               reader.forEach(e -> {
                 if (attrs.contains(e.getAttributeDescriptor())) {
-                  observer.onNext(e);
+                  observer.onNext(e, p);
                 }
               });
             } catch (IOException ex) {
@@ -224,7 +224,11 @@ public class GCloudLogObservable
         });
         observer.onCompleted();
       } catch (Exception ex) {
-        observer.onError(ex);
+        log.warn("Failed to observe partitions {}", partitions, ex);
+        if (observer.onError(ex)) {
+          log.info("Restaring processing by request");
+          observe(partitions, attributes, observer);
+        }
       }
     });
   }

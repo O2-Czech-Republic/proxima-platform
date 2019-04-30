@@ -39,6 +39,7 @@
         <version>1.5</version>
         <executions>
           <execution>
+            <phase>process-sources</phase>
             <goals>
               <goal>addSources</goal>
               <goal>addTestSources</goal>
@@ -47,6 +48,30 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.0.2</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.3</version>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.groovy</groupId>
+        <artifactId>groovy-eclipse-compiler</artifactId>
+        <version>2.9.2-01</version>
+        <extensions>true</extensions>
       </plugin>
     </plugins>
   </build>
@@ -69,8 +94,14 @@
 
     <dependency>
       <groupId>org.codehaus.groovy</groupId>
-      <artifactId>groovy-all</artifactId>
-      <version>2.4.10</version>
+      <artifactId>groovy</artifactId>
+      <version>${groovy.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-groovy-groovysh</artifactId>
+      <version>${project.version}</version>
     </dependency>
 
     <dependency>
@@ -87,29 +118,6 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-all</artifactId>
-      <version>${grpc.version}</version>
-      <exclusions>
-        <!-- do not use protobuf-lite, use protobuf-java -->
-        <exclusion>
-          <groupId>com.google.protobuf</groupId>
-          <artifactId>protobuf-lite</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>io.grpc</groupId>
-          <artifactId>grpc-protobuf-nano</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>io.grpc</groupId>
-          <artifactId>grpc-okhttp</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.protobuf</groupId>
-      <artifactId>protobuf-java</artifactId>
-      <scope>compile</scope>
-      <version>${proto.version}</version>
     </dependency>
 
     <dependency>
@@ -135,14 +143,6 @@
       <version>2.3.23</version>
     </dependency>
 
-    <!-- exclude this dependency from transitive dependecies, need to be added manually -->
-    <dependency>
-      <groupId>cz.seznam.euphoria</groupId>
-      <artifactId>euphoria-local</artifactId>
-      <version>${euphoria.version}</version>
-      <scope>provided</scope>
-    </dependency>
-
     <dependency>
       <groupId>commons-cli</groupId>
       <artifactId>commons-cli</artifactId>
@@ -161,7 +161,6 @@
       <version>${project.version}</version>
     </dependency>
 
-
     <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-core</artifactId>
@@ -178,6 +177,17 @@
       <scope>test</scope>
     </dependency>
 
+    <dependency>
+      <groupId>com.github.spotbugs</groupId>
+      <artifactId>spotbugs-annotations</artifactId>
+      <version>${spotbugs.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.codehaus.groovy</groupId>
+      <artifactId>groovy-all</artifactId>
+      <version>2.4.5</version>
+    </dependency>
   </dependencies>
 
 </project>

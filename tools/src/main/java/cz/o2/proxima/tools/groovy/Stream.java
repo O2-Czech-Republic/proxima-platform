@@ -15,364 +15,261 @@
  */
 package cz.o2.proxima.tools.groovy;
 
-import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.scheme.ValueSerializer;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.tools.io.AttributeSink;
-import cz.o2.proxima.tools.io.DirectAttributeSink;
-import cz.o2.proxima.tools.io.ListSink;
-import cz.seznam.euphoria.core.client.dataset.Dataset;
-import cz.seznam.euphoria.core.client.dataset.windowing.GlobalWindowing;
-import cz.seznam.euphoria.core.client.dataset.windowing.Session;
-import cz.seznam.euphoria.core.client.flow.Flow;
-import cz.seznam.euphoria.core.client.io.Collector;
-import cz.seznam.euphoria.core.client.io.DataSink;
-import cz.seznam.euphoria.core.client.io.Writer;
-import cz.seznam.euphoria.core.client.operator.AssignEventTime;
-import cz.seznam.euphoria.core.client.operator.Filter;
-import cz.seznam.euphoria.core.client.operator.FlatMap;
-import cz.seznam.euphoria.core.client.operator.MapElements;
-import cz.seznam.euphoria.core.client.operator.Union;
-import cz.seznam.euphoria.core.client.util.Pair;
-import cz.seznam.euphoria.core.client.util.Triple;
-import cz.seznam.euphoria.core.executor.Executor;
+import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
-import lombok.extern.slf4j.Slf4j;
+import groovy.transform.stc.ClosureParams;
+import groovy.transform.stc.FromString;
+import java.util.Arrays;
 
-import java.io.IOException;
-import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BooleanSupplier;
+import javax.annotation.Nullable;
 
 /**
  * A stream abstraction with fluent style methods.
  */
-@Slf4j
-public class Stream<T> {
+public interface Stream<T> {
 
-  public static <T> Stream<T> wrap(
-      Executor executor, DatasetBuilder<T> dataset,
-      Runnable terminatingOperationCall) {
+  /**
+   * Remap the stream.
+   * @param <X> type parameter
+   * @param mapper the mapping closure
+   * @return remapped stream
+   */
+  default <X> Stream<X> map(
+      @ClosureParams(value = FromString.class, options = "T") Closure<X> mapper) {
 
-    return wrap(executor, dataset, terminatingOperationCall, () -> false);
+    return map(null, mapper);
   }
 
-  public static <T> Stream<T> wrap(
-      Executor executor, DatasetBuilder<T> dataset,
-      Runnable terminatingOperationCall,
-      BooleanSupplier unboundedStreamTerminateSignal) {
+  /**
+   * Remap the stream.
+   * @param <X> type parameter
+   * @param name stable name of the mapping operator
+   * @param mapper the mapping closure
+   * @return remapped stream
+   */
+  <X> Stream<X> map(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<X> mapper);
 
-    return new Stream<>(
-        executor, dataset, terminatingOperationCall,
-        unboundedStreamTerminateSignal);
+
+  /**
+   * Filter stream based on predicate
+   * @param predicate the predicate to filter on
+   * @return filtered stream
+   */
+  default Stream<T> filter(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Boolean> predicate) {
+
+    return filter(null, predicate);
   }
 
-  final ExecutorService poolExecutor = Executors.newCachedThreadPool();
-  final Executor executor;
-  final DatasetBuilder<T> dataset;
-  final Runnable terminatingOperationCall;
-  final BooleanSupplier unboundedStreamTerminateSignal;
+  /**
+   * Filter stream based on predicate
+   * @param name name of the filter operator
+   * @param predicate the predicate to filter on
+   * @return filtered stream
+   */
+  Stream<T> filter(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<Boolean> predicate);
 
-  Stream(
-      Executor executor,
-      DatasetBuilder<T> dataset,
-      Runnable terminatingOperationCall,
-      BooleanSupplier unboundedStreamTerminateSignal) {
 
-    this.executor = executor;
-    this.dataset = dataset;
-    this.terminatingOperationCall = terminatingOperationCall;
-    this.unboundedStreamTerminateSignal = unboundedStreamTerminateSignal;
+  /**
+   * Assign event time to elements.
+   * @param assigner assigner of event time
+   * @return stream with elements assigned event time
+   */
+  default Stream<T> assignEventTime(
+      @ClosureParams(value = FromString.class, options = "T") Closure<Long> assigner) {
+
+    return assignEventTime(null, assigner);
   }
 
-  @SuppressWarnings("unchecked")
-  public <X> Stream<X> map(Closure<X> mapper) {
-    Closure<X> dehydrated = mapper.dehydrate();
-    return descendant(() ->
-        MapElements.of(dataset.build())
-            .using(e -> dehydrated.call(e))
-            .output());
+  /**
+   * Assign event time to elements.
+   * @param name name of the assign event time operator
+   * @param assigner assigner of event time
+   * @return stream with elements assigned event time
+   */
+  Stream<T> assignEventTime(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<Long> assigner);
+
+
+  /**
+   * Add window to each element in the stream.
+   * @return stream of pairs with window
+   */
+  default Stream<Pair<Object, T>> withWindow() {
+    return withWindow(null);
   }
 
-  public Stream<T> filter(Closure<Boolean> predicate) {
-    Closure<Boolean> dehydrated = predicate.dehydrate();
-    return descendant(() ->
-        Filter.of(dataset.build())
-            .by(e -> dehydrated.call(e))
-            .output());
-  }
+  /**
+   * Add window to each element in the stream.
+   * @param name stable name of the mapping operator
+   * @return stream of pairs with window
+   */
+  Stream<Pair<Object, T>> withWindow(@Nullable String name);
 
-  public Stream<T> assignEventTime(Closure<Long> assigner) {
-    Closure<Long> dehydrated = assigner.dehydrate();
-    return descendant(() ->
-        AssignEventTime.of(dataset.build())
-            .using(e -> dehydrated.call(e))
-            .output());
-  }
 
-  public Stream<Pair<Object, T>> withWindow() {
-    return descendant(() ->
-        FlatMap.of(dataset.build())
-            .using((T in, Collector<Pair<Object, T>> ctx) ->
-                ctx.collect(Pair.of(ctx.getWindow(), in)))
-            .output());
-  }
+  /**
+   * Print all elements to console.
+   */
+  void print();
 
-  public void forEach(Closure<?> consumer) {
-    Closure<?> dehydrated = consumer.dehydrate();
-    Dataset<T> datasetBuilt = dataset.build();
-    datasetBuilt.persist(newOutputSink(dehydrated));
+  /**
+   * Collect stream as list.
+   * Note that this will result on OOME if this is unbounded stream.
+   * @return the stream collected as list.
+   */
+  List<T> collect();
 
-    runFlow(datasetBuilt.getFlow());
-  }
+  /**
+   * Test if this is bounded stream.
+   * @return {@code true} if this is bounded stream, {@code false} otherwise
+   */
+  boolean isBounded();
 
-  public List<T> collect() {
-    Dataset<T> datasetBuilt = dataset.build();
-    ListSink<T> sink = new ListSink<>();
-    datasetBuilt.persist(sink);
-
-    runFlow(datasetBuilt.getFlow());
-    return sink.getResult();
-  }
-
-  private static <T> DataSink<T> newOutputSink(Closure<?> writeFn) {
-    return new DataSink<T>() {
-      @Override
-      public Writer<T> openWriter(int i) {
-
-        return new Writer<T>() {
-
-          @Override
-          public void write(T elem) throws IOException {
-            writeFn.call(elem);
-          }
-
-          @Override
-          public void commit() throws IOException {
-            // nop
-          }
-
-          @Override
-          public void close() throws IOException {
-            // nop
-          }
-
-        };
-      }
-
-      @Override
-      public void commit() throws IOException {
-        // nop
-      }
-
-      @Override
-      public void rollback() throws IOException {
-        // nop
-      }
-
-    };
-  }
-
-  private void runFlow(Flow flow) {
-    try {
-      CountDownLatch latch = new CountDownLatch(1);
-      AtomicReference<Thread> interruptThread = new AtomicReference<>();
-      poolExecutor.execute(() -> {
-        try {
-          executor.submit(flow).get();
-        } catch (InterruptedException ex) {
-          Thread.currentThread().interrupt();
-        } catch (ExecutionException ex) {
-          throw new RuntimeException(ex);
-        } finally {
-          Thread thread = interruptThread.get();
-          if (thread != null && thread.isAlive()) {
-            thread.interrupt();
-          }
-          latch.countDown();
-        }
-      });
-      poolExecutor.execute(() -> {
-        interruptThread.set(Thread.currentThread());
-        for (;;) {
-          if (unboundedStreamTerminateSignal.getAsBoolean()) {
-            executor.shutdown();
-            poolExecutor.shutdownNow();
-            break;
-          }
-        }
-      });
-      latch.await();
-    } catch (Exception ex) {
-      log.error("Error in executing the flow", ex);
-      throw new RuntimeException(ex);
-    } finally {
-      terminatingOperationCall.run();
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  public void persistIntoTargetReplica(
-      RepositoryProvider repoProvider,
-      String replicationName,
-      String target) {
-
-    Dataset<StreamElement> output;
-    DirectDataOperator direct = repoProvider.getDirect();
-    output = FlatMap.of((Dataset<StreamElement>) dataset.build())
-        .using((StreamElement in, Collector<StreamElement> ctx) -> {
-          String key = in.getKey();
-          String attribute = in.getAttribute();
-          EntityDescriptor entity = in.getEntityDescriptor();
-          String replicatedName = String.format(
-              "_%s_%s$%s", replicationName, target, attribute);
-          Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(
-              replicatedName, true);
-          if (attr.isPresent()) {
-            long stamp = in.getStamp();
-            byte[] value = in.getValue();
-            ctx.collect(StreamElement.update(
-                entity, attr.get(),
-                UUID.randomUUID().toString(),
-                key, replicatedName, stamp, value));
-          } else {
-            log.warn("Cannot find attribute {} in {}", replicatedName, entity);
-          }
-        })
-        .output();
-
-    int prefixLength = replicationName.length() + target.length() + 3;
-    output.persist(DirectAttributeSink.of(direct, e ->
-        StreamElement.update(
-            e.getEntityDescriptor(),
-            e.getAttributeDescriptor(),
-            e.getUuid(),
-            e.getKey(),
-            e.getAttribute().substring(prefixLength),
-            e.getStamp(),
-            e.getValue())));
-
-    runFlow(output.getFlow());
-  }
-
-  @SuppressWarnings("unchecked")
-  public void persist(
+  /**
+   * Convert elements to {@link StreamElement}s.
+   * @param <V> type of value
+   * @param repoProvider provider of {@link Repository}
+   * @param entity the entity of elements
+   * @param keyExtractor extractor of keys
+   * @param attributeExtractor extractor of attributes
+   * @param valueExtractor extractor of values
+   * @param timeExtractor extractor of time
+   * @return stream with {@link StreamElement}s inside
+   */
+  <V> Stream<StreamElement> asStreamElements(
       RepositoryProvider repoProvider,
       EntityDescriptor entity,
-      Closure<String> keyExtractor,
-      Closure<String> attributeExtractor,
-      Closure<T> valueExtractor,
-      Closure<Long> timeExtractor) {
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<String> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<String> attributeExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Long> timeExtractor);
 
-    Closure<String> keyDehydrated = keyExtractor.dehydrate();
-    Closure<String> attributeDehydrated = attributeExtractor.dehydrate();
-    Closure<T> valueDehydrated = valueExtractor.dehydrate();
-    Closure<Long> timeDehydrated = timeExtractor.dehydrate();
-    Dataset<StreamElement> output;
-    output = FlatMap.of((Dataset<Object>) dataset.build())
-        .using((Object in, Collector<StreamElement> ctx) -> {
-          String key = keyDehydrated.call(in);
-          String attribute = attributeDehydrated.call(in);
-          Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(attribute);
-          if (attr.isPresent()) {
-            long stamp = timeDehydrated.call(in);
-            final ValueSerializer<Object> serializer = attr.get().getValueSerializer();
-            Object value = valueDehydrated.call(in);
-            byte[] valueBytes = value != null ? serializer.serialize(value) : null;
-            ctx.collect(StreamElement.update(
-                entity, attr.get(),
-                UUID.randomUUID().toString(),
-                key, attribute, stamp, valueBytes));
-          } else {
-            log.warn("Cannot find attribute {} in {}", attribute, entity);
-          }
-        })
-        .output();
 
-    output.persist(DirectAttributeSink.of(repoProvider.getDirect()));
+  /**
+   * Persist this stream to replication.
+   * @param repoProvider provider of {@link Repository}.
+   * @param replicationName name of replication to persist stream to
+   * @param target target of the replication
+   */
+  void persistIntoTargetReplica(
+      RepositoryProvider repoProvider,
+      String replicationName,
+      String target);
 
-    runFlow(output.getFlow());
+  /**
+   * Persist this stream as attribute of entity
+   * @param <V> type of value extracted
+   * @param repoProvider provider of repository
+   * @param entity the entity to store the stream to
+   * @param keyExtractor extractor of key for elements
+   * @param attributeExtractor extractor for attribute for elements
+   * @param valueExtractor extractor of values for elements
+   * @param timeExtractor extractor of event time
+   */
+  <V> void persist(
+      RepositoryProvider repoProvider,
+      EntityDescriptor entity,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<String> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<String> attributeExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Long> timeExtractor);
+
+  /**
+   * Directly write this stream to repository.
+   * Note that the stream has to contain {@link StreamElement}s (e.g. created by
+   * {@link #asStreamElements}.
+   * @param repoProvider provider of repository
+   */
+  void write(RepositoryProvider repoProvider);
+
+
+  /**
+   * Create time windowed stream.
+   * @param millis duration of tumbling window
+   * @return time windowed stream
+   */
+  WindowedStream<T> timeWindow(long millis);
+
+  /**
+   * Create sliding time windowed stream.
+   * @param millis duration of the window
+   * @param slide duration of the slide
+   * @return sliding time windowed stream
+   */
+  WindowedStream<T> timeSlidingWindow(long millis, long slide);
+
+  /**
+   * Create session windowed stream.
+   * @param <K> type of key
+   * @param keyExtractor extractor of key
+   * @param gapDuration duration of the gap between elements per key
+   * @return session windowed stream
+   */
+  <K> WindowedStream<Pair<K, T>> sessionWindow(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<K> keyExtractor,
+      long gapDuration);
+
+  /**
+   * Group all elements into single window.
+   * @return globally windowed stream.
+   */
+  WindowedStream<T> windowAll();
+
+  /**
+   * Merge two streams together.
+   * @param other the other stream(s)
+   * @return merged stream
+   */
+  default Stream<T> union(Stream<T> other) {
+    return union(Arrays.asList(other));
   }
 
-  @SuppressWarnings("unchecked")
-  public void persist(
-      String host, int port,
-      EntityDescriptor entity, AttributeDescriptor<T> attr,
-      Closure<String> keyExtractor,
-      Closure<T> valueExtractor,
-      Closure<Long> timeExtractor) {
-
-    Closure<String> keyDehydrated = keyExtractor.dehydrate();
-    Closure<T> valueDehydrated = valueExtractor.dehydrate();
-    Closure<Long> timeDehydrated = timeExtractor.dehydrate();
-    Dataset<Triple<String, byte[], Long>> output;
-    final ValueSerializer<T> serializer = attr.getValueSerializer();
-    output = FlatMap.of((Dataset<Object>) dataset.build())
-        .using((Object in, Collector<Triple<String, byte[], Long>> ctx) -> {
-          String key = keyDehydrated.call(in);
-          long stamp = timeDehydrated.call(in);
-          byte[] value = serializer.serialize(valueDehydrated.call(in));
-          ctx.collect(Triple.of(key, value, stamp));
-        })
-        .output();
-
-    output.persist(new AttributeSink(host, port, entity, attr));
-
-    runFlow(output.getFlow());
+  /**
+   * Merge two streams together.
+   * @param name name of the union operator
+   * @param other the other stream(s)
+   * @return merged stream
+   */
+  default Stream<T> union(@Nullable String name, Stream<T> other) {
+    return union(name, Arrays.asList(other));
   }
 
 
-  public TimeWindowedStream<T> timeWindow(long millis) {
-    return new TimeWindowedStream<>(
-        executor, dataset, millis, terminatingOperationCall,
-        unboundedStreamTerminateSignal);
+  /**
+   * Merge multiple streams together.
+   * @param streams other streams
+   * @return merged stream
+   */
+  default Stream<T> union(List<Stream<T>> streams) {
+    return union(null, streams);
   }
 
-  public TimeWindowedStream<T> timeSlidingWindow(long millis, long slide) {
-    return new TimeWindowedStream<>(
-        executor, dataset, millis, slide, terminatingOperationCall,
-        unboundedStreamTerminateSignal);
-  }
+  /**
+   * Merge multiple streams together.
+   * @param name name of the union operator
+   * @param streams other streams
+   * @return merged stream
+   */
+  Stream<T> union(@Nullable String name, List<Stream<T>> streams);
 
-  @SuppressWarnings("unchecked")
-  public WindowedStream<T, Session> sessionWindow(long gapDuration) {
-    return new WindowedStream<>(
-        executor, dataset,
-        Session.of(Duration.ofMillis(gapDuration)),
-        terminatingOperationCall,
-        unboundedStreamTerminateSignal,
-        (w, d) -> w.earlyTriggering(d));
-  }
-
-  @SuppressWarnings("unchecked")
-  public WindowedStream<T, GlobalWindowing> windowAll() {
-    return new WindowedStream<>(
-        executor, dataset, GlobalWindowing.get(),
-        terminatingOperationCall,
-        unboundedStreamTerminateSignal,
-        (w, d) -> {
-          throw new UnsupportedOperationException("Euphoria issue #246");
-        });
-  }
-
-  <X> Stream<X> descendant(DatasetBuilder<X> dataset) {
-    return new Stream<>(
-        executor, dataset,
-        terminatingOperationCall, unboundedStreamTerminateSignal);
-  }
-
-  public Stream<T> union(Stream<T> other) {
-    return descendant(() -> Union.of(
-        dataset.build(), other.dataset.build()).output());
-  }
 
 }

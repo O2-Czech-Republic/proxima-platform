@@ -34,62 +34,90 @@ public class WatermarkEstimatorTest {
 
   @Test
   public void testUninitialized() {
-    WatermarkEstimator est = new WatermarkEstimator(1000, 250, stamp::get);
+    WatermarkEstimator est = createEstimator();
     est.add(1);
-    assertEquals(Long.MIN_VALUE, est.getWatermark());
+    assertEquals(WatermarkEstimator.MIN_WATERMARK, est.getWatermark());
   }
 
   @Test
   public void testInitializedSameStamp() {
-    WatermarkEstimator est = new WatermarkEstimator(1000, 250, stamp::get);
+    WatermarkEstimator est = createEstimator();
     for (int i = 0; i < 3; i++) {
-      assertEquals(Long.MIN_VALUE, est.getWatermark());
+      assertEquals(WatermarkEstimator.MIN_WATERMARK, est.getWatermark());
       stamp.accumulateAndGet(250, (a, b) -> a + b);
-      est.add(1);
+      est.add(stamp.get());
     }
-    assertEquals(1, est.getWatermark());
+    assertEquals(550, est.getWatermark());
   }
 
   @Test
   public void testInitializedIncreasingStamp() {
-    WatermarkEstimator est = new WatermarkEstimator(1000, 250, stamp::get);
-    for (int i = 0; i < 10; i++) {
-      stamp.accumulateAndGet(250, (a, b) -> a + b);
-      est.add(i);
-    }
-    assertEquals(6, est.getWatermark());
+    WatermarkEstimator est = createEstimator();
+    testTimestampIncreaseInitializes(est);
   }
 
   @Test
-  public void testInitializedIncreasingStamp2() {
-    WatermarkEstimator est = new WatermarkEstimator(1000, 250, stamp::get);
-    for (int i = 0; i < 10; i++) {
-      stamp.accumulateAndGet(i * 250, (a, b) -> a + b);
-      est.add(i);
-    }
-    assertEquals(9, est.getWatermark());
+  public void testCreateBacklog() {
+    WatermarkEstimator est = createEstimator();
+    testTimestampIncreaseInitializes(est);
+    stamp.accumulateAndGet(250, (a, b) -> a + b);
+    est.add(stamp.get() - 1000);
+    assertEquals(stamp.get() - 450, est.getWatermark());
+    testTimestampIncreaseInitializes(est);
   }
 
+  private WatermarkEstimator testTimestampIncreaseInitializes(WatermarkEstimator est) {
+    for (int i = 0; i < 10; i++) {
+      stamp.accumulateAndGet(250, (a, b) -> a + b);
+      est.add(stamp.get() - i * 5);
+    }
+    assertEquals(stamp.get() - 200, est.getWatermark());
+    return est;
+  }
 
   @Test
   public void testSingleUpdateIncresesStamp() {
-    WatermarkEstimator est = new WatermarkEstimator(1, 1, stamp::get);
+    WatermarkEstimator est = createEstimator(1, 1);
     est.add(1);
     stamp.incrementAndGet();
-    assertEquals(1, est.getWatermark());
+    assertEquals(1 - 200, est.getWatermark());
   }
 
   @Test
-  public void testLargeUpdate() {
-    WatermarkEstimator est = new WatermarkEstimator(1, 1, stamp::get);
-    stamp.set(10000);
+  public void testSingleUpdateIncresesStamp2() {
+    WatermarkEstimator est = createEstimator(1, 1, 100);
     est.add(1);
-    stamp.set(20000L);
-    est.add(15000L);
-    est.add(15001L);
-    assertEquals(15000L, est.getWatermark());
+    stamp.incrementAndGet();
+    assertEquals(1 - 100, est.getWatermark());
   }
 
 
+  @Test
+  public void testLargeUpdate() {
+    WatermarkEstimator est = createEstimator(1, 1);
+    stamp.set(10000);
+    est.add(9999);
+    stamp.set(20000L);
+    est.add(20100L);
+    est.add(20200L);
+    assertEquals(19800L, est.getWatermark());
+  }
+
+  private WatermarkEstimator createEstimator() {
+    return createEstimator(1000, 250);
+  }
+
+  private WatermarkEstimator createEstimator(long durationMs, long stepMs) {
+    return createEstimator(durationMs, stepMs, 200);
+  }
+
+  private WatermarkEstimator createEstimator(long durationMs, long stepMs, long skew) {
+    return WatermarkEstimator.newBuilder()
+        .withDurationMs(durationMs)
+        .withStepMs(stepMs)
+        .withAllowedTimestampSkew(skew)
+        .withTimestampSupplier(stamp::get)
+        .build();
+  }
 
 }

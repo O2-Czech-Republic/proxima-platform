@@ -15,8 +15,7 @@
  */
 package cz.o2.proxima.direct.gcloud.storage;
 
-import cz.o2.proxima.direct.gcloud.storage.GCloudLogObservable;
-import cz.seznam.euphoria.shadow.com.google.common.collect.Sets;
+import com.google.common.collect.Sets;
 import java.util.Set;
 import static org.junit.Assert.*;
 import org.junit.Test;

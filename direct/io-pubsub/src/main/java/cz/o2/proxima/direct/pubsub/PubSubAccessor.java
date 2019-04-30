@@ -39,6 +39,10 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
       "pubsub.subscription.auto-create";
   public static final String CFG_SUBSCRIPTION_ACK_DEADLINE =
       "pubsub.subscription.ack-deadline";
+  public static final String CFG_WATERMARK_ESTIMATE_DURATION =
+      "pubsub.watermark.estimate-duration";
+  public static final String CFG_ALLOWED_TIMESTAMP_SKEW =
+      "pubsub.watermark.allowed-timestamp-skew";
 
   @Getter
   private final String project;
@@ -55,22 +59,48 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
   @Getter
   private final boolean subscriptionAutoCreate;
 
-  PubSubAccessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
+  @Getter
+  private final long watermarkEstimateDuration;
+
+  @Getter
+  private final long allowedTimestampSkew;
+
+  PubSubAccessor(
+      PubSubStorage storage,
+      EntityDescriptor entity,
+      URI uri,
+      Map<String, Object> cfg) {
+
     super(entity, uri);
     project = uri.getAuthority();
     topic = UriUtil.getPathNormalized(uri);
-    maxAckDeadline = Optional.ofNullable(cfg.get(CFG_MAX_ACK_DEADLINE))
+    maxAckDeadline = Optional
+        .ofNullable(cfg.get(CFG_MAX_ACK_DEADLINE))
         .map(Object::toString)
         .map(Integer::valueOf)
-        .orElse(60000);
-    subscriptionAutoCreate = Optional.ofNullable(cfg.get(CFG_SUBSCRIPTION_AUTOCREATE))
+        .orElse((int) storage.getDefaultMaxAckDeadlineMs());
+    subscriptionAutoCreate = Optional
+        .ofNullable(cfg.get(CFG_SUBSCRIPTION_AUTOCREATE))
         .map(Object::toString)
         .map(Boolean::valueOf)
-        .orElse(true);
-    subscriptionAckDeadline = Optional.ofNullable(cfg.get(CFG_SUBSCRIPTION_ACK_DEADLINE))
+        .orElse(storage.isDefaultSubscriptionAutoCreate());
+    subscriptionAckDeadline = Optional
+        .ofNullable(cfg.get(CFG_SUBSCRIPTION_ACK_DEADLINE))
         .map(Object::toString)
         .map(Integer::valueOf)
-        .orElse(600);
+        .orElse(storage.getDefaultSubscriptionAckDeadlineSeconds());
+    watermarkEstimateDuration = Optional
+        .ofNullable(cfg.get(CFG_WATERMARK_ESTIMATE_DURATION))
+        .map(Object::toString)
+        .map(Integer::valueOf)
+        .orElse(storage.getDefaultWatermarkEstimateDuration() == null
+            ? subscriptionAckDeadline * 1000
+            : (int) storage.getDefaultWatermarkEstimateDuration());
+    allowedTimestampSkew = Optional
+        .ofNullable(cfg.get(CFG_ALLOWED_TIMESTAMP_SKEW))
+        .map(Object::toString)
+        .map(Long::valueOf)
+        .orElse(storage.getDefaultAllowedTimestampSkew());
 
     Preconditions.checkArgument(
         !Strings.isNullOrEmpty(project), "Authority cannot be empty");

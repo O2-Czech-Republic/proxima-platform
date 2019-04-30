@@ -100,8 +100,8 @@ public class DirectDataOperatorTest {
         gateway.findAttribute("bytes").get().getSchemeUri().toString());
 
     assertEquals(1, repo.getTransformations().size());
-    TransformationDescriptor transform = Iterables.getFirst(
-        repo.getTransformations().values(), null);
+    TransformationDescriptor transform = Iterables.getOnlyElement(
+        repo.getTransformations().values());
     assertEquals(PassthroughFilter.class, transform.getFilter().getClass());
     assertEquals(event, transform.getEntity());
     assertEquals(

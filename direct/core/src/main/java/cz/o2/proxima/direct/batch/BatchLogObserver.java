@@ -57,9 +57,11 @@ public interface BatchLogObserver {
   /**
    * Signaled when reading error occurs.
    * @param error error caught during processing
+   * @return {@code true} to restart processing from beginning
+   *         {@code false} to stop processing
    */
-  default void onError(Throwable error) {
-
+  default boolean onError(Throwable error) {
+    return false;
   }
 
 }

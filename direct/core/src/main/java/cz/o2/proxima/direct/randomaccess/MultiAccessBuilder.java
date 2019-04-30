@@ -23,7 +23,6 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.util.Pair;
-import cz.seznam.euphoria.core.util.ExceptionUtils;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.HashMap;
@@ -101,7 +100,7 @@ public class MultiAccessBuilder implements Serializable {
         .orElseThrow(
             () -> new IllegalArgumentException(
                 "Family " + family + " has no random access reader"));
-    
+
     family.getAttributes().forEach(a -> attrMap.put(a, reader));
     return this;
   }
@@ -190,7 +189,8 @@ public class MultiAccessBuilder implements Serializable {
 
       @Override
       public void listEntities(
-          RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
+          RandomOffset offset, int limit,
+          Consumer<Pair<RandomOffset, String>> consumer) {
 
         throw new UnsupportedOperationException(
             "Not supported. Please select specific family to list entities from.");
@@ -208,8 +208,15 @@ public class MultiAccessBuilder implements Serializable {
 
       @Override
       public void close() throws IOException {
-        attrMap.values().forEach(
-            ExceptionUtils.unchecked(RandomAccessReader::close));
+        attrMap.values().forEach(this::closeQuietly);
+      }
+
+      private void closeQuietly(RandomAccessReader c) {
+        try {
+          c.close();
+        } catch (IOException ex) {
+          log.warn("Failed to close {}", c, ex);
+        }
       }
 
     };

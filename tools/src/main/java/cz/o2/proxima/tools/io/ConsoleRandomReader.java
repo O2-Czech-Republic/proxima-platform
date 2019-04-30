@@ -67,7 +67,8 @@ public class ConsoleRandomReader implements Closeable {
     });
   }
 
-  public KeyValue<Object> get(String key, String attribute) {
+  @SuppressWarnings("unchecked")
+  public <T> KeyValue<T> get(String key, String attribute) {
 
     AttributeDescriptor<Object> desc = entityDesc.findAttribute(attribute)
         .orElseThrow(() -> new IllegalArgumentException(
@@ -78,29 +79,31 @@ public class ConsoleRandomReader implements Closeable {
       throw new IllegalArgumentException("Attribute " + attribute
           + " has no random access reader");
     }
-    return reader.get(key, attribute, desc).orElse(null);
+    return (KeyValue<T>) reader.get(key, attribute, desc).orElse(null);
   }
 
 
-  public List<KeyValue<Object>> list(String key, String prefix) {
+  @SuppressWarnings("unchecked")
+  public List<KeyValue> list(String key, String prefix) {
     return list(key, prefix, null);
   }
 
-  public List<KeyValue<Object>> list(
+  @SuppressWarnings("unchecked")
+  public List<KeyValue> list(
       String key, String prefix, @Nullable String offset) {
 
-    List<KeyValue<Object>> ret = new ArrayList<>();
+    List<KeyValue> ret = new ArrayList<>();
     list(key, prefix, offset, -1, ret::add);
     return ret;
   }
 
-  public List<KeyValue<Object>> list(
+  public List<KeyValue> list(
       String key,
       String prefix,
       @Nullable String offset,
       int limit) {
 
-    List<KeyValue<Object>> ret = new ArrayList<>();
+    List<KeyValue> ret = new ArrayList<>();
     list(key, prefix, offset, limit, ret::add);
     return ret;
   }
@@ -112,7 +115,7 @@ public class ConsoleRandomReader implements Closeable {
       String prefix,
       @Nullable String offset,
       int limit,
-      Consumer<KeyValue<Object>> consumer) {
+      Consumer<KeyValue> consumer) {
 
     AttributeDescriptor desc = entityDesc.findAttribute(prefix + ".*")
         .orElseThrow(() -> new IllegalArgumentException(

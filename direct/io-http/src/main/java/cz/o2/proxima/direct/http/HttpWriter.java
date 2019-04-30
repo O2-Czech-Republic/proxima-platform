@@ -60,7 +60,7 @@ public class HttpWriter
     try {
       conn = connFactory.openConnection(getUri(), data);
       int code = conn.getResponseCode();
-      if (code == 200) {
+      if (code / 100 == 2) {
         statusCallback.commit(true, null);
       } else {
         statusCallback.commit(false, new RuntimeException(

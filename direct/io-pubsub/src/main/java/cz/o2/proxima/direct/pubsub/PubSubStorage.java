@@ -46,7 +46,7 @@ public class PubSubStorage implements DataAccessorFactory {
       "pubsub.default.watermark.allowed-timestamp-skew";
 
   @Getter(AccessLevel.PACKAGE)
-  private long defaultMaxAckDeadlineMs = 60000;
+  private long defaultMaxAckDeadlineMs = 600000;
 
   @Getter(AccessLevel.PACKAGE)
   private boolean defaultSubscriptionAutoCreate = true;

@@ -44,7 +44,7 @@ public interface ValueSerializerFactory extends Serializable {
   /**
    * Retrieve class type for given scheme.
    * @param specifier URI specifier of this data type
-   * @return String fullname of class
+   * @return full name of class
    * @throws IllegalArgumentException in case of invalid specifier
    */
   default String getClassName(URI specifier) {

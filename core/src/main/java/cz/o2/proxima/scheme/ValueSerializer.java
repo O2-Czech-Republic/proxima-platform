@@ -56,4 +56,27 @@ public interface ValueSerializer<T> extends Serializable {
   default boolean isValid(byte[] input) {
     return deserialize(input).isPresent();
   }
+
+  /**
+   * Convert given value to JSON representation (including quotation).
+   * @param value the value to encode
+   * @return the JSON string
+   */
+  default String asJsonValue(T value) {
+    throw new UnsupportedOperationException(
+        getClass() + " is not ported to support JSON (de)serialization. "
+            + "Please fill issue.");
+  }
+
+  /**
+   * Convert given JSON string to parsed object.
+   * @param json the JSON representation
+   * @return parsed object
+   */
+  default T fromJsonValue(String json) {
+    throw new UnsupportedOperationException(
+        getClass() + " is not ported to support JSON (de)serialization. "
+            + "Please fill issue.");
+  }
+
 }

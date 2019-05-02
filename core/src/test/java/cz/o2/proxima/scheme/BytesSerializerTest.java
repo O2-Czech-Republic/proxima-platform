@@ -22,8 +22,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Optional;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * Simple test for {@link BytesSerializer}
@@ -59,4 +58,10 @@ public class BytesSerializerTest {
   public void testIsValid() {
     assertTrue(serializer.isValid(new byte[]{}));
   }
+
+  @Test
+  public void testDefaultValue() {
+    assertArrayEquals(new byte[] { }, serializer.getDefault());
+  }
+
 }

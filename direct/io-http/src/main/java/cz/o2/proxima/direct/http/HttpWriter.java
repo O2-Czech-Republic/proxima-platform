@@ -59,12 +59,18 @@ public class HttpWriter
     HttpURLConnection conn = null;
     try {
       conn = connFactory.openConnection(getUri(), data);
-      int code = conn.getResponseCode();
-      if (code == 200) {
-        statusCallback.commit(true, null);
+      if (conn != null) {
+        int code = conn.getResponseCode();
+        // discard any response data
+        conn.getInputStream().close();
+        if (code / 100 == 2) {
+          statusCallback.commit(true, null);
+        } else {
+          statusCallback.commit(false, new RuntimeException(
+              "Invalid status code " + code));
+        }
       } else {
-        statusCallback.commit(false, new RuntimeException(
-            "Invalid status code " + code));
+        statusCallback.commit(true, null);
       }
     } catch (Exception ex) {
       statusCallback.commit(false, ex);
@@ -75,7 +81,7 @@ public class HttpWriter
     }
   }
 
-  private ConnFactory getConnFactory(Map<String, Object> cfg)
+  protected ConnFactory getConnFactory(Map<String, Object> cfg)
       throws InstantiationException, IllegalAccessException {
 
     String factory = (String) cfg.get("connectionFactory");

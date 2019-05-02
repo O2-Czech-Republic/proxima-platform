@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme;
 
+import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.util.Classpath;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,6 +41,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *  scheme: "java:String"
  */
 @Slf4j
+@Stable
 public class JavaSerializer implements ValueSerializerFactory {
   private final Map<URI, ValueSerializer<?>> cache = new ConcurrentHashMap<>();
   private static final List<String> javaPackages = Arrays.asList("java.lang");

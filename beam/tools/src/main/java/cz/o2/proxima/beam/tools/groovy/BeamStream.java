@@ -16,6 +16,7 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
@@ -38,6 +39,7 @@ import cz.o2.proxima.util.Pair;
 import fi.iki.elonen.NanoHTTPD;
 import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
 import groovy.lang.Closure;
+import groovy.lang.Tuple;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -67,6 +69,8 @@ import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderRegistry;
+import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.VarLongCoder;
 import org.apache.beam.sdk.extensions.euphoria.core.client.io.Collector;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
@@ -75,6 +79,9 @@ import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.state.StateSpec;
+import org.apache.beam.sdk.state.StateSpecs;
+import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -86,6 +93,7 @@ import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Sessions;
 import org.apache.beam.sdk.transforms.windowing.SlidingWindows;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
+import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PDone;
@@ -262,9 +270,9 @@ class BeamStream<T> implements Stream<T> {
 
     final PCollection<Pair<Object, T>> ret;
     if (name != null) {
-      ret = (PCollection) in.apply(name, ParDo.of(extractWindow()));
+      ret = (PCollection) in.apply(name, ParDo.of(ExtractWindow.of()));
     } else {
-      ret = (PCollection) in.apply(ParDo.of(extractWindow()));
+      ret = (PCollection) in.apply(ParDo.of(ExtractWindow.of()));
     }
     return ret.setCoder((Coder) PairCoder.of(windowCoder, in.getCoder()));
   }
@@ -534,8 +542,94 @@ class BeamStream<T> implements Stream<T> {
         });
   }
 
+  @Override
+  public <K, V> Stream<Pair<K, V>> integratePerKey(
+      @Nullable String name,
+      Closure<K> keyExtractor,
+      Closure<V> valueExtractor,
+      V initialValue,
+      Closure<V> combiner) {
+
+    Closure<K> keyDehydrated = dehydrate(keyExtractor);
+    Closure<V> valueDehydrated = dehydrate(valueExtractor);
+    Closure<V> combinerDehydrated = dehydrate(combiner);
+    // always return unwindowed stream
+    return new BeamStream<>(this.config, this.bounded, pipeline -> {
+      PCollection<T> in = collection.materialize(pipeline);
+      Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
+      Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
+      PCollection<KV<K, V>> kvs = MapElements
+          .named(withSuffix(name, ".mapToKv"))
+          .of(in)
+          .using(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e)))
+          .output()
+          .setCoder(KvCoder.of(keyCoder, valueCoder));
+      return kvs.apply(ParDo.of(IntegrateDoFn.of(
+          combinerDehydrated, initialValue, valueCoder)))
+          .setCoder(PairCoder.of(keyCoder, valueCoder));
+    }, this.terminateCheck, this.pipelineFactory);
+  }
+
+  @Override
+  public Stream<Pair<T, Long>> withTimestamp(@Nullable String name) {
+    return descendant(pipeline -> {
+      PCollection<T> in = collection.materialize(pipeline);
+      return applyExtractTimestamp(name, in, pipeline);
+    });
+  }
+
+  static <T> PCollection<Pair<T, Long>> applyExtractTimestamp(
+      @Nullable String name, PCollection<T> in, Pipeline pipeline) {
+
+    final PCollection<Pair<T, Long>> ret;
+    if (name != null) {
+      ret = in.apply(name, ParDo.of(ExtractTimestamp.of()));
+    } else {
+      ret = in.apply(ParDo.of(ExtractTimestamp.of()));
+    }
+    return ret.setCoder(PairCoder.of(in.getCoder(), VarLongCoder.of()));
+  }
+
+  @Override
+  public <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
+      @Nullable String name, Closure<K> keyExtractor, Closure<K> valueExtractor,
+      S initialState, Closure<O> outputFn, Closure<S> stateUpdate) {
+
+    Closure<K> keyDehydrated = dehydrate(keyExtractor);
+    Closure<K> valueDehydrated = dehydrate(valueExtractor);
+    Closure<S> stateUpdateDehydrated = dehydrate(stateUpdate);
+    Closure<O> outputDehydrated = dehydrate(outputFn);
+    return new BeamStream<>(config, bounded, pipeline -> {
+      PCollection<T> in = collection.materialize(pipeline);
+      Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
+      Coder<K> valueCoder = coderOf(pipeline, valueDehydrated);
+      Coder<O> outputCoder = coderOf(pipeline, outputDehydrated);
+      @SuppressWarnings("unchecked")
+      Class<S> stateClass = (Class) initialState.getClass();
+      Coder<S> stateCoder = ExceptionUtils.uncheckedFactory(() ->
+          pipeline.getCoderRegistry().getCoder(stateClass));
+      PCollection<KV<K, K>> kvs = MapElements
+          .named(withSuffix(name, ".mapToKvs"))
+          .of(in)
+          .using(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e)))
+          .output()
+          .setCoder(KvCoder.of(keyCoder, valueCoder));
+      final PCollection<Pair<K, O>> ret;
+      if (name != null) {
+        ret = kvs.apply(withSuffix(name, ".reduce"),
+            ParDo.of(ReduceValueStateByKey.of(
+                initialState, stateUpdateDehydrated, outputDehydrated, stateCoder)));
+      } else {
+        ret = kvs.apply(ParDo.of(ReduceValueStateByKey.of(
+            initialState, stateUpdateDehydrated, outputDehydrated, stateCoder)));
+      }
+      return ret.setCoder(PairCoder.of(keyCoder, outputCoder));
+    }, terminateCheck, pipelineFactory);
+  }
+
   <X> BeamStream<X> descendant(PCollectionProvider<X> provider) {
-    return new BeamStream<>(config, bounded, provider, terminateCheck, pipelineFactory);
+    return new BeamStream<>(
+        config, bounded, provider, terminateCheck, pipelineFactory);
   }
 
   Pipeline createPipeline() {
@@ -581,10 +675,14 @@ class BeamStream<T> implements Stream<T> {
     // FIXME: need to get rid of this fallback
     KryoCoder<Object> coder = KryoCoder.of(
         kryo -> kryo.setInstantiatorStrategy(
-            new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())));
+            new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())),
+        kryo -> kryo.addDefaultSerializer(Tuple.class, (Class) TupleSerializer.class));
     registry.registerCoderForClass(
         Object.class,
         coder);
+    registry.registerCoderForClass(
+        Tuple.class,
+        TupleCoder.of(coder));
     registry.registerCoderForClass(
         Pair.class, PairCoder.of(coder, coder));
   }
@@ -595,6 +693,39 @@ class BeamStream<T> implements Stream<T> {
     return RemoteConsumer.create(
         this, config.getCollectHostname(),
         config.getPreferredCollectPort(), consumer, coder);
+  }
+
+  @VisibleForTesting
+  static class IntegrateDoFn<K, V> extends DoFn<KV<K, V>, Pair<K, V>> {
+
+    static <K, V> DoFn<KV<K, V>, Pair<K, V>> of(
+        Closure<V> combiner, V initialValue, Coder<V> valueCoder) {
+
+      return new IntegrateDoFn<>(combiner, initialValue, valueCoder);
+    }
+
+    @StateId("combined")
+    private final StateSpec<ValueState<V>> state;
+    final Closure<V> combiner;
+    final V initialValue;
+    private IntegrateDoFn(Closure<V> combiner, V initialValue, Coder<V> valueCoder) {
+      this.state = StateSpecs.value(valueCoder);
+      this.combiner = combiner;
+      this.initialValue = initialValue;
+    }
+
+    @ProcessElement
+    public void process(
+        ProcessContext context,
+        @StateId("combined") ValueState<V> actual) {
+
+      KV<K, V> in = context.element();
+      V val = MoreObjects.firstNonNull(actual.read(), initialValue);
+      V result = combiner.call(in.getValue(), val);
+      actual.write(result);
+      context.outputWithTimestamp(
+          Pair.of(in.getKey(), result), context.timestamp());
+    }
   }
 
   private static class ConsumeFn<T> extends DoFn<T, Void> {
@@ -613,6 +744,11 @@ class BeamStream<T> implements Stream<T> {
   }
 
   private static class ExtractWindow<T> extends DoFn<T, Pair<BoundedWindow, T>> {
+
+    static <T> ExtractWindow<T> of() {
+      return new ExtractWindow<>();
+    }
+
     @ProcessElement
     public void process(
         @Element T elem,
@@ -631,6 +767,83 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
+  private static class ExtractTimestamp<T> extends DoFn<T, Pair<T, Long>> {
+
+    static <T> ExtractTimestamp<T> of() {
+      return new ExtractTimestamp<>();
+    }
+
+    @ProcessElement
+    public void process(ProcessContext context) {
+      context.output(Pair.of(context.element(), context.timestamp().getMillis()));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public TypeDescriptor<Pair<T, Long>> getOutputTypeDescriptor() {
+      return PairCoder.descriptor(
+          (TypeDescriptor) TypeDescriptor.of(Object.class),
+          TypeDescriptor.of(Long.class));
+    }
+
+  }
+
+  private static class ReduceValueStateByKey<K, V, S, O>
+      extends DoFn<KV<K, V>, Pair<K, O>> {
+
+    static <K, V, S, O> ReduceValueStateByKey<K, V, S, O> of(
+        S initialState,
+        Closure<S> stateUpdate,
+        Closure<O> output,
+        Coder<S> stateCoder) {
+
+      return new ReduceValueStateByKey<>(initialState, stateUpdate, output, stateCoder);
+    }
+
+    private final S initialState;
+    private final Closure<S> stateUpdate;
+    private final Closure<O> output;
+    private final @StateId("value") StateSpec<ValueState<S>> state;
+
+    ReduceValueStateByKey(
+        S initialState,
+        Closure<S> stateUpdate,
+        Closure<O> output,
+        Coder<S> stateCoder) {
+
+      this.state = StateSpecs.value(stateCoder);
+      this.initialState = initialState;
+      this.stateUpdate = stateUpdate;
+      this.output = output;
+    }
+
+    @ProcessElement
+    public void processElement(
+        ProcessContext context,
+        @StateId("value") ValueState<S> value) {
+
+      S current = MoreObjects.firstNonNull(value.read(), initialState);
+      KV<K, V> in = context.element();
+      O o = output.call(current, in.getValue());
+      S updated = stateUpdate.call(current, in.getValue());
+      value.write(updated);
+      context.output(Pair.of(in.getKey(), o));
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public TypeDescriptor<Pair<K, O>> getOutputTypeDescriptor() {
+      return PairCoder.descriptor(
+          (TypeDescriptor) TypeDescriptor.of(Object.class),
+          (TypeDescriptor) TypeDescriptor.of(Object.class));
+    }
+
+
+
+  }
+
+
+
   private static <T> DoFn<T, Void> asDoFn(Consumer<T> consumer) {
     return new ConsumeFn<>(consumer);
   }
@@ -645,9 +858,6 @@ class BeamStream<T> implements Stream<T> {
     };
   }
 
-  static <T> DoFn<T, Pair<BoundedWindow, T>> extractWindow() {
-    return new ExtractWindow<>();
-  }
 
   private Thread runWatchThread(Runnable terminate) {
     return runThread("pipeline-terminate-check", () -> {
@@ -806,6 +1016,10 @@ class BeamStream<T> implements Stream<T> {
       return closure;
     }
     return closure.dehydrate();
+  }
+
+  static @Nullable String withSuffix(@Nullable String prefix, String suffix) {
+    return prefix == null ? null : prefix + suffix;
   }
 
 }

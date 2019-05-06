@@ -21,6 +21,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Script;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -272,7 +273,64 @@ public abstract class GroovyEnvTest extends GroovyTest {
     assertEquals((Integer) 1, resultMap.get("key2").get(1));
   }
 
+  @Test
+  public void testIntegratePerKey() throws Exception {
+    final Script compiled = compile(
+        "env.batch.wildcard.batchUpdates()"
+        + ".integratePerKey({ it.key }, { 1 }, 0, { a, b -> a + b })"
+        + ".collect()");
 
+    write(StreamElement.update(batch, wildcard, "uuid1",
+            "key1", wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid2",
+            "key2", wildcard.toAttributePrefix() + "2",
+            System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid3",
+            "key1", wildcard.toAttributePrefix() + "3",
+            System.currentTimeMillis(), new byte[] { }));
+
+    @SuppressWarnings("unchecked")
+    List<Pair<Object, Object>> result = (List) compiled.run();
+    Map<Object, List<Object>> resultMap = result
+        .stream()
+        .collect(Collectors.groupingBy(
+            Pair::getFirst,
+            Collectors.mapping(Pair::getSecond, Collectors.toList())));
+    assertEquals(Arrays.asList(1, 2), resultMap.get("key1"));
+    assertEquals(Arrays.asList(1), resultMap.get("key2"));
+  }
+
+  @Test
+  public void testReduceValueStateByKey() throws Exception {
+    int prefixLen = wildcard.toAttributePrefix().length();
+    final Script compiled = compile(
+        "env.batch.wildcard.batchUpdates()"
+        + ".reduceValueStateByKey("
+            + "{ it.key }, { Integer.valueOf(it.attribute.substring(" + prefixLen + ")) }"
+            + ", 0, { s, v -> v - s }, { s, v -> v } )"
+        + ".collect()");
+
+    write(StreamElement.update(batch, wildcard, "uuid1",
+            "key1", wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid2",
+            "key2", wildcard.toAttributePrefix() + "2",
+            System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid3",
+            "key1", wildcard.toAttributePrefix() + "3",
+            System.currentTimeMillis(), new byte[] { }));
+
+    @SuppressWarnings("unchecked")
+    List<Pair<Object, Object>> result = (List) compiled.run();
+    Map<Object, List<Object>> resultMap = result
+        .stream()
+        .collect(Collectors.groupingBy(
+            Pair::getFirst,
+            Collectors.mapping(Pair::getSecond, Collectors.toList())));
+    assertEquals(Arrays.asList(1, 2), resultMap.get("key1"));
+    assertEquals(Arrays.asList(2), resultMap.get("key2"));
+  }
 
   protected abstract void write(StreamElement element);
 

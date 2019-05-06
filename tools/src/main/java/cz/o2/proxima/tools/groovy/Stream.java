@@ -116,6 +116,20 @@ public interface Stream<T> {
    */
   Stream<Pair<Object, T>> withWindow(@Nullable String name);
 
+  /**
+   * Add timestamp to each element in the stream.
+   * @return stream of pairs with timestamp
+   */
+  default Stream<Pair<T, Long>> withTimestamp() {
+    return withTimestamp(null);
+  }
+
+  /**
+   * Add timestamp to each element in the stream.
+   * @param name stable name of mapping operator
+   * @return stream of pairs with timestamp
+   */
+  Stream<Pair<T, Long>> withTimestamp(@Nullable String name);
 
   /**
    * Print all elements to console.
@@ -271,5 +285,103 @@ public interface Stream<T> {
    */
   Stream<T> union(@Nullable String name, List<Stream<T>> streams);
 
+  /**
+   * Transform this stream using stateful processing.
+   * @param <K> type of key
+   * @param <S> type of value state
+   * @param <V> type of intermediate value
+   * @param <O> type of output value
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initialState the initial state value
+   * @param outputFn function for outputting values (when function returns {@code null}
+   * @param stateUpdate update (accumulation) function for the state
+   * the output is discarded
+   * @return the statefully reduced stream
+   */
+  default <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> valueExtractor,
+      S initialState,
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate) {
+
+    return reduceValueStateByKey(
+        null, keyExtractor, valueExtractor, initialState, outputFn, stateUpdate);
+  }
+
+  /**
+   * Transform this stream using stateful processing.
+   * @param <K> type of key
+   * @param <S> type of value state
+   * @param <V> type of intermediate value
+   * @param <O> type of output value
+   * @param name optional name of the stateful operation
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initialState the initial state value
+   * @param stateUpdate update (accumulation) function for the state
+   * @param outputFn function for outputting values (when function returns {@code null}
+   * the output is discarded
+   * @return the statefully reduced stream
+   */
+  <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> valueExtractor,
+      S initialState,
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate);
+
+  /**
+   * Transform this stream to another stream by applying combining transform
+   * in global window emitting results after each element added.
+   * That means that the following holds:
+   *  * the new stream will have exactly the same number of elements as
+   *      the original stream minus late elements dropped
+   *  * streaming semantics need to define allowed lateness, which will
+   *      incur real time processing delay
+   *  * batch semantics use sort per key
+   * @param <K> key type
+   * @param <V> value type
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initialValue the initial value to be used on initialization
+   * @param combiner combiner of values to final value
+   * @return the integrated stream
+   */
+  default <K, V> Stream<Pair<K, V>> integratePerKey(
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
+      V initialValue,
+      @ClosureParams(value = FromString.class, options = "V,V") Closure<V> combiner) {
+
+    return integratePerKey(null, keyExtractor, valueExtractor, initialValue, combiner);
+  }
+
+  /**
+   * Transform this stream to another stream by applying combining transform
+   * in global window emitting results after each element added.
+   * That means that the following holds:
+   *  * the new stream will have exactly the same number of elements as
+   *      the original stream minus late elements dropped
+   *  * streaming semantics need to define allowed lateness, which will
+   *      incur real time processing delay
+   *  * batch semantics use sort per key
+   * @param <K> key type
+   * @param <V> value type
+   * @param name optional name of the transform
+   * @param keyExtractor extractor of key
+   * @param valueExtractor extractor of value
+   * @param initialValue the initial value to be used on initialization
+   * @param combiner combiner of values to final value
+   * @return the integrated stream
+   */
+  <K, V> Stream<Pair<K, V>> integratePerKey(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
+      V initialValue,
+      @ClosureParams(value = FromString.class, options = "V,V") Closure<V> combiner);
 
 }

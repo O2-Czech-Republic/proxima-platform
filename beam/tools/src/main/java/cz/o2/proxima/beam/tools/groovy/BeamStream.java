@@ -401,12 +401,12 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public <V> BeamStream<StreamElement> asStreamElements(
       RepositoryProvider repoProvider, EntityDescriptor entity,
-      Closure<String> keyExtractor, Closure<String> attributeExtractor,
+      Closure<CharSequence> keyExtractor, Closure<CharSequence> attributeExtractor,
       Closure<V> valueExtractor, Closure<Long> timeExtractor) {
 
     Repository repo = repoProvider.getRepo();
-    Closure<String> keyDehydrated = dehydrate(keyExtractor);
-    Closure<String> attributeDehydrated = dehydrate(attributeExtractor);
+    Closure<CharSequence> keyDehydrated = dehydrate(keyExtractor);
+    Closure<CharSequence> attributeDehydrated = dehydrate(attributeExtractor);
     Closure<V> valueDehydrated = dehydrate(valueExtractor);
     Closure<Long> timeDehydrated = dehydrate(timeExtractor);
 
@@ -414,17 +414,18 @@ class BeamStream<T> implements Stream<T> {
         .named("asStreamElements")
         .of(collection.materialize(pipeline))
         .using(data -> {
-          String key = keyDehydrated.call(data);
-          String attribute = attributeDehydrated.call(data);
-          AttributeDescriptor<Object> attrDesc = entity.findAttribute(attribute, true)
+          CharSequence key = keyDehydrated.call(data);
+          CharSequence attribute = attributeDehydrated.call(data);
+          AttributeDescriptor<Object> attrDesc = entity
+              .findAttribute(attribute.toString(), true)
               .orElseThrow(() -> new IllegalArgumentException(
                   "No attribute " + attribute + " in " + entity));
           long timestamp = timeDehydrated.call(data);
           byte[] value = attrDesc.getValueSerializer()
               .serialize(valueDehydrated.call(data));
           return StreamElement.update(
-              entity, attrDesc, UUID.randomUUID().toString(), key, attribute,
-              timestamp, value);
+              entity, attrDesc, UUID.randomUUID().toString(), key.toString(),
+              attribute.toString(), timestamp, value);
         }, TypeDescriptor.of(StreamElement.class))
         .output()
         .setCoder(StreamElementCoder.of(repo)));
@@ -434,7 +435,7 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public <V> void persist(
       RepositoryProvider repoProvider, EntityDescriptor entity,
-      Closure<String> keyExtractor, Closure<String> attributeExtractor,
+      Closure<CharSequence> keyExtractor, Closure<CharSequence> attributeExtractor,
       Closure<V> valueExtractor, Closure<Long> timeExtractor) {
 
     asStreamElements(

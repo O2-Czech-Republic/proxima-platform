@@ -150,9 +150,9 @@ public interface Stream<T> {
       RepositoryProvider repoProvider,
       EntityDescriptor entity,
       @ClosureParams(value = FromString.class, options = "T")
-          Closure<String> keyExtractor,
+          Closure<CharSequence> keyExtractor,
       @ClosureParams(value = FromString.class, options = "T")
-          Closure<String> attributeExtractor,
+          Closure<CharSequence> attributeExtractor,
       @ClosureParams(value = FromString.class, options = "T")
           Closure<V> valueExtractor,
       @ClosureParams(value = FromString.class, options = "T")
@@ -184,9 +184,9 @@ public interface Stream<T> {
       RepositoryProvider repoProvider,
       EntityDescriptor entity,
       @ClosureParams(value = FromString.class, options = "T")
-          Closure<String> keyExtractor,
+          Closure<CharSequence> keyExtractor,
       @ClosureParams(value = FromString.class, options = "T")
-          Closure<String> attributeExtractor,
+          Closure<CharSequence> attributeExtractor,
       @ClosureParams(value = FromString.class, options = "T")
           Closure<V> valueExtractor,
       @ClosureParams(value = FromString.class, options = "T")

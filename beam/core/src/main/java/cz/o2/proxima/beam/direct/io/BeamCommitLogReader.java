@@ -28,6 +28,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -274,6 +275,7 @@ class BeamCommitLogReader {
 
   public boolean advance() throws IOException {
     if (!finished) {
+      autoCommitIfBounded();
       try {
         if (limit > 0) {
           current = takeNext();
@@ -369,6 +371,13 @@ class BeamCommitLogReader {
       return new Instant(observer.getWatermark());
     }
     return new Instant(System.currentTimeMillis() - AUTO_WATERMARK_LAG_MS);
+  }
+
+  private void autoCommitIfBounded() {
+    if (stopAtCurrent) {
+      Optional.ofNullable(getLastReadCommitter())
+          .ifPresent(OffsetCommitter::confirm);
+    }
   }
 
 }

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import com.google.common.collect.Streams;
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.AbstractMessage.Builder;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -34,7 +35,6 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.internal.shaded.com.google.common.collect.Streams;
 import cz.o2.proxima.tools.groovy.internal.ProximaInterpreter;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
 import cz.o2.proxima.util.Classpath;

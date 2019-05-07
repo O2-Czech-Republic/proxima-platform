@@ -18,6 +18,7 @@ package cz.o2.proxima.beam.tools.groovy;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.tools.groovy.GroovyEnvTest;
+import org.junit.Test;
 
 /**
  * Test {@link GroovyEnv} using beam.
@@ -34,6 +35,12 @@ public class BeamGroovyEnvTest extends GroovyEnvTest {
         .orElseThrow(() -> new IllegalStateException(
             "Missing writer for " + element.getAttributeDescriptor()))
         .write(element, (succ, exc) -> { });
+  }
+
+  @Test
+  @Override
+  public void testIntegratePerKey() throws Exception {
+    super.testIntegratePerKey();
   }
 
 }

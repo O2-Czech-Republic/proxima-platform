@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.tools.groovy;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.Streams;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
@@ -25,7 +26,6 @@ import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
-import cz.o2.proxima.internal.shaded.com.google.common.collect.Streams;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -764,7 +764,7 @@ class BeamStream<T> implements Stream<T> {
 
   }
 
-  abstract static class ElementOrderedDoFn<IN, OUT> extends DoFn<IN, OUT> {
+  public abstract static class ElementOrderedDoFn<IN, OUT> extends DoFn<IN, OUT> {
 
     private final long allowedLateness;
 
@@ -854,7 +854,8 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @VisibleForTesting
-  static class IntegrateDoFn<K, V> extends ElementOrderedDoFn<KV<K, V>, Pair<K, V>> {
+  public static class IntegrateDoFn<K, V>
+      extends ElementOrderedDoFn<KV<K, V>, Pair<K, V>> {
 
     static <K, V> DoFn<KV<K, V>, Pair<K, V>> of(
         Closure<V> combiner, V initialValue, Coder<K> keyCoder,

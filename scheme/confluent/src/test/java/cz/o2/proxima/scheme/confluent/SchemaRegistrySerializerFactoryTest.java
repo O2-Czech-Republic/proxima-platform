@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.scheme.confluent;
 
-import cz.o2.proxima.scheme.SerializationException;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.scheme.avro.AvroSerializer;
@@ -98,18 +97,19 @@ public class SchemaRegistrySerializerFactoryTest {
     assertEquals(event, fromBytes);
   }
 
-  @Test(expected = SerializationException.class)
-  public void testWithInvaliedUri() throws Exception {
-    ValueSerializer s = factory.getValueSerializer(new URI("schema-registry:not-valid"));
-    s.isValid(new byte[]{});
+  @Test
+  public void testWithInvalidUri() throws Exception {
+    ValueSerializer s = factory.getValueSerializer(
+        new URI("schema-registry:not-valid"));
+    assertFalse(s.isUsable());
   }
 
   @Test
   public void testDeserializeWithInvalidMagicByte() {
-    assertFalse(serializer.deserialize(new byte[]{0x1}).isPresent());
+    assertFalse(serializer.deserialize(new byte[]{ 0x1 }).isPresent());
   }
 
-  @Test(expected = SerializationException.class)
+  @Test
   public void testDeserializeNotRegisteredSubject() throws Exception {
 
     SchemaRegistryValueSerializer s = (SchemaRegistryValueSerializer) factory
@@ -117,8 +117,7 @@ public class SchemaRegistrySerializerFactoryTest {
             new URI("schema-registry:http://schema-registry:8081/not-registered")
         );
     s.setSchemaRegistry(schemaRegistry);
-    s.deserialize(new byte[]{});
-
+    assertFalse(s.isUsable());
   }
 
   @Test
@@ -146,11 +145,8 @@ public class SchemaRegistrySerializerFactoryTest {
   }
 
   @Test
-  public void testIsValidOnEmptyInput() {
-    assertTrue(serializer.isValid(new byte[]{}));
-    Optional<Event> deserialized = serializer.deserialize(new byte[]{});
-    assertTrue(deserialized.isPresent());
-    assertEquals(new Event(), deserialized.get());
+  public void testIsUsable() {
+    assertTrue(serializer.isUsable());
   }
 
 }

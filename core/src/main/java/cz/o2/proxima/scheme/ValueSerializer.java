@@ -47,6 +47,16 @@ public interface ValueSerializer<T> extends Serializable {
    */
   T getDefault();
 
+  /**
+   * Check if given serializer can be used without exceptions.
+   * @return {@code} true if serializer is usable
+   */
+  default boolean isUsable() {
+    byte[] serialized = serialize(getDefault());
+    return deserialize(serialized)
+        .map(getDefault()::equals)
+        .orElse(false);
+  }
 
   /**
    * Check if given input is valid by trying to parse it.

@@ -55,8 +55,9 @@ public class JavaSerializerTest {
 
   @Test
   public void testIsValidWithCustomClass() {
-    assertTrue(serializer.isValid(new byte[]{}));
+    assertTrue(serializer.isValid(new byte[] { }));
     assertNotNull(serializer.getDefault());
+    assertTrue(serializer.isUsable());
   }
 
   @Test

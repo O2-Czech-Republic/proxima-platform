@@ -71,6 +71,7 @@ public class FloatSerializer implements ValueSerializerFactory {
       public Float fromJsonValue(String json) {
         return Float.valueOf(json);
       }
+
     };
   }
 

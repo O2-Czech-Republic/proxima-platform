@@ -63,14 +63,6 @@ class SchemaRegistryValueSerializer<M extends GenericContainer>
 
   @Override
   public Optional<M> deserialize(byte[] input) {
-    if (input.length == 0) {
-      /**
-       * This is a little bit weird but proxima try to deserialize empty bytes
-       * in serializer validation {@link ValueSerializer#isValid(byte[])}
-       */
-      return Optional.of(getDefault());
-    }
-
     return deserializeValue(input);
   }
 
@@ -89,6 +81,23 @@ class SchemaRegistryValueSerializer<M extends GenericContainer>
       defaultInstance = Classpath.newInstance(getAvroClass());
     }
     return defaultInstance;
+  }
+
+  @Override
+  public boolean isUsable() {
+    try {
+      return deserialize(serialize(getDefault())).isPresent();
+    } catch (Exception ex) {
+      log.warn("Exception during (de)serialization of default value for "
+          + "URI {}. Please consider making all fields optional, otherwise "
+          + "you might encounter unexpected behavior.", schemaRegistryUri, ex);
+    }
+    try {
+      return getDefault() != null;
+    } catch (Exception ex) {
+      log.warn("Error getting default value for URI {}", schemaRegistryUri, ex);
+      return false;
+    }
   }
 
   public String getClassName() {

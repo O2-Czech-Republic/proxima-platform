@@ -65,13 +65,9 @@ public class AvroSerializerFactoryTest {
   }
 
   @Test
-  public void testIsValidOnEmptyInput() throws URISyntaxException {
+  public void testIsUsable() throws URISyntaxException {
     ValueSerializer<Event> serializer = factory.getValueSerializer(
         new URI("avro:" + Event.class.getName()));
-
-    assertTrue(serializer.isValid(new byte[]{}));
-    Optional<Event> deserialized = serializer.deserialize(new byte[]{});
-    assertTrue(deserialized.isPresent());
-    assertEquals(new Event(), deserialized.get());
+    assertTrue(serializer.isUsable());
   }
 }

@@ -55,8 +55,8 @@ public class BytesSerializerTest {
   }
 
   @Test
-  public void testIsValid() {
-    assertTrue(serializer.isValid(new byte[]{}));
+  public void testIsUsable() {
+    assertTrue(serializer.isUsable());
   }
 
   @Test

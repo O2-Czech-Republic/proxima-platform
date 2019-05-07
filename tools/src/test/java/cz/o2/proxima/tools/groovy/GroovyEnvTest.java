@@ -332,6 +332,49 @@ public abstract class GroovyEnvTest extends GroovyTest {
     assertEquals(Arrays.asList(2), resultMap.get("key2"));
   }
 
+  @Test(timeout = 10000)
+  public void testReduceValueWithIntegratePerKey() throws Exception {
+    int prefixLen = wildcard.toAttributePrefix().length();
+    final Script compiled = compile(
+        "env.batch.wildcard.batchUpdates()"
+            // take only changes in value per key
+            + ".reduceValueStateByKey("
+                + " { it.key },"
+                + "{ Integer.valueOf(it.attribute[" + prefixLen + "]) }, "
+                + "0, {s, v -> v - s}, {s, v -> v})"
+            // and running aggregate
+            + ".integratePerKey({ \"\" }, { it.second }, 0, {a, b -> a + b})"
+            + ".collect()");
+
+    // the InMemStorage is not append storage, so we need
+    // to append additional suffix to the attribute name with ID of write
+    // operation (1..5). That is ignored during value extraction in
+    // reduceValueStateByKey
+    long now = System.currentTimeMillis();
+    write(StreamElement.update(batch, wildcard, "uuid1",
+            "key1", wildcard.toAttributePrefix() + "11",
+            now, new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid2",
+            "key1", wildcard.toAttributePrefix() + "02",
+            now + 1, new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid3",
+            "key2", wildcard.toAttributePrefix() + "13",
+            now + 2, new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid4",
+            "key1", wildcard.toAttributePrefix() + "14",
+            now + 3, new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid5",
+            "key1", wildcard.toAttributePrefix() + "15",
+            now + 4, new byte[] { }));
+
+    @SuppressWarnings("unchecked")
+    List<Integer> result = (List) ((List) compiled.run())
+        .stream()
+        .map(e -> ((Pair<Object, Object>) e).getSecond())
+        .collect(Collectors.toList());
+    assertEquals(Arrays.asList(1, 0, 1, 2, 2), result);
+  }
+
   protected abstract void write(StreamElement element);
 
   protected Repository getRepo() {

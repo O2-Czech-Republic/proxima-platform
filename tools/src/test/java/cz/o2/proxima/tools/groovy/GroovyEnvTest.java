@@ -60,7 +60,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   @Override
   Script compile(String script) throws Exception {
     String source = GroovyEnv.getSource(conf, repo) + "\n"
-        + "def env = new Environment()\n" + script;
+        + Console.INITIAL_STATEMENT + "\n" + script;
     return super.compile(source);
   }
 

@@ -177,8 +177,22 @@ public class Console {
 
   private void initializeStreamProvider() {
     ServiceLoader<StreamProvider> loader = ServiceLoader.load(StreamProvider.class);
-    streamProvider = Streams.stream(loader).findAny()
+    streamProvider = Streams.stream(loader)
+        // sort possible test implementations on top
+        .sorted((a, b) -> {
+          String cls1 = a.getClass().getSimpleName();
+          String cls2 = a.getClass().getSimpleName();
+          if (cls1.startsWith("Test") ^ cls2.startsWith("Test")) {
+            if (cls1.startsWith("Test")) {
+              return -1;
+            }
+            return 1;
+          }
+          return cls1.compareTo(cls2);
+        })
+        .findFirst()
         .orElseThrow(() -> new IllegalArgumentException("No StreamProvider found"));
+    log.info("Using {} as StreamProvider", streamProvider);
     streamProvider.init(repo, args == null ? new String[] {} : args);
   }
 

@@ -301,7 +301,7 @@ public interface Stream<T> {
    */
   default <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = "T") Closure<K> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       S initialState,
       @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
       @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate) {
@@ -328,7 +328,7 @@ public interface Stream<T> {
   <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
       @Nullable String name,
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = "T") Closure<K> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       S initialState,
       @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
       @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate);

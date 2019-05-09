@@ -39,7 +39,8 @@ public class TupleCoder extends Coder<Tuple<Object>> {
     return new TupleCoder(coder);
   }
 
-  final KryoCoder<Object> coder;
+  private final KryoCoder<Object> coder;
+  private final int hashCode = System.identityHashCode(this);
 
   TupleCoder(KryoCoder<Object> coder) {
     this.coder = coder;
@@ -77,5 +78,20 @@ public class TupleCoder extends Coder<Tuple<Object>> {
   public List<? extends Coder<?>> getCoderArguments() {
     return Arrays.asList(coder);
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (!(obj instanceof TupleCoder)) {
+      return false;
+    }
+    return ((TupleCoder) obj).hashCode == hashCode;
+  }
+
+  @Override
+  public int hashCode() {
+    return hashCode;
+  }
+
+
 
 }

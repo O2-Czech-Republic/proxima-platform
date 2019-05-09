@@ -29,7 +29,7 @@ class Environment implements RepositoryProvider {
     class ${entity.classname}Descriptor {
 
       private final Console console = Environment.this.console
-      private final cz.o2.proxima.repository.EntityDescriptor desc = console.get().findEntityDescriptor("${entity.name}")
+      private final cz.o2.proxima.repository.EntityDescriptor desc = console.findEntityDescriptor("${entity.name}")
       private final String name = "${entity.name}"
       private final ConsoleRandomReader reader = console.getRandomAccessReader("${entity.name}")
 

@@ -16,6 +16,7 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import cz.o2.proxima.functional.UnaryFunction;
+import org.apache.beam.runners.direct.DirectOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.options.PipelineOptions;
@@ -29,6 +30,7 @@ public class TestBeamStreamProvider extends BeamStreamProvider {
   @Override
   protected UnaryFunction<PipelineOptions, Pipeline> getCreatePipelineFromOpts() {
     return opts -> {
+      opts.as(DirectOptions.class).setTargetParallelism(1);
       Pipeline ret = Pipeline.create(opts);
       // register kryo for object
       // remove this as soon as we figure out how to correctly

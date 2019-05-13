@@ -36,8 +36,18 @@ public class ExceptionUtils {
   /**
    * Runnable throwing exception.
    */
+  @FunctionalInterface
   public static interface ThrowingRunnable extends Serializable {
     void run() throws Exception;
+  }
+
+  /**
+   * Factory throwing exception.
+   * @param <T> type parameter
+   */
+  @FunctionalInterface
+  public static interface ThrowingFactory<T> extends Serializable {
+    T get() throws Exception;
   }
 
   /**
@@ -45,6 +55,7 @@ public class ExceptionUtils {
    * @param <IN> input type parameter
    * @param <OUT> output type parameter
    */
+  @FunctionalInterface
   public static interface ThrowingUnaryFunction<IN, OUT> extends Serializable {
     OUT apply(IN what) throws Exception;
   }
@@ -72,6 +83,20 @@ public class ExceptionUtils {
   public static void unchecked(ThrowingRunnable runnable) {
     try {
       runnable.run();
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
+  }
+
+  /**
+   * Run given factory and return result.
+   * @param <T> type parameter
+   * @param factory the factory that throws exceptions
+   * @return created instance of the factory
+   */
+  public static <T> T uncheckedFactory(ThrowingFactory<T> factory) {
+    try {
+      return factory.get();
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }

@@ -19,6 +19,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
+import cz.o2.proxima.beam.core.io.PairCoder;
+import cz.o2.proxima.beam.tools.groovy.BeamStream.IntegrateDoFn;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -28,6 +30,7 @@ import cz.o2.proxima.tools.groovy.JavaTypedClosure;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamTest;
 import cz.o2.proxima.tools.groovy.TestStreamProvider;
+import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
 import java.util.List;
 import java.util.Optional;
@@ -37,12 +40,27 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.beam.runners.direct.DirectOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.Coder;
+import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.VarIntCoder;
+import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
+import org.apache.beam.sdk.extensions.kryo.KryoCoder;
+import org.apache.beam.sdk.options.PipelineOptions;
+import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.testing.PAssert;
+import org.apache.beam.sdk.testing.TestStream;
 import org.apache.beam.sdk.transforms.Create;
+import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
+import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TypeDescriptor;
-import static org.junit.Assert.assertTrue;
+import org.apache.beam.sdk.values.TypeDescriptors;
+import org.joda.time.Instant;
+import static org.junit.Assert.*;
 import org.junit.Test;
 
 @Slf4j
@@ -183,5 +201,38 @@ public class BeamStreamTest extends StreamTest {
     assertTrue(true);
   }
 
+  @Test
+  public void testIntegratePerKeyDoFn() {
+    for (int r = 0; r < 1; r++) {
+      long now = System.currentTimeMillis();
+      TestStream<Integer> test = TestStream.create(KryoCoder.<Integer>of())
+          .addElements(
+              TimestampedValue.of(1, new Instant(now)),
+              TimestampedValue.of(2, new Instant(now - 1)),
+              TimestampedValue.of(3, new Instant(now - 2)))
+          .advanceWatermarkToInfinity();
+      PipelineOptions opts = PipelineOptionsFactory.create();
+      opts.as(DirectOptions.class).setTargetParallelism(8);
+      Pipeline pipeline = Pipeline.create(opts);
+      PCollection<Integer> input = pipeline.apply(test);
+      PCollection<KV<Integer, Integer>> kvs = MapElements.of(input)
+          .using(
+              i -> KV.of(0, i),
+              TypeDescriptors.kvs(TypeDescriptors.integers(), TypeDescriptors.integers()))
+          .output();
+      PCollection<Pair<Integer, Integer>> result = kvs.apply(ParDo.of(new IntegrateDoFn<>(
+          (a, b) -> a + b, 0,
+          KvCoder.of(VarIntCoder.of(), VarIntCoder.of()),
+          10))).setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
+      PAssert.that(result)
+          .containsInAnyOrder(Pair.of(0, 3), Pair.of(0, 5), Pair.of(0, 6));
+      try {
+        assertNotNull(pipeline.run());
+      } catch (Exception ex) {
+        ex.printStackTrace(System.err);
+        throw ex;
+      }
+    }
+  }
 
 }

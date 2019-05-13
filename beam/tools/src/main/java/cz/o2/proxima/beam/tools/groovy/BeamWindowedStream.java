@@ -669,10 +669,4 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     return AfterWatermark.pastEndOfWindow();
   }
 
-  private static @Nullable String withSuffix(
-      @Nullable String prefix, String suffix) {
-
-    return prefix == null ? null : prefix + suffix;
-  }
-
 }

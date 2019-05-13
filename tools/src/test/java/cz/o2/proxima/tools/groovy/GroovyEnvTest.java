@@ -21,6 +21,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Script;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -59,7 +60,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   @Override
   Script compile(String script) throws Exception {
     String source = GroovyEnv.getSource(conf, repo) + "\n"
-        + "def env = new Environment()\n" + script;
+        + Console.INITIAL_STATEMENT + "\n" + script;
     return super.compile(source);
   }
 
@@ -272,7 +273,107 @@ public abstract class GroovyEnvTest extends GroovyTest {
     assertEquals((Integer) 1, resultMap.get("key2").get(1));
   }
 
+  @Test
+  public void testIntegratePerKey() throws Exception {
+    final Script compiled = compile(
+        "env.batch.wildcard.batchUpdates()"
+        + ".integratePerKey({ it.key }, { 1 }, 0, { a, b -> a + b }, 10)"
+        + ".collect()");
 
+    write(StreamElement.update(batch, wildcard, "uuid1",
+            "key1", wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid2",
+            "key2", wildcard.toAttributePrefix() + "2",
+            System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid3",
+            "key1", wildcard.toAttributePrefix() + "3",
+            System.currentTimeMillis(), new byte[] { }));
+
+    @SuppressWarnings("unchecked")
+    List<Pair<Object, Object>> result = (List) compiled.run();
+    Map<Object, List<Object>> resultMap = result
+        .stream()
+        .collect(Collectors.groupingBy(
+            Pair::getFirst,
+            Collectors.mapping(Pair::getSecond, Collectors.toList())));
+    assertEquals(Arrays.asList(1, 2), resultMap.get("key1"));
+    assertEquals(Arrays.asList(1), resultMap.get("key2"));
+  }
+
+  @Test
+  public void testReduceValueStateByKey() throws Exception {
+    int prefixLen = wildcard.toAttributePrefix().length();
+    final Script compiled = compile(
+        "env.batch.wildcard.batchUpdates()"
+        + ".reduceValueStateByKey("
+            + "{ it.key }, { Integer.valueOf(it.attribute.substring(" + prefixLen + ")) }"
+            + ", 0, { s, v -> v - s }, { s, v -> v }, 10)"
+        + ".collect()");
+
+    write(StreamElement.update(batch, wildcard, "uuid1",
+            "key1", wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid2",
+            "key2", wildcard.toAttributePrefix() + "2",
+            System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid3",
+            "key1", wildcard.toAttributePrefix() + "3",
+            System.currentTimeMillis(), new byte[] { }));
+
+    @SuppressWarnings("unchecked")
+    List<Pair<Object, Object>> result = (List) compiled.run();
+    Map<Object, List<Object>> resultMap = result
+        .stream()
+        .collect(Collectors.groupingBy(
+            Pair::getFirst,
+            Collectors.mapping(Pair::getSecond, Collectors.toList())));
+    assertEquals(Arrays.asList(1, 2), resultMap.get("key1"));
+    assertEquals(Arrays.asList(2), resultMap.get("key2"));
+  }
+
+  @Test(timeout = 10000)
+  public void testReduceValueWithIntegratePerKey() throws Exception {
+    int prefixLen = wildcard.toAttributePrefix().length();
+    final Script compiled = compile(
+        "env.batch.wildcard.batchUpdates()"
+            // take only changes in value per key
+            + ".reduceValueStateByKey("
+                + " { it.key },"
+                + "{ Integer.valueOf(it.attribute[" + prefixLen + "]) }, "
+                + "0, {s, v -> v - s}, {s, v -> v}, 10)"
+            // and running aggregate
+            + ".integratePerKey({ \"\" }, { it.second }, 0, {a, b -> a + b}, 10)"
+            + ".collect()");
+
+    // the InMemStorage is not append storage, so we need
+    // to append additional suffix to the attribute name with ID of write
+    // operation (1..5). That is ignored during value extraction in
+    // reduceValueStateByKey
+    long now = System.currentTimeMillis();
+    write(StreamElement.update(batch, wildcard, "uuid1",
+            "key1", wildcard.toAttributePrefix() + "11",
+            now, new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid2",
+            "key1", wildcard.toAttributePrefix() + "02",
+            now + 1, new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid3",
+            "key2", wildcard.toAttributePrefix() + "13",
+            now + 2, new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid4",
+            "key1", wildcard.toAttributePrefix() + "14",
+            now + 3, new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid5",
+            "key1", wildcard.toAttributePrefix() + "15",
+            now + 4, new byte[] { }));
+
+    @SuppressWarnings("unchecked")
+    List<Integer> result = (List) ((List) compiled.run())
+        .stream()
+        .map(e -> ((Pair<Object, Object>) e).getSecond())
+        .collect(Collectors.toList());
+    assertEquals(Arrays.asList(1, 0, 1, 2, 2), result);
+  }
 
   protected abstract void write(StreamElement element);
 

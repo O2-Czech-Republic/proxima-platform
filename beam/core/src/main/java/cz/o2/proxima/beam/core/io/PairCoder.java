@@ -20,6 +20,7 @@ import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Objects;
 import lombok.Getter;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CustomCoder;
@@ -72,6 +73,20 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
     return descriptor(
         keyCoder.getEncodedTypeDescriptor(),
         valueCoder.getEncodedTypeDescriptor());
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (!(obj instanceof PairCoder)) {
+      return false;
+    }
+    PairCoder other = (PairCoder) obj;
+    return other.keyCoder.equals(keyCoder) && other.valueCoder.equals(valueCoder);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(keyCoder, valueCoder);
   }
 
 }

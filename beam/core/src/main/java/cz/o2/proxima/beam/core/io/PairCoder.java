@@ -89,7 +89,4 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
     return Objects.hash(keyCoder, valueCoder);
   }
 
-
-
-
 }

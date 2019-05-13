@@ -557,7 +557,8 @@ class BeamStream<T> implements Stream<T> {
       Closure<K> keyExtractor,
       Closure<V> valueExtractor,
       V initialValue,
-      Closure<V> combiner) {
+      Closure<V> combiner,
+      long allowedLateness) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<V> valueDehydrated = dehydrate(valueExtractor);
@@ -573,9 +574,9 @@ class BeamStream<T> implements Stream<T> {
           .using(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e)))
           .output()
           .setCoder(KvCoder.of(keyCoder, valueCoder));
-      // FIXME
+      KvCoder<K, V> coder = (KvCoder<K, V>) kvs.getCoder();
       return kvs.apply(ParDo.of(IntegrateDoFn.of(
-          combinerDehydrated, initialValue, (KvCoder<K, V>) kvs.getCoder(), 10L)))
+          combinerDehydrated, initialValue, coder, allowedLateness)))
           .setCoder(PairCoder.of(keyCoder, valueCoder));
     }, this.terminateCheck, this.pipelineFactory);
   }
@@ -603,7 +604,8 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
       @Nullable String name, Closure<K> keyExtractor, Closure<V> valueExtractor,
-      S initialState, Closure<O> outputFn, Closure<S> stateUpdate) {
+      S initialState, Closure<O> outputFn, Closure<S> stateUpdate,
+      long allowedLateness) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<V> valueDehydrated = dehydrate(valueExtractor);
@@ -629,12 +631,12 @@ class BeamStream<T> implements Stream<T> {
         ret = kvs.apply(withSuffix(name, ".reduce"),
             ParDo.of(ReduceValueStateByKey.of(
                 initialState, stateUpdateDehydrated, outputDehydrated,
-                stateCoder, (KvCoder<K, V>) kvs.getCoder(), 10)));
+                stateCoder, (KvCoder<K, V>) kvs.getCoder(), allowedLateness)));
       } else {
         ret = kvs.apply(
             ParDo.of(ReduceValueStateByKey.of(
                 initialState, stateUpdateDehydrated, outputDehydrated,
-                stateCoder, (KvCoder<K, V>) kvs.getCoder(), 10)));
+                stateCoder, (KvCoder<K, V>) kvs.getCoder(), allowedLateness)));
       }
       return ret.setCoder(PairCoder.of(keyCoder, outputCoder));
     }, terminateCheck, pipelineFactory);
@@ -844,7 +846,9 @@ class BeamStream<T> implements Stream<T> {
           .sorted((a, b) -> Long.compare(a.getFirst(), b.getFirst()))
           .forEachOrdered(e -> consumer.accept(e.getFirst(), e.getSecond()));
       if (!keep.isEmpty()) {
-        flushTimer.offset(Duration.millis(allowedLateness)).setRelative();
+        long minStamp = keep.stream()
+            .map(Pair::getFirst).min(Long::compare).orElse(-1L);
+        flushTimer.set(new Instant(minStamp));
       }
     }
 
@@ -928,7 +932,6 @@ class BeamStream<T> implements Stream<T> {
         ValueState<V> state,
         WindowedContext context,
         long stamp) {
-
       V val = MoreObjects.firstNonNull(state.read(), initialValue);
       V result = combiner.apply(in.getValue(), val);
       state.write(result);

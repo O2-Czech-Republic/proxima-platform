@@ -277,7 +277,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   public void testIntegratePerKey() throws Exception {
     final Script compiled = compile(
         "env.batch.wildcard.batchUpdates()"
-        + ".integratePerKey({ it.key }, { 1 }, 0, { a, b -> a + b })"
+        + ".integratePerKey({ it.key }, { 1 }, 0, { a, b -> a + b }, 10)"
         + ".collect()");
 
     write(StreamElement.update(batch, wildcard, "uuid1",
@@ -308,7 +308,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
         "env.batch.wildcard.batchUpdates()"
         + ".reduceValueStateByKey("
             + "{ it.key }, { Integer.valueOf(it.attribute.substring(" + prefixLen + ")) }"
-            + ", 0, { s, v -> v - s }, { s, v -> v } )"
+            + ", 0, { s, v -> v - s }, { s, v -> v }, 10)"
         + ".collect()");
 
     write(StreamElement.update(batch, wildcard, "uuid1",
@@ -341,9 +341,9 @@ public abstract class GroovyEnvTest extends GroovyTest {
             + ".reduceValueStateByKey("
                 + " { it.key },"
                 + "{ Integer.valueOf(it.attribute[" + prefixLen + "]) }, "
-                + "0, {s, v -> v - s}, {s, v -> v})"
+                + "0, {s, v -> v - s}, {s, v -> v}, 10)"
             // and running aggregate
-            + ".integratePerKey({ \"\" }, { it.second }, 0, {a, b -> a + b})"
+            + ".integratePerKey({ \"\" }, { it.second }, 0, {a, b -> a + b}, 10)"
             + ".collect()");
 
     // the InMemStorage is not append storage, so we need

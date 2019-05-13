@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
+import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.tools.groovy.BeamStream.IntegrateDoFn;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -222,7 +223,7 @@ public class BeamStreamTest extends StreamTest {
       PCollection<Pair<Integer, Integer>> result = kvs.apply(ParDo.of(new IntegrateDoFn<>(
           (a, b) -> a + b, 0,
           KvCoder.of(VarIntCoder.of(), VarIntCoder.of()),
-          10)));
+          10))).setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
       PAssert.that(result)
           .containsInAnyOrder(Pair.of(0, 3), Pair.of(0, 5), Pair.of(0, 6));
       try {

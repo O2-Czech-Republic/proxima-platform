@@ -3,6 +3,10 @@
  * AUTO GENERATED! DO NOT EDIT!
  */
 
+<#if groovyPackage != "">
+  package ${groovyPackage}
+</#if>
+
 import cz.o2.proxima.direct.core.DirectDataOperator
 import cz.o2.proxima.direct.randomaccess.KeyValue
 import cz.o2.proxima.direct.randomaccess.RandomOffset;

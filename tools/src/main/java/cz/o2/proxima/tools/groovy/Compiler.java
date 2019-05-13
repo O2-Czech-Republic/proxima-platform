@@ -42,6 +42,7 @@ public class Compiler {
   private final DefaultParser cli = new DefaultParser();
 
   private final String output;
+  private final String packageName;
   private final List<String> configs;
 
   public static void main(String[] args) throws Exception {
@@ -56,6 +57,8 @@ public class Compiler {
     if (!parsed.hasOption("o")) {
       throw new IllegalStateException("Missing config option 'o' for output");
     }
+
+    packageName = parsed.hasOption("p") ? parsed.getOptionValue("p") : "";
     output = parsed.getOptionValue("o").replace("/", File.separator);
     configs = parsed.getArgList();
 
@@ -79,7 +82,7 @@ public class Compiler {
         .withLoadFamilies(true)
         .build();
 
-    String source = GroovyEnv.getSource(conf, repo);
+    String source = GroovyEnv.getSource(conf, repo, packageName);
     File of = new File(output);
     ensureParentDir(of);
     try (FileOutputStream fos = new FileOutputStream(of)) {
@@ -90,7 +93,8 @@ public class Compiler {
 
   private Options getOpts() {
     return new Options()
-        .addOption(new Option("o", true, "Output filename"));
+        .addOption(new Option("o", true, "Output filename"))
+        .addOption(new Option("p", true, "Package name"));
   }
 
   private void ensureParentDir(File f) {

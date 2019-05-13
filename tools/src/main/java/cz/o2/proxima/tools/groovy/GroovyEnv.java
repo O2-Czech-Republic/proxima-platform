@@ -39,11 +39,18 @@ public class GroovyEnv {
       Repository repo,
       ToolsClassLoader loader) throws Exception {
 
-    String source = getSource(conf, repo);
+    String source = getSource(conf, repo, "");
     loader.parseClass(source);
   }
 
   public static String getSource(Configuration conf, Repository repo)
+      throws Exception {
+
+    return getSource(conf, repo, "");
+  }
+
+  public static String getSource(
+      Configuration conf, Repository repo, String packageName)
       throws Exception {
 
     Map<String, Object> root = new HashMap<>();
@@ -78,6 +85,7 @@ public class GroovyEnv {
     });
 
     root.put("entities", entities);
+    root.put("groovyPackage", packageName);
     Template template = conf.getTemplate("class-entitydesc.ftlh");
     StringWriter writer = new StringWriter();
     template.process(root, writer);

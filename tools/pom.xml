@@ -93,12 +93,6 @@
     </dependency>
 
     <dependency>
-      <groupId>org.codehaus.groovy</groupId>
-      <artifactId>groovy</artifactId>
-      <version>${groovy.version}</version>
-    </dependency>
-
-    <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-groovy-groovysh</artifactId>
       <version>${project.version}</version>
@@ -183,11 +177,7 @@
       <version>${spotbugs.version}</version>
       <scope>provided</scope>
     </dependency>
-    <dependency>
-      <groupId>org.codehaus.groovy</groupId>
-      <artifactId>groovy-all</artifactId>
-      <version>2.4.5</version>
-    </dependency>
+  
   </dependencies>
 
 </project>

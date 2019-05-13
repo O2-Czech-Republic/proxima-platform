@@ -94,13 +94,10 @@ public class JsonProtoSerializerFactoryTest {
   }
 
   @Test
-  public void testIsValidOnEmptyPayload() throws URISyntaxException {
+  public void testIsUsable() throws URISyntaxException {
     ValueSerializer serializer = factory.getValueSerializer(
         new URI("json-proto:" + Event.class.getName()));
-    assertTrue(serializer.isValid(new byte[] { }));
-    assertEquals(
-        Event.getDefaultInstance(),
-        serializer.deserialize(new byte[] { }).get());
+    assertTrue(serializer.isUsable());
   }
 
 }

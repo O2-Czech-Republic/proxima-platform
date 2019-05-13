@@ -54,6 +54,12 @@ public class IntSerializerTest {
   }
 
   @Test
+  public void testUsable() {
+    ValueSerializer<Integer> s = serializer.getValueSerializer(null);
+    assertTrue(s.isUsable());
+  }
+
+  @Test
   public void testDefaultValue() {
     ValueSerializer<Integer> s = serializer.getValueSerializer(null);
     assertEquals(0, (int) s.getDefault());

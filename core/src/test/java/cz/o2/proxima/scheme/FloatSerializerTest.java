@@ -15,8 +15,7 @@
  */
 package cz.o2.proxima.scheme;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
 import org.junit.Test;
 
 /**
@@ -52,6 +51,12 @@ public class FloatSerializerTest {
   public void testInvalid() {
     ValueSerializer<Float> s = serializer.getValueSerializer(null);
     assertFalse(s.isValid(new byte[] { 0 }));
+  }
+
+  @Test
+  public void testUsable() {
+    ValueSerializer<Float> s = serializer.getValueSerializer(null);
+    assertTrue(s.isUsable());
   }
 
   @Test

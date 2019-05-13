@@ -68,4 +68,5 @@ public class AvroSerializer<T extends GenericContainer> {
     return reader.read(null,
         DecoderFactory.get().binaryDecoder(buffer.array(), start, len, null));
   }
+
 }

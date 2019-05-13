@@ -62,13 +62,6 @@ public class AvroSerializerFactory implements ValueSerializerFactory {
 
       @Override
       public Optional<M> deserialize(byte[] input) {
-        if (input.length == 0) {
-          /**
-           * This is a little bit weird but proxima try to deserialize empty bytes
-           * in serializer validation {@link ValueSerializer#isValid(byte[])}
-           */
-          return Optional.of(getDefault());
-        }
         if (avroSerializer == null) {
           avroSerializer = new AvroSerializer<>(getAvroSchemaForClass(avroClassName));
         }
@@ -119,6 +112,24 @@ public class AvroSerializerFactory implements ValueSerializerFactory {
         }
 
       }
+
+      @Override
+      public boolean isUsable() {
+        try {
+          return deserialize(serialize(getDefault())).isPresent();
+        } catch (Exception ex) {
+          log.warn("Exception during (de)serialization of default value for "
+              + "class {}. Please consider making all fields optional, otherwise "
+              + "you might encounter unexpected behavior.", avroClassName, ex);
+        }
+        try {
+          return getDefault() != null;
+        } catch (Exception ex) {
+          log.warn("Error getting default value for {}", avroClassName, ex);
+          return false;
+        }
+      }
+
     };
   }
 }

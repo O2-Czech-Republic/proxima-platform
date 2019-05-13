@@ -766,7 +766,7 @@ public class ConfigRepository extends Repository {
                 "Unable to get ValueSerializerFactory for scheme "
                     + schemeUri.getScheme() + "."))
             .getValueSerializer(schemeUri)
-            .isValid(new byte[] { });
+            .isUsable();
       }
     } catch (Exception ex) {
       throw new IllegalStateException(

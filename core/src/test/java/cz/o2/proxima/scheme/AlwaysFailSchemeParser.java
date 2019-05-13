@@ -32,6 +32,7 @@ public class AlwaysFailSchemeParser implements ValueSerializerFactory {
   @Override
   public ValueSerializer<byte[]> getValueSerializer(URI scheme) {
     return new ValueSerializer<byte[]>() {
+
       @Override
       public Optional<byte[]> deserialize(byte[] input) {
         return Optional.empty();
@@ -47,6 +48,11 @@ public class AlwaysFailSchemeParser implements ValueSerializerFactory {
         return value;
       }
 
+      @Override
+      public boolean isUsable() {
+        return true;
+      }
+
     };
   }
 
@@ -54,4 +60,5 @@ public class AlwaysFailSchemeParser implements ValueSerializerFactory {
   public String getClassName(URI scheme) {
     return "byte[]";
   }
+
 }

@@ -56,13 +56,8 @@ public class ProtoSerializerFactoryTest {
   }
 
   @Test
-  public void testIsValidOnEmptyPayload() {
-    assertTrue(serializer.isValid(new byte[]{}));
-    Optional<Event> deserialized = serializer.deserialize(new byte[]{});
-    assertTrue(deserialized.isPresent());
-    assertEquals(
-        Event.getDefaultInstance(),
-        deserialized.get());
+  public void testIsUsable() {
+    assertTrue(serializer.isUsable());
   }
 
 }

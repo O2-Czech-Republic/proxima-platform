@@ -54,7 +54,7 @@ public class ProximaInterpreter extends Interpreter {
 
     Class type
 
-    Script script = super.getGroovyShell().parse(source, generateNewName())
+    Script script = super.getShell().parse(source, generateNewName())
     type = script.getClass()
 
     if (type.declaredMethods.any {Method it -> it.name == 'main' }) {

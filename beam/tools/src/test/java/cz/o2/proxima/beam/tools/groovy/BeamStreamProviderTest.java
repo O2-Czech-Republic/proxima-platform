@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.tools.groovy;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.Repository;
+import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptions;
 import static org.junit.Assert.*;
 import org.junit.Test;
@@ -42,11 +43,15 @@ public class BeamStreamProviderTest {
     try (BeamStreamProvider.Default provider = new BeamStreamProvider.Default()) {
       provider.init(repo, new String[] {
           "--runner=flink",
-          "--checkpointingInterval=10000",
-          "--runnerRegistrar=" + Registrar.class.getName()
+          "--runnerRegistrar=" + Registrar.class.getName(),
+          "--checkpointingInterval=10000"
       });
       assertNotNull(provider.getPipelineOptionsFactory());
-      assertNotNull(provider.getPipelineOptionsFactory().apply());
+      PipelineOptions options = provider.getPipelineOptionsFactory().apply();
+      assertNotNull(options);
+      assertEquals(10000L, (long) options.as(FlinkPipelineOptions.class)
+          .getCheckpointingInterval());
+      assertEquals("FlinkRunner", options.getRunner().getSimpleName());
       assertEquals(1, provider.getRegistrars().size());
       assertEquals(2, provider.getArgs().length);
     }

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.gcloud.storage;
 
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage.BlobListOption;
@@ -216,9 +217,10 @@ public class GCloudLogObservable
                   observer.onNext(e, p);
                 }
               });
+            } catch (GoogleJsonResponseException ex) {
+              handleResponseException(ex, blob);
             } catch (IOException ex) {
-              log.warn("Exception while consuming blob {}", blob);
-              throw new RuntimeException(ex);
+              handleGeneralException(ex, blob);
             }
           });
         });
@@ -231,6 +233,21 @@ public class GCloudLogObservable
         }
       }
     });
+  }
+
+  private void handleGeneralException(Exception ex, Blob blob) {
+    log.warn("Exception while consuming blob {}", blob);
+    throw new RuntimeException(ex);
+  }
+
+  private void handleResponseException(GoogleJsonResponseException ex, Blob blob) {
+    if (ex.getStatusCode() == 404) {
+      log.warn(
+          "Received 404: {} on getting {}. Skipping gone object.",
+          ex.getStatusMessage(), blob);
+    } else {
+      handleGeneralException(ex, blob);
+    }
   }
 
   private Executor executor() {

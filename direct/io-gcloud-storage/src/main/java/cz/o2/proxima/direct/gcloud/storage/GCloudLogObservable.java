@@ -95,9 +95,14 @@ public class GCloudLogObservable
           .orElse(0L);
     }
 
+    public int getNumBlobs() {
+      return blobs.size();
+    }
+
   }
 
   private final long partitionMinSize;
+  private final int partitionMaxNumBlobs;
   private final Factory<Executor> executorFactory;
   @Nullable
   private transient Executor executor = null;
@@ -111,6 +116,10 @@ public class GCloudLogObservable
         .map(Object::toString)
         .map(Long::valueOf)
         .orElse(100 * 1024 * 1024L);
+    this.partitionMaxNumBlobs = Optional.ofNullable(cfg.get("partition.max-blobs"))
+        .map(Object::toString)
+        .map(Integer::valueOf)
+        .orElse(1000);
     this.executorFactory = executorFactory;
   }
 
@@ -122,21 +131,9 @@ public class GCloudLogObservable
     AtomicReference<GCloudStoragePartition> current = new AtomicReference<>();
     prefixes.forEach(prefix -> {
       Page<Blob> p = client().list(this.bucket, BlobListOption.prefix(prefix));
-      for (Blob b : p.iterateAll()) {
-        log.trace("Considering blob {} for partition inclusion", b.getName());
-        if (isInRange(b.getName(), startStamp, endStamp)) {
-          if (current.get() == null) {
-            current.set(new GCloudStoragePartition(id.getAndIncrement()));
-          }
-          current.get().add(b);
-          log.trace("Blob {} added to partition {}", b.getName(), current.get());
-          if (current.get().size() >= partitionMinSize) {
-            ret.add(current.getAndSet(null));
-          }
-        } else {
-          log.trace(
-              "Blob {} is not in range {} - {}", b.getName(), startStamp, endStamp);
-        }
+      for (Blob blob : p.iterateAll()) {
+        considerBlobForPartitionInclusion(
+            startStamp, endStamp, blob, id, current, ret);
       }
     });
     if (current.get() != null) {
@@ -146,6 +143,28 @@ public class GCloudLogObservable
         "Parsed partitions {} for startStamp {}, endStamp {}",
         ret, startStamp, endStamp);
     return ret;
+  }
+
+  private void considerBlobForPartitionInclusion(
+      long startStamp, long endStamp, Blob b,
+      AtomicInteger partitionId,
+      AtomicReference<GCloudStoragePartition> currentPartition,
+      List<Partition> resultingPartitions) {
+    log.trace("Considering blob {} for partition inclusion", b.getName());
+    if (isInRange(b.getName(), startStamp, endStamp)) {
+      if (currentPartition.get() == null) {
+        currentPartition.set(new GCloudStoragePartition(partitionId.getAndIncrement()));
+      }
+      currentPartition.get().add(b);
+      log.trace("Blob {} added to partition {}", b.getName(), currentPartition.get());
+      if (currentPartition.get().size() >= partitionMinSize
+          || currentPartition.get().getNumBlobs() >= partitionMaxNumBlobs) {
+        resultingPartitions.add(currentPartition.getAndSet(null));
+      }
+    } else {
+      log.trace(
+          "Blob {} is not in range {} - {}", b.getName(), startStamp, endStamp);
+    }
   }
 
   @VisibleForTesting

@@ -26,51 +26,51 @@ First, let's introduce some glossary:
  First, let's define our data model. We will model the system which processes events coming from some source in given
  format and based on these events creates a model of user preferences.
  ```
-  entities {
-    # user entity, let's make this really simple
-    user {
-      attributes {
-      
-        # some details of user - e.g. name, email, ...
-        details { scheme: "proto:cz.o2.proxima.example.User.Details" }
-        
-        # model of preferences based on events
-        preferences { scheme: "proto:cz.o2.proxima.example.User.Preferences" }
-        
-        # selected events are stored to user's history
-        "event.*" { scheme: "proto:cz.o2.proxima.example.Event.BaseEvent" }
-        
-      }
-    }
-    # entity describing a single good we want to sell
-    product {
-      # note: we have to split to separate attributes each attribute that we want to be able
-      # to update *independently*
-      attributes {
-      
-        # price, with some possible additional information, like VAT and other stuff
-        price { scheme: "proto:cz.o2.proxima.example.Product.Price" }
-        
-        # some general details of the product
-        details { scheme: "proto:cz.o2.proxima.example.Product.Details" }
-        
-        # list of associated categories
-        "category.*" { scheme: "proto:cz.o2.proxima.example.Product.Category" }
-        
-      }
-    }
-    
-    # the events which link users to goods
-    event {
-      attributes {
-      
-        # the event is atomic entity with just a single attribute
-        data { scheme: "proto:cz.o2.proxima.example.Event.BaseEvent" }
-        
-      }
-    }
-    
-  }
+ entities {
+   # user entity, let's make this really simple
+   user {
+     attributes {
+
+       # some details of user - e.g. name, email, ...
+       details { scheme: "proto:cz.o2.proxima.example.Example.UserDetails" }
+
+       # model of preferences based on events
+       preferences { scheme: "proto:cz.o2.proxima.example.Example.UserPreferences" }
+
+       # selected events are stored to user's history
+       "event.*" { scheme: "proto:cz.o2.proxima.example.Example.BaseEvent" }
+
+     }
+   }
+   # entity describing a single good we want to sell
+   product {
+     # note: we have to split to separate attributes each attribute that we want to be able
+     # to update *independently*
+     attributes {
+
+       # price, with some possible additional information, like VAT and other stuff
+       price { scheme: "proto:cz.o2.proxima.example.Example.Price" }
+
+       # some general details of the product
+       details { scheme: "proto:cz.o2.proxima.example.Example.ProductDetails" }
+
+       # list of associated categories
+       "category.*" { scheme: "proto:cz.o2.proxima.example.Example.ProductCategory" }
+
+     }
+   }
+
+   # the events which link users to goods
+   event {
+     attributes {
+
+       # the event is atomic entity with just a single attribute
+       data { scheme: "proto:cz.o2.proxima.example.Example.BaseEvent" }
+
+     }
+   }
+
+ }
  ```
  Next, after defining our data model, we need to specify attribute families for our entities. This definition
  is highly dependent on the **access pattern** to the data. Mostly, we have to worry about how are we going to
@@ -93,17 +93,17 @@ First, let's introduce some glossary:
    
    This will yield us the following setup for attribute families (some details are ommitted for simplicity):
    ```
-     attributeFamilies {
-              
+    attributeFamilies {
+
        # we need this to be able to read user attributes 'details' and 'preferences' by user's key
        user-random-access {
          entity: user
          attributes: [ "details", "preferences" ]
-         storage: "cassandra://"${cassandra.seed}/${cassandra.user-table}?primary=user
+         storage: "cassandra://"${cassandra.seed}/${cassandra.user-table}"?primary=user"
          type: primary
          access: random-access
        }
-       
+
        # store incoming events to user's history
        user-event-history-store {
          entity: event
@@ -116,19 +116,19 @@ First, let's introduce some glossary:
          type: replica
          access: write-only
        }
-       
+
        # this family defines read access to the stored event history
        user-event-history-read {
          entity: user
          attributes: [ "event.*" ]
-         storage: "cassandra://"${cassandra.seed}/${cassandra.user-event-table}?primary=user&secondary=stamp&data=event&reversed=true
+         storage: "cassandra://"${cassandra.seed}/${cassandra.user-event-table}"?primary=user&secondary=stamp&data=event&reversed=true"
          # ignore this for now
          converter: cz.o2.proxima.storage.cassandra.DateToLongConverter
          type: replica
          # we will not explicitly modify this, it will be updated automatically by incoming events
          access: read-only
        }
-       
+
        # random access to products
        product-random-acesss {
          entity: product
@@ -137,7 +137,7 @@ First, let's introduce some glossary:
          type: primary
          access: random-access
        }
-       
+
        # event stream storage
        event-commit-log {
          entity: event
@@ -147,7 +147,6 @@ First, let's introduce some glossary:
          type: primary
          access: commit-log
        }
-       
        # store events for batch analytics
        event-batch-storage {
          entity: event
@@ -156,8 +155,26 @@ First, let's introduce some glossary:
          type: replica
          access: batch-updates
        }
-       
+
      }
+
+     cassandra {
+       seed = "cassandra:9042"
+       user-table = "user"
+       product-table = "product"
+       user-event-table = "user_event"
+     }
+
+     kafka {
+       brokers = "kafka1:9092,kafka2:9092,kafka3:9092"
+       events-topic = "events"
+     }
+
+     hdfs {
+       authority = "hdfs-master"
+       event-path = "/events"
+     }
+
    ```
    By this definition, we have (somewhat simplified) working description of Proxima platform scheme for data manipulation,
    that can be fed into the ingestion/retrieval service and will start working as described above.
@@ -175,15 +192,15 @@ First, let's introduce some glossary:
  ## Compiling scheme definition to access classes
  The platform contains maven compiler of scheme specification to java access classes as follows:
  ```xml
-       <plugin>
+      <plugin>
         <groupId>cz.o2.proxima</groupId>
         <artifactId>compiler-maven-plugin</artifactId>
-        <version>0.1.0</version>
+        <version>0.3-SNAPSHOT</version>
         <configuration>
-         <outputDir>generated-sources/model</outputDir>
-         <javaPackage>cz.o2.proxima.example.datamodel</javaPackage>
-         <className>DataModel</className>
-         <config>${basedir}/src/main/resources/model.conf</config>
+          <outputDir>${project.build.directory}/generated-sources/model</outputDir>
+          <javaPackage>cz.o2.proxima.testing.model</javaPackage>
+          <className>Model</className>
+          <config>${basedir}/src/main/resources/test-readme.conf</config>
         </configuration>
         <executions>
           <execution>
@@ -193,19 +210,94 @@ First, let's introduce some glossary:
             </goals>
           </execution>
         </executions>
+        <dependencies>
+          <!--
+            Use direct data operator access, see later
+          -->
+          <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>proxima-direct-compiler-plugin</artifactId>
+            <version>0.3-SNAPSHOT</version>
+          </dependency>
+          <!--
+            The following dependencies define additional
+            dependencies for this example
+          -->
+          <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>proxima-core</artifactId>
+            <version>${project.version}</version>
+            <classifier>tests</classifier>
+          </dependency>
+          <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>proxima-scheme-proto</artifactId>
+            <version>0.3-SNAPSHOT</version>
+          </dependency>
+          <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>proxima-scheme-proto</artifactId>
+            <version>0.3-SNAPSHOT</version>
+            <classifier>tests</classifier>
+          </dependency>
+        </dependencies>
       </plugin>
  ```
  
- This plugin then generates class `cz.o2.proxima.example.datamodel.DataModel` into `target/generated-sources/model`.
+ This plugin then generates class `cz.o2.proxima.testing.model.Model` into `target/generated-sources/model`.
  The class can be instantiated via
  ```java
-   DataModel model = DataModel.of(ConfigFactory.defaultApplication());
+   Model model = Model.of(ConfigFactory.defaultApplication());
   ```
   or (in case of tests, where some validations and initializations are skipped)
   ```
-   DataModel model = DataModel.ofTest(ConfigFactory.defaultApplication());
+   Model model = Model.ofTest(ConfigFactory.defaultApplication());
   ```  
-  
+ 
+ ## Platform's _DataOperators_
+ The platform offers various modes of access to data. As of version 0.3, these types are:
+  * direct
+  * Apache Beam
+ ### Direct access to data
+ This operator is used when accessing data from inside single JVM (or potentially multiple JVMs, e.g. coordinated via distributed consumption of commit log). The operator is constructed as follows:
+ ```java
+    private DirectDataOperator createDataOperator(Model model) {
+      Repository repo = model.getRepo();
+      return repo.asDataOperator(DirectDataOperator.class);
+    }
+ ```
+ Next, we can use the operator to create instances of data accessors, namely:
+  * CommitLogReader
+  * BatchLogObserver
+  * RandomAccessReader
+
+ For instance, observing commit log can be done by
+ ```java
+    DirectDataOperator operator = model.getRepo().asDataOperator(DirectDataOperator.class);
+    CommitLogReader commitLog = operator.getCommitLogReader(
+        model.getEvent().getDataDescriptor())
+        .orElseThrow(() -> new IllegalArgumentException("Missing commit log for "
+            + model.getEvent().getDataDescriptor()));
+    commitLog.observe("MyObservationProcess", new LogObserver() {
+
+      @Override
+      public boolean onError(Throwable error) {
+        throw new RuntimeException(error);
+      }
+
+      @Override
+      public boolean onNext(StreamElement elem, OnNextContext context) {
+        log.info("Consumed element {}", elem);
+        // commit processing, so that it is not redelivered
+        context.confirm();
+        // continue processing
+        return true;
+      }
+
+    });
+ ``` 
+ Creating BatchLogObservable or RandomAccessReader is analogous.
+
  ## Platform's unified data processing API
  This is essentially just a wrapper around [Apache Beam](https://beam.apache.org/), currently outlined
  in `tools` package in groovy language, containing a console being able to execute data transformation _pipelines_.

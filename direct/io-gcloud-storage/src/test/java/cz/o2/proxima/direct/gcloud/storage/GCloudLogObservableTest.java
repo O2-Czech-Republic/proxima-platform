@@ -15,22 +15,42 @@
  */
 package cz.o2.proxima.direct.gcloud.storage;
 
+import com.google.api.gax.paging.Page;
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.Storage;
 import com.google.common.collect.Sets;
+import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import static org.junit.Assert.*;
 import org.junit.Test;
+import static org.mockito.Mockito.*;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 /**
  * Test suite for {@link GCloudLogObservableTest}.
  */
 public class GCloudLogObservableTest {
 
+  private final Repository repo = Repository.of(ConfigFactory.load(
+      "test-reference.conf"));
+  private final EntityDescriptor gateway = repo.findEntity("gateway")
+      .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+
   /**
    * Test filtering of partitions.
    */
   @Test
   public void testPartitionsRange() {
-
     assertTrue(GCloudLogObservable.isInRange(
         "prefix-1234567890000_9876543210000.blob.whatever",
         1234567890000L, 12345678901000L));
@@ -66,6 +86,53 @@ public class GCloudLogObservableTest {
     Set<String> prefixes = GCloudLogObservable.convertStampsToPrefixes(
         "/dummy/", 1541022824110L, 1541109235381L);
     assertEquals(Sets.newHashSet("/dummy/2018/10", "/dummy/2018/11"), prefixes);
+  }
+
+  @Test
+  public void testListPartitions() throws URISyntaxException {
+
+    GCloudLogObservable observable = new GCloudLogObservable(
+        gateway, new URI("gs://dummy"),
+        Collections.singletonMap("partition.max-blobs", 10),
+        () -> Executors.newCachedThreadPool()) {
+
+      @Override
+      Storage client() {
+        Storage client = mock(Storage.class);
+        when(client.list(any(), any())).thenAnswer(new Answer<Page<Blob>>() {
+
+          @Override
+          public Page<Blob> answer(InvocationOnMock invocation) {
+            return createMockBlobPage();
+          }
+
+          private Page<Blob> createMockBlobPage() {
+            Page<Blob> ret = mock(Page.class);
+            List<Blob> blobs = createMockBlobs(20);
+            when(ret.iterateAll()).thenReturn(blobs);
+            return ret;
+          }
+
+          private List<Blob> createMockBlobs(int count) {
+            return IntStream.range(0, count)
+                .mapToObj(i -> createMockBlob(
+                    "prefix-1234567890000_9876543210000.blob." + i))
+                .collect(Collectors.toList());
+          }
+
+          private Blob createMockBlob(String name) {
+            Blob ret = mock(Blob.class);
+            when(ret.getName()).thenReturn(name);
+            return ret;
+          }
+
+        });
+        return client;
+      }
+
+    };
+
+    assertEquals(2, observable.getPartitions().size());
   }
 
 }

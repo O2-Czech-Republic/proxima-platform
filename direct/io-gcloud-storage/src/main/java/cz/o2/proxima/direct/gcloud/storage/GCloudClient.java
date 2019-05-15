@@ -20,6 +20,7 @@ import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageClass;
 import com.google.cloud.storage.StorageOptions;
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.UriUtil;
@@ -71,6 +72,7 @@ class GCloudClient extends AbstractStorage {
         Storage.BlobTargetOption.doesNotExist());
   }
 
+  @VisibleForTesting
   Storage client() {
     if (client == null) {
       client = StorageOptions.getDefaultInstance().getService();

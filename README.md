@@ -298,10 +298,34 @@ First, let's introduce some glossary:
  ``` 
  Creating BatchLogObservable or RandomAccessReader is analogous.
 
- ## Platform's unified data processing API
- This is essentially just a wrapper around [Apache Beam](https://beam.apache.org/), currently outlined
- in `tools` package in groovy language, containing a console being able to execute data transformation _pipelines_.
- These flows might be executed on different _runners_, based on actual requirements of the data processing. Currently,
- [Apache Spark](https://spark.apache.org/), [Apache Flink](https://flink.apache.org/) and a special executor called
- _direct runner_ are supported.
- 
+ ### [Apache Beam](https://beam.apache.org/) access to data
+ First, create BeamDataOperator as follows:
+ ```java
+   BeamDataOperator operator = model.getRepo().asDataOperator(BeamDataOperator.class);
+ ```
+ Next, use this operator to create PCollection from Model.
+ ```java
+   // some import omitted, including these for clarity
+   import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
+   import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
+   import org.apache.beam.sdk.transforms.windowing.FixedWindows;
+   import org.apache.beam.sdk.values.KV;
+   import org.apache.beam.sdk.values.PCollection;
+   import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode;
+   
+   Pipeline pipeline = Pipeline.create();
+   PCollection<StreamElement> input = operator.getStream(
+       pipeline, Position.OLDEST, false, true,
+       model.getEvent().getDataDescriptor());
+   PCollection<KV<String, Long>> counted = CountByKey.of(input)
+       .keyBy(el -> model.getEvent()
+           .getDataDescriptor()
+           .valueOf(el)
+           .map(BaseEvent::getProductId)
+           .orElse(""))
+       .windowBy(FixedWindows.of(Duration.standardMinutes(1)))
+       .triggeredBy(AfterWatermark.pastEndOfWindow())
+       .accumulationMode(AccumulationMode.DISCARDING_FIRED_PANES)
+       .output();
+   // do something with the output
+ ```

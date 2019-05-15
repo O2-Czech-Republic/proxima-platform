@@ -175,6 +175,7 @@
   <modules>
     <!--module>compiler</module-->
     <module>core</module>
+    <module>core-testing</module>
     <!--module>io-bigtable</module-->
     <!--module>io-cassandra</module-->
     <!--module>io-gcloud-storage</module-->

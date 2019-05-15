@@ -22,11 +22,11 @@
 
   <parent>
     <groupId>cz.o2.proxima</groupId>
-    <artifactId>proxima-direct</artifactId>
+    <artifactId>proxima-beam</artifactId>
     <version>0.3-SNAPSHOT</version>
   </parent>
 
-  <artifactId>proxima-direct-core-testing</artifactId>
+  <artifactId>proxima-beam-core-testing</artifactId>
   <packaging>jar</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
@@ -54,11 +54,6 @@
         <dependencies>
           <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>proxima-direct-compiler-plugin</artifactId>
-            <version>${project.version}</version>
-          </dependency>
-          <dependency>
-            <groupId>${project.groupId}</groupId>
             <artifactId>proxima-core</artifactId>
             <version>${project.version}</version>
             <classifier>tests</classifier>
@@ -83,7 +78,7 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>proxima-direct-core</artifactId>
+      <artifactId>proxima-beam-core</artifactId>
       <version>${project.version}</version>
     </dependency>
 

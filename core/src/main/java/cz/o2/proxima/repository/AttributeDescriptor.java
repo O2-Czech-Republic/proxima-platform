@@ -26,6 +26,7 @@ import java.util.Optional;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import cz.o2.proxima.scheme.ValueSerializer;
+import cz.o2.proxima.storage.StreamElement;
 
 /**
  * An interface describing each attribute.
@@ -176,6 +177,11 @@ public interface AttributeDescriptor<T> extends Serializable {
 
   default AttributeProxyDescriptor<T> asProxy() throws ClassCastException {
     return (AttributeProxyDescriptor<T>) this;
+  }
+
+  @SuppressWarnings("unchecked")
+  default Optional<T> valueOf(StreamElement el) {
+    return el.getParsed();
   }
 
 }

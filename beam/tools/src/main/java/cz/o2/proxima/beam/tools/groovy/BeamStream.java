@@ -217,6 +217,30 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @Override
+  public <X> Stream<X> flatMap(
+      @Nullable String name, Closure<Iterable<X>> mapper) {
+
+    Closure<Iterable<X>> dehydrated = dehydrate(mapper);
+    return descendant(
+        pipeline -> {
+          // FIXME: need a way to retrieve inner type of the list
+          @SuppressWarnings("unchecked")
+          final Coder<Object> valueCoder = (Coder) getCoder(
+              pipeline, TypeDescriptor.of(Object.class));
+          @SuppressWarnings("unchecked")
+          final PCollection<X> ret = (PCollection) FlatMap
+              .named(name)
+              .of(collection.materialize(pipeline))
+              .using((elem, ctx) -> {
+                dehydrated.call(elem).forEach(ctx::collect);
+              })
+              .output()
+              .setCoder(valueCoder);
+          return ret;
+        });
+  }
+
+  @Override
   public <X> Stream<X> map(@Nullable String name, Closure<X> mapper) {
     Closure<X> dehydrated = dehydrate(mapper);
     return descendant(

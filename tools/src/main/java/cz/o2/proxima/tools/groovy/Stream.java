@@ -35,6 +35,31 @@ public interface Stream<T> {
   /**
    * Remap the stream.
    * @param <X> type parameter
+   * @param mapper mapper returning iterable of values to be flattened into output
+   * @return the remapped stream
+   */
+  default <X> Stream<X> flatMap(
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Iterable<X>> mapper) {
+
+    return flatMap(null, mapper);
+  }
+
+  /**
+   * Remap the stream.
+   * @param <X> type parameter
+   * @param name name of the operation
+   * @param mapper mapper returning iterable of values to be flattened into output
+   * @return the remapped stream
+   */
+  <X> Stream<X> flatMap(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Iterable<X>> mapper);
+
+  /**
+   * Remap the stream.
+   * @param <X> type parameter
    * @param mapper the mapping closure
    * @return remapped stream
    */

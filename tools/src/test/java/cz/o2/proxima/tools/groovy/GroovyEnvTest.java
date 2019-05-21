@@ -211,6 +211,19 @@ public abstract class GroovyEnvTest extends GroovyTest {
   }
 
   @Test
+  public void testFlatMap() throws Exception {
+    Script compiled = compile(
+        "env.batch.data.batchUpdates().flatMap({ [it.key, it.attribute] }).collect()");
+
+    write(StreamElement.update(batch, data, "uuid",
+            "key", data.getName(), System.currentTimeMillis(), new byte[] { }));
+
+    @SuppressWarnings("unchecked")
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(Arrays.asList("key", data.getName()), result);
+  }
+
+  @Test
   public void testPrintln() throws Exception {
     Script compiled = compile(
         "env.batch.data.batchUpdates().print()");

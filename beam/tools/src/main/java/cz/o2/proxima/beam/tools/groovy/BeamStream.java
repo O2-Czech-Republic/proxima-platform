@@ -63,14 +63,15 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.beam.repackaged.beam_sdks_java_core.org.apache.commons.compress.utils.IOUtils;
-import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.Kryo;
-import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.org.objenesis.strategy.StdInstantiatorStrategy;
+import org.apache.beam.repackaged.core.org.apache.commons.compress.utils.IOUtils;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Kryo;
+import org.apache.beam.repackaged.kryo.org.objenesis.strategy.StdInstantiatorStrategy;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
@@ -196,6 +197,7 @@ class BeamStream<T> implements Stream<T> {
   final List<Consumer<CoderRegistry>> registrars = new ArrayList<>();
   final StreamProvider.TerminatePredicate terminateCheck;
   final Factory<Pipeline> pipelineFactory;
+  final List<RemoteConsumer<?>> remoteConsumers = new ArrayList<>();
 
   BeamStream(
       StreamConfig config, boolean bounded, PCollectionProvider<T> input,
@@ -369,6 +371,7 @@ class BeamStream<T> implements Stream<T> {
           log.debug("Swallowing interrupted exception.", ex);
         }
       } finally {
+        stopRemoteConsumers();
         latch.countDown();
       }
     });
@@ -388,6 +391,11 @@ class BeamStream<T> implements Stream<T> {
     if (!watchTerminating.get()) {
       watch.interrupt();
     }
+  }
+
+  private void stopRemoteConsumers() {
+    remoteConsumers.forEach(RemoteConsumer::stop);
+    remoteConsumers.clear();
   }
 
   @Override
@@ -760,9 +768,11 @@ class BeamStream<T> implements Stream<T> {
   private <T> RemoteConsumer<T> createRemoteConsumer(
       Coder<T> coder, Consumer<T> consumer) {
 
-    return RemoteConsumer.create(
+    RemoteConsumer<T> ret = RemoteConsumer.create(
         this, config.getCollectHostname(),
         config.getPreferredCollectPort(), consumer, coder);
+    remoteConsumers.add(ret);
+    return ret;
   }
 
   private BeamStream<T> asUnwindowed() {
@@ -890,6 +900,8 @@ class BeamStream<T> implements Stream<T> {
         minEnqueuedStamp.write(newMinEnqueuedStamp);
         flushTimer.set(new Instant(newMinEnqueuedStamp));
       }
+      consumeElementsAfterWatermark(
+          unprocessed, stamp, flushTimer, consumer);
     }
 
     private long consumeElementsAfterWatermark(
@@ -1204,7 +1216,8 @@ class BeamStream<T> implements Stream<T> {
     static int getPort(int preferredPort, int seed) {
       return preferredPort > 0
           ? preferredPort
-          : RANDOM.nextInt(seed & Integer.MAX_VALUE) % 50000 + 10000;
+          : ((ThreadLocalRandom.current().nextInt() ^ seed) & Integer.MAX_VALUE)
+              % 50000 + 10000;
     }
 
     private class Server extends NanoHTTPD {

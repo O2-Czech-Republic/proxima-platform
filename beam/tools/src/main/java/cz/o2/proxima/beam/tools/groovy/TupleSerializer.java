@@ -16,10 +16,10 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import groovy.lang.Tuple;
-import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.Kryo;
-import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.Serializer;
-import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.io.Input;
-import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.io.Output;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Kryo;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Serializer;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Input;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Output;
 
 /**
  * Kryo serializer for {@link Tuple}s.

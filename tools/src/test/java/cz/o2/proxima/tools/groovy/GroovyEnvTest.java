@@ -24,6 +24,7 @@ import groovy.lang.Script;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import static org.junit.Assert.*;
 import org.junit.Ignore;
@@ -388,10 +389,68 @@ public abstract class GroovyEnvTest extends GroovyTest {
     assertEquals(Arrays.asList(1, 0, 1, 2, 2), result);
   }
 
+  @Test
+  public void testReduceValueStateByKeyWithSameStamp()
+      throws Exception {
+
+    int prefixLen = wildcard.toAttributePrefix().length();
+    final Script compiled = compile(
+        "env.batch.wildcard.batchUpdates()"
+            + ".flatMap({ [1, 2].collect({ i -> "
+                + "new Tuple(it.key, i + Integer.valueOf(it.attribute["
+                    + prefixLen + "])) }) })"
+            + ".reduceValueStateByKey("
+                + " { it[0] }, { it[1] }, "
+                + "0, {s, v -> v - s}, {s, v -> v}, 10)"
+            + ".map({ it.second })"
+            + ".withTimestamp()"
+            + ".collect()");
+
+    // the InMemStorage is not append storage, so we need
+    // to append additional suffix to the attribute name with ID of write
+    // operation (1..5). That is ignored during value extraction in
+    // reduceValueStateByKey
+    long now = System.currentTimeMillis();
+    write(StreamElement.update(batch, wildcard, "uuid1",
+            "key1", wildcard.toAttributePrefix() + "11",
+            now, new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid2",
+            "key1", wildcard.toAttributePrefix() + "02",
+            now + 1, new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid3",
+            "key2", wildcard.toAttributePrefix() + "13",
+            now + 2, new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid4",
+            "key1", wildcard.toAttributePrefix() + "14",
+            now + 3, new byte[] { }));
+    write(StreamElement.update(batch, data, "uuid5",
+            "key1", wildcard.toAttributePrefix() + "15",
+            now + 4, new byte[] { }));
+    @SuppressWarnings("unchecked")
+    List<Pair<Integer, Long>> result = (List) ((List) compiled.run());
+    assertUnorderedEquals(
+        Arrays.asList(
+            Pair.of(2, now), Pair.of(1, now),
+            Pair.of(-2, now + 1), Pair.of(1, now + 1),
+            Pair.of(2, now + 2), Pair.of(1, now + 2),
+            Pair.of(0, now + 3), Pair.of(1, now + 3),
+            Pair.of(-1, now + 4), Pair.of(1, now + 4)), result);
+  }
+
   protected abstract void write(StreamElement element);
 
   protected Repository getRepo() {
     return repo;
+  }
+
+  private <T> void assertUnorderedEquals(List<T> expected, List<T> actual) {
+    assertEquals(getCounts(expected), getCounts(actual));
+  }
+
+  private <T> Map<T, Integer> getCounts(List<T> expected) {
+    return expected.stream().collect(
+        Collectors.groupingBy(Function.identity(), Collectors.mapping(
+            a -> 1, Collectors.reducing(0, (a, b) -> a + b))));
   }
 
 }

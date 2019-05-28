@@ -318,7 +318,7 @@ public interface Stream<T> {
    * @param <O> type of output value
    * @param keyExtractor extractor of key
    * @param valueExtractor extractor of value
-   * @param initialState the initial state value
+   * @param initialState closure providing initial state value for key
    * @param outputFn function for outputting values (when function returns {@code null}
    * @param stateUpdate update (accumulation) function for the state
    * the output is discarded
@@ -328,7 +328,7 @@ public interface Stream<T> {
   default <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
-      S initialState,
+      @ClosureParams(value = FromString.class, options = "K") Closure<S> initialState,
       @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
       @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate,
       long allowedLateness) {
@@ -347,7 +347,7 @@ public interface Stream<T> {
    * @param name optional name of the stateful operation
    * @param keyExtractor extractor of key
    * @param valueExtractor extractor of value
-   * @param initialState the initial state value
+   * @param initialState closure providing initial state value for key
    * @param stateUpdate update (accumulation) function for the state
    * @param outputFn function for outputting values (when function returns {@code null}
    * the output is discarded
@@ -358,7 +358,7 @@ public interface Stream<T> {
       @Nullable String name,
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
-      S initialState,
+      @ClosureParams(value = FromString.class, options = "K") Closure<S> initialState,
       @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
       @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate,
       long allowedLateness);
@@ -376,7 +376,7 @@ public interface Stream<T> {
    * @param <V> value type
    * @param keyExtractor extractor of key
    * @param valueExtractor extractor of value
-   * @param initialValue the initial value to be used on initialization
+   * @param initialValue closure providing initial value of state for key
    * @param combiner combiner of values to final value
    * @param allowedLateness allowed lateness in milliseconds
    * @return the integrated stream
@@ -384,7 +384,7 @@ public interface Stream<T> {
   default <K, V> Stream<Pair<K, V>> integratePerKey(
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
-      V initialValue,
+      @ClosureParams(value = FromString.class, options = "K") Closure<V> initialValue,
       @ClosureParams(value = FromString.class, options = "V,V") Closure<V> combiner,
       long allowedLateness) {
 
@@ -406,7 +406,7 @@ public interface Stream<T> {
    * @param name optional name of the transform
    * @param keyExtractor extractor of key
    * @param valueExtractor extractor of value
-   * @param initialValue the initial value to be used on initialization
+   * @param initialValue closure providing initial value of state for key
    * @param combiner combiner of values to final value
    * @param allowedLateness allowed lateness in milliseconds
    * @return the integrated stream
@@ -415,9 +415,8 @@ public interface Stream<T> {
       @Nullable String name,
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
-      V initialValue,
+      @ClosureParams(value = FromString.class, options = "K") Closure<V> initialValue,
       @ClosureParams(value = FromString.class, options = "V,V") Closure<V> combiner,
       long allowedLateness);
-
 
 }

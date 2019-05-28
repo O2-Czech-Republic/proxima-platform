@@ -40,7 +40,6 @@ import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.beam.runners.direct.DirectOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -212,7 +211,6 @@ public class BeamStreamTest extends StreamTest {
               TimestampedValue.of(3, new Instant(now - 2)))
           .advanceWatermarkToInfinity();
       PipelineOptions opts = PipelineOptionsFactory.create();
-      opts.as(DirectOptions.class).setTargetParallelism(8);
       Pipeline pipeline = Pipeline.create(opts);
       PCollection<Integer> input = pipeline.apply(test);
       PCollection<KV<Integer, Integer>> kvs = MapElements.of(input)
@@ -221,7 +219,7 @@ public class BeamStreamTest extends StreamTest {
               TypeDescriptors.kvs(TypeDescriptors.integers(), TypeDescriptors.integers()))
           .output();
       PCollection<Pair<Integer, Integer>> result = kvs.apply(ParDo.of(new IntegrateDoFn<>(
-          (a, b) -> a + b, 0,
+          (a, b) -> a + b, k -> 0,
           KvCoder.of(VarIntCoder.of(), VarIntCoder.of()),
           10))).setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
       PAssert.that(result)
@@ -234,5 +232,39 @@ public class BeamStreamTest extends StreamTest {
       }
     }
   }
+
+  @Test
+  public void testIntegratePerKeyDoFnWithStateBootstrap() {
+    for (int r = 0; r < 1; r++) {
+      long now = System.currentTimeMillis();
+      TestStream<Integer> test = TestStream.create(KryoCoder.<Integer>of())
+          .addElements(
+              TimestampedValue.of(1, new Instant(now)),
+              TimestampedValue.of(2, new Instant(now - 1)),
+              TimestampedValue.of(3, new Instant(now - 2)))
+          .advanceWatermarkToInfinity();
+      PipelineOptions opts = PipelineOptionsFactory.create();
+      Pipeline pipeline = Pipeline.create(opts);
+      PCollection<Integer> input = pipeline.apply(test);
+      PCollection<KV<Integer, Integer>> kvs = MapElements.of(input)
+          .using(
+              i -> KV.of(i % 2, i),
+              TypeDescriptors.kvs(TypeDescriptors.integers(), TypeDescriptors.integers()))
+          .output();
+      PCollection<Pair<Integer, Integer>> result = kvs.apply(ParDo.of(new IntegrateDoFn<>(
+          (a, b) -> a + b, k -> k,
+          KvCoder.of(VarIntCoder.of(), VarIntCoder.of()),
+          10))).setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
+      PAssert.that(result)
+          .containsInAnyOrder(Pair.of(0, 2), Pair.of(1, 4), Pair.of(1, 5));
+      try {
+        assertNotNull(pipeline.run());
+      } catch (Exception ex) {
+        ex.printStackTrace(System.err);
+        throw ex;
+      }
+    }
+  }
+
 
 }

@@ -44,6 +44,8 @@ import fi.iki.elonen.NanoHTTPD;
 import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
 import groovy.lang.Closure;
 import groovy.lang.Tuple;
+import groovy.transform.stc.ClosureParams;
+import groovy.transform.stc.FromString;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -207,7 +209,7 @@ class BeamStream<T> implements Stream<T> {
 
     this.config = config;
     this.bounded = bounded;
-    this.collection = input;
+    this.collection = new CachedPCollectionProvider<>(input);
     this.terminateCheck = terminateCheck;
     this.pipelineFactory = pipelineFactory;
   }
@@ -258,7 +260,11 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @Override
-  public Stream<T> filter(@Nullable String name, Closure<Boolean> predicate) {
+  public Stream<T> filter(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T")
+          Closure<Boolean> predicate) {
+
     Closure<Boolean> dehydrated = dehydrate(predicate);
     return descendant(
         pipeline -> {

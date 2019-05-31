@@ -45,6 +45,7 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
+import org.apache.beam.sdk.transforms.windowing.DefaultTrigger;
 import org.apache.beam.sdk.transforms.windowing.Trigger;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
@@ -651,6 +652,11 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     return this.windowing;
   }
 
+  @Override
+  Trigger getTrigger() {
+    return createTrigger();
+  }
+
   private static <K, V> PCollection<Pair<K, V>> asPairs(
       @Nullable String name,
       PCollection<KV<K, V>> kvs,
@@ -671,7 +677,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
           .withEarlyFirings(AfterProcessingTime.pastFirstElementInPane()
               .plusDelayOf(Duration.millis(earlyEmitting)));
     }
-    return AfterWatermark.pastEndOfWindow();
+    return DefaultTrigger.of();
   }
 
 }

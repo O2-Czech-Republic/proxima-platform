@@ -104,6 +104,7 @@ import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Sessions;
 import org.apache.beam.sdk.transforms.windowing.SlidingWindows;
+import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
@@ -566,18 +567,30 @@ class BeamStream<T> implements Stream<T> {
   public Stream<T> union(@Nullable String name, List<Stream<T>> others) {
     return descendant(
         pipeline -> {
-          List<PCollection<T>> streams = java.util.stream.Stream.concat(
-              java.util.stream.Stream.of(this),
-              others.stream())
+          List<BeamStream<T>> streams = java.util.stream.Stream
+              .concat(java.util.stream.Stream.of(this), others.stream())
+              .map(s -> (BeamStream<T>) s)
+              .collect(Collectors.toList());
+          long windowFnCounts = streams.stream()
+              .map(BeamStream::getWindowFn)
+              .distinct()
+              .count();
+          if (windowFnCounts > 1) {
+            streams = streams.stream()
+                .map(s -> s.asUnwindowed())
+                .collect(Collectors.toList());
+          }
+          List<PCollection<T>> collections = streams
+              .stream()
               .map(s -> ((BeamStream<T>) s).collection.materialize(pipeline))
               .collect(Collectors.toList());
-          PCollection<T> any = streams.stream().findAny().orElse(null);
+          PCollection<T> any = collections.stream().findAny().orElse(null);
           if (name != null) {
-            return PCollectionList.of(streams)
+            return PCollectionList.of(collections)
                 .apply(name, Flatten.pCollections())
                 .setCoder(any.getCoder());
           }
-          return PCollectionList.of(streams)
+          return PCollectionList.of(collections)
               .apply(Flatten.pCollections())
               .setCoder(any.getCoder());
         });
@@ -714,6 +727,10 @@ class BeamStream<T> implements Stream<T> {
         terminateCheck, pipelineFactory);
   }
 
+  WindowFn<Object, ? extends BoundedWindow> getWindowFn() {
+    return new GlobalWindows();
+  }
+
   @SuppressWarnings("unchecked")
   private void registerCoders(CoderRegistry registry) {
     registry.registerCoderForClass(
@@ -740,6 +757,23 @@ class BeamStream<T> implements Stream<T> {
     return RemoteConsumer.create(
         this, config.getCollectHostname(),
         config.getPreferredCollectPort(), consumer, coder);
+  }
+
+  private BeamStream<T> asUnwindowed() {
+    if (getWindowFn().equals(new GlobalWindows())) {
+      return new BeamStream<>(
+          this.config, this.bounded, this.collection,
+          this.terminateCheck, this.pipelineFactory);
+    } else {
+      return new BeamStream<>(
+          this.config, this.bounded,
+          pipeline -> {
+            PCollection<T> in = this.collection.materialize(pipeline);
+            return in.apply(Window.into(new GlobalWindows()))
+                .setCoder(in.getCoder());
+          },
+          this.terminateCheck, this.pipelineFactory);
+    }
   }
 
   private static class ConsumeFn<T> extends DoFn<T, Void> {

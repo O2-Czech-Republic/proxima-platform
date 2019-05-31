@@ -448,7 +448,22 @@ public abstract class GroovyEnvTest extends GroovyTest {
         "key", wildcard.toAttributePrefix() + "1",
         System.currentTimeMillis(), new byte[] { }));
     @SuppressWarnings("unchecked")
-    List<StreamElement> result = (List) compiled.run();
+    List<Long> result = (List) compiled.run();
+    assertEquals(2, result.size());
+  }
+
+  @Test
+  public void testUnionOnDifferentWindowsDifferentTrigger() throws Exception {
+    Script compiled = compile(
+        "env.batch.data.batchUpdates().count().union(env.batch.wildcard"
+            + ".batchUpdates().count()).collect()");
+    write(StreamElement.update(batch, data, "uuid",
+        "key", data.getName(), System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid",
+        "key", wildcard.toAttributePrefix() + "1",
+        System.currentTimeMillis(), new byte[] { }));
+    @SuppressWarnings("unchecked")
+    List<Long> result = (List) compiled.run();
     assertEquals(2, result.size());
   }
 

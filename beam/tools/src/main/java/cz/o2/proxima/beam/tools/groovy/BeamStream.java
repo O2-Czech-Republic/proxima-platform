@@ -99,11 +99,13 @@ import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
+import org.apache.beam.sdk.transforms.windowing.DefaultTrigger;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Sessions;
 import org.apache.beam.sdk.transforms.windowing.SlidingWindows;
+import org.apache.beam.sdk.transforms.windowing.Trigger;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
 import org.apache.beam.sdk.values.KV;
@@ -572,7 +574,7 @@ class BeamStream<T> implements Stream<T> {
               .map(s -> (BeamStream<T>) s)
               .collect(Collectors.toList());
           long windowFnCounts = streams.stream()
-              .map(BeamStream::getWindowFn)
+              .map(s -> Pair.of(s.getWindowFn(), s.getTrigger()))
               .distinct()
               .count();
           if (windowFnCounts > 1) {
@@ -731,6 +733,10 @@ class BeamStream<T> implements Stream<T> {
     return new GlobalWindows();
   }
 
+  Trigger getTrigger() {
+    return DefaultTrigger.of();
+  }
+
   @SuppressWarnings("unchecked")
   private void registerCoders(CoderRegistry registry) {
     registry.registerCoderForClass(
@@ -760,7 +766,8 @@ class BeamStream<T> implements Stream<T> {
   }
 
   private BeamStream<T> asUnwindowed() {
-    if (getWindowFn().equals(new GlobalWindows())) {
+    if (getWindowFn().equals(new GlobalWindows())
+        && getTrigger().equals(DefaultTrigger.of())) {
       return new BeamStream<>(
           this.config, this.bounded, this.collection,
           this.terminateCheck, this.pipelineFactory);
@@ -769,7 +776,10 @@ class BeamStream<T> implements Stream<T> {
           this.config, this.bounded,
           pipeline -> {
             PCollection<T> in = this.collection.materialize(pipeline);
-            return in.apply(Window.into(new GlobalWindows()))
+            return in
+                .apply(Window.<T>into(new GlobalWindows())
+                    .triggering(DefaultTrigger.of())
+                    .discardingFiredPanes())
                 .setCoder(in.getCoder());
           },
           this.terminateCheck, this.pipelineFactory);

@@ -900,8 +900,6 @@ class BeamStream<T> implements Stream<T> {
         minEnqueuedStamp.write(newMinEnqueuedStamp);
         flushTimer.set(new Instant(newMinEnqueuedStamp));
       }
-      consumeElementsAfterWatermark(
-          unprocessed, stamp, flushTimer, consumer);
     }
 
     private long consumeElementsAfterWatermark(

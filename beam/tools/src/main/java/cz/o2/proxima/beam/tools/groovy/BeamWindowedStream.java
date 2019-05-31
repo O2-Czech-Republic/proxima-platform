@@ -646,6 +646,11 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipelineFactory);
   }
 
+  @Override
+  WindowFn<Object, ? extends BoundedWindow> getWindowFn() {
+    return this.windowing;
+  }
+
   private static <K, V> PCollection<Pair<K, V>> asPairs(
       @Nullable String name,
       PCollection<KV<K, V>> kvs,

@@ -216,20 +216,9 @@ public abstract class BeamStreamProvider implements StreamProvider {
     try {
       File path = createJarFromUdfs();
       log.info("Injecting generated jar at {} into {}", path, runnerName);
-      switch (runnerName) {
-        case "DirectRunner":
-          // nop
-          break;
-        case "FlinkRunner":
-          injectJarIntoClassloader(
-              (URLClassLoader) opts.getRunner().getClassLoader(), path);
-          break;
-        case "SparkRunner":
-          throw new UnsupportedOperationException("Spark unsupported for now.");
-        default:
-          throw new IllegalStateException(
-              "Don't know how to inject jar into " + runnerName);
-      }
+      // FIXME: not compliant with JDK11
+      injectJarIntoClassloader(
+          (URLClassLoader) opts.getRunner().getClassLoader(), path);
     } catch (IOException ex) {
       throw new RuntimeException(ex);
     }

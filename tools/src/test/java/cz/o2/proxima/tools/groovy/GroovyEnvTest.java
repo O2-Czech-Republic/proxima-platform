@@ -467,6 +467,24 @@ public abstract class GroovyEnvTest extends GroovyTest {
     assertEquals(2, result.size());
   }
 
+  @Test
+  public void testIntegratePerKeyAfterWindowing() throws Exception {
+    Script compiled = compile(
+        "env.batch.wildcard.batchUpdates().timeWindow(1000).count()"
+            + ".windowAll().integratePerKey({ \"\" }, { it }, { 0 }, {a, b -> a + b}, 0)"
+            + ".collect()");
+    write(StreamElement.update(batch, wildcard, "uuid",
+        "key", wildcard.toAttributePrefix() + "0",
+        System.currentTimeMillis(), new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid",
+        "key", wildcard.toAttributePrefix() + "1",
+        System.currentTimeMillis() + 2000, new byte[] { }));
+    @SuppressWarnings("unchecked")
+    List<Long> result = (List) compiled.run();
+    assertEquals(2, result.size());
+    assertEquals(Arrays.asList(Pair.of("", 1L), Pair.of("", 2L)), result);
+  }
+
   protected abstract void write(StreamElement element);
 
   protected Repository getRepo() {

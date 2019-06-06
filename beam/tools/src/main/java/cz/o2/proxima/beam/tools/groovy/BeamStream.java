@@ -16,14 +16,11 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.MoreObjects;
-import com.google.common.collect.Streams;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
-import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
@@ -68,6 +65,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.core.org.apache.commons.compress.utils.IOUtils;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Kryo;
@@ -87,13 +85,8 @@ import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.state.BagState;
 import org.apache.beam.sdk.state.StateSpec;
 import org.apache.beam.sdk.state.StateSpecs;
-import org.apache.beam.sdk.state.TimeDomain;
-import org.apache.beam.sdk.state.Timer;
-import org.apache.beam.sdk.state.TimerSpec;
-import org.apache.beam.sdk.state.TimerSpecs;
 import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
@@ -116,7 +109,6 @@ import org.apache.beam.sdk.values.PDone;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.WindowingStrategy;
 import org.joda.time.Duration;
-import org.joda.time.Instant;
 
 /**
  * A {@link Stream} implementation based on beam.
@@ -145,6 +137,7 @@ class BeamStream<T> implements Stream<T> {
             stopAtCurrent,
             pipeline -> beam.getStream(
                 pipeline, position, stopAtCurrent, eventTime, attrs),
+            WindowingStrategy.globalDefault(),
             terminateCheck,
             pipelineFactory));
   }
@@ -163,6 +156,7 @@ class BeamStream<T> implements Stream<T> {
             true,
             pipeline -> beam.getBatchUpdates(
                 pipeline, startStamp, endStamp, attrs),
+            WindowingStrategy.globalDefault(),
             terminateCheck,
             pipelineFactory))
         .windowAll();
@@ -182,6 +176,7 @@ class BeamStream<T> implements Stream<T> {
             true,
             pipeline -> beam.getBatchSnapshot(
                 pipeline, fromStamp, toStamp, attrs),
+            WindowingStrategy.globalDefault(),
             terminateCheck,
             pipelineFactory))
         .windowAll();
@@ -199,16 +194,25 @@ class BeamStream<T> implements Stream<T> {
   final Factory<Pipeline> pipelineFactory;
   final List<RemoteConsumer<?>> remoteConsumers = new ArrayList<>();
 
+  @Getter
+  WindowingStrategy<Object, ?> windowingStrategy;
+
   BeamStream(
-      StreamConfig config, boolean bounded, PCollectionProvider<T> input,
+      StreamConfig config,
+      boolean bounded,
+      PCollectionProvider<T> input,
+      WindowingStrategy<Object, ?> windowingStrategy,
       StreamProvider.TerminatePredicate terminateCheck) {
 
-    this(config, bounded, input, terminateCheck, BeamStream::createPipelineDefault);
+    this(
+        config, bounded, input, windowingStrategy,
+        terminateCheck, BeamStream::createPipelineDefault);
   }
 
 
   BeamStream(
-      StreamConfig config, boolean bounded, PCollectionProvider<T> input,
+      StreamConfig config, boolean bounded,
+      PCollectionProvider<T> input, WindowingStrategy<Object, ?> windowingStrategy,
       StreamProvider.TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory) {
 
@@ -217,6 +221,7 @@ class BeamStream<T> implements Stream<T> {
     this.collection = new CachedPCollectionProvider<>(input);
     this.terminateCheck = terminateCheck;
     this.pipelineFactory = pipelineFactory;
+    this.windowingStrategy = windowingStrategy;
   }
 
   @SuppressWarnings("unchecked")
@@ -631,10 +636,14 @@ class BeamStream<T> implements Stream<T> {
           .output()
           .setCoder(KvCoder.of(keyCoder, valueCoder));
       KvCoder<K, V> coder = (KvCoder<K, V>) kvs.getCoder();
-      return kvs.apply(ParDo.of(IntegrateDoFn.of(
+      PCollection<Pair<K, V>> ret = kvs.apply(ParDo.of(IntegrateDoFn.of(
           combinerDehydrated, initialValueDehydrated, coder, allowedLateness)))
           .setCoder(PairCoder.of(keyCoder, valueCoder));
-    }, this.terminateCheck, this.pipelineFactory);
+      if (!ret.getWindowingStrategy().equals(WindowingStrategy.globalDefault())) {
+        ret = ret.apply(Window.into(new GlobalWindows()));
+      }
+      return ret;
+    }, WindowingStrategy.globalDefault(), this.terminateCheck, this.pipelineFactory);
   }
 
   @Override
@@ -681,7 +690,7 @@ class BeamStream<T> implements Stream<T> {
           .using(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e)))
           .output()
           .setCoder(KvCoder.of(keyCoder, valueCoder));
-      final PCollection<Pair<K, O>> ret;
+      PCollection<Pair<K, O>> ret;
       if (name != null) {
         ret = kvs.apply(withSuffix(name, ".reduce"),
             ParDo.of(ReduceValueStateByKey.of(
@@ -693,13 +702,17 @@ class BeamStream<T> implements Stream<T> {
                 initialStateDehydrated, stateUpdateDehydrated, outputDehydrated,
                 stateCoder, (KvCoder<K, V>) kvs.getCoder(), allowedLateness)));
       }
-      return ret.setCoder(PairCoder.of(keyCoder, outputCoder));
-    }, terminateCheck, pipelineFactory);
+      ret = ret.setCoder(PairCoder.of(keyCoder, outputCoder));
+      if (!ret.getWindowingStrategy().equals(WindowingStrategy.globalDefault())) {
+        ret = ret.apply(Window.into(new GlobalWindows()));
+      }
+      return ret;
+    }, WindowingStrategy.globalDefault(), terminateCheck, pipelineFactory);
   }
 
   <X> BeamStream<X> descendant(PCollectionProvider<X> provider) {
     return new BeamStream<>(
-        config, bounded, provider, terminateCheck, pipelineFactory);
+        config, bounded, provider, windowingStrategy, terminateCheck, pipelineFactory);
   }
 
   Pipeline createPipeline() {
@@ -732,8 +745,9 @@ class BeamStream<T> implements Stream<T> {
       WindowFn<? super X, ?> window) {
 
     return new BeamWindowedStream<>(
-        config, bounded, provider, window,
-        WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES,
+        config, bounded, provider, WindowingStrategy.of(window)
+            .withMode(WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES)
+            .fixDefaults(),
         terminateCheck, pipelineFactory);
   }
 
@@ -779,7 +793,7 @@ class BeamStream<T> implements Stream<T> {
     if (getWindowFn().equals(new GlobalWindows())
         && getTrigger().equals(DefaultTrigger.of())) {
       return new BeamStream<>(
-          this.config, this.bounded, this.collection,
+          this.config, this.bounded, this.collection, this.windowingStrategy,
           this.terminateCheck, this.pipelineFactory);
     } else {
       return new BeamStream<>(
@@ -792,7 +806,7 @@ class BeamStream<T> implements Stream<T> {
                     .discardingFiredPanes())
                 .setCoder(in.getCoder());
           },
-          this.terminateCheck, this.pipelineFactory);
+          this.windowingStrategy, this.terminateCheck, this.pipelineFactory);
     }
   }
 
@@ -856,85 +870,8 @@ class BeamStream<T> implements Stream<T> {
 
   }
 
-  public abstract static class ElementOrderedDoFn<IN, OUT> extends DoFn<IN, OUT> {
-
-    private static final long MIN_STAMP = BoundedWindow.TIMESTAMP_MIN_VALUE.getMillis();
-    private static final long MAX_STAMP = BoundedWindow.TIMESTAMP_MAX_VALUE.getMillis();
-    private final long allowedLateness;
-
-    ElementOrderedDoFn(long allowedLateness) {
-      // FIXME: this is ignored for now
-      this.allowedLateness = allowedLateness;
-    }
-
-    void onProcessElement(
-        ProcessContext context,
-        BagState<Pair<Long, IN>> unprocessed,
-        ValueState<Long> minEnqueuedStamp,
-        Timer flushTimer,
-        BiConsumer<Long, IN> consumer) {
-
-      IN elem = context.element();
-      long timestamp = context.timestamp().getMillis();
-      unprocessed.add(Pair.of(timestamp, elem));
-      unprocessed.readLater();
-      long minStamp = MoreObjects.firstNonNull(minEnqueuedStamp.read(), MAX_STAMP);
-      if (minStamp > timestamp) {
-        minEnqueuedStamp.write(timestamp);
-        minEnqueuedStamp.readLater();
-        flushTimer.set(new Instant(timestamp));
-      }
-    }
-
-    void onFlushTimer(
-        OnTimerContext context,
-        BagState<Pair<Long, IN>> unprocessed,
-        ValueState<Long> minEnqueuedStamp,
-        Timer flushTimer,
-        BiConsumer<Long, IN> consumer) {
-
-      long stamp = context.timestamp().getMillis();
-      long newMinEnqueuedStamp = consumeElementsAfterWatermark(
-          unprocessed, stamp, consumer);
-      if (newMinEnqueuedStamp > MIN_STAMP) {
-        minEnqueuedStamp.write(newMinEnqueuedStamp);
-        flushTimer.set(new Instant(newMinEnqueuedStamp));
-      }
-    }
-
-    private long consumeElementsAfterWatermark(
-        BagState<Pair<Long, IN>> unprocessed,
-        long stamp,
-        BiConsumer<Long, IN> consumer) {
-
-      List<Pair<Long, IN>> keep = new ArrayList<>();
-      List<Pair<Long, IN>> output = new ArrayList<>();
-      Streams.stream(unprocessed.read()).forEach(e -> {
-        if (e.getFirst() <= stamp) {
-          output.add(e);
-        } else {
-          keep.add(e);
-        }
-      });
-      unprocessed.clear();
-      keep.forEach(unprocessed::add);
-      output.stream()
-          .sorted((a, b) -> Long.compare(a.getFirst(), b.getFirst()))
-          .forEachOrdered(e -> consumer.accept(e.getFirst(), e.getSecond()));
-      return keep.stream().map(Pair::getFirst)
-          .min(Long::compare).orElse(MIN_STAMP);
-    }
-
-    @Override
-    public Duration getAllowedTimestampSkew() {
-      return Duration.millis(Long.MAX_VALUE);
-    }
-
-  }
-
   @VisibleForTesting
-  public static class IntegrateDoFn<K, V>
-      extends ElementOrderedDoFn<KV<K, V>, Pair<K, V>> {
+  public static class IntegrateDoFn<K, V> extends DoFn<KV<K, V>, Pair<K, V>> {
 
     static <K, V> DoFn<KV<K, V>, Pair<K, V>> of(
         Closure<V> combiner, Closure<V> initialValue, KvCoder<K, V> kvCoder,
@@ -945,17 +882,9 @@ class BeamStream<T> implements Stream<T> {
           kvCoder, allowedLateness);
     }
 
-    @StateId("unprocessed")
-    private final StateSpec<BagState<Pair<Long, KV<K, V>>>> unprocessed;
-
-    @StateId("minStamp")
-    private final StateSpec<ValueState<Long>> minStamp;
-
     @StateId("combined")
     private final StateSpec<ValueState<V>> stateSpec;
 
-    @TimerId("flush")
-    private final TimerSpec flushTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
 
     final BiFunction<V, V, V> combiner;
     final UnaryFunction<K, V> initialValue;
@@ -964,56 +893,27 @@ class BeamStream<T> implements Stream<T> {
         BiFunction<V, V, V> combiner, UnaryFunction<K, V> initialValue,
         KvCoder<K, V> kvCoder, long allowedLateness) {
 
-      super(allowedLateness);
-      Coder<K> keyCoder = kvCoder.getKeyCoder();
-      Coder<V> valueCoder = kvCoder.getValueCoder();
-      this.unprocessed = StateSpecs.bag(
-          PairCoder.of(VarLongCoder.of(), KvCoder.of(keyCoder, valueCoder)));
-      this.minStamp = StateSpecs.value(VarLongCoder.of());
-      this.stateSpec = StateSpecs.value(valueCoder);
+      this.stateSpec = StateSpecs.value(kvCoder.getValueCoder());
       this.combiner = combiner;
       this.initialValue = initialValue;
     }
 
+    @RequiresTimeSortedInput
     @ProcessElement
     public void process(
         ProcessContext context,
-        @StateId("unprocessed") BagState<Pair<Long, KV<K, V>>> unprocessed,
-        @StateId("minStamp") ValueState<Long> minStamp,
-        @TimerId("flush") Timer flushTimer,
         @StateId("combined") ValueState<V> state) {
 
-      onProcessElement(context, unprocessed, minStamp, flushTimer, (stamp, elem) -> {
-        consume(elem, state, context, stamp);
-      });
-    }
-
-    @OnTimer("flush")
-    public void onFlush(
-        OnTimerContext context,
-        @StateId("unprocessed") BagState<Pair<Long, KV<K, V>>> unprocessed,
-        @StateId("minStamp") ValueState<Long> minStamp,
-        @TimerId("flush") Timer flushTimer,
-        @StateId("combined") ValueState<V> state) {
-
-      onFlushTimer(context, unprocessed, minStamp, flushTimer, (stamp, elem) -> {
-        consume(elem, state, context, stamp);
-      });
-    }
-
-    void consume(
-        KV<K, V> in,
-        ValueState<V> state,
-        WindowedContext context,
-        long stamp) {
-      V val = state.read();
-      if (val == null) {
-        val = Objects.requireNonNull(initialValue.apply(in.getKey()));
+      KV<K, V> element = context.element();
+      K key = element.getKey();
+      V value = element.getValue();
+      V current = state.read();
+      if (current == null) {
+        current = Objects.requireNonNull(initialValue.apply(key));
       }
-      V result = combiner.apply(in.getValue(), val);
+      V result = combiner.apply(value, current);
       state.write(result);
-      context.outputWithTimestamp(
-          Pair.of(in.getKey(), result), new Instant(stamp));
+      context.outputWithTimestamp(Pair.of(key, result), context.timestamp());
     }
 
     @SuppressWarnings("unchecked")
@@ -1027,8 +927,7 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @VisibleForTesting
-  static class ReduceValueStateByKey<K, V, S, O>
-      extends ElementOrderedDoFn<KV<K, V>, Pair<K, O>> {
+  static class ReduceValueStateByKey<K, V, S, O> extends DoFn<KV<K, V>, Pair<K, O>> {
 
     static <K, V, S, O> ReduceValueStateByKey<K, V, S, O> of(
         Closure<S> initialState,
@@ -1047,15 +946,6 @@ class BeamStream<T> implements Stream<T> {
     private final Closure<S> stateUpdate;
     private final Closure<O> output;
 
-    @StateId("unprocessed")
-    private final StateSpec<BagState<Pair<Long, KV<K, V>>>> unprocessed;
-
-    @StateId("minStamp")
-    private final StateSpec<ValueState<Long>> minStamp;
-
-    @TimerId("flush")
-    private final TimerSpec flushTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
-
     @StateId("value")
     private final StateSpec<ValueState<S>> state;
 
@@ -1067,60 +957,29 @@ class BeamStream<T> implements Stream<T> {
         KvCoder<K, V> kvCoder,
         long allowedLateness) {
 
-      super(allowedLateness);
       this.state = StateSpecs.value(stateCoder);
       this.initialState = initialState;
       this.stateUpdate = stateUpdate;
       this.output = output;
-
-      Coder<K> keyCoder = kvCoder.getKeyCoder();
-      Coder<V> valueCoder = kvCoder.getValueCoder();
-      this.unprocessed = StateSpecs.bag(
-          PairCoder.of(VarLongCoder.of(), KvCoder.of(keyCoder, valueCoder)));
-      this.minStamp = StateSpecs.value(VarLongCoder.of());
-
     }
 
+    @RequiresTimeSortedInput
     @ProcessElement
     public void processElement(
         ProcessContext context,
-        @StateId("unprocessed") BagState<Pair<Long, KV<K, V>>> unprocessed,
-        @StateId("minStamp") ValueState<Long> minStamp,
-        @TimerId("flush") Timer flushTimer,
-        @StateId("value") ValueState<S> value) {
+        @StateId("value") ValueState<S> valueState) {
 
-      onProcessElement(context, unprocessed, minStamp, flushTimer, (stamp, elem) -> {
-        consume(elem, value, context, stamp);
-      });
-    }
-
-    @OnTimer("flush")
-    public void onFlush(
-        OnTimerContext context,
-        @StateId("unprocessed") BagState<Pair<Long, KV<K, V>>> unprocessed,
-        @StateId("minStamp") ValueState<Long> minStamp,
-        @TimerId("flush") Timer flushTimer,
-        @StateId("value") ValueState<S> value) {
-
-      onFlushTimer(context, unprocessed, minStamp, flushTimer, (stamp, elem) -> {
-        consume(elem, value, context, stamp);
-      });
-    }
-
-    void consume(
-        KV<K, V> in,
-        ValueState<S> value,
-        WindowedContext context,
-        long stamp) {
-
-      S current = value.read();
+      KV<K, V> element = context.element();
+      K key = element.getKey();
+      V value = element.getValue();
+      S current = valueState.read();
       if (current == null) {
-        current = Objects.requireNonNull(initialState.call(in.getKey()));
+        current = Objects.requireNonNull(initialState.call(key));
       }
-      O o = output.call(current, in.getValue());
-      S updated = stateUpdate.call(current, in.getValue());
-      value.write(updated);
-      context.outputWithTimestamp(Pair.of(in.getKey(), o), new Instant(stamp));
+      O o = output.call(current, value);
+      S updated = stateUpdate.call(current, value);
+      valueState.write(updated);
+      context.outputWithTimestamp(Pair.of(key, o), context.timestamp());
     }
 
     @SuppressWarnings("unchecked")

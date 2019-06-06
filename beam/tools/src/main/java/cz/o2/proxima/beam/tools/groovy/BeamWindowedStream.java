@@ -44,6 +44,7 @@ import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
+import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Trigger;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
@@ -703,6 +704,13 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipelineFactory);
   }
 
+  BeamWindowedStream<T> intoGlobalWindow() {
+    return new BeamWindowedStream<>(
+        config, bounded, pipeline ->
+            collection.materialize(pipeline).apply(Window.into(new GlobalWindows())),
+        WindowingStrategy.globalDefault(), terminateCheck, pipelineFactory);
+  }
+
   @Override
   WindowFn<Object, ? extends BoundedWindow> getWindowFn() {
     return this.windowingStrategy.getWindowFn();
@@ -711,6 +719,14 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   @Override
   Trigger getTrigger() {
     return windowingStrategy.getTrigger();
+  }
+
+  @Override
+  public WindowedStream<T> windowAll() {
+    if (!windowingStrategy.equals(WindowingStrategy.globalDefault())) {
+      return intoGlobalWindow();
+    }
+    return this;
   }
 
   private static <K, V> PCollection<Pair<K, V>> asPairs(

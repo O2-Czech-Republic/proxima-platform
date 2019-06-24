@@ -97,6 +97,7 @@ import org.apache.beam.sdk.transforms.windowing.DefaultTrigger;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
+import org.apache.beam.sdk.transforms.windowing.IntervalWindow;
 import org.apache.beam.sdk.transforms.windowing.Sessions;
 import org.apache.beam.sdk.transforms.windowing.SlidingWindows;
 import org.apache.beam.sdk.transforms.windowing.Trigger;
@@ -108,7 +109,9 @@ import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PDone;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.WindowingStrategy;
+import org.codehaus.groovy.runtime.GStringImpl;
 import org.joda.time.Duration;
+import org.joda.time.Instant;
 
 /**
  * A {@link Stream} implementation based on beam.
@@ -768,7 +771,9 @@ class BeamStream<T> implements Stream<T> {
     KryoCoder<Object> coder = KryoCoder.of(
         kryo -> kryo.setInstantiatorStrategy(
             new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())),
-        kryo -> kryo.addDefaultSerializer(Tuple.class, (Class) TupleSerializer.class));
+        kryo -> kryo.addDefaultSerializer(Tuple.class, (Class) TupleSerializer.class),
+        BeamStream::registerCommonTypes,
+        kryo -> kryo.setRegistrationRequired(true));
     registry.registerCoderForClass(
         Object.class,
         coder);
@@ -777,6 +782,27 @@ class BeamStream<T> implements Stream<T> {
         TupleCoder.of(coder));
     registry.registerCoderForClass(
         Pair.class, PairCoder.of(coder, coder));
+  }
+
+  private static void registerCommonTypes(Kryo kryo) {
+    java.util.stream.Stream.of(
+        ArrayList.class,
+        GlobalWindow.class,
+        IntervalWindow.class,
+        Pair.class,
+        Instant.class,
+        java.time.Instant.class,
+        Tuple.class,
+        GStringImpl.class,
+        String[].class,
+        Integer[].class,
+        Long[].class,
+        Float[].class,
+        int[].class,
+        long[].class,
+        float[].class,
+        Object[].class
+    ).forEach(kryo::register);
   }
 
   private <T> RemoteConsumer<T> createRemoteConsumer(

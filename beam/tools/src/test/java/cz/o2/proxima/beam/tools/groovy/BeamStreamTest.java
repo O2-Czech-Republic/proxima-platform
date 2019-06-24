@@ -58,6 +58,7 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
+import org.apache.beam.sdk.values.WindowingStrategy;
 import org.joda.time.Instant;
 import static org.junit.Assert.*;
 import org.junit.Test;
@@ -89,6 +90,7 @@ public class BeamStreamTest extends StreamTest {
                 StreamConfig.empty(),
                 true,
                 p -> p.apply(Create.of(values)).setTypeDescriptor(typeDesc),
+                WindowingStrategy.globalDefault(),
                 () -> {
                   LockSupport.park();
                   return false;
@@ -100,7 +102,8 @@ public class BeamStreamTest extends StreamTest {
   static <T> BeamStream<T> injectTypeOf(BeamStream<T> delegate) {
     return new BeamStream<T>(
         StreamConfig.empty(), delegate.isBounded(),
-        delegate.collection, delegate.terminateCheck) {
+        delegate.collection, WindowingStrategy.globalDefault(),
+        delegate.terminateCheck) {
 
       @SuppressWarnings("unchecked")
       @Override
@@ -134,7 +137,7 @@ public class BeamStreamTest extends StreamTest {
   static <T> BeamWindowedStream<T> injectTypeOf(BeamWindowedStream<T> delegate) {
     return new BeamWindowedStream<T>(
         StreamConfig.empty(), delegate.isBounded(), delegate.collection,
-        delegate.getWindowing(), delegate.getMode(),
+        delegate.getWindowingStrategy(),
         delegate.terminateCheck,
         delegate.pipelineFactory) {
 
@@ -209,6 +212,7 @@ public class BeamStreamTest extends StreamTest {
               TimestampedValue.of(1, new Instant(now)),
               TimestampedValue.of(2, new Instant(now - 1)),
               TimestampedValue.of(3, new Instant(now - 2)))
+          .advanceWatermarkTo(new Instant(now + 1000))
           .advanceWatermarkToInfinity();
       PipelineOptions opts = PipelineOptionsFactory.create();
       Pipeline pipeline = Pipeline.create(opts);
@@ -224,12 +228,7 @@ public class BeamStreamTest extends StreamTest {
           10))).setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
       PAssert.that(result)
           .containsInAnyOrder(Pair.of(0, 3), Pair.of(0, 5), Pair.of(0, 6));
-      try {
-        assertNotNull(pipeline.run());
-      } catch (Exception ex) {
-        ex.printStackTrace(System.err);
-        throw ex;
-      }
+      assertNotNull(pipeline.run());
     }
   }
 
@@ -242,6 +241,7 @@ public class BeamStreamTest extends StreamTest {
               TimestampedValue.of(1, new Instant(now)),
               TimestampedValue.of(2, new Instant(now - 1)),
               TimestampedValue.of(3, new Instant(now - 2)))
+          .advanceWatermarkTo(new Instant(now + 1000))
           .advanceWatermarkToInfinity();
       PipelineOptions opts = PipelineOptionsFactory.create();
       Pipeline pipeline = Pipeline.create(opts);

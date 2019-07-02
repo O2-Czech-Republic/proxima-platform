@@ -34,7 +34,7 @@
   <description>Proxima platform's Apache Beam module.</description>
 
   <properties>
-    <apache.beam.version>2.14.0-SNAPSHOT</apache.beam.version>
+    <apache.beam.version>2.15.0-SNAPSHOT</apache.beam.version>
   </properties>
 
   <dependencyManagement>

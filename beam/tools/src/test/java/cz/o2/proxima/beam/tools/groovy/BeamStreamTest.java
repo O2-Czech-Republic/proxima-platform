@@ -257,12 +257,7 @@ public class BeamStreamTest extends StreamTest {
           10))).setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
       PAssert.that(result)
           .containsInAnyOrder(Pair.of(0, 2), Pair.of(1, 4), Pair.of(1, 5));
-      try {
-        assertNotNull(pipeline.run());
-      } catch (Exception ex) {
-        ex.printStackTrace(System.err);
-        throw ex;
-      }
+      assertNotNull(pipeline.run());
     }
   }
 

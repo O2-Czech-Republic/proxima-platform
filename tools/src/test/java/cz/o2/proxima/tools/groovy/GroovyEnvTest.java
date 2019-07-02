@@ -485,6 +485,32 @@ public abstract class GroovyEnvTest extends GroovyTest {
     assertEquals(Arrays.asList(Pair.of("", 1L), Pair.of("", 2L)), result);
   }
 
+  @Test
+  public void testSumDistinctSlidingWindow() throws Exception {
+    long now = System.currentTimeMillis();
+    final Script compiled = compile(
+        "env.batch.wildcard.batchUpdates()"
+            + ".timeSlidingWindow(1000, 500)"
+            + ".map({ it.key })"
+            + ".distinct().count().collect()");
+    write(StreamElement.update(batch, wildcard, "uuid",
+        "key", wildcard.toAttributePrefix() + "0",
+        now, new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid",
+        "key2", wildcard.toAttributePrefix() + "0",
+        now + 50, new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid",
+        "key", wildcard.toAttributePrefix() + "1",
+        now + 700, new byte[] { }));
+    write(StreamElement.update(batch, wildcard, "uuid",
+        "key3", wildcard.toAttributePrefix() + "1",
+        now + 800, new byte[] { }));
+    @SuppressWarnings("unchecked")
+    List<Long> result = (List) compiled.run();
+    assertEquals(4, result.size());
+    assertEquals(Arrays.asList(2L, 3L, 1L), result);
+  }
+
   protected abstract void write(StreamElement element);
 
   protected Repository getRepo() {

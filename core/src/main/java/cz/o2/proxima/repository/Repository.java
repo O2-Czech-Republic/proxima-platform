@@ -34,18 +34,45 @@ import java.util.stream.Stream;
  * Repository of all entities configured in the system.
  */
 @Evolving
-public abstract class Repository implements Serializable {
+public abstract class Repository {
+
+  public static interface ConfigFactory extends Serializable {
+    Config apply();
+  }
+
+  private final ConfigFactory factory;
 
   private final Map<Class<? extends DataOperator>, DataOperator> operatorCache =
       new ConcurrentHashMap<>();
 
   /**
+   * Construct the repository.
+   * @param factory the factory to create instance of this {@link Config}
+   */
+  Repository(ConfigFactory factory) {
+    this.factory = factory;
+  }
+
+  /**
    * Create {@link Repository} from given {@link Config}.
-   * @param config the config
+   * @param factory the config factory
    * @return repository
    */
+  public static Repository of(ConfigFactory factory) {
+    return ConfigRepository.of(factory);
+  }
+
+  @Deprecated
   public static Repository of(Config config) {
     return ConfigRepository.of(config);
+  }
+
+  public RepositoryFactory asFactory() {
+    return RepositoryFactory.caching(staticFactory(factory));
+  }
+
+  private static RepositoryFactory staticFactory(ConfigFactory factory) {
+    return () -> Repository.of(factory.apply());
   }
 
   /**
@@ -140,7 +167,7 @@ public abstract class Repository implements Serializable {
   /**
    * Retrieve an already created (via call to #asDataOperator} instance
    * of data operator or create new instance with default settings.
-   * 
+   *
    * @param <T> type of operator
    * @param type the operator class
    * @return the data operator of given type

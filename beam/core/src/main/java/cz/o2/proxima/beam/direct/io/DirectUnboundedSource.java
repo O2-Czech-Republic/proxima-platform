@@ -20,7 +20,7 @@ import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
@@ -44,12 +44,12 @@ class DirectUnboundedSource
     extends UnboundedSource<StreamElement, DirectUnboundedSource.Checkpoint> {
 
   static DirectUnboundedSource of(
-      Repository repo, String name,
+      RepositoryFactory factory, String name,
       CommitLogReader reader, Position position,
       boolean eventTime, long limit) {
 
     return new DirectUnboundedSource(
-        repo, name, reader, position, eventTime, limit, null);
+        factory, name, reader, position, eventTime, limit, null);
   }
 
   static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
@@ -105,7 +105,7 @@ class DirectUnboundedSource
 
   }
 
-  private final Repository repo;
+  private final RepositoryFactory factory;
   private final String name;
   private final CommitLogReader reader;
   private final Position position;
@@ -115,11 +115,11 @@ class DirectUnboundedSource
   private final @Nullable Partition partition;
 
   DirectUnboundedSource(
-      Repository repo, String name, CommitLogReader reader,
+      RepositoryFactory factory, String name, CommitLogReader reader,
       Position position, boolean eventTime,
       long limit, @Nullable Partition partition) {
 
-    this.repo = repo;
+    this.factory = factory;
     this.name = name;
     this.reader = reader;
     this.position = position;
@@ -149,7 +149,7 @@ class DirectUnboundedSource
             ? p.split(splitDesired).stream()
             : Stream.of(p))
         .map(p -> new DirectUnboundedSource(
-            repo, name, reader, position, eventTime, limit / resulting, p))
+            factory, name, reader, position, eventTime, limit / resulting, p))
         .collect(Collectors.toList());
   }
 
@@ -172,7 +172,7 @@ class DirectUnboundedSource
 
   @Override
   public Coder<StreamElement> getOutputCoder() {
-    return StreamElementCoder.of(repo);
+    return StreamElementCoder.of(factory);
   }
 
   @Override

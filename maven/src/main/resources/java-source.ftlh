@@ -13,6 +13,7 @@ import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
@@ -32,8 +33,17 @@ public class ${java_classname} implements Serializable {
   /**
    * Create instance of {@code ${java_classname}} for production usage.
    **/
+  @Deprecated
   public static ${java_classname} of(Config cfg) {
     return new ${java_classname}(ConfigRepository.Builder.of(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+  }
+
+  /**
+   * Create instance of {@code ${java_classname}} for production usage.
+   **/
+  public static ${java_classname} of(Repository.ConfigFactory factory) {
+    return new ${java_classname}(ConfigRepository.Builder.of(
+        () -> factory.apply().withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
 
   /**
@@ -98,7 +108,7 @@ public class ${java_classname} implements Serializable {
     <#if !attribute.wildcard>
     private ${attribute.type} ${attribute.nameCamel} = null;
     @SuppressWarnings("unchecked")
-    private final ${attribute.type} ${attribute.nameCamel}Default = (${attribute.type}) repo.findEntity(
+    private final ${attribute.type} ${attribute.nameCamel}Default = (${attribute.type}) factory.apply().findEntity(
         "${entity.name}").get().findAttribute("${attribute.name}").get().getValueSerializer().getDefault();
     </#if>
   </#list> <#-- entity.attributes as attribute -->
@@ -122,7 +132,7 @@ public class ${java_classname} implements Serializable {
    **/
   public class ${entity.classname} implements Serializable, EntityDescriptorProvider {
 
-    private final EntityDescriptor descriptor = repo.findEntity("${entity.name}").get();
+    private final EntityDescriptor descriptor = factory.apply().findEntity("${entity.name}").get();
 
     @Override
     public EntityDescriptor getDescriptor() {
@@ -153,7 +163,7 @@ public class ${java_classname} implements Serializable {
   </#list>
 
   private final Config cfg;
-  private final Repository repo;
+  private final RepositoryFactory factory;
 
 <#list entities as entity>
   private final ${entity.classname} ${entity.name};
@@ -161,7 +171,8 @@ public class ${java_classname} implements Serializable {
 
 
   private ${java_classname}(ConfigRepository.Builder builder) {
-    this.repo = Objects.requireNonNull(builder).build();
+    this.factory = Objects.requireNonNull(builder).build().asFactory();
+    Repository repo = this.factory.apply();
     this.cfg = ((ConfigRepository) repo).getConfig();
 <#list operators as operator>
   ${operator.name} = new ${operator.classname}();
@@ -178,7 +189,7 @@ public class ${java_classname} implements Serializable {
 </#list>
 
   public Repository getRepo() {
-    return repo;
+    return factory.apply();
   }
 
 }

@@ -28,6 +28,7 @@ import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.tools.groovy.RepositoryProvider;
@@ -472,7 +473,7 @@ class BeamStream<T> implements Stream<T> {
       Closure<CharSequence> keyExtractor, Closure<CharSequence> attributeExtractor,
       Closure<V> valueExtractor, Closure<Long> timeExtractor) {
 
-    Repository repo = repoProvider.getRepo();
+    RepositoryFactory factory = repoProvider.getRepo().asFactory();
     Closure<CharSequence> keyDehydrated = dehydrate(keyExtractor);
     Closure<CharSequence> attributeDehydrated = dehydrate(attributeExtractor);
     Closure<V> valueDehydrated = dehydrate(valueExtractor);
@@ -496,7 +497,7 @@ class BeamStream<T> implements Stream<T> {
               attribute.toString(), timestamp, value);
         }, TypeDescriptor.of(StreamElement.class))
         .output()
-        .setCoder(StreamElementCoder.of(repo)));
+        .setCoder(StreamElementCoder.of(factory)));
   }
 
 
@@ -515,14 +516,15 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public void write(RepositoryProvider repoProvider) {
 
-    Repository repo = repoProvider.getRepo();
+    RepositoryFactory factory = repoProvider.getRepo().asFactory();
 
     @SuppressWarnings("unchecked")
     BeamStream<StreamElement> elements = (BeamStream<StreamElement>) this;
     elements.forEach("write", el -> {
       CountDownLatch latch = new CountDownLatch(1);
       AtomicReference<Throwable> err = new AtomicReference<>();
-      OnlineAttributeWriter writer = repo.getOrCreateOperator(DirectDataOperator.class)
+      OnlineAttributeWriter writer = factory.apply()
+          .getOrCreateOperator(DirectDataOperator.class)
           .getWriter(el.getAttributeDescriptor())
           .orElseThrow(() -> new IllegalStateException("Missing writer for " + el));
 

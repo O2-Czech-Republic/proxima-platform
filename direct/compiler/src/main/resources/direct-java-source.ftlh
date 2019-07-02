@@ -1,5 +1,5 @@
     
-    DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
+    DirectDataOperator direct = factory.apply().getOrCreateOperator(DirectDataOperator.class);
 
     @Override
     public DirectDataOperator getOperator() {

@@ -87,11 +87,16 @@ public class ConfigRepository extends Repository {
   /**
    * Construct default repository from the config.
    *
-   * @param config configuration to use
+   * @param factory configuration to use
    * @return constructed repository
    */
+  public static Repository of(ConfigFactory factory) {
+    return Builder.of(factory).build();
+  }
+
+  @Deprecated
   public static Repository of(Config config) {
-    return Builder.of(config).build();
+    return of(() -> config);
   }
 
   /**
@@ -99,22 +104,33 @@ public class ConfigRepository extends Repository {
    */
   public static class Builder {
 
-    public static Builder of(Config config) {
+    public static Builder of(ConfigFactory config) {
       return new Builder(config, false);
     }
 
-    public static Builder ofTest(Config config) {
-      return new Builder(config, true);
+    @Deprecated
+    public static Builder of(Config config) {
+      return new Builder(() -> config, false);
+    }
+    
+    public static Builder ofTest(ConfigFactory factory) {
+      return new Builder(factory, true);
     }
 
-    private final Config config;
+    @Deprecated
+    public static Builder ofTest(Config factory) {
+      return new Builder(() -> factory, true);
+    }
+
+
+    private final ConfigFactory factory;
     private boolean readOnly = false;
     private boolean validate = true;
     private boolean loadFamilies = true;
     private boolean loadClasses = true;
 
-    private Builder(Config config, boolean test) {
-      this.config = Objects.requireNonNull(config);
+    private Builder(ConfigFactory factory, boolean test) {
+      this.factory = Objects.requireNonNull(factory);
 
       if (test) {
         this.readOnly = true;
@@ -145,7 +161,7 @@ public class ConfigRepository extends Repository {
 
     public ConfigRepository build() {
       return new ConfigRepository(
-          config, readOnly, validate, loadFamilies, loadClasses);
+          factory, readOnly, validate, loadFamilies, loadClasses);
     }
   }
 
@@ -241,13 +257,14 @@ public class ConfigRepository extends Repository {
    *                     only during runtime, for maven plugin it is set to false
    */
   private ConfigRepository(
-      Config cfg,
+      ConfigFactory factory,
       boolean isReadonly,
       boolean shouldValidate,
       boolean loadFamilies,
       boolean loadClasses) {
 
-    this.config = cfg;
+    super(factory);
+    this.config = factory.apply();
     this.readonly = isReadonly;
     this.shouldValidate = shouldValidate;
     this.loadClasses = loadClasses;
@@ -1903,17 +1920,6 @@ public class ConfigRepository extends Repository {
   @Override
   protected void addedDataOperator(DataOperator op) {
     operators.add(op);
-  }
-
-  // ensure that when we deserialize Repository in JVM that already
-  // has other instance, that one is used
-  protected Object readResolve() {
-    synchronized (ConfigRepository.class) {
-      if (LOCAL_REPO_INSTANCE == null) {
-        LOCAL_REPO_INSTANCE = this;
-      }
-      return LOCAL_REPO_INSTANCE;
-    }
   }
 
 }

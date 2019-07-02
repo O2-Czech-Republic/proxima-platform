@@ -59,6 +59,7 @@ import cz.o2.proxima.repository.AttributeProxyDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.TransformationDescriptor;
+import java.io.NotSerializableException;
 
 /**
  * Test {@link DirectDataOperator}.
@@ -473,8 +474,8 @@ public class DirectDataOperatorTest {
   }
 
 
-  @Test
-  public void testRepositorySerializable() throws Exception {
+  @Test(expected = NotSerializableException.class)
+  public void testRepositoryNotSerializable() throws Exception {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     ObjectOutputStream oos = new ObjectOutputStream(baos);
     oos.writeObject(repo);

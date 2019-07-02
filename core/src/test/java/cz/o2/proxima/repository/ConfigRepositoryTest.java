@@ -27,6 +27,7 @@ import cz.o2.proxima.util.DummyFilter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.NotSerializableException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Arrays;
@@ -108,8 +109,8 @@ public class ConfigRepositoryTest {
           .resolve()).build();
   }
 
-  @Test
-  public void testRepositorySerializable() throws Exception {
+  @Test(expected = NotSerializableException.class)
+  public void testRepositoryNotSerializable() throws Exception {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     ObjectOutputStream oos = new ObjectOutputStream(baos);
     oos.writeObject(repo);

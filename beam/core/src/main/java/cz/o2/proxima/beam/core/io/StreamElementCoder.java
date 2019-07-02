@@ -18,6 +18,7 @@ package cz.o2.proxima.beam.core.io;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.DataInput;
 import java.io.DataInputStream;
@@ -40,16 +41,25 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
 
   /**
    * Create coder for StreamElements originating in given {@link Repository}.
+   * @param factory the repository factory to create coder for
+   * @return the coder
+   */
+  public static StreamElementCoder of(RepositoryFactory factory) {
+    return new StreamElementCoder(factory);
+  }
+
+  /**
+   * Create coder for StreamElements originating in given {@link Repository}.
    * @param repository the repository to create coder for
    * @return the coder
    */
   public static StreamElementCoder of(Repository repository) {
-    return new StreamElementCoder(repository);
+    return new StreamElementCoder(repository.asFactory());
   }
 
-  private final Repository repository;
+  private final RepositoryFactory repository;
 
-  private StreamElementCoder(Repository repository) {
+  private StreamElementCoder(RepositoryFactory repository) {
     this.repository = repository;
   }
 
@@ -82,7 +92,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
     final DataInput input = new DataInputStream(inStream);
 
     final String entityName = input.readUTF();
-    final EntityDescriptor entityDescriptor = repository.findEntity(entityName)
+    final EntityDescriptor entityDescriptor = repository.apply().findEntity(entityName)
         .orElseThrow(() -> new IOException("Unable to find entity " + entityName + "."));
 
     final String uuid = input.readUTF();

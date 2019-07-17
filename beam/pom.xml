@@ -112,6 +112,7 @@
         <groupId>org.apache.beam</groupId> 
         <artifactId>beam-runners-flink-1.7</artifactId>
         <version>${apache.beam.version}</version>
+        <scope>provided</scope>
       </dependency> 
 
       <dependency>

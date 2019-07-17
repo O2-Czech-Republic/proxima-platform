@@ -82,6 +82,14 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
         pipeline, attrs, startStamp, endStamp));
   }
 
+  @Override
+  public PCollection<StreamElement> createStreamFromUpdates(
+      Pipeline pipeline, List<AttributeDescriptor<?>> attributes, long limit) {
+
+    return applyTransform(readAccessor.createStreamFromUpdates(
+        pipeline, attributes, limit));
+  }
+
   private PCollection<StreamElement> applyTransform(PCollection<StreamElement> in) {
     return MapElements.of(in)
         .using(this::transformSingleRead, in.getTypeDescriptor())

@@ -109,4 +109,22 @@ public class DirectDataAccessorWrapper implements DataAccessor {
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
   }
 
+  @Override
+  public PCollection<StreamElement> createStreamFromUpdates(
+      Pipeline pipeline, List<AttributeDescriptor<?>> attributes, long limit) {
+
+    BatchLogObservable reader = direct
+        .getBatchLogObservable(context)
+        .orElseThrow(() -> new IllegalArgumentException(
+            "Cannot create commit log from " + direct));
+
+    final PCollection<StreamElement> ret;
+    ret = pipeline.apply("ReadBatchUnbounded:" + uri,
+        Read.from(DirectBatchUnboundedSource.of(factory, reader, attributes)));
+    return ret
+        .setCoder(StreamElementCoder.of(factory))
+        .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
+
+  }
+
 }

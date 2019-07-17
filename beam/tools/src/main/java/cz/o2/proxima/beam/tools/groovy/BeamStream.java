@@ -64,6 +64,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -139,8 +140,9 @@ class BeamStream<T> implements Stream<T> {
         new BeamStream<>(
             asConfig(beam),
             stopAtCurrent,
-            pipeline -> beam.getStream(
-                pipeline, position, stopAtCurrent, eventTime, attrs),
+            PCollectionProvider.fixedType(
+                pipeline -> beam.getStream(
+                    pipeline, position, stopAtCurrent, eventTime, attrs)),
             WindowingStrategy.globalDefault(),
             terminateCheck,
             pipelineFactory));
@@ -158,8 +160,12 @@ class BeamStream<T> implements Stream<T> {
         new BeamStream<>(
             asConfig(beam),
             true,
-            pipeline -> beam.getBatchUpdates(
-                pipeline, startStamp, endStamp, attrs),
+            PCollectionProvider.boundedOrUnbounded(
+                pipeline -> beam.getBatchUpdates(
+                    pipeline, startStamp, endStamp, attrs),
+                pipeline -> beam.getBatchUpdates(
+                    pipeline, startStamp, endStamp, true, attrs),
+                true),
             WindowingStrategy.globalDefault(),
             terminateCheck,
             pipelineFactory))
@@ -178,8 +184,9 @@ class BeamStream<T> implements Stream<T> {
         new BeamStream<>(
             asConfig(beam),
             true,
-            pipeline -> beam.getBatchSnapshot(
-                pipeline, fromStamp, toStamp, attrs),
+            PCollectionProvider.fixedType(
+                pipeline -> beam.getBatchSnapshot(
+                    pipeline, fromStamp, toStamp, attrs)),
             WindowingStrategy.globalDefault(),
             terminateCheck,
             pipelineFactory))
@@ -222,7 +229,7 @@ class BeamStream<T> implements Stream<T> {
 
     this.config = config;
     this.bounded = bounded;
-    this.collection = new CachedPCollectionProvider<>(input);
+    this.collection = PCollectionProvider.cached(input);
     this.terminateCheck = terminateCheck;
     this.pipelineFactory = pipelineFactory;
     this.windowingStrategy = windowingStrategy;
@@ -547,14 +554,14 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public WindowedStream<T> timeWindow(long millis) {
     return windowed(
-        collection,
+        collection::materialize,
         FixedWindows.of(Duration.millis(millis)));
   }
 
   @Override
   public WindowedStream<T> timeSlidingWindow(long millis, long slide) {
     return windowed(
-        collection,
+        collection::materialize,
         SlidingWindows.of(Duration.millis(millis)).every(Duration.millis(slide)));
   }
 
@@ -579,12 +586,19 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public WindowedStream<T> windowAll() {
-    return windowed(collection, new GlobalWindows());
+    return windowed(collection::materialize, new GlobalWindows());
   }
 
   @SuppressWarnings("unchecked")
   @Override
   public Stream<T> union(@Nullable String name, List<Stream<T>> others) {
+    boolean allBounded = others.stream().allMatch(Stream::isBounded) && isBounded();
+    if (!allBounded) {
+      // turn all inputs to reading in unbouded mode
+      // this propagates to sources
+      others.stream().forEach(s -> ((BeamStream<T>) s).collection.asUnbounded());
+      collection.asUnbounded();
+    }
     return descendant(
         pipeline -> {
           List<BeamStream<T>> streams = java.util.stream.Stream
@@ -630,7 +644,7 @@ class BeamStream<T> implements Stream<T> {
     Closure<V> combinerDehydrated = dehydrate(combiner);
     Closure<V> initialValueDehydrated = dehydrate(initialValue);
     // always return unwindowed stream
-    return new BeamStream<>(this.config, this.bounded, pipeline -> {
+    return child(pipeline -> {
       PCollection<T> in = collection.materialize(pipeline);
       Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
       Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
@@ -648,7 +662,7 @@ class BeamStream<T> implements Stream<T> {
         ret = ret.apply(Window.into(new GlobalWindows()));
       }
       return ret;
-    }, WindowingStrategy.globalDefault(), this.terminateCheck, this.pipelineFactory);
+    }, WindowingStrategy.globalDefault());
   }
 
   @Override
@@ -682,7 +696,7 @@ class BeamStream<T> implements Stream<T> {
     Closure<S> stateUpdateDehydrated = dehydrate(stateUpdate);
     Closure<O> outputDehydrated = dehydrate(outputFn);
     Closure<S> initialStateDehydrated = dehydrate(initialState);
-    return new BeamStream<>(config, bounded, pipeline -> {
+    return child(pipeline -> {
       PCollection<T> in = collection.materialize(pipeline);
       Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
       Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
@@ -712,13 +726,26 @@ class BeamStream<T> implements Stream<T> {
         ret = ret.apply(Window.into(new GlobalWindows()));
       }
       return ret;
-    }, WindowingStrategy.globalDefault(), terminateCheck, pipelineFactory);
+    }, WindowingStrategy.globalDefault());
   }
 
-  <X> BeamStream<X> descendant(PCollectionProvider<X> provider) {
-    return new BeamStream<>(
-        config, bounded, provider, windowingStrategy, terminateCheck, pipelineFactory);
+  <X> BeamStream<X> descendant(Function<Pipeline, PCollection<X>> factory) {
+    return child(factory);
   }
+
+  private <X> BeamStream<X> child(Function<Pipeline, PCollection<X>> factory) {
+    return child(factory, windowingStrategy);
+  }
+
+  private <X> BeamStream<X> child(
+      Function<Pipeline, PCollection<X>> factory,
+      WindowingStrategy<Object, ?> windowingStrategy) {
+
+    return new BeamStream<>(
+        config, bounded, PCollectionProvider.withParents(factory, collection),
+        windowingStrategy, terminateCheck, pipelineFactory);
+  }
+
 
   Pipeline createPipeline() {
     Pipeline ret = pipelineFactory.apply();
@@ -746,11 +773,12 @@ class BeamStream<T> implements Stream<T> {
   }
 
   <X> BeamWindowedStream<X> windowed(
-      PCollectionProvider<X> provider,
+      Function<Pipeline, PCollection<X>> factory,
       WindowFn<? super X, ?> window) {
 
     return new BeamWindowedStream<>(
-        config, bounded, provider, WindowingStrategy.of(window)
+        config, bounded, PCollectionProvider.withParents(factory, collection),
+        WindowingStrategy.of(window)
             .withMode(WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES)
             .fixDefaults(),
         terminateCheck, pipelineFactory);
@@ -824,8 +852,7 @@ class BeamStream<T> implements Stream<T> {
           this.config, this.bounded, this.collection, this.windowingStrategy,
           this.terminateCheck, this.pipelineFactory);
     } else {
-      return new BeamStream<>(
-          this.config, this.bounded,
+      return child(
           pipeline -> {
             PCollection<T> in = this.collection.materialize(pipeline);
             return in
@@ -833,8 +860,7 @@ class BeamStream<T> implements Stream<T> {
                     .triggering(DefaultTrigger.of())
                     .discardingFiredPanes())
                 .setCoder(in.getCoder());
-          },
-          this.windowingStrategy, this.terminateCheck, this.pipelineFactory);
+          });
     }
   }
 

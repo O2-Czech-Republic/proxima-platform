@@ -153,7 +153,7 @@ public class BeamDataOperatorTest {
     }
   }
 
-  @Test(timeout = 5000)
+  @Test /* (timeout = 5000) */
   public synchronized void testBatchUpdatesConsumptionWithWindowMany() {
     validatePCollectionWindowedRead(
         () -> beam.getBatchUpdates(pipeline, armed), 99L);

@@ -25,6 +25,7 @@ import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.Pipeline;
@@ -677,16 +678,18 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @SuppressWarnings("unchecked")
   @Override
-  <X> BeamWindowedStream<X> descendant(PCollectionProvider<X> provider) {
+  <X> BeamWindowedStream<X> descendant(Function<Pipeline, PCollection<X>> factory) {
     return new BeamWindowedStream<>(
-        config, bounded, provider, windowingStrategy, terminateCheck,
-        pipelineFactory);
+        config, bounded, PCollectionProvider.withParents(factory, collection),
+        windowingStrategy, terminateCheck, pipelineFactory);
   }
 
   BeamWindowedStream<T> intoGlobalWindow() {
     return new BeamWindowedStream<>(
-        config, bounded, pipeline ->
-            collection.materialize(pipeline).apply(Window.into(new GlobalWindows())),
+        config, bounded, PCollectionProvider.withParents(
+            pipeline ->
+                collection.materialize(pipeline).apply(Window.into(new GlobalWindows())),
+            collection),
         WindowingStrategy.globalDefault(), terminateCheck, pipelineFactory);
   }
 

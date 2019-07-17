@@ -68,13 +68,19 @@ public class GCloudLogObservable
     @Getter
     private final List<Blob> blobs = new ArrayList<>();
     private final int id;
+    private long minStamp;
+    private long maxStamp;
 
-    GCloudStoragePartition(int id) {
+    GCloudStoragePartition(int id, long minStamp, long maxStamp) {
       this.id = id;
+      this.minStamp = minStamp;
+      this.maxStamp = maxStamp;
     }
 
-    void add(Blob b) {
+    void add(Blob b, long minStamp, long maxStamp) {
       blobs.add(b);
+      this.minStamp = Math.min(this.minStamp, minStamp);
+      this.maxStamp = Math.max(this.maxStamp, maxStamp);
     }
 
     @Override
@@ -97,6 +103,16 @@ public class GCloudLogObservable
 
     public int getNumBlobs() {
       return blobs.size();
+    }
+
+    @Override
+    public long getMinTimestamp() {
+      return minStamp;
+    }
+
+    @Override
+    public long getMaxTimestamp() {
+      return maxStamp;
     }
 
   }
@@ -150,12 +166,14 @@ public class GCloudLogObservable
       AtomicInteger partitionId,
       AtomicReference<GCloudStoragePartition> currentPartition,
       List<Partition> resultingPartitions) {
+
     log.trace("Considering blob {} for partition inclusion", b.getName());
     if (isInRange(b.getName(), startStamp, endStamp)) {
       if (currentPartition.get() == null) {
-        currentPartition.set(new GCloudStoragePartition(partitionId.getAndIncrement()));
+        currentPartition.set(new GCloudStoragePartition(
+            partitionId.getAndIncrement(), startStamp, endStamp));
       }
-      currentPartition.get().add(b);
+      currentPartition.get().add(b, startStamp, endStamp);
       log.trace("Blob {} added to partition {}", b.getName(), currentPartition.get());
       if (currentPartition.get().size() >= partitionMinSize
           || currentPartition.get().getNumBlobs() >= partitionMaxNumBlobs) {

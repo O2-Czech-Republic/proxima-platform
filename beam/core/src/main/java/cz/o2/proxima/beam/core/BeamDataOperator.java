@@ -186,12 +186,37 @@ public class BeamDataOperator implements DataOperator {
       long endStamp,
       AttributeDescriptor<?>... attrs) {
 
+    return getBatchUpdates(pipeline, startStamp, endStamp, false, attrs);
+  }
+
+
+  /**
+   * Create {@link PCollection} from updates to given attributes with given
+   * time range.
+   * @param pipeline {@link Pipeline} to create the {@link PCollection} in
+   * @param startStamp timestamp (inclusive) of first update taken into account
+   * @param endStamp timestamp (exclusive) of last update taken into account
+   * @param asStream create PCollection that is suitable for streaming processing
+   * (i.e. can update watermarks before end of input)
+   * @param attrs attributes to read updates for
+   * @return the {@link PCollection}
+   */
+  @SafeVarargs
+  public final PCollection<StreamElement> getBatchUpdates(
+      Pipeline pipeline,
+      long startStamp,
+      long endStamp,
+      boolean asStream,
+      AttributeDescriptor<?>... attrs) {
+
     List<AttributeDescriptor<?>> attrList = Arrays.stream(attrs)
         .collect(Collectors.toList());
 
     return findSuitableAccessors(
         af -> af.getAccess().canReadBatchUpdates(), "batch-updates", attrs)
-        .map(da -> da.createBatch(pipeline, attrList, startStamp, endStamp))
+        .map(da -> asStream
+            ? da.createStreamFromUpdates(pipeline, attrList, -1)
+            : da.createBatch(pipeline, attrList, startStamp, endStamp))
         .reduce((left, right) -> Union.of(left, right).output())
         .orElseThrow(failEmpty());
   }
@@ -318,5 +343,6 @@ public class BeamDataOperator implements DataOperator {
   private static Supplier<IllegalArgumentException> failEmpty() {
     return () -> new IllegalArgumentException("Pass non empty attribute list");
   }
+
 
 }

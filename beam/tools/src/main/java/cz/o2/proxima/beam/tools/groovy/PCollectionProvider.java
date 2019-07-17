@@ -16,12 +16,120 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Function;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.values.PCollection;
 
-@FunctionalInterface
 interface PCollectionProvider<T> extends Serializable {
 
+  static class ParentNotifyingProvider<T>
+      implements PCollectionProvider<T> {
+
+    final Function<Pipeline, PCollection<T>> factory;
+    final List<PCollectionProvider<?>> parents = new ArrayList<>();
+
+    ParentNotifyingProvider(
+        Function<Pipeline, PCollection<T>> factory,
+        List<PCollectionProvider<?>> parents) {
+
+      this.factory = factory;
+      this.parents.addAll(parents);
+    }
+
+    @Override
+    public void asUnbounded() {
+      parents.forEach(PCollectionProvider::asUnbounded);
+    }
+
+    @Override
+    public PCollection<T> materialize(Pipeline pipeline) {
+      return factory.apply(pipeline);
+    }
+
+  }
+
+  static class CachedPCollectionProvider<T> implements PCollectionProvider<T> {
+
+    private final PCollectionProvider<T> underlying;
+    private transient PCollection<T> materialized;
+
+    CachedPCollectionProvider(PCollectionProvider<T> underlying) {
+      this.underlying = underlying;
+    }
+
+    @Override
+    public PCollection<T> materialize(Pipeline pipeline) {
+      if (materialized == null || materialized.getPipeline() != pipeline) {
+        materialized = underlying.materialize(pipeline);
+      }
+      return materialized;
+    }
+
+    @Override
+    public void asUnbounded() {
+      underlying.asUnbounded();
+    }
+
+  }
+
+
+  @SafeVarargs
+  static <T> PCollectionProvider<T> withParents(
+      Function<Pipeline, PCollection<T>> factory,
+      PCollectionProvider<?>... parents) {
+
+    return new ParentNotifyingProvider<>(factory, Arrays.asList(parents));
+  }
+
+  static <T> PCollectionProvider<T> cached(PCollectionProvider<T> underlying) {
+    return new CachedPCollectionProvider<>(underlying);
+  }
+
+  static <T> PCollectionProvider<T> fixedType(
+      Function<Pipeline, PCollection<T>> factory) {
+    return new ParentNotifyingProvider<>(factory, Collections.emptyList());
+  }
+
+  static <T> PCollectionProvider<T> boundedOrUnbounded(
+      Function<Pipeline, PCollection<T>> boundedFactory,
+      Function<Pipeline, PCollection<T>> unboundedFactory,
+      boolean bounded) {
+
+    return new PCollectionProvider<T>() {
+
+      boolean isBounded = bounded;
+
+      @Override
+      public PCollection<T> materialize(Pipeline pipeline) {
+        if (isBounded) {
+          return boundedFactory.apply(pipeline);
+        }
+        return unboundedFactory.apply(pipeline);
+      }
+
+      @Override
+      public void asUnbounded() {
+        isBounded = false;
+      }
+
+    };
+  }
+
+  /**
+   * Create {@link PCollection} in given {@link Pipeline}.
+   * @param pipeline the pipeline to create to PCollection in
+   * @return resulting PCollection
+   */
   PCollection<T> materialize(Pipeline pipeline);
+
+  /**
+   * Convert given materialization process to create unbounded
+   * PCollection, if possible.
+   */
+  void asUnbounded();
 
 }

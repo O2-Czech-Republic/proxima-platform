@@ -48,6 +48,21 @@ public interface DataAccessor extends AbstractDataAccessor {
       long limit);
 
   /**
+   * Create {@link PCollection} for given attribute family's batchUpdates.
+   * The created PCollection is purposefully treated as unbounded
+   * (although it is bounded, in fact), which gives better performance
+   * in cases when it is united with another unbounded {@link PCollection}.
+   * @param pipeline pipeline to create {@link PCollection} in
+   * @param attributes attributes to read updates for
+   * @param limit limit number of elements read. Note that the number of elements
+   * might be actually lower, because it is divided by number of partitions
+   * It is useful mostly for testing purposes
+   * @return {@link PCollection} representing the commit log
+   */
+  PCollection<StreamElement> createStreamFromUpdates(
+      Pipeline pipeline, List<AttributeDescriptor<?>> attributes, long limit);
+
+  /**
    * Create {@link PCollection} for given attribute family's batch updates storage.
    * @param pipeline pipeline to create {@link PCollection} in
    * @param attrs attributes to read

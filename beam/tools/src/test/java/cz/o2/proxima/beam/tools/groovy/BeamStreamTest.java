@@ -38,6 +38,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.locks.LockSupport;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
@@ -89,7 +90,9 @@ public class BeamStreamTest extends StreamTest {
             new BeamStream<>(
                 StreamConfig.empty(),
                 true,
-                p -> p.apply(Create.of(values)).setTypeDescriptor(typeDesc),
+                // this could be Create or TestStream
+                PCollectionProvider.fixedType(p ->
+                    p.apply(Create.of(values)).setTypeDescriptor(typeDesc)),
                 WindowingStrategy.globalDefault(),
                 () -> {
                   LockSupport.park();
@@ -120,15 +123,15 @@ public class BeamStreamTest extends StreamTest {
 
       @Override
       <X> BeamWindowedStream<X> windowed(
-          PCollectionProvider<X> provider,
+          Function<Pipeline, PCollection<X>> factory,
           WindowFn<? super X, ?> window) {
 
-        return injectTypeOf(super.windowed(provider, window));
+        return injectTypeOf(super.windowed(factory, window));
       }
 
       @Override
-      <X> BeamStream<X> descendant(PCollectionProvider<X> provider) {
-        return injectTypeOf(super.descendant(provider));
+      <X> BeamStream<X> descendant(Function<Pipeline, PCollection<X>> factory) {
+        return injectTypeOf(super.descendant(factory));
       }
 
     };
@@ -156,15 +159,15 @@ public class BeamStreamTest extends StreamTest {
 
       @Override
       <X> BeamWindowedStream<X> windowed(
-          PCollectionProvider<X> provider,
+          Function<Pipeline, PCollection<X>> factory,
           WindowFn<? super X, ?> window) {
 
-        return injectTypeOf(super.windowed(provider, window));
+        return injectTypeOf(super.windowed(factory, window));
       }
 
       @Override
-      <X> BeamWindowedStream<X> descendant(PCollectionProvider<X> provider) {
-        return injectTypeOf(super.descendant(provider));
+      <X> BeamWindowedStream<X> descendant(Function<Pipeline, PCollection<X>> factory) {
+        return injectTypeOf(super.descendant(factory));
       }
     };
   }

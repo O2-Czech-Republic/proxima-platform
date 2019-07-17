@@ -487,7 +487,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
 
   @Test
   public void testSumDistinctSlidingWindow() throws Exception {
-    long now = System.currentTimeMillis();
+    long now = 0L;
     final Script compiled = compile(
         "env.batch.wildcard.batchUpdates()"
             + ".timeSlidingWindow(1000, 500)"
@@ -495,7 +495,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             + ".distinct().count().collect()");
     write(StreamElement.update(batch, wildcard, "uuid",
         "key", wildcard.toAttributePrefix() + "0",
-        now, new byte[] { }));
+        now + 1, new byte[] { }));
     write(StreamElement.update(batch, wildcard, "uuid",
         "key2", wildcard.toAttributePrefix() + "0",
         now + 50, new byte[] { }));
@@ -507,8 +507,8 @@ public abstract class GroovyEnvTest extends GroovyTest {
         now + 800, new byte[] { }));
     @SuppressWarnings("unchecked")
     List<Long> result = (List) compiled.run();
-    assertEquals(4, result.size());
-    assertEquals(Arrays.asList(2L, 3L, 1L), result);
+    assertEquals(3, result.size());
+    assertUnorderedEquals(Arrays.asList(2L, 3L, 2L), result);
   }
 
   protected abstract void write(StreamElement element);

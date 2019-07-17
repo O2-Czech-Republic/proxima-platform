@@ -23,6 +23,10 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
@@ -94,15 +98,26 @@ public class DirectBatchUnboundedSource
     public void encode(Checkpoint value, OutputStream outStream)
         throws CoderException, IOException {
 
-      GZIPOutputStream gzout = new GZIPOutputStream(outStream);
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      GZIPOutputStream gzout = new GZIPOutputStream(baos);
       ObjectOutputStream oos = new ObjectOutputStream(gzout);
       oos.writeObject(value);
+      oos.flush();
       gzout.finish();
+      byte[] bytes = baos.toByteArray();
+      DataOutputStream dos = new DataOutputStream(outStream);
+      dos.writeInt(bytes.length);
+      dos.write(bytes);
     }
 
     @Override
     public Checkpoint decode(InputStream inStream) throws CoderException, IOException {
-      GZIPInputStream gzin = new GZIPInputStream(inStream);
+
+      DataInputStream dis = new DataInputStream(inStream);
+      int length = dis.readInt();
+      byte[] bytes = new byte[length];
+      dis.readFully(bytes);
+      GZIPInputStream gzin = new GZIPInputStream(new ByteArrayInputStream(bytes));
       ObjectInputStream ois = new ObjectInputStream(gzin);
       try {
         return (Checkpoint) ois.readObject();

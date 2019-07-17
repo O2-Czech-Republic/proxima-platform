@@ -32,6 +32,8 @@ import cz.o2.proxima.tools.groovy.StreamTest;
 import cz.o2.proxima.tools.groovy.TestStreamProvider;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -63,15 +65,27 @@ import org.apache.beam.sdk.values.WindowingStrategy;
 import org.joda.time.Instant;
 import static org.junit.Assert.*;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @Slf4j
+@RunWith(Parameterized.class)
 public class BeamStreamTest extends StreamTest {
 
-  public BeamStreamTest() {
-    super(provider());
+  @Parameters
+  public static Collection<Boolean> parameters() {
+    return Arrays.asList(false, true);
   }
 
-  static TestStreamProvider provider() {
+  final boolean stream;
+
+  public BeamStreamTest(boolean stream) {
+    super(provider(stream));
+    this.stream = stream;
+  }
+
+  static TestStreamProvider provider(boolean stream) {
     return new TestStreamProvider() {
       @SuppressWarnings("unchecked")
       @Override
@@ -90,9 +104,10 @@ public class BeamStreamTest extends StreamTest {
             new BeamStream<>(
                 StreamConfig.empty(),
                 true,
-                // this could be Create or TestStream
-                PCollectionProvider.fixedType(p ->
-                    p.apply(Create.of(values)).setTypeDescriptor(typeDesc)),
+                PCollectionProvider.boundedOrUnbounded(
+                    p -> p.apply(Create.of(values)).setTypeDescriptor(typeDesc),
+                    p -> p.apply(asTestStream(values)).setTypeDescriptor(typeDesc),
+                    stream),
                 WindowingStrategy.globalDefault(),
                 () -> {
                   LockSupport.park();
@@ -100,6 +115,14 @@ public class BeamStreamTest extends StreamTest {
                 }));
       }
     };
+  }
+
+  static <T> TestStream<T> asTestStream(List<T> values) {
+    TestStream.Builder<T> builder = TestStream.create(KryoCoder.of());
+    for (T val : values) {
+      builder = builder.addElements(val);
+    }
+    return builder.advanceWatermarkToInfinity();
   }
 
   static <T> BeamStream<T> injectTypeOf(BeamStream<T> delegate) {
@@ -264,5 +287,20 @@ public class BeamStreamTest extends StreamTest {
     }
   }
 
+  @Test
+  public void testUnionWithUnbounded() {
+    Stream<Integer> stream = provider(true).of(Arrays.asList(1, 2, 3, 4));
+    Stream<Integer> other = provider(this.stream).of(Arrays.asList(2, 3, 4, 5));
+    @SuppressWarnings("unchecked")
+    List<Double> collect = stream.union(other)
+        .timeWindow(1000).sum(new Closure<Double>(this) {
+          @Override
+          public Double call(Object arg) {
+            return Double.valueOf(arg.toString());
+          }
+        }).collect();
+    assertEquals(1, collect.size());
+    assertEquals(24.0, collect.get(0), 0.001);
+  }
 
 }

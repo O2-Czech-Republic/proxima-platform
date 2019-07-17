@@ -22,7 +22,7 @@ import org.junit.Test;
 public class BeamWindowedStreamTest extends WindowedStreamTest {
 
   public BeamWindowedStreamTest() {
-    super(BeamStreamTest.provider());
+    super(BeamStreamTest.provider(true));
   }
 
   @Ignore("Sorting is TODO in Beamphoria")
@@ -37,17 +37,6 @@ public class BeamWindowedStreamTest extends WindowedStreamTest {
   @Override
   public void testWindowAllSorted() {
     super.testWindowAllSorted();
-  }
-
-  @Test
-  @Override
-  public void testWindowAllGroupReduce() {
-    try {
-      super.testWindowAllGroupReduce();
-    } catch (Exception ex) {
-      ex.printStackTrace();
-      throw ex;
-    }
   }
 
 }

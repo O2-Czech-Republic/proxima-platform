@@ -175,6 +175,21 @@ public interface Stream<T> {
   boolean isBounded();
 
   /**
+   * Process this stream as it was unbounded stream.
+   *
+   * This is a no-op if {@link #isBounded} returns {@code false}, otherwise
+   * it turns the stream into being processed as unbounded, although being bounded.
+   *
+   * This is an optional operation and might be ignored if not supported by underlying
+   * implementation.
+   *
+   * @return Stream viewed as unbounded stream, if supported
+   */
+  default Stream<T> asUnbounded() {
+    return this;
+  }
+
+  /**
    * Convert elements to {@link StreamElement}s.
    * @param <V> type of value
    * @param repoProvider provider of {@link Repository}

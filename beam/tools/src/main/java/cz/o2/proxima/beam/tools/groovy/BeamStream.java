@@ -443,6 +443,12 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @Override
+  public Stream<T> asUnbounded() {
+    collection.asUnbounded();
+    return this;
+  }
+
+  @Override
   public void persistIntoTargetReplica(
       RepositoryProvider repoProvider, String replicationName, String target) {
 

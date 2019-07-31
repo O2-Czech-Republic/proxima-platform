@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
@@ -95,9 +96,7 @@ public class DirectBatchUnboundedSource
   public static class CheckpointCoder extends Coder<Checkpoint> {
 
     @Override
-    public void encode(Checkpoint value, OutputStream outStream)
-        throws CoderException, IOException {
-
+    public void encode(Checkpoint value, OutputStream outStream) throws IOException {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       GZIPOutputStream gzout = new GZIPOutputStream(baos);
       ObjectOutputStream oos = new ObjectOutputStream(gzout);
@@ -122,7 +121,7 @@ public class DirectBatchUnboundedSource
       try {
         return (Checkpoint) ois.readObject();
       } catch (ClassNotFoundException ex) {
-        throw new RuntimeException(ex);
+        throw new CoderException(ex);
       }
     }
 
@@ -163,6 +162,11 @@ public class DirectBatchUnboundedSource
     List<Partition> parts = Lists.newArrayList(partitions);
     parts.sort(partitionsComparator());
     this.partitions = Collections.unmodifiableList(parts);
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Created source with partition min timestamps {}",
+          parts.stream().map(Partition::getMinTimestamp).collect(Collectors.toList()));
+    }
   }
 
   @Override
@@ -291,7 +295,8 @@ public class DirectBatchUnboundedSource
     return StreamElementCoder.of(factory);
   }
 
-  private static Comparator<Partition> partitionsComparator() {
+  @VisibleForTesting
+  static Comparator<Partition> partitionsComparator() {
     return (p1, p2) -> {
       int cmp = Long.compare(p1.getMinTimestamp(), p2.getMinTimestamp());
       if (cmp == 0) {

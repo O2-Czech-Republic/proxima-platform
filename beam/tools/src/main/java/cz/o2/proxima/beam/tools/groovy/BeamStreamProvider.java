@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -62,7 +63,7 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 public abstract class BeamStreamProvider implements StreamProvider {
 
   @FunctionalInterface
-  public static interface RunnerRegistrar {
+  public static interface RunnerRegistrar extends Serializable {
     void apply(PipelineOptions opts);
   }
 

@@ -15,7 +15,9 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import cz.o2.proxima.direct.core.Partition;
 import java.util.Arrays;
+import java.util.List;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.util.CoderUtils;
@@ -36,6 +38,51 @@ public class DirectBatchUnboundedSourceTest {
     DirectBatchUnboundedSource.Checkpoint cloned = CoderUtils.clone(coder, checkpoint);
     assertEquals(1, cloned.getPartitions().size());
     assertEquals(1L, cloned.getSkipFromFirst());
+  }
+
+  @Test
+  public void testPartitionsSorted() {
+    List<Partition> partitions = Arrays.asList(
+        partition(0, 4, 5), partition(1, 3, 4), partition(2, 1, 2));
+    partitions.sort(DirectBatchUnboundedSource.partitionsComparator());
+    assertEquals(
+        Arrays.asList(partition(2, 1, 2), partition(1, 3, 4), partition(0, 4, 5)),
+        partitions);
+  }
+
+
+  static Partition partition(int id, long minStamp, long maxStamp) {
+    return new Partition() {
+
+      @Override
+      public int getId() {
+        return id;
+      }
+
+      @Override
+      public long getMinTimestamp() {
+        return minStamp;
+      }
+
+      @Override
+      public long getMaxTimestamp() {
+        return maxStamp;
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (!(obj instanceof Partition)) {
+          return false;
+        }
+        return ((Partition) obj).getId() == getId();
+      }
+
+      @Override
+      public int hashCode() {
+        return id;
+      }
+
+    };
   }
 
 }

@@ -237,16 +237,13 @@ public class DirectBatchUnboundedSource
               return false;
             }
           }
-          try {
-            current = queue.take();
-            consumedFromCurrent++;
-          } catch (InterruptedException ex) {
-            log.warn("Interrupted while waiting for data.", ex);
-            Thread.currentThread().interrupt();
+          current = queue.poll();
+          if (current == null) {
             return false;
           }
+          consumedFromCurrent++;
         } while (skip-- > 0);
-        return true;
+        return current != null;
       }
 
       @Override

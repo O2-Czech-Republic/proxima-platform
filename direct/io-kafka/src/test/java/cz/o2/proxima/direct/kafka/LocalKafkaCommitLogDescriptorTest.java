@@ -75,6 +75,7 @@ import org.junit.Before;
 import org.junit.Test;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.functional.UnaryFunction;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Test suite for {@code LocalKafkaCommitLogDescriptorTest}.
@@ -822,6 +823,63 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertTrue(watermark.get() > 0);
     assertTrue(watermark.get() < now * 10);
   }
+
+  @Test(timeout = 10000)
+  public void testPollFromMoreConsumersThanPartitionsMovesWatermark()
+      throws InterruptedException {
+
+    Accessor accessor = kafka.createAccessor(direct, entity, storageUri, and(
+        partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
+    CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
+        () -> new IllegalStateException("Missing commit log reader"));
+    final long now = System.currentTimeMillis();
+    CountDownLatch latch = new CountDownLatch(4);
+    Map<LogObserver, Long> observerWatermarks = new ConcurrentHashMap<>();
+    for (int i = 0; i < 4; i++) {
+      reader.observe("test", Position.NEWEST, new LogObserver() {
+
+        @Override
+        public boolean onNext(StreamElement ingest, OnNextContext context) {
+          return true;
+        }
+
+        @Override
+        public void onCompleted() {
+          fail("This should not be called");
+        }
+
+        @Override
+        public boolean onError(Throwable error) {
+          throw new RuntimeException(error);
+        }
+
+        @Override
+        public void onIdle(OnIdleContext context) {
+          if (!observerWatermarks.containsKey(this)) {
+            latch.countDown();
+          }
+          observerWatermarks.compute(this, (k, v) ->
+              Math.max(v == null ? Long.MIN_VALUE : v, context.getWatermark()));
+        }
+
+      }).waitUntilReady();
+    }
+
+
+    // for two seconds we have empty data
+    TimeUnit.SECONDS.sleep(2);
+
+    latch.await();
+
+    assertEquals(4, observerWatermarks.size());
+    long watermark = observerWatermarks.values().stream()
+        .min(Long::compare).orElse(Long.MIN_VALUE);
+
+    // watermark should be moved
+    assertTrue(watermark > 0);
+    assertTrue(watermark < now * 10);
+  }
+
 
   @Test(timeout = 10000)
   public void testObserveBulkCommitsCorrectly() throws InterruptedException {

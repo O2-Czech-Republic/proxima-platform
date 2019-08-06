@@ -22,7 +22,7 @@ import cz.o2.proxima.annotations.Internal;
  * Vector clock implementation.
  */
 @Internal
-public class VectorClock implements WatermarkSupplier {
+public interface VectorClock extends WatermarkSupplier {
 
   /**
    * Create new instance of VectorClock.
@@ -40,39 +40,72 @@ public class VectorClock implements WatermarkSupplier {
    * @return new instance
    */
   public static VectorClock of(int dimensions, long initialStamp) {
-    return new VectorClock(dimensions, initialStamp);
-  }
-
-  final long[] dimensions;
-
-  private VectorClock(int dimensions, long initialStamp) {
-    Preconditions.checkArgument(
-        dimensions > 0,
-        "Number of dimensions must be positive");
-    this.dimensions = new long[dimensions];
-    for (int i = 0; i < dimensions; i++) {
-      this.dimensions[i] = initialStamp;
+    if (dimensions > 0) {
+      return new VectorClockImpl(dimensions, initialStamp);
     }
+    return new ProcessingTimeClock();
   }
 
-  public void update(int dimension, long stamp) {
-    if (dimensions[dimension] < stamp) {
-      dimensions[dimension] = stamp;
-    }
-  }
+  final class VectorClockImpl implements VectorClock {
 
-  public long getStamp() {
-    long ret = Long.MAX_VALUE;
-    for (long t : dimensions) {
-      if (t < ret) {
-        ret = t;
+    final long[] dimensions;
+
+    private VectorClockImpl(int dimensions, long initialStamp) {
+      Preconditions.checkArgument(
+          dimensions > 0,
+          "Number of dimensions must be positive");
+      this.dimensions = new long[dimensions];
+      for (int i = 0; i < dimensions; i++) {
+        this.dimensions[i] = initialStamp;
       }
     }
-    return ret;
+
+    @Override
+    public void update(int dimension, long stamp) {
+      if (dimensions[dimension] < stamp) {
+        dimensions[dimension] = stamp;
+      }
+    }
+
+    @Override
+    public long getStamp() {
+      long ret = Long.MAX_VALUE;
+      for (long t : dimensions) {
+        if (t < ret) {
+          ret = t;
+        }
+      }
+      return ret;
+    }
+
+  }
+
+  // a fallback implementation that is used when supplied dimensions
+  // is empty
+  final class ProcessingTimeClock implements VectorClock {
+
+    @Override
+    public void update(int dimension, long stamp) {
+      // nop
+    }
+
+    @Override
+    public long getStamp() {
+      return getProcessingStamp();
+    }
+
+  }
+
+  void update(int dimension, long stamp);
+
+  long getStamp();
+
+  default long getProcessingStamp() {
+    return System.currentTimeMillis();
   }
 
   @Override
-  public long getWatermark() {
+  public default long getWatermark() {
     return getStamp();
   }
 

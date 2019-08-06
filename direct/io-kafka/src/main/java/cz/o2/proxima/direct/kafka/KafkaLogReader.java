@@ -527,7 +527,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       Map<Integer, Integer> partitionToClockDimension,
       AtomicReference<VectorClock> clock) {
 
-    long nowSkewed = System.currentTimeMillis() - timestampSkew;
+    long nowSkewed = clock.get().getProcessingStamp() - timestampSkew;
     emptyPollCount.entrySet()
         .stream()
         .filter(e -> e.getValue() >= emptyPolls)

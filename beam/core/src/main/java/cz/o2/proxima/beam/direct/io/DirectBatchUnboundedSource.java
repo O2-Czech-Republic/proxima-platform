@@ -131,7 +131,7 @@ public class DirectBatchUnboundedSource
     }
 
     @Override
-    public void verifyDeterministic() throws NonDeterministicException {
+    public void verifyDeterministic() {
 
     }
 

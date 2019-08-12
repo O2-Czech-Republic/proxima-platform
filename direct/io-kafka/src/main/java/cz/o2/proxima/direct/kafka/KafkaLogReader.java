@@ -426,8 +426,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                     entityKey, attribute, r.timestamp(), value, r.partition(),
                     r.offset());
                 // move watermark
+                long shiftedTimestamp = ingest.getStamp() - timestampSkew;
                 clock.get().update(
-                    partitionToClockDimension.get(tp.partition()), ingest.getStamp());
+                    partitionToClockDimension.get(tp.partition()), shiftedTimestamp);
               }
             }
             boolean cont = consumer.consumeWithConfirm(

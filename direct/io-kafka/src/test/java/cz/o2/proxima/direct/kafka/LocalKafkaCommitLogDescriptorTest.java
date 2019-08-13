@@ -825,7 +825,20 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test(timeout = 10000)
-  public void testPollFromMoreConsumersThanPartitionsMovesWatermark()
+  public void testPillFromMoreConsumersThanPartitionsMovesWatermark()
+      throws InterruptedException {
+
+    testPollFromNConsumersMovesWatermark(4);
+  }
+
+  @Test(timeout = 100000)
+  public void testPillFromManyMoreConsumersThanPartitionsMovesWatermark()
+      throws InterruptedException {
+
+    testPollFromNConsumersMovesWatermark(400);
+  }
+
+  void testPollFromNConsumersMovesWatermark(int numObservers)
       throws InterruptedException {
 
     Accessor accessor = kafka.createAccessor(direct, entity, storageUri, and(
@@ -833,9 +846,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     CommitLogReader reader = accessor.getCommitLogReader(context()).orElseThrow(
         () -> new IllegalStateException("Missing commit log reader"));
     final long now = System.currentTimeMillis();
-    CountDownLatch latch = new CountDownLatch(4);
+    CountDownLatch latch = new CountDownLatch(numObservers);
     Map<LogObserver, Long> observerWatermarks = new ConcurrentHashMap<>();
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < numObservers; i++) {
       reader.observe("test", Position.NEWEST, new LogObserver() {
 
         @Override
@@ -871,7 +884,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     latch.await();
 
-    assertEquals(4, observerWatermarks.size());
+    assertEquals(numObservers, observerWatermarks.size());
     long watermark = observerWatermarks.values().stream()
         .min(Long::compare).orElse(Long.MIN_VALUE);
 

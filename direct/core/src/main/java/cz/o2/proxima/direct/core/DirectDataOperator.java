@@ -67,7 +67,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   private Factory<ExecutorService> executorFactory = () -> Executors
       .newCachedThreadPool(r -> {
         Thread t = new Thread(r);
-        t.setName("ProximaRepositoryPool");
+        t.setName("ProximaRepositoryPool-%d");
         t.setUncaughtExceptionHandler((thr, exc) ->
             log.error("Error running task in thread {}", thr.getName(), exc));
         return t;

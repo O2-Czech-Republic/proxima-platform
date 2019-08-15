@@ -153,6 +153,17 @@ public class BeamDataOperatorTest {
     }
   }
 
+  @Test(timeout = 180000)
+  public synchronized void testUnboundedCommitLogConsumptionWithWindowManyMany() {
+    final long elements = 1000L;
+    validatePCollectionWindowedRead(
+        () -> beam.getStream(
+            "", pipeline, Position.OLDEST, false,
+            true, elements + 1, armed),
+        elements);
+  }
+
+
   @Test /* (timeout = 5000) */
   public synchronized void testBatchUpdatesConsumptionWithWindowMany() {
     validatePCollectionWindowedRead(

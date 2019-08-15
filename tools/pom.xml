@@ -120,9 +120,9 @@
     </dependency>
 
     <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-groovy-groovysh</artifactId>
-      <version>${project.version}</version>
+      <groupId>org.codehaus.groovy</groupId>
+      <artifactId>groovy-groovysh</artifactId>
+      <version>${groovy.version}</version>
     </dependency>
 
     <dependency>

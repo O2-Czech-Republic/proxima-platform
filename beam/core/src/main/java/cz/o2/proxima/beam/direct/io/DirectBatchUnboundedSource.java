@@ -66,9 +66,11 @@ public class DirectBatchUnboundedSource
   public static DirectBatchUnboundedSource of(
       RepositoryFactory factory,
       BatchLogObservable reader,
-      List<AttributeDescriptor<?>> attributes) {
+      List<AttributeDescriptor<?>> attrs,
+      long startStamp,
+      long endStamp) {
 
-    return new DirectBatchUnboundedSource(factory, reader, attributes);
+    return new DirectBatchUnboundedSource(factory, reader, attrs, startStamp, endStamp);
   }
 
   public static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
@@ -137,28 +139,39 @@ public class DirectBatchUnboundedSource
 
   }
 
-  final RepositoryFactory factory;
-  final BatchLogObservable reader;
-  final List<AttributeDescriptor<?>> attributes;
-  final List<Partition> partitions;
+  private final RepositoryFactory factory;
+  private final BatchLogObservable reader;
+  private final List<AttributeDescriptor<?>> attributes;
+  private final List<Partition> partitions;
+  private final long startStamp;
+  private final long endStamp;
 
   private DirectBatchUnboundedSource(
       RepositoryFactory factory,
       BatchLogObservable reader,
-      List<AttributeDescriptor<?>> attributes) {
+      List<AttributeDescriptor<?>> attributes,
+      long startStamp,
+      long endStamp) {
 
     this.factory = factory;
     this.reader = reader;
     this.attributes = Collections.unmodifiableList(attributes);
     this.partitions = Collections.emptyList();
+    this.startStamp = startStamp;
+    this.endStamp = endStamp;
   }
 
   private DirectBatchUnboundedSource(
-      DirectBatchUnboundedSource parent, List<Partition> partitions) {
+      DirectBatchUnboundedSource parent,
+      List<Partition> partitions,
+      long startStamp,
+      long endStamp) {
 
     this.factory = parent.factory;
     this.reader = parent.reader;
     this.attributes = parent.attributes;
+    this.startStamp = startStamp;
+    this.endStamp = endStamp;
     List<Partition> parts = Lists.newArrayList(partitions);
     parts.sort(partitionsComparator());
     this.partitions = Collections.unmodifiableList(parts);
@@ -175,7 +188,7 @@ public class DirectBatchUnboundedSource
 
     if (partitions.isEmpty()) {
       // round robin
-      List<Partition> parts = reader.getPartitions();
+      List<Partition> parts = reader.getPartitions(startStamp, endStamp);
       List<List<Partition>> splits = new ArrayList<>();
       int current = 0;
       for (Partition p : parts) {
@@ -186,7 +199,7 @@ public class DirectBatchUnboundedSource
         current = (current + 1) % desiredNumSplits;
       }
       return splits.stream()
-          .map(s -> new DirectBatchUnboundedSource(this, s))
+          .map(s -> new DirectBatchUnboundedSource(this, s, startStamp, endStamp))
           .collect(Collectors.toList());
     }
     return Arrays.asList(this);

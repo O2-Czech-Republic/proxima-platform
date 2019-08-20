@@ -124,6 +124,8 @@ public class PubSubDataAccessor implements DataAccessor {
   public PCollection<StreamElement> createStreamFromUpdates(
       Pipeline pipeline,
       List<AttributeDescriptor<?>> attributes,
+      long startStamp,
+      long endStamp,
       long limit) {
 
     throw new UnsupportedOperationException("Not supported yet.");

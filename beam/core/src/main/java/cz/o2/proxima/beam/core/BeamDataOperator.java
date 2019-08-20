@@ -215,7 +215,7 @@ public class BeamDataOperator implements DataOperator {
     return findSuitableAccessors(
         af -> af.getAccess().canReadBatchUpdates(), "batch-updates", attrs)
         .map(da -> asStream
-            ? da.createStreamFromUpdates(pipeline, attrList, -1)
+            ? da.createStreamFromUpdates(pipeline, attrList, startStamp, endStamp, -1)
             : da.createBatch(pipeline, attrList, startStamp, endStamp))
         .reduce((left, right) -> Union.of(left, right).output())
         .orElseThrow(failEmpty());

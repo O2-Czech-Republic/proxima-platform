@@ -16,15 +16,16 @@
 
 package cz.o2.proxima.tools.groovy.internal
 
-import java.lang.reflect.Method
+import cz.o2.proxima.repackaged.groovy.tools.shell.Groovysh
+import cz.o2.proxima.repackaged.groovy.tools.shell.Interpreter
+import cz.o2.proxima.repackaged.groovy.tools.shell.Parser
+
 import java.util.concurrent.atomic.AtomicInteger
 import org.codehaus.groovy.control.CompilerConfiguration
 import org.codehaus.groovy.runtime.InvokerHelper
 import org.codehaus.groovy.runtime.MethodClosure
-import org.codehaus.groovy.tools.shell.Groovysh
-import org.codehaus.groovy.tools.shell.Interpreter
-import org.codehaus.groovy.tools.shell.Parser
 
+import java.lang.reflect.Method
 
 /**
  * Interpreter with overridden script filename assignment for

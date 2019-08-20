@@ -17,7 +17,6 @@ package cz.o2.proxima.repository;
 
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,9 +42,8 @@ public interface EntityDescriptor extends Serializable {
       return this;
     }
 
-    @SuppressWarnings("unchecked")
     public EntityDescriptor build() {
-      return new EntityDescriptorImpl(name, (Collection) attributes.values());
+      return new EntityDescriptorImpl(name, attributes.values());
     }
 
     AttributeDescriptor<?> findAttribute(String attr) {

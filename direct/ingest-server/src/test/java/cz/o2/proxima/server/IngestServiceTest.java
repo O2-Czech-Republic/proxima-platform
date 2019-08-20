@@ -53,7 +53,8 @@ public class IngestServiceTest {
         new IngestServer(
             ConfigFactory.load().withFallback(ConfigFactory.load("test-reference.conf")).resolve());
     ingest = new IngestService(server.repo, server.direct, server.scheduler);
-    server.startConsumerThreads();
+    final ReplicationController controller = ReplicationController.of(server.repo);
+    controller.runReplicationThreads();
     latch = new CountDownLatch(1);
 
     responses = new LinkedBlockingQueue<>();
@@ -482,7 +483,7 @@ public class IngestServiceTest {
             ConfigFactory.load("test-replication.conf")
                 .withFallback(ConfigFactory.load("test-reference.conf"))
                 .resolve());
-    dummy.startConsumerThreads();
+    dummy.runReplications();
   }
 
   private void flushToIngest(Rpc.Ingest request) throws InterruptedException {

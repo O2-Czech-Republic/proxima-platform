@@ -159,7 +159,7 @@ public interface AttributeDescriptor<T> extends Serializable {
    * @param repo the repository
    * @return builder representing this attribute
    */
-  public AttributeDescriptor.Builder toBuilder(Repository repo);
+  AttributeDescriptor.Builder toBuilder(Repository repo);
 
   /**
    * Check if this is a proxy attribute.
@@ -181,7 +181,6 @@ public interface AttributeDescriptor<T> extends Serializable {
     return (AttributeProxyDescriptor<T>) this;
   }
 
-  @SuppressWarnings("unchecked")
   default Optional<T> valueOf(StreamElement el) {
     return el.getParsed();
   }

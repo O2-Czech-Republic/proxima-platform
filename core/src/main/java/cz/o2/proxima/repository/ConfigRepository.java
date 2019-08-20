@@ -79,8 +79,6 @@ public class ConfigRepository extends Repository {
   private static final String TYPE = "type";
   private static final String FILTER = "filter";
 
-  private static ConfigRepository LOCAL_REPO_INSTANCE = null;
-
   /**
    * Construct default repository from the config.
    *
@@ -252,10 +250,6 @@ public class ConfigRepository extends Repository {
 
     } catch (Exception ex) {
       throw new IllegalArgumentException("Cannot read config settings", ex);
-    }
-
-    synchronized (ConfigRepository.class) {
-      ConfigRepository.LOCAL_REPO_INSTANCE = this;
     }
   }
 

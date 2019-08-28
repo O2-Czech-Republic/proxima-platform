@@ -34,7 +34,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -221,8 +220,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
           // nop
           break;
         case "FlinkRunner":
-          injectJarIntoClassloader(
-              (URLClassLoader) opts.getRunner().getClassLoader(), path);
+          injectJarIntoContextClassLoader(path);
           break;
         case "SparkRunner":
           throw new UnsupportedOperationException("Spark unsupported for now.");
@@ -262,20 +260,14 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
   // this is hackish, but we need to inject the jar into ClassLoader
   // that loaded the runner class
-  private void injectJarIntoClassloader(URLClassLoader loader, File path)
+  @VisibleForTesting
+  static void injectJarIntoContextClassLoader(File path)
       throws MalformedURLException {
 
-    injectUrlIntoClassloader(loader, new URL("file://" + path.getAbsolutePath()));
-  }
-
-  private void injectUrlIntoClassloader(URLClassLoader loader, URL url) {
-    try {
-      Method addUrl = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
-      addUrl.setAccessible(true);
-      addUrl.invoke(loader, url);
-    } catch (Exception ex) {
-      throw new RuntimeException(ex);
-    }
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+    URL url = new URL("file://" + path.getAbsolutePath());
+    Thread.currentThread().setContextClassLoader(
+        new URLClassLoader(new URL[] { url }, loader));
   }
 
 }

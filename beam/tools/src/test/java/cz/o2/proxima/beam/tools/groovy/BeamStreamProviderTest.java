@@ -17,6 +17,8 @@ package cz.o2.proxima.beam.tools.groovy;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.Repository;
+import java.io.File;
+import java.io.IOException;
 import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptions;
 import static org.junit.Assert.*;
@@ -55,6 +57,14 @@ public class BeamStreamProviderTest {
       assertEquals(1, provider.getRegistrars().size());
       assertEquals(2, provider.getArgs().length);
     }
+  }
+
+  @Test
+  public void testInjectPathToClassloader() throws IOException {
+    File f = File.createTempFile("dummy", ".tmp");
+    BeamStreamProvider.injectJarIntoContextClassLoader(f);
+    // must not throw any exceptions
+    assertTrue(true);
   }
 
 }

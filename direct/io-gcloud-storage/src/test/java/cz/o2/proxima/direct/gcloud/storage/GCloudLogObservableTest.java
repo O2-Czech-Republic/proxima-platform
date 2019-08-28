@@ -106,6 +106,7 @@ public class GCloudLogObservableTest {
             return createMockBlobPage();
           }
 
+          @SuppressWarnings("unchecked")
           private Page<Blob> createMockBlobPage() {
             Page<Blob> ret = mock(Page.class);
             List<Blob> blobs = createMockBlobs(20);

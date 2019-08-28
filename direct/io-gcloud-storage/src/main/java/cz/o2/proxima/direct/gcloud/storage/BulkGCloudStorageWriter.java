@@ -26,7 +26,6 @@ import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.binary.Hex;
 
@@ -121,10 +120,6 @@ public class BulkGCloudStorageWriter
   private final int bufferSize;
   private final long allowedLateness;
   private final long flushAttemptDelay;
-  @SuppressFBWarnings(
-      value = "SE_BAD_FIELD",
-      justification = "Serialized empty. After first write the writer is not "
-          + "considered serializable anymore.")
   // key is bucket end stamp
   private final NavigableMap<Long, BucketData> buckets = new TreeMap<>();
   private long lastFlushAttempt = Long.MIN_VALUE;

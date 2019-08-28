@@ -19,6 +19,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.Classpath;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.Script;
@@ -48,7 +49,7 @@ public class GroovyTest {
   @SuppressWarnings(value = "unchecked")
   Script compile(String script) throws Exception {
     Class<Script> parsed = loader.parseClass(script);
-    return parsed.newInstance();
+    return Classpath.newInstance(parsed);
   }
 
 }

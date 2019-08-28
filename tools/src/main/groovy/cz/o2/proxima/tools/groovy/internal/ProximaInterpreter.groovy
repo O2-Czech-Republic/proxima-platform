@@ -31,7 +31,6 @@ import java.lang.reflect.Method
  * Interpreter with overridden script filename assignment for
  * unique closure classnames.
  */
-@edu.umd.cs.findbugs.annotations.SuppressFBWarnings("LI_LAZY_INIT_STATIC")
 @groovy.transform.CompileStatic
 public class ProximaInterpreter extends Interpreter {
 

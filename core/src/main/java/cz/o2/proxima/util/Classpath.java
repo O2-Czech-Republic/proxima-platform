@@ -17,6 +17,7 @@ package cz.o2.proxima.util;
 
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
+import java.lang.reflect.InvocationTargetException;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -83,8 +84,11 @@ public class Classpath {
    */
   public static <T> T newInstance(Class<T> cls) {
     try {
-      return cls.newInstance();
-    } catch (InstantiationException | IllegalAccessException ex) {
+      return cls.getDeclaredConstructor().newInstance();
+    } catch (InstantiationException | IllegalAccessException
+        | NoSuchMethodException | SecurityException
+        | IllegalArgumentException | InvocationTargetException ex) {
+
       throw new RuntimeException(ex);
     }
   }

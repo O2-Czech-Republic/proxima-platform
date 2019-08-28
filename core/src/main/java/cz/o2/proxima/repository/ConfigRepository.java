@@ -57,6 +57,8 @@ import java.util.stream.Stream;
  * Repository of all entities configured in the system.
  */
 @Slf4j
+// BUG in error prone
+@SuppressWarnings("InconsistentCapitalization")
 public class ConfigRepository extends Repository {
 
   // config parsing constants

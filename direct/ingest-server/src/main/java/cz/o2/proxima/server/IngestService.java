@@ -28,7 +28,6 @@ import static cz.o2.proxima.server.IngestServer.notFound;
 import static cz.o2.proxima.server.IngestServer.status;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.StreamElement;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.grpc.stub.StreamObserver;
 import java.util.Optional;
 import java.util.Queue;
@@ -223,10 +222,6 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
       flushFuture.cancel(true);
     }
 
-    @SuppressFBWarnings(
-        value = "JLM_JSR166_UTILCONCURRENT_MONITORENTER",
-        justification = "The synchronization on `inflighRequests` is used only for "
-            + "waiting before the flush thread finishes (wait() - notify())")
     @Override
     public void onCompleted() {
       completed.set(true);

@@ -84,7 +84,7 @@
     <argLine></argLine>
     <surefire.forkCount>8</surefire.forkCount>
     <!-- sonar config -->
-    <jacoco.version>0.8.1</jacoco.version>
+    <jacoco.version>0.8.4</jacoco.version>
     <sonar.jacoco.reportPaths>${project.basedir}/../target/jacoco.exec</sonar.jacoco.reportPaths>
     <sonar.organization>datadriven</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>

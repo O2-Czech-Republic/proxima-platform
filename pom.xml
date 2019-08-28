@@ -90,9 +90,9 @@
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <!-- checkstyle config -->
     <checkstyle.config.location>checkstyle.xml</checkstyle.config.location>
-    <spotbugs.version>3.1.8</spotbugs.version>
+    <spotbugs.version>3.1.12</spotbugs.version>
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
-    <lombok.version>1.18.4</lombok.version>
+    <lombok.version>1.18.8</lombok.version>
   </properties>
 
   <profiles>
@@ -252,7 +252,7 @@
       <plugin>
         <groupId>com.github.spotbugs</groupId>
         <artifactId>spotbugs-maven-plugin</artifactId>
-        <version>3.1.7</version>
+        <version>3.1.12.2</version>
         <dependencies>
           <dependency>
             <groupId>com.github.spotbugs</groupId>
@@ -369,7 +369,6 @@
         <groupId>org.projectlombok</groupId>
         <artifactId>lombok</artifactId>
         <version>${lombok.version}</version>
-        <scope>provided</scope>
       </dependency>
 
       <dependency>

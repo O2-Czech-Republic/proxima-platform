@@ -1579,6 +1579,7 @@ public class ConfigRepository extends Repository {
     loadProxiedFamilies(false);
   }
 
+  @SuppressWarnings("unchecked")
   private void loadProxiedFamilies(boolean all) {
     Map<Pair<AttributeFamilyDescriptor, AttributeFamilyDescriptor>,
         List<AttributeProxyDescriptor<?>>> readWriteToAttr;
@@ -1603,7 +1604,7 @@ public class ConfigRepository extends Repository {
     // families (attributes stored in the same families will be
     // proxied with single family, which will enable efficient
     // reads of such attributes)
-    readWriteToAttr = dependencyOrdered
+    readWriteToAttr = (Map) dependencyOrdered
         .stream()
         .flatMap(p -> {
           AttributeDescriptor<?> writeTarget = p.getWriteTarget();

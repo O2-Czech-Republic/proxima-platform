@@ -62,7 +62,7 @@ public class BeamStreamProviderTest {
   @Test
   public void testInjectPathToClassloader() throws IOException {
     File f = File.createTempFile("dummy", ".tmp");
-    BeamStreamProvider.injectJarIntoContextClassLoader(f);
+    BeamStreamProvider.injectJarIntoContextClassLoader(f.toURI().toURL());
     // must not throw any exceptions
     assertTrue(true);
   }

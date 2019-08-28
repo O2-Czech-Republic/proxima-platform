@@ -34,17 +34,20 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -183,9 +186,9 @@ public abstract class BeamStreamProvider implements StreamProvider {
    * @return set of all UDFs
    */
   protected Set<String> listUdfClassNames() {
-    ToolsClassLoader loader = (ToolsClassLoader) Thread.currentThread()
-        .getContextClassLoader();
-    return loader.getDefinedClasses();
+    return Optional.ofNullable(getToolsClassLoader())
+        .map(ToolsClassLoader::getDefinedClasses)
+        .orElse(Collections.emptySet());
   }
 
   Factory<Pipeline> getJarRegisteringPipelineFactory() {
@@ -214,19 +217,13 @@ public abstract class BeamStreamProvider implements StreamProvider {
     String runnerName = opts.getRunner().getSimpleName();
     try {
       File path = createJarFromUdfs();
+      URL url = new URL("file://" + path.getAbsolutePath());
       log.info("Injecting generated jar at {} into {}", path, runnerName);
-      switch (runnerName) {
-        case "DirectRunner":
-          // nop
-          break;
-        case "FlinkRunner":
-          injectJarIntoContextClassLoader(path);
-          break;
-        case "SparkRunner":
-          throw new UnsupportedOperationException("Spark unsupported for now.");
-        default:
-          throw new IllegalStateException(
-              "Don't know how to inject jar into " + runnerName);
+      injectJarIntoContextClassLoader(url);
+      if (opts.getRunner().getClassLoader() instanceof URLClassLoader) {
+        // this is fallback
+        injectUrlIntoClassloader(
+            (URLClassLoader) opts.getRunner().getClassLoader(), url);
       }
     } catch (IOException ex) {
       throw new RuntimeException(ex);
@@ -235,12 +232,11 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
   private File createJarFromUdfs() throws IOException {
     Set<String> classes = listUdfClassNames();
-    ToolsClassLoader loader = (ToolsClassLoader) Thread
-        .currentThread().getContextClassLoader();
+    File out = File.createTempFile("proxima-tools", ".jar");
+    ToolsClassLoader loader = getToolsClassLoader();
     log.info(
         "Building jar from classes {} retrieved from {}",
         classes, loader);
-    File out = File.createTempFile("proxima-tools", ".jar");
 
     out.deleteOnExit();
     try (JarOutputStream output = new JarOutputStream(new FileOutputStream(out))) {
@@ -258,16 +254,29 @@ public abstract class BeamStreamProvider implements StreamProvider {
     return out;
   }
 
-  // this is hackish, but we need to inject the jar into ClassLoader
-  // that loaded the runner class
   @VisibleForTesting
-  static void injectJarIntoContextClassLoader(File path)
-      throws MalformedURLException {
-
+  static void injectJarIntoContextClassLoader(URL url) {
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    URL url = new URL("file://" + path.getAbsolutePath());
     Thread.currentThread().setContextClassLoader(
         new URLClassLoader(new URL[] { url }, loader));
+  }
+
+  private void injectUrlIntoClassloader(URLClassLoader loader, URL url) {
+    try {
+      Method addUrl = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
+      addUrl.setAccessible(true);
+      addUrl.invoke(loader, url);
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
+  }
+
+  private @Nullable ToolsClassLoader getToolsClassLoader() {
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+    while (loader != null && !(loader instanceof ToolsClassLoader)) {
+      loader = loader.getParent();
+    }
+    return (ToolsClassLoader) loader;
   }
 
 }

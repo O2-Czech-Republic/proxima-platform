@@ -75,6 +75,7 @@ public class DirectAttributeFamilyProxyDescriptor
     private final Map<String, List<AttributeProxyDescriptor<?>>> readNameToDesc;
     private final String familyName;
 
+    @SuppressWarnings("unchecked")
     AttrLookup(
         AttributeFamilyProxyDescriptor proxy) {
 
@@ -87,7 +88,7 @@ public class DirectAttributeFamilyProxyDescriptor
       proxyNameToDesc = attrs
           .stream()
           .collect(Collectors.toMap(AttributeDescriptor::getName, Function.identity()));
-      readNameToDesc = attrs
+      readNameToDesc = (Map) attrs
           .stream()
           .map(a -> Pair.of(a.getReadTarget().getName(), a))
           .collect(Collectors.groupingBy(

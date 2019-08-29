@@ -32,7 +32,7 @@ public class CachedPCollectionProvider<T> implements PCollectionProvider<T> {
   }
 
   @Override
-  public PCollection materialize(Pipeline pipeline) {
+  public PCollection<T> materialize(Pipeline pipeline) {
     if (materialized == null || materialized.getPipeline() != pipeline) {
       materialized = underlying.materialize(pipeline);
     }

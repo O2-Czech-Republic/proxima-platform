@@ -72,7 +72,7 @@
 
   <properties>
     <maven.shade.version>3.2.1</maven.shade.version>
-    <hbase.version>1.3.1</hbase.version>
+    <hbase.version>1.4.10</hbase.version>
     <kafka.version>1.1.0</kafka.version>
     <proto.version>3.7.0</proto.version>
     <protoc.version>3.7.1</protoc.version>
@@ -84,15 +84,15 @@
     <argLine></argLine>
     <surefire.forkCount>8</surefire.forkCount>
     <!-- sonar config -->
-    <jacoco.version>0.8.1</jacoco.version>
+    <jacoco.version>0.8.4</jacoco.version>
     <sonar.jacoco.reportPaths>${project.basedir}/../target/jacoco.exec</sonar.jacoco.reportPaths>
     <sonar.organization>datadriven</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <!-- checkstyle config -->
     <checkstyle.config.location>checkstyle.xml</checkstyle.config.location>
-    <spotbugs.version>3.1.8</spotbugs.version>
+    <error-prone.version>2.3.3</error-prone.version>
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
-    <lombok.version>1.18.4</lombok.version>
+    <lombok.version>1.18.8</lombok.version>
   </properties>
 
   <profiles>
@@ -207,6 +207,32 @@
         <surefire.forkCount>1</surefire.forkCount>
       </properties>
     </profile>
+
+    <profile>
+      <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
+      <id>jdk8</id>
+      <activation>
+        <jdk>1.8</jdk>
+      </activation>
+      <properties>
+        <javac.version>9+181-r4173-1</javac.version>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <fork>true</fork>
+              <compilerArgs combine.children="append">
+                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${javac.version}/javac-${javac.version}.jar</arg>
+              </compilerArgs>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
   </profiles>
 
   <build>
@@ -220,23 +246,40 @@
     </extensions>
 
     <plugins>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.6.0</version>
+        <version>3.8.0</version>
         <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
+          <source>8</source>
+          <target>8</target>
+          <forceJavacCompilerUse>true</forceJavacCompilerUse>
           <compilerArgs>
+            <arg>-XDcompilePolicy=simple</arg>
+            <!-- workaround of https://github.com/google/error-prone/issues/1321 -->
+            <arg>-Xplugin:ErrorProne -Xep:ParameterName:OFF -Xep:UnusedVariable:OFF</arg>
             <arg>-Xlint:all</arg>
           </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>com.google.errorprone</groupId>
+              <artifactId>error_prone_core</artifactId>
+              <version>${error-prone.version}</version>
+            </path>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
       </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.22.1</version>
+        <version>2.22.2</version>
         <configuration>
           <forkCount>${surefire.forkCount}</forkCount>
           <reuseForks>false</reuseForks>
@@ -246,35 +289,6 @@
           <useManifestOnlyJar>false</useManifestOnlyJar>
           <argLine>@{argLine} -Xmx500m -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true</argLine>
         </configuration>
-      </plugin>
-
-      <!-- static analysis of the code using SpotBugs -->
-      <plugin>
-        <groupId>com.github.spotbugs</groupId>
-        <artifactId>spotbugs-maven-plugin</artifactId>
-        <version>3.1.7</version>
-        <dependencies>
-          <dependency>
-            <groupId>com.github.spotbugs</groupId>
-            <artifactId>spotbugs</artifactId>
-            <version>${spotbugs.version}</version>
-          </dependency>
-        </dependencies>
-        <configuration>
-          <effort>max</effort>
-          <!-- check only for 'troubling' bugs and worse -->
-          <maxRank>14</maxRank>
-          <xmlOutput>false</xmlOutput>
-          <includeTests>true</includeTests>
-        </configuration>
-        <executions>
-          <execution>
-            <phase>verify</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
 
       <!-- help managing license headers -->
@@ -322,7 +336,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>2.10.3</version>
+        <version>3.1.1</version>
         <executions>
           <execution>
             <id>attach-javadocs</id>
@@ -369,7 +383,6 @@
         <groupId>org.projectlombok</groupId>
         <artifactId>lombok</artifactId>
         <version>${lombok.version}</version>
-        <scope>provided</scope>
       </dependency>
 
       <dependency>

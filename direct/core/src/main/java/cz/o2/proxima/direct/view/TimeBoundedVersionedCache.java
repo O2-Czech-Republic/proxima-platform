@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.util.Pair;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,9 +44,7 @@ class TimeBoundedVersionedCache implements Serializable {
 
   private final long keepDuration;
 
-  @SuppressFBWarnings("SE_BAD_FIELD")
-  private final Map<String, NavigableMap<
-      String, NavigableMap<Long, Payload>>> cache;
+  private final Map<String, NavigableMap<String, NavigableMap<Long, Payload>>> cache;
 
   TimeBoundedVersionedCache(long keepDuration) {
     this.keepDuration = keepDuration;

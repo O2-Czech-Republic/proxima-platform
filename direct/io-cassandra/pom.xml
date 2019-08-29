@@ -81,6 +81,11 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-core</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-direct-core</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -123,6 +128,7 @@
       <version>1.10</version>
       <type>jar</type>
     </dependency>
+
   </dependencies>
 
 </project>

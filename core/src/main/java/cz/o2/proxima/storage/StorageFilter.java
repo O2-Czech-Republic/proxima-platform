@@ -26,7 +26,7 @@ import java.util.List;
 public interface StorageFilter extends Serializable {
 
   /** Filter consisting of several filters with applied function. */
-  abstract class CompoundFilter implements StorageFilter {
+  public abstract class CompoundFilter implements StorageFilter {
 
     protected final List<StorageFilter> filters = new ArrayList<>();
 
@@ -36,7 +36,7 @@ public interface StorageFilter extends Serializable {
   }
 
   /** Filter performing logical OR of several filters. */
-  class OrFilter extends CompoundFilter {
+  public class OrFilter extends CompoundFilter {
 
     protected OrFilter(List<StorageFilter> filters) {
       super(filters);
@@ -49,7 +49,7 @@ public interface StorageFilter extends Serializable {
   }
 
   /** Filter performing logical AND of several filters. */
-  class AndFilter extends CompoundFilter {
+  public class AndFilter extends CompoundFilter {
 
     protected AndFilter(List<StorageFilter> filters) {
       super(filters);

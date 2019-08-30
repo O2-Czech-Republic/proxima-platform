@@ -16,6 +16,7 @@
 package cz.o2.proxima.server;
 
 import com.google.common.collect.Sets;
+import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.AbstractRetryableLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
@@ -26,6 +27,7 @@ import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.server.metrics.Metrics;
@@ -34,6 +36,8 @@ import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.Pair;
+
+import java.io.File;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -55,6 +59,23 @@ import net.jodah.failsafe.RetryPolicy;
 /** Server that controls replications of primary commit logs to replica attribute families. */
 @Slf4j
 public class ReplicationController {
+
+  /**
+   * Run the controller.
+   * @param args command line arguments
+   * @throws Throwable on error
+   */
+  public static void main(String[] args) throws Throwable {
+    final Repository repo;
+    if (args.length == 0) {
+      repo = ConfigRepository.of(() -> ConfigFactory.load().resolve());
+    } else {
+      repo = ConfigRepository.of(() -> ConfigFactory.parseFile(
+          new File(args[0])).resolve());
+    }
+    ReplicationController.of(repo).runReplicationThreads().get();
+  }
+
 
   /**
    * Constructs a new {@link ReplicationController}.

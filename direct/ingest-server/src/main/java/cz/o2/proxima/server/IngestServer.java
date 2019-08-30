@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -193,7 +194,6 @@ public class IngestServer {
                   log.info("Gracefully shuting down server.");
                   server.shutdown();
                 }));
-    runReplications();
 
     Metrics.register();
     try {
@@ -206,6 +206,7 @@ public class IngestServer {
     }
   }
 
+  @VisibleForTesting
   void runReplications() {
     final ReplicationController replicationController = ReplicationController.of(repo);
     replicationController

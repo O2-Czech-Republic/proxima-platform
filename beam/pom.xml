@@ -35,6 +35,7 @@
 
   <properties>
     <apache.beam.version>2.12.0</apache.beam.version>
+    <apache.flink.version>1.8.1</apache.flink.version>
   </properties>
 
   <dependencyManagement>
@@ -113,6 +114,42 @@
         <artifactId>beam-runners-flink-1.7</artifactId>
         <version>${apache.beam.version}</version>
       </dependency> 
+
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-clients_2.11</artifactId>
+        <version>${apache.flink.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-core</artifactId>
+        <version>${apache.flink.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-runtime_2.11</artifactId>
+        <version>${apache.flink.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-metrics-core</artifactId>
+        <version>${apache.flink.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-java</artifactId>
+        <version>${apache.flink.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.flink</groupId>
+        <artifactId>flink-streamin-java_2.11</artifactId>
+        <version>${apache.flink.version}</version>
+      </dependency>
 
       <dependency>
         <groupId>org.projectlombok</groupId>

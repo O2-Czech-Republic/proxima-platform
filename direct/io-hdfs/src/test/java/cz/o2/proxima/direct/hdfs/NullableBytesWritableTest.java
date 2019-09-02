@@ -15,25 +15,22 @@
  */
 package cz.o2.proxima.direct.hdfs;
 
-import cz.o2.proxima.direct.hdfs.TimestampedNullableBytesWritable;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.io.WritableUtils;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertNull;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.io.WritableUtils;
 import org.junit.Test;
 
-/**
- * Create tests for {@code NullableBytesWritable}.
- */
+/** Create tests for {@code NullableBytesWritable}. */
 public class NullableBytesWritableTest {
-
 
   @Test
   public void testWriteAndReadRegular() throws Exception {
     TimestampedNullableBytesWritable w = new TimestampedNullableBytesWritable();
-    w.setValue(new byte[] { 1, 2, 3});
+    w.setValue(new byte[] {1, 2, 3});
     TimestampedNullableBytesWritable cloned = WritableUtils.clone(w, new Configuration());
-    assertArrayEquals(cloned.getValue(), new byte[] { 1, 2, 3 });
+    assertArrayEquals(cloned.getValue(), new byte[] {1, 2, 3});
   }
 
   @Test
@@ -42,6 +39,4 @@ public class NullableBytesWritableTest {
     TimestampedNullableBytesWritable cloned = WritableUtils.clone(w, new Configuration());
     assertNull(cloned.getValue());
   }
-
-
 }

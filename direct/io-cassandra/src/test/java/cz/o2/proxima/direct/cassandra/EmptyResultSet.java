@@ -29,9 +29,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-/**
- * A result set with no data.
- */
+/** A result set with no data. */
 public class EmptyResultSet implements ResultSet {
 
   @Override
@@ -65,7 +63,6 @@ public class EmptyResultSet implements ResultSet {
     return 0;
   }
 
-  
   @Override
   public ListenableFuture<ResultSet> fetchMoreResults() {
     return new ListenableFuture<ResultSet>() {
@@ -100,7 +97,6 @@ public class EmptyResultSet implements ResultSet {
           throws InterruptedException, ExecutionException, TimeoutException {
         return new EmptyResultSet();
       }
-
     };
   }
 
@@ -124,5 +120,4 @@ public class EmptyResultSet implements ResultSet {
   public List<ExecutionInfo> getAllExecutionInfo() {
     return Collections.emptyList();
   }
-
 }

@@ -15,16 +15,15 @@
  */
 package cz.o2.proxima.direct.pubsub;
 
+import static org.mockito.Mockito.*;
+
 import com.google.api.core.ApiFuture;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.pubsub.v1.PubsubMessage;
 import java.util.Objects;
 import java.util.function.Consumer;
-import static org.mockito.Mockito.*;
 
-/**
- * A mock {@link Publisher}.
- */
+/** A mock {@link Publisher}. */
 class MockPublisher {
 
   static Publisher create(String project, String topic, Consumer<PubsubMessage> writer) {
@@ -32,18 +31,23 @@ class MockPublisher {
     Objects.requireNonNull(topic);
     Objects.requireNonNull(writer);
     Publisher ret = mock(Publisher.class);
-    doAnswer(invocation -> {
-      writer.accept(invocation.getArgumentAt(0, PubsubMessage.class));
-      ApiFuture future = mock(ApiFuture.class);
-      when(future.isDone()).thenReturn(true);
-      when(future.isCancelled()).thenReturn(false);
-      doAnswer(i -> {
-        i.getArgumentAt(0, Runnable.class).run();
-        return null;
-      }).when(future).addListener(any(), any());
-      return future;
-    }).when(ret).publish(any());
+    doAnswer(
+            invocation -> {
+              writer.accept(invocation.getArgumentAt(0, PubsubMessage.class));
+              ApiFuture future = mock(ApiFuture.class);
+              when(future.isDone()).thenReturn(true);
+              when(future.isCancelled()).thenReturn(false);
+              doAnswer(
+                      i -> {
+                        i.getArgumentAt(0, Runnable.class).run();
+                        return null;
+                      })
+                  .when(future)
+                  .addListener(any(), any());
+              return future;
+            })
+        .when(ret)
+        .publish(any());
     return ret;
   }
-
 }

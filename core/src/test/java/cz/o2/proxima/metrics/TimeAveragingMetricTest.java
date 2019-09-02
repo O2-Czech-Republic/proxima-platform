@@ -15,13 +15,12 @@
  */
 package cz.o2.proxima.metrics;
 
-import org.junit.Before;
-import org.junit.Test;
 import static org.junit.Assert.*;
 
-/**
- * Test {@code TimeAveragingMetric}.
- */
+import org.junit.Before;
+import org.junit.Test;
+
+/** Test {@code TimeAveragingMetric}. */
 public class TimeAveragingMetricTest {
 
   private TimeAveragingMetric metric;
@@ -60,5 +59,4 @@ public class TimeAveragingMetricTest {
       }
     }
   }
-
 }

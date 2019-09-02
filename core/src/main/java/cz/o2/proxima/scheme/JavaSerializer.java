@@ -17,8 +17,6 @@ package cz.o2.proxima.scheme;
 
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.util.Classpath;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -31,14 +29,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Value serializer for java classes.
  *
- * Class must implements ${@link Serializable} interface.
- * Examples:
- *  scheme: "java:cz.o2.proxima.model.Event"
- *  scheme: "java:String"
+ * <p>Class must implements ${@link Serializable} interface. Examples: scheme:
+ * "java:cz.o2.proxima.model.Event" scheme: "java:String"
  */
 @Slf4j
 @Stable
@@ -54,19 +51,18 @@ public class JavaSerializer implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
-    return (ValueSerializer<T>)
-        cache.computeIfAbsent(specifier, JavaSerializer::createSerializer);
+    return (ValueSerializer<T>) cache.computeIfAbsent(specifier, JavaSerializer::createSerializer);
   }
 
   private static <T> ValueSerializer<T> createSerializer(URI scheme) {
-    log.warn("Using JavaSerializer for URI {}. This can result in low performance, "
-        + "please use with caution.", scheme);
+    log.warn(
+        "Using JavaSerializer for URI {}. This can result in low performance, "
+            + "please use with caution.",
+        scheme);
     return new JavaValueSerializer<>(scheme);
   }
 
-  /**
-   * Serializer implementation
-   */
+  /** Serializer implementation */
   private static final class JavaValueSerializer<T> implements ValueSerializer<T> {
     private final URI scheme;
     private final String className;
@@ -83,9 +79,8 @@ public class JavaSerializer implements ValueSerializerFactory {
       if (input.length == 0) {
         return Optional.of(getDefault());
       }
-      try (
-          final ObjectInputStream inputStream = new ObjectInputStream(
-              new ByteArrayInputStream(input))) {
+      try (final ObjectInputStream inputStream =
+          new ObjectInputStream(new ByteArrayInputStream(input))) {
 
         return Optional.of((T) inputStream.readObject());
       } catch (IOException | ClassNotFoundException e) {
@@ -96,8 +91,7 @@ public class JavaSerializer implements ValueSerializerFactory {
 
     @Override
     public byte[] serialize(T value) {
-      try (
-          final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
           final ObjectOutputStream oos = new ObjectOutputStream(baos)) {
 
         oos.writeObject(value);
@@ -114,8 +108,7 @@ public class JavaSerializer implements ValueSerializerFactory {
       if (defaultValue == null) {
         Class<T> clazz = findClass();
         if (clazz == null) {
-          throw new SerializationException(
-              "Unable to find class for scheme: " + scheme + ".");
+          throw new SerializationException("Unable to find class for scheme: " + scheme + ".");
         }
         defaultValue = Classpath.newInstance(clazz);
       }
@@ -128,18 +121,17 @@ public class JavaSerializer implements ValueSerializerFactory {
       try {
         clazz = (Class<T>) Classpath.findClass(className, Serializable.class);
       } catch (RuntimeException e) {
-        //This is a little bit dirty - noop
+        // This is a little bit dirty - noop
       }
       if (clazz == null) {
         for (String p : javaPackages) {
           try {
-            clazz = (Class<T>) Classpath
-                .findClass(p + "." + className, Serializable.class);
+            clazz = (Class<T>) Classpath.findClass(p + "." + className, Serializable.class);
             if (clazz != null) {
               break;
             }
           } catch (RuntimeException e) {
-            //This is a little bit dirty - noop
+            // This is a little bit dirty - noop
           }
         }
       }

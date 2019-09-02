@@ -22,26 +22,20 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.Map;
 
-/**
- * Storage via HTTP(S) requests.
- */
+/** Storage via HTTP(S) requests. */
 public class HttpStorage implements DataAccessorFactory {
 
   @Override
   public HttpAccessor createAccessor(
-      DirectDataOperator direct,
-      EntityDescriptor entityDesc,
-      URI uri,
-      Map<String, Object> cfg) {
+      DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     return new HttpAccessor(entityDesc, uri, cfg);
   }
 
   @Override
   public Accept accepts(URI uri) {
-    return Sets.newHashSet(
-        "http", "https", "ws", "wss", "opentsdb").contains(uri.getScheme())
-        ? Accept.ACCEPT : Accept.REJECT;
+    return Sets.newHashSet("http", "https", "ws", "wss", "opentsdb").contains(uri.getScheme())
+        ? Accept.ACCEPT
+        : Accept.REJECT;
   }
-
 }

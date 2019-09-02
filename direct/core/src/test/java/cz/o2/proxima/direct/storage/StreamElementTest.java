@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.direct.storage;
 
+import static org.junit.Assert.*;
+
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
@@ -24,42 +26,38 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
 import java.util.UUID;
-import static org.junit.Assert.*;
 import org.junit.Test;
 
-/**
- * Test suite for {@link StreamElement}.
- */
+/** Test suite for {@link StreamElement}. */
 public class StreamElementTest {
 
-  final Repository repo = ConfigRepository.Builder
-      .ofTest(ConfigFactory.empty())
-      .build();
+  final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.empty()).build();
   final AttributeDescriptorBase<byte[]> attr;
   final AttributeDescriptorBase<byte[]> attrWildcard;
   final EntityDescriptor entity;
 
   {
     try {
-      attr = AttributeDescriptor
-            .newBuilder(repo)
-            .setEntity("entity")
-            .setName("attr")
-            .setSchemeUri(new URI("bytes:///"))
-            .build();
+      attr =
+          AttributeDescriptor.newBuilder(repo)
+              .setEntity("entity")
+              .setName("attr")
+              .setSchemeUri(new URI("bytes:///"))
+              .build();
 
-      attrWildcard = AttributeDescriptor
-            .newBuilder(repo)
-            .setEntity("entity")
-            .setName("wildcard.*")
-            .setSchemeUri(new URI("bytes:///"))
-            .build();
+      attrWildcard =
+          AttributeDescriptor.newBuilder(repo)
+              .setEntity("entity")
+              .setName("wildcard.*")
+              .setSchemeUri(new URI("bytes:///"))
+              .build();
 
-      entity = EntityDescriptor.newBuilder()
-            .setName("entity")
-            .addAttribute(attr)
-            .addAttribute(attrWildcard)
-            .build();
+      entity =
+          EntityDescriptor.newBuilder()
+              .setName("entity")
+              .addAttribute(attr)
+              .addAttribute(attrWildcard)
+              .build();
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
@@ -68,16 +66,22 @@ public class StreamElementTest {
   @Test
   public void testUpdate() {
     long now = System.currentTimeMillis();
-    StreamElement update = StreamElement.update(
-        entity, attr, UUID.randomUUID().toString(),
-        "key", attr.getName(), now, new byte[] { 1, 2 });
+    StreamElement update =
+        StreamElement.update(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            attr.getName(),
+            now,
+            new byte[] {1, 2});
     assertFalse(update.isDelete());
     assertFalse(update.isDeleteWildcard());
     assertEquals("key", update.getKey());
     assertEquals(attr.getName(), update.getAttribute());
     assertEquals(attr, update.getAttributeDescriptor());
     assertEquals(entity, update.getEntityDescriptor());
-    assertArrayEquals(new byte[] { 1, 2 }, update.getValue());
+    assertArrayEquals(new byte[] {1, 2}, update.getValue());
     assertEquals(now, update.getStamp());
     assertTrue(update.getParsed().isPresent());
   }
@@ -85,9 +89,9 @@ public class StreamElementTest {
   @Test
   public void testDelete() {
     long now = System.currentTimeMillis();
-    StreamElement delete = StreamElement.delete(
-        entity, attr, UUID.randomUUID().toString(),
-        "key", attr.getName(), now);
+    StreamElement delete =
+        StreamElement.delete(
+            entity, attr, UUID.randomUUID().toString(), "key", attr.getName(), now);
     assertTrue(delete.isDelete());
     assertFalse(delete.isDeleteWildcard());
     assertEquals("key", delete.getKey());
@@ -102,9 +106,9 @@ public class StreamElementTest {
   @Test
   public void testDeleteWildcard() {
     long now = System.currentTimeMillis();
-    StreamElement delete = StreamElement.deleteWildcard(
-        entity, attrWildcard, UUID.randomUUID().toString(),
-        "key", now);
+    StreamElement delete =
+        StreamElement.deleteWildcard(
+            entity, attrWildcard, UUID.randomUUID().toString(), "key", now);
     assertTrue(delete.isDelete());
     assertTrue(delete.isDeleteWildcard());
     assertEquals("key", delete.getKey());
@@ -115,5 +119,4 @@ public class StreamElementTest {
     assertEquals(now, delete.getStamp());
     assertFalse(delete.getParsed().isPresent());
   }
-
 }

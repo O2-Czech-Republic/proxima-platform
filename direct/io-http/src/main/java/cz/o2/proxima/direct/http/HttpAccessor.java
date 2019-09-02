@@ -26,15 +26,12 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Accessor for HTTP(s) and websocket URLs.
- */
+/** Accessor for HTTP(s) and websocket URLs. */
 public class HttpAccessor extends AbstractStorage implements DataAccessor {
 
   final Map<String, Object> cfg;
 
-  public HttpAccessor(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public HttpAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     super(entityDesc, uri);
     this.cfg = cfg;
@@ -58,7 +55,4 @@ public class HttpAccessor extends AbstractStorage implements DataAccessor {
     }
     return Optional.empty();
   }
-
-
-
 }

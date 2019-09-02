@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.client;
 
+import static org.junit.Assert.assertEquals;
+
 import com.google.protobuf.ByteString;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.Rpc;
@@ -23,19 +25,14 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.stub.StreamObserver;
 import io.grpc.util.MutableHandlerRegistry;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-
-import static org.junit.Assert.assertEquals;
-
-/**
- * Test for {@link IngestClient} for retrieving data.
- */
+/** Test for {@link IngestClient} for retrieving data. */
 public class RetrieveServiceTest {
 
   private final String host = "localhost";
@@ -49,8 +46,12 @@ public class RetrieveServiceTest {
 
   @Before
   public void setup() throws IOException {
-    fakeServer = InProcessServerBuilder.forName(serverName)
-        .fallbackHandlerRegistry(serviceRegistry).directExecutor().build().start();
+    fakeServer =
+        InProcessServerBuilder.forName(serverName)
+            .fallbackHandlerRegistry(serviceRegistry)
+            .directExecutor()
+            .build()
+            .start();
   }
 
   @After
@@ -62,12 +63,13 @@ public class RetrieveServiceTest {
   public void testSynchronousValidGet() {
     mockRetrieveService(
         Collections.singletonList(Rpc.GetResponse.newBuilder().setStatus(200).build()));
-    Rpc.GetResponse response = client.get(Rpc.GetRequest.newBuilder()
-        .setEntity("gateway")
-        .setKey("gw1")
-        .setAttribute("armed")
-        .build()
-    );
+    Rpc.GetResponse response =
+        client.get(
+            Rpc.GetRequest.newBuilder()
+                .setEntity("gateway")
+                .setKey("gw1")
+                .setAttribute("armed")
+                .build());
     assertEquals(200, response.getStatus());
   }
 
@@ -84,29 +86,26 @@ public class RetrieveServiceTest {
     mockRetrieveService(
         Collections.singletonList(Rpc.GetResponse.newBuilder().setStatus(400).build()));
 
-    Rpc.GetResponse response = client.get(Rpc.GetRequest.newBuilder()
-        .setKey("gw1")
-        .setAttribute("armed")
-        .build()
-    );
+    Rpc.GetResponse response =
+        client.get(Rpc.GetRequest.newBuilder().setKey("gw1").setAttribute("armed").build());
     assertEquals(400, response.getStatus());
   }
 
   @Test
   public void testListAttributes() {
-    mockRetrieveService(Collections.singletonList(
-        Rpc.ListResponse.newBuilder().setStatus(200).addValue(
-            Rpc.ListResponse.AttrValue.newBuilder()
-                .setAttribute("armed")
-                .setValue(ByteString.EMPTY)
-                .build()
-        ).build()
-    ));
-    Rpc.ListResponse response = client.listAttributes(Rpc.ListRequest.newBuilder()
-        .setEntity("gateway")
-        .setKey("gw1")
-        .build()
-    );
+    mockRetrieveService(
+        Collections.singletonList(
+            Rpc.ListResponse.newBuilder()
+                .setStatus(200)
+                .addValue(
+                    Rpc.ListResponse.AttrValue.newBuilder()
+                        .setAttribute("armed")
+                        .setValue(ByteString.EMPTY)
+                        .build())
+                .build()));
+    Rpc.ListResponse response =
+        client.listAttributes(
+            Rpc.ListRequest.newBuilder().setEntity("gateway").setKey("gw1").build());
     assertEquals(200, response.getStatus());
     assertEquals(1, response.getValueCount());
     Rpc.ListResponse.AttrValue value = response.getValue(0);
@@ -115,14 +114,16 @@ public class RetrieveServiceTest {
 
   @Test
   public void testSimpleListAttributes() {
-    mockRetrieveService(Collections.singletonList(
-        Rpc.ListResponse.newBuilder().setStatus(200).addValue(
-            Rpc.ListResponse.AttrValue.newBuilder()
-                .setAttribute("armed")
-                .setValue(ByteString.EMPTY)
-                .build()
-        ).build()
-    ));
+    mockRetrieveService(
+        Collections.singletonList(
+            Rpc.ListResponse.newBuilder()
+                .setStatus(200)
+                .addValue(
+                    Rpc.ListResponse.AttrValue.newBuilder()
+                        .setAttribute("armed")
+                        .setValue(ByteString.EMPTY)
+                        .build())
+                .build()));
     Rpc.ListResponse response = client.listAttributes("gateway", "gw1");
     assertEquals(200, response.getStatus());
     assertEquals(1, response.getValueCount());
@@ -132,13 +133,10 @@ public class RetrieveServiceTest {
 
   @Test
   public void testListAttributesInvalidRequest() {
-    mockRetrieveService(Collections.singletonList(
-        Rpc.ListResponse.newBuilder().setStatus(400).build()
-    ));
-    Rpc.ListResponse response = client.listAttributes(Rpc.ListRequest.newBuilder()
-        .setEntity("gateway")
-        .build()
-    );
+    mockRetrieveService(
+        Collections.singletonList(Rpc.ListResponse.newBuilder().setStatus(400).build()));
+    Rpc.ListResponse response =
+        client.listAttributes(Rpc.ListRequest.newBuilder().setEntity("gateway").build());
     assertEquals(400, response.getStatus());
   }
 
@@ -146,15 +144,15 @@ public class RetrieveServiceTest {
     RetrieveServiceGrpc.RetrieveServiceImplBase fakeRetrieveServiceIml =
         new RetrieveServiceGrpc.RetrieveServiceImplBase() {
           @Override
-          public void get(Rpc.GetRequest request,
-                          StreamObserver<Rpc.GetResponse> responseObserver) {
+          public void get(
+              Rpc.GetRequest request, StreamObserver<Rpc.GetResponse> responseObserver) {
             responses.forEach(r -> responseObserver.onNext((Rpc.GetResponse) r));
             responseObserver.onCompleted();
           }
 
           @Override
-          public void listAttributes(Rpc.ListRequest request,
-                                     StreamObserver<Rpc.ListResponse> responseObserver) {
+          public void listAttributes(
+              Rpc.ListRequest request, StreamObserver<Rpc.ListResponse> responseObserver) {
 
             responses.forEach(r -> responseObserver.onNext((Rpc.ListResponse) r));
             responseObserver.onCompleted();
@@ -168,12 +166,9 @@ public class RetrieveServiceTest {
 
       @Override
       void createChannelAndStub() {
-        this.channel = InProcessChannelBuilder.forName(serverName).directExecutor()
-            .build();
+        this.channel = InProcessChannelBuilder.forName(serverName).directExecutor().build();
         this.retrieveStub = RetrieveServiceGrpc.newBlockingStub(this.channel);
       }
-
     };
-
   }
 }

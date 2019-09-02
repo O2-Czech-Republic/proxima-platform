@@ -15,18 +15,15 @@
  */
 package cz.o2.proxima.direct.hbase;
 
+import static org.junit.Assert.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HConstants;
 import org.junit.Test;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-
-import static org.junit.Assert.*;
-
-/**
- * Tests for {@link Util}.
- */
+/** Tests for {@link Util}. */
 public class UtilTest {
   @Test
   public void testParseValidUri() throws URISyntaxException {
@@ -35,8 +32,8 @@ public class UtilTest {
     assertEquals("f", new String(Util.getFamily(uri)));
     Configuration conf = Util.getConf(uri);
     assertEquals("localhost:2181", conf.get(HConstants.ZOOKEEPER_QUORUM));
-    assertEquals(HConstants.DEFAULT_ZOOKEEPER_ZNODE_PARENT,
-        conf.get(HConstants.ZOOKEEPER_ZNODE_PARENT));
+    assertEquals(
+        HConstants.DEFAULT_ZOOKEEPER_ZNODE_PARENT, conf.get(HConstants.ZOOKEEPER_ZNODE_PARENT));
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -64,9 +61,7 @@ public class UtilTest {
     assertEquals("f", new String(Util.getFamily(uri)));
     conf = Util.getConf(uri);
     assertEquals("localhost:2181", conf.get(HConstants.ZOOKEEPER_QUORUM));
-    assertEquals(
-        "hbase-secure/my/zookeeper", conf.get(HConstants.ZOOKEEPER_ZNODE_PARENT));
-
+    assertEquals("hbase-secure/my/zookeeper", conf.get(HConstants.ZOOKEEPER_ZNODE_PARENT));
   }
 
   @Test
@@ -78,6 +73,6 @@ public class UtilTest {
 
   @Test(expected = ArrayIndexOutOfBoundsException.class)
   public void testCloneArrayOutOfBound() {
-    Util.cloneArray(new byte[] { 1, 2, 3}, 0, 10);
+    Util.cloneArray(new byte[] {1, 2, 3}, 0, 10);
   }
 }

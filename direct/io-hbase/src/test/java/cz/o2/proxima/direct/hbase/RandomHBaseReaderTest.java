@@ -15,7 +15,12 @@
  */
 package cz.o2.proxima.direct.hbase;
 
+import static cz.o2.proxima.direct.hbase.HbaseTestUtil.bytes;
+import static org.junit.Assert.*;
+
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -36,27 +41,23 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Table;
 import org.junit.After;
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
-import static cz.o2.proxima.direct.hbase.HbaseTestUtil.bytes;
-import cz.o2.proxima.direct.randomaccess.KeyValue;
-import cz.o2.proxima.direct.randomaccess.RandomOffset;
 
-/**
- * Testing suite for {@link RandomHBaseReader}.
- */
+/** Testing suite for {@link RandomHBaseReader}. */
 public class RandomHBaseReaderTest {
 
-  private final Repository repo = ConfigRepository.Builder.ofTest(
-      ConfigFactory.load()).build();
+  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.load()).build();
   private final EntityDescriptor entity = repo.findEntity("test").get();
+
   @SuppressWarnings("unchecked")
-  private final AttributeDescriptor<byte[]> attr = (AttributeDescriptor) entity
-      .findAttribute("dummy").get();
+  private final AttributeDescriptor<byte[]> attr =
+      (AttributeDescriptor) entity.findAttribute("dummy").get();
+
   @SuppressWarnings("unchecked")
-  private final AttributeDescriptor<byte[]> wildcard = (AttributeDescriptor) entity
-      .findAttribute("wildcard.*").get();
+  private final AttributeDescriptor<byte[]> wildcard =
+      (AttributeDescriptor) entity.findAttribute("wildcard.*").get();
+
   private final TableName tableName = TableName.valueOf("test");
 
   private HBaseTestingUtility util;
@@ -73,11 +74,12 @@ public class RandomHBaseReaderTest {
     conn = ConnectionFactory.createConnection(util.getConfiguration());
     client = conn.getTable(tableName);
 
-    reader = new RandomHBaseReader(
-        new URI("hbase://localhost:2181/test?family=u"),
-        cluster.getConfiguration(),
-        Collections.emptyMap(),
-        entity);
+    reader =
+        new RandomHBaseReader(
+            new URI("hbase://localhost:2181/test?family=u"),
+            cluster.getConfiguration(),
+            Collections.emptyMap(),
+            entity);
   }
 
   @After
@@ -143,18 +145,18 @@ public class RandomHBaseReaderTest {
     // check the attributes, including ordering
     assertEquals(
         Arrays.asList(
-            "wildcard.0", "wildcard.1", "wildcard.12",
-            "wildcard.123", "wildcard.1234", "wildcard.12345"),
+            "wildcard.0",
+            "wildcard.1",
+            "wildcard.12",
+            "wildcard.123",
+            "wildcard.1234",
+            "wildcard.12345"),
         res.stream().map(KeyValue::getAttribute).collect(Collectors.toList()));
 
     // check values
     assertEquals(
-        Arrays.asList(
-            "value6", "value5", "value4",
-            "value3", "value2", "value1"),
-        res.stream()
-            .map(k -> new String(k.getValueBytes()))
-            .collect(Collectors.toList()));
+        Arrays.asList("value6", "value5", "value4", "value3", "value2", "value1"),
+        res.stream().map(k -> new String(k.getValueBytes())).collect(Collectors.toList()));
 
     res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts >= now));
     res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts < now + 10));
@@ -197,16 +199,12 @@ public class RandomHBaseReaderTest {
 
     // check the attributes, including ordering
     assertEquals(
-        Arrays.asList(
-            "value5", "value4", "value3"),
-        res.stream()
-            .map(k -> new String(k.getValueBytes()))
-            .collect(Collectors.toList()));
+        Arrays.asList("value5", "value4", "value3"),
+        res.stream().map(k -> new String(k.getValueBytes())).collect(Collectors.toList()));
 
     // check values
     assertEquals(
-        Arrays.asList(
-            "wildcard.1", "wildcard.12", "wildcard.123"),
+        Arrays.asList("wildcard.1", "wildcard.12", "wildcard.123"),
         res.stream().map(KeyValue::getAttribute).collect(Collectors.toList()));
 
     res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts >= now));
@@ -241,11 +239,8 @@ public class RandomHBaseReaderTest {
     assertEquals("key1", keys.get(0).getSecond());
   }
 
-  void write(
-      String key, String attribute, String value,
-      long stamp) throws IOException {
+  void write(String key, String attribute, String value, long stamp) throws IOException {
 
     HbaseTestUtil.write(key, attribute, value, stamp, client);
   }
-
 }

@@ -18,10 +18,6 @@ package cz.o2.proxima.storage.internal;
 import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
 
-/**
- * Interface for all modules data accessors to extend.
- */
+/** Interface for all modules data accessors to extend. */
 @Internal
-public interface AbstractDataAccessor extends Serializable {
-
-}
+public interface AbstractDataAccessor extends Serializable {}

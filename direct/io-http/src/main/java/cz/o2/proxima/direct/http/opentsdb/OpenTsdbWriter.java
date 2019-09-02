@@ -22,23 +22,19 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.Map;
 
-/**
- * A {@link HttpWriter} specialized on opentsdb.
- */
+/** A {@link HttpWriter} specialized on opentsdb. */
 @Experimental("Missing production use-case")
 public class OpenTsdbWriter extends HttpWriter {
 
-  public OpenTsdbWriter(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public OpenTsdbWriter(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     super(entityDesc, uri, cfg);
   }
 
   @Override
-  protected ConnFactory getConnFactory(
-      Map<String, Object> cfg) throws InstantiationException, IllegalAccessException {
+  protected ConnFactory getConnFactory(Map<String, Object> cfg)
+      throws InstantiationException, IllegalAccessException {
 
     return new OpenTsdbConnectionFactory();
   }
-
 }

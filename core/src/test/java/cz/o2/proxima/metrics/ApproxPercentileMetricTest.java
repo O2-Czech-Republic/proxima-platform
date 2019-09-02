@@ -13,18 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/*
- */
 package cz.o2.proxima.metrics;
+
+import static org.junit.Assert.*;
 
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
-/**
- * Test for approximate percentile metric test.
- */
+/** Test for approximate percentile metric test. */
 public class ApproxPercentileMetricTest {
 
   private final Random random = new Random();
@@ -80,10 +77,7 @@ public class ApproxPercentileMetricTest {
       }
       TimeUnit.MILLISECONDS.sleep(100);
     }
-    assertEquals(
-        150.0,
-        m.getValue().get50(),
-        1.0);
+    assertEquals(150.0, m.getValue().get50(), 1.0);
   }
 
   @Test
@@ -92,5 +86,4 @@ public class ApproxPercentileMetricTest {
     m.increment(1.0);
     assertEquals(1.0, m.getValue().get50(), 0.001);
   }
-
 }

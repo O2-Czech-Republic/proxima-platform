@@ -33,13 +33,9 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * A {@link RandomAccessReader} for Cassandra.
- */
+/** A {@link RandomAccessReader} for Cassandra. */
 @Slf4j
-class CassandraRandomReader
-    extends AbstractStorage
-    implements RandomAccessReader {
+class CassandraRandomReader extends AbstractStorage implements RandomAccessReader {
 
   private final CassandraDBAccessor accessor;
 
@@ -50,14 +46,11 @@ class CassandraRandomReader
 
   @Override
   public synchronized <T> Optional<KeyValue<T>> get(
-      String key,
-      String attribute,
-      AttributeDescriptor<T> desc,
-      long stamp) {
+      String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
     Session session = accessor.ensureSession();
-    BoundStatement statement = accessor.getCqlFactory()
-        .getReadStatement(key, attribute, desc, session);
+    BoundStatement statement =
+        accessor.getCqlFactory().getReadStatement(key, attribute, desc, session);
     ResultSet result;
     try {
       result = accessor.execute(statement);
@@ -71,13 +64,14 @@ class CassandraRandomReader
         byte[] rowValue = val.array();
 
         try {
-          return Optional.of(KeyValue.of(
-              getEntityDescriptor(),
-              desc,
-              key,
-              attribute,
-              new Offsets.Raw(attribute),
-              rowValue));
+          return Optional.of(
+              KeyValue.of(
+                  getEntityDescriptor(),
+                  desc,
+                  key,
+                  attribute,
+                  new Offsets.Raw(attribute),
+                  rowValue));
         } catch (Exception ex) {
           log.warn("Failed to read data from {}.{}", key, attribute, ex);
         }
@@ -89,17 +83,12 @@ class CassandraRandomReader
 
   @Override
   public void scanWildcardAll(
-      String key,
-      RandomOffset offset,
-      long stamp,
-      int limit,
-      Consumer<KeyValue<?>> consumer) {
+      String key, RandomOffset offset, long stamp, int limit, Consumer<KeyValue<?>> consumer) {
 
     try {
       Offsets.Raw off = (Offsets.Raw) offset;
       Session session = accessor.ensureSession();
-      KvIterable<?> iter = accessor.getCqlFactory().getListAllStatement(
-          key, off, limit, session);
+      KvIterable<?> iter = accessor.getCqlFactory().getListAllStatement(key, off, limit, session);
       for (KeyValue<?> kv : iter.iterable(accessor)) {
         if (kv.getAttribute().compareTo(off.getRaw()) > 0) {
           if (limit-- == 0) {
@@ -112,7 +101,6 @@ class CassandraRandomReader
       log.error("Failed to scan attributes of {}", key, ex);
       throw new RuntimeException(ex);
     }
-
   }
 
   @Override
@@ -127,9 +115,10 @@ class CassandraRandomReader
 
     try {
       Session session = accessor.ensureSession();
-      BoundStatement statement = accessor.getCqlFactory().getListStatement(
-          key, wildcard,
-          (Offsets.Raw) offset, limit, session);
+      BoundStatement statement =
+          accessor
+              .getCqlFactory()
+              .getListStatement(key, wildcard, (Offsets.Raw) offset, limit, session);
 
       ResultSet result = accessor.execute(statement);
       // the row has to have format (attribute, value)
@@ -139,23 +128,23 @@ class CassandraRandomReader
         if (val != null) {
           byte[] rowValue = val.array();
           // by convention
-          String name = wildcard.toAttributePrefix() + accessor.getConverter().asString(
-              attribute);
+          String name = wildcard.toAttributePrefix() + accessor.getConverter().asString(attribute);
 
           Optional parsed = wildcard.getValueSerializer().deserialize(rowValue);
 
           if (parsed.isPresent()) {
-            consumer.accept((KeyValue) KeyValue.of(
-                getEntityDescriptor(),
-                (AttributeDescriptor) wildcard,
-                key,
-                name,
-                new Offsets.Raw(name),
-                parsed.get(),
-                rowValue));
+            consumer.accept(
+                (KeyValue)
+                    KeyValue.of(
+                        getEntityDescriptor(),
+                        (AttributeDescriptor) wildcard,
+                        key,
+                        name,
+                        new Offsets.Raw(name),
+                        parsed.get(),
+                        rowValue));
           } else {
-            log.error("Failed to parse value for key {} attribute {}.{}",
-                key, wildcard, attribute);
+            log.error("Failed to parse value for key {} attribute {}.{}", key, wildcard, attribute);
           }
         }
       }
@@ -163,27 +152,22 @@ class CassandraRandomReader
       log.error("Failed to scan wildcard attribute {}", wildcard, ex);
       throw new RuntimeException(ex);
     }
-
   }
 
   @Override
   public synchronized void listEntities(
-      RandomOffset offset,
-      int limit,
-      Consumer<Pair<RandomOffset, String>> consumer) {
+      RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
 
     Session session = accessor.ensureSession();
-    BoundStatement statement = accessor.getCqlFactory().getListEntitiesStatement(
-        (Offsets.Token) offset, limit, session);
+    BoundStatement statement =
+        accessor.getCqlFactory().getListEntitiesStatement((Offsets.Token) offset, limit, session);
 
     try {
       ResultSet result = accessor.execute(statement);
       for (Row row : result) {
         String key = row.getString(0);
         Token token = row.getToken(1);
-        consumer.accept(Pair.of(
-            new Offsets.Token((long) token.getValue()),
-            key));
+        consumer.accept(Pair.of(new Offsets.Token((long) token.getValue()), key));
       }
     } catch (Exception ex) {
       throw new RuntimeException(ex);
@@ -204,8 +188,8 @@ class CassandraRandomReader
 
         case ENTITY:
           Session session = accessor.ensureSession();
-          ResultSet res = accessor.execute(
-              accessor.getCqlFactory().getFetchTokenStatement(key, session));
+          ResultSet res =
+              accessor.execute(accessor.getCqlFactory().getFetchTokenStatement(key, session));
           if (res.isExhausted()) {
             return new Offsets.Token(Long.MIN_VALUE);
           }
@@ -217,7 +201,5 @@ class CassandraRandomReader
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
-
   }
-
 }

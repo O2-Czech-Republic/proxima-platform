@@ -24,9 +24,6 @@ import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.util.Classpath;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -36,10 +33,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * Scheme factory for `json-proto` scheme, which transforms json data
- * to same-scheme protobuf.
+ * Scheme factory for `json-proto` scheme, which transforms json data to same-scheme protobuf.
  * Fields from json not found in protobuf specification are ignored.
  */
 @Slf4j
@@ -56,8 +54,8 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
-    return (ValueSerializer) serializers.computeIfAbsent(
-        specifier, JsonProtoSerializerFactory::createSerializer);
+    return (ValueSerializer)
+        serializers.computeIfAbsent(specifier, JsonProtoSerializerFactory::createSerializer);
   }
 
   @SuppressWarnings("unchecked")
@@ -66,16 +64,13 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
     return new ValueSerializer() {
 
       final String protoClass = uri.getSchemeSpecificPart();
-      final boolean strictScheme = Optional
-          .ofNullable(UriUtil.parseQuery(uri).get("strictScheme"))
-          .map(Boolean::valueOf)
-          .orElse(false);
-      @Nullable
-      transient AbstractMessage defVal = null;
-      @Nullable
-      transient Method builder = null;
-      @Nullable
-      transient JsonFormat.Parser parser = null;
+      final boolean strictScheme =
+          Optional.ofNullable(UriUtil.parseQuery(uri).get("strictScheme"))
+              .map(Boolean::valueOf)
+              .orElse(false);
+      @Nullable transient AbstractMessage defVal = null;
+      @Nullable transient Method builder = null;
+      @Nullable transient JsonFormat.Parser parser = null;
 
       @Override
       public Optional deserialize(byte[] input) {
@@ -121,9 +116,7 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
 
       private synchronized JsonFormat.Parser parser() {
         if (parser == null) {
-          parser = strictScheme
-              ? JsonFormat.parser()
-              : JsonFormat.parser().ignoringUnknownFields();
+          parser = strictScheme ? JsonFormat.parser() : JsonFormat.parser().ignoringUnknownFields();
         }
         return parser;
       }
@@ -133,23 +126,19 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   static Method getBuilder(String protoClass) {
     try {
-      Class<? extends AbstractMessage> cls = Classpath.findClass(
-          protoClass, AbstractMessage.class);
+      Class<? extends AbstractMessage> cls = Classpath.findClass(protoClass, AbstractMessage.class);
       return cls.getMethod("newBuilder");
     } catch (Exception ex) {
-      throw new IllegalArgumentException(
-          "Cannot retrieve builder for type " + protoClass);
+      throw new IllegalArgumentException("Cannot retrieve builder for type " + protoClass);
     }
   }
 
   static AbstractMessage.Builder newBuilder(Method newBuilder) {
     try {
       return (AbstractMessage.Builder) newBuilder.invoke(null);
-    } catch (IllegalAccessException | IllegalArgumentException
-        | InvocationTargetException ex) {
+    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException ex) {
 
       throw new SerializationException(ex.getMessage(), ex);
     }
   }
-
 }

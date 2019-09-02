@@ -25,6 +25,7 @@ public class TestBeamStreamProvider extends BeamStreamProvider {
 
   /**
    * Create factory to be used for pipeline creation.
+   *
    * @return the factory
    */
   @Override
@@ -39,6 +40,4 @@ public class TestBeamStreamProvider extends BeamStreamProvider {
       return ret;
     };
   }
-
-
 }

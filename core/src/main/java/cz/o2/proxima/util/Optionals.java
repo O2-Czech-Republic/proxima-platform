@@ -20,12 +20,10 @@ import java.util.Optional;
 public class Optionals {
 
   public static <T> T get(Optional<T> optional) {
-    return optional.orElseThrow(() ->
-        new IllegalArgumentException("Provided optional is empty."));
+    return optional.orElseThrow(() -> new IllegalArgumentException("Provided optional is empty."));
   }
 
   private Optionals() {
     // nop
   }
-
 }

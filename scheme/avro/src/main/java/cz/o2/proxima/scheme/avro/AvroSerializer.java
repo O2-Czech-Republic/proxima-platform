@@ -15,7 +15,9 @@
  */
 package cz.o2.proxima.scheme.avro;
 
-
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericContainer;
 import org.apache.avro.io.BinaryEncoder;
@@ -24,13 +26,8 @@ import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.specific.SpecificDatumReader;
 import org.apache.avro.specific.SpecificDatumWriter;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-
 /**
- * Basic Avro serializer.
- * Currently support just Specific avro record
+ * Basic Avro serializer. Currently support just Specific avro record
  *
  * @param <T> SpecificAvroRecord - expected class
  */
@@ -42,7 +39,6 @@ public class AvroSerializer<T extends GenericContainer> {
     this.writer = new SpecificDatumWriter<>(schema);
     this.reader = new SpecificDatumReader<>(schema);
   }
-
 
   public byte[] serialize(T input) throws IOException {
     final ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -65,8 +61,6 @@ public class AvroSerializer<T extends GenericContainer> {
   }
 
   public T deserialize(ByteBuffer buffer, int start, int len) throws IOException {
-    return reader.read(null,
-        DecoderFactory.get().binaryDecoder(buffer.array(), start, len, null));
+    return reader.read(null, DecoderFactory.get().binaryDecoder(buffer.array(), start, len, null));
   }
-
 }

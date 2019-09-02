@@ -16,22 +16,22 @@
 package cz.o2.proxima.repository;
 
 /**
- * Factory for {@link DataOperator} with data accessing capabilities
- * provided by specific implementation.
+ * Factory for {@link DataOperator} with data accessing capabilities provided by specific
+ * implementation.
  */
 public interface DataOperatorFactory<T extends DataOperator> {
 
   /**
-   * Retrieve symbolic name of the operator. This name can then be used
-   * in call to {@link Repository#hasOperator(String)}.
+   * Retrieve symbolic name of the operator. This name can then be used in call to {@link
+   * Repository#hasOperator(String)}.
+   *
    * @return name of the produced operator
    */
   String getOperatorName();
 
-
   /**
-   * Check if the {@link DataOperator} produced by this factory is
-   * of given class type.
+   * Check if the {@link DataOperator} produced by this factory is of given class type.
+   *
    * @param cls the class type of the operator
    * @return {@code true} if this factory produces given type
    */
@@ -39,9 +39,9 @@ public interface DataOperatorFactory<T extends DataOperator> {
 
   /**
    * Create the {@link DataOperator} instance.
+   *
    * @param repo repository
    * @return instance of the operator
    */
   T create(Repository repo);
-
 }

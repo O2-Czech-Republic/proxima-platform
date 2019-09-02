@@ -19,8 +19,8 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.values.PCollection;
 
 /**
- * {@link PCollectionProvider} that caches the outcome of underlying
- * provider and returns it is it has been already materialized.
+ * {@link PCollectionProvider} that caches the outcome of underlying provider and returns it is it
+ * has been already materialized.
  */
 public class CachedPCollectionProvider<T> implements PCollectionProvider<T> {
 
@@ -38,5 +38,4 @@ public class CachedPCollectionProvider<T> implements PCollectionProvider<T> {
     }
     return materialized;
   }
-
 }

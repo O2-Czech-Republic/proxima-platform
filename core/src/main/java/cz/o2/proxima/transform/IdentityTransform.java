@@ -18,9 +18,7 @@ package cz.o2.proxima.transform;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 
-/**
- * Transform perfoming identity mapping.
- */
+/** Transform perfoming identity mapping. */
 public class IdentityTransform implements Transformation, ProxyTransform {
 
   @Override
@@ -43,5 +41,4 @@ public class IdentityTransform implements Transformation, ProxyTransform {
   public String toProxy(String raw) {
     return raw;
   }
-
 }

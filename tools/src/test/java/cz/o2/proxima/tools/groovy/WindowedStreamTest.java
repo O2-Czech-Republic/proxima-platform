@@ -15,10 +15,7 @@
  */
 package cz.o2.proxima.tools.groovy;
 
-
-/**
- * Test suite for {@link WindowedStream}.
- */
+/** Test suite for {@link WindowedStream}. */
 public abstract class WindowedStreamTest extends AbstractWindowedStreamTest {
 
   protected WindowedStreamTest(TestStreamProvider provider) {
@@ -30,5 +27,4 @@ public abstract class WindowedStreamTest extends AbstractWindowedStreamTest {
   <T> WindowedStream<T> intoSingleWindow(Stream<T> stream) {
     return (WindowedStream) stream.windowAll();
   }
-
 }

@@ -15,30 +15,24 @@
  */
 package cz.o2.proxima.generator;
 
+import static org.junit.Assert.*;
+
 import com.typesafe.config.ConfigFactory;
 import java.io.StringWriter;
-import static org.junit.Assert.*;
 import org.junit.Test;
 
-/**
- * Briefly test {@link ModelGenerator}.
- */
+/** Briefly test {@link ModelGenerator}. */
 public class ModelGeneratorTest {
 
   @Test
   public void testModelGeneration() throws Exception {
-    ModelGenerator generator = new ModelGenerator(
-        "test", "Test", "ignored", "ignored", false);
+    ModelGenerator generator = new ModelGenerator("test", "Test", "ignored", "ignored", false);
     StringWriter writer = new StringWriter();
-    generator.generate(
-        ConfigFactory.load("test-reference.conf"),
-        writer);
+    generator.generate(ConfigFactory.load("test-reference.conf"), writer);
     assertFalse(writer.toString().isEmpty());
     // validate we have some imports from direct submodule
     assertTrue(writer.toString().contains(".direct."));
     // and that we have some code related to CommitLogReader
     assertTrue(writer.toString().contains("CommitLogReader"));
   }
-
-
 }

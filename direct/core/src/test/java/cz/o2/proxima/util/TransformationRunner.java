@@ -25,42 +25,39 @@ import cz.o2.proxima.storage.StreamElement;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Utility class for running transformations locally.
- */
+/** Utility class for running transformations locally. */
 @Slf4j
 public class TransformationRunner {
 
   /**
    * Run all transformations in given repository.
+   *
    * @param repo the repository
    * @param direct the operator to run transformations with
    */
-  public static void runTransformations(
-      Repository repo, DirectDataOperator direct) {
+  public static void runTransformations(Repository repo, DirectDataOperator direct) {
 
     repo.getTransformations()
-        .forEach((name, desc) -> runTransformation(direct, name, desc, i -> { }));
+        .forEach((name, desc) -> runTransformation(direct, name, desc, i -> {}));
   }
 
   /**
    * Run all transformations in given repository.
+   *
    * @param repo the repository
    * @param direct the operator to run transformations with
    * @param onReplicated callback to be called before write to replicated target
    */
   public static void runTransformations(
-      Repository repo,
-      DirectDataOperator direct,
-      Consumer<StreamElement> onReplicated) {
+      Repository repo, DirectDataOperator direct, Consumer<StreamElement> onReplicated) {
 
     repo.getTransformations()
         .forEach((name, desc) -> runTransformation(direct, name, desc, onReplicated));
   }
 
-
   /**
    * Run given transformation in local JVM.
+   *
    * @param direct the operator to run transformations with
    * @param name name of the transformation
    * @param desc the transformation to run
@@ -72,40 +69,52 @@ public class TransformationRunner {
       TransformationDescriptor desc,
       Consumer<StreamElement> onReplicated) {
 
-    desc.getAttributes().stream()
-        .flatMap(attr -> direct.getFamiliesForAttribute(attr)
-            .stream()
-            .filter(af -> af.getDesc().getAccess().canReadCommitLog()))
+    desc.getAttributes()
+        .stream()
+        .flatMap(
+            attr ->
+                direct
+                    .getFamiliesForAttribute(attr)
+                    .stream()
+                    .filter(af -> af.getDesc().getAccess().canReadCommitLog()))
         .collect(Collectors.toSet())
         .stream()
         .findAny()
         .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
-        .orElseThrow(() -> new IllegalStateException(
-            "No commit log reader for attributes of transformation " + desc))
-        .observe(name, new LogObserver() {
-          @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            desc.getTransformation().apply(ingest, transformed -> {
-              log.debug(
-                  "Transformation {}: writing original {} transformed {}",
-                  name, ingest, transformed);
-              onReplicated.accept(transformed);
-              direct.getWriter(transformed.getAttributeDescriptor())
-                  .get()
-                  .write(transformed, context::commit);
+        .orElseThrow(
+            () ->
+                new IllegalStateException(
+                    "No commit log reader for attributes of transformation " + desc))
+        .observe(
+            name,
+            new LogObserver() {
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                desc.getTransformation()
+                    .apply(
+                        ingest,
+                        transformed -> {
+                          log.debug(
+                              "Transformation {}: writing original {} transformed {}",
+                              name,
+                              ingest,
+                              transformed);
+                          onReplicated.accept(transformed);
+                          direct
+                              .getWriter(transformed.getAttributeDescriptor())
+                              .get()
+                              .write(transformed, context::commit);
+                        });
+                return true;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                log.error("Error in transformer {}", name, error);
+                throw new RuntimeException(error);
+              }
             });
-            return true;
-          }
-
-          @Override
-          public boolean onError(Throwable error) {
-            log.error("Error in transformer {}", name, error);
-            throw new RuntimeException(error);
-          }
-
-        });
   }
 
-  private TransformationRunner() { }
-
+  private TransformationRunner() {}
 }

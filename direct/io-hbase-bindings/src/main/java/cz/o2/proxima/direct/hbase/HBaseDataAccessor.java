@@ -29,37 +29,25 @@ import java.util.Optional;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 
-/**
- * {@code DataAccessor} for HBase.
- */
+/** {@code DataAccessor} for HBase. */
 public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
 
   /**
-   * Optional function to be used when creating configuration from URI.
-   * This can be used to update the configuration with data stored at
-   * the specified map.
+   * Optional function to be used when creating configuration from URI. This can be used to update
+   * the configuration with data stored at the specified map.
    */
-  public interface ConfFactory
-      extends BiFunction<Map<String, Object>, URI, Configuration> {
-
-  }
+  public interface ConfFactory extends BiFunction<Map<String, Object>, URI, Configuration> {}
 
   private final Map<String, Object> cfg;
   private final ConfFactory confFactory;
 
-  public HBaseDataAccessor(
-      EntityDescriptor entity,
-      URI uri,
-      Map<String, Object> cfg) {
+  public HBaseDataAccessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     this(entity, uri, cfg, (m, u) -> Util.getConf(u));
   }
 
   public HBaseDataAccessor(
-      EntityDescriptor entity,
-      URI uri,
-      Map<String, Object> cfg,
-      ConfFactory confFactory) {
+      EntityDescriptor entity, URI uri, Map<String, Object> cfg, ConfFactory confFactory) {
 
     super(entity, uri);
     this.cfg = cfg;
@@ -73,19 +61,17 @@ public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
 
   @Override
   public Optional<RandomAccessReader> getRandomAccessReader(Context context) {
-    return Optional.of(new RandomHBaseReader(
-        getUri(), getConf(), cfg, getEntityDescriptor()));
+    return Optional.of(new RandomHBaseReader(getUri(), getConf(), cfg, getEntityDescriptor()));
   }
 
   @Override
   public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-    return Optional.of(new HBaseLogObservable(
-        getUri(), getConf(), getEntityDescriptor(),
-        context::getExecutorService));
+    return Optional.of(
+        new HBaseLogObservable(
+            getUri(), getConf(), getEntityDescriptor(), context::getExecutorService));
   }
 
   private Configuration getConf() {
     return HBaseConfiguration.create(confFactory.apply(cfg, getUri()));
   }
-
 }

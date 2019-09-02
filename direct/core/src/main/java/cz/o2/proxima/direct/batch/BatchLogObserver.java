@@ -22,13 +22,14 @@ import cz.o2.proxima.storage.StreamElement;
 /**
  * Batch observer of data. No commits needed.
  *
- * Implementations should override either of `onNext` methods.
+ * <p>Implementations should override either of `onNext` methods.
  */
 @Stable
 public interface BatchLogObserver {
 
   /**
    * Read next data from the batch storage.
+   *
    * @param element the retrieved data element
    * @return {@code true} to continue processing, {@code false} otherwise
    */
@@ -38,6 +39,7 @@ public interface BatchLogObserver {
 
   /**
    * Read next data from the batch storage.
+   *
    * @param element the retrieved data element
    * @param partition the partition of the element
    * @return {@code true} to continue processing, {@code false} otherwise
@@ -46,22 +48,16 @@ public interface BatchLogObserver {
     return onNext(element);
   }
 
-
-  /**
-   * Signalled when the reading is finished.
-   */
-  default void onCompleted() {
-
-  }
+  /** Signalled when the reading is finished. */
+  default void onCompleted() {}
 
   /**
    * Signaled when reading error occurs.
+   *
    * @param error error caught during processing
-   * @return {@code true} to restart processing from beginning
-   *         {@code false} to stop processing
+   * @return {@code true} to restart processing from beginning {@code false} to stop processing
    */
   default boolean onError(Throwable error) {
     return false;
   }
-
 }

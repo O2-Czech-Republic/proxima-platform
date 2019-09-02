@@ -18,14 +18,11 @@ package cz.o2.proxima.storage.commitlog;
 import cz.o2.proxima.storage.StreamElement;
 import java.util.Objects;
 
-/**
- * Partitioner based on key-value pairs.
- */
+/** Partitioner based on key-value pairs. */
 public class KeyAttributePartitioner implements Partitioner {
 
   @Override
   public int getPartitionId(StreamElement element) {
     return Objects.hash(element.getKey(), element.getAttribute());
   }
-
 }

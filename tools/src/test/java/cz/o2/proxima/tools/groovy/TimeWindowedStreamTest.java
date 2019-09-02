@@ -17,9 +17,7 @@ package cz.o2.proxima.tools.groovy;
 
 import groovy.lang.Closure;
 
-/**
- * Test suite for {@link TimeWindowedStream}.
- */
+/** Test suite for {@link TimeWindowedStream}. */
 public abstract class TimeWindowedStreamTest extends AbstractWindowedStreamTest {
 
   protected TimeWindowedStreamTest(TestStreamProvider provider) {
@@ -29,13 +27,15 @@ public abstract class TimeWindowedStreamTest extends AbstractWindowedStreamTest 
   @SuppressWarnings("unchecked")
   @Override
   <T> WindowedStream<T> intoSingleWindow(Stream<T> stream) {
-    return (WindowedStream) stream.assignEventTime(new Closure<Long>(this) {
-      @Override
-      public Long call(Object argument) {
-        return 1L;
-      }
-
-    }).timeWindow(1000L);
+    return (WindowedStream)
+        stream
+            .assignEventTime(
+                new Closure<Long>(this) {
+                  @Override
+                  public Long call(Object argument) {
+                    return 1L;
+                  }
+                })
+            .timeWindow(1000L);
   }
-
 }

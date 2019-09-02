@@ -19,17 +19,13 @@ import java.io.Serializable;
 import java.nio.charset.Charset;
 import javax.annotation.Nullable;
 
-/**
- * A converter between a specified java type and {@code String}.
- */
+/** A converter between a specified java type and {@code String}. */
 public interface StringConverter<T> extends Serializable {
 
   public static class DefaultConverter implements StringConverter<String> {
 
     /** String value that all strings should be less than. */
-    static final String MAX = new String(
-        new byte[] { (byte) 0xFF },
-        0, 1, Charset.forName("ascii"));
+    static final String MAX = new String(new byte[] {(byte) 0xFF}, 0, 1, Charset.forName("ascii"));
     /** String value that all strings should be greater or equal to. */
     static final String MIN = "";
 
@@ -52,7 +48,6 @@ public interface StringConverter<T> extends Serializable {
     public String min() {
       return MIN;
     }
-
   }
 
   public static StringConverter<String> getDefault() {
@@ -61,14 +56,15 @@ public interface StringConverter<T> extends Serializable {
 
   /**
    * Convert type to string.
+   *
    * @param what input type
    * @return string representation of what
    */
   String asString(T what);
 
-
   /**
    * Convert type from string.
+   *
    * @param what string representation
    * @return the original object
    */
@@ -76,14 +72,15 @@ public interface StringConverter<T> extends Serializable {
 
   /**
    * Retrieve maximal element.
+   *
    * @return instance of maximal object
    */
   T max();
 
   /**
    * Retrieve minimal element
+   *
    * @return instance of minimal object
    */
   T min();
-
 }

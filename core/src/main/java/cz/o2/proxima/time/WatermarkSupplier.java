@@ -18,17 +18,15 @@ package cz.o2.proxima.time;
 import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
 
-/**
- *
- */
+/** */
 @Internal
 @FunctionalInterface
 public interface WatermarkSupplier extends Serializable {
 
   /**
    * Retrieve watermark.
+   *
    * @return the watermark estimate
    */
   long getWatermark();
-
 }

@@ -17,9 +17,7 @@ package cz.o2.proxima.metrics;
 
 import cz.o2.proxima.annotations.Stable;
 
-/**
- * A bean representing a metric.
- */
+/** A bean representing a metric. */
 @Stable
 public interface ScalarMetricMBean<T> {
 
@@ -28,5 +26,4 @@ public interface ScalarMetricMBean<T> {
   String getName();
 
   T getValue();
-
 }

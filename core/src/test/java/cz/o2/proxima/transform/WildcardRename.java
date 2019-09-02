@@ -15,9 +15,7 @@
  */
 package cz.o2.proxima.transform;
 
-/**
- * Rename {@code wildcard.*} to {@code _w.*}.
- */
+/** Rename {@code wildcard.*} to {@code _w.*}. */
 public class WildcardRename implements ProxyTransform {
 
   @Override
@@ -29,5 +27,4 @@ public class WildcardRename implements ProxyTransform {
   public String toProxy(String raw) {
     return "wildcard." + raw.substring(3);
   }
-
 }

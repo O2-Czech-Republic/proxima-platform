@@ -19,20 +19,21 @@ import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.StreamElement;
 
 /**
- * Writer for attribute values. This is online version, where each
- * element is committed one after another.
+ * Writer for attribute values. This is online version, where each element is committed one after
+ * another.
  *
- * The ingest process works as follows:
+ * <p>The ingest process works as follows:
+ *
  * <ul>
- *  <li> incoming request is written into {@code CommitLog}, which is instance
- *    of this interface
- *  <li> the message is confirmed to the client, because commit log is persistent,
- *    durable and distributed
- *  <li> next, the message is asynchronously consumed by all writes from the commit log
- *    and written to the storages
+ *   <li>incoming request is written into {@code CommitLog}, which is instance of this interface
+ *   <li>the message is confirmed to the client, because commit log is persistent, durable and
+ *       distributed
+ *   <li>next, the message is asynchronously consumed by all writes from the commit log and written
+ *       to the storages
  * </ul>
- * Note that as a commit log might be marked any "regular" storage of the
- * message. If so, the message is not written to the commit log twice.
+ *
+ * Note that as a commit log might be marked any "regular" storage of the message. If so, the
+ * message is not written to the commit log twice.
  */
 @Stable
 public interface OnlineAttributeWriter extends AttributeWriterBase {
@@ -49,9 +50,9 @@ public interface OnlineAttributeWriter extends AttributeWriterBase {
 
   /**
    * Write given serialized attribute value to given entity.
+   *
    * @param data the data to write
    * @param statusCallback callback used to commit data processing
    */
   void write(StreamElement data, CommitCallback statusCallback);
-
 }

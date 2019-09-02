@@ -24,37 +24,25 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
-/**
- * Context created in local instance that can be distributed over wire.
- */
+/** Context created in local instance that can be distributed over wire. */
 @Stable
 public class Context implements Serializable, ContextProvider {
 
-  /**
-   * Resolver of proxima core's attribute family to direct representation.
-   */
-  private final UnaryFunction<
-      AttributeFamilyDescriptor, DirectAttributeFamilyDescriptor> resolver;
+  /** Resolver of proxima core's attribute family to direct representation. */
+  private final UnaryFunction<AttributeFamilyDescriptor, DirectAttributeFamilyDescriptor> resolver;
 
-  /**
-   * Executor associated with all asynchronous operations.
-   */
+  /** Executor associated with all asynchronous operations. */
   private final Factory<ExecutorService> executorFactory;
 
-
-  /**
-   * Initialization marker. After deserialization this will be `false`.
-   */
+  /** Initialization marker. After deserialization this will be `false`. */
   private transient boolean initialized = false;
 
-  /**
-   * Materialized executor.
-   */
+  /** Materialized executor. */
   private transient ExecutorService service;
 
   protected Context(
-      UnaryFunction<AttributeFamilyDescriptor,
-          DirectAttributeFamilyDescriptor> attributeFamilyResolver,
+      UnaryFunction<AttributeFamilyDescriptor, DirectAttributeFamilyDescriptor>
+          attributeFamilyResolver,
       Factory<ExecutorService> executorFactory) {
 
     this.resolver = Objects.requireNonNull(attributeFamilyResolver);
@@ -63,6 +51,7 @@ public class Context implements Serializable, ContextProvider {
 
   /**
    * Get executor for asynchronous tasks.
+   *
    * @return {@link ExecutorService} to use in runtime
    */
   public ExecutorService getExecutorService() {
@@ -70,26 +59,23 @@ public class Context implements Serializable, ContextProvider {
     return service;
   }
 
-
   /**
-   * Convert the given {@link AttributeFamilyDescriptor}
-   * to {@link DirectAttributeFamilyDescriptor}, if possible.
+   * Convert the given {@link AttributeFamilyDescriptor} to {@link DirectAttributeFamilyDescriptor},
+   * if possible.
+   *
    * @param family the family to convert
    * @return optionally, the converted family
    */
-  public Optional<DirectAttributeFamilyDescriptor> resolve(
-      AttributeFamilyDescriptor family) {
+  public Optional<DirectAttributeFamilyDescriptor> resolve(AttributeFamilyDescriptor family) {
 
     return Optional.ofNullable(resolver.apply(family));
   }
 
-  public DirectAttributeFamilyDescriptor resolveRequired(
-      AttributeFamilyDescriptor family) {
+  public DirectAttributeFamilyDescriptor resolveRequired(AttributeFamilyDescriptor family) {
 
     DirectAttributeFamilyDescriptor result = resolver.apply(family);
     if (result == null) {
-      throw new IllegalStateException(
-          "Missing direct family descriptor for " + family);
+      throw new IllegalStateException("Missing direct family descriptor for " + family);
     }
     return result;
   }
@@ -105,5 +91,4 @@ public class Context implements Serializable, ContextProvider {
   public Context getContext() {
     return this;
   }
-
 }

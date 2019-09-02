@@ -47,7 +47,6 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -57,9 +56,7 @@ import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 
-/**
- * A {@link StreamProvider} for groovy tools based on beam.
- */
+/** A {@link StreamProvider} for groovy tools based on beam. */
 @Slf4j
 public abstract class BeamStreamProvider implements StreamProvider {
 
@@ -73,8 +70,9 @@ public abstract class BeamStreamProvider implements StreamProvider {
     @VisibleForTesting
     @Getter(AccessLevel.PACKAGE)
     private String[] args;
-    @Nullable
-    private String runner = null;
+
+    @Nullable private String runner = null;
+
     @VisibleForTesting
     @Getter(AccessLevel.PACKAGE)
     private final List<RunnerRegistrar> registrars = new ArrayList<>();
@@ -84,9 +82,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
       args = readAndRemoveRegistrars(args, registrars);
       super.init(repo, args);
       this.args = args;
-      log.info(
-          "Created {} arguments {}",
-          getClass().getName(), Arrays.toString(args));
+      log.info("Created {} arguments {}", getClass().getName(), Arrays.toString(args));
       runner = System.getenv("RUNNER");
     }
 
@@ -103,9 +99,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
       };
     }
 
-    private String[] readAndRemoveRegistrars(
-        String[] args,
-        List<RunnerRegistrar> registrars) {
+    private String[] readAndRemoveRegistrars(String[] args, List<RunnerRegistrar> registrars) {
 
       List<String> argsList = Arrays.stream(args).collect(Collectors.toList());
       List<String> remaining = new ArrayList<>();
@@ -118,7 +112,6 @@ public abstract class BeamStreamProvider implements StreamProvider {
       }
       return remaining.toArray(new String[remaining.size()]);
     }
-
   }
 
   Repository repo;
@@ -128,42 +121,48 @@ public abstract class BeamStreamProvider implements StreamProvider {
   public void init(Repository repo, String[] args) {
     this.repo = repo;
     Preconditions.checkArgument(
-        this.repo.hasOperator("beam"),
-        "Please include proxima-beam-core dependency");
+        this.repo.hasOperator("beam"), "Please include proxima-beam-core dependency");
     this.beam = repo.getOrCreateOperator(BeamDataOperator.class);
   }
 
   @Override
   public Stream<StreamElement> getStream(
-      Position position, boolean stopAtCurrent,
-      boolean eventTime, TerminatePredicate terminateCheck,
+      Position position,
+      boolean stopAtCurrent,
+      boolean eventTime,
+      TerminatePredicate terminateCheck,
       AttributeDescriptor<?>... attrs) {
 
     return BeamStream.stream(
-        beam, position, stopAtCurrent, eventTime, terminateCheck,
-        getJarRegisteringPipelineFactory(), attrs);
+        beam,
+        position,
+        stopAtCurrent,
+        eventTime,
+        terminateCheck,
+        getJarRegisteringPipelineFactory(),
+        attrs);
   }
 
   @Override
   public WindowedStream<StreamElement> getBatchUpdates(
-      long startStamp, long endStamp,
+      long startStamp,
+      long endStamp,
       TerminatePredicate terminateCheck,
       AttributeDescriptor<?>... attrs) {
 
     return BeamStream.batchUpdates(
-        beam, startStamp, endStamp, terminateCheck,
-        getJarRegisteringPipelineFactory(), attrs);
+        beam, startStamp, endStamp, terminateCheck, getJarRegisteringPipelineFactory(), attrs);
   }
 
   @Override
   public WindowedStream<StreamElement> getBatchSnapshot(
-      long fromStamp, long toStamp,
+      long fromStamp,
+      long toStamp,
       TerminatePredicate terminateCheck,
       AttributeDescriptor<?>... attrs) {
 
     return BeamStream.batchSnapshot(
-        beam, fromStamp, toStamp, terminateCheck,
-        getJarRegisteringPipelineFactory(), attrs);
+        beam, fromStamp, toStamp, terminateCheck, getJarRegisteringPipelineFactory(), attrs);
   }
 
   @Override
@@ -175,6 +174,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
   /**
    * Create factory to be used for pipeline creation.
+   *
    * @return the factory
    */
   protected Factory<PipelineOptions> getPipelineOptionsFactory() {
@@ -183,6 +183,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
   /**
    * List all UDFs created.
+   *
    * @return set of all UDFs
    */
   protected Set<String> listUdfClassNames() {
@@ -203,6 +204,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
   /**
    * Convert {@link PipelineOptions} into {@link Pipeline}.
+   *
    * @return function to use for creating pipeline from options
    */
   protected UnaryFunction<PipelineOptions, Pipeline> getCreatePipelineFromOpts() {
@@ -211,6 +213,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
   /**
    * Create jar from UDFs and register this jar into pipeline
+   *
    * @param opts the pipeline to register jar for
    */
   void createUdfJarAndRegisterToPipeline(PipelineOptions opts) {
@@ -222,8 +225,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
       injectJarIntoContextClassLoader(url);
       if (opts.getRunner().getClassLoader() instanceof URLClassLoader) {
         // this is fallback
-        injectUrlIntoClassloader(
-            (URLClassLoader) opts.getRunner().getClassLoader(), url);
+        injectUrlIntoClassloader((URLClassLoader) opts.getRunner().getClassLoader(), url);
       }
     } catch (IOException ex) {
       throw new RuntimeException(ex);
@@ -234,9 +236,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
     Set<String> classes = listUdfClassNames();
     File out = File.createTempFile("proxima-tools", ".jar");
     ToolsClassLoader loader = getToolsClassLoader();
-    log.info(
-        "Building jar from classes {} retrieved from {}",
-        classes, loader);
+    log.info("Building jar from classes {} retrieved from {}", classes, loader);
 
     out.deleteOnExit();
     try (JarOutputStream output = new JarOutputStream(new FileOutputStream(out))) {
@@ -257,8 +257,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
   @VisibleForTesting
   static void injectJarIntoContextClassLoader(URL url) {
     ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    Thread.currentThread().setContextClassLoader(
-        new URLClassLoader(new URL[] { url }, loader));
+    Thread.currentThread().setContextClassLoader(new URLClassLoader(new URL[] {url}, loader));
   }
 
   private void injectUrlIntoClassloader(URLClassLoader loader, URL url) {
@@ -278,5 +277,4 @@ public abstract class BeamStreamProvider implements StreamProvider {
     }
     return (ToolsClassLoader) loader;
   }
-
 }

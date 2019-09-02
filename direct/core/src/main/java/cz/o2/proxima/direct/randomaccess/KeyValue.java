@@ -23,9 +23,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 import lombok.Getter;
 
-/**
- * {@code KeyValue} with {@code Offset}.
- */
+/** {@code KeyValue} with {@code Offset}. */
 @Stable
 public class KeyValue<T> {
 
@@ -38,9 +36,7 @@ public class KeyValue<T> {
       RandomOffset offset,
       byte[] valueBytes) {
 
-    return of(
-        entityDesc, attrDesc, key, attribute,
-        offset, valueBytes, System.currentTimeMillis());
+    return of(entityDesc, attrDesc, key, attribute, offset, valueBytes, System.currentTimeMillis());
   }
 
   @SuppressWarnings("unchecked")
@@ -53,26 +49,19 @@ public class KeyValue<T> {
       byte[] valueBytes,
       long stamp) {
 
-
     Optional<T> value = attrDesc.getValueSerializer().deserialize(valueBytes);
 
     if (!value.isPresent()) {
       throw new IllegalArgumentException(
-          "Cannot parse given bytes of length " + valueBytes.length
-              + " to value with serializer " + attrDesc.getValueSerializer());
+          "Cannot parse given bytes of length "
+              + valueBytes.length
+              + " to value with serializer "
+              + attrDesc.getValueSerializer());
     }
 
     return new KeyValue<>(
-        entityDesc,
-        attrDesc,
-        key,
-        attribute,
-        offset,
-        value.get(),
-        valueBytes,
-        stamp);
+        entityDesc, attrDesc, key, attribute, offset, value.get(), valueBytes, stamp);
   }
-
 
   public static <T> KeyValue<T> of(
       EntityDescriptor entityDesc,
@@ -94,7 +83,6 @@ public class KeyValue<T> {
         System.currentTimeMillis());
   }
 
-
   public static <T> KeyValue<T> of(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
@@ -105,42 +93,24 @@ public class KeyValue<T> {
       byte[] valueBytes,
       long stamp) {
 
-    return new KeyValue<>(
-        entityDesc,
-        attrDesc,
-        key,
-        attribute,
-        offset,
-        value,
-        valueBytes,
-        stamp);
+    return new KeyValue<>(entityDesc, attrDesc, key, attribute, offset, value, valueBytes, stamp);
   }
 
-  @Getter
-  private final EntityDescriptor entityDescriptor;
+  @Getter private final EntityDescriptor entityDescriptor;
 
-  @Getter
-  private final AttributeDescriptor<T> attrDescriptor;
+  @Getter private final AttributeDescriptor<T> attrDescriptor;
 
-  @Getter
-  private final String key;
+  @Getter private final String key;
 
-  @Getter
-  private final String attribute;
+  @Getter private final String attribute;
 
-  @Getter
-  private final T value;
+  @Getter private final T value;
 
-  @Getter
-  @Nullable
-  private final byte[] valueBytes;
+  @Getter @Nullable private final byte[] valueBytes;
 
-  @Getter
-  private final RandomOffset offset;
+  @Getter private final RandomOffset offset;
 
-  @Getter
-  private final long stamp;
-
+  @Getter private final long stamp;
 
   KeyValue(
       EntityDescriptor entityDesc,
@@ -165,13 +135,20 @@ public class KeyValue<T> {
   @Override
   public String toString() {
     return "KeyValue("
-        + "entityDesc=" + getEntityDescriptor()
-        + ", attrDesc=" + getAttrDescriptor()
-        + ", key=" + getKey()
-        + ", attribute=" + getAttribute()
-        + ", offset=" + getOffset()
-        + ", stamp=" + getStamp()
-        + ", value=" + getValue() + ")";
+        + "entityDesc="
+        + getEntityDescriptor()
+        + ", attrDesc="
+        + getAttrDescriptor()
+        + ", key="
+        + getKey()
+        + ", attribute="
+        + getAttribute()
+        + ", offset="
+        + getOffset()
+        + ", stamp="
+        + getStamp()
+        + ", value="
+        + getValue()
+        + ")";
   }
-
 }

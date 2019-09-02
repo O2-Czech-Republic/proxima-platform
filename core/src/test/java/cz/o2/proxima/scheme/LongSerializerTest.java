@@ -16,11 +16,10 @@
 package cz.o2.proxima.scheme;
 
 import static org.junit.Assert.*;
+
 import org.junit.Test;
 
-/**
- * Test suite for {@link LongSerializer}.
- */
+/** Test suite for {@link LongSerializer}. */
 public class LongSerializerTest {
 
   private final LongSerializer serializer = new LongSerializer();
@@ -50,7 +49,7 @@ public class LongSerializerTest {
   @Test
   public void testInvalid() {
     ValueSerializer<Long> s = serializer.getValueSerializer(null);
-    assertFalse(s.isValid(new byte[] { 0 }));
+    assertFalse(s.isValid(new byte[] {0}));
   }
 
   @Test
@@ -64,5 +63,4 @@ public class LongSerializerTest {
     ValueSerializer<Long> s = serializer.getValueSerializer(null);
     assertEquals(0L, (long) s.getDefault());
   }
-
 }

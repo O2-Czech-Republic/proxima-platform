@@ -18,9 +18,7 @@ package cz.o2.proxima.metrics;
 import cz.o2.proxima.annotations.Stable;
 import java.util.Arrays;
 
-/**
- * Stats aggregating the distribution percentiles.
- */
+/** Stats aggregating the distribution percentiles. */
 @Stable
 public class Stats implements StatsMBean {
 
@@ -73,5 +71,4 @@ public class Stats implements StatsMBean {
   double[] getRaw() {
     return raw;
   }
-
 }

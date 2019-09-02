@@ -24,23 +24,14 @@ import lombok.Setter;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
 
-/**
- * A {@code Writable} holding value of null.
- */
+/** A {@code Writable} holding value of null. */
 public class TimestampedNullableBytesWritable implements Writable {
 
-  @Getter
-  @Setter
-  private long stamp;
+  @Getter @Setter private long stamp;
 
-  @Getter
-  @Setter
-  @Nullable
-  private byte[] value = null;
+  @Getter @Setter @Nullable private byte[] value = null;
 
-  public TimestampedNullableBytesWritable() {
-
-  }
+  public TimestampedNullableBytesWritable() {}
 
   public TimestampedNullableBytesWritable(long stamp, @Nullable byte[] value) {
     this.stamp = stamp;
@@ -72,7 +63,8 @@ public class TimestampedNullableBytesWritable implements Writable {
   @Override
   public String toString() {
     return "TimestampedNullableBytesWritable("
-        + "stamp=" + stamp
+        + "stamp="
+        + stamp
         + (value == null ? ",(null)" : (",value.length=" + value.length))
         + ")";
   }
@@ -80,6 +72,4 @@ public class TimestampedNullableBytesWritable implements Writable {
   public boolean hasValue() {
     return value != null;
   }
-
-
 }

@@ -17,25 +17,19 @@ package cz.o2.proxima.storage.commitlog;
 
 import cz.o2.proxima.annotations.Stable;
 
-/**
- * An enum specifying the position in the commit log to start reading from.
- */
+/** An enum specifying the position in the commit log to start reading from. */
 @Stable
 public enum Position {
 
   /**
-   * Read the commit log from the current data actually pushed to the log
-   * or the currently committed position.
+   * Read the commit log from the current data actually pushed to the log or the currently committed
+   * position.
    */
   NEWEST,
 
-  /**
-   * Read from given offsets (current).
-   */
+  /** Read from given offsets (current). */
   CURRENT,
 
   /** Read the commit log from the oldest data available. */
   OLDEST;
-
 }
-

@@ -22,9 +22,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.Map;
 
-/**
- * A {@code StorageDescriptor} for HBase.
- */
+/** A {@code StorageDescriptor} for HBase. */
 public class HBaseStorageDescriptor implements DataAccessorFactory {
 
   @Override
@@ -34,14 +32,8 @@ public class HBaseStorageDescriptor implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator direct,
-      EntityDescriptor entity,
-      URI uri,
-      Map<String, Object> cfg) {
+      DirectDataOperator direct, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     return new HBaseDataAccessor(entity, uri, cfg);
   }
-
-
-
 }

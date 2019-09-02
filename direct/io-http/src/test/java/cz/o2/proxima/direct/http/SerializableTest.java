@@ -29,50 +29,49 @@ import java.util.Collections;
 import java.util.HashMap;
 import org.junit.Test;
 
-/**
- * Verify that all accessors are serializable.
- */
+/** Verify that all accessors are serializable. */
 public class SerializableTest {
 
   Repository repo = Repository.of(ConfigFactory.load());
-  AttributeDescriptor<byte[]> attr = AttributeDescriptor.newBuilder(repo)
-      .setName("attr")
-      .setEntity("entity")
-      .setSchemeUri(new URI("bytes:///"))
-      .build();
-  EntityDescriptor entity = EntityDescriptor.newBuilder()
-      .setName("entity")
-      .addAttribute((AttributeDescriptorImpl) attr)
-      .build();
+  AttributeDescriptor<byte[]> attr =
+      AttributeDescriptor.newBuilder(repo)
+          .setName("attr")
+          .setEntity("entity")
+          .setSchemeUri(new URI("bytes:///"))
+          .build();
+  EntityDescriptor entity =
+      EntityDescriptor.newBuilder()
+          .setName("entity")
+          .addAttribute((AttributeDescriptorImpl) attr)
+          .build();
 
-  public SerializableTest() throws Exception {
-
-  }
+  public SerializableTest() throws Exception {}
 
   @Test
   public void testHttpWriter() throws Exception {
-    HttpWriter writer = new HttpWriter(
-        entity, new URI("http://test/"), Collections.emptyMap());
+    HttpWriter writer = new HttpWriter(entity, new URI("http://test/"), Collections.emptyMap());
     checkSerializable(writer);
   }
 
   @Test
   public void testWebsocketReader() throws Exception {
-    WebsocketReader reader = new WebsocketReader(
-        entity, new URI("ws://test"), new HashMap<String, Object>() {
-          {
-            put("hello", "hi");
-            put("attributes", Lists.newArrayList("*"));
-          }
-        });
+    WebsocketReader reader =
+        new WebsocketReader(
+            entity,
+            new URI("ws://test"),
+            new HashMap<String, Object>() {
+              {
+                put("hello", "hi");
+                put("attributes", Lists.newArrayList("*"));
+              }
+            });
     checkSerializable(reader);
   }
 
   private void checkSerializable(Object o) throws IOException {
     try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-         ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+        ObjectOutputStream oos = new ObjectOutputStream(baos)) {
       oos.writeObject(o);
     }
   }
-
 }

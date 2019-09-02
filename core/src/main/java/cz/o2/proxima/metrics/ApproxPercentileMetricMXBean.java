@@ -17,13 +17,10 @@ package cz.o2.proxima.metrics;
 
 import cz.o2.proxima.annotations.Stable;
 
-/**
- * Percentile metric MX bean.
- */
+/** Percentile metric MX bean. */
 @Stable
 @FunctionalInterface
 public interface ApproxPercentileMetricMXBean {
 
   Stats getValue();
-
 }

@@ -23,36 +23,28 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 import lombok.Getter;
 
-/**
- * Base class for {@link AttributeDescriptorImpl}
- * and {@link AttributeProxyDescriptor}.
- */
+/** Base class for {@link AttributeDescriptorImpl} and {@link AttributeProxyDescriptor}. */
 @Internal
 public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<T> {
 
-  @Getter
-  protected final String entity;
+  @Getter protected final String entity;
 
-  @Getter
-  protected final String name;
+  @Getter protected final String name;
 
-  @Getter
-  protected final URI schemeUri;
+  @Getter protected final URI schemeUri;
 
-  @Getter
-  protected final boolean proxy;
+  @Getter protected final boolean proxy;
 
-  @Getter
-  protected final boolean wildcard;
+  @Getter protected final boolean wildcard;
 
-  @Getter
-  protected final boolean replica;
+  @Getter protected final boolean replica;
 
-  @Nullable
-  protected final ValueSerializer<T> valueSerializer;
+  @Nullable protected final ValueSerializer<T> valueSerializer;
 
   public AttributeDescriptorBase(
-      String name, String entity, URI schemeUri,
+      String name,
+      String entity,
+      URI schemeUri,
       @Nullable ValueSerializer<T> valueSerializer,
       boolean replica) {
 
@@ -65,8 +57,8 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
     this.replica = replica;
     if (this.wildcard
         && (name.length() < 3
-          || name.substring(0, name.length() - 1).contains("*")
-          || name.charAt(name.length() - 2) != '.')) {
+            || name.substring(0, name.length() - 1).contains("*")
+            || name.charAt(name.length() - 2) != '.')) {
 
       throw new IllegalArgumentException(
           "Please specify wildcard attributes only in the format `<name>.*; for now. "
@@ -108,8 +100,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   public boolean equals(Object obj) {
     if (obj instanceof AttributeDescriptor) {
       AttributeDescriptor other = (AttributeDescriptor) obj;
-      return Objects.equals(
-          other.getEntity(), entity) && Objects.equals(other.getName(), name);
+      return Objects.equals(other.getEntity(), entity) && Objects.equals(other.getName(), name);
     }
     return false;
   }
@@ -120,8 +111,8 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   }
 
   /**
-   * Retrieve name of the attribute if not wildcard, otherwise
-   * retrieve the prefix without the last asterisk.
+   * Retrieve name of the attribute if not wildcard, otherwise retrieve the prefix without the last
+   * asterisk.
    */
   @Override
   public String toAttributePrefix(boolean includeLastDot) {
@@ -150,9 +141,8 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
   }
 
   AttributeProxyDescriptor<T> toProxy() {
-    Preconditions.checkArgument(this instanceof AttributeProxyDescriptor,
-        "Attribute " + this + " is not proxy attribute");
+    Preconditions.checkArgument(
+        this instanceof AttributeProxyDescriptor, "Attribute " + this + " is not proxy attribute");
     return (AttributeProxyDescriptor<T>) this;
   }
-
 }

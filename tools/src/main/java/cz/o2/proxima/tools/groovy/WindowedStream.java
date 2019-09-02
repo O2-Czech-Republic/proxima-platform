@@ -22,13 +22,12 @@ import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.FromString;
 import javax.annotation.Nullable;
 
-/**
- * A stream that is windowed.
- */
+/** A stream that is windowed. */
 public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Reduce stream via given reducer.
+   *
    * @param <K> key type
    * @param <V> value type
    * @param keyExtractor extractor of key
@@ -38,10 +37,8 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return reduced stream
    */
   default <K, V> WindowedStream<Pair<K, V>> reduce(
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       V initialValue,
       @ClosureParams(value = FromString.class, options = "V, V") Closure<V> reducer) {
 
@@ -50,6 +47,7 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Reduce stream via given reducer.
+   *
    * @param <K> key type
    * @param <V> value type
    * @param name name of the reduce operator
@@ -61,16 +59,14 @@ public interface WindowedStream<T> extends Stream<T> {
    */
   <K, V> WindowedStream<Pair<K, V>> reduce(
       @Nullable String name,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       V initialValue,
       @ClosureParams(value = FromString.class, options = "V, V") Closure<V> reducer);
 
-
   /**
    * Reduce stream via given reducer.
+   *
    * @param <K> key type
    * @param <V> value type
    * @param keyExtractor extractor of key
@@ -79,8 +75,7 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return reduced stream
    */
   default <K, V> WindowedStream<Pair<K, V>> reduce(
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       V initialValue,
       @ClosureParams(value = FromString.class, options = "V, V") Closure<V> reducer) {
 
@@ -89,6 +84,7 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Reduce stream via given reducer.
+   *
    * @param <K> key type
    * @param <V> value type
    * @param name name of the reduce operator
@@ -99,14 +95,13 @@ public interface WindowedStream<T> extends Stream<T> {
    */
   <K, V> WindowedStream<Pair<K, V>> reduce(
       @Nullable String name,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       V initialValue,
       @ClosureParams(value = FromString.class, options = "V, V") Closure<V> reducer);
 
-
   /**
    * Reduce stream to latest values only.
+   *
    * @return reduced stream
    */
   default WindowedStream<StreamElement> reduceToLatest() {
@@ -115,14 +110,15 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Reduce stream to latest values only.
+   *
    * @param name name of the reduce operator
    * @return reduced stream
    */
   WindowedStream<StreamElement> reduceToLatest(@Nullable String name);
 
-
   /**
    * Reduce stream with reduce function taking list of values.
+   *
    * @param <K> key type
    * @param <V> value type
    * @param keyExtractor extractor of key
@@ -130,9 +126,10 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return reduced stream
    */
   default <K, V> WindowedStream<Pair<K, V>> groupReduce(
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = {"Object, List<T>"})
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(
+              value = FromString.class,
+              options = {"Object, List<T>"})
           Closure<Iterable<V>> listReduce) {
 
     return groupReduce(null, keyExtractor, listReduce);
@@ -140,6 +137,7 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Reduce stream with reduce function taking list of values.
+   *
    * @param <K> key type
    * @param <V> value type
    * @param name name of the group reduce operator
@@ -149,14 +147,15 @@ public interface WindowedStream<T> extends Stream<T> {
    */
   <K, V> WindowedStream<Pair<K, V>> groupReduce(
       @Nullable String name,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = {"Object, List<T>"})
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(
+              value = FromString.class,
+              options = {"Object, List<T>"})
           Closure<Iterable<V>> listReduce);
-
 
   /**
    * Apply combine transform to stream.
+   *
    * @param <K> key type
    * @param <V> value type
    * @param keyExtractor extractor of key
@@ -166,19 +165,17 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return the new stream
    */
   default <K, V> WindowedStream<Pair<K, V>> combine(
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       V initial,
-      @ClosureParams(value = FromString.class, options = "V, V")
-          Closure<V> combine) {
+      @ClosureParams(value = FromString.class, options = "V, V") Closure<V> combine) {
 
     return combine(null, keyExtractor, valueExtractor, initial, combine);
   }
 
   /**
    * Apply combine transform to stream.
+   *
    * @param <K> key type
    * @param <V> value type
    * @param name name of the combine operator
@@ -190,17 +187,14 @@ public interface WindowedStream<T> extends Stream<T> {
    */
   <K, V> WindowedStream<Pair<K, V>> combine(
       @Nullable String name,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<V> valueExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
+      @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       V initial,
-      @ClosureParams(value = FromString.class, options = "V, V")
-          Closure<V> combine);
-
+      @ClosureParams(value = FromString.class, options = "V, V") Closure<V> combine);
 
   /**
    * Apply combine transform to stream.
+   *
    * @param <K> key type
    * @param keyExtractor extractor of key
    * @param initial zero element
@@ -217,6 +211,7 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Apply combine transform to stream.
+   *
    * @param <K> key type
    * @param name name of the combine operator
    * @param keyExtractor extractor of key
@@ -230,9 +225,9 @@ public interface WindowedStream<T> extends Stream<T> {
       T initial,
       @ClosureParams(value = FromString.class, options = "T, T") Closure<T> combine);
 
-
   /**
    * Count elements of stream by key.
+   *
    * @param <K> key type
    * @param keyExtractor extractor of key
    * @return stream with elements counted
@@ -245,6 +240,7 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Count elements of stream by key.
+   *
    * @param <K> key type
    * @param name name of the countByKey operator
    * @param keyExtractor extractor of key
@@ -254,33 +250,32 @@ public interface WindowedStream<T> extends Stream<T> {
       @Nullable String name,
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor);
 
-
   /**
    * Average elements of stream.
+   *
    * @param valueExtractor extractor of double value to be averaged
    * @return the stream with average values
    */
   default WindowedStream<Double> average(
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<Double> valueExtractor) {
+      @ClosureParams(value = FromString.class, options = "T") Closure<Double> valueExtractor) {
 
     return average(null, valueExtractor);
   }
 
   /**
    * Average elements of stream.
+   *
    * @param name name of the average operator
    * @param valueExtractor extractor of double value to be averaged
    * @return the stream with average values
    */
   WindowedStream<Double> average(
       @Nullable String name,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<Double> valueExtractor);
-
+      @ClosureParams(value = FromString.class, options = "T") Closure<Double> valueExtractor);
 
   /**
    * Average elements of stream by key.
+   *
    * @param <K> key type
    * @param keyExtractor extractor of key
    * @param valueExtractor extractor of double value
@@ -288,14 +283,14 @@ public interface WindowedStream<T> extends Stream<T> {
    */
   default <K> WindowedStream<Pair<K, Double>> averageByKey(
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<Double> valueExtractor) {
+      @ClosureParams(value = FromString.class, options = "T") Closure<Double> valueExtractor) {
 
     return averageByKey(null, keyExtractor, valueExtractor);
   }
 
   /**
    * Average elements of stream by key.
+   *
    * @param <K> key type
    * @param name name of the averageByKey operator
    * @param keyExtractor extractor of key
@@ -305,12 +300,11 @@ public interface WindowedStream<T> extends Stream<T> {
   <K> WindowedStream<Pair<K, Double>> averageByKey(
       @Nullable String name,
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<Double> valueExtractor);
-
+      @ClosureParams(value = FromString.class, options = "T") Closure<Double> valueExtractor);
 
   /**
    * Join with other stream.
+   *
    * @param <K> type of join key
    * @param <OTHER> type of other stream
    * @param right the right stream
@@ -320,16 +314,15 @@ public interface WindowedStream<T> extends Stream<T> {
    */
   default <K, OTHER> WindowedStream<Pair<T, OTHER>> join(
       WindowedStream<OTHER> right,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> leftKey,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> rightKey) {
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> leftKey,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> rightKey) {
 
     return join(null, right, leftKey, rightKey);
   }
 
   /**
    * Join with other stream.
+   *
    * @param <K> type of join key
    * @param <OTHER> type of other stream
    * @param name name of the join operator
@@ -341,15 +334,12 @@ public interface WindowedStream<T> extends Stream<T> {
   <K, OTHER> WindowedStream<Pair<T, OTHER>> join(
       @Nullable String name,
       WindowedStream<OTHER> right,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> leftKey,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> rightKey);
-
-
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> leftKey,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> rightKey);
 
   /**
    * Left join with other stream.
+   *
    * @param <K> type of join key
    * @param <OTHER> type of other stream
    * @param right the right stream
@@ -359,16 +349,15 @@ public interface WindowedStream<T> extends Stream<T> {
    */
   default <K, OTHER> WindowedStream<Pair<T, OTHER>> leftJoin(
       WindowedStream<OTHER> right,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> leftKey,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> rightKey) {
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> leftKey,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> rightKey) {
 
     return leftJoin(null, right, leftKey, rightKey);
   }
 
   /**
    * Left join with other stream.
+   *
    * @param <K> type of join key
    * @param <OTHER> type of other stream
    * @param name name of the join operator
@@ -380,38 +369,35 @@ public interface WindowedStream<T> extends Stream<T> {
   <K, OTHER> WindowedStream<Pair<T, OTHER>> leftJoin(
       @Nullable String name,
       WindowedStream<OTHER> right,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> leftKey,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<K> rightKey);
-
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> leftKey,
+      @ClosureParams(value = FromString.class, options = "T") Closure<K> rightKey);
 
   /**
    * Sort stream.
+   *
    * @param compareFn comparison function
    * @return sorted stram
    */
   default WindowedStream<T> sorted(
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<Integer> compareFn) {
+      @ClosureParams(value = FromString.class, options = "T") Closure<Integer> compareFn) {
 
     return sorted(null, compareFn);
   }
 
   /**
    * Sort stream.
+   *
    * @param name name of the sort operator
    * @param compareFn comparison function
    * @return sorted stram
    */
   WindowedStream<T> sorted(
       @Nullable String name,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<Integer> compareFn);
-
+      @ClosureParams(value = FromString.class, options = "T") Closure<Integer> compareFn);
 
   /**
    * Sort stream consisting of {@link Comparable}s.
+   *
    * @return sorted stream
    */
   default WindowedStream<Comparable<T>> sorted() {
@@ -420,14 +406,15 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Sort stream consisting of {@link Comparable}s.
+   *
    * @param name name of the sort operator
    * @return sorted stream
    */
   WindowedStream<Comparable<T>> sorted(@Nullable String name);
 
-
   /**
    * Count elements.
+   *
    * @return stream with element counts
    */
   default WindowedStream<Long> count() {
@@ -436,38 +423,38 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Count elements.
+   *
    * @param name name of the count operator
    * @return stream with element counts
    */
   WindowedStream<Long> count(@Nullable String name);
 
-
   /**
    * Sum elements.
+   *
    * @param valueExtractor extractor of double value
    * @return stream with sums
    */
   default WindowedStream<Double> sum(
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<Double> valueExtractor) {
+      @ClosureParams(value = FromString.class, options = "T") Closure<Double> valueExtractor) {
 
     return sum(null, valueExtractor);
   }
 
   /**
    * Sum elements.
+   *
    * @param name name of the sum operator
    * @param valueExtractor extractor of double value
    * @return stream with sums
    */
   WindowedStream<Double> sum(
       @Nullable String name,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<Double> valueExtractor);
-
+      @ClosureParams(value = FromString.class, options = "T") Closure<Double> valueExtractor);
 
   /**
    * Sum elements by key.
+   *
    * @param <K> type of key
    * @param keyExtractor extractor of key
    * @param valueExtractor extractor of double value
@@ -475,14 +462,14 @@ public interface WindowedStream<T> extends Stream<T> {
    */
   default <K> WindowedStream<Pair<K, Double>> sumByKey(
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<Double> valueExtractor) {
+      @ClosureParams(value = FromString.class, options = "T") Closure<Double> valueExtractor) {
 
     return sumByKey(null, keyExtractor, valueExtractor);
   }
 
   /**
    * Sum elements by key.
+   *
    * @param <K> type of key
    * @param name name of the sumByKey operator
    * @param keyExtractor extractor of key
@@ -492,12 +479,11 @@ public interface WindowedStream<T> extends Stream<T> {
   <K> WindowedStream<Pair<K, Double>> sumByKey(
       @Nullable String name,
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<Double> valueExtractor);
-
+      @ClosureParams(value = FromString.class, options = "T") Closure<Double> valueExtractor);
 
   /**
    * Output distinct elements.
+   *
    * @return stream with distinct elements
    */
   default WindowedStream<T> distinct() {
@@ -506,6 +492,7 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Output distinct elements.
+   *
    * @param name name of the distinct operator
    * @return stream with distinct elements
    */
@@ -513,6 +500,7 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Output distinct elements through given mapper.
+   *
    * @param mapper map values by given function before comparison
    * @return distinct stream
    */
@@ -524,6 +512,7 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Output distinct elements through given mapper.
+   *
    * @param name name of the distinct operator
    * @param mapper map values by given function before comparison
    * @return distinct stream
@@ -532,9 +521,9 @@ public interface WindowedStream<T> extends Stream<T> {
       @Nullable String name,
       @ClosureParams(value = FromString.class, options = "T") Closure<?> mapper);
 
-
   /**
    * Specify early emitting for windowed operations
+   *
    * @param duration the duration (in processing time) of the early emitting
    * @return stream with early emitting specified
    */
@@ -542,9 +531,9 @@ public interface WindowedStream<T> extends Stream<T> {
 
   /**
    * Specify allowed lateness for windowed operations.
+   *
    * @param lateness the allowed lateness
    * @return stream with allowed lateness specified
    */
   WindowedStream<T> withAllowedLateness(long lateness);
-
 }

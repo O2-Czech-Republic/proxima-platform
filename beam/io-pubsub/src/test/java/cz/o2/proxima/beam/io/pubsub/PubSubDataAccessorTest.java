@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.beam.io.pubsub;
 
+import static org.junit.Assert.*;
+
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.DataAccessor;
@@ -30,33 +32,30 @@ import java.util.Map;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test suite for {@link PubSubDataAccessor}.
- */
+/** Test suite for {@link PubSubDataAccessor}. */
 public class PubSubDataAccessorTest {
 
   final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
-  final EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
-      () -> new IllegalArgumentException("Missing entity gateway"));
+  final EntityDescriptor gateway =
+      repo.findEntity("gateway")
+          .orElseThrow(() -> new IllegalArgumentException("Missing entity gateway"));
   BeamDataOperator operator;
   DataAccessor accessor;
 
   @Before
   public void setUp() {
     operator = repo.getOrCreateOperator(BeamDataOperator.class);
-    accessor = new PubSubDataAccessorFactory().createAccessor(
-        operator, gateway, uri(), cfg());
+    accessor = new PubSubDataAccessorFactory().createAccessor(operator, gateway, uri(), cfg());
   }
 
   @Test
   public void testCoderAndType() {
     Pipeline pipeline = Pipeline.create();
-    PCollection<StreamElement> input = accessor.createStream(
-        "name", pipeline, Position.NEWEST, false, true, 1);
+    PCollection<StreamElement> input =
+        accessor.createStream("name", pipeline, Position.NEWEST, false, true, 1);
     assertEquals(TypeDescriptor.of(StreamElement.class), input.getTypeDescriptor());
     assertEquals(StreamElementCoder.of(repo), input.getCoder());
   }
@@ -64,12 +63,11 @@ public class PubSubDataAccessorTest {
   @Test
   public void testCoderAndTypeProcessingTime() {
     Pipeline pipeline = Pipeline.create();
-    PCollection<StreamElement> input = accessor.createStream(
-        "name", pipeline, Position.NEWEST, false, false, 1);
+    PCollection<StreamElement> input =
+        accessor.createStream("name", pipeline, Position.NEWEST, false, false, 1);
     assertEquals(TypeDescriptor.of(StreamElement.class), input.getTypeDescriptor());
     assertEquals(StreamElementCoder.of(repo), input.getCoder());
   }
-
 
   private URI uri() {
     try {
@@ -82,5 +80,4 @@ public class PubSubDataAccessorTest {
   private Map<String, Object> cfg() {
     return Collections.emptyMap();
   }
-
 }

@@ -15,14 +15,13 @@
  */
 package cz.o2.proxima.direct.pubsub;
 
+import static org.junit.Assert.*;
+
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.Repository;
-import static org.junit.Assert.*;
 import org.junit.Test;
 
-/**
- * Test suite for {@link PubSubStorage}.
- */
+/** Test suite for {@link PubSubStorage}. */
 public class PubSubStorageTest {
 
   private final Repository repo = Repository.of(ConfigFactory.load().resolve());
@@ -36,5 +35,4 @@ public class PubSubStorageTest {
     assertEquals(10, storage.getDefaultSubscriptionAckDeadlineSeconds());
     assertNull(storage.getDefaultWatermarkEstimateDuration());
   }
-
 }

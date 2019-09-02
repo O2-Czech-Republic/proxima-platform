@@ -20,6 +20,7 @@ import java.io.Serializable;
 
 /**
  * Apply action to two input elements.
+ *
  * @param <A> the first element type
  * @param <B> the second element type
  */
@@ -29,9 +30,9 @@ public interface BiConsumer<A, B> extends Serializable {
 
   /**
    * Apply action to first arguments.
+   *
    * @param first first argument
    * @param second second argument
    */
   void accept(A first, B second);
-
 }

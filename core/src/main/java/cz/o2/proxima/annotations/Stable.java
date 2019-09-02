@@ -21,12 +21,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Annotation used on stable features.
- */
+/** Annotation used on stable features. */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)
 @Documented
-public @interface Stable {
-
-}
+public @interface Stable {}

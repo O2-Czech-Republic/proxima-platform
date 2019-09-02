@@ -20,9 +20,7 @@ import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import java.io.Serializable;
 
-/**
- * A transformation of attribute name applied both on reading and writing attribute.
- */
+/** A transformation of attribute name applied both on reading and writing attribute. */
 @Stable
 public interface ProxyTransform extends Serializable {
 
@@ -46,7 +44,7 @@ public interface ProxyTransform extends Serializable {
       @Override
       public String fromProxy(String proxy) {
         String tmp = proxy;
-        for (int i = transforms.length - 1; i >= 0; i-- ) {
+        for (int i = transforms.length - 1; i >= 0; i--) {
           tmp = transforms[i].fromProxy(tmp);
         }
         return tmp;
@@ -61,12 +59,11 @@ public interface ProxyTransform extends Serializable {
         return tmp;
       }
     };
-
   }
-
 
   /**
    * Proxy renaming attribute.
+   *
    * @param proxy name of proxy attribute
    * @param raw name of raw attribute
    * @return the transform performing the rename operation
@@ -89,7 +86,6 @@ public interface ProxyTransform extends Serializable {
         }
         return s;
       }
-
     };
   }
 
@@ -109,14 +105,11 @@ public interface ProxyTransform extends Serializable {
         }
         return raw;
       }
-
     };
   }
 
-
   static ProxyTransform from(
-      UnaryFunction<String, String> fromProxy,
-      UnaryFunction<String, String> toProxy) {
+      UnaryFunction<String, String> fromProxy, UnaryFunction<String, String> toProxy) {
 
     return new ProxyTransform() {
       @Override
@@ -131,9 +124,9 @@ public interface ProxyTransform extends Serializable {
     };
   }
 
-
   /**
    * Apply transformation to attribute name from proxy naming.
+   *
    * @param proxy name of the attribute in proxy namespace
    * @return the raw attribute
    */
@@ -141,6 +134,7 @@ public interface ProxyTransform extends Serializable {
 
   /**
    * Apply transformation to attribute name to proxy naming.
+   *
    * @param raw the raw attribute name
    * @return the proxy attribute name
    */
@@ -148,10 +142,10 @@ public interface ProxyTransform extends Serializable {
 
   /**
    * Setup this transform for given target attribute.
+   *
    * @param target the target attribute descriptor
    */
   default void setup(AttributeDescriptor<?> target) {
     // nop
   }
-
 }

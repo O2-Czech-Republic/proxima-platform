@@ -28,5 +28,4 @@ public class AsymmetricRead implements ProxyTransform {
     int pos = raw.indexOf('.');
     return "asymmetric." + raw.substring(pos + 1);
   }
-
 }

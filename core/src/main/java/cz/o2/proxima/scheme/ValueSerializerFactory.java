@@ -19,22 +19,20 @@ import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.net.URI;
 
-/**
- * Factory for {@code ValueSerializer}.
- * The serializer has a specific scheme (e.g. proto:).
- */
+/** Factory for {@code ValueSerializer}. The serializer has a specific scheme (e.g. proto:). */
 @Stable
 public interface ValueSerializerFactory extends Serializable {
 
   /**
    * Retrieve scheme that of URI that this parser accepts.
+   *
    * @return name of acceptable scheme of this factory
    */
   String getAcceptableScheme();
 
-
   /**
    * Get {@code ValueSerializer} for given scheme.
+   *
    * @param <T> type of deserialized data
    * @param specifier URI specifier of this data type
    * @return {@link ValueSerializer} for the scheme
@@ -43,6 +41,7 @@ public interface ValueSerializerFactory extends Serializable {
 
   /**
    * Retrieve class type for given scheme.
+   *
    * @param specifier URI specifier of this data type
    * @return full name of class
    * @throws IllegalArgumentException in case of invalid specifier
@@ -50,10 +49,8 @@ public interface ValueSerializerFactory extends Serializable {
   default String getClassName(URI specifier) {
     final String type = specifier.getSchemeSpecificPart();
     if (type == null) {
-      throw new IllegalArgumentException(
-          "Invalid specifier " + specifier.toString() + ".");
+      throw new IllegalArgumentException("Invalid specifier " + specifier.toString() + ".");
     }
     return type;
   }
-
 }

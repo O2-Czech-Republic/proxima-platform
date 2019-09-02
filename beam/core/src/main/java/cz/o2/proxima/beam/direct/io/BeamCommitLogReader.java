@@ -39,23 +39,20 @@ import org.apache.beam.sdk.io.UnboundedSource.UnboundedReader;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.joda.time.Instant;
 
-/**
- * A {@link Reader} created from {@link CommitLogReader}.
- */
+/** A {@link Reader} created from {@link CommitLogReader}. */
 @Slf4j
 class BeamCommitLogReader {
 
   private static final Instant LOWEST_INSTANT = BoundedWindow.TIMESTAMP_MIN_VALUE;
   private static final Instant HIGHEST_INSTANT = BoundedWindow.TIMESTAMP_MAX_VALUE;
-  private static final byte[] EMPTY_BYTES = new byte[] { };
+  private static final byte[] EMPTY_BYTES = new byte[] {};
   // FIXME: configuration
   private static final long AUTO_WATERMARK_LAG_MS = 500;
 
   static class UnboundedCommitLogReader extends UnboundedReader<StreamElement> {
 
     private final DirectUnboundedSource source;
-    @Getter
-    private final BeamCommitLogReader reader;
+    @Getter private final BeamCommitLogReader reader;
 
     private boolean finished = false;
 
@@ -70,9 +67,9 @@ class BeamCommitLogReader {
         @Nullable Offset offset) {
 
       this.source = source;
-      this.reader = new BeamCommitLogReader(
-          name, reader, position, eventTime,
-          partition, offset, limit, false);
+      this.reader =
+          new BeamCommitLogReader(
+              name, reader, position, eventTime, partition, offset, limit, false);
     }
 
     @Override
@@ -110,8 +107,7 @@ class BeamCommitLogReader {
 
     @Override
     public DirectUnboundedSource.Checkpoint getCheckpointMark() {
-      DirectUnboundedSource.Checkpoint ret = new DirectUnboundedSource.Checkpoint(
-          reader);
+      DirectUnboundedSource.Checkpoint ret = new DirectUnboundedSource.Checkpoint(reader);
       return ret;
     }
 
@@ -140,7 +136,6 @@ class BeamCommitLogReader {
       }
       return EMPTY_BYTES;
     }
-
   }
 
   static BoundedReader<StreamElement> bounded(
@@ -151,8 +146,8 @@ class BeamCommitLogReader {
       long limit,
       Partition partition) {
 
-    BeamCommitLogReader r = new BeamCommitLogReader(
-        name, reader, position, true, partition, null, limit, true);
+    BeamCommitLogReader r =
+        new BeamCommitLogReader(name, reader, position, true, partition, null, limit, true);
 
     return new BoundedReader<StreamElement>() {
 
@@ -185,9 +180,7 @@ class BeamCommitLogReader {
       public Instant getCurrentTimestamp() throws NoSuchElementException {
         return r.getCurrentTimestamp();
       }
-
     };
-
   }
 
   static UnboundedCommitLogReader unbounded(
@@ -201,36 +194,33 @@ class BeamCommitLogReader {
       @Nullable Offset offset) {
 
     return new UnboundedCommitLogReader(
-        name, source, reader, position, eventTime,
-        limit, partition, offset);
-
+        name, source, reader, position, eventTime, limit, partition, offset);
   }
 
-  @Getter
-  private final Partition partition;
-  @Getter
-  private ObserveHandle handle;
+  @Getter private final Partition partition;
+  @Getter private ObserveHandle handle;
 
-  @Nullable
-  private final String name;
+  @Nullable private final String name;
   private final CommitLogReader reader;
   private final Position position;
   private final boolean eventTime;
   private final boolean stopAtCurrent;
   private boolean finished;
-  @Getter
-  private long limit;
-  @Nullable
-  private final Offset offset;
+  @Getter private long limit;
+  @Nullable private final Offset offset;
   private final long offsetWatermark;
-  @Nullable
-  private BlockingQueueLogObserver observer;
+  @Nullable private BlockingQueueLogObserver observer;
   private StreamElement current;
   private Instant currentProcessingTime = Instant.now();
 
   private BeamCommitLogReader(
-      String name, CommitLogReader reader, Position position, boolean eventTime,
-      @Nullable Partition partition, @Nullable Offset offset, long limit,
+      String name,
+      CommitLogReader reader,
+      Position position,
+      boolean eventTime,
+      @Nullable Partition partition,
+      @Nullable Offset offset,
+      long limit,
       boolean stopAtCurrent) {
 
     this.name = name;
@@ -239,20 +229,16 @@ class BeamCommitLogReader {
     this.eventTime = eventTime;
     this.partition = partition;
     this.offset = offset;
-    this.offsetWatermark = offset == null
-        ? LOWEST_INSTANT.getMillis()
-        : offset.getWatermark();
+    this.offsetWatermark = offset == null ? LOWEST_INSTANT.getMillis() : offset.getWatermark();
     this.limit = limit;
     this.stopAtCurrent = stopAtCurrent;
     this.finished = limit <= 0;
 
     Preconditions.checkArgument(
-        partition != null || offset != null,
-        "Either partition or offset has to be non-null");
+        partition != null || offset != null, "Either partition or offset has to be non-null");
 
     Preconditions.checkArgument(
-        offset == null || !stopAtCurrent,
-        "Offset can be used only for streaming reader");
+        offset == null || !stopAtCurrent, "Offset can be used only for streaming reader");
   }
 
   public BoundedSource<StreamElement> getCurrentSource() {
@@ -265,9 +251,9 @@ class BeamCommitLogReader {
       if (offset != null) {
         this.handle = reader.observeBulkOffsets(Arrays.asList(offset), observer);
       } else {
-        this.handle = reader.observeBulkPartitions(
-            name, Arrays.asList(partition),
-            position, stopAtCurrent, observer);
+        this.handle =
+            reader.observeBulkPartitions(
+                name, Arrays.asList(partition), position, stopAtCurrent, observer);
       }
     }
     return advance();
@@ -341,7 +327,8 @@ class BeamCommitLogReader {
     reader.close();
   }
 
-  @Nullable Offset getCurrentOffset() {
+  @Nullable
+  Offset getCurrentOffset() {
     return observer == null || observer.getLastReadContext() == null
         ? null
         : observer.getLastReadContext().getOffset();
@@ -351,11 +338,13 @@ class BeamCommitLogReader {
     return reader.hasExternalizableOffsets();
   }
 
-  @Nullable OffsetCommitter getLastReadCommitter() {
+  @Nullable
+  OffsetCommitter getLastReadCommitter() {
     return observer == null ? null : observer.getLastReadContext();
   }
 
-  @Nullable OffsetCommitter getLastWrittenCommitter() {
+  @Nullable
+  OffsetCommitter getLastWrittenCommitter() {
     return observer == null ? null : observer.getLastWrittenContext();
   }
 
@@ -375,9 +364,7 @@ class BeamCommitLogReader {
 
   private void autoCommitIfBounded() {
     if (stopAtCurrent) {
-      Optional.ofNullable(getLastReadCommitter())
-          .ifPresent(OffsetCommitter::confirm);
+      Optional.ofNullable(getLastReadCommitter()).ifPresent(OffsetCommitter::confirm);
     }
   }
-
 }

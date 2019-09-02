@@ -26,9 +26,6 @@ import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.codec.binary.Hex;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -58,27 +55,22 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.codec.binary.Hex;
 
-/**
- * {@link BulkAttributeWriter} for gcloud storage.
- */
+/** {@link BulkAttributeWriter} for gcloud storage. */
 @Stable
 @Slf4j
-public class BulkGCloudStorageWriter
-    extends GCloudClient
-    implements BulkAttributeWriter {
+public class BulkGCloudStorageWriter extends GCloudClient implements BulkAttributeWriter {
 
-  private static final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern(
-      "yyyy/MM/");
+  private static final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/");
 
-  @VisibleForTesting
-  static final String PREFIX;
+  @VisibleForTesting static final String PREFIX;
 
   static {
     try {
       MessageDigest digest = MessageDigest.getInstance("MD5");
-      digest.update(InetAddress.getLocalHost().getHostName()
-          .getBytes(Charset.defaultCharset()));
+      digest.update(InetAddress.getLocalHost().getHostName().getBytes(Charset.defaultCharset()));
       PREFIX = new String(Hex.encodeHex(digest.digest())).substring(0, 6);
     } catch (Exception ex) {
       log.error("Failed to generate bucket prefix", ex);
@@ -88,20 +80,11 @@ public class BulkGCloudStorageWriter
 
   @ToString
   class BucketData {
-    @Getter
-    final BinaryBlob blob;
-    @Getter
-    final BinaryBlob.Writer writer;
-    @Getter
-    @Setter
-    @Nullable
-    CommitCallback committer = null;
-    @Getter
-    @Setter
-    long lastWriteWatermark = 0L;
-    @Getter
-    @Setter
-    long lastWriteSeqNo = 0L;
+    @Getter final BinaryBlob blob;
+    @Getter final BinaryBlob.Writer writer;
+    @Getter @Setter @Nullable CommitCallback committer = null;
+    @Getter @Setter long lastWriteWatermark = 0L;
+    @Getter @Setter long lastWriteSeqNo = 0L;
 
     BucketData() {
       try {
@@ -128,41 +111,50 @@ public class BulkGCloudStorageWriter
   private transient boolean initialized;
 
   public BulkGCloudStorageWriter(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg,
-      Context context) {
+      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg, Context context) {
 
     super(entityDesc, uri, cfg);
 
-    tmpDir = Optional.ofNullable(cfg.get("tmp.dir"))
-        .map(Object::toString)
-        .map(File::new)
-        .orElse(new File(System.getProperty("java.io.tmpdir") + File.separator
-            + "bulk-cloud-storage-" + UUID.randomUUID()));
+    tmpDir =
+        Optional.ofNullable(cfg.get("tmp.dir"))
+            .map(Object::toString)
+            .map(File::new)
+            .orElse(
+                new File(
+                    System.getProperty("java.io.tmpdir")
+                        + File.separator
+                        + "bulk-cloud-storage-"
+                        + UUID.randomUUID()));
 
-    rollPeriod = Optional.ofNullable(cfg.get("log-roll-interval"))
-        .map(Object::toString)
-        .map(Long::valueOf)
-        .orElse(3600000L);
+    rollPeriod =
+        Optional.ofNullable(cfg.get("log-roll-interval"))
+            .map(Object::toString)
+            .map(Long::valueOf)
+            .orElse(3600000L);
 
-    gzip = Optional.ofNullable(cfg.get("gzip"))
-        .map(Object::toString)
-        .map(Boolean::valueOf)
-        .orElse(false);
+    gzip =
+        Optional.ofNullable(cfg.get("gzip"))
+            .map(Object::toString)
+            .map(Boolean::valueOf)
+            .orElse(false);
 
-    bufferSize = Optional.ofNullable(cfg.get("buffer-size"))
-        .map(Object::toString)
-        .map(Integer::valueOf)
-        .orElse(1024 * 1024);
+    bufferSize =
+        Optional.ofNullable(cfg.get("buffer-size"))
+            .map(Object::toString)
+            .map(Integer::valueOf)
+            .orElse(1024 * 1024);
 
-    allowedLateness = Optional.ofNullable(cfg.get("allowed-lateness-ms"))
-        .map(Object::toString)
-        .map(Long::valueOf)
-        .orElse(5 * 60000L);
+    allowedLateness =
+        Optional.ofNullable(cfg.get("allowed-lateness-ms"))
+            .map(Object::toString)
+            .map(Long::valueOf)
+            .orElse(5 * 60000L);
 
-    flushAttemptDelay = Optional.ofNullable(cfg.get("flush-delay-ms"))
-        .map(Object::toString)
-        .map(Long::valueOf)
-        .orElse(5000L);
+    flushAttemptDelay =
+        Optional.ofNullable(cfg.get("flush-delay-ms"))
+            .map(Object::toString)
+            .map(Long::valueOf)
+            .orElse(5000L);
 
     executorFactory = context::getExecutorService;
   }
@@ -188,11 +180,9 @@ public class BulkGCloudStorageWriter
       bucketData.getWriter().write(data);
       bucketData.setLastWriteSeqNo(writeSeqNo++);
       bucketData.setLastWriteWatermark(watermark);
-      long now = watermark > Long.MIN_VALUE + allowedLateness
-          ? watermark - allowedLateness
-          : watermark;
-      if (lastFlushAttempt == Long.MIN_VALUE
-          || now - lastFlushAttempt >= flushAttemptDelay) {
+      long now =
+          watermark > Long.MIN_VALUE + allowedLateness ? watermark - allowedLateness : watermark;
+      if (lastFlushAttempt == Long.MIN_VALUE || now - lastFlushAttempt >= flushAttemptDelay) {
 
         flushWriters(now);
         lastFlushAttempt = now;
@@ -217,9 +207,7 @@ public class BulkGCloudStorageWriter
     long lastWrittenSeqNo = -1L;
     CommitCallback confirm = null;
     if (log.isDebugEnabled()) {
-      log.debug(
-          "Trying to flush writers at watermark {}",
-          Instant.ofEpochMilli(stamp));
+      log.debug("Trying to flush writers at watermark {}", Instant.ofEpochMilli(stamp));
     }
     for (Map.Entry<Long, BucketData> e : buckets.entrySet()) {
       if (e.getKey() <= stamp) {
@@ -227,9 +215,11 @@ public class BulkGCloudStorageWriter
         if (e.getValue().getLastWriteWatermark() >= e.getKey()) {
           // the bucket was written after the closing timestamp
           // move the flushing to next bucket
-          log.info("Need to flush additional bucket, due to previous "
-              + "bucket {} being written after closing stamp {}",
-              e.getKey(), stamp);
+          log.info(
+              "Need to flush additional bucket, due to previous "
+                  + "bucket {} being written after closing stamp {}",
+              e.getKey(),
+              stamp);
           stamp = e.getKey() + rollPeriod;
         }
         if (e.getValue().getLastWriteSeqNo() > lastWrittenSeqNo) {
@@ -242,21 +232,23 @@ public class BulkGCloudStorageWriter
     }
     final CommitCallback flushingCallback = confirm;
     AtomicInteger flushing = new AtomicInteger(flushable.size());
-    CommitCallback finalCallback = (succ, exc) -> {
-      if (!succ) {
-        flushing.set(-1);
-        flushingCallback.commit(false, exc);
-      } else if (flushing.decrementAndGet() == 0) {
-        flushingCallback.commit(true, null);
-      }
-    };
-    flushable.forEach(e -> {
-      long endStamp = e.getKey();
-      BucketData data = e.getValue();
-      ExceptionUtils.unchecked(() ->
-          flushWriter(endStamp, data.getBlob(), data.getWriter(), finalCallback));
-      buckets.remove(endStamp);
-    });
+    CommitCallback finalCallback =
+        (succ, exc) -> {
+          if (!succ) {
+            flushing.set(-1);
+            flushingCallback.commit(false, exc);
+          } else if (flushing.decrementAndGet() == 0) {
+            flushingCallback.commit(true, null);
+          }
+        };
+    flushable.forEach(
+        e -> {
+          long endStamp = e.getKey();
+          BucketData data = e.getValue();
+          ExceptionUtils.unchecked(
+              () -> flushWriter(endStamp, data.getBlob(), data.getWriter(), finalCallback));
+          buckets.remove(endStamp);
+        });
   }
 
   @Override
@@ -272,8 +264,7 @@ public class BulkGCloudStorageWriter
         remove(tmpDir);
         tmpDir.mkdirs();
       } else {
-        throw new IllegalStateException(
-            "Temporary directory " + tmpDir + " is not directory");
+        throw new IllegalStateException("Temporary directory " + tmpDir + " is not directory");
       }
       tmpDir.deleteOnExit();
       initialized = true;
@@ -318,8 +309,7 @@ public class BulkGCloudStorageWriter
     flushWriters(Long.MAX_VALUE);
   }
 
-  private void flush(
-      File file, long bucketEndStamp, CommitCallback callback) {
+  private void flush(File file, long bucketEndStamp, CommitCallback callback) {
 
     String name = toBlobName(bucketEndStamp - rollPeriod, bucketEndStamp);
     Blob blob = null;
@@ -347,8 +337,10 @@ public class BulkGCloudStorageWriter
 
   @VisibleForTesting
   String toBlobName(long min, long max) {
-    String date = DIR_FORMAT.format(LocalDateTime.ofInstant(
-        Instant.ofEpochMilli(min), ZoneId.ofOffset("UTC", ZoneOffset.UTC)));
+    String date =
+        DIR_FORMAT.format(
+            LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(min), ZoneId.ofOffset("UTC", ZoneOffset.UTC)));
     return String.format("%s%s-%d_%d_%s.blob", date, PREFIX, min, max, uuid());
   }
 
@@ -370,9 +362,7 @@ public class BulkGCloudStorageWriter
         channel.write(ByteBuffer.wrap(buffer, 0, read));
       }
     }
-    log.info(
-        "Flushed blob {} with size {} KiB", blob.getBlobId().getName(),
-        written / 1024.);
+    log.info("Flushed blob {} with size {} KiB", blob.getBlobId().getName(), written / 1024.);
   }
 
   private void deleteHandlingErrors(File f) {
@@ -399,20 +389,25 @@ public class BulkGCloudStorageWriter
 
   @Override
   public void close() {
-    buckets.forEach((bucket, data) -> {
-      try {
-        CountDownLatch latch = new CountDownLatch(1);
-        flushWriter(bucket, data.getBlob(), data.getWriter(), (succ, exc) -> {
-          if (!succ) {
-            log.warn("Failed to close writer {}", data.getWriter(), exc);
+    buckets.forEach(
+        (bucket, data) -> {
+          try {
+            CountDownLatch latch = new CountDownLatch(1);
+            flushWriter(
+                bucket,
+                data.getBlob(),
+                data.getWriter(),
+                (succ, exc) -> {
+                  if (!succ) {
+                    log.warn("Failed to close writer {}", data.getWriter(), exc);
+                  }
+                  latch.countDown();
+                });
+            latch.await();
+          } catch (Exception ex) {
+            log.warn("Failed to close writer {}", data.getWriter(), ex);
           }
-          latch.countDown();
         });
-        latch.await();
-      } catch (Exception ex) {
-        log.warn("Failed to close writer {}", data.getWriter(), ex);
-      }
-    });
     buckets.clear();
   }
 
@@ -420,14 +415,13 @@ public class BulkGCloudStorageWriter
       long bucketEndStamp,
       BinaryBlob localBlob,
       BinaryBlob.Writer writer,
-      CommitCallback statusCallback) throws IOException {
+      CommitCallback statusCallback)
+      throws IOException {
 
     if (writer != null) {
       writer.close();
       final File flushFile = localBlob.getPath();
-      flushExecutor().execute(() -> flush(
-          flushFile, bucketEndStamp, statusCallback));
+      flushExecutor().execute(() -> flush(flushFile, bucketEndStamp, statusCallback));
     }
   }
-
 }

@@ -25,9 +25,6 @@ import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -41,10 +38,10 @@ import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
-/**
- * Class wrapping serialized elements to a single file with read/write capabilities.
- */
+/** Class wrapping serialized elements to a single file with read/write capabilities. */
 @Slf4j
 public class BinaryBlob {
 
@@ -75,12 +72,13 @@ public class BinaryBlob {
     private void writeHeader(OutputStream out) throws IOException {
       // don't close this
       DataOutputStream dos = new DataOutputStream(out);
-      byte[] header = Serialization.Header.newBuilder()
-          .setMagic(MAGIC)
-          .setVersion(1)
-          .setGzip(gzip)
-          .build()
-          .toByteArray();
+      byte[] header =
+          Serialization.Header.newBuilder()
+              .setMagic(MAGIC)
+              .setVersion(1)
+              .setGzip(gzip)
+              .build()
+              .toByteArray();
       writeBytes(dos, header);
       dos.flush();
     }
@@ -105,9 +103,8 @@ public class BinaryBlob {
           .setDelete(data.isDelete())
           .setDeleteWildcard(data.isDeleteWildcard())
           .setStamp(data.getStamp())
-          .setValue(data.getValue() == null
-              ? ByteString.EMPTY
-              : ByteString.copyFrom(data.getValue()))
+          .setValue(
+              data.getValue() == null ? ByteString.EMPTY : ByteString.copyFrom(data.getValue()))
           .build()
           .toByteArray();
     }
@@ -119,7 +116,6 @@ public class BinaryBlob {
         blobStream = null;
       }
     }
-
   }
 
   public static class Reader implements Iterable<StreamElement>, Closeable {
@@ -130,10 +126,7 @@ public class BinaryBlob {
     private final String blobName;
     private DataInputStream blobStream = null;
 
-    private Reader(
-        EntityDescriptor entity,
-        String blobName,
-        InputStream in) throws IOException {
+    private Reader(EntityDescriptor entity, String blobName, InputStream in) throws IOException {
 
       this.entity = entity;
       header = readHeader(blobName, in);
@@ -151,9 +144,7 @@ public class BinaryBlob {
           try {
             next = BinaryBlob.Reader.this.next();
           } catch (EOFException eof) {
-            log.debug(
-                "EOF while reading {}. Terminating iteration.",
-                blobName, eof);
+            log.debug("EOF while reading {}. Terminating iteration.", blobName, eof);
             // terminate
             next = null;
           } catch (IOException ex) {
@@ -165,7 +156,6 @@ public class BinaryBlob {
           endOfData();
           return null;
         }
-
       };
     }
 
@@ -175,8 +165,7 @@ public class BinaryBlob {
       return buf;
     }
 
-    private Serialization.Header readHeader(
-        String blobName, InputStream in) throws IOException {
+    private Serialization.Header readHeader(String blobName, InputStream in) throws IOException {
 
       // don't close this
       try {
@@ -188,13 +177,10 @@ public class BinaryBlob {
         }
         return parsed;
       } catch (EOFException eof) {
-        log.warn(
-            "EOF while reading input of {}. Probably corrupt input?",
-            blobName, eof);
+        log.warn("EOF while reading input of {}. Probably corrupt input?", blobName, eof);
         return Serialization.Header.getDefaultInstance();
       }
     }
-
 
     private StreamElement next() throws IOException {
       try {
@@ -217,23 +203,37 @@ public class BinaryBlob {
       Serialization.Element parsed = parser.parseFrom(data);
       if (parsed.getDelete()) {
         if (parsed.getDeleteWildcard()) {
-          return StreamElement.deleteWildcard(entity, getAttr(parsed),
-              parsed.getUuid(), parsed.getKey(), parsed.getAttribute(),
+          return StreamElement.deleteWildcard(
+              entity,
+              getAttr(parsed),
+              parsed.getUuid(),
+              parsed.getKey(),
+              parsed.getAttribute(),
               parsed.getStamp());
         }
-        return StreamElement.delete(entity, getAttr(parsed), parsed.getUuid(),
-            parsed.getKey(), parsed.getAttribute(), parsed.getStamp());
+        return StreamElement.delete(
+            entity,
+            getAttr(parsed),
+            parsed.getUuid(),
+            parsed.getKey(),
+            parsed.getAttribute(),
+            parsed.getStamp());
       }
-      return StreamElement.update(entity, getAttr(parsed), parsed.getUuid(),
-          parsed.getKey(), parsed.getAttribute(), parsed.getStamp(),
+      return StreamElement.update(
+          entity,
+          getAttr(parsed),
+          parsed.getUuid(),
+          parsed.getKey(),
+          parsed.getAttribute(),
+          parsed.getStamp(),
           parsed.getValue().toByteArray());
     }
 
     private AttributeDescriptor<?> getAttr(Serialization.Element parsed) {
       return entity
           .findAttribute(parsed.getAttribute())
-          .orElseThrow(() -> new IllegalArgumentException(
-              "Unknown attribute " + parsed.getAttribute()));
+          .orElseThrow(
+              () -> new IllegalArgumentException("Unknown attribute " + parsed.getAttribute()));
     }
 
     @Override
@@ -243,18 +243,17 @@ public class BinaryBlob {
         blobStream = null;
       }
     }
-
   }
 
   /**
    * Create writer from given {@link OutputStream}.
+   *
    * @param gzip {@code true} if the output be gzipped
    * @param out the {@link OutputStream}
    * @return writer
    * @throws IOException on IO errors
    */
-  public static Writer writer(
-      boolean gzip, OutputStream out) throws IOException {
+  public static Writer writer(boolean gzip, OutputStream out) throws IOException {
 
     return new Writer(gzip, out);
   }
@@ -265,14 +264,15 @@ public class BinaryBlob {
 
   /**
    * Create reader from given entity and {@link InputStream}.
+   *
    * @param entity the entity to read attributes for
    * @param path path to the stream for logging purposes
    * @param in the {@link InputStream}
    * @return reader
    * @throws IOException on IO errors
    */
-  public static Reader reader(
-      EntityDescriptor entity, String path, InputStream in) throws IOException {
+  public static Reader reader(EntityDescriptor entity, String path, InputStream in)
+      throws IOException {
 
     return new Reader(entity, path, in);
   }
@@ -281,17 +281,13 @@ public class BinaryBlob {
     return new Reader(entity, path.getName(), new FileInputStream(path));
   }
 
-  @Getter
-  private final File path;
+  @Getter private final File path;
 
   public BinaryBlob(File path) {
     this.path = path;
   }
 
-
-  /**
-   * Tool for dumping binary blobs read from stdin to stdout.
-   */
+  /** Tool for dumping binary blobs read from stdin to stdout. */
   public static class DumpTool {
 
     private static void usage() {
@@ -305,12 +301,11 @@ public class BinaryBlob {
         usage();
       }
       Repository repo = ConfigRepository.of(ConfigFactory.load().resolve());
-      EntityDescriptor entity = repo.findEntity(args[0]).orElseThrow(
-          () -> new IllegalArgumentException("Cannot find entity " + args[0]));
+      EntityDescriptor entity =
+          repo.findEntity(args[0])
+              .orElseThrow(() -> new IllegalArgumentException("Cannot find entity " + args[0]));
       Reader reader = new Reader(entity, "stdin", System.in);
       reader.forEach(e -> System.out.println(e.dump()));
     }
-
   }
-
 }

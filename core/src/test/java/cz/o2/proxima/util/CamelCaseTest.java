@@ -15,13 +15,11 @@
  */
 package cz.o2.proxima.util;
 
-import cz.o2.proxima.util.CamelCase;
 import static org.junit.Assert.assertEquals;
+
 import org.junit.Test;
 
-/**
- * Test suite for {@link CamelCase}.
- */
+/** Test suite for {@link cz.o2.proxima.util.CamelCase}. */
 public class CamelCaseTest {
 
   @Test
@@ -35,5 +33,4 @@ public class CamelCaseTest {
     String input = "gateway-replication_test-123";
     assertEquals("GatewayReplication_test123", CamelCase.apply(input));
   }
-
 }

@@ -32,9 +32,7 @@ import org.apache.beam.sdk.io.Read;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
 
-/**
- * Wrapper of direct data accessor to beam one.
- */
+/** Wrapper of direct data accessor to beam one. */
 public class DirectDataAccessorWrapper implements DataAccessor {
 
   private final Repository repo;
@@ -43,10 +41,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
   private final Context context;
 
   public DirectDataAccessorWrapper(
-      Repository repo,
-      cz.o2.proxima.direct.core.DataAccessor direct,
-      URI uri,
-      Context context) {
+      Repository repo, cz.o2.proxima.direct.core.DataAccessor direct, URI uri, Context context) {
 
     this.repo = repo;
     this.direct = direct;
@@ -63,49 +58,50 @@ public class DirectDataAccessorWrapper implements DataAccessor {
       boolean eventTime,
       long limit) {
 
-    CommitLogReader reader = direct
-        .getCommitLogReader(context)
-        .orElseThrow(() -> new IllegalArgumentException(
-            "Cannot create commit log from " + direct));
+    CommitLogReader reader =
+        direct
+            .getCommitLogReader(context)
+            .orElseThrow(
+                () -> new IllegalArgumentException("Cannot create commit log from " + direct));
 
     final PCollection<StreamElement> ret;
     if (stopAtCurrent) {
       // bounded
-      ret = pipeline.apply("ReadBounded:" + uri,
-          Read.from(DirectBoundedSource.of(repo, name, reader, position, limit)));
+      ret =
+          pipeline.apply(
+              "ReadBounded:" + uri,
+              Read.from(DirectBoundedSource.of(repo, name, reader, position, limit)));
     } else {
       // unbounded
-      ret = pipeline.apply("ReadUnbounded:" + uri,
-          Read.from(DirectUnboundedSource.of(
-              repo, name, reader, position, eventTime, limit)));
+      ret =
+          pipeline.apply(
+              "ReadUnbounded:" + uri,
+              Read.from(DirectUnboundedSource.of(repo, name, reader, position, eventTime, limit)));
     }
-    return ret
-        .setCoder(StreamElementCoder.of(repo))
+    return ret.setCoder(StreamElementCoder.of(repo))
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
   }
 
   @Override
   public PCollection<StreamElement> createBatch(
-      Pipeline pipeline, List<AttributeDescriptor<?>> attrs,
-      long startStamp, long endStamp) {
+      Pipeline pipeline, List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp) {
 
-    BatchLogObservable reader = direct
-        .getBatchLogObservable(context)
-        .orElseThrow(() -> new IllegalArgumentException(
-            "Cannot create commit log from " + direct));
+    BatchLogObservable reader =
+        direct
+            .getBatchLogObservable(context)
+            .orElseThrow(
+                () -> new IllegalArgumentException("Cannot create commit log from " + direct));
 
-    PCollection<StreamElement> ret = pipeline.apply(
-        Read.from(DirectBatchSource.of(repo, reader, attrs, startStamp, endStamp)));
+    PCollection<StreamElement> ret =
+        pipeline.apply(Read.from(DirectBatchSource.of(repo, reader, attrs, startStamp, endStamp)));
 
     ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class))
         .setCoder(StreamElementCoder.of(repo));
 
-    return AssignEventTime
-        .of(ret)
+    return AssignEventTime.of(ret)
         .using(StreamElement::getStamp)
         .output()
         .setCoder(ret.getCoder())
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
   }
-
 }

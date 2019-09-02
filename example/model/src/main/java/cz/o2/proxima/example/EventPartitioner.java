@@ -22,9 +22,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Partitioner;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Partitioner for the events.
- */
+/** Partitioner for the events. */
 @Slf4j
 public class EventPartitioner implements Partitioner {
 
@@ -39,7 +37,8 @@ public class EventPartitioner implements Partitioner {
         if (log.isDebugEnabled()) {
           log.debug(
               "Partitioned event {} to partition ID {}",
-              TextFormat.shortDebugString(event), partition);
+              TextFormat.shortDebugString(event),
+              partition);
         }
         return partition;
       } catch (InvalidProtocolBufferException ex) {
@@ -48,5 +47,4 @@ public class EventPartitioner implements Partitioner {
     }
     return 0;
   }
-
 }

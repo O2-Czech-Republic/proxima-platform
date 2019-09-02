@@ -49,5 +49,4 @@ public class BeamWindowedStreamTest extends WindowedStreamTest {
       throw ex;
     }
   }
-
 }

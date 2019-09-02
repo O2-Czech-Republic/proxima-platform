@@ -20,10 +20,7 @@ import java.util.Date;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Represent a {@link java.util.Date} with {@code String} representation
- * of epoch millis.
- */
+/** Represent a {@link java.util.Date} with {@code String} representation of epoch millis. */
 @Slf4j
 public class DateToLongConverter implements StringConverter<Date> {
 
@@ -57,5 +54,4 @@ public class DateToLongConverter implements StringConverter<Date> {
   public Date min() {
     return MIN;
   }
-
 }

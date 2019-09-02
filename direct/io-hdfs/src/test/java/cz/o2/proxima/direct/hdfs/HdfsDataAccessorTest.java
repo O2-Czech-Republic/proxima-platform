@@ -15,24 +15,24 @@
  */
 package cz.o2.proxima.direct.hdfs;
 
-import cz.o2.proxima.direct.hdfs.HdfsDataAccessor;
+import static org.junit.Assert.assertTrue;
+
 import com.google.common.collect.Maps;
 import cz.o2.proxima.repository.EntityDescriptor;
-import org.junit.Test;
-
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.net.URI;
-
-import static org.junit.Assert.assertTrue;
+import org.junit.Test;
 
 public class HdfsDataAccessorTest {
 
   @Test
   public void testSerializable() throws Exception {
-    HdfsDataAccessor writer = new HdfsDataAccessor(
-        EntityDescriptor.newBuilder().setName("dummy").build(),
-        new URI("file://dummy/dir"), Maps.newHashMap());
+    HdfsDataAccessor writer =
+        new HdfsDataAccessor(
+            EntityDescriptor.newBuilder().setName("dummy").build(),
+            new URI("file://dummy/dir"),
+            Maps.newHashMap());
 
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     try (ObjectOutputStream oos = new ObjectOutputStream(buffer)) {

@@ -15,9 +15,6 @@
  */
 package cz.o2.proxima.direct.kafka;
 
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -26,32 +23,28 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * A committer of kafka offsets. This committer is used for asynchronous
- * operations to enforce that the offset is not committed earlier then all
- * associated actions are performed.
+ * A committer of kafka offsets. This committer is used for asynchronous operations to enforce that
+ * the offset is not committed earlier then all associated actions are performed.
  */
 @Slf4j
 public class OffsetCommitter<ID> {
 
-  /**
-   * Callback to be called for performing the commit.
-   */
+  /** Callback to be called for performing the commit. */
   @FunctionalInterface
   public static interface Callback {
     void apply();
   }
 
-  /**
-   * A single offset with metadata.
-   */
+  /** A single offset with metadata. */
   static class OffsetMeta {
 
-    AtomicInteger actions;   // counter for number of actions
+    AtomicInteger actions; // counter for number of actions
 
-    @Getter
-    Callback commit;        // the associated commit callback
+    @Getter Callback commit; // the associated commit callback
 
     OffsetMeta(int actions, Callback commit) {
       this.actions = new AtomicInteger(actions);
@@ -72,8 +65,6 @@ public class OffsetCommitter<ID> {
     public String toString() {
       return "OffsetMeta(actions=" + actions + ")";
     }
-
-
   }
 
   final Map<ID, NavigableMap<Long, OffsetMeta>> waitingOffsets;
@@ -84,17 +75,16 @@ public class OffsetCommitter<ID> {
 
   /**
    * Register number of actions to be performed before offset can be committed.
+   *
    * @param id id of the consumer
    * @param offset the registered offset
-   * @param numActions how many times {@link confirm} should be called to
-   *                   consider the action as done
+   * @param numActions how many times {@link confirm} should be called to consider the action as
+   *     done
    * @param commit {@link Callback} to call to commit
    */
   public void register(ID id, long offset, int numActions, Callback commit) {
     NavigableMap<Long, OffsetMeta> current = waitingOffsets.get(id);
-    log.debug(
-        "Registering offset {} for ID {} with {} actions",
-        offset, id, numActions);
+    log.debug("Registering offset {} for ID {} with {} actions", offset, id, numActions);
     if (current == null) {
       current = Collections.synchronizedNavigableMap(new TreeMap<>());
       waitingOffsets.put(id, current);
@@ -109,6 +99,7 @@ public class OffsetCommitter<ID> {
 
   /**
    * Confirm that action associated with given offset has been performed.
+   *
    * @param id id of the consumer
    * @param offset the offset to confirm
    */
@@ -130,14 +121,13 @@ public class OffsetCommitter<ID> {
     List<Map.Entry<Long, OffsetMeta>> commitable = new ArrayList<>();
     for (Map.Entry<Long, OffsetMeta> e : current.entrySet()) {
       if (e.getValue().getActions() <= 0) {
-        log.debug(
-            "Adding offset {} of ID {} to committable map.",
-            e.getKey(), id);
+        log.debug("Adding offset {} of ID {} to committable map.", e.getKey(), id);
         commitable.add(e);
       } else {
         log.debug(
             "Waiting for still non-committed offset {}, {} actions missing",
-            e.getKey(), e.getValue().getActions());
+            e.getKey(),
+            e.getValue().getActions());
         break;
       }
     }
@@ -150,6 +140,7 @@ public class OffsetCommitter<ID> {
 
   /**
    * Clear all records for given topic partition and offset.
+   *
    * @param id id of the consumer
    * @param offset offset to clear
    */
@@ -160,11 +151,8 @@ public class OffsetCommitter<ID> {
     }
   }
 
-  /**
-   * Clear completely all mappings.
-   */
+  /** Clear completely all mappings. */
   public void clear() {
     waitingOffsets.clear();
   }
-
 }

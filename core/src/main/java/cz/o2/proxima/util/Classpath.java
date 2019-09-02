@@ -20,29 +20,26 @@ import cz.o2.proxima.annotations.Internal;
 import java.lang.reflect.InvocationTargetException;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Classpath related utilities.
- */
+/** Classpath related utilities. */
 @Internal
 @Slf4j
 public class Classpath {
 
   /**
-   * Find given class.
-   * Try hard to find it replacing `.' by `$' if appropriate.
+   * Find given class. Try hard to find it replacing `.' by `$' if appropriate.
+   *
    * @param <T> type of the superclass
    * @param name class name to search for
    * @param superClass class or interface the found class should extend
    * @return class object of the found class
    */
-  @SuppressWarnings({ "unchecked", "rawtypes" })
+  @SuppressWarnings({"unchecked", "rawtypes"})
   public static <T> Class<? extends T> findClass(String name, Class<T> superClass) {
 
     Class clz;
     if ((clz = findClass(name)) != null) {
       Preconditions.checkState(
-          superClass.isAssignableFrom(clz),
-            "Class %s is not assignable for %s", clz, superClass);
+          superClass.isAssignableFrom(clz), "Class %s is not assignable for %s", clz, superClass);
       return clz;
     }
     while (true) {
@@ -58,15 +55,14 @@ public class Classpath {
       name = newName;
       if ((clz = findClass(name)) != null) {
         Preconditions.checkState(
-            superClass.isAssignableFrom(clz),
-              "Class %s is not assignable for %s", clz, superClass);
+            superClass.isAssignableFrom(clz), "Class %s is not assignable for %s", clz, superClass);
         return clz;
       }
     }
     throw new RuntimeException("Cannot find class " + name);
   }
 
-  @SuppressWarnings({ "unchecked", "rawtypes" })
+  @SuppressWarnings({"unchecked", "rawtypes"})
   private static Class findClass(String name) {
     try {
       return Thread.currentThread().getContextClassLoader().loadClass(name);
@@ -78,6 +74,7 @@ public class Classpath {
 
   /**
    * Create new instance of given class
+   *
    * @param cls name of class
    * @param <T> type of the superclass
    * @return instance of requested class
@@ -85,9 +82,12 @@ public class Classpath {
   public static <T> T newInstance(Class<T> cls) {
     try {
       return cls.getDeclaredConstructor().newInstance();
-    } catch (InstantiationException | IllegalAccessException
-        | NoSuchMethodException | SecurityException
-        | IllegalArgumentException | InvocationTargetException ex) {
+    } catch (InstantiationException
+        | IllegalAccessException
+        | NoSuchMethodException
+        | SecurityException
+        | IllegalArgumentException
+        | InvocationTargetException ex) {
 
       throw new RuntimeException(ex);
     }
@@ -95,19 +95,17 @@ public class Classpath {
 
   /**
    * Create new instance of given class
+   *
    * @param name name of class
    * @param superClass class or interface the found class should extend
    * @param <T> type of the superclass
    * @return instance of requested class
    */
   public static <T> T newInstance(String name, Class<T> superClass) {
-    return Classpath.newInstance(
-        Classpath.findClass(name, superClass)
-    );
+    return Classpath.newInstance(Classpath.findClass(name, superClass));
   }
 
   private Classpath() {
     // nop
   }
-
 }

@@ -17,15 +17,11 @@ package cz.o2.proxima.metrics;
 
 import cz.o2.proxima.annotations.Stable;
 
-/**
- * A metric with single scalar value.
- */
+/** A metric with single scalar value. */
 @Stable
-public abstract class ScalarMetric extends Metric<Double>
-    implements ScalarMetricMBean<Double> {
+public abstract class ScalarMetric extends Metric<Double> implements ScalarMetricMBean<Double> {
 
   public ScalarMetric(String group, String name) {
     super(group, name);
   }
-
 }

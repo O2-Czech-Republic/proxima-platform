@@ -22,13 +22,10 @@ import java.util.List;
 import lombok.Getter;
 import org.apache.hadoop.fs.LocatedFileStatus;
 
-/**
- * {@code Partition} of files in HDFS.
- */
+/** {@code Partition} of files in HDFS. */
 public class HdfsPartition extends BoundedPartition {
 
-  @Getter
-  private final List<URI> files = new ArrayList<>();
+  @Getter private final List<URI> files = new ArrayList<>();
 
   private long size = 0L;
 
@@ -45,7 +42,4 @@ public class HdfsPartition extends BoundedPartition {
   public long size() {
     return size;
   }
-
-
-
 }

@@ -18,13 +18,10 @@ package cz.o2.proxima.functional;
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
-/**
- * FUnction of three arguments.
- */
+/** FUnction of three arguments. */
 @Stable
 @FunctionalInterface
 public interface TriFunction<F, S, T, R> extends Serializable {
 
   R apply(F first, S second, T third);
-  
 }

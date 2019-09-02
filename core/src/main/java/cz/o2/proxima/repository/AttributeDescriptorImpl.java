@@ -13,34 +13,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.repository;
 
 import cz.o2.proxima.annotations.Internal;
-import java.net.URI;
 import cz.o2.proxima.scheme.ValueSerializer;
-
+import java.net.URI;
 import javax.annotation.Nullable;
 
-/**
- * Descriptor of attribute of entity.
- */
+/** Descriptor of attribute of entity. */
 @Internal
-public class AttributeDescriptorImpl<T>
-    extends AttributeDescriptorBase<T> {
+public class AttributeDescriptorImpl<T> extends AttributeDescriptorBase<T> {
 
   AttributeDescriptorImpl(
-      String name, String entity,
-      URI schemeUri, @Nullable ValueSerializer<T> serializer,
+      String name,
+      String entity,
+      URI schemeUri,
+      @Nullable ValueSerializer<T> serializer,
       boolean replica) {
 
     super(name, entity, schemeUri, serializer, replica);
   }
 
-
   @Override
   public String toString() {
     return "AttributeDescriptor(entity=" + entity + ", name=" + name + ")";
   }
-
 }

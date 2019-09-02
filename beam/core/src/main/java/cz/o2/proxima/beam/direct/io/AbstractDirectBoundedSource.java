@@ -22,13 +22,11 @@ import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
 
-/**
- * Abstract super class for bounded sources.
- */
+/** Abstract super class for bounded sources. */
 abstract class AbstractDirectBoundedSource extends BoundedSource<StreamElement> {
 
   final Repository repo;
-  
+
   AbstractDirectBoundedSource(Repository repo) {
     this.repo = repo;
   }
@@ -42,5 +40,4 @@ abstract class AbstractDirectBoundedSource extends BoundedSource<StreamElement> 
   public Coder<StreamElement> getOutputCoder() {
     return StreamElementCoder.of(repo);
   }
-
 }

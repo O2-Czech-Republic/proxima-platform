@@ -29,8 +29,8 @@ public interface Factory<T> extends Serializable {
 
   /**
    * Apply the factory funtion.
+   *
    * @return the created object
    */
   T apply();
-
 }

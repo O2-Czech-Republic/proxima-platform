@@ -32,31 +32,26 @@ import lombok.Getter;
 
 class GCloudClient extends AbstractStorage {
 
-  @Getter
-  final Map<String, Object> cfg;
+  @Getter final Map<String, Object> cfg;
 
-  @Getter
-  final String bucket;
+  @Getter final String bucket;
 
-  @Getter
-  final String path;
+  @Getter final String path;
 
-  @Getter
-  final StorageClass storageClass;
+  @Getter final StorageClass storageClass;
 
-  @Nullable
-  @Getter
-  private transient Storage client;
+  @Nullable @Getter private transient Storage client;
 
   GCloudClient(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
     super(entityDesc, uri);
     this.cfg = cfg;
     this.bucket = uri.getAuthority();
     this.path = toPath(uri);
-    this.storageClass = Optional.ofNullable(cfg.get("storage-class"))
-        .map(Object::toString)
-        .map(StorageClass::valueOf)
-        .orElse(StorageClass.STANDARD);
+    this.storageClass =
+        Optional.ofNullable(cfg.get("storage-class"))
+            .map(Object::toString)
+            .map(StorageClass::valueOf)
+            .orElse(StorageClass.STANDARD);
   }
 
   // normalize path to not start and to end with slash
@@ -65,11 +60,10 @@ class GCloudClient extends AbstractStorage {
   }
 
   Blob createBlob(String name) {
-    return client().create(
-        BlobInfo.newBuilder(bucket, path + name)
-            .setStorageClass(storageClass)
-            .build(),
-        Storage.BlobTargetOption.doesNotExist());
+    return client()
+        .create(
+            BlobInfo.newBuilder(bucket, path + name).setStorageClass(storageClass).build(),
+            Storage.BlobTargetOption.doesNotExist());
   }
 
   @VisibleForTesting
@@ -79,5 +73,4 @@ class GCloudClient extends AbstractStorage {
     }
     return client;
   }
-
 }

@@ -18,14 +18,11 @@ package cz.o2.proxima.direct.randomaccess;
 import cz.o2.proxima.annotations.Stable;
 import lombok.Getter;
 
-/**
- * Offset that is represented by raw string.
- */
+/** Offset that is represented by raw string. */
 @Stable
 public class RawOffset implements RandomOffset {
 
-  @Getter
-  private final String offset;
+  @Getter private final String offset;
 
   public RawOffset(String offset) {
     this.offset = offset;
@@ -35,5 +32,4 @@ public class RawOffset implements RandomOffset {
   public String toString() {
     return "RawOffset(" + offset + ")";
   }
-
 }

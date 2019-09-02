@@ -22,12 +22,10 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Annotation used to mark type as intended for internal use with no
- * backward compatibility guarantees.
+ * Annotation used to mark type as intended for internal use with no backward compatibility
+ * guarantees.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)
 @Documented
-public @interface Internal {
-
-}
+public @interface Internal {}

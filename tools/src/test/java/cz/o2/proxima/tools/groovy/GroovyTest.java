@@ -25,9 +25,7 @@ import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.Script;
 import org.junit.Before;
 
-/**
- * Base class for all tests compiling groovy source.
- */
+/** Base class for all tests compiling groovy source. */
 public class GroovyTest {
 
   final Config cfg = ConfigFactory.load("test-reference.conf").resolve();
@@ -51,5 +49,4 @@ public class GroovyTest {
     Class<Script> parsed = loader.parseClass(script);
     return Classpath.newInstance(parsed);
   }
-
 }

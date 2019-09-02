@@ -44,9 +44,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import lombok.Getter;
 
-/**
- * Storage acting as a bulk in memory storage.
- */
+/** Storage acting as a bulk in memory storage. */
 public class InMemBulkStorage implements DataAccessorFactory {
 
   private class Writer extends AbstractBulkAttributeWriter {
@@ -58,11 +56,8 @@ public class InMemBulkStorage implements DataAccessorFactory {
     }
 
     @Override
-    public void write(
-        StreamElement data,
-        long watermark,
-        CommitCallback statusCallback) {
-      
+    public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
+
       // store the data, commit after each 10 elements
       InMemBulkStorage.this.data.put(
           getUri().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
@@ -82,20 +77,15 @@ public class InMemBulkStorage implements DataAccessorFactory {
     public void close() {
       // nop
     }
-
   }
 
-  private class BatchObservable
-      extends AbstractStorage
-      implements BatchLogObservable {
+  private class BatchObservable extends AbstractStorage implements BatchLogObservable {
 
     private final Factory<ExecutorService> executorFactory;
     private transient ExecutorService executor;
 
     private BatchObservable(
-        EntityDescriptor entityDesc,
-        URI uri,
-        Factory<ExecutorService> executorFactory) {
+        EntityDescriptor entityDesc, URI uri, Factory<ExecutorService> executorFactory) {
 
       super(entityDesc, uri);
       this.executorFactory = executorFactory;
@@ -116,27 +106,40 @@ public class InMemBulkStorage implements DataAccessorFactory {
           partitions.size() == 1,
           "This observable works on single partition only, got " + partitions);
       int prefix = getUri().getPath().length() + 1;
-      executor().execute(() -> {
-        try {
-          InMemBulkStorage.this.data.forEach((k, v) -> {
-            String[] parts = k.substring(prefix).split("#");
-            String key = parts[0];
-            String attribute = parts[1];
-            getEntityDescriptor().findAttribute(attribute, true)
-                .flatMap(desc -> attributes.contains(desc)
-                    ? Optional.of(desc) : Optional.empty())
-                .ifPresent(desc -> {
-                  observer.onNext(StreamElement.update(
-                      getEntityDescriptor(), desc, UUID.randomUUID().toString(), key,
-                      attribute, v.getFirst(), v.getSecond()));
-                });
-          });
-          observer.onCompleted();
-        } catch (Throwable err) {
-          observer.onError(err);
-        }
-      });
-
+      executor()
+          .execute(
+              () -> {
+                try {
+                  InMemBulkStorage.this.data.forEach(
+                      (k, v) -> {
+                        String[] parts = k.substring(prefix).split("#");
+                        String key = parts[0];
+                        String attribute = parts[1];
+                        getEntityDescriptor()
+                            .findAttribute(attribute, true)
+                            .flatMap(
+                                desc ->
+                                    attributes.contains(desc)
+                                        ? Optional.of(desc)
+                                        : Optional.empty())
+                            .ifPresent(
+                                desc -> {
+                                  observer.onNext(
+                                      StreamElement.update(
+                                          getEntityDescriptor(),
+                                          desc,
+                                          UUID.randomUUID().toString(),
+                                          key,
+                                          attribute,
+                                          v.getFirst(),
+                                          v.getSecond()));
+                                });
+                      });
+                  observer.onCompleted();
+                } catch (Throwable err) {
+                  observer.onError(err);
+                }
+              });
     }
 
     private Executor executor() {
@@ -145,7 +148,6 @@ public class InMemBulkStorage implements DataAccessorFactory {
       }
       return executor;
     }
-
   }
 
   private class InMemBulkAccessor implements DataAccessor {
@@ -165,14 +167,11 @@ public class InMemBulkStorage implements DataAccessorFactory {
 
     @Override
     public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-      return Optional.of(new BatchObservable(
-          entityDesc, uri, () -> context.getExecutorService()));
+      return Optional.of(new BatchObservable(entityDesc, uri, () -> context.getExecutorService()));
     }
-
   }
 
-  @Getter
-  private final NavigableMap<String, Pair<Long, byte[]>> data = new TreeMap<>();
+  @Getter private final NavigableMap<String, Pair<Long, byte[]>> data = new TreeMap<>();
 
   @Override
   public Accept accepts(URI uri) {
@@ -181,12 +180,8 @@ public class InMemBulkStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator op,
-      EntityDescriptor entity,
-      URI uri,
-      Map<String, Object> cfg) {
+      DirectDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     return new InMemBulkAccessor(entity, uri);
   }
-
 }

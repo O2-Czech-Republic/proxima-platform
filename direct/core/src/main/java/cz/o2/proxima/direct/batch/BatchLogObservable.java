@@ -16,19 +16,18 @@
 package cz.o2.proxima.direct.batch;
 
 import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.repository.AttributeDescriptor;
 import java.io.Serializable;
 import java.util.List;
 
-/**
- * Observer of batch data stored in batch storage.
- */
+/** Observer of batch data stored in batch storage. */
 @Stable
 public interface BatchLogObservable extends Serializable {
 
   /**
    * Retrieve list of partitions of this batch observer.
+   *
    * @return list of partitions of this observable
    */
   default List<Partition> getPartitions() {
@@ -37,6 +36,7 @@ public interface BatchLogObservable extends Serializable {
 
   /**
    * Retrieve list of partitions covering data at least from given starting stamp.
+   *
    * @param startStamp timestamp to start reading from
    * @return list of partitions covering the time range
    */
@@ -46,6 +46,7 @@ public interface BatchLogObservable extends Serializable {
 
   /**
    * Retrieve list of partitions covering data from the given range.
+   *
    * @param startStamp starting timestamp (inclusive)
    * @param endStamp ending timestamp (exclusive)
    * @return list of partitions covering the time range
@@ -54,6 +55,7 @@ public interface BatchLogObservable extends Serializable {
 
   /**
    * Observe data stored in given partitions.
+   *
    * @param partitions partitions to observe
    * @param attributes attribute descriptors to filter out
    * @param observer the observer by which to consume the data
@@ -62,5 +64,4 @@ public interface BatchLogObservable extends Serializable {
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer);
-
 }

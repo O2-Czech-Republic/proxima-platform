@@ -28,14 +28,11 @@ import java.util.Map;
 import lombok.AccessLevel;
 import lombok.Getter;
 
-/**
- * A {@link DataAccessorFactory} for PubSub.
- */
+/** A {@link DataAccessorFactory} for PubSub. */
 @Stable
 public class PubSubStorage implements DataAccessorFactory {
 
-  public static final String CFG_DEFAULT_MAX_ACK_DEADLINE =
-      "pubsub.default.deadline-max-ms";
+  public static final String CFG_DEFAULT_MAX_ACK_DEADLINE = "pubsub.default.deadline-max-ms";
   public static final String CFG_DEFAULT_SUBSCRIPTION_AUTOCREATE =
       "pubsub.default.subscription.auto-create";
   public static final String CFG_DEFAULT_SUBSCRIPTION_ACK_DEADLINE =
@@ -68,30 +65,23 @@ public class PubSubStorage implements DataAccessorFactory {
         defaultMaxAckDeadlineMs = cfg.getInt(CFG_DEFAULT_MAX_ACK_DEADLINE);
       }
       if (cfg.hasPath(CFG_DEFAULT_SUBSCRIPTION_AUTOCREATE)) {
-        defaultSubscriptionAutoCreate = cfg.getBoolean(
-            CFG_DEFAULT_SUBSCRIPTION_AUTOCREATE);
+        defaultSubscriptionAutoCreate = cfg.getBoolean(CFG_DEFAULT_SUBSCRIPTION_AUTOCREATE);
       }
       if (cfg.hasPath(CFG_DEFAULT_SUBSCRIPTION_ACK_DEADLINE)) {
-        defaultSubscriptionAckDeadlineSeconds = cfg.getInt(
-            CFG_DEFAULT_SUBSCRIPTION_ACK_DEADLINE);
+        defaultSubscriptionAckDeadlineSeconds = cfg.getInt(CFG_DEFAULT_SUBSCRIPTION_ACK_DEADLINE);
       }
       if (cfg.hasPath(CFG_DEFAULT_WATERMARK_ESTIMATE_DURATION)) {
-        defaultWatermarkEstimateDuration = cfg.getInt(
-            CFG_DEFAULT_WATERMARK_ESTIMATE_DURATION);
+        defaultWatermarkEstimateDuration = cfg.getInt(CFG_DEFAULT_WATERMARK_ESTIMATE_DURATION);
       }
       if (cfg.hasPath(CFG_DEFAULT_ALLOWED_TIMESTAMP_SKEW)) {
-        defaultAllowedTimestampSkew = cfg.getLong(
-            CFG_DEFAULT_ALLOWED_TIMESTAMP_SKEW);
+        defaultAllowedTimestampSkew = cfg.getLong(CFG_DEFAULT_ALLOWED_TIMESTAMP_SKEW);
       }
     }
   }
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator direct,
-      EntityDescriptor entityDesc,
-      URI uri,
-      Map<String, Object> cfg) {
+      DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     return new PubSubAccessor(this, entityDesc, uri, cfg);
   }
@@ -100,5 +90,4 @@ public class PubSubStorage implements DataAccessorFactory {
   public Accept accepts(URI uri) {
     return uri.getScheme().equals("gps") ? Accept.ACCEPT : Accept.REJECT;
   }
-
 }

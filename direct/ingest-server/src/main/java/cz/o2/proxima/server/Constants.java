@@ -15,9 +15,7 @@
  */
 package cz.o2.proxima.server;
 
-/**
- * Various (mostly config related) constants.
- */
+/** Various (mostly config related) constants. */
 public class Constants {
 
   public static final String CFG_IGNORE_ERRORS = "ingest.ignore-errors";
@@ -27,5 +25,4 @@ public class Constants {
   private Constants() {
     // nop
   }
-
 }

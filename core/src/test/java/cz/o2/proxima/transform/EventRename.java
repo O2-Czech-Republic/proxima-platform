@@ -17,15 +17,12 @@ package cz.o2.proxima.transform;
 
 import com.google.common.base.Preconditions;
 
-/**
- * Rename {@code _e.*} to {@code event.*} back and forth.
- */
+/** Rename {@code _e.*} to {@code event.*} back and forth. */
 public class EventRename implements ProxyTransform {
 
   @Override
   public String fromProxy(String proxy) {
-    Preconditions.checkArgument(
-        proxy.startsWith("event."), "Invalid proxy attribute " + proxy);
+    Preconditions.checkArgument(proxy.startsWith("event."), "Invalid proxy attribute " + proxy);
     String suffix = proxy.substring(6);
     if (!suffix.equals("*")) {
       return "_e." + (Long.valueOf(suffix) + 1);
@@ -35,13 +32,11 @@ public class EventRename implements ProxyTransform {
 
   @Override
   public String toProxy(String raw) {
-    Preconditions.checkArgument(
-        raw.startsWith("_e."), "Invalid raw attribute " + raw);
+    Preconditions.checkArgument(raw.startsWith("_e."), "Invalid raw attribute " + raw);
     String suffix = raw.substring(3);
     if (!suffix.equals("*")) {
       return "event." + (Long.valueOf(suffix) - 1);
     }
     return "event.*";
   }
-
 }

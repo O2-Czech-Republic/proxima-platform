@@ -17,12 +17,9 @@ package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
 
-/**
- * Provider of {@link AttributeDescriptor}.
- */
+/** Provider of {@link AttributeDescriptor}. */
 @FunctionalInterface
 public interface AttributeDescriptorProvider<T> {
 
   AttributeDescriptor<T> desc();
-
 }

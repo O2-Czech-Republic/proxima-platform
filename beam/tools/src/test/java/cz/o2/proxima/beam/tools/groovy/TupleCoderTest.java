@@ -15,16 +15,15 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import static org.junit.Assert.*;
+
 import groovy.lang.Tuple;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import static org.junit.Assert.*;
 import org.junit.Test;
 
-/**
- * Test {@link TupleCoder}.
- */
+/** Test {@link TupleCoder}. */
 public class TupleCoderTest {
 
   @Test
@@ -37,5 +36,4 @@ public class TupleCoderTest {
     Tuple<Object> t2 = coder.decode(bais);
     assertEquals(t1, t2);
   }
-
 }

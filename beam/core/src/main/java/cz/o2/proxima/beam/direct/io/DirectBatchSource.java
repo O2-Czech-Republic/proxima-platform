@@ -30,15 +30,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
 
-/**
- * An {@link BoundedSource} created from direct operator's {@link BatchLogObservable}.
- */
+/** An {@link BoundedSource} created from direct operator's {@link BatchLogObservable}. */
 @Slf4j
 public class DirectBatchSource extends AbstractDirectBoundedSource {
 
   static DirectBatchSource of(
-      Repository repo, BatchLogObservable reader,
-      List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp) {
+      Repository repo,
+      BatchLogObservable reader,
+      List<AttributeDescriptor<?>> attrs,
+      long startStamp,
+      long endStamp) {
 
     return new DirectBatchSource(repo, reader, attrs, startStamp, endStamp);
   }
@@ -50,9 +51,11 @@ public class DirectBatchSource extends AbstractDirectBoundedSource {
   private final @Nullable Partition split;
 
   private DirectBatchSource(
-      Repository repo, BatchLogObservable reader,
+      Repository repo,
+      BatchLogObservable reader,
       List<AttributeDescriptor<?>> attrs,
-      long startStamp, long endStamp) {
+      long startStamp,
+      long endStamp) {
 
     super(repo);
     this.reader = Objects.requireNonNull(reader);
@@ -78,18 +81,16 @@ public class DirectBatchSource extends AbstractDirectBoundedSource {
     if (split != null) {
       return Arrays.asList(this);
     }
-    return reader.getPartitions(startStamp, endStamp)
+    return reader
+        .getPartitions(startStamp, endStamp)
         .stream()
         .map(p -> new DirectBatchSource(this, p))
         .collect(Collectors.toList());
   }
 
   @Override
-  public BoundedReader<StreamElement> createReader(PipelineOptions options)
-      throws IOException {
+  public BoundedReader<StreamElement> createReader(PipelineOptions options) throws IOException {
 
-    return BeamBatchLogReader.of(
-        this, reader, attrs, split, startStamp, endStamp);
+    return BeamBatchLogReader.of(this, reader, attrs, split, startStamp, endStamp);
   }
-
 }

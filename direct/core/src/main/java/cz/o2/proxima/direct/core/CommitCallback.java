@@ -17,19 +17,16 @@ package cz.o2.proxima.direct.core;
 
 import cz.o2.proxima.annotations.Stable;
 
-/**
- * Callback for write and commit log operations.
- */
+/** Callback for write and commit log operations. */
 @Stable
 @FunctionalInterface
 public interface CommitCallback {
 
   /**
    * Commit the ingest process.
+   *
    * @param success {@code true} is the write was successful, {@code false} otherwise
    * @param error the error that was throws during the processing.
    */
   void commit(boolean success, Throwable error);
-
 }
-

@@ -15,14 +15,11 @@
  */
 package cz.o2.proxima.util;
 
-import cz.o2.proxima.util.NamePattern;
-import org.junit.Test;
-
 import static org.junit.Assert.*;
 
-/**
- * Test pattern matching.
- */
+import org.junit.Test;
+
+/** Test pattern matching. */
 public class NamePatternTest {
 
   @Test
@@ -33,5 +30,4 @@ public class NamePatternTest {
     assertTrue(test.matches("device."));
     assertFalse(test.matches("device"));
   }
-
 }

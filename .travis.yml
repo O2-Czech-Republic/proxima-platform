@@ -3,7 +3,12 @@ sudo: false
 language: java
 
 jdk:
+   - openjdk8
    - openjdk11
+
+matrix:
+  allow_failures:
+    - jdk: openjdk11
 
 addons:
   apt:

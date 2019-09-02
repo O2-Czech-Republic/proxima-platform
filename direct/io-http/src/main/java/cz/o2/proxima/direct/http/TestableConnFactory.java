@@ -26,5 +26,4 @@ public abstract class TestableConnFactory implements ConnFactory {
   protected HttpURLConnection newConnection(URL url) throws IOException {
     return (HttpURLConnection) url.openConnection();
   }
-
 }

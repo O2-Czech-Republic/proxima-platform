@@ -19,15 +19,12 @@ import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 
-/**
- * Abstract implementation of {@code BulkAttributeWriter}.
- */
+/** Abstract implementation of {@code BulkAttributeWriter}. */
 @Internal
-public abstract class AbstractBulkAttributeWriter
-    extends AbstractAttributeWriter implements BulkAttributeWriter {
+public abstract class AbstractBulkAttributeWriter extends AbstractAttributeWriter
+    implements BulkAttributeWriter {
 
   public AbstractBulkAttributeWriter(EntityDescriptor entityDesc, URI uri) {
     super(entityDesc, uri);
   }
-
 }

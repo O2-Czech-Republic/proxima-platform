@@ -32,9 +32,7 @@ import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * A cache for data based on timestamp.
- */
+/** A cache for data based on timestamp. */
 @Slf4j
 class TimeBoundedVersionedCache implements Serializable {
 
@@ -57,8 +55,7 @@ class TimeBoundedVersionedCache implements Serializable {
   }
 
   @Nullable
-  synchronized Pair<Long, Object> get(
-      String key, String attribute, long stamp) {
+  synchronized Pair<Long, Object> get(String key, String attribute, long stamp) {
 
     NavigableMap<String, NavigableMap<Long, Payload>> attrMap;
     attrMap = cache.get(key);
@@ -80,7 +77,9 @@ class TimeBoundedVersionedCache implements Serializable {
   }
 
   void scan(
-      String key, String prefix, long stamp,
+      String key,
+      String prefix,
+      long stamp,
       UnaryFunction<String, String> parentRecordExtractor,
       BiFunction<String, Pair<Long, Object>, Boolean> consumer) {
 
@@ -88,7 +87,10 @@ class TimeBoundedVersionedCache implements Serializable {
   }
 
   synchronized void scan(
-      String key, String prefix, String offset, long stamp,
+      String key,
+      String prefix,
+      String offset,
+      long stamp,
       UnaryFunction<String, String> parentRecordExtractor,
       BiFunction<String, Pair<Long, Object>, Boolean> consumer) {
 
@@ -100,8 +102,7 @@ class TimeBoundedVersionedCache implements Serializable {
     String lastParent = null;
     Pair<Long, Object> parentEntry = null;
     long parentTombstoneStamp = stamp;
-    for (Map.Entry<String, NavigableMap<Long, Payload>> e
-        : attrMap.tailMap(offset).entrySet()) {
+    for (Map.Entry<String, NavigableMap<Long, Payload>> e : attrMap.tailMap(offset).entrySet()) {
 
       if (e.getKey().startsWith(prefix)) {
         if (!e.getKey().equals(offset)) {
@@ -112,9 +113,10 @@ class TimeBoundedVersionedCache implements Serializable {
             parentTombstoneStamp = isDelete ? parentEntry.getFirst() : -1;
           }
           Map.Entry<Long, Payload> floorEntry = e.getValue().floorEntry(stamp);
-          if (floorEntry != null && parentTombstoneStamp < floorEntry.getKey()
-              && !consumer.apply(e.getKey(), Pair.of(
-                  floorEntry.getKey(), floorEntry.getValue().getData()))) {
+          if (floorEntry != null
+              && parentTombstoneStamp < floorEntry.getKey()
+              && !consumer.apply(
+                  e.getKey(), Pair.of(floorEntry.getKey(), floorEntry.getValue().getData()))) {
             return;
           }
         }
@@ -125,48 +127,49 @@ class TimeBoundedVersionedCache implements Serializable {
   }
 
   synchronized boolean put(
-      String key, String attribute, long stamp,
-      boolean overwrite,
-      @Nullable Object value) {
+      String key, String attribute, long stamp, boolean overwrite, @Nullable Object value) {
 
     AtomicBoolean updated = new AtomicBoolean();
-    cache.compute(key, (k, attrMap) -> {
-      if (attrMap == null) {
-        attrMap = new TreeMap<>();
-      }
-      NavigableMap<Long, Payload> valueMap = attrMap.computeIfAbsent(
-          attribute, tmp -> new TreeMap<>());
-      if (valueMap.isEmpty() || valueMap.firstKey() - keepDuration < stamp) {
-        boolean canWrite = true;
-        if (!overwrite) {
-          Payload current = valueMap.get(stamp);
-          canWrite = current == null || current.overridable;
-        }
-        if (canWrite) {
-          logPayloadUpdateIfNecessary(key, attribute, stamp, value);
-          valueMap.put(stamp, new Payload(value, !overwrite));
-          updated.set(true);
-        }
-      }
-      long first;
-      while ((first = valueMap.firstKey()) + keepDuration < stamp) {
-        valueMap.remove(first);
-      }
-      return attrMap;
-    });
+    cache.compute(
+        key,
+        (k, attrMap) -> {
+          if (attrMap == null) {
+            attrMap = new TreeMap<>();
+          }
+          NavigableMap<Long, Payload> valueMap =
+              attrMap.computeIfAbsent(attribute, tmp -> new TreeMap<>());
+          if (valueMap.isEmpty() || valueMap.firstKey() - keepDuration < stamp) {
+            boolean canWrite = true;
+            if (!overwrite) {
+              Payload current = valueMap.get(stamp);
+              canWrite = current == null || current.overridable;
+            }
+            if (canWrite) {
+              logPayloadUpdateIfNecessary(key, attribute, stamp, value);
+              valueMap.put(stamp, new Payload(value, !overwrite));
+              updated.set(true);
+            }
+          }
+          long first;
+          while ((first = valueMap.firstKey()) + keepDuration < stamp) {
+            valueMap.remove(first);
+          }
+          return attrMap;
+        });
     return updated.get();
   }
 
   private void logPayloadUpdateIfNecessary(
-      String key, String attribute,
-      long stamp, @Nullable Object value) {
+      String key, String attribute, long stamp, @Nullable Object value) {
 
     if (log.isDebugEnabled()) {
       AttributeDescriptor<Object> attrDesc = entity.findAttribute(attribute).orElse(null);
       if (attrDesc != null) {
         log.debug(
             "Caching attribute {} for key {} at {} with payload {}",
-            attribute, key, stamp,
+            attribute,
+            key,
+            stamp,
             value == null ? "(null)" : attrDesc.getValueSerializer().getLogString(value));
       } else {
         log.warn("Failed to find attribute descriptor {} in {}", attribute, entity);
@@ -192,5 +195,4 @@ class TimeBoundedVersionedCache implements Serializable {
   public synchronized void clear() {
     cache.clear();
   }
-
 }

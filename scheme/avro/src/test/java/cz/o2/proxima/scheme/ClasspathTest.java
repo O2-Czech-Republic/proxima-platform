@@ -15,23 +15,20 @@
  */
 package cz.o2.proxima.scheme;
 
+import static junit.framework.TestCase.assertEquals;
+
 import cz.o2.proxima.scheme.avro.test.Event;
 import cz.o2.proxima.util.Classpath;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.Test;
 
-import static junit.framework.TestCase.assertEquals;
-
-/**
- * Test for {@link Classpath} with inner classes.
- */
+/** Test for {@link Classpath} with inner classes. */
 public class ClasspathTest {
   private final String eventClassName = "cz.o2.proxima.scheme.avro.test.Event";
 
   @Test
   public void testFindInnerClassWithValidSuperClass() {
-    assertEquals(Event.class,
-        Classpath.findClass(eventClassName, SpecificRecord.class));
+    assertEquals(Event.class, Classpath.findClass(eventClassName, SpecificRecord.class));
   }
 
   @Test(expected = RuntimeException.class)
@@ -41,14 +38,12 @@ public class ClasspathTest {
 
   @Test
   public void testCreateNewInstanceForInnerClassWithValidSuper() {
-    assertEquals(Event.class,
-        Classpath.newInstance(eventClassName, SpecificRecord.class)
-            .getClass());
+    assertEquals(
+        Event.class, Classpath.newInstance(eventClassName, SpecificRecord.class).getClass());
   }
 
   @Test(expected = RuntimeException.class)
   public void testCreateNewInstanceForInnerClassWithInvalidSuper() {
-    Classpath
-        .newInstance(eventClassName, Classpath.class);
+    Classpath.newInstance(eventClassName, Classpath.class);
   }
 }

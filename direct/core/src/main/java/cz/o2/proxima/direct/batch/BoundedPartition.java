@@ -18,9 +18,7 @@ package cz.o2.proxima.direct.batch;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.core.Partition;
 
-/**
- * Bounded implementation of {@code Partition}.
- */
+/** Bounded implementation of {@code Partition}. */
 @Internal
 public class BoundedPartition implements Partition {
 
@@ -50,5 +48,4 @@ public class BoundedPartition implements Partition {
   public long size() {
     return size;
   }
-
 }

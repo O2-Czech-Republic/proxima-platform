@@ -19,9 +19,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
-/**
- * A {@link ValueSerializer} for Strings.
- */
+/** A {@link ValueSerializer} for Strings. */
 public class StringUtf8Serializer implements ValueSerializerFactory {
 
   @Override
@@ -32,40 +30,40 @@ public class StringUtf8Serializer implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
-    return (ValueSerializer) new ValueSerializer<String>() {
-      @Override
-      public Optional<String> deserialize(byte[] input) {
-        return Optional.of(new String(input, StandardCharsets.UTF_8));
-      }
+    return (ValueSerializer)
+        new ValueSerializer<String>() {
+          @Override
+          public Optional<String> deserialize(byte[] input) {
+            return Optional.of(new String(input, StandardCharsets.UTF_8));
+          }
 
-      @Override
-      public byte[] serialize(String value) {
-        return value.getBytes(StandardCharsets.UTF_8);
-      }
+          @Override
+          public byte[] serialize(String value) {
+            return value.getBytes(StandardCharsets.UTF_8);
+          }
 
-      @Override
-      public String getDefault() {
-        return "";
-      }
+          @Override
+          public String getDefault() {
+            return "";
+          }
 
-      @Override
-      public String asJsonValue(String value) {
-        return "\"" + value + "\"";
-      }
+          @Override
+          public String asJsonValue(String value) {
+            return "\"" + value + "\"";
+          }
 
-      @Override
-      public String fromJsonValue(String json) {
-        if (json.startsWith("\"") && json.endsWith("\"")) {
-          return json.substring(1, json.length() - 1);
-        }
-        throw new IllegalArgumentException(json + "is not json string");
-      }
-    };
+          @Override
+          public String fromJsonValue(String json) {
+            if (json.startsWith("\"") && json.endsWith("\"")) {
+              return json.substring(1, json.length() - 1);
+            }
+            throw new IllegalArgumentException(json + "is not json string");
+          }
+        };
   }
 
   @Override
   public String getClassName(URI specifier) {
     return "String";
   }
-
 }

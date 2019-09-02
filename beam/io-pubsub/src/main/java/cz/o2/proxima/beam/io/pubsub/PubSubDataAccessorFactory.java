@@ -23,9 +23,7 @@ import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Map;
 
-/**
- * {@link DataAccessorFactory} for PubSub URLs.
- */
+/** {@link DataAccessorFactory} for PubSub URLs. */
 public class PubSubDataAccessorFactory implements DataAccessorFactory {
 
   @Override
@@ -35,14 +33,9 @@ public class PubSubDataAccessorFactory implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      BeamDataOperator operator,
-      EntityDescriptor entity,
-      URI uri,
-      Map<String, Object> cfg) {
+      BeamDataOperator operator, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     return new PubSubDataAccessor(
-        operator.getRepository(), entity,
-        uri.getAuthority(), UriUtil.getPathNormalized(uri));
+        operator.getRepository(), entity, uri.getAuthority(), UriUtil.getPathNormalized(uri));
   }
-
 }

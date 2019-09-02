@@ -19,16 +19,10 @@ import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
 /**
- * An interface representing offset for paging.
- * This interface is needed because various db engines can
- * have different notion of ordering and therefore it might be difficult
- * to do paging based simply on the key (of entity or attribute).
- * Simple example is a hash map, where you cannot page through the map
- * based on the key stored in the map.
- * This is just a labeling interface.
+ * An interface representing offset for paging. This interface is needed because various db engines
+ * can have different notion of ordering and therefore it might be difficult to do paging based
+ * simply on the key (of entity or attribute). Simple example is a hash map, where you cannot page
+ * through the map based on the key stored in the map. This is just a labeling interface.
  */
 @Stable
-public interface RandomOffset extends Serializable {
-
-}
-
+public interface RandomOffset extends Serializable {}

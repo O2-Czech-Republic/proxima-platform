@@ -16,12 +16,10 @@
 package cz.o2.proxima.direct.core;
 
 /**
- * Provider or {@link Context}. This is useful to enable methods accept
- * both raw {@link Context} and {@link DirectDataOperator} which both implement
- * this interface.
+ * Provider or {@link Context}. This is useful to enable methods accept both raw {@link Context} and
+ * {@link DirectDataOperator} which both implement this interface.
  */
 public interface ContextProvider {
 
   Context getContext();
-
 }

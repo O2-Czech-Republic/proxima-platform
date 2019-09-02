@@ -20,16 +20,16 @@ import java.io.Serializable;
 import java.util.Map;
 
 /**
- * An interface that each class configured in {@code KafkaCommitLog.PARTITIONER_CLASS}
- * must implement. The class also has to have a default (empty) constructor.
+ * An interface that each class configured in {@code KafkaCommitLog.PARTITIONER_CLASS} must
+ * implement. The class also has to have a default (empty) constructor.
  */
 @FunctionalInterface
 public interface Partitioner extends Serializable {
 
   /**
-   * Retrieve partition ID for the specified ingest.
-   * All ingests that have the same partition ID are guaranteed to
-   * be written to the same Kafka partition.
+   * Retrieve partition ID for the specified ingest. All ingests that have the same partition ID are
+   * guaranteed to be written to the same Kafka partition.
+   *
    * @param element element to calculate partition for
    * @return ID of partition (can be negative)
    */
@@ -37,17 +37,11 @@ public interface Partitioner extends Serializable {
 
   /**
    * Setup the partitioner (if needed).
+   *
    * @param map a configuration map
    */
-  default void setup(Map<String, ?> map) {
+  default void setup(Map<String, ?> map) {}
 
-  }
-
-  /**
-   * Close the partitioner after usage.
-   */
-  default void close() {
-
-  }
-
+  /** Close the partitioner after usage. */
+  default void close() {}
 }

@@ -17,11 +17,6 @@ package cz.o2.proxima.direct.kafka;
 
 import cz.o2.proxima.direct.core.Partition;
 import java.io.Serializable;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
-import org.apache.kafka.common.TopicPartition;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -32,10 +27,13 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
+import org.apache.kafka.common.TopicPartition;
 
 /**
- * A consumer group with name.
- * The consumer group balances assignment of partitions for consumers.
+ * A consumer group with name. The consumer group balances assignment of partitions for consumers.
  */
 @Slf4j
 public class ConsumerGroup implements Serializable {
@@ -43,98 +41,90 @@ public class ConsumerGroup implements Serializable {
   /** Assignment of partitions of single consumer. */
   class Assignment implements Serializable {
 
-    @Getter
-    final int id;
+    @Getter final int id;
 
-    @Getter
-    final ConsumerRebalanceListener listener;
+    @Getter final ConsumerRebalanceListener listener;
 
-    @Getter
-    final Collection<Partition> partitions = new ArrayList<>();
+    @Getter final Collection<Partition> partitions = new ArrayList<>();
 
-    Assignment(
-        int id,
-        ConsumerRebalanceListener listener) {
+    Assignment(int id, ConsumerRebalanceListener listener) {
 
       this.id = id;
-      this.listener = listener != null ? listener : new ConsumerRebalanceListener() {
-        @Override
-        public void onPartitionsRevoked(Collection<TopicPartition> clctn) {
-          // nop
-        }
+      this.listener =
+          listener != null
+              ? listener
+              : new ConsumerRebalanceListener() {
+                @Override
+                public void onPartitionsRevoked(Collection<TopicPartition> clctn) {
+                  // nop
+                }
 
-        @Override
-        public void onPartitionsAssigned(Collection<TopicPartition> clctn) {
-          // nop
-        }
-      };
+                @Override
+                public void onPartitionsAssigned(Collection<TopicPartition> clctn) {
+                  // nop
+                }
+              };
     }
 
     /** Drop all partitions. */
     void drop() {
-      listener.onPartitionsRevoked(partitions.stream()
-          .map(p -> new TopicPartition(topic, p.getId()))
-          .collect(Collectors.toList()));
+      listener.onPartitionsRevoked(
+          partitions
+              .stream()
+              .map(p -> new TopicPartition(topic, p.getId()))
+              .collect(Collectors.toList()));
       partitions.clear();
     }
 
-    /**
-     * Assign given partitions.
-     */
+    /** Assign given partitions. */
     void assign(Collection<Partition> assign) {
       // for sure
       partitions.clear();
       partitions.addAll(assign);
-      List<TopicPartition> tps = partitions.stream()
-          .map(p -> new TopicPartition(topic, p.getId()))
-          .collect(Collectors.toList());
+      List<TopicPartition> tps =
+          partitions
+              .stream()
+              .map(p -> new TopicPartition(topic, p.getId()))
+              .collect(Collectors.toList());
       listener.onPartitionsAssigned(tps);
       log.debug(
           "Assigned partitions {} to consumer ID {} of group {}, notifying listener {}",
-          tps, id, name, listener);
+          tps,
+          id,
+          name,
+          listener);
     }
-
   }
 
   /** Name of the group. */
-  @Getter
-  final String name;
+  @Getter final String name;
 
   /** Name of topic of this group. */
-  @Getter
-  final String topic;
+  @Getter final String topic;
 
   /** Total number of partitions. */
-  @Getter
-  final int numPartitions;
+  @Getter final int numPartitions;
 
-  /**
-   * Current assignment of partitions into consumers.
-   * Key is ID of the consumer.
-   */
+  /** Current assignment of partitions into consumers. Key is ID of the consumer. */
   final NavigableMap<Integer, Assignment> assignments = new TreeMap<>();
-
 
   ConsumerGroup(String name, String topic, int numPartitions) {
     this.name = name;
     this.topic = topic;
     this.numPartitions = numPartitions;
     if (numPartitions <= 0) {
-      throw new IllegalArgumentException(
-          "Number of partitions must be strictly positive");
+      throw new IllegalArgumentException("Number of partitions must be strictly positive");
     }
   }
 
-
-  /**
-   * Add a new consumer with no listener.
-   */
+  /** Add a new consumer with no listener. */
   public int add() {
     return add((ConsumerRebalanceListener) null);
   }
 
   /**
    * Add new consumer to the group.
+   *
    * @returns the ID of the newly created consumer.
    */
   public synchronized int add(@Nullable ConsumerRebalanceListener listener) {
@@ -144,16 +134,15 @@ public class ConsumerGroup implements Serializable {
     assignments.put(id, assignment);
     assign(assignments);
     if (log.isDebugEnabled()) {
-      log.debug("Added new consumer to group {} with assignments {}",
-          name, assignment.getPartitions().stream()
-              .map(Partition::getId).collect(Collectors.toList()));
+      log.debug(
+          "Added new consumer to group {} with assignments {}",
+          name,
+          assignment.getPartitions().stream().map(Partition::getId).collect(Collectors.toList()));
     }
     return id;
   }
 
-  /**
-   * Add new consumer to the group with unreassignable partitions.
-   */
+  /** Add new consumer to the group with unreassignable partitions. */
   public synchronized int add(Collection<Partition> partitions) {
 
     int id = assignments.isEmpty() ? 0 : assignments.lastKey() + 1;
@@ -163,9 +152,7 @@ public class ConsumerGroup implements Serializable {
     return id;
   }
 
-  /**
-   * Remove consumer from group by id.
-   */
+  /** Remove consumer from group by id. */
   public synchronized void remove(int id) {
     Assignment removed = assignments.remove(id);
     if (removed != null) {
@@ -197,18 +184,14 @@ public class ConsumerGroup implements Serializable {
     }
   }
 
-  /**
-   * Manually assign given partitions to given consumer ID.
-   */
+  /** Manually assign given partitions to given consumer ID. */
   synchronized void assign(int id, List<Partition> assignment) {
     Assignment current = this.assignments.get(id);
     current.drop();
     current.assign(assignment);
   }
 
-  /**
-   * Retrieve partitions for given consumer ID.
-   */
+  /** Retrieve partitions for given consumer ID. */
   synchronized Collection<Partition> getAssignment(int id) {
     Assignment assignment = assignments.get(id);
     if (assignment != null) {
@@ -216,6 +199,4 @@ public class ConsumerGroup implements Serializable {
     }
     return Collections.emptyList();
   }
-
-
 }

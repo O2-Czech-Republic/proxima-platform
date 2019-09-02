@@ -15,14 +15,13 @@
  */
 package cz.o2.proxima.time;
 
-import java.util.concurrent.atomic.AtomicLong;
 import static org.junit.Assert.*;
+
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test {@link WatermarkEstimator}.
- */
+/** Test {@link WatermarkEstimator}. */
 public class WatermarkEstimatorTest {
 
   AtomicLong stamp;
@@ -91,7 +90,6 @@ public class WatermarkEstimatorTest {
     assertEquals(1 - 100, est.getWatermark());
   }
 
-
   @Test
   public void testLargeUpdate() {
     WatermarkEstimator est = createEstimator(1, 1);
@@ -119,5 +117,4 @@ public class WatermarkEstimatorTest {
         .withTimestampSupplier(stamp::get)
         .build();
   }
-
 }

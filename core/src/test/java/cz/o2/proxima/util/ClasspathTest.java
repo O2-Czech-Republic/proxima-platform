@@ -15,20 +15,18 @@
  */
 package cz.o2.proxima.util;
 
+import static org.junit.Assert.*;
+
 import cz.o2.proxima.storage.PassthroughFilter;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-
-/**
- * Simple test for {@link Classpath}
- * Tests for inner class are located in scheme module.
- */
+/** Simple test for {@link Classpath} Tests for inner class are located in scheme module. */
 public class ClasspathTest {
 
   @Test
   public void testFindTopLevelClassWithValidSuperClass() {
-    assertEquals(DummyFilter.class,
+    assertEquals(
+        DummyFilter.class,
         Classpath.findClass("cz.o2.proxima.util.DummyFilter", PassthroughFilter.class));
   }
 
@@ -39,7 +37,8 @@ public class ClasspathTest {
 
   @Test
   public void testCreateNewInstanceForTopLevelClassWithValidSuper() {
-    assertEquals(DummyFilter.class,
+    assertEquals(
+        DummyFilter.class,
         Classpath.newInstance("cz.o2.proxima.util.DummyFilter", PassthroughFilter.class)
             .getClass());
   }

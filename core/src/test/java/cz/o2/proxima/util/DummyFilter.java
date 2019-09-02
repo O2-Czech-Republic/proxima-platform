@@ -17,9 +17,5 @@ package cz.o2.proxima.util;
 
 import cz.o2.proxima.storage.PassthroughFilter;
 
-/**
- * A dummy filter just to be able to test difference from {@link PassthroughFilter}.
- */
-public class DummyFilter extends PassthroughFilter {
-
-}
+/** A dummy filter just to be able to test difference from {@link PassthroughFilter}. */
+public class DummyFilter extends PassthroughFilter {}

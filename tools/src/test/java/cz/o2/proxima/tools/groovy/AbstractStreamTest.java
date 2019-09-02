@@ -19,9 +19,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-/**
- * Base class for tests of all stream classes.
- */
+/** Base class for tests of all stream classes. */
 abstract class AbstractStreamTest implements Serializable {
 
   final transient TestStreamProvider provider;
@@ -34,5 +32,4 @@ abstract class AbstractStreamTest implements Serializable {
   final <T> Stream<T> stream(T... items) {
     return provider.of(Arrays.stream(items).collect(Collectors.toList()));
   }
-
 }

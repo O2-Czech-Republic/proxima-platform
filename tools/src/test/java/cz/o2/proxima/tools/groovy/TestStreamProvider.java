@@ -17,11 +17,8 @@ package cz.o2.proxima.tools.groovy;
 
 import java.util.List;
 
-/**
- * Stream provider for testing purposes.
- */
+/** Stream provider for testing purposes. */
 public interface TestStreamProvider {
 
   <T> Stream<T> of(List<T> values);
-
 }

@@ -16,11 +16,10 @@
 package cz.o2.proxima.time;
 
 import static org.junit.Assert.*;
+
 import org.junit.Test;
 
-/**
- * Test suite for {@link VectorClock}.
- */
+/** Test suite for {@link VectorClock}. */
 public class VectorClockTest {
 
   @Test
@@ -44,5 +43,4 @@ public class VectorClockTest {
     clock.update(0, 3);
     assertEquals(2, clock.getStamp());
   }
-
 }

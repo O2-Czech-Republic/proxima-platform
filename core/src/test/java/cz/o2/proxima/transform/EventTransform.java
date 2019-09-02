@@ -15,9 +15,7 @@
  */
 package cz.o2.proxima.transform;
 
-/**
- * Transformation from proxy space (event.*) to raw space (_e.*).
- */
+/** Transformation from proxy space (event.*) to raw space (_e.*). */
 public class EventTransform implements ProxyTransform {
 
   @Override
@@ -32,5 +30,4 @@ public class EventTransform implements ProxyTransform {
     int pos = raw.indexOf('.');
     return "event." + raw.substring(pos + 5);
   }
-
 }

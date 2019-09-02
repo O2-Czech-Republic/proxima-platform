@@ -88,11 +88,10 @@
     <sonar.jacoco.reportPaths>${project.basedir}/../target/jacoco.exec</sonar.jacoco.reportPaths>
     <sonar.organization>datadriven</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-    <!-- checkstyle config -->
-    <checkstyle.config.location>checkstyle.xml</checkstyle.config.location>
     <error-prone.version>2.3.3</error-prone.version>
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
     <lombok.version>1.18.8</lombok.version>
+    <spotless.version>1.14.0</spotless.version>
   </properties>
 
   <profiles>
@@ -309,6 +308,7 @@
           </mapping>
           <excludes>
             <exclude>**/license-header.txt</exclude>
+            <exclude>**/license-header-spotless.txt</exclude>
             <exclude>**/.idea/**</exclude>
             <exclude>**/README</exclude>
             <exclude>**/LICENSE</exclude>
@@ -350,24 +350,36 @@
         </configuration>
       </plugin>
 
-      <!-- checkstyle -->
+      <!-- spotless -->
       <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.0.0</version>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless.version}</version>
+        <configuration>
+          <java>
+             <googleJavaFormat>
+               <!-- Optional, available versions: https://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22com.google.googlejavaformat%22%20AND%20a%3A%22google-java-format%22 -->
+               <version>1.6</version>
+               <!-- Optional, available versions: GOOGLE, AOSP  https://github.com/google/google-java-format/blob/master/core/src/main/java/com/google/googlejavaformat/java/JavaFormatterOptions.java -->
+               <style>GOOGLE</style>
+             </googleJavaFormat>
+             <removeUnusedImports />
+             <licenseHeader>
+               <file>${basedir}/license-header-spotless.txt</file>
+             </licenseHeader>
+             <!--importOrder>
+               Specify either order or file, but not both
+               <order>java,javax,org,com,com.diffplug,</order>
+               <file>${basedir}/importOrder</file>
+             </importOrder-->
+          </java>
+        </configuration>
         <executions>
           <execution>
-            <id>validate</id>
+            <id>apply</id>
             <phase>validate</phase>
-            <configuration>
-              <encoding>UTF-8</encoding>
-              <consoleOutput>true</consoleOutput>
-              <failsOnError>true</failsOnError>
-              <linkXRef>false</linkXRef>
-              <includeTestSourceDirectory>true</includeTestSourceDirectory>
-            </configuration>
             <goals>
-              <goal>check</goal>
+              <goal>apply</goal>
             </goals>
           </execution>
         </executions>

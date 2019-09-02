@@ -19,9 +19,7 @@ import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.net.URI;
 
-/**
- * Base interface for {@code OnlineAttributeWriter} and {@code BulkAttributeWriter}.
- */
+/** Base interface for {@code OnlineAttributeWriter} and {@code BulkAttributeWriter}. */
 @Stable
 public interface AttributeWriterBase extends Serializable, AutoCloseable {
 
@@ -32,12 +30,14 @@ public interface AttributeWriterBase extends Serializable, AutoCloseable {
 
   /**
    * Retrieve URI of this writer.
+   *
    * @return URI of this writer
    */
   URI getUri();
 
   /**
    * Retrieve type of the writer.
+   *
    * @return {@link Type} of the writer
    */
   Type getType();
@@ -46,8 +46,8 @@ public interface AttributeWriterBase extends Serializable, AutoCloseable {
   void rollback();
 
   /**
-   * Cast this to {@code OnlineAttributeWriter}.
-   * This is just a syntactic sugar.
+   * Cast this to {@code OnlineAttributeWriter}. This is just a syntactic sugar.
+   *
    * @return {@link OnlineAttributeWriter} from this writer
    */
   @SuppressWarnings("unchecked")
@@ -56,8 +56,8 @@ public interface AttributeWriterBase extends Serializable, AutoCloseable {
   }
 
   /**
-   * Case this to {@code BulkAttributeWriter}.
-   * This is just a syntactic sugar.
+   * Case this to {@code BulkAttributeWriter}. This is just a syntactic sugar.
+   *
    * @return {@link BulkAttributeWriter} from this writer
    */
   @SuppressWarnings("unchecked")
@@ -65,11 +65,7 @@ public interface AttributeWriterBase extends Serializable, AutoCloseable {
     return (BulkAttributeWriter) this;
   }
 
-  /**
-   * Close allocated resources of this writer.
-   * This is supposed to be idempotent.
-   */
+  /** Close allocated resources of this writer. This is supposed to be idempotent. */
   @Override
   void close();
-
 }

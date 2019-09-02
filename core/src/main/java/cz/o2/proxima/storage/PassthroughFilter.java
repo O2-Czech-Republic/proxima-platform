@@ -17,9 +17,7 @@ package cz.o2.proxima.storage;
 
 import cz.o2.proxima.annotations.Stable;
 
-/**
- * A {@code StorageFilter} passing in all values.
- */
+/** A {@code StorageFilter} passing in all values. */
 @Stable
 public class PassthroughFilter implements StorageFilter {
 
@@ -29,5 +27,4 @@ public class PassthroughFilter implements StorageFilter {
   public boolean apply(StreamElement ingest) {
     return true;
   }
-
 }

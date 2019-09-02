@@ -15,29 +15,26 @@
  */
 package cz.o2.proxima.storage;
 
-import org.junit.Test;
+import static org.junit.Assert.*;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Map;
+import org.junit.Test;
 
-import static org.junit.Assert.*;
-
-/**
- * Tests for {@link UriUtil}.
- */
+/** Tests for {@link UriUtil}. */
 public class UriUtilTest {
 
   @Test
   public void testParseQueryWithSingleParam() throws URISyntaxException {
     URI uri = new URI("proxima://foo/bar?isItCool=yes");
-    Map<String,String> params = UriUtil.parseQuery(uri);
+    Map<String, String> params = UriUtil.parseQuery(uri);
     assertEquals("yes", params.get("isItCool"));
   }
 
   @Test
-  public void testParseQueryWithoutParams() throws  URISyntaxException {
+  public void testParseQueryWithoutParams() throws URISyntaxException {
     URI uri = new URI("proxima://foo/bar");
     assertEquals(0, UriUtil.parseQuery(uri).size());
   }
@@ -45,7 +42,7 @@ public class UriUtilTest {
   @Test
   public void testParseQueryWithMultipleParams() throws URISyntaxException {
     URI uri = new URI("proxima://foo/bar?isItCool=yes&param=foo&foo=bar");
-    Map<String,String> params = UriUtil.parseQuery(uri);
+    Map<String, String> params = UriUtil.parseQuery(uri);
     assertEquals(3, params.size());
     assertEquals("yes", params.get("isItCool"));
     assertEquals("foo", params.get("param"));
@@ -55,7 +52,7 @@ public class UriUtilTest {
   @Test
   public void testEncodedQueryParams() throws URISyntaxException {
     URI uri = new URI("proxima://foo/bar?encoded=proxima%2Fparam%3Ffoo%26bar");
-    Map<String,String> params = UriUtil.parseQuery(uri);
+    Map<String, String> params = UriUtil.parseQuery(uri);
     assertEquals(1, params.size());
     assertEquals("proxima/param?foo&bar", params.get("encoded"));
   }
@@ -79,7 +76,6 @@ public class UriUtilTest {
     URI uri = new URI("proxima://foo/bring/me/some/drink");
     assertEquals(Arrays.asList("bring", "me", "some", "drink"), UriUtil.parsePath(uri));
     uri = new URI("proxima://host/encoded%2Fis%2Ffine/lets/drink");
-    assertEquals(
-        Arrays.asList("encoded/is/fine", "lets", "drink"), UriUtil.parsePath(uri));
+    assertEquals(Arrays.asList("encoded/is/fine", "lets", "drink"), UriUtil.parsePath(uri));
   }
 }

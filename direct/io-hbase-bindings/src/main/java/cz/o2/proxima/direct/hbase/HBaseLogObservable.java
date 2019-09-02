@@ -15,14 +15,21 @@
  */
 package cz.o2.proxima.direct.hbase;
 
+import static cz.o2.proxima.direct.hbase.Util.cloneArray;
+
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.Partition;
-import static cz.o2.proxima.direct.hbase.Util.cloneArray;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import java.io.IOException;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
@@ -37,16 +44,7 @@ import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.QualifierFilter;
 
-import java.io.IOException;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Executor;
-
-/**
- * A {@code BatchLogObservable} for HBase.
- */
+/** A {@code BatchLogObservable} for HBase. */
 @Slf4j
 class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservable {
 
@@ -55,10 +53,7 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
   private transient Executor executor;
 
   public HBaseLogObservable(
-      URI uri,
-      Configuration conf,
-      EntityDescriptor entity,
-      Factory<Executor> executorFactory) {
+      URI uri, Configuration conf, EntityDescriptor entity, Factory<Executor> executorFactory) {
 
     super(uri, conf);
     this.entity = entity;
@@ -91,24 +86,27 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor().execute(() -> {
-      ensureClient();
-      try {
-        flushPartitions(partitions, attributes, observer);
-      } catch (Throwable ex) {
-        log.warn("Failed to observe partitions {}", partitions, ex);
-        if (observer.onError(ex)) {
-          log.info("Restaring processing by request");
-          observe(partitions, attributes, observer);
-        }
-      }
-    });
+    executor()
+        .execute(
+            () -> {
+              ensureClient();
+              try {
+                flushPartitions(partitions, attributes, observer);
+              } catch (Throwable ex) {
+                log.warn("Failed to observe partitions {}", partitions, ex);
+                if (observer.onError(ex)) {
+                  log.info("Restaring processing by request");
+                  observe(partitions, attributes, observer);
+                }
+              }
+            });
   }
 
   private void flushPartitions(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
-      BatchLogObserver observer) throws IOException {
+      BatchLogObserver observer)
+      throws IOException {
 
     for (Partition p : partitions) {
       HBasePartition hp = (HBasePartition) p;
@@ -120,8 +118,7 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
       boolean finish = false;
       try (ResultScanner scanner = client.getScanner(scan)) {
         Result next;
-        while (((next = scanner.next()) != null)
-            && !Thread.currentThread().isInterrupted()) {
+        while (((next = scanner.next()) != null) && !Thread.currentThread().isInterrupted()) {
 
           if (!consume(next, attributes, hp, observer)) {
             finish = true;
@@ -143,10 +140,9 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
     return executor;
   }
 
-  private boolean consume(Result r,
-      List<AttributeDescriptor<?>> attrs,
-      HBasePartition hp,
-      BatchLogObserver observer) throws IOException {
+  private boolean consume(
+      Result r, List<AttributeDescriptor<?>> attrs, HBasePartition hp, BatchLogObserver observer)
+      throws IOException {
 
     CellScanner scanner = r.cellScanner();
     while (scanner.advance()) {
@@ -160,48 +156,44 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
   private StreamElement toStreamElement(
       Cell cell, List<AttributeDescriptor<?>> attrs, HBasePartition hp) {
 
-    String key = new String(
-        cell.getRowArray(),
-        cell.getRowOffset(),
-        cell.getRowLength());
+    String key = new String(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
 
-    String qualifier = new String(
-        cell.getQualifierArray(),
-        cell.getQualifierOffset(),
-        cell.getQualifierLength());
+    String qualifier =
+        new String(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
 
     for (AttributeDescriptor d : attrs) {
       if (qualifier.startsWith(d.toAttributePrefix())) {
         return StreamElement.update(
-            entity, d, new String(hp.getStartKey()) + "#" + cell.getSequenceId(),
-            key, qualifier, cell.getTimestamp(),
-            cloneArray(
-                cell.getValueArray(),
-                cell.getValueOffset(),
-                cell.getValueLength()));
+            entity,
+            d,
+            new String(hp.getStartKey()) + "#" + cell.getSequenceId(),
+            key,
+            qualifier,
+            cell.getTimestamp(),
+            cloneArray(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength()));
       }
     }
     throw new IllegalStateException("Illegal state! Fix code!");
   }
 
   // build filter for specified attributes and stamps
-  private Filter toFilter(
-      List<AttributeDescriptor<?>> attributes) {
+  private Filter toFilter(List<AttributeDescriptor<?>> attributes) {
 
     // OR filter
     FilterList attrFilter = new FilterList(FilterList.Operator.MUST_PASS_ONE);
-    attributes.forEach(attr -> {
-      if (attr.isWildcard()) {
-        attrFilter.addFilter(new ColumnPrefixFilter(
-            attr.toAttributePrefix().getBytes(StandardCharsets.UTF_8)));
-      } else {
-        attrFilter.addFilter(new QualifierFilter(
-            CompareFilter.CompareOp.EQUAL,
-            new BinaryComparator(attr.getName().getBytes(StandardCharsets.UTF_8))));
-      }
-    });
+    attributes.forEach(
+        attr -> {
+          if (attr.isWildcard()) {
+            attrFilter.addFilter(
+                new ColumnPrefixFilter(attr.toAttributePrefix().getBytes(StandardCharsets.UTF_8)));
+          } else {
+            attrFilter.addFilter(
+                new QualifierFilter(
+                    CompareFilter.CompareOp.EQUAL,
+                    new BinaryComparator(attr.getName().getBytes(StandardCharsets.UTF_8))));
+          }
+        });
 
     return attrFilter;
   }
-
 }

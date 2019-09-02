@@ -22,9 +22,7 @@ import java.util.Arrays;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * {@link ValueSerializerFactory} for floats.
- */
+/** {@link ValueSerializerFactory} for floats. */
 @Stable
 @Slf4j
 public class FloatSerializer implements ValueSerializerFactory {
@@ -37,47 +35,46 @@ public class FloatSerializer implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
-    return (ValueSerializer) new ValueSerializer<Float>() {
+    return (ValueSerializer)
+        new ValueSerializer<Float>() {
 
-      @Override
-      public Optional<Float> deserialize(byte[] input) {
-        try {
-          ByteBuffer buffer = ByteBuffer.wrap(input);
-          return Optional.ofNullable(buffer.getFloat());
-        } catch (Exception ex) {
-          log.warn("Failed to parse bytes {}", Arrays.toString(input));
-          return Optional.empty();
-        }
-      }
+          @Override
+          public Optional<Float> deserialize(byte[] input) {
+            try {
+              ByteBuffer buffer = ByteBuffer.wrap(input);
+              return Optional.ofNullable(buffer.getFloat());
+            } catch (Exception ex) {
+              log.warn("Failed to parse bytes {}", Arrays.toString(input));
+              return Optional.empty();
+            }
+          }
 
-      @Override
-      public byte[] serialize(Float value) {
-        ByteBuffer buffer = ByteBuffer.allocate(4);
-        buffer.putFloat(value);
-        return buffer.array();
-      }
+          @Override
+          public byte[] serialize(Float value) {
+            ByteBuffer buffer = ByteBuffer.allocate(4);
+            buffer.putFloat(value);
+            return buffer.array();
+          }
 
-      @Override
-      public Float getDefault() {
-        return 0.0f;
-      }
+          @Override
+          public Float getDefault() {
+            return 0.0f;
+          }
 
-      @Override
-      public String asJsonValue(Float value) {
-        return String.valueOf(value);
-      }
+          @Override
+          public String asJsonValue(Float value) {
+            return String.valueOf(value);
+          }
 
-      @Override
-      public Float fromJsonValue(String json) {
-        return Float.valueOf(json);
-      }
-
-    };
+          @Override
+          public Float fromJsonValue(String json) {
+            return Float.valueOf(json);
+          }
+        };
   }
 
   @Override
   public String getClassName(URI specifier) {
     return "Float";
   }
-
 }

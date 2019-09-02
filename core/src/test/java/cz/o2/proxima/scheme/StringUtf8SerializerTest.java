@@ -16,11 +16,10 @@
 package cz.o2.proxima.scheme;
 
 import static org.junit.Assert.*;
+
 import org.junit.Test;
 
-/**
- * Test suite for {@link StringUtf8Serializer}.
- */
+/** Test suite for {@link StringUtf8Serializer}. */
 public class StringUtf8SerializerTest {
 
   private final StringUtf8Serializer serializer = new StringUtf8Serializer();
@@ -58,5 +57,4 @@ public class StringUtf8SerializerTest {
     ValueSerializer<String> s = serializer.getValueSerializer(null);
     assertEquals("", s.getDefault());
   }
-
 }

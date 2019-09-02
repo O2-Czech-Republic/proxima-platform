@@ -30,8 +30,6 @@ import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.util.Classpath;
-import lombok.extern.slf4j.Slf4j;
-
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.Arrays;
@@ -41,11 +39,11 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * {@code AttributeWriter} for Apache Cassandra.
- * This class is completely synchronized for now, need to do performance
- * measurements to do better
+ * {@code AttributeWriter} for Apache Cassandra. This class is completely synchronized for now, need
+ * to do performance measurements to do better
  */
 @Slf4j
 public class CassandraDBAccessor extends AbstractStorage implements DataAccessor {
@@ -64,22 +62,18 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   @Getter(AccessLevel.PACKAGE)
   private final int batchParallelism;
   /** Our cassandra cluster. */
-  @Nullable
-  private transient Cluster cluster;
+  @Nullable private transient Cluster cluster;
   /** Session we are connected to. */
-  @Nullable
-  private transient Session session;
+  @Nullable private transient Session session;
 
-  @SuppressWarnings({ "unchecked", "rawtypes" })
-  public CassandraDBAccessor(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  public CassandraDBAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     super(entityDesc, uri);
 
     Object factoryName = cfg.get(CQL_FACTORY_CFG);
-    String cqlFactoryName = factoryName == null
-        ? DefaultCqlFactory.class.getName()
-        : factoryName.toString();
+    String cqlFactoryName =
+        factoryName == null ? DefaultCqlFactory.class.getName() : factoryName.toString();
 
     Object tmp = cfg.get(CQL_PARALLEL_SCANS);
     if (tmp != null) {
@@ -104,15 +98,12 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
     }
     this.converter = c;
 
-
     try {
       cqlFactory = Classpath.findClass(cqlFactoryName, CqlFactory.class).newInstance();
       cqlFactory.setup(entityDesc, uri, converter);
     } catch (InstantiationException | IllegalAccessException ex) {
-      throw new IllegalArgumentException(
-          "Cannot instantiate class " + cqlFactoryName, ex);
+      throw new IllegalArgumentException("Cannot instantiate class " + cqlFactoryName, ex);
     }
-
   }
 
   @VisibleForTesting
@@ -120,14 +111,13 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
     if (log.isDebugEnabled()) {
       if (statement instanceof BoundStatement) {
         BoundStatement s = (BoundStatement) statement;
-        log.debug(
-            "Executing BoundStatement {}",
-            s.preparedStatement().getQueryString());
+        log.debug("Executing BoundStatement {}", s.preparedStatement().getQueryString());
       } else {
         log.debug(
             "Executing {} {} with payload {}",
             statement.getClass().getSimpleName(),
-            statement, statement.getOutgoingPayload());
+            statement,
+            statement.getOutgoingPayload());
       }
     }
     return session.execute(statement);
@@ -140,17 +130,19 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
       throw new IllegalArgumentException("Invalid authority in " + uri);
     }
     return Cluster.builder()
-        //.withCodecRegistry(CodecRegistry.DEFAULT_INSTANCE.register(TypeCodec.))
-        .addContactPointsWithPorts(Arrays.stream(authority.split(","))
-            .map(p -> {
-              String[] parts = p.split(":", 2);
-              if (parts.length != 2) {
-                throw new IllegalArgumentException("Invalid hostport " + p);
-              }
-              return InetSocketAddress.createUnresolved(
-                  parts[0], Integer.valueOf(parts[1]));
-            })
-            .collect(Collectors.toList()))
+        // .withCodecRegistry(CodecRegistry.DEFAULT_INSTANCE.register(TypeCodec.))
+        .addContactPointsWithPorts(
+            Arrays.stream(authority.split(","))
+                .map(
+                    p -> {
+                      String[] parts = p.split(":", 2);
+                      if (parts.length != 2) {
+                        throw new IllegalArgumentException("Invalid hostport " + p);
+                      }
+                      return InetSocketAddress.createUnresolved(
+                          parts[0], Integer.valueOf(parts[1]));
+                    })
+                .collect(Collectors.toList()))
         .build();
   }
 
@@ -210,5 +202,4 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   CassandraWriter newWriter() {
     return new CassandraWriter(this);
   }
-
 }

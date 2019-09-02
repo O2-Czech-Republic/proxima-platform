@@ -19,6 +19,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.Serializable;
+import java.net.URI;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -26,15 +29,9 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Table;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.net.URI;
 import org.apache.hadoop.io.Writable;
 
-/**
- * Class containing embedded HBase client.
- */
+/** Class containing embedded HBase client. */
 @Slf4j
 class HBaseClientWrapper implements AutoCloseable, Serializable {
 
@@ -63,8 +60,7 @@ class HBaseClientWrapper implements AutoCloseable, Serializable {
         if (conn != null && !conn.isClosed()) {
           conn.close();
         }
-        conn = ConnectionFactory.createConnection(
-            deserialize(serializedConf, new Configuration()));
+        conn = ConnectionFactory.createConnection(deserialize(serializedConf, new Configuration()));
         client = conn.getTable(tableName());
       } catch (IOException ex) {
         log.error("Error connecting to cluster", ex);
@@ -91,7 +87,7 @@ class HBaseClientWrapper implements AutoCloseable, Serializable {
 
   private static byte[] serialize(Writable obj) {
     try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-         DataOutputStream dos = new DataOutputStream(baos)) {
+        DataOutputStream dos = new DataOutputStream(baos)) {
 
       obj.write(dos);
       dos.flush();
@@ -103,12 +99,11 @@ class HBaseClientWrapper implements AutoCloseable, Serializable {
 
   private static <W extends Writable> W deserialize(byte[] bytes, W obj) {
     try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-         DataInputStream dis = new DataInputStream(bais)) {
+        DataInputStream dis = new DataInputStream(bais)) {
       obj.readFields(dis);
       return obj;
     } catch (IOException ex) {
       throw new RuntimeException(ex);
     }
   }
-
 }

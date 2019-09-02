@@ -18,14 +18,13 @@ package cz.o2.proxima.time;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 
-/**
- * Vector clock implementation.
- */
+/** Vector clock implementation. */
 @Internal
 public class VectorClock implements WatermarkSupplier {
 
   /**
    * Create new instance of VectorClock.
+   *
    * @param dimensions dimensions of the clock
    * @return new instance
    */
@@ -35,6 +34,7 @@ public class VectorClock implements WatermarkSupplier {
 
   /**
    * Create new instance of VectorClock.
+   *
    * @param dimensions dimensions of the clock
    * @param initialStamp timestamp to initialize all dimensions to
    * @return new instance
@@ -46,9 +46,7 @@ public class VectorClock implements WatermarkSupplier {
   final long[] dimensions;
 
   private VectorClock(int dimensions, long initialStamp) {
-    Preconditions.checkArgument(
-        dimensions > 0,
-        "Number of dimensions must be positive");
+    Preconditions.checkArgument(dimensions > 0, "Number of dimensions must be positive");
     this.dimensions = new long[dimensions];
     for (int i = 0; i < dimensions; i++) {
       this.dimensions[i] = initialStamp;
@@ -75,5 +73,4 @@ public class VectorClock implements WatermarkSupplier {
   public long getWatermark() {
     return getStamp();
   }
-
 }

@@ -37,42 +37,35 @@ import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.io.UnboundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
 
-/**
- * An {@link UnboundedSource} created from direct operator's {@link CommitLogReader}.
- */
+/** An {@link UnboundedSource} created from direct operator's {@link CommitLogReader}. */
 class DirectUnboundedSource
     extends UnboundedSource<StreamElement, DirectUnboundedSource.Checkpoint> {
 
   static DirectUnboundedSource of(
-      Repository repo, String name,
-      CommitLogReader reader, Position position,
-      boolean eventTime, long limit) {
+      Repository repo,
+      String name,
+      CommitLogReader reader,
+      Position position,
+      boolean eventTime,
+      long limit) {
 
-    return new DirectUnboundedSource(
-        repo, name, reader, position, eventTime, limit, null);
+    return new DirectUnboundedSource(repo, name, reader, position, eventTime, limit, null);
   }
 
   static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
 
-    @Getter
-    @Nullable
-    private final Offset offset;
-    @Getter
-    private final long limit;
-    @Nullable
-    private final transient OffsetCommitter committer;
-    @Nullable
-    private final transient OffsetCommitter nackCommitter;
-    @Nullable
-    private final transient BeamCommitLogReader reader;
+    @Getter @Nullable private final Offset offset;
+    @Getter private final long limit;
+    @Nullable private final transient OffsetCommitter committer;
+    @Nullable private final transient OffsetCommitter nackCommitter;
+    @Nullable private final transient BeamCommitLogReader reader;
 
     Checkpoint(BeamCommitLogReader reader) {
       this.offset = reader.getCurrentOffset();
       this.limit = reader.getLimit();
-      this.committer = reader.hasExternalizableOffsets()
-          ? null : reader.getLastReadCommitter();
-      this.nackCommitter = reader.hasExternalizableOffsets()
-          ? null : reader.getLastWrittenCommitter();
+      this.committer = reader.hasExternalizableOffsets() ? null : reader.getLastReadCommitter();
+      this.nackCommitter =
+          reader.hasExternalizableOffsets() ? null : reader.getLastWrittenCommitter();
       this.reader = reader;
     }
 
@@ -94,15 +87,16 @@ class DirectUnboundedSource
     @Override
     public String toString() {
       return "DirectUnboundedSource.Checkpoint("
-          + "offset=" + offset
-          + ", limit=" + limit
-          + ", committer=" + committer
-          + ", nackCommitter=" + nackCommitter
+          + "offset="
+          + offset
+          + ", limit="
+          + limit
+          + ", committer="
+          + committer
+          + ", nackCommitter="
+          + nackCommitter
           + ")";
     }
-
-
-
   }
 
   private final Repository repo;
@@ -115,9 +109,13 @@ class DirectUnboundedSource
   private final @Nullable Partition partition;
 
   DirectUnboundedSource(
-      Repository repo, String name, CommitLogReader reader,
-      Position position, boolean eventTime,
-      long limit, @Nullable Partition partition) {
+      Repository repo,
+      String name,
+      CommitLogReader reader,
+      Position position,
+      boolean eventTime,
+      long limit,
+      @Nullable Partition partition) {
 
     this.repo = repo;
     this.name = name;
@@ -137,37 +135,38 @@ class DirectUnboundedSource
       return Arrays.asList(this);
     }
 
-    long splittable = partitions.stream()
-        .filter(Partition::isSplittable).count();
+    long splittable = partitions.stream().filter(Partition::isSplittable).count();
     long nonSplittable = partitions.size() - splittable;
-    int splitDesired = splittable > 0
-        ? Math.max(0, (int) ((desiredNumSplits - nonSplittable) / splittable))
-        : 0;
+    int splitDesired =
+        splittable > 0 ? Math.max(0, (int) ((desiredNumSplits - nonSplittable) / splittable)) : 0;
     int resulting = (int) (partitions.size() - splittable + splittable * splitDesired);
-    return partitions.stream()
-        .flatMap(p -> p.isSplittable() && splitDesired > 0
-            ? p.split(splitDesired).stream()
-            : Stream.of(p))
-        .map(p -> new DirectUnboundedSource(
-            repo, name, reader, position, eventTime, limit / resulting, p))
+    return partitions
+        .stream()
+        .flatMap(
+            p ->
+                p.isSplittable() && splitDesired > 0
+                    ? p.split(splitDesired).stream()
+                    : Stream.of(p))
+        .map(
+            p ->
+                new DirectUnboundedSource(
+                    repo, name, reader, position, eventTime, limit / resulting, p))
         .collect(Collectors.toList());
   }
 
   @Override
-  public UnboundedReader<StreamElement> createReader(
-      PipelineOptions po, Checkpoint cmt) throws IOException {
+  public UnboundedReader<StreamElement> createReader(PipelineOptions po, Checkpoint cmt)
+      throws IOException {
 
     Offset offset = cmt == null ? null : cmt.getOffset();
     long readerLimit = cmt == null ? limit : cmt.getLimit();
     return BeamCommitLogReader.unbounded(
-        this, name, reader, position, eventTime,
-        readerLimit, partition, offset);
+        this, name, reader, position, eventTime, readerLimit, partition, offset);
   }
 
   @Override
   public Coder<Checkpoint> getCheckpointMarkCoder() {
-    return KryoCoder.of(kryo ->
-      kryo.addDefaultSerializer(Checkpoint.class, new JavaSerializer()));
+    return KryoCoder.of(kryo -> kryo.addDefaultSerializer(Checkpoint.class, new JavaSerializer()));
   }
 
   @Override
@@ -183,5 +182,4 @@ class DirectUnboundedSource
     // FIXME: ??
     return !reader.hasExternalizableOffsets() && eventTime;
   }
-
 }

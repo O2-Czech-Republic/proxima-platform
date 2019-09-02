@@ -16,11 +16,10 @@
 package cz.o2.proxima.scheme;
 
 import static org.junit.Assert.*;
+
 import org.junit.Test;
 
-/**
- * Test suite for {@link IntSerializer}.
- */
+/** Test suite for {@link IntSerializer}. */
 public class IntSerializerTest {
 
   private final IntSerializer serializer = new IntSerializer();
@@ -50,7 +49,7 @@ public class IntSerializerTest {
   @Test
   public void testInvalid() {
     ValueSerializer<Integer> s = serializer.getValueSerializer(null);
-    assertFalse(s.isValid(new byte[] { 0 }));
+    assertFalse(s.isValid(new byte[] {0}));
   }
 
   @Test
@@ -64,5 +63,4 @@ public class IntSerializerTest {
     ValueSerializer<Integer> s = serializer.getValueSerializer(null);
     assertEquals(0, (int) s.getDefault());
   }
-
 }

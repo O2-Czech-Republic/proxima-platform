@@ -18,9 +18,7 @@ package cz.o2.proxima.scheme;
 import java.net.URI;
 import java.util.Optional;
 
-/**
- * This scheme parser always fails the parsing.
- */
+/** This scheme parser always fails the parsing. */
 @SuppressWarnings("unchecked")
 public class AlwaysFailSchemeParser implements ValueSerializerFactory {
 
@@ -52,7 +50,6 @@ public class AlwaysFailSchemeParser implements ValueSerializerFactory {
       public boolean isUsable() {
         return true;
       }
-
     };
   }
 
@@ -60,5 +57,4 @@ public class AlwaysFailSchemeParser implements ValueSerializerFactory {
   public String getClassName(URI scheme) {
     return "byte[]";
   }
-
 }

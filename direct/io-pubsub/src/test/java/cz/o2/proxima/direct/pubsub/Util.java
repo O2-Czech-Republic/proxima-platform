@@ -21,53 +21,58 @@ import com.google.pubsub.v1.PubsubMessage;
 import cz.o2.proxima.direct.pubsub.proto.PubSub;
 import cz.o2.proxima.repository.AttributeDescriptor;
 
-/**
- * Various utilities.
- */
+/** Various utilities. */
 class Util {
 
   static PubsubMessage update(String key, String attribute, byte[] value, long stamp) {
     return PubsubMessage.newBuilder()
-        .setPublishTime(Timestamp.newBuilder()
-            .setSeconds((int) (stamp / 1000))
-            .setNanos((int) (stamp % 1_000L) * 1_000_000))
-        .setData(PubSub.KeyValue.newBuilder()
-            .setKey(key)
-            .setAttribute(attribute)
-            .setValue(ByteString.copyFrom(value))
-            .setStamp(stamp)
-            .build().toByteString())
+        .setPublishTime(
+            Timestamp.newBuilder()
+                .setSeconds((int) (stamp / 1000))
+                .setNanos((int) (stamp % 1_000L) * 1_000_000))
+        .setData(
+            PubSub.KeyValue.newBuilder()
+                .setKey(key)
+                .setAttribute(attribute)
+                .setValue(ByteString.copyFrom(value))
+                .setStamp(stamp)
+                .build()
+                .toByteString())
         .build();
   }
 
   static PubsubMessage delete(String key, String attribute, long stamp) {
     return PubsubMessage.newBuilder()
-        .setPublishTime(Timestamp.newBuilder()
-            .setSeconds((int) (stamp / 1000))
-            .setNanos((int) (stamp % 1_000L) * 1_000_000))
-        .setData(PubSub.KeyValue.newBuilder()
-            .setKey(key)
-            .setAttribute(attribute)
-            .setDelete(true)
-            .setStamp(stamp)
-            .build().toByteString())
+        .setPublishTime(
+            Timestamp.newBuilder()
+                .setSeconds((int) (stamp / 1000))
+                .setNanos((int) (stamp % 1_000L) * 1_000_000))
+        .setData(
+            PubSub.KeyValue.newBuilder()
+                .setKey(key)
+                .setAttribute(attribute)
+                .setDelete(true)
+                .setStamp(stamp)
+                .build()
+                .toByteString())
         .build();
   }
 
-  static PubsubMessage deleteWildcard(
-      String key, AttributeDescriptor<?> attribute, long stamp) {
+  static PubsubMessage deleteWildcard(String key, AttributeDescriptor<?> attribute, long stamp) {
 
     return PubsubMessage.newBuilder()
-        .setPublishTime(Timestamp.newBuilder()
-            .setSeconds((int) (stamp / 1000))
-            .setNanos((int) (stamp % 1_000L) * 1_000_000))
-        .setData(PubSub.KeyValue.newBuilder()
-            .setKey(key)
-            .setAttribute(attribute.toAttributePrefix())
-            .setDeleteWildcard(true)
-            .setStamp(stamp)
-            .build().toByteString())
+        .setPublishTime(
+            Timestamp.newBuilder()
+                .setSeconds((int) (stamp / 1000))
+                .setNanos((int) (stamp % 1_000L) * 1_000_000))
+        .setData(
+            PubSub.KeyValue.newBuilder()
+                .setKey(key)
+                .setAttribute(attribute.toAttributePrefix())
+                .setDeleteWildcard(true)
+                .setStamp(stamp)
+                .build()
+                .toByteString())
         .build();
   }
-
 }

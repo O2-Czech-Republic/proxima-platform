@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
+import static org.junit.Assert.*;
+
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
@@ -30,36 +32,31 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * {@link CommitLogReader} test suite.
- */
+/** {@link CommitLogReader} test suite. */
 public class CommitLogReaderTest {
 
-  private final transient Repository repo = Repository.of(
-      ConfigFactory.load()
-          .withFallback(ConfigFactory.load("test-reference.conf"))
-          .resolve());
+  private final transient Repository repo =
+      Repository.of(
+          ConfigFactory.load().withFallback(ConfigFactory.load("test-reference.conf")).resolve());
 
-  private final transient EntityDescriptor entity =
-      Optionals.get(repo.findEntity("event"));
+  private final transient EntityDescriptor entity = Optionals.get(repo.findEntity("event"));
 
-  private final transient AttributeDescriptor<?> attr =
-      Optionals.get(entity.findAttribute("data"));
+  private final transient AttributeDescriptor<?> attr = Optionals.get(entity.findAttribute("data"));
 
   private transient CommitLogReader reader;
   private transient AttributeWriterBase writer;
 
   @Before
   public void setUp() {
-    DirectAttributeFamilyDescriptor family = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("event-storage-stream"))
-        .findAny()
-        .map(repo.asDataOperator(DirectDataOperator.class)::resolveRequired)
-        .get();
+    DirectAttributeFamilyDescriptor family =
+        repo.getAllFamilies()
+            .filter(af -> af.getName().equals("event-storage-stream"))
+            .findAny()
+            .map(repo.asDataOperator(DirectDataOperator.class)::resolveRequired)
+            .get();
 
     reader = family.getCommitLogReader().get();
     writer = family.getWriter().get();
@@ -69,27 +66,36 @@ public class CommitLogReaderTest {
   public void testObserveSimple() throws InterruptedException {
     List<StreamElement> received = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
-    reader.observe("test", new LogObserver() {
+    reader.observe(
+        "test",
+        new LogObserver() {
 
-      @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        received.add(ingest);
-        latch.countDown();
-        context.confirm();
-        return true;
-      }
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            received.add(ingest);
+            latch.countDown();
+            context.confirm();
+            return true;
+          }
 
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        });
 
-    });
-
-    writer.online().write(StreamElement.update(
-        entity, attr, UUID.randomUUID().toString(),
-        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
-        (succ, exc) -> { });
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                attr,
+                UUID.randomUUID().toString(),
+                "key",
+                attr.getName(),
+                System.currentTimeMillis(),
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
 
     latch.await();
 
@@ -100,26 +106,35 @@ public class CommitLogReaderTest {
   public void testObserveWithError() throws InterruptedException {
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Throwable> caught = new AtomicReference<>();
-    reader.observe("test", new LogObserver() {
+    reader.observe(
+        "test",
+        new LogObserver() {
 
-      @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        throw new RuntimeException("fail");
-      }
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            throw new RuntimeException("fail");
+          }
 
-      @Override
-      public boolean onError(Throwable error) {
-        caught.set(error);
-        latch.countDown();
-        return false;
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            caught.set(error);
+            latch.countDown();
+            return false;
+          }
+        });
 
-    });
-
-    writer.online().write(StreamElement.update(
-        entity, attr, UUID.randomUUID().toString(),
-        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
-        (succ, exc) -> { });
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                attr,
+                UUID.randomUUID().toString(),
+                "key",
+                attr.getName(),
+                System.currentTimeMillis(),
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
 
     latch.await();
 
@@ -131,31 +146,42 @@ public class CommitLogReaderTest {
     List<StreamElement> received = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
     AtomicInteger count = new AtomicInteger();
-    RetryableLogObserver observer = RetryableLogObserver.online(
-        2, "test", reader, new LogObserver() {
+    RetryableLogObserver observer =
+        RetryableLogObserver.online(
+            2,
+            "test",
+            reader,
+            new LogObserver() {
 
-          @Override
-          public boolean onNext(StreamElement ingest, OnNextContext confirm) {
-            if (count.incrementAndGet() == 0) {
-              throw new RuntimeException("fail");
-            }
-            received.add(ingest);
-            latch.countDown();
-            return true;
-          }
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext confirm) {
+                if (count.incrementAndGet() == 0) {
+                  throw new RuntimeException("fail");
+                }
+                received.add(ingest);
+                latch.countDown();
+                return true;
+              }
 
-          @Override
-          public boolean onError(Throwable error) {
-            return false;
-          }
-
-        });
+              @Override
+              public boolean onError(Throwable error) {
+                return false;
+              }
+            });
 
     observer.start();
-    writer.online().write(StreamElement.update(
-        entity, attr, UUID.randomUUID().toString(),
-        "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
-        (succ, exc) -> { });
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                attr,
+                UUID.randomUUID().toString(),
+                "key",
+                attr.getName(),
+                System.currentTimeMillis(),
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
 
     latch.await();
 
@@ -166,35 +192,43 @@ public class CommitLogReaderTest {
   public void testBulkObserve() throws InterruptedException {
     List<StreamElement> received = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(2);
-    reader.observeBulk("test", new LogObserver() {
+    reader.observeBulk(
+        "test",
+        new LogObserver() {
 
-      @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        received.add(ingest);
-        latch.countDown();
-        if (received.size() == 2) {
-          context.confirm();
-        }
-        return true;
-      }
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            received.add(ingest);
+            latch.countDown();
+            if (received.size() == 2) {
+              context.confirm();
+            }
+            return true;
+          }
 
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
-
-    });
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        });
 
     for (int i = 0; i < 2; i++) {
-      writer.online().write(StreamElement.update(
-          entity, attr, UUID.randomUUID().toString(),
-          "key", attr.getName(), System.currentTimeMillis(), new byte[] { 1, 2 }),
-          (succ, exc) -> { });
+      writer
+          .online()
+          .write(
+              StreamElement.update(
+                  entity,
+                  attr,
+                  UUID.randomUUID().toString(),
+                  "key",
+                  attr.getName(),
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2}),
+              (succ, exc) -> {});
     }
 
     latch.await();
 
     assertEquals(2, received.size());
   }
-
 }

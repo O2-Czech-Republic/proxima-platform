@@ -21,14 +21,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * This annotation indicates that the given class or
- */
+/** This annotation indicates that the given class or */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)
 @Documented
 public @interface Evolving {
 
   String value() default "";
-
 }

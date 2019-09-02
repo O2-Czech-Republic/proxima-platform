@@ -18,28 +18,21 @@ package cz.o2.proxima.direct.cassandra;
 import cz.o2.proxima.direct.batch.BoundedPartition;
 import lombok.Getter;
 
-/**
- * A {@code Partition} in Cassandra.
- */
+/** A {@code Partition} in Cassandra. */
 public class CassandraPartition extends BoundedPartition {
 
-  @Getter
-  final long minStamp;
+  @Getter final long minStamp;
 
-  @Getter
-  final long maxStamp;
+  @Getter final long maxStamp;
 
-  @Getter
-  final long tokenStart;
+  @Getter final long tokenStart;
 
-  @Getter
-  final long tokenEnd;
+  @Getter final long tokenEnd;
 
-  @Getter
-  final boolean endInclusive;
+  @Getter final boolean endInclusive;
 
-  public CassandraPartition(int id, long minStamp,
-      long maxStamp, long tokenStart, long tokenEnd, boolean endInclusive) {
+  public CassandraPartition(
+      int id, long minStamp, long maxStamp, long tokenStart, long tokenEnd, boolean endInclusive) {
 
     super(id);
     this.minStamp = minStamp;
@@ -48,5 +41,4 @@ public class CassandraPartition extends BoundedPartition {
     this.tokenEnd = tokenEnd;
     this.endInclusive = endInclusive;
   }
-
 }

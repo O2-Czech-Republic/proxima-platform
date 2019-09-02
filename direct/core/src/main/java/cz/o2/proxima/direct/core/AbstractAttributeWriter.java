@@ -15,14 +15,12 @@
  */
 package cz.o2.proxima.direct.core;
 
-import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.storage.AbstractStorage;
 import java.net.URI;
 
-/**
- * Base class for {@code AttributeWriter}s.
- */
+/** Base class for {@code AttributeWriter}s. */
 @Internal
 public abstract class AbstractAttributeWriter extends AbstractStorage
     implements AttributeWriterBase {
@@ -30,5 +28,4 @@ public abstract class AbstractAttributeWriter extends AbstractStorage
   protected AbstractAttributeWriter(EntityDescriptor entityDesc, URI uri) {
     super(entityDesc, uri);
   }
-
 }

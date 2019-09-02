@@ -19,70 +19,74 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
-/**
- * Dynamic groovy descriptor of entity.
- */
+/** Dynamic groovy descriptor of entity. */
 @Slf4j
 public class GroovyEnv {
 
   public static void createWrapperInLoader(
-      Configuration conf,
-      Repository repo,
-      ToolsClassLoader loader) throws Exception {
+      Configuration conf, Repository repo, ToolsClassLoader loader) throws Exception {
 
     String source = getSource(conf, repo, "");
     loader.parseClass(source);
   }
 
-  public static String getSource(Configuration conf, Repository repo)
-      throws Exception {
+  public static String getSource(Configuration conf, Repository repo) throws Exception {
 
     return getSource(conf, repo, "");
   }
 
-  public static String getSource(
-      Configuration conf, Repository repo, String packageName)
+  public static String getSource(Configuration conf, Repository repo, String packageName)
       throws Exception {
 
     Map<String, Object> root = new HashMap<>();
     List<Map<String, Object>> entities = new ArrayList<>();
-    repo.getAllEntities().forEach(entityDesc -> {
-      Map<String, Object> entity = new HashMap<>();
+    repo.getAllEntities()
+        .forEach(
+            entityDesc -> {
+              Map<String, Object> entity = new HashMap<>();
 
-      List<Map<String, Object>> attributes = entityDesc.getAllAttributes().stream()
-          .map(a -> {
-            ValueSerializerFactory serializerFactory = repo
-                .getValueSerializerFactory(a.getSchemeUri().getScheme())
-                .orElseThrow(() -> new IllegalStateException(
-                    "Unable to get ValueSerializerFactory for attribute " + a.getName()
-                        + " with scheme " + a.getSchemeUri().toString() + "."));
+              List<Map<String, Object>> attributes =
+                  entityDesc
+                      .getAllAttributes()
+                      .stream()
+                      .map(
+                          a -> {
+                            ValueSerializerFactory serializerFactory =
+                                repo.getValueSerializerFactory(a.getSchemeUri().getScheme())
+                                    .orElseThrow(
+                                        () ->
+                                            new IllegalStateException(
+                                                "Unable to get ValueSerializerFactory for attribute "
+                                                    + a.getName()
+                                                    + " with scheme "
+                                                    + a.getSchemeUri().toString()
+                                                    + "."));
 
-            Map<String, Object> ret = new HashMap<>();
-            String name = a.toAttributePrefix(false);
-            ret.put("classname", toFirstUpper(name));
-            ret.put("type", serializerFactory.getClassName(a.getSchemeUri()));
-            ret.put("origname", a.getName());
-            ret.put("name", name);
-            ret.put("fieldname", name.toLowerCase());
-            ret.put("wildcard", a.isWildcard());
-            return ret;
-          })
-          .collect(Collectors.toList());
+                            Map<String, Object> ret = new HashMap<>();
+                            String name = a.toAttributePrefix(false);
+                            ret.put("classname", toFirstUpper(name));
+                            ret.put("type", serializerFactory.getClassName(a.getSchemeUri()));
+                            ret.put("origname", a.getName());
+                            ret.put("name", name);
+                            ret.put("fieldname", name.toLowerCase());
+                            ret.put("wildcard", a.isWildcard());
+                            return ret;
+                          })
+                      .collect(Collectors.toList());
 
-      entity.put("attributes", attributes);
-      entity.put("classname", toFirstUpper(entityDesc.getName()));
-      entity.put("name", entityDesc.getName());
-      entities.add(entity);
-    });
+              entity.put("attributes", attributes);
+              entity.put("classname", toFirstUpper(entityDesc.getName()));
+              entity.put("name", entityDesc.getName());
+              entities.add(entity);
+            });
 
     root.put("entities", entities);
     root.put("groovyPackage", packageName);
@@ -107,5 +111,4 @@ public class GroovyEnv {
   private GroovyEnv() {
     // nop
   }
-
 }

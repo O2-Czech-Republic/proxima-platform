@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.beam;
 
 import com.typesafe.config.ConfigFactory;
@@ -33,8 +32,8 @@ import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode;
 import org.joda.time.Duration;
 
 /**
- * Class that uses all code that is pasted in root README.md to ensure
- * that this code is always actual.
+ * Class that uses all code that is pasted in root README.md to ensure that this code is always
+ * actual.
  */
 @Slf4j
 class ReadMe {
@@ -45,27 +44,29 @@ class ReadMe {
 
   private void createStream() {
     Model model = createModel();
-    BeamDataOperator operator = model.getRepo().asDataOperator(
-        BeamDataOperator.class);
+    BeamDataOperator operator = model.getRepo().asDataOperator(BeamDataOperator.class);
     Pipeline pipeline = Pipeline.create();
-    PCollection<StreamElement> input = operator.getStream(
-        pipeline, Position.OLDEST, false, true,
-        model.getEvent().getDataDescriptor());
-    PCollection<KV<String, Long>> counted = CountByKey.of(input)
-        .keyBy(el -> model.getEvent()
-            .getDataDescriptor()
-            .valueOf(el)
-            .map(BaseEvent::getProductId)
-            .orElse(""))
-        .windowBy(FixedWindows.of(Duration.standardMinutes(1)))
-        .triggeredBy(AfterWatermark.pastEndOfWindow())
-        .accumulationMode(AccumulationMode.DISCARDING_FIRED_PANES)
-        .output();
+    PCollection<StreamElement> input =
+        operator.getStream(
+            pipeline, Position.OLDEST, false, true, model.getEvent().getDataDescriptor());
+    PCollection<KV<String, Long>> counted =
+        CountByKey.of(input)
+            .keyBy(
+                el ->
+                    model
+                        .getEvent()
+                        .getDataDescriptor()
+                        .valueOf(el)
+                        .map(BaseEvent::getProductId)
+                        .orElse(""))
+            .windowBy(FixedWindows.of(Duration.standardMinutes(1)))
+            .triggeredBy(AfterWatermark.pastEndOfWindow())
+            .accumulationMode(AccumulationMode.DISCARDING_FIRED_PANES)
+            .output();
     // do something with the output
   }
 
   private ReadMe() {
     createStream();
   }
-
 }

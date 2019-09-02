@@ -17,11 +17,8 @@ package cz.o2.proxima.generator;
 
 import cz.o2.proxima.repository.Repository;
 
-/**
- * Factory for {@link OperatorGenerator}.
- */
+/** Factory for {@link OperatorGenerator}. */
 public interface OperatorGeneratorFactory {
 
   OperatorGenerator create(Repository repo);
-
 }

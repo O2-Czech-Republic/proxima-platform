@@ -33,9 +33,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.IOUtils;
 
-/**
- * A compiler of conf files to groovy object.
- */
+/** A compiler of conf files to groovy object. */
 public class Compiler {
 
   private final Configuration conf = new Configuration(Configuration.VERSION_2_3_23);
@@ -69,18 +67,19 @@ public class Compiler {
   }
 
   public void run() throws Exception {
-    Config config = configs.stream()
-        .map(f -> ConfigFactory.parseFile(new File(f)))
-        .reduce(
-            ConfigFactory.empty(),
-            (l, r) -> l.withFallback(r))
-        .resolve();
+    Config config =
+        configs
+            .stream()
+            .map(f -> ConfigFactory.parseFile(new File(f)))
+            .reduce(ConfigFactory.empty(), (l, r) -> l.withFallback(r))
+            .resolve();
 
-    Repository repo = ConfigRepository.Builder.of(config)
-        .withReadOnly(true)
-        .withValidate(false)
-        .withLoadFamilies(true)
-        .build();
+    Repository repo =
+        ConfigRepository.Builder.of(config)
+            .withReadOnly(true)
+            .withValidate(false)
+            .withLoadFamilies(true)
+            .build();
 
     String source = GroovyEnv.getSource(conf, repo, packageName);
     File of = new File(output);
@@ -102,11 +101,8 @@ public class Compiler {
     if (!parent.exists()) {
       parent.mkdirs();
     } else if (!parent.isDirectory()) {
-      throw new IllegalArgumentException("Path "
-          + parent.getAbsolutePath()
-          + " exists and is not directory!");
+      throw new IllegalArgumentException(
+          "Path " + parent.getAbsolutePath() + " exists and is not directory!");
     }
   }
-
-
 }

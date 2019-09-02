@@ -15,22 +15,19 @@
  */
 package cz.o2.proxima.repository;
 
-import cz.o2.proxima.transform.ProxyTransform;
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
+import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transform.ProxyTransform;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Objects;
 import java.util.Optional;
-
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.storage.StreamElement;
 
-/**
- * An interface describing each attribute.
- */
+/** An interface describing each attribute. */
 @Stable
 @Accessors(chain = true)
 public interface AttributeDescriptor<T> extends Serializable {
@@ -43,17 +40,13 @@ public interface AttributeDescriptor<T> extends Serializable {
       this.repo = repo;
     }
 
-    @Setter
-    private String entity;
+    @Setter private String entity;
 
-    @Setter
-    private String name;
+    @Setter private String name;
 
-    @Setter
-    private URI schemeUri;
+    @Setter private URI schemeUri;
 
-    @Setter
-    private boolean replica = false;
+    @Setter private boolean replica = false;
 
     @SuppressWarnings("unchecked")
     public <T> AttributeDescriptorImpl<T> build() {
@@ -61,14 +54,14 @@ public interface AttributeDescriptor<T> extends Serializable {
       Objects.requireNonNull(entity, "Please specify entity");
       Objects.requireNonNull(schemeUri, "Please specify scheme URI");
 
-      Optional<ValueSerializerFactory> factory = repo.getValueSerializerFactory(
-          schemeUri.getScheme());
+      Optional<ValueSerializerFactory> factory =
+          repo.getValueSerializerFactory(schemeUri.getScheme());
 
       return new AttributeDescriptorImpl<>(
-          name, entity,
+          name,
+          entity,
           schemeUri,
-          factory.map(f -> (ValueSerializer<T>)f.getValueSerializer(schemeUri))
-              .orElse(null),
+          factory.map(f -> (ValueSerializer<T>) f.getValueSerializer(schemeUri)).orElse(null),
           replica);
     }
   }
@@ -84,8 +77,7 @@ public interface AttributeDescriptor<T> extends Serializable {
       AttributeDescriptor<T> targetWrite,
       ProxyTransform transformWrite) {
 
-    return newProxy(
-        name, targetRead, transformRead, targetWrite, transformWrite, false);
+    return newProxy(name, targetRead, transformRead, targetWrite, transformWrite, false);
   }
 
   static <T> AttributeDescriptorBase<T> newProxy(
@@ -102,31 +94,36 @@ public interface AttributeDescriptor<T> extends Serializable {
 
   /**
    * Retrieve name of the attribute.
+   *
    * @return name of the attribute
    */
   String getName();
 
   /**
    * Check if this is a wildcard attribute.
+   *
    * @return {@code true} when this is wildcard attribute
    */
   boolean isWildcard();
 
   /**
    * Retrieve URI of the scheme of this attribute.
+   *
    * @return scheme URI of this attribute
    */
   URI getSchemeUri();
 
   /**
    * Retrieve name of the associated entity.
+   *
    * @return name of the associated entity
    */
   String getEntity();
 
   /**
-   * Retrieve name of the attribute if not wildcard, otherwise
-   * retrieve the prefix without the last asterisk.
+   * Retrieve name of the attribute if not wildcard, otherwise retrieve the prefix without the last
+   * asterisk.
+   *
    * @return attribute prefix of this attribute
    */
   default String toAttributePrefix() {
@@ -134,8 +131,9 @@ public interface AttributeDescriptor<T> extends Serializable {
   }
 
   /**
-   * Retrieve name of the attribute if not wildcard, otherwise
-   * retrieve the prefix without the last asterisk.
+   * Retrieve name of the attribute if not wildcard, otherwise retrieve the prefix without the last
+   * asterisk.
+   *
    * @param includeLastDot {@code true} to include dot suffix of the prefix
    * @return attribute prefix with or without dot
    */
@@ -143,18 +141,21 @@ public interface AttributeDescriptor<T> extends Serializable {
 
   /**
    * Retrieve serializer for value type.
+   *
    * @return {@link ValueSerializer} of this attribute's value
    */
   ValueSerializer<T> getValueSerializer();
 
   /**
    * Marker if this is a public attribute.
+   *
    * @return {@code true} it this is public attribute
    */
   boolean isPublic();
 
   /**
    * Convert this attribute back to builder.
+   *
    * @param repo the repository
    * @return builder representing this attribute
    */
@@ -162,6 +163,7 @@ public interface AttributeDescriptor<T> extends Serializable {
 
   /**
    * Check if this is a proxy attribute.
+   *
    * @return {@code true} is this is proxy {@code false} otherwise
    */
   default boolean isProxy() {
@@ -169,12 +171,12 @@ public interface AttributeDescriptor<T> extends Serializable {
   }
 
   /**
-   * Convert this object to {@link AttributeProxyDescriptor} iff {@link #isProxy}
-   * returns {@code true}. Throw {@link ClassCastException} otherwise.
+   * Convert this object to {@link AttributeProxyDescriptor} iff {@link #isProxy} returns {@code
+   * true}. Throw {@link ClassCastException} otherwise.
+   *
    * @return this converted as {@link AttributeProxyDescriptor}
    * @throws ClassCastException when {@link #isProxy} returns false
    */
-
   default AttributeProxyDescriptor<T> asProxy() throws ClassCastException {
     return (AttributeProxyDescriptor<T>) this;
   }
@@ -183,5 +185,4 @@ public interface AttributeDescriptor<T> extends Serializable {
   default Optional<T> valueOf(StreamElement el) {
     return el.getParsed();
   }
-
 }

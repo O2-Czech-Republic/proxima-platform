@@ -21,18 +21,15 @@ import java.io.Serializable;
 import lombok.Getter;
 
 /**
- * A single metric.
- * A single metric might be a single number or a vector of numbers
- * (e.g. say percentile statistics).
+ * A single metric. A single metric might be a single number or a vector of numbers (e.g. say
+ * percentile statistics).
  */
 @Stable
 public abstract class Metric<T> implements Serializable {
 
-  @Getter
-  final String group;
+  @Getter final String group;
 
-  @Getter
-  final String name;
+  @Getter final String name;
 
   @ConstructorProperties({"group", "name"})
   public Metric(String group, String name) {
@@ -47,6 +44,7 @@ public abstract class Metric<T> implements Serializable {
 
   /**
    * Increment the metric by given double value.
+   *
    * @param increment the value to increment the metric by
    */
   public abstract void increment(double increment);
@@ -58,11 +56,11 @@ public abstract class Metric<T> implements Serializable {
 
   /**
    * Retrieve current value of the metric.
+   *
    * @return current value
    */
   public abstract T getValue();
 
   /** Reset the metric to initial state. */
   public abstract void reset();
-
 }

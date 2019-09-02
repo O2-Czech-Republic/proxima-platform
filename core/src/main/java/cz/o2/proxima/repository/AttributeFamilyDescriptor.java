@@ -37,9 +37,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
-/**
- * A family of attributes with the same storage.
- */
+/** A family of attributes with the same storage. */
 @Evolving("Affected by #66")
 public class AttributeFamilyDescriptor implements Serializable {
 
@@ -48,40 +46,29 @@ public class AttributeFamilyDescriptor implements Serializable {
 
     private final List<AttributeDescriptor<?>> attributes = new ArrayList<>();
 
-    @Setter
-    private String name;
+    @Setter private String name;
 
-    @Setter
-    private EntityDescriptor entity;
+    @Setter private EntityDescriptor entity;
 
-    @Setter
-    private URI storageUri;
+    @Setter private URI storageUri;
 
-    @Setter
-    private StorageType type;
+    @Setter private StorageType type;
 
-    @Setter
-    private AccessType access;
+    @Setter private AccessType access;
 
-    @Setter
-    private StorageFilter filter = PassthroughFilter.INSTANCE;
+    @Setter private StorageFilter filter = PassthroughFilter.INSTANCE;
 
-    @Setter
-    private String source;
+    @Setter private String source;
 
-    @Setter
-    private Map<String, Object> cfg = new HashMap<>();
+    @Setter private Map<String, Object> cfg = new HashMap<>();
 
-    @Setter
-    private boolean proxy = false;
+    @Setter private boolean proxy = false;
 
-    @Setter
-    private AttributeFamilyDescriptor readFamily = null;
+    @Setter private AttributeFamilyDescriptor readFamily = null;
 
-    @Setter
-    private AttributeFamilyDescriptor writeFamily = null;
+    @Setter private AttributeFamilyDescriptor writeFamily = null;
 
-    private Builder() { }
+    private Builder() {}
 
     public Builder clearAttributes() {
       attributes.clear();
@@ -95,16 +82,13 @@ public class AttributeFamilyDescriptor implements Serializable {
 
     public AttributeFamilyDescriptor build() {
       if (proxy) {
-        List<AttributeProxyDescriptor<?>> attrs = attributes.stream()
-            .map(AttributeDescriptor::asProxy)
-            .collect(Collectors.toList());
+        List<AttributeProxyDescriptor<?>> attrs =
+            attributes.stream().map(AttributeDescriptor::asProxy).collect(Collectors.toList());
 
-        return AttributeFamilyProxyDescriptor.of(
-            attrs, readFamily, writeFamily);
+        return AttributeFamilyProxyDescriptor.of(attrs, readFamily, writeFamily);
       }
       return new AttributeFamilyDescriptor(
-          name, entity, type, storageUri, cfg,
-          attributes, access, filter, source);
+          name, entity, type, storageUri, cfg, attributes, access, filter, source);
     }
   }
 
@@ -112,34 +96,24 @@ public class AttributeFamilyDescriptor implements Serializable {
     return new Builder();
   }
 
-  @Getter
-  private final String name;
+  @Getter private final String name;
 
-  @Getter
-  private final EntityDescriptor entity;
+  @Getter private final EntityDescriptor entity;
 
-  @Getter
-  private final URI storageUri;
+  @Getter private final URI storageUri;
 
-  @Getter
-  private final StorageType type;
+  @Getter private final StorageType type;
 
   private final List<AttributeDescriptor<?>> attributes;
 
-  /**
-   * Access type allowed to this family.
-   */
-  @Getter
-  private final AccessType access;
+  /** Access type allowed to this family. */
+  @Getter private final AccessType access;
 
-  @Getter
-  private final StorageFilter filter;
+  @Getter private final StorageFilter filter;
 
-  @Nullable
-  private final String source;
+  @Nullable private final String source;
 
-  @Getter
-  private final Map<String, Object> cfg;
+  @Getter private final Map<String, Object> cfg;
 
   AttributeFamilyDescriptor(
       String name,
@@ -169,10 +143,7 @@ public class AttributeFamilyDescriptor implements Serializable {
 
   @Override
   public String toString() {
-    return "AttributeFamily(name="
-        + name + ", attributes="
-        + attributes + ", type="
-        + type + ")";
+    return "AttributeFamily(name=" + name + ", attributes=" + attributes + ", type=" + type + ")";
   }
 
   @Override
@@ -190,10 +161,10 @@ public class AttributeFamilyDescriptor implements Serializable {
   }
 
   /**
-   * Retrieve optional name of source attribute family, if this is replica.
-   * The source might not be explicitly specified (in which case this method
-   * returns {@code Optional.empty()} and the source is determined
-   * automatically.
+   * Retrieve optional name of source attribute family, if this is replica. The source might not be
+   * explicitly specified (in which case this method returns {@code Optional.empty()} and the source
+   * is determined automatically.
+   *
    * @return optional specified source family
    */
   public Optional<String> getSource() {
@@ -202,6 +173,7 @@ public class AttributeFamilyDescriptor implements Serializable {
 
   /**
    * Check if this proxied family.
+   *
    * @return {@code true} if proxied family
    */
   public boolean isProxy() {
@@ -210,6 +182,7 @@ public class AttributeFamilyDescriptor implements Serializable {
 
   /**
    * Convert this object to proxy descriptor.
+   *
    * @return this object cast to {@link AttributeFamilyProxyDescriptor}
    */
   public AttributeFamilyProxyDescriptor toProxy() {
@@ -218,14 +191,15 @@ public class AttributeFamilyDescriptor implements Serializable {
   }
 
   Builder toBuilder() {
-    Builder ret = new Builder()
-        .setAccess(access)
-        .setFilter(filter)
-        .setName(name)
-        .setSource(source)
-        .setEntity(entity)
-        .setStorageUri(storageUri)
-        .setType(type);
+    Builder ret =
+        new Builder()
+            .setAccess(access)
+            .setFilter(filter)
+            .setName(name)
+            .setSource(source)
+            .setEntity(entity)
+            .setStorageUri(storageUri)
+            .setType(type);
 
     if (isProxy()) {
       ret.setProxy(true)
@@ -236,5 +210,4 @@ public class AttributeFamilyDescriptor implements Serializable {
     attributes.forEach(ret::addAttribute);
     return ret;
   }
-
 }

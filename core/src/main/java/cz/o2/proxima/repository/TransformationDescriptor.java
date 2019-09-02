@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.repository;
 
-import cz.o2.proxima.transform.Transformation;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageFilter;
+import cz.o2.proxima.transform.Transformation;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,9 +29,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 import lombok.Getter;
 
-/**
- * Descriptor of single transformation specified in {@code transformations}.
- */
+/** Descriptor of single transformation specified in {@code transformations}. */
 @Evolving("Affected by #66")
 public class TransformationDescriptor implements Serializable {
 
@@ -73,31 +71,21 @@ public class TransformationDescriptor implements Serializable {
 
     TransformationDescriptor build() {
 
-      Preconditions.checkArgument(
-          !attrs.isEmpty(),
-          "Please specify at least one attribute");
-      Preconditions.checkArgument(
-          transformation != null,
-          "Please specify transformation function");
-      Preconditions.checkArgument(
-          entity != null,
-          "Please specify source entity");
+      Preconditions.checkArgument(!attrs.isEmpty(), "Please specify at least one attribute");
+      Preconditions.checkArgument(transformation != null, "Please specify transformation function");
+      Preconditions.checkArgument(entity != null, "Please specify source entity");
 
-      return new TransformationDescriptor(
-          entity, attrs, transformation, filter);
+      return new TransformationDescriptor(entity, attrs, transformation, filter);
     }
   }
 
-  @Getter
-  private final EntityDescriptor entity;
+  @Getter private final EntityDescriptor entity;
 
   private final List<AttributeDescriptor<?>> attributes;
 
-  @Getter
-  private final Transformation transformation;
+  @Getter private final Transformation transformation;
 
-  @Getter
-  private final StorageFilter filter;
+  @Getter private final StorageFilter filter;
 
   private TransformationDescriptor(
       EntityDescriptor entity,
@@ -122,10 +110,6 @@ public class TransformationDescriptor implements Serializable {
 
   @Override
   public String toString() {
-    return "TransformationDescriptor("
-        + "entity=" + entity
-        + ", attributes=" + attributes
-        + ")";
+    return "TransformationDescriptor(" + "entity=" + entity + ", attributes=" + attributes + ")";
   }
-
 }

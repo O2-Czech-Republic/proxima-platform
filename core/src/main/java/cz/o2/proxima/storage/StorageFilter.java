@@ -20,9 +20,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A filter that is applied to each input data ingest.
- */
+/** A filter that is applied to each input data ingest. */
 @Stable
 @FunctionalInterface
 public interface StorageFilter extends Serializable {
@@ -35,7 +33,6 @@ public interface StorageFilter extends Serializable {
     CompoundFilter(List<StorageFilter> filters) {
       this.filters.addAll(filters);
     }
-
   }
 
   /** Filter performing logical OR of several filters. */
@@ -49,7 +46,6 @@ public interface StorageFilter extends Serializable {
     public boolean apply(StreamElement ingest) {
       return filters.stream().anyMatch(f -> f.apply(ingest));
     }
-
   }
 
   /** Filter performing logical AND of several filters. */
@@ -63,15 +59,13 @@ public interface StorageFilter extends Serializable {
     public boolean apply(StreamElement ingest) {
       return filters.stream().allMatch(f -> f.apply(ingest));
     }
-
   }
 
   /**
-   * When returns {@code false} the input element is not stored in the
-   * storage and is throws away.
+   * When returns {@code false} the input element is not stored in the storage and is throws away.
+   *
    * @param ingest the input data
    * @return {@code false} to throw the element away
    */
   boolean apply(StreamElement ingest);
-
 }

@@ -19,41 +19,34 @@ import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.util.List;
 
-/**
- * A interface for handling progress and control consumption
- * of running observe process.
- */
+/** A interface for handling progress and control consumption of running observe process. */
 @Stable
 public interface ObserveHandle extends Serializable {
 
-  /**
-   * Stop the consumption.
-   */
+  /** Stop the consumption. */
   void cancel();
 
   /**
    * Retrieve currently committed offsets.
-   * @return list of offsets that have been committed for each partition
-   *         assigned to the observation
+   *
+   * @return list of offsets that have been committed for each partition assigned to the observation
    */
   List<Offset> getCommittedOffsets();
 
   /**
-   * Reset the consumption to given offsets.
-   * This will trigger onRestart when appropriate.
+   * Reset the consumption to given offsets. This will trigger onRestart when appropriate.
+   *
    * @param offsets the offsets to reset the processing to
    */
   void resetOffsets(List<Offset> offsets);
 
-  /**
-   * @return list of last processed element from each assigned partition.
-   */
+  /** @return list of last processed element from each assigned partition. */
   List<Offset> getCurrentOffsets();
 
   /**
    * Wait until the consumer is ready to read data.
+   *
    * @throws InterruptedException when interrupted before the wait is done
    */
   void waitUntilReady() throws InterruptedException;
-
 }

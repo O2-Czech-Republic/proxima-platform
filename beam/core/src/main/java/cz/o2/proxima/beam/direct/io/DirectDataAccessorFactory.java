@@ -27,27 +27,24 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A {@link DataAccessorFactory} using {@link DirectDataOperator}.
- * This is fallback implementation that can be used when no native
- * implementation is available.
+ * A {@link DataAccessorFactory} using {@link DirectDataOperator}. This is fallback implementation
+ * that can be used when no native implementation is available.
  */
 @Slf4j
 public class DirectDataAccessorFactory implements DataAccessorFactory {
 
-  @Nullable
-  private DirectDataOperator direct;
+  @Nullable private DirectDataOperator direct;
 
   @Override
   public void setup(Repository repo) {
-    direct = repo.hasOperator("direct")
-        ? repo.getOrCreateOperator(DirectDataOperator.class)
-        : null;
+    direct = repo.hasOperator("direct") ? repo.getOrCreateOperator(DirectDataOperator.class) : null;
   }
 
   @Override
   public Accept accepts(URI uri) {
     return direct != null && direct.getAccessorFactory(uri).isPresent()
-        ? Accept.ACCEPT_IF_NEEDED : Accept.REJECT;
+        ? Accept.ACCEPT_IF_NEEDED
+        : Accept.REJECT;
   }
 
   @Override
@@ -55,15 +52,14 @@ public class DirectDataAccessorFactory implements DataAccessorFactory {
       BeamDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     if (op.hasDirect()) {
-      cz.o2.proxima.direct.core.DataAccessor directAccessor = op.getDirect()
-          .getAccessorFactory(uri)
-          .orElseThrow(() -> new IllegalStateException("Missing directLoader?"))
-          .createAccessor(op.getDirect(), entity, uri, cfg);
+      cz.o2.proxima.direct.core.DataAccessor directAccessor =
+          op.getDirect()
+              .getAccessorFactory(uri)
+              .orElseThrow(() -> new IllegalStateException("Missing directLoader?"))
+              .createAccessor(op.getDirect(), entity, uri, cfg);
       return new DirectDataAccessorWrapper(
           op.getRepository(), directAccessor, uri, op.getDirect().getContext());
     }
-    throw new IllegalStateException(
-        "Missing direct operator. Cannot create accessor");
+    throw new IllegalStateException("Missing direct operator. Cannot create accessor");
   }
-
 }

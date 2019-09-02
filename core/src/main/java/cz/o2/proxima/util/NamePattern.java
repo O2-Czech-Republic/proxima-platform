@@ -20,9 +20,8 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Pattern matcher for syntax used for patterns in input config.
- * Accepted patterns can contain wildcards (*) which are then translated
- * into {@code java.util.regex.Pattern}s.
+ * Pattern matcher for syntax used for patterns in input config. Accepted patterns can contain
+ * wildcards (*) which are then translated into {@code java.util.regex.Pattern}s.
  */
 @Internal
 public class NamePattern implements Serializable {
@@ -31,8 +30,8 @@ public class NamePattern implements Serializable {
   private final boolean prefixOnly;
 
   /**
-   * Constructor.
-   * Convert ingest config pattern into java {@code java.util.regex.Pattern}.
+   * Constructor. Convert ingest config pattern into java {@code java.util.regex.Pattern}.
+   *
    * @param pattern string pattern to wrap into this object
    */
   public NamePattern(String pattern) {
@@ -49,6 +48,7 @@ public class NamePattern implements Serializable {
 
   /**
    * Match input string against the pattern.
+   *
    * @param what the string to match
    * @return {@code true} if matches
    */
@@ -72,5 +72,4 @@ public class NamePattern implements Serializable {
   public int hashCode() {
     return Objects.hash(pattern, prefixOnly);
   }
-
 }

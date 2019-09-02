@@ -24,39 +24,28 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.UriUtil;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nullable;
 import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
-
-/**
- * A cache for prepared CQL statements.
- */
+/** A cache for prepared CQL statements. */
 @Slf4j
 public abstract class CacheableCqlFactory implements CqlFactory {
 
-  @Getter
-  private EntityDescriptor entity;
+  @Getter private EntityDescriptor entity;
 
-  @Getter
-  private String tableName;
+  @Getter private String tableName;
 
-  @Nullable
-  private String payloadCol;
+  @Nullable private String payloadCol;
 
   /** The connection session in use. */
-  @Getter
-  @Nullable
-  transient Session current = null;
+  @Getter @Nullable transient Session current = null;
 
-  /**
-   * A TTL value in seconds associated with each update or insert.
-   */
+  /** A TTL value in seconds associated with each update or insert. */
   protected long ttl = 0;
 
   private final Map<AttributeDescriptor, PreparedStatement> ingestCache;
@@ -65,14 +54,11 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   private final Map<AttributeDescriptor, PreparedStatement> getCache;
   private final Map<AttributeDescriptor, PreparedStatement> listCache;
 
-  @Nullable
-  private transient PreparedStatement listEntities;
+  @Nullable private transient PreparedStatement listEntities;
 
-  @Nullable
-  private transient PreparedStatement fetchToken;
+  @Nullable private transient PreparedStatement fetchToken;
 
-  @Nullable
-  private transient PreparedStatement listAllAttributes;
+  @Nullable private transient PreparedStatement listAllAttributes;
 
   private static Map<AttributeDescriptor, PreparedStatement> createCache(long maxSize) {
 
@@ -95,7 +81,6 @@ public abstract class CacheableCqlFactory implements CqlFactory {
         return ret;
       }
     };
-
   }
 
   protected CacheableCqlFactory() {
@@ -106,10 +91,8 @@ public abstract class CacheableCqlFactory implements CqlFactory {
     this.ingestCache = createCache(1000);
   }
 
-
   @Override
-  public final void setup(
-      EntityDescriptor entity, URI uri, StringConverter<?> converter) {
+  public final void setup(EntityDescriptor entity, URI uri, StringConverter<?> converter) {
 
     this.entity = entity;
     String path = uri.getPath();
@@ -118,8 +101,10 @@ public abstract class CacheableCqlFactory implements CqlFactory {
       this.tableName = this.tableName.substring(0, this.tableName.length() - 1);
     }
     if (tableName.length() <= 1) {
-      throw new IllegalArgumentException("Invalid path in cassandra URI "
-          + uri + ". The path represents name of table (including keyspace)");
+      throw new IllegalArgumentException(
+          "Invalid path in cassandra URI "
+              + uri
+              + ". The path represents name of table (including keyspace)");
     }
     this.tableName = tableName.substring(1);
     final Map<String, String> parsed;
@@ -142,23 +127,20 @@ public abstract class CacheableCqlFactory implements CqlFactory {
 
   /**
    * Setup the factory from URI parameters passed in.
+   *
    * @param query the parsed URI query parameters
    * @param converter converter of payload to string
    */
-  protected void setup(
-      Map<String, String> query,
-      StringConverter<?> converter) {
-
-  }
+  protected void setup(Map<String, String> query, StringConverter<?> converter) {}
 
   /**
    * Retrieve cached prepared statement for writing given data.
+   *
    * @param session the connection session
    * @param what data to ingest
    * @return the statement to use in order to store the data
    */
-  protected PreparedStatement getPreparedStatement(
-      Session session, StreamElement what) {
+  protected PreparedStatement getPreparedStatement(Session session, StreamElement what) {
 
     if (what.isDelete()) {
       PreparedStatement cached;
@@ -186,10 +168,9 @@ public abstract class CacheableCqlFactory implements CqlFactory {
     }
   }
 
-
   /**
-   * Retrieve cached prepared statement for getting data from cassandra
-   * for given attribute.
+   * Retrieve cached prepared statement for getting data from cassandra for given attribute.
+   *
    * @param session the connection session
    * @param attribute the attribute to fetch
    * @param desc descriptor of the attribute
@@ -201,28 +182,25 @@ public abstract class CacheableCqlFactory implements CqlFactory {
     return getCache.computeIfAbsent(
         desc,
         k -> {
-          PreparedStatement prepared = prepare(
-              session, createGetStatement(attribute, desc));
+          PreparedStatement prepared = prepare(session, createGetStatement(attribute, desc));
           log.info("Prepared statement {}", prepared);
           return prepared;
         });
   }
 
-
   /**
-   * Retrieve cached prepared statement for listing data by attribute prefix
-   * (for wildcard attributes).
+   * Retrieve cached prepared statement for listing data by attribute prefix (for wildcard
+   * attributes).
+   *
    * @param session the connection session
    * @param wildcardAttribute the wildcard attribute to list
    * @return the statement to use in order to read the data
    */
   protected PreparedStatement getPreparedListStatement(
-      Session session,
-      AttributeDescriptor wildcardAttribute) {
+      Session session, AttributeDescriptor wildcardAttribute) {
 
     return listCache.computeIfAbsent(
-        wildcardAttribute,
-        k ->  prepare(session, createListStatement(wildcardAttribute)));
+        wildcardAttribute, k -> prepare(session, createListStatement(wildcardAttribute)));
   }
 
   protected PreparedStatement getPreparedListAllStatement(Session session) {
@@ -233,78 +211,73 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   }
 
   /**
-   * Create statement to be prepared for given ingest.
-   * This will be then stored in cache after call to {@code prepare}.
+   * Create statement to be prepared for given ingest. This will be then stored in cache after call
+   * to {@code prepare}.
+   *
    * @param element the input element to create statement for
    * @return string representation of the CQL
    */
   protected abstract String createInsertStatement(StreamElement element);
 
-
   /**
    * Create statement to be prepared for given ingest when deleting attribute.
+   *
    * @param element the input element to create statement for
    * @return string representation of the CQL
    */
   protected abstract String createDeleteStatement(StreamElement element);
 
-
   /**
    * Create statement to delete wildcard attribute.
+   *
    * @param element the input element to create statement for
    * @return string representation of the CQL
    */
   protected abstract String createDeleteWildcardStatement(StreamElement element);
 
-
   /**
-   * Create get statement for key-attribute pair.
-   * The statement must return only single field with value.
+   * Create get statement for key-attribute pair. The statement must return only single field with
+   * value.
+   *
    * @param attribute the input attribute to create get for
    * @param desc the descriptor of the attribute
    * @return string representation of the CQL
    */
-  protected abstract String createGetStatement(
-      String attribute,
-      AttributeDescriptor desc);
-
+  protected abstract String createGetStatement(String attribute, AttributeDescriptor desc);
 
   /**
-   * Create list statement for key-wildcardAttribute pair.
-   * The statement must return two fields - attribute, value.
+   * Create list statement for key-wildcardAttribute pair. The statement must return two fields -
+   * attribute, value.
+   *
    * @param desc the descriptor of the attribute
    * @return string representation of the CQL
    */
   protected abstract String createListStatement(AttributeDescriptor desc);
 
-
   /**
-   * Create list statement for entity keys.
-   * The statement must return single field - the entity key.
+   * Create list statement for entity keys. The statement must return single field - the entity key.
+   *
    * @return string representation of the CQL
    */
   protected abstract String createListEntititiesStatement();
 
-
   /**
-   * Create statement to fetch token for primary key.
-   * The statement must return only the token as single field in single row.
+   * Create statement to fetch token for primary key. The statement must return only the token as
+   * single field in single row.
+   *
    * @return string representation of the CQL
    */
   protected abstract String createFetchTokenStatement();
 
-
   /**
    * Create statement to list all attributes of this entity.
+   *
    * @param session the connection session
    * @return string representation of the CQL
    */
   protected abstract String createListAllStatement(Session session);
 
-
-  /**
-   * Clear the cache (e.g. on reconnects).
-   */
+  /** Clear the cache (e.g. on reconnects). */
   protected void clearCache() {
     ingestCache.clear();
     deleteCache.clear();
@@ -314,7 +287,6 @@ public abstract class CacheableCqlFactory implements CqlFactory {
     fetchToken = null;
     listAllAttributes = null;
   }
-
 
   @VisibleForTesting
   String toUnderScore(String what) {
@@ -332,11 +304,12 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   }
 
   /**
-   * Use configured payload column to read value bytes from cassandra table,
-   * or use attribute name as column name.
+   * Use configured payload column to read value bytes from cassandra table, or use attribute name
+   * as column name.
+   *
    * @param attr descriptor of attribute
    * @return string name of the payload column
-   **/
+   */
   String toPayloadCol(AttributeDescriptor<?> attr) {
     if (payloadCol != null) {
       return payloadCol;
@@ -344,10 +317,8 @@ public abstract class CacheableCqlFactory implements CqlFactory {
     return attr.toAttributePrefix(false);
   }
 
-
   @Override
-  public BoundStatement getListEntitiesStatement(
-      Offsets.Token offset, int limit, Session session) {
+  public BoundStatement getListEntitiesStatement(Offsets.Token offset, int limit, Session session) {
 
     if (listEntities == null) {
       listEntities = prepare(session, createListEntititiesStatement());
@@ -379,5 +350,4 @@ public abstract class CacheableCqlFactory implements CqlFactory {
     log.info("Prepared statement {} as {}", statement, ret);
     return ret;
   }
-
 }

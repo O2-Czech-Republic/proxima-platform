@@ -21,9 +21,7 @@ import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsof
 import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.io.Input;
 import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.io.Output;
 
-/**
- * Kryo serializer for {@link Tuple}s.
- */
+/** Kryo serializer for {@link Tuple}s. */
 public class TupleSerializer extends Serializer<Tuple<Object>> {
 
   @Override
@@ -43,5 +41,4 @@ public class TupleSerializer extends Serializer<Tuple<Object>> {
     }
     return new Tuple<>(objects);
   }
-
 }

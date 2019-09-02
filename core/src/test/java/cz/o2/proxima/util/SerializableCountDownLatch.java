@@ -19,8 +19,8 @@ import java.io.Serializable;
 import java.util.concurrent.CountDownLatch;
 
 /**
- * This is pseudo serializable {@code CountDownLatch}.
- * This is just for testing consumption in LocalExecutor
+ * This is pseudo serializable {@code CountDownLatch}. This is just for testing consumption in
+ * LocalExecutor
  */
 public class SerializableCountDownLatch implements Serializable {
 
@@ -38,5 +38,4 @@ public class SerializableCountDownLatch implements Serializable {
   public void await() throws InterruptedException {
     latch.await();
   }
-
 }

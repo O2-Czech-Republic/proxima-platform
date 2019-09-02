@@ -20,15 +20,12 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.time.WatermarkSupplier;
 import java.util.Collection;
 
-/**
- * Various utilities for working with {@link LogObserver}.
- */
+/** Various utilities for working with {@link LogObserver}. */
 @Internal
 public class ObserverUtils {
 
   public static LogObserver.OnNextContext asOnNextContext(
-      LogObserver.OffsetCommitter committer,
-      Offset offset) {
+      LogObserver.OffsetCommitter committer, Offset offset) {
 
     return new LogObserver.OnNextContext() {
 
@@ -51,7 +48,6 @@ public class ObserverUtils {
       public long getWatermark() {
         return offset.getWatermark();
       }
-
     };
   }
 
@@ -61,12 +57,10 @@ public class ObserverUtils {
     return () -> assigned;
   }
 
-  public static LogObserver.OnIdleContext asOnIdleContext(
-      WatermarkSupplier supplier) {
+  public static LogObserver.OnIdleContext asOnIdleContext(WatermarkSupplier supplier) {
 
     return supplier::getWatermark;
   }
 
-  private ObserverUtils() { }
-
+  private ObserverUtils() {}
 }

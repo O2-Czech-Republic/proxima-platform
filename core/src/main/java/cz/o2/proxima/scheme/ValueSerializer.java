@@ -19,47 +19,47 @@ import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.util.Optional;
 
-/**
- * A serializer of values with specified scheme.
- */
+/** A serializer of values with specified scheme. */
 @Stable
 public interface ValueSerializer<T> extends Serializable {
 
   /**
-   * Deserialize the bytes to materialized typed message.
-   * If the deserialization fails the returned value is empty.
+   * Deserialize the bytes to materialized typed message. If the deserialization fails the returned
+   * value is empty.
+   *
    * @param input the serialized data
    * @return optional deserialized output
-   **/
+   */
   Optional<T> deserialize(byte[] input);
 
   /**
    * Serialize value to bytes.
+   *
    * @param value the deserialized value
    * @return serialized bytes
    */
   byte[] serialize(T value);
 
-
   /**
    * Retrieve a default value for the type.
+   *
    * @return default value of the type
    */
   T getDefault();
 
   /**
    * Check if given serializer can be used without exceptions.
+   *
    * @return {@code} true if serializer is usable
    */
   default boolean isUsable() {
     byte[] serialized = serialize(getDefault());
-    return deserialize(serialized)
-        .map(getDefault()::equals)
-        .orElse(false);
+    return deserialize(serialized).map(getDefault()::equals).orElse(false);
   }
 
   /**
    * Check if given input is valid by trying to parse it.
+   *
    * @param input serialized data
    * @return {@code true} if this is valid byte representation
    */
@@ -69,32 +69,29 @@ public interface ValueSerializer<T> extends Serializable {
 
   /**
    * Convert given value to JSON representation (including quotation).
+   *
    * @param value the value to encode
    * @return the JSON string
    */
   default String asJsonValue(T value) {
     throw new UnsupportedOperationException(
-        getClass() + " is not ported to support JSON (de)serialization. "
-            + "Please fill issue.");
+        getClass() + " is not ported to support JSON (de)serialization. " + "Please fill issue.");
   }
 
   /**
    * Convert given JSON string to parsed object.
+   *
    * @param json the JSON representation
    * @return parsed object
    */
   default T fromJsonValue(String json) {
     throw new UnsupportedOperationException(
-        getClass() + " is not ported to support JSON (de)serialization. "
-            + "Please fill issue.");
+        getClass() + " is not ported to support JSON (de)serialization. " + "Please fill issue.");
   }
 
-  /**
-   * Convert value to {@link String} suitable for logging.
-   */
+  /** Convert value to {@link String} suitable for logging. */
   default String getLogString(T value) {
     // by default use toString
     return value.toString();
   }
-
 }

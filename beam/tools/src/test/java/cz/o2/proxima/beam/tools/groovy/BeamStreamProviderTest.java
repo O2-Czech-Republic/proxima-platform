@@ -15,18 +15,17 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import static org.junit.Assert.*;
+
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.Repository;
 import java.io.File;
 import java.io.IOException;
 import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptions;
-import static org.junit.Assert.*;
 import org.junit.Test;
 
-/**
- * Test suite for {@link BeamStreamProvider}.
- */
+/** Test suite for {@link BeamStreamProvider}. */
 public class BeamStreamProviderTest {
 
   public static class Registrar implements BeamStreamProvider.RunnerRegistrar {
@@ -35,7 +34,6 @@ public class BeamStreamProviderTest {
     public void apply(PipelineOptions opts) {
       // nop
     }
-
   }
 
   private final Repository repo = Repository.of(ConfigFactory.defaultApplication());
@@ -43,16 +41,18 @@ public class BeamStreamProviderTest {
   @Test
   public void testRunnerRegistrarParsing() {
     try (BeamStreamProvider.Default provider = new BeamStreamProvider.Default()) {
-      provider.init(repo, new String[] {
-          "--runner=flink",
-          "--runnerRegistrar=" + Registrar.class.getName(),
-          "--checkpointingInterval=10000"
-      });
+      provider.init(
+          repo,
+          new String[] {
+            "--runner=flink",
+            "--runnerRegistrar=" + Registrar.class.getName(),
+            "--checkpointingInterval=10000"
+          });
       assertNotNull(provider.getPipelineOptionsFactory());
       PipelineOptions options = provider.getPipelineOptionsFactory().apply();
       assertNotNull(options);
-      assertEquals(10000L, (long) options.as(FlinkPipelineOptions.class)
-          .getCheckpointingInterval());
+      assertEquals(
+          10000L, (long) options.as(FlinkPipelineOptions.class).getCheckpointingInterval());
       assertEquals("FlinkRunner", options.getRunner().getSimpleName());
       assertEquals(1, provider.getRegistrars().size());
       assertEquals(2, provider.getArgs().length);
@@ -66,5 +66,4 @@ public class BeamStreamProviderTest {
     // must not throw any exceptions
     assertTrue(true);
   }
-
 }

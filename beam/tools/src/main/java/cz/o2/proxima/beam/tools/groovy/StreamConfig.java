@@ -22,9 +22,7 @@ import cz.o2.proxima.repository.ConfigRepository;
 import java.io.Serializable;
 import java.net.InetAddress;
 
-/**
- *
- */
+/** */
 public class StreamConfig implements Serializable {
 
   private static final String COLLECT_PORT_KEY = "console.collect.server-port";
@@ -43,12 +41,11 @@ public class StreamConfig implements Serializable {
 
   private StreamConfig(Config config) {
     try {
-      this.collectPort = config.hasPath(COLLECT_PORT_KEY)
-          ? config.getInt(COLLECT_PORT_KEY)
-          : -1;
-      this.collectHostname = isNonEmpty(config, COLLECT_HOSTNAME)
-          ? config.getString(COLLECT_HOSTNAME)
-          : InetAddress.getLocalHost().getHostName();
+      this.collectPort = config.hasPath(COLLECT_PORT_KEY) ? config.getInt(COLLECT_PORT_KEY) : -1;
+      this.collectHostname =
+          isNonEmpty(config, COLLECT_HOSTNAME)
+              ? config.getString(COLLECT_HOSTNAME)
+              : InetAddress.getLocalHost().getHostName();
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
@@ -65,5 +62,4 @@ public class StreamConfig implements Serializable {
   String getCollectHostname() {
     return collectHostname;
   }
-
 }

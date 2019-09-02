@@ -21,15 +21,12 @@ import java.io.Serializable;
 import java.net.URI;
 import lombok.Getter;
 
-/**
- * A class that is super type of all data accessors.
- */
+/** A class that is super type of all data accessors. */
 @Internal
 public class AbstractStorage implements Serializable {
 
   /** The entity this writer is created for. */
-  @Getter
-  private final EntityDescriptor entityDescriptor;
+  @Getter private final EntityDescriptor entityDescriptor;
 
   private final URI uri;
 
@@ -55,5 +52,4 @@ public class AbstractStorage implements Serializable {
   public int hashCode() {
     return uri.hashCode();
   }
-
 }

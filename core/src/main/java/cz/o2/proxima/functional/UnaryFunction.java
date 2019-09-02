@@ -18,15 +18,14 @@ package cz.o2.proxima.functional;
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
-/**
- * Function of single argument.
- */
+/** Function of single argument. */
 @Stable
 @FunctionalInterface
 public interface UnaryFunction<IN, OUT> extends Serializable {
 
   /**
    * Return identity function.
+   *
    * @param <T> the type of input
    * @return the identity function
    */
@@ -36,9 +35,9 @@ public interface UnaryFunction<IN, OUT> extends Serializable {
 
   /**
    * Apply function and return result.
+   *
    * @param input input of the function
    * @return result
    */
   OUT apply(IN input);
-
 }

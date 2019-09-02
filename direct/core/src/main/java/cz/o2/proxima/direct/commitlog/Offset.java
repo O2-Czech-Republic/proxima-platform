@@ -19,23 +19,21 @@ import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.Partition;
 import java.io.Serializable;
 
-/**
- * Interface for implementations and their offset.
- */
+/** Interface for implementations and their offset. */
 @Stable
 public interface Offset extends Serializable {
 
   /**
    * Which partition is this offset for
+   *
    * @return partition of offset
    */
   Partition getPartition();
 
   /**
    * Retrieve watermark associated with this offset.
+   *
    * @return watermark associated with this offset
    */
   long getWatermark();
-
 }
-

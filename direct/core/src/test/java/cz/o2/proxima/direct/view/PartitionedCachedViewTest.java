@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.direct.view;
 
+import static org.junit.Assert.*;
+
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
@@ -31,22 +33,19 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test suite for {@link CachedView}.
- */
+/** Test suite for {@link CachedView}. */
 public class PartitionedCachedViewTest {
 
-  final Config nonReplicated = ConfigFactory.load()
-            .withFallback(ConfigFactory.load("test-reference.conf"))
-            .resolve();
-  final Config replicated = ConfigFactory.load()
-            .withFallback(ConfigFactory.load("test-replicated.conf"))
-            .withFallback(ConfigFactory.load("test-reference.conf"))
-            .resolve();
+  final Config nonReplicated =
+      ConfigFactory.load().withFallback(ConfigFactory.load("test-reference.conf")).resolve();
+  final Config replicated =
+      ConfigFactory.load()
+          .withFallback(ConfigFactory.load("test-replicated.conf"))
+          .withFallback(ConfigFactory.load("test-reference.conf"))
+          .resolve();
 
   final ConfigRepository repo = (ConfigRepository) ConfigRepository.of(nonReplicated);
   final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
@@ -55,9 +54,9 @@ public class PartitionedCachedViewTest {
   @Before
   public void setUp() {
     repo.reloadConfig(true, nonReplicated);
-    gateway = repo
-        .findEntity("gateway")
-        .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    gateway =
+        repo.findEntity("gateway")
+            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
   }
 
   @Test(timeout = 10000)
@@ -74,16 +73,21 @@ public class PartitionedCachedViewTest {
   }
 
   private void testStatusReadWrite(final Repository repo) throws InterruptedException {
-    AttributeDescriptor<Object> status = gateway.findAttribute("status")
-        .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
-    OnlineAttributeWriter writer = direct.getWriter(status).orElseThrow(
-        () -> new IllegalStateException("Missing writer for status"));
-    DirectAttributeFamilyDescriptor cachedFamily = direct
-        .getFamiliesForAttribute(status)
-        .stream()
-        .filter(af -> af.getDesc().getAccess().canCreateCachedView())
-        .findAny()
-        .orElseThrow(() -> new IllegalStateException("Status has no cached view"));
+    AttributeDescriptor<Object> status =
+        gateway
+            .findAttribute("status")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
+    OnlineAttributeWriter writer =
+        direct
+            .getWriter(status)
+            .orElseThrow(() -> new IllegalStateException("Missing writer for status"));
+    DirectAttributeFamilyDescriptor cachedFamily =
+        direct
+            .getFamiliesForAttribute(status)
+            .stream()
+            .filter(af -> af.getDesc().getAccess().canCreateCachedView())
+            .findAny()
+            .orElseThrow(() -> new IllegalStateException("Status has no cached view"));
     CachedView view = cachedFamily.getCachedView().get();
     // read all partitions
     AtomicReference<CountDownLatch> latch = new AtomicReference<>();
@@ -93,9 +97,15 @@ public class PartitionedCachedViewTest {
           Optional.ofNullable(latch.get()).ifPresent(CountDownLatch::countDown);
         });
     latch.set(new CountDownLatch(2));
-    writer.write(StreamElement.update(
-        gateway, status, "uuid", "key", status.getName(),
-        System.currentTimeMillis(), new byte[] { 1, 2, 3}),
+    writer.write(
+        StreamElement.update(
+            gateway,
+            status,
+            "uuid",
+            "key",
+            status.getName(),
+            System.currentTimeMillis(),
+            new byte[] {1, 2, 3}),
         (succ, exc) -> {
           assertTrue(succ);
           assertNull(exc);
@@ -108,20 +118,27 @@ public class PartitionedCachedViewTest {
   }
 
   private void testScanWildcardAll(final Repository repo) throws InterruptedException {
-    AttributeDescriptor<Object> status = gateway.findAttribute("status")
-        .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
-    AttributeDescriptor<Object> device = gateway.findAttribute("device.*")
-        .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
+    AttributeDescriptor<Object> status =
+        gateway
+            .findAttribute("status")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
+    AttributeDescriptor<Object> device =
+        gateway
+            .findAttribute("device.*")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
 
-    OnlineAttributeWriter writer = direct.getWriter(status).orElseThrow(
-        () -> new IllegalStateException("Missing writer for status"));
+    OnlineAttributeWriter writer =
+        direct
+            .getWriter(status)
+            .orElseThrow(() -> new IllegalStateException("Missing writer for status"));
 
-    DirectAttributeFamilyDescriptor cachedFamily = direct
-        .getFamiliesForAttribute(status)
-        .stream()
-        .filter(af -> af.getDesc().getAccess().canCreateCachedView())
-        .findAny()
-        .orElseThrow(() -> new IllegalStateException("Status has no cached view"));
+    DirectAttributeFamilyDescriptor cachedFamily =
+        direct
+            .getFamiliesForAttribute(status)
+            .stream()
+            .filter(af -> af.getDesc().getAccess().canCreateCachedView())
+            .findAny()
+            .orElseThrow(() -> new IllegalStateException("Status has no cached view"));
 
     CachedView view = cachedFamily.getCachedView().get();
     // read all partitions
@@ -132,17 +149,29 @@ public class PartitionedCachedViewTest {
           Optional.ofNullable(latch.get()).ifPresent(CountDownLatch::countDown);
         });
     latch.set(new CountDownLatch(4));
-    writer.write(StreamElement.update(
-        gateway, status, "uuid", "key", status.getName(),
-        System.currentTimeMillis(), new byte[] { 1, 2, 3}),
+    writer.write(
+        StreamElement.update(
+            gateway,
+            status,
+            "uuid",
+            "key",
+            status.getName(),
+            System.currentTimeMillis(),
+            new byte[] {1, 2, 3}),
         (succ, exc) -> {
           assertTrue(succ);
           assertNull(exc);
           latch.get().countDown();
         });
-    writer.write(StreamElement.update(
-        gateway, device, "uuid2", "key", device.toAttributePrefix() + "1",
-        System.currentTimeMillis(), new byte[] { 2 , 3 }),
+    writer.write(
+        StreamElement.update(
+            gateway,
+            device,
+            "uuid2",
+            "key",
+            device.toAttributePrefix() + "1",
+            System.currentTimeMillis(),
+            new byte[] {2, 3}),
         (succ, exc) -> {
           assertTrue(succ);
           assertNull(exc);
@@ -153,6 +182,4 @@ public class PartitionedCachedViewTest {
     view.scanWildcardAll("key", kvs::add);
     assertEquals(2, kvs.size());
   }
-
-
 }

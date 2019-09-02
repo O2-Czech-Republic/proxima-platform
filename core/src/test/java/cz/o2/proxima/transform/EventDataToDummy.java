@@ -20,9 +20,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 
-/**
- * Transform {@code event.data} to {@code dummy.wildcard.<stamp>}.
- */
+/** Transform {@code event.data} to {@code dummy.wildcard.<stamp>}. */
 public class EventDataToDummy implements Transformation {
 
   EntityDescriptor target;
@@ -31,25 +29,29 @@ public class EventDataToDummy implements Transformation {
 
   @Override
   public void setup(Repository repo) {
-    target = repo.findEntity("dummy").orElseThrow(
-        () -> new IllegalStateException("Missing entity `dummy`"));
-    targetAttr = target.findAttribute("wildcard.*")
-        .orElseThrow(() -> new IllegalArgumentException(
-            "Missing attribute `wildcard.*` in `dummy`"));
+    target =
+        repo.findEntity("dummy")
+            .orElseThrow(() -> new IllegalStateException("Missing entity `dummy`"));
+    targetAttr =
+        target
+            .findAttribute("wildcard.*")
+            .orElseThrow(
+                () -> new IllegalArgumentException("Missing attribute `wildcard.*` in `dummy`"));
     prefix = targetAttr.toAttributePrefix();
   }
 
-
   @Override
-  public int apply(
-      StreamElement input, Collector<StreamElement> collector) {
-    
-    collector.collect(StreamElement.update(
-        target, targetAttr, input.getUuid(),
-        input.getKey(), prefix + input.getStamp(),
-        input.getStamp(), input.getValue()));
+  public int apply(StreamElement input, Collector<StreamElement> collector) {
+
+    collector.collect(
+        StreamElement.update(
+            target,
+            targetAttr,
+            input.getUuid(),
+            input.getKey(),
+            prefix + input.getStamp(),
+            input.getStamp(),
+            input.getValue()));
     return 1;
   }
-
-
 }

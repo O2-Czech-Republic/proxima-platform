@@ -15,28 +15,26 @@
  */
 package cz.o2.proxima.scheme;
 
-import lombok.Data;
-import org.junit.Before;
-import org.junit.Test;
+import static org.junit.Assert.*;
 
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Optional;
+import lombok.Data;
+import org.junit.Before;
+import org.junit.Test;
 
-import static org.junit.Assert.*;
-
-/**
- * Test for ${@link JavaSerializer}.
- */
+/** Test for ${@link JavaSerializer}. */
 public class JavaSerializerTest {
   private final ValueSerializerFactory factory = new JavaSerializer();
   private ValueSerializer<MyTestObject> serializer;
 
   @Before
   public void setup() throws URISyntaxException {
-    serializer = factory.getValueSerializer(
-        new URI("java:cz.o2.proxima.scheme.JavaSerializerTest$MyTestObject"));
+    serializer =
+        factory.getValueSerializer(
+            new URI("java:cz.o2.proxima.scheme.JavaSerializerTest$MyTestObject"));
   }
 
   @Test
@@ -55,7 +53,7 @@ public class JavaSerializerTest {
 
   @Test
   public void testIsValidWithCustomClass() {
-    assertTrue(serializer.isValid(new byte[] { }));
+    assertTrue(serializer.isValid(new byte[] {}));
     assertNotNull(serializer.getDefault());
     assertTrue(serializer.isUsable());
   }
@@ -67,14 +65,13 @@ public class JavaSerializerTest {
 
   @Test
   public void testGetClassNameWithCustomClass() throws URISyntaxException {
-    assertEquals(MyTestObject.class.getSimpleName(), factory.getClassName(
-        new URI("java:MyTestObject")));
+    assertEquals(
+        MyTestObject.class.getSimpleName(), factory.getClassName(new URI("java:MyTestObject")));
   }
 
   @Test
   public void testSerializerForStringClassWithPackage() throws URISyntaxException {
-    ValueSerializer<String> s = factory.getValueSerializer(
-        new URI("java:java.lang.String"));
+    ValueSerializer<String> s = factory.getValueSerializer(new URI("java:java.lang.String"));
     String value = "my-super-value";
     byte[] serialized = s.serialize(value);
     Optional<String> deserialized = s.deserialize(serialized);
@@ -82,14 +79,12 @@ public class JavaSerializerTest {
     assertEquals(value, deserialized.get());
 
     assertEquals("", s.getDefault());
-    assertEquals("java.lang.String", factory.getClassName(
-        new URI("java:java.lang.String")));
+    assertEquals("java.lang.String", factory.getClassName(new URI("java:java.lang.String")));
   }
 
   @Test
   public void testSerializerForStringClass() throws URISyntaxException {
-    ValueSerializer<String> s = factory.getValueSerializer(
-        new URI("java:String"));
+    ValueSerializer<String> s = factory.getValueSerializer(new URI("java:String"));
     String value = "my-super-value";
     byte[] serialized = s.serialize(value);
     Optional<String> deserialized = s.deserialize(serialized);
@@ -103,7 +98,7 @@ public class JavaSerializerTest {
   @Test(expected = SerializationException.class)
   public void testWithNotExistsClass() throws URISyntaxException {
     ValueSerializer s = factory.getValueSerializer(new URI("java:not-exists"));
-    s.isValid(new byte[]{});
+    s.isValid(new byte[] {});
   }
 
   @Data

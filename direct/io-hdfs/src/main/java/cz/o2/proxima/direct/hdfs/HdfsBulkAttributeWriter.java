@@ -20,16 +20,6 @@ import cz.o2.proxima.direct.core.AbstractBulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.io.BytesWritable;
-import org.apache.hadoop.io.SequenceFile;
-import org.apache.hadoop.io.compress.GzipCodec;
-
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
@@ -40,10 +30,17 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Map;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.io.BytesWritable;
+import org.apache.hadoop.io.SequenceFile;
+import org.apache.hadoop.io.compress.GzipCodec;
 
-/**
- * Bulk attribute writer to HDFS as {@code SequenceFiles}.
- */
+/** Bulk attribute writer to HDFS as {@code SequenceFiles}. */
 @Slf4j
 @SuppressWarnings("squid:S2160")
 public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
@@ -61,12 +58,14 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
   private long minElementStamp = Long.MAX_VALUE;
   private long maxElementStamp = Long.MIN_VALUE;
 
-  @Nullable
-  private transient CommitCallback lastWrittenCallback = null;
+  @Nullable private transient CommitCallback lastWrittenCallback = null;
 
   public HdfsBulkAttributeWriter(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg,
-      int minElementsToFlush, long rollInterval) {
+      EntityDescriptor entityDesc,
+      URI uri,
+      Map<String, Object> cfg,
+      int minElementsToFlush,
+      long rollInterval) {
 
     super(entityDesc, uri);
     this.cfg = cfg;
@@ -90,8 +89,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
   }
 
   @Override
-  public void write(
-      StreamElement data, long watermark, CommitCallback commitCallback) {
+  public void write(StreamElement data, long watermark, CommitCallback commitCallback) {
 
     try {
 
@@ -144,14 +142,14 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
       writerTmpPath = tmp;
       minElementStamp = Long.MAX_VALUE;
       maxElementStamp = Long.MIN_VALUE;
-      writer = SequenceFile.createWriter(HdfsDataAccessor.toHadoopConf(cfg),
-          SequenceFile.Writer.file(tmp),
-          SequenceFile.Writer.appendIfExists(false),
-          SequenceFile.Writer.keyClass(BytesWritable.class),
-          SequenceFile.Writer.valueClass(TimestampedNullableBytesWritable.class),
-          SequenceFile.Writer.compression(
-              SequenceFile.CompressionType.BLOCK,
-              new GzipCodec()));
+      writer =
+          SequenceFile.createWriter(
+              HdfsDataAccessor.toHadoopConf(cfg),
+              SequenceFile.Writer.file(tmp),
+              SequenceFile.Writer.appendIfExists(false),
+              SequenceFile.Writer.keyClass(BytesWritable.class),
+              SequenceFile.Writer.valueClass(TimestampedNullableBytesWritable.class),
+              SequenceFile.Writer.compression(SequenceFile.CompressionType.BLOCK, new GzipCodec()));
     } catch (IOException | URISyntaxException ex) {
       throw new RuntimeException(ex);
     }
@@ -174,23 +172,19 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
     // place the final file in directory of (YYYY/MM)
     return new Path(
         new URI(
-            getUri().toString() + HdfsDataAccessor.DIR_FORMAT.format(
-                LocalDateTime.ofInstant(d, ZoneId.ofOffset(
-                    "UTC", ZoneOffset.ofHours(0))))
-                + "/" + toFinalName(minStamp, maxStamp)));
+            getUri().toString()
+                + HdfsDataAccessor.DIR_FORMAT.format(
+                    LocalDateTime.ofInstant(d, ZoneId.ofOffset("UTC", ZoneOffset.ofHours(0))))
+                + "/"
+                + toFinalName(minStamp, maxStamp)));
   }
 
   @VisibleForTesting
-  Path toTmpLocation(long part)
-      throws UnknownHostException, URISyntaxException {
+  Path toTmpLocation(long part) throws UnknownHostException, URISyntaxException {
 
     // place the final file in directory /.tmp/
-    return new Path(
-        new URI(getUri().toString() + "/.tmp/"
-            + toPartName(part)));
+    return new Path(new URI(getUri().toString() + "/.tmp/" + toPartName(part)));
   }
-
-
 
   private void clearTmpDir() {
     try {
@@ -265,6 +259,4 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
       writer = null;
     }
   }
-
-
 }

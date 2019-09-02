@@ -20,6 +20,7 @@ import java.io.Serializable;
 
 /**
  * {@link Serializable} consumer.
+ *
  * @param <T> type of input parameter
  */
 @Stable
@@ -28,8 +29,8 @@ public interface Consumer<T> extends Serializable {
 
   /**
    * Apply action to given input.
+   *
    * @param input the input
    */
   void accept(T input);
-
 }

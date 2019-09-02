@@ -25,47 +25,37 @@ import java.util.Map;
 
 /**
  * Interface for all module data accessor factories to extend.
+ *
  * @param <T> the module specific data accessor
  */
 @Internal
 public interface AbstractDataAccessorFactory<
-    OP extends DataOperator,
-    T extends AbstractDataAccessor> extends Serializable {
+        OP extends DataOperator, T extends AbstractDataAccessor>
+    extends Serializable {
 
-  /**
-   * Marker for acceptance of given URI to this factory.
-   */
+  /** Marker for acceptance of given URI to this factory. */
   public enum Accept {
 
-    /**
-     * The URI is accepted.
-     */
+    /** The URI is accepted. */
     ACCEPT,
 
-    /**
-     * The URI is accepted, if there is no other factory, that can accept this
-     * URI.
-     */
+    /** The URI is accepted, if there is no other factory, that can accept this URI. */
     ACCEPT_IF_NEEDED,
 
-    /**
-     * The URI is rejected and cannot be handled by this factory.
-     */
+    /** The URI is rejected and cannot be handled by this factory. */
     REJECT
-
   }
 
   /**
    * Setup the factory for using given {@link Repository}.
+   *
    * @param repo the repository that will be used with the factory
    */
-  default void setup(Repository repo) {
-
-  }
-
+  default void setup(Repository repo) {}
 
   /**
    * Check if this factory can create accessors for given URI.
+   *
    * @param uri the URI to create accessor for
    * @return acception mark
    */
@@ -73,16 +63,12 @@ public interface AbstractDataAccessorFactory<
 
   /**
    * Create the accessor for given URI.
+   *
    * @param operator operator to create the accessor for
    * @param entity the descriptor of entity to create accessor for
    * @param uri the URI to create accessor for
    * @param cfg optional additional configuration
    * @return {@link AbstractDataAccessor} for given operator and family
    */
-  T createAccessor(
-      OP operator,
-      EntityDescriptor entity,
-      URI uri,
-      Map<String, Object> cfg);
-
+  T createAccessor(OP operator, EntityDescriptor entity, URI uri, Map<String, Object> cfg);
 }

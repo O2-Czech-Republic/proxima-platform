@@ -26,11 +26,6 @@ import cz.o2.proxima.proto.service.Rpc;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import lombok.Getter;
-import lombok.Value;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,16 +36,16 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.Value;
+import lombok.extern.slf4j.Slf4j;
 
-/**
- * A client being able to connect and write requests to the ingest gateway.
- */
+/** A client being able to connect and write requests to the ingest gateway. */
 @Slf4j
 public class IngestClient implements AutoCloseable {
 
-  /**
-   * Request sent through the channel
-   */
+  /** Request sent through the channel */
   @Value
   private class Request {
 
@@ -60,6 +55,7 @@ public class IngestClient implements AutoCloseable {
 
     /**
      * Confirm the status and remove the timeout schedule
+     *
      * @param status of the request
      */
     private void setStatus(Rpc.Status status) {
@@ -68,9 +64,7 @@ public class IngestClient implements AutoCloseable {
       }
     }
 
-    /**
-     * Retry to send the request.
-     */
+    /** Retry to send the request. */
     void retry() {
       // we don't setup any timeout
       sendTry(payload, -1L, TimeUnit.MILLISECONDS, consumer, true);
@@ -100,36 +94,28 @@ public class IngestClient implements AutoCloseable {
     return new IngestClient(host, port, opts);
   }
 
-  @Getter
-  private final String host;
-  @Getter
-  private final int port;
-  @Getter
-  private final Options options;
+  @Getter private final String host;
+  @Getter private final int port;
+  @Getter private final Options options;
 
   /** Map of UUID of message to the consumer of the message status. */
   private final Map<String, Request> inFlightRequests;
 
-  @VisibleForTesting
-  Channel channel = null;
+  @VisibleForTesting Channel channel = null;
 
-  @VisibleForTesting
-  IngestServiceStub ingestStub = null;
+  @VisibleForTesting IngestServiceStub ingestStub = null;
 
-  @VisibleForTesting
-  RetrieveServiceGrpc.RetrieveServiceBlockingStub retrieveStub = null;
+  @VisibleForTesting RetrieveServiceGrpc.RetrieveServiceBlockingStub retrieveStub = null;
   private final Rpc.IngestBulk.Builder bulkBuilder = Rpc.IngestBulk.newBuilder();
   private final CountDownLatch closedLatch = new CountDownLatch(1);
 
-  @VisibleForTesting
-  final StreamObserver<Rpc.StatusBulk> statusObserver = newStatusObserver();
+  @VisibleForTesting final StreamObserver<Rpc.StatusBulk> statusObserver = newStatusObserver();
 
   private Thread flushThread;
 
   private final AtomicReference<Throwable> flushThreadExc = new AtomicReference<>();
 
-  @VisibleForTesting
-  StreamObserver<Rpc.IngestBulk> ingestRequestObserver;
+  @VisibleForTesting StreamObserver<Rpc.IngestBulk> ingestRequestObserver;
 
   private final ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1);
 
@@ -145,17 +131,19 @@ public class IngestClient implements AutoCloseable {
   }
 
   private Thread createFlushThread() {
-    Thread ret = new Thread(() -> {
-      try {
-        long flushTimeNanos = options.getFlushUsec() * 1_000L;
-        while (!Thread.currentThread().isInterrupted()) {
-          flushLoop(flushTimeNanos);
-        }
-      } catch (Throwable thwbl) {
-        log.error("Error in flush thread", thwbl);
-        flushThreadExc.set(thwbl);
-      }
-    });
+    Thread ret =
+        new Thread(
+            () -> {
+              try {
+                long flushTimeNanos = options.getFlushUsec() * 1_000L;
+                while (!Thread.currentThread().isInterrupted()) {
+                  flushLoop(flushTimeNanos);
+                }
+              } catch (Throwable thwbl) {
+                log.error("Error in flush thread", thwbl);
+                flushThreadExc.set(thwbl);
+              }
+            });
     ret.setDaemon(true);
     ret.setName(getClass().getSimpleName() + "-flushThread");
     return ret;
@@ -188,8 +176,7 @@ public class IngestClient implements AutoCloseable {
           final Request request = inFlightRequests.remove(uuid);
           if (request == null) {
             log.warn(
-                "Received response for unknown message {}",
-                TextFormat.shortDebugString(status));
+                "Received response for unknown message {}", TextFormat.shortDebugString(status));
           } else {
             synchronized (inFlightRequests) {
               inFlightRequests.notifyAll();
@@ -228,6 +215,7 @@ public class IngestClient implements AutoCloseable {
 
   /**
    * Send the request.
+   *
    * @param ingest the data
    * @param statusConsumer callback for receiving status
    */
@@ -237,33 +225,46 @@ public class IngestClient implements AutoCloseable {
 
   /**
    * Send the request with timeout.
+   *
    * @param ingest the data
    * @param timeout timeout
    * @param unit time unit of timeout
    * @param statusConsumer callback for receiving status
    */
-  public void send(Rpc.Ingest ingest, long timeout,
-      TimeUnit unit, Consumer<Rpc.Status> statusConsumer) {
+  public void send(
+      Rpc.Ingest ingest, long timeout, TimeUnit unit, Consumer<Rpc.Status> statusConsumer) {
 
     sendTry(ingest, timeout, unit, statusConsumer, false);
   }
 
   /**
    * Send ingest request.
+   *
    * @param key entity key value.
    * @param entity entity name.
    * @param attribute attribute name.
    * @param value ingested value.
    * @param statusConsumer callback for receiving status.
    */
-  public void ingest(String key, String entity, String attribute,
-      ByteString value, Consumer<Rpc.Status> statusConsumer) {
-    ingest(UUID.randomUUID().toString(), key, entity, attribute, value,
-        System.currentTimeMillis(), statusConsumer);
+  public void ingest(
+      String key,
+      String entity,
+      String attribute,
+      ByteString value,
+      Consumer<Rpc.Status> statusConsumer) {
+    ingest(
+        UUID.randomUUID().toString(),
+        key,
+        entity,
+        attribute,
+        value,
+        System.currentTimeMillis(),
+        statusConsumer);
   }
 
   /**
    * Send ingest request.
+   *
    * @param uuid request UUID.
    * @param key entity key value.
    * @param entity entity name.
@@ -271,14 +272,19 @@ public class IngestClient implements AutoCloseable {
    * @param value ingested value.
    * @param statusConsumer callback for receiving status.
    */
-  public void ingest(String uuid, String key, String entity, String attribute,
-      ByteString value, Consumer<Rpc.Status> statusConsumer) {
-    ingest(uuid, key, entity, attribute, value, System.currentTimeMillis(),
-        statusConsumer);
+  public void ingest(
+      String uuid,
+      String key,
+      String entity,
+      String attribute,
+      ByteString value,
+      Consumer<Rpc.Status> statusConsumer) {
+    ingest(uuid, key, entity, attribute, value, System.currentTimeMillis(), statusConsumer);
   }
 
   /**
    * Send ingest request.
+   *
    * @param uuid request UUID.
    * @param key entity key value.
    * @param entity entity name.
@@ -287,14 +293,21 @@ public class IngestClient implements AutoCloseable {
    * @param stamp timestamp.
    * @param statusConsumer callback for receiving status.
    */
-  public void ingest(String uuid, String key, String entity, String attribute,
-      @Nullable ByteString value, long stamp, Consumer<Rpc.Status> statusConsumer) {
-    Rpc.Ingest.Builder requestBuilder = Rpc.Ingest.newBuilder()
-        .setUuid(uuid)
-        .setKey(key)
-        .setEntity(entity)
-        .setAttribute(attribute)
-        .setStamp(stamp);
+  public void ingest(
+      String uuid,
+      String key,
+      String entity,
+      String attribute,
+      @Nullable ByteString value,
+      long stamp,
+      Consumer<Rpc.Status> statusConsumer) {
+    Rpc.Ingest.Builder requestBuilder =
+        Rpc.Ingest.newBuilder()
+            .setUuid(uuid)
+            .setKey(key)
+            .setEntity(entity)
+            .setAttribute(attribute)
+            .setStamp(stamp);
     if (value == null) {
       requestBuilder.setDelete(true);
     } else {
@@ -305,6 +318,7 @@ public class IngestClient implements AutoCloseable {
 
   /**
    * Send delete request.
+   *
    * @param uuid request UUID.
    * @param key entity key value.
    * @param entity entity name.
@@ -312,40 +326,56 @@ public class IngestClient implements AutoCloseable {
    * @param stamp timestamp.
    * @param statusConsumer callback for receiving status.
    */
-  public void delete(String uuid, String key, String entity, String attribute, long stamp,
+  public void delete(
+      String uuid,
+      String key,
+      String entity,
+      String attribute,
+      long stamp,
       Consumer<Rpc.Status> statusConsumer) {
     ingest(uuid, key, entity, attribute, null, stamp, statusConsumer);
   }
 
   /**
    * Send delete request.
+   *
    * @param key entity key value.
    * @param entity entity name.
    * @param attribute attribute name.
    * @param statusConsumer callback for receiving status.
    */
-  public void delete(String key, String entity, String attribute,
-      Consumer<Rpc.Status> statusConsumer) {
-    delete(UUID.randomUUID().toString(), key, entity, attribute,
-        System.currentTimeMillis(), statusConsumer);
+  public void delete(
+      String key, String entity, String attribute, Consumer<Rpc.Status> statusConsumer) {
+    delete(
+        UUID.randomUUID().toString(),
+        key,
+        entity,
+        attribute,
+        System.currentTimeMillis(),
+        statusConsumer);
   }
 
   /**
    * Send delete request.
+   *
    * @param uuid request UUID.
    * @param key entity key value.
    * @param entity entity name.
    * @param attribute attribute name.
    * @param statusConsumer callback for receiving status.
    */
-  public void delete(String uuid, String key, String entity, String attribute,
+  public void delete(
+      String uuid,
+      String key,
+      String entity,
+      String attribute,
       Consumer<Rpc.Status> statusConsumer) {
     delete(uuid, key, entity, attribute, System.currentTimeMillis(), statusConsumer);
   }
 
   /**
-   * Sends synchronously {@link cz.o2.proxima.proto.service.Rpc.GetRequest}
-   * to retrieve data from the system.
+   * Sends synchronously {@link cz.o2.proxima.proto.service.Rpc.GetRequest} to retrieve data from
+   * the system.
    *
    * @param request Instance of {@link cz.o2.proxima.proto.service.Rpc.GetRequest}.
    * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.GetResponse}.
@@ -356,8 +386,8 @@ public class IngestClient implements AutoCloseable {
   }
 
   /**
-   * Sends synchronously {@link cz.o2.proxima.proto.service.Rpc.GetRequest}
-   * to retrieve data from system.
+   * Sends synchronously {@link cz.o2.proxima.proto.service.Rpc.GetRequest} to retrieve data from
+   * system.
    *
    * @param entity entity name.
    * @param key entity key.
@@ -365,17 +395,14 @@ public class IngestClient implements AutoCloseable {
    * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.GetResponse}.
    */
   public Rpc.GetResponse get(String entity, String key, String attribute) {
-    Rpc.GetRequest get = Rpc.GetRequest.newBuilder()
-        .setEntity(entity)
-        .setKey(key)
-        .setAttribute(attribute)
-        .build();
+    Rpc.GetRequest get =
+        Rpc.GetRequest.newBuilder().setEntity(entity).setKey(key).setAttribute(attribute).build();
     return get(get);
   }
 
   /**
-   * Send synchronously {@link cz.o2.proxima.proto.service.Rpc.ListRequest}
-   * to retrieve attributes for entity.
+   * Send synchronously {@link cz.o2.proxima.proto.service.Rpc.ListRequest} to retrieve attributes
+   * for entity.
    *
    * @param request Instance of {@link cz.o2.proxima.proto.service.Rpc.ListRequest}.
    * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.ListResponse}.
@@ -386,8 +413,8 @@ public class IngestClient implements AutoCloseable {
   }
 
   /**
-   * Send synchronously {@link cz.o2.proxima.proto.service.Rpc.ListRequest}
-   * to retrieve attributes for entity.
+   * Send synchronously {@link cz.o2.proxima.proto.service.Rpc.ListRequest} to retrieve attributes
+   * for entity.
    *
    * @param entity entity name
    * @param key entity key value.
@@ -398,8 +425,8 @@ public class IngestClient implements AutoCloseable {
   }
 
   /**
-   * Send synchronously {@link cz.o2.proxima.proto.service.Rpc.ListRequest}
-   * to retrieve attributes for entity.
+   * Send synchronously {@link cz.o2.proxima.proto.service.Rpc.ListRequest} to retrieve attributes
+   * for entity.
    *
    * @param entity entity name
    * @param key entity key value.
@@ -407,12 +434,10 @@ public class IngestClient implements AutoCloseable {
    * @param limit limit of values (-1 for all).
    * @return Instance of {@link cz.o2.proxima.proto.service.Rpc.ListResponse}.
    */
-  public Rpc.ListResponse listAttributes(String entity, String key,
-      @Nullable String offset, int limit) {
-    Rpc.ListRequest.Builder list = Rpc.ListRequest.newBuilder()
-        .setEntity(entity)
-        .setKey(key)
-        .setLimit(limit);
+  public Rpc.ListResponse listAttributes(
+      String entity, String key, @Nullable String offset, int limit) {
+    Rpc.ListRequest.Builder list =
+        Rpc.ListRequest.newBuilder().setEntity(entity).setKey(key).setLimit(limit);
     if (offset != null) {
       list.setOffset(offset);
     }
@@ -421,8 +446,10 @@ public class IngestClient implements AutoCloseable {
 
   /** Send the request with timeout. */
   private void sendTry(
-      Rpc.Ingest ingest, long timeout,
-      TimeUnit unit, Consumer<Rpc.Status> statusConsumer,
+      Rpc.Ingest ingest,
+      long timeout,
+      TimeUnit unit,
+      Consumer<Rpc.Status> statusConsumer,
       boolean isRetry) {
 
     if (Strings.isNullOrEmpty(ingest.getUuid())) {
@@ -434,9 +461,7 @@ public class IngestClient implements AutoCloseable {
       ensureChannel();
       Throwable flushExc = flushThreadExc.getAndSet(null);
       if (flushExc != null) {
-        log.warn(
-            "Received exception from flush thread. Restarting flush thread.",
-            flushExc);
+        log.warn("Received exception from flush thread. Restarting flush thread.", flushExc);
         try {
           flushThread.join(500);
         } catch (InterruptedException ex) {
@@ -453,14 +478,20 @@ public class IngestClient implements AutoCloseable {
 
     ScheduledFuture<?> scheduled = null;
     if (timeout > 0) {
-      scheduled = timer.schedule(() -> {
-        inFlightRequests.remove(ingest.getUuid());
-        statusConsumer.accept(Rpc.Status.newBuilder()
-            .setStatus(504)
-            .setStatusMessage(
-                "Timeout while waiting for response of request UUID " + ingest.getUuid())
-            .build());
-      }, timeout, unit);
+      scheduled =
+          timer.schedule(
+              () -> {
+                inFlightRequests.remove(ingest.getUuid());
+                statusConsumer.accept(
+                    Rpc.Status.newBuilder()
+                        .setStatus(504)
+                        .setStatusMessage(
+                            "Timeout while waiting for response of request UUID "
+                                + ingest.getUuid())
+                        .build());
+              },
+              timeout,
+              unit);
     }
 
     while (!isRetry && inFlightRequests.size() >= options.getMaxInflightRequests()) {
@@ -469,17 +500,17 @@ public class IngestClient implements AutoCloseable {
           inFlightRequests.wait(100);
         } catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
-          statusConsumer.accept(Rpc.Status.newBuilder()
-              .setStatus(417)
-              .setStatusMessage("Interrupted while waiting for the requests to settle")
-              .build());
+          statusConsumer.accept(
+              Rpc.Status.newBuilder()
+                  .setStatus(417)
+                  .setStatusMessage("Interrupted while waiting for the requests to settle")
+                  .build());
           return;
         }
       }
     }
 
-    inFlightRequests.putIfAbsent(ingest.getUuid(),
-        new Request(statusConsumer, scheduled, ingest));
+    inFlightRequests.putIfAbsent(ingest.getUuid(), new Request(statusConsumer, scheduled, ingest));
 
     synchronized (this) {
       bulkBuilder.addIngest(ingest);
@@ -487,18 +518,17 @@ public class IngestClient implements AutoCloseable {
         flush();
       }
     }
-
   }
 
   @VisibleForTesting
   synchronized void createChannelAndStub() {
 
     if (channel == null) {
-      channel = ManagedChannelBuilder
-          .forAddress(host, port)
-          .usePlaintext()
-          .executor(options.getExecutor())
-          .build();
+      channel =
+          ManagedChannelBuilder.forAddress(host, port)
+              .usePlaintext()
+              .executor(options.getExecutor())
+              .build();
     }
 
     retrieveStub = RetrieveServiceGrpc.newBlockingStub(channel);
@@ -509,16 +539,13 @@ public class IngestClient implements AutoCloseable {
     synchronized (inFlightRequests) {
       inFlightRequests.values().forEach(Request::retry);
     }
-
   }
-
 
   private void ensureChannel() {
     if (channel == null) {
       createChannelAndStub();
     }
   }
-
 
   @Override
   public void close() {
@@ -561,13 +588,10 @@ public class IngestClient implements AutoCloseable {
       if (ingestRequestObserver != null) {
         ingestRequestObserver.onNext(bulkBuilder.build());
       } else {
-        log.warn(
-            "Cannot send bulk due to null observer. "
-                + "This might suggest bug in code.");
+        log.warn("Cannot send bulk due to null observer. " + "This might suggest bug in code.");
       }
       bulkBuilder.clear();
     }
     lastFlush = System.nanoTime();
   }
-
 }

@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.direct.randomaccess;
 
+import static org.junit.Assert.*;
+
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -35,11 +37,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import static org.junit.Assert.*;
-
-/**
- * Test suite for {@link MultiAccessBuilder}.
- */
+/** Test suite for {@link MultiAccessBuilder}. */
 public class MultiAccessBuilderTest {
 
   final Repository repo;
@@ -49,10 +47,12 @@ public class MultiAccessBuilderTest {
   long now;
 
   public MultiAccessBuilderTest() {
-    this.repo = ConfigRepository.Builder.of(
-        ConfigFactory.load()
-            .withFallback(ConfigFactory.load("test-reference.conf"))
-            .resolve()).build();
+    this.repo =
+        ConfigRepository.Builder.of(
+                ConfigFactory.load()
+                    .withFallback(ConfigFactory.load("test-reference.conf"))
+                    .resolve())
+            .build();
     this.direct = repo.asDataOperator(DirectDataOperator.class);
   }
 
@@ -68,149 +68,248 @@ public class MultiAccessBuilderTest {
 
   @Test
   public void testMultiAttributes() {
-    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
-        () -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
-        () -> new IllegalStateException("Missing attribute armed in gateway"));
-    AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute device.* in gateway"));
-    RandomAccessReader base = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-stream"))
-        .findAny()
-        .map(direct::resolveRequired)
-        .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
-        .orElseThrow(() -> new IllegalStateException(
-            "Cannot get random access reader"));
-    reader = RandomAccessReader.newBuilder(direct)
-        .addAttributes(base, armed, device)
-        .build();
+    EntityDescriptor gateway =
+        repo.findEntity("gateway")
+            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<?> armed =
+        gateway
+            .findAttribute("armed")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute armed in gateway"));
+    AttributeDescriptor<?> device =
+        gateway
+            .findAttribute("device.*")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute device.* in gateway"));
+    RandomAccessReader base =
+        repo.getAllFamilies()
+            .filter(af -> af.getName().equals("gateway-storage-stream"))
+            .findAny()
+            .map(direct::resolveRequired)
+            .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
+            .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
+    reader = RandomAccessReader.newBuilder(direct).addAttributes(base, armed, device).build();
 
     // write some data
-    direct.getWriter(armed).get().write(StreamElement.update(
-        gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
-        now, new byte[] { 1, 2 }), (succ, exc) -> { });
-    direct.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(),
-        "gw", device.toAttributePrefix() + "1",
-        now, new byte[] { 2, 3 }), (succ, exc) -> { });
+    direct
+        .getWriter(armed)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                armed,
+                UUID.randomUUID().toString(),
+                "gw",
+                armed.getName(),
+                now,
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
+    direct
+        .getWriter(device)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                device,
+                UUID.randomUUID().toString(),
+                "gw",
+                device.toAttributePrefix() + "1",
+                now,
+                new byte[] {2, 3}),
+            (succ, exc) -> {});
     Optional<? extends KeyValue<?>> kv = reader.get("gw", armed);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] { 1, 2 }, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {1, 2}, kv.get().getValueBytes());
     kv = reader.get("gw", device.toAttributePrefix() + "1", device);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] { 2, 3 }, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {2, 3}, kv.get().getValueBytes());
     kv = reader.get("gw", device.toAttributePrefix() + "2", device);
     assertFalse(kv.isPresent());
   }
 
   @Test
   public void testSingleFamily() {
-    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
-        () -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
-        () -> new IllegalStateException("Missing attribute armed in gateway"));
-    AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute device.* in gateway"));
-    AttributeFamilyDescriptor family = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-stream"))
-        .findAny()
-        .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
-    reader = RandomAccessReader
-        .newBuilder(direct)
-        .addFamily(family)
-        .build();
+    EntityDescriptor gateway =
+        repo.findEntity("gateway")
+            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<?> armed =
+        gateway
+            .findAttribute("armed")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute armed in gateway"));
+    AttributeDescriptor<?> device =
+        gateway
+            .findAttribute("device.*")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute device.* in gateway"));
+    AttributeFamilyDescriptor family =
+        repo.getAllFamilies()
+            .filter(af -> af.getName().equals("gateway-storage-stream"))
+            .findAny()
+            .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
+    reader = RandomAccessReader.newBuilder(direct).addFamily(family).build();
 
     // write some data
-    direct.getWriter(armed).get().write(StreamElement.update(
-        gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
-        now, new byte[] { 1, 2 }), (succ, exc) -> { });
-    direct.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw",
-        device.toAttributePrefix() + "1", now, new byte[] { 2, 3 }),
-        (succ, exc) -> { });
+    direct
+        .getWriter(armed)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                armed,
+                UUID.randomUUID().toString(),
+                "gw",
+                armed.getName(),
+                now,
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
+    direct
+        .getWriter(device)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                device,
+                UUID.randomUUID().toString(),
+                "gw",
+                device.toAttributePrefix() + "1",
+                now,
+                new byte[] {2, 3}),
+            (succ, exc) -> {});
     Optional<? extends KeyValue<?>> kv = reader.get("gw", armed);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] { 1, 2 }, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {1, 2}, kv.get().getValueBytes());
     kv = reader.get("gw", device.toAttributePrefix() + "1", device);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] { 2, 3 }, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {2, 3}, kv.get().getValueBytes());
     kv = reader.get("gw", device.toAttributePrefix() + "2", device);
     assertFalse(kv.isPresent());
   }
 
   @Test
   public void testMultipleFamiliesAndEntities() {
-    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
-        () -> new IllegalStateException("Missing entity gateway"));
-    EntityDescriptor dummy = repo.findEntity("dummy").orElseThrow(
-        () -> new IllegalStateException("Missing entity dummy"));
-    AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
-        () -> new IllegalStateException("Missing attribute armed in gateway"));
-    AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute device.* in gateway"));
-    AttributeDescriptor<Object> data = dummy.findAttribute("data").orElseThrow(
-        () -> new IllegalStateException("Missing attribute data in dummy"));
-    AttributeFamilyDescriptor family = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-stream"))
-        .findAny()
-        .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
-    AttributeFamilyDescriptor dummyFamily = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("dummy-storage"))
-        .findAny()
-        .orElseThrow(() -> new IllegalStateException("Cannot get random reader"));
-    reader = RandomAccessReader.newBuilder(direct)
-        .addFamily(family)
-        .addFamily(dummyFamily)
-        .build();
+    EntityDescriptor gateway =
+        repo.findEntity("gateway")
+            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    EntityDescriptor dummy =
+        repo.findEntity("dummy")
+            .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
+    AttributeDescriptor<?> armed =
+        gateway
+            .findAttribute("armed")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute armed in gateway"));
+    AttributeDescriptor<?> device =
+        gateway
+            .findAttribute("device.*")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute device.* in gateway"));
+    AttributeDescriptor<Object> data =
+        dummy
+            .findAttribute("data")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute data in dummy"));
+    AttributeFamilyDescriptor family =
+        repo.getAllFamilies()
+            .filter(af -> af.getName().equals("gateway-storage-stream"))
+            .findAny()
+            .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
+    AttributeFamilyDescriptor dummyFamily =
+        repo.getAllFamilies()
+            .filter(af -> af.getName().equals("dummy-storage"))
+            .findAny()
+            .orElseThrow(() -> new IllegalStateException("Cannot get random reader"));
+    reader = RandomAccessReader.newBuilder(direct).addFamily(family).addFamily(dummyFamily).build();
 
     // write some data
-    direct.getWriter(armed).get().write(StreamElement.update(
-        gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
-        now, new byte[] { 1, 2 }), (succ, exc) -> { });
-    direct.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw",
-        device.toAttributePrefix() + "1", now, new byte[] { 2, 3 }),
-        (succ, exc) -> { });
-    direct.getWriter(data).get().write(StreamElement.update(
-        dummy, data, UUID.randomUUID().toString(), "dummy", data.getName(),
-        now, new byte[] { 3, 4 }), (succ, exc) -> { });
+    direct
+        .getWriter(armed)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                armed,
+                UUID.randomUUID().toString(),
+                "gw",
+                armed.getName(),
+                now,
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
+    direct
+        .getWriter(device)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                device,
+                UUID.randomUUID().toString(),
+                "gw",
+                device.toAttributePrefix() + "1",
+                now,
+                new byte[] {2, 3}),
+            (succ, exc) -> {});
+    direct
+        .getWriter(data)
+        .get()
+        .write(
+            StreamElement.update(
+                dummy,
+                data,
+                UUID.randomUUID().toString(),
+                "dummy",
+                data.getName(),
+                now,
+                new byte[] {3, 4}),
+            (succ, exc) -> {});
     Optional<? extends KeyValue<?>> kv = reader.get("gw", armed);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] { 1, 2 }, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {1, 2}, kv.get().getValueBytes());
     kv = reader.get("gw", device.toAttributePrefix() + "1", device);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] { 2, 3 }, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {2, 3}, kv.get().getValueBytes());
     kv = reader.get("gw", device.toAttributePrefix() + "2", device);
     assertFalse(kv.isPresent());
     kv = reader.get("dummy", data);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] { 3, 4 }, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {3, 4}, kv.get().getValueBytes());
   }
-
 
   @Test
   public void testSingleFamilyScanWildcard() {
-    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
-        () -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute device.* in gateway"));
-    AttributeFamilyDescriptor family = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-stream"))
-        .findAny()
-        .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
-    reader = RandomAccessReader.newBuilder(direct)
-        .addFamily(family)
-        .build();
+    EntityDescriptor gateway =
+        repo.findEntity("gateway")
+            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<?> device =
+        gateway
+            .findAttribute("device.*")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute device.* in gateway"));
+    AttributeFamilyDescriptor family =
+        repo.getAllFamilies()
+            .filter(af -> af.getName().equals("gateway-storage-stream"))
+            .findAny()
+            .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
+    reader = RandomAccessReader.newBuilder(direct).addFamily(family).build();
 
     // write some data
-    direct.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw",
-        device.toAttributePrefix() + "1", now, new byte[] { 2, 3 }),
-        (succ, exc) -> { });
-    direct.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw",
-        device.toAttributePrefix() + "2", now, new byte[] { 2, 3 }),
-        (succ, exc) -> { });
+    direct
+        .getWriter(device)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                device,
+                UUID.randomUUID().toString(),
+                "gw",
+                device.toAttributePrefix() + "1",
+                now,
+                new byte[] {2, 3}),
+            (succ, exc) -> {});
+    direct
+        .getWriter(device)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                device,
+                UUID.randomUUID().toString(),
+                "gw",
+                device.toAttributePrefix() + "2",
+                now,
+                new byte[] {2, 3}),
+            (succ, exc) -> {});
     List<KeyValue<?>> kvs = new ArrayList<>();
     reader.scanWildcard("gw", device, kvs::add);
     assertEquals(2, kvs.size());
@@ -220,32 +319,55 @@ public class MultiAccessBuilderTest {
 
   @Test
   public void testMultiAttributesScanAll() {
-    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
-        () -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
-        () -> new IllegalStateException("Missing attribute armed in gateway"));
-    AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute device.* in gateway"));
-    RandomAccessReader base = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-stream"))
-        .findAny()
-        .map(direct::resolveRequired)
-        .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
-        .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
-    reader = RandomAccessReader.newBuilder(direct)
-        .addAttributes(base, armed, device)
-        .build();
+    EntityDescriptor gateway =
+        repo.findEntity("gateway")
+            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<?> armed =
+        gateway
+            .findAttribute("armed")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute armed in gateway"));
+    AttributeDescriptor<?> device =
+        gateway
+            .findAttribute("device.*")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute device.* in gateway"));
+    RandomAccessReader base =
+        repo.getAllFamilies()
+            .filter(af -> af.getName().equals("gateway-storage-stream"))
+            .findAny()
+            .map(direct::resolveRequired)
+            .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
+            .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
+    reader = RandomAccessReader.newBuilder(direct).addAttributes(base, armed, device).build();
 
     // write some data
-    direct.getWriter(armed).get().write(StreamElement.update(
-        gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
-        now, new byte[] { 1, 2 }), (succ, exc) -> { });
-    direct.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw",
-        device.toAttributePrefix() + "1", now, new byte[] { 2, 3 }),
-        (succ, exc) -> { });
-    Set<KeyValue<?>> kvs = new TreeSet<>((k1, k2) ->
-        k1.getAttribute().compareTo(k2.getAttribute()));
+    direct
+        .getWriter(armed)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                armed,
+                UUID.randomUUID().toString(),
+                "gw",
+                armed.getName(),
+                now,
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
+    direct
+        .getWriter(device)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                device,
+                UUID.randomUUID().toString(),
+                "gw",
+                device.toAttributePrefix() + "1",
+                now,
+                new byte[] {2, 3}),
+            (succ, exc) -> {});
+    Set<KeyValue<?>> kvs =
+        new TreeSet<>((k1, k2) -> k1.getAttribute().compareTo(k2.getAttribute()));
     reader.scanWildcardAll("gw", kvs::add);
     assertEquals(2, kvs.size());
     List<KeyValue<?>> ordered = new ArrayList<>(kvs);
@@ -255,39 +377,59 @@ public class MultiAccessBuilderTest {
 
   @Test
   public void testMultiAttributesScanAllOffset() {
-    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
-        () -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
-        () -> new IllegalStateException("Missing attribute armed in gateway"));
-    AttributeDescriptor<?> device = gateway.findAttribute("device.*").orElseThrow(
-        () -> new IllegalStateException("Missing attribute device.* in gateway"));
-    RandomAccessReader base = repo.getAllFamilies()
-        .filter(af -> af.getName().equals("gateway-storage-stream"))
-        .findAny()
-        .map(direct::resolveRequired)
-        .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
-        .orElseThrow(() -> new IllegalStateException(
-            "Cannot get random access reader"));
-    reader = RandomAccessReader.newBuilder(direct)
-        .addAttributes(base, armed, device)
-        .build();
+    EntityDescriptor gateway =
+        repo.findEntity("gateway")
+            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<?> armed =
+        gateway
+            .findAttribute("armed")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute armed in gateway"));
+    AttributeDescriptor<?> device =
+        gateway
+            .findAttribute("device.*")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute device.* in gateway"));
+    RandomAccessReader base =
+        repo.getAllFamilies()
+            .filter(af -> af.getName().equals("gateway-storage-stream"))
+            .findAny()
+            .map(direct::resolveRequired)
+            .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
+            .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
+    reader = RandomAccessReader.newBuilder(direct).addAttributes(base, armed, device).build();
 
     // write some data
-    direct.getWriter(armed).get().write(StreamElement.update(
-        gateway, armed, UUID.randomUUID().toString(), "gw", armed.getName(),
-        now, new byte[] { 1, 2 }), (succ, exc) -> { });
-    direct.getWriter(device).get().write(StreamElement.update(
-        gateway, device, UUID.randomUUID().toString(), "gw",
-        device.toAttributePrefix() + "1", now, new byte[] { 2, 3 }),
-        (succ, exc) -> { });
+    direct
+        .getWriter(armed)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                armed,
+                UUID.randomUUID().toString(),
+                "gw",
+                armed.getName(),
+                now,
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
+    direct
+        .getWriter(device)
+        .get()
+        .write(
+            StreamElement.update(
+                gateway,
+                device,
+                UUID.randomUUID().toString(),
+                "gw",
+                device.toAttributePrefix() + "1",
+                now,
+                new byte[] {2, 3}),
+            (succ, exc) -> {});
 
-    RandomOffset off = reader.fetchOffset(
-        RandomAccessReader.Listing.ATTRIBUTE, armed.getName());
+    RandomOffset off = reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, armed.getName());
     List<KeyValue<?>> kvs = new ArrayList<>();
     reader.scanWildcardAll("gw", off, -1, kvs::add);
     assertEquals(1, kvs.size());
     List<KeyValue<?>> ordered = new ArrayList<>(kvs);
     assertEquals(device.toAttributePrefix() + "1", ordered.get(0).getAttribute());
   }
-
 }

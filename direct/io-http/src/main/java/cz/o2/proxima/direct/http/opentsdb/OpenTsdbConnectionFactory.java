@@ -27,34 +27,39 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * A {@link ConnFactory} for OpenTSDB.
- */
+/** A {@link ConnFactory} for OpenTSDB. */
 @Slf4j
 @Experimental("Missing production use-case")
 public class OpenTsdbConnectionFactory extends TestableConnFactory {
 
   @Override
-  public HttpURLConnection openConnection(
-      URI base, StreamElement elem) throws IOException {
+  public HttpURLConnection openConnection(URI base, StreamElement elem) throws IOException {
 
     if (!elem.getParsed().isPresent()) {
       return null;
     }
     HttpURLConnection conn = createConnection(base);
     @SuppressWarnings("unchecked")
-    ValueSerializer valueSerializer = elem
-        .getAttributeDescriptor()
-        .getValueSerializer();
+    ValueSerializer valueSerializer = elem.getAttributeDescriptor().getValueSerializer();
 
     @SuppressWarnings("unchecked")
-    String data = "{\"metric\": \"" + elem.getKey() + "\","
-        + "\"timestamp\": " + elem.getStamp() + ","
-        + "\"value\": " + valueSerializer
-            .asJsonValue(elem.getParsed().get()) + ","
-        + "\"tags\": {\"entity\": \"" + elem.getEntityDescriptor().getName() + "\","
-            + "\"attribute\": \"" + elem.getAttribute() + "\"}"
-        + "}";
+    String data =
+        "{\"metric\": \""
+            + elem.getKey()
+            + "\","
+            + "\"timestamp\": "
+            + elem.getStamp()
+            + ","
+            + "\"value\": "
+            + valueSerializer.asJsonValue(elem.getParsed().get())
+            + ","
+            + "\"tags\": {\"entity\": \""
+            + elem.getEntityDescriptor().getName()
+            + "\","
+            + "\"attribute\": \""
+            + elem.getAttribute()
+            + "\"}"
+            + "}";
     conn.setDoOutput(true);
     conn.getOutputStream().write(data.getBytes(StandardCharsets.UTF_8));
     return conn;
@@ -67,5 +72,4 @@ public class OpenTsdbConnectionFactory extends TestableConnFactory {
     conn.setRequestMethod("POST");
     return conn;
   }
-
 }

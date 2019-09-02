@@ -19,21 +19,18 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.tools.groovy.GroovyEnvTest;
 
-/**
- * Test {@link GroovyEnv} using beam.
- */
+/** Test {@link GroovyEnv} using beam. */
 public class BeamGroovyEnvTest extends GroovyEnvTest {
 
-  private final DirectDataOperator direct = getRepo().getOrCreateOperator(
-      DirectDataOperator.class);
+  private final DirectDataOperator direct = getRepo().getOrCreateOperator(DirectDataOperator.class);
 
   @Override
   protected void write(StreamElement element) {
     direct
         .getWriter(element.getAttributeDescriptor())
-        .orElseThrow(() -> new IllegalStateException(
-            "Missing writer for " + element.getAttributeDescriptor()))
-        .write(element, (succ, exc) -> { });
+        .orElseThrow(
+            () ->
+                new IllegalStateException("Missing writer for " + element.getAttributeDescriptor()))
+        .write(element, (succ, exc) -> {});
   }
-
 }

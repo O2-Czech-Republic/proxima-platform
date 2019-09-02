@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.example;
 
-import cz.o2.proxima.example.event.Event.BaseEvent;
 import cz.o2.proxima.direct.cassandra.TransformingCqlFactory;
+import cz.o2.proxima.example.event.Event.BaseEvent;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Date;
 
 /**
- * Producent of CQL updates to casssandra for gateway.
- * The datamodel stored in cassandra looks like this:
+ * Producent of CQL updates to casssandra for gateway. The datamodel stored in cassandra looks like
+ * this:
+ *
  * <pre>
  *   CREATE TABLE proxima.gateway (
  *     hgw varchar PRIMARY KEY,
@@ -38,20 +38,19 @@ import java.util.Date;
  */
 public class EventHistoryCqlFactory extends TransformingCqlFactory<BaseEvent> {
   public EventHistoryCqlFactory() {
-    super(ingest -> {
-      try {
-        return BaseEvent.parseFrom(ingest.getValue());
-      } catch (IOException ex) {
-        throw new IllegalArgumentException(ex);
-      }
-    }, Arrays.asList(
-          "user" /* primary key */,
-          "stamp" /* secondary key */,
-          "event" /* payload */),
-      Arrays.asList(
-        p -> p.getSecond().getUserName(),
-        p -> new Date(p.getSecond().getStamp()),
-        p -> ByteBuffer.wrap(p.getSecond().toByteArray())),
+    super(
+        ingest -> {
+          try {
+            return BaseEvent.parseFrom(ingest.getValue());
+          } catch (IOException ex) {
+            throw new IllegalArgumentException(ex);
+          }
+        },
+        Arrays.asList("user" /* primary key */, "stamp" /* secondary key */, "event" /* payload */),
+        Arrays.asList(
+            p -> p.getSecond().getUserName(),
+            p -> new Date(p.getSecond().getStamp()),
+            p -> ByteBuffer.wrap(p.getSecond().toByteArray())),
         e -> !e.getUserName().isEmpty());
   }
 }

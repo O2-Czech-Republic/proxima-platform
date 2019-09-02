@@ -17,27 +17,25 @@ package cz.o2.proxima.direct.kafka;
 
 import com.google.common.base.Strings;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.storage.commitlog.KeyPartitioner;
-import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
+import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.commitlog.KeyPartitioner;
+import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.util.Classpath;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import lombok.AccessLevel;
-import cz.o2.proxima.direct.view.CachedView;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
-/**
- * Kafka writer and commit log using {@code KafkaProducer}.
- */
+/** Kafka writer and commit log using {@code KafkaProducer}. */
 @Slf4j
 public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
@@ -55,18 +53,15 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   public static final String MAX_POLL_RECORDS = "max.poll.records";
 
   /**
-   * Minimal time poll() has to return empty records, before first moving
-   * watermark to processing time. This controls time needed to initialize
-   * kafka consumer.
+   * Minimal time poll() has to return empty records, before first moving watermark to processing
+   * time. This controls time needed to initialize kafka consumer.
    */
-  public static final String EMPTY_POLL_TIME =
-      "poll.allowed-empty-before-watermark-move";
+  public static final String EMPTY_POLL_TIME = "poll.allowed-empty-before-watermark-move";
 
   public static final String WRITER_CONFIG_PREFIX = "kafka.";
   private static final int PRODUCE_CONFIG_PREFIX_LENGTH = WRITER_CONFIG_PREFIX.length();
 
-  @Getter
-  private final String topic;
+  @Getter private final String topic;
 
   private final Map<String, Object> cfg;
 
@@ -88,10 +83,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   @Getter(AccessLevel.PACKAGE)
   private int maxPollRecords = 500;
 
-  public KafkaAccessor(
-      EntityDescriptor entity,
-      URI uri,
-      Map<String, Object> cfg) {
+  public KafkaAccessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     super(entity, uri);
 
@@ -107,31 +99,36 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
     configure(cfg);
   }
 
-
   private void configure(Map<String, Object> cfg) {
-    this.consumerPollInterval = Optional.ofNullable(cfg.get(POLL_INTERVAL_CFG))
-        .map(v -> Long.valueOf(v.toString()))
-        .orElse(consumerPollInterval);
+    this.consumerPollInterval =
+        Optional.ofNullable(cfg.get(POLL_INTERVAL_CFG))
+            .map(v -> Long.valueOf(v.toString()))
+            .orElse(consumerPollInterval);
 
-    this.partitioner = Optional.ofNullable((String) cfg.get(PARTITIONER_CLASS))
-        .map(cls -> Classpath.newInstance(cls, Partitioner.class))
-        .orElse(this.partitioner);
+    this.partitioner =
+        Optional.ofNullable((String) cfg.get(PARTITIONER_CLASS))
+            .map(cls -> Classpath.newInstance(cls, Partitioner.class))
+            .orElse(this.partitioner);
 
-    this.maxBytesPerSec = Optional.ofNullable(cfg.get(MAX_BYTES_PER_SEC))
-        .map(v -> Long.valueOf(v.toString()))
-        .orElse(maxBytesPerSec);
+    this.maxBytesPerSec =
+        Optional.ofNullable(cfg.get(MAX_BYTES_PER_SEC))
+            .map(v -> Long.valueOf(v.toString()))
+            .orElse(maxBytesPerSec);
 
-    this.timestampSkew = Optional.ofNullable(cfg.get(TIMESTAMP_SKEW))
-        .map(v -> Long.valueOf(v.toString()))
-        .orElse(timestampSkew);
+    this.timestampSkew =
+        Optional.ofNullable(cfg.get(TIMESTAMP_SKEW))
+            .map(v -> Long.valueOf(v.toString()))
+            .orElse(timestampSkew);
 
-    this.emptyPolls = Optional.ofNullable(cfg.get(EMPTY_POLLS))
-        .map(v -> Integer.valueOf(v.toString()))
-        .orElse((int) (1000 / consumerPollInterval));
+    this.emptyPolls =
+        Optional.ofNullable(cfg.get(EMPTY_POLLS))
+            .map(v -> Integer.valueOf(v.toString()))
+            .orElse((int) (1000 / consumerPollInterval));
 
-    this.maxPollRecords = Optional.ofNullable(cfg.get(MAX_POLL_RECORDS))
-        .map(v -> Integer.valueOf(v.toString()))
-        .orElse(maxPollRecords);
+    this.maxPollRecords =
+        Optional.ofNullable(cfg.get(MAX_POLL_RECORDS))
+            .map(v -> Integer.valueOf(v.toString()))
+            .orElse(maxPollRecords);
 
     log.info(
         "Configured accessor with "
@@ -142,18 +139,21 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
             + "emptyPolls {}, "
             + "maxPollRecords {}, "
             + "for URI {}",
-        consumerPollInterval, partitioner.getClass(), maxBytesPerSec,
-        timestampSkew, emptyPolls, maxPollRecords, getUri());
+        consumerPollInterval,
+        partitioner.getClass(),
+        maxBytesPerSec,
+        timestampSkew,
+        emptyPolls,
+        maxPollRecords,
+        getUri());
   }
-
 
   @SuppressWarnings("unchecked")
   Properties createProps() {
     Properties props = new Properties();
     for (Map.Entry<String, Object> e : cfg.entrySet()) {
       if (e.getKey().startsWith(WRITER_CONFIG_PREFIX)) {
-        props.put(e.getKey().substring(PRODUCE_CONFIG_PREFIX_LENGTH),
-            e.getValue().toString());
+        props.put(e.getKey().substring(PRODUCE_CONFIG_PREFIX_LENGTH), e.getValue().toString());
       }
     }
     props.put(MAX_POLL_RECORDS, maxPollRecords);
@@ -162,6 +162,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   /**
    * Create kafka consumer with specific rebalance listener.
+   *
    * @return {@link KafkaConsumerFactory} for creating consumers
    */
   public KafkaConsumerFactory createConsumerFactory() {
@@ -180,9 +181,8 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Override
   public Optional<CachedView> getCachedView(Context context) {
-    return Optional.of(new LocalCachedPartitionedView(
-        getEntityDescriptor(), newReader(context),
-        newWriter()));
+    return Optional.of(
+        new LocalCachedPartitionedView(getEntityDescriptor(), newReader(context), newWriter()));
   }
 
   KafkaWriter newWriter() {
@@ -192,5 +192,4 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   KafkaLogReader newReader(Context context) {
     return new KafkaLogReader(this, context);
   }
-
 }

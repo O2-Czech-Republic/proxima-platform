@@ -24,31 +24,34 @@ import java.util.List;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.values.PCollection;
 
-/**
- * A data accessor for attribute families.
- */
+/** A data accessor for attribute families. */
 @Internal
 public interface DataAccessor extends AbstractDataAccessor {
 
   /**
    * Create {@link PCollection} for given attribute family's commit log.
+   *
    * @param name name of the consumer
    * @param pipeline pipeline to create {@link PCollection} in
    * @param position to read from
    * @param stopAtCurrent stop reading at current data
    * @param eventTime {@code true} to use event time
-   * @param limit limit number of elements read. Note that the number of elements
-   * might be actually lower, because it is divided by number of partitions
-   * It is useful mostly for testing purposes
+   * @param limit limit number of elements read. Note that the number of elements might be actually
+   *     lower, because it is divided by number of partitions It is useful mostly for testing
+   *     purposes
    * @return {@link PCollection} representing the commit log
    */
   PCollection<StreamElement> createStream(
-      String name, Pipeline pipeline, Position position,
-      boolean stopAtCurrent, boolean eventTime,
+      String name,
+      Pipeline pipeline,
+      Position position,
+      boolean stopAtCurrent,
+      boolean eventTime,
       long limit);
 
   /**
    * Create {@link PCollection} for given attribute family's batch updates storage.
+   *
    * @param pipeline pipeline to create {@link PCollection} in
    * @param attrs attributes to read
    * @param startStamp minimal update timestamp (inclusive)
@@ -56,9 +59,5 @@ public interface DataAccessor extends AbstractDataAccessor {
    * @return {@link PCollection} representing the batch updates
    */
   PCollection<StreamElement> createBatch(
-      Pipeline pipeline,
-      List<AttributeDescriptor<?>> attrs,
-      long startStamp,
-      long endStamp);
-
+      Pipeline pipeline, List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp);
 }

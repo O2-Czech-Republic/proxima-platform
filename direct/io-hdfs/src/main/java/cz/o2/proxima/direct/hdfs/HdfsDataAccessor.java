@@ -21,10 +21,6 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.EntityDescriptor;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-
 import java.io.IOException;
 import java.net.URI;
 import java.time.format.DateTimeFormatter;
@@ -32,10 +28,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 
-/**
- * {@code DataAccessor} for Hadoop Distributed FileSystem.
- */
+/** {@code DataAccessor} for Hadoop Distributed FileSystem. */
 @Slf4j
 public class HdfsDataAccessor implements DataAccessor {
 
@@ -50,9 +47,9 @@ public class HdfsDataAccessor implements DataAccessor {
   static final Pattern PART_FILE_PARSER = Pattern.compile("part-([0-9]+)_([0-9]+)-.+");
   static final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern("/yyyy/MM/");
 
-
   private final EntityDescriptor entityDesc;
   private final URI uri;
+
   @SuppressWarnings("squid:S1948")
   private final Map<String, Object> cfg;
 
@@ -60,42 +57,41 @@ public class HdfsDataAccessor implements DataAccessor {
   private final long rollInterval;
   private final long batchProcessSize;
 
-
-  public HdfsDataAccessor(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public HdfsDataAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     this.entityDesc = entityDesc;
     this.uri = uri;
     this.cfg = cfg;
-    this.minElementsToFlush = getCfg(
-        HDFS_MIN_ELEMENTS_TO_FLUSH, cfg,
-        o -> Integer.valueOf(o.toString()),
-        HDFS_MIN_ELEMENTS_TO_FLUSH_DEFAULT);
-    this.rollInterval = getCfg(
-        HDFS_ROLL_INTERVAL, cfg,
-        o -> Long.valueOf(o.toString()),
-        HDFS_ROLL_INTERVAL_DEFAULT);
-    this.batchProcessSize = getCfg(
-        HDFS_BATCH_PROCESS_SIZE_MIN, cfg,
-        o -> Long.valueOf(o.toString()),
-        HDFS_BATCH_PROCES_SIZE_MIN_DEFAULT);
+    this.minElementsToFlush =
+        getCfg(
+            HDFS_MIN_ELEMENTS_TO_FLUSH,
+            cfg,
+            o -> Integer.valueOf(o.toString()),
+            HDFS_MIN_ELEMENTS_TO_FLUSH_DEFAULT);
+    this.rollInterval =
+        getCfg(
+            HDFS_ROLL_INTERVAL, cfg, o -> Long.valueOf(o.toString()), HDFS_ROLL_INTERVAL_DEFAULT);
+    this.batchProcessSize =
+        getCfg(
+            HDFS_BATCH_PROCESS_SIZE_MIN,
+            cfg,
+            o -> Long.valueOf(o.toString()),
+            HDFS_BATCH_PROCES_SIZE_MIN_DEFAULT);
   }
 
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
-    return Optional.of(new HdfsBulkAttributeWriter(
-        entityDesc, uri, cfg, minElementsToFlush, rollInterval));
+    return Optional.of(
+        new HdfsBulkAttributeWriter(entityDesc, uri, cfg, minElementsToFlush, rollInterval));
   }
 
   @Override
   public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-    return Optional.of(new HdfsBatchLogObservable(
-        entityDesc, uri, cfg, context, batchProcessSize));
+    return Optional.of(new HdfsBatchLogObservable(entityDesc, uri, cfg, context, batchProcessSize));
   }
 
   private <T> T getCfg(
-      String name, Map<String, Object> cfg,
-      UnaryFunction<Object, T> convert, T defVal) {
+      String name, Map<String, Object> cfg, UnaryFunction<Object, T> convert, T defVal) {
 
     return Optional.ofNullable(cfg.get(name)).map(convert::apply).orElse(defVal);
   }

@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Streams;
@@ -41,7 +43,6 @@ import cz.o2.proxima.tools.groovy.util.Types;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import fi.iki.elonen.NanoHTTPD;
-import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
 import groovy.lang.Closure;
 import groovy.lang.Tuple;
 import groovy.transform.stc.ClosureParams;
@@ -117,72 +118,71 @@ import org.apache.beam.sdk.values.WindowingStrategy;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
 
-/**
- * A {@link Stream} implementation based on beam.
- */
+/** A {@link Stream} implementation based on beam. */
 @Slf4j
 class BeamStream<T> implements Stream<T> {
 
-  static <T, S extends BeamStream<T>> S withRegisteredTypes(
-      Repository repo, S in) {
+  static <T, S extends BeamStream<T>> S withRegisteredTypes(Repository repo, S in) {
 
-    return in.addRegistrar(r -> r.registerCoderForClass(
-        StreamElement.class, StreamElementCoder.of(repo)));
+    return in.addRegistrar(
+        r -> r.registerCoderForClass(StreamElement.class, StreamElementCoder.of(repo)));
   }
 
   @SafeVarargs
   static Stream<StreamElement> stream(
       BeamDataOperator beam,
-      Position position, boolean stopAtCurrent, boolean eventTime,
+      Position position,
+      boolean stopAtCurrent,
+      boolean eventTime,
       StreamProvider.TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>... attrs) {
 
-    return withRegisteredTypes(beam.getRepository(),
+    return withRegisteredTypes(
+        beam.getRepository(),
         new BeamStream<>(
             asConfig(beam),
             stopAtCurrent,
-            pipeline -> beam.getStream(
-                pipeline, position, stopAtCurrent, eventTime, attrs),
+            pipeline -> beam.getStream(pipeline, position, stopAtCurrent, eventTime, attrs),
             terminateCheck,
             pipelineFactory));
   }
 
   static WindowedStream<StreamElement> batchUpdates(
       BeamDataOperator beam,
-      long startStamp, long endStamp,
+      long startStamp,
+      long endStamp,
       StreamProvider.TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
     return withRegisteredTypes(
-        beam.getRepository(),
-        new BeamStream<>(
-            asConfig(beam),
-            true,
-            pipeline -> beam.getBatchUpdates(
-                pipeline, startStamp, endStamp, attrs),
-            terminateCheck,
-            pipelineFactory))
+            beam.getRepository(),
+            new BeamStream<>(
+                asConfig(beam),
+                true,
+                pipeline -> beam.getBatchUpdates(pipeline, startStamp, endStamp, attrs),
+                terminateCheck,
+                pipelineFactory))
         .windowAll();
   }
 
   static WindowedStream<StreamElement> batchSnapshot(
       BeamDataOperator beam,
-      long fromStamp, long toStamp,
+      long fromStamp,
+      long toStamp,
       StreamProvider.TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
     return withRegisteredTypes(
-        beam.getRepository(),
-        new BeamStream<>(
-            asConfig(beam),
-            true,
-            pipeline -> beam.getBatchSnapshot(
-                pipeline, fromStamp, toStamp, attrs),
-            terminateCheck,
-            pipelineFactory))
+            beam.getRepository(),
+            new BeamStream<>(
+                asConfig(beam),
+                true,
+                pipeline -> beam.getBatchSnapshot(pipeline, fromStamp, toStamp, attrs),
+                terminateCheck,
+                pipelineFactory))
         .windowAll();
   }
 
@@ -198,15 +198,18 @@ class BeamStream<T> implements Stream<T> {
   final Factory<Pipeline> pipelineFactory;
 
   BeamStream(
-      StreamConfig config, boolean bounded, PCollectionProvider<T> input,
+      StreamConfig config,
+      boolean bounded,
+      PCollectionProvider<T> input,
       StreamProvider.TerminatePredicate terminateCheck) {
 
     this(config, bounded, input, terminateCheck, BeamStream::createPipelineDefault);
   }
 
-
   BeamStream(
-      StreamConfig config, boolean bounded, PCollectionProvider<T> input,
+      StreamConfig config,
+      boolean bounded,
+      PCollectionProvider<T> input,
       StreamProvider.TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory) {
 
@@ -224,25 +227,26 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @Override
-  public <X> Stream<X> flatMap(
-      @Nullable String name, Closure<Iterable<X>> mapper) {
+  public <X> Stream<X> flatMap(@Nullable String name, Closure<Iterable<X>> mapper) {
 
     Closure<Iterable<X>> dehydrated = dehydrate(mapper);
     return descendant(
         pipeline -> {
           // FIXME: need a way to retrieve inner type of the list
           @SuppressWarnings("unchecked")
-          final Coder<Object> valueCoder = (Coder) getCoder(
-              pipeline, TypeDescriptor.of(Object.class));
+          final Coder<Object> valueCoder =
+              (Coder) getCoder(pipeline, TypeDescriptor.of(Object.class));
           @SuppressWarnings("unchecked")
-          final PCollection<X> ret = (PCollection) FlatMap
-              .named(name)
-              .of(collection.materialize(pipeline))
-              .using((elem, ctx) -> {
-                dehydrated.call(elem).forEach(ctx::collect);
-              })
-              .output()
-              .setCoder(valueCoder);
+          final PCollection<X> ret =
+              (PCollection)
+                  FlatMap.named(name)
+                      .of(collection.materialize(pipeline))
+                      .using(
+                          (elem, ctx) -> {
+                            dehydrated.call(elem).forEach(ctx::collect);
+                          })
+                      .output()
+                      .setCoder(valueCoder);
           return ret;
         });
   }
@@ -253,8 +257,7 @@ class BeamStream<T> implements Stream<T> {
     return descendant(
         pipeline -> {
           Coder<X> coder = coderOf(pipeline, dehydrated);
-          return MapElements
-              .named(name)
+          return MapElements.named(name)
               .of(collection.materialize(pipeline))
               .using(e -> dehydrated.call(e))
               .output()
@@ -265,19 +268,13 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public Stream<T> filter(
       @Nullable String name,
-      @ClosureParams(value = FromString.class, options = "T")
-          Closure<Boolean> predicate) {
+      @ClosureParams(value = FromString.class, options = "T") Closure<Boolean> predicate) {
 
     Closure<Boolean> dehydrated = dehydrate(predicate);
     return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
-          return Filter
-              .named(name)
-              .of(in)
-              .by(dehydrated::call)
-              .output()
-              .setCoder(in.getCoder());
+          return Filter.named(name).of(in).by(dehydrated::call).output().setCoder(in.getCoder());
         });
   }
 
@@ -287,8 +284,7 @@ class BeamStream<T> implements Stream<T> {
     return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
-          return AssignEventTime
-              .named(name)
+          return AssignEventTime.named(name)
               .of(in)
               .using(dehydrated::call)
               .output()
@@ -298,18 +294,19 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public Stream<Pair<Object, T>> withWindow(@Nullable String name) {
-    return descendant(pipeline -> {
-      PCollection<T> in = collection.materialize(pipeline);
-      return applyExtractWindow(name, in, pipeline);
-    });
+    return descendant(
+        pipeline -> {
+          PCollection<T> in = collection.materialize(pipeline);
+          return applyExtractWindow(name, in, pipeline);
+        });
   }
 
   @SuppressWarnings("unchecked")
   static <T> PCollection<Pair<Object, T>> applyExtractWindow(
       @Nullable String name, PCollection<T> in, Pipeline pipeline) {
 
-    TypeDescriptor<Object> windowType = (TypeDescriptor)
-        in.getWindowingStrategy().getWindowFn().getWindowTypeDescriptor();
+    TypeDescriptor<Object> windowType =
+        (TypeDescriptor) in.getWindowingStrategy().getWindowFn().getWindowTypeDescriptor();
     Coder<Object> windowCoder = getCoder(pipeline, windowType);
 
     final PCollection<Pair<Object, T>> ret;
@@ -325,16 +322,12 @@ class BeamStream<T> implements Stream<T> {
     forEach(name, consumer, true);
   }
 
-  private void forEach(
-      @Nullable String name,
-      Consumer<T> consumer,
-      boolean gatherLocally) {
+  private void forEach(@Nullable String name, Consumer<T> consumer, boolean gatherLocally) {
 
     Pipeline pipeline = createPipeline();
     PCollection<T> pcoll = collection.materialize(pipeline);
     if (gatherLocally) {
-      try (RemoteConsumer<T> remoteConsumer = createRemoteConsumer(
-          pcoll.getCoder(), consumer)) {
+      try (RemoteConsumer<T> remoteConsumer = createRemoteConsumer(pcoll.getCoder(), consumer)) {
         forEachRemote(name, pcoll, remoteConsumer::add, pipeline);
       }
     } else {
@@ -343,10 +336,7 @@ class BeamStream<T> implements Stream<T> {
   }
 
   private void forEachRemote(
-      @Nullable String name,
-      PCollection<T> pcoll,
-      Consumer<T> consumer,
-      Pipeline pipeline) {
+      @Nullable String name, PCollection<T> pcoll, Consumer<T> consumer, Pipeline pipeline) {
 
     if (name != null) {
       pcoll.apply(name, asWriteTransform(asDoFn(consumer)));
@@ -355,34 +345,40 @@ class BeamStream<T> implements Stream<T> {
     }
     AtomicReference<PipelineResult> result = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
-    Thread running = runThread("pipeline-start-thread", () -> {
-      try {
-        log.debug("Running pipeline with class loader {}, pipeline classloader {}",
-            Thread.currentThread().getContextClassLoader(),
-            pipeline.getClass().getClassLoader());
-        result.set(pipeline.run());
-        result.get().waitUntilFinish();
-      } catch (Exception ex) {
-        if (!(ex.getCause() instanceof InterruptedException)) {
-          throw ex;
-        } else {
-          log.debug("Swallowing interrupted exception.", ex);
-        }
-      } finally {
-        latch.countDown();
-      }
-    });
+    Thread running =
+        runThread(
+            "pipeline-start-thread",
+            () -> {
+              try {
+                log.debug(
+                    "Running pipeline with class loader {}, pipeline classloader {}",
+                    Thread.currentThread().getContextClassLoader(),
+                    pipeline.getClass().getClassLoader());
+                result.set(pipeline.run());
+                result.get().waitUntilFinish();
+              } catch (Exception ex) {
+                if (!(ex.getCause() instanceof InterruptedException)) {
+                  throw ex;
+                } else {
+                  log.debug("Swallowing interrupted exception.", ex);
+                }
+              } finally {
+                latch.countDown();
+              }
+            });
     AtomicBoolean watchTerminating = new AtomicBoolean();
     AtomicBoolean gracefulExit = new AtomicBoolean();
-    Thread watch = runWatchThread(() -> {
-      watchTerminating.set(true);
-      if (!gracefulExit.get()) {
-        cancelIfResultExists(result);
-        running.interrupt();
-        ExceptionUtils.unchecked(latch::await);
-        cancelIfResultExists(result);
-      }
-    });
+    Thread watch =
+        runWatchThread(
+            () -> {
+              watchTerminating.set(true);
+              if (!gracefulExit.get()) {
+                cancelIfResultExists(result);
+                running.interrupt();
+                ExceptionUtils.unchecked(latch::await);
+                cancelIfResultExists(result);
+              }
+            });
     ExceptionUtils.unchecked(latch::await);
     gracefulExit.set(true);
     if (!watchTerminating.get()) {
@@ -398,9 +394,14 @@ class BeamStream<T> implements Stream<T> {
   private static <T> void print(T what) {
     if (what instanceof StreamElement) {
       StreamElement el = (StreamElement) what;
-      System.out.println(String.format(
-          "%s %s %s %d %s", el.getKey(), el.getAttribute(), el.getUuid(),
-          el.getStamp(), el.getValue() != null ? el.getParsed().get() : "(null)"));
+      System.out.println(
+          String.format(
+              "%s %s %s %d %s",
+              el.getKey(),
+              el.getAttribute(),
+              el.getUuid(),
+              el.getStamp(),
+              el.getValue() != null ? el.getParsed().get() : "(null)"));
     } else {
       System.out.println(what);
     }
@@ -423,38 +424,49 @@ class BeamStream<T> implements Stream<T> {
       RepositoryProvider repoProvider, String replicationName, String target) {
 
     @SuppressWarnings("unchecked")
-    BeamStream<StreamElement> toWrite = descendant(pipeline -> FlatMap
-        .named("persistIntoTargetReplica")
-        .of((PCollection<StreamElement>) collection.materialize(pipeline))
-        .using((StreamElement in, Collector<StreamElement> ctx) -> {
-          String key = in.getKey();
-          String attribute = in.getAttribute();
-          EntityDescriptor entity = in.getEntityDescriptor();
-          String replicatedName = String.format(
-              "_%s_%s$%s", replicationName, target, attribute);
-          Optional<AttributeDescriptor<Object>> attr = entity.findAttribute(
-              replicatedName, true);
-          if (attr.isPresent()) {
-            long stamp = in.getStamp();
-            byte[] value = in.getValue();
-            ctx.collect(StreamElement.update(
-                entity, attr.get(),
-                UUID.randomUUID().toString(),
-                key, replicatedName, stamp, value));
-          } else {
-            log.warn("Cannot find attribute {} in {}", replicatedName, entity);
-          }
-        })
-        .output());
+    BeamStream<StreamElement> toWrite =
+        descendant(
+            pipeline ->
+                FlatMap.named("persistIntoTargetReplica")
+                    .of((PCollection<StreamElement>) collection.materialize(pipeline))
+                    .using(
+                        (StreamElement in, Collector<StreamElement> ctx) -> {
+                          String key = in.getKey();
+                          String attribute = in.getAttribute();
+                          EntityDescriptor entity = in.getEntityDescriptor();
+                          String replicatedName =
+                              String.format("_%s_%s$%s", replicationName, target, attribute);
+                          Optional<AttributeDescriptor<Object>> attr =
+                              entity.findAttribute(replicatedName, true);
+                          if (attr.isPresent()) {
+                            long stamp = in.getStamp();
+                            byte[] value = in.getValue();
+                            ctx.collect(
+                                StreamElement.update(
+                                    entity,
+                                    attr.get(),
+                                    UUID.randomUUID().toString(),
+                                    key,
+                                    replicatedName,
+                                    stamp,
+                                    value));
+                          } else {
+                            log.warn("Cannot find attribute {} in {}", replicatedName, entity);
+                          }
+                        })
+                    .output());
 
     toWrite.write(repoProvider);
   }
 
   @Override
   public <V> BeamStream<StreamElement> asStreamElements(
-      RepositoryProvider repoProvider, EntityDescriptor entity,
-      Closure<CharSequence> keyExtractor, Closure<CharSequence> attributeExtractor,
-      Closure<V> valueExtractor, Closure<Long> timeExtractor) {
+      RepositoryProvider repoProvider,
+      EntityDescriptor entity,
+      Closure<CharSequence> keyExtractor,
+      Closure<CharSequence> attributeExtractor,
+      Closure<V> valueExtractor,
+      Closure<Long> timeExtractor) {
 
     Repository repo = repoProvider.getRepo();
     Closure<CharSequence> keyDehydrated = dehydrate(keyExtractor);
@@ -462,37 +474,49 @@ class BeamStream<T> implements Stream<T> {
     Closure<V> valueDehydrated = dehydrate(valueExtractor);
     Closure<Long> timeDehydrated = dehydrate(timeExtractor);
 
-    return descendant(pipeline -> MapElements
-        .named("asStreamElements")
-        .of(collection.materialize(pipeline))
-        .using(data -> {
-          CharSequence key = keyDehydrated.call(data);
-          CharSequence attribute = attributeDehydrated.call(data);
-          AttributeDescriptor<Object> attrDesc = entity
-              .findAttribute(attribute.toString(), true)
-              .orElseThrow(() -> new IllegalArgumentException(
-                  "No attribute " + attribute + " in " + entity));
-          long timestamp = timeDehydrated.call(data);
-          byte[] value = attrDesc.getValueSerializer()
-              .serialize(valueDehydrated.call(data));
-          return StreamElement.update(
-              entity, attrDesc, UUID.randomUUID().toString(), key.toString(),
-              attribute.toString(), timestamp, value);
-        }, TypeDescriptor.of(StreamElement.class))
-        .output()
-        .setCoder(StreamElementCoder.of(repo)));
+    return descendant(
+        pipeline ->
+            MapElements.named("asStreamElements")
+                .of(collection.materialize(pipeline))
+                .using(
+                    data -> {
+                      CharSequence key = keyDehydrated.call(data);
+                      CharSequence attribute = attributeDehydrated.call(data);
+                      AttributeDescriptor<Object> attrDesc =
+                          entity
+                              .findAttribute(attribute.toString(), true)
+                              .orElseThrow(
+                                  () ->
+                                      new IllegalArgumentException(
+                                          "No attribute " + attribute + " in " + entity));
+                      long timestamp = timeDehydrated.call(data);
+                      byte[] value =
+                          attrDesc.getValueSerializer().serialize(valueDehydrated.call(data));
+                      return StreamElement.update(
+                          entity,
+                          attrDesc,
+                          UUID.randomUUID().toString(),
+                          key.toString(),
+                          attribute.toString(),
+                          timestamp,
+                          value);
+                    },
+                    TypeDescriptor.of(StreamElement.class))
+                .output()
+                .setCoder(StreamElementCoder.of(repo)));
   }
-
 
   @Override
   public <V> void persist(
-      RepositoryProvider repoProvider, EntityDescriptor entity,
-      Closure<CharSequence> keyExtractor, Closure<CharSequence> attributeExtractor,
-      Closure<V> valueExtractor, Closure<Long> timeExtractor) {
+      RepositoryProvider repoProvider,
+      EntityDescriptor entity,
+      Closure<CharSequence> keyExtractor,
+      Closure<CharSequence> attributeExtractor,
+      Closure<V> valueExtractor,
+      Closure<Long> timeExtractor) {
 
     asStreamElements(
-        repoProvider, entity, keyExtractor, attributeExtractor,
-        valueExtractor, timeExtractor)
+            repoProvider, entity, keyExtractor, attributeExtractor, valueExtractor, timeExtractor)
         .write(repoProvider);
   }
 
@@ -503,46 +527,48 @@ class BeamStream<T> implements Stream<T> {
 
     @SuppressWarnings("unchecked")
     BeamStream<StreamElement> elements = (BeamStream<StreamElement>) this;
-    elements.forEach("write", el -> {
-      CountDownLatch latch = new CountDownLatch(1);
-      AtomicReference<Throwable> err = new AtomicReference<>();
-      OnlineAttributeWriter writer = repo.getOrCreateOperator(DirectDataOperator.class)
-          .getWriter(el.getAttributeDescriptor())
-          .orElseThrow(() -> new IllegalStateException("Missing writer for " + el));
+    elements.forEach(
+        "write",
+        el -> {
+          CountDownLatch latch = new CountDownLatch(1);
+          AtomicReference<Throwable> err = new AtomicReference<>();
+          OnlineAttributeWriter writer =
+              repo.getOrCreateOperator(DirectDataOperator.class)
+                  .getWriter(el.getAttributeDescriptor())
+                  .orElseThrow(() -> new IllegalStateException("Missing writer for " + el));
 
-      writer.write(el, (succ, exc) -> {
-        latch.countDown();
-        err.set(exc);
-      });
-      try {
-        latch.await();
-      } catch (InterruptedException ex) {
-        Thread.currentThread().interrupt();
-        throw new RuntimeException(ex);
-      }
-      if (err.get() != null) {
-        throw new RuntimeException(err.get());
-      }
-    }, false);
+          writer.write(
+              el,
+              (succ, exc) -> {
+                latch.countDown();
+                err.set(exc);
+              });
+          try {
+            latch.await();
+          } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(ex);
+          }
+          if (err.get() != null) {
+            throw new RuntimeException(err.get());
+          }
+        },
+        false);
   }
 
   @Override
   public WindowedStream<T> timeWindow(long millis) {
-    return windowed(
-        collection,
-        FixedWindows.of(Duration.millis(millis)));
+    return windowed(collection, FixedWindows.of(Duration.millis(millis)));
   }
 
   @Override
   public WindowedStream<T> timeSlidingWindow(long millis, long slide) {
     return windowed(
-        collection,
-        SlidingWindows.of(Duration.millis(millis)).every(Duration.millis(slide)));
+        collection, SlidingWindows.of(Duration.millis(millis)).every(Duration.millis(slide)));
   }
 
   @Override
-  public <K> WindowedStream<Pair<K, T>> sessionWindow(
-      Closure<K> keyExtractor, long gapDuration) {
+  public <K> WindowedStream<Pair<K, T>> sessionWindow(Closure<K> keyExtractor, long gapDuration) {
 
     Closure<K> dehydrated = dehydrate(keyExtractor);
 
@@ -551,8 +577,7 @@ class BeamStream<T> implements Stream<T> {
           Coder<K> coder = coderOf(pipeline, dehydrated);
           PCollection<T> in = collection.materialize(pipeline);
           return MapElements.of(in)
-              .using(
-                  e -> Pair.of(dehydrated.call(e), e))
+              .using(e -> Pair.of(dehydrated.call(e), e))
               .output()
               .setCoder(PairCoder.of(coder, in.getCoder()));
         },
@@ -569,23 +594,24 @@ class BeamStream<T> implements Stream<T> {
   public Stream<T> union(@Nullable String name, List<Stream<T>> others) {
     return descendant(
         pipeline -> {
-          List<BeamStream<T>> streams = java.util.stream.Stream
-              .concat(java.util.stream.Stream.of(this), others.stream())
-              .map(s -> (BeamStream<T>) s)
-              .collect(Collectors.toList());
-          long windowFnCounts = streams.stream()
-              .map(s -> Pair.of(s.getWindowFn(), s.getTrigger()))
-              .distinct()
-              .count();
+          List<BeamStream<T>> streams =
+              java.util.stream.Stream.concat(java.util.stream.Stream.of(this), others.stream())
+                  .map(s -> (BeamStream<T>) s)
+                  .collect(Collectors.toList());
+          long windowFnCounts =
+              streams
+                  .stream()
+                  .map(s -> Pair.of(s.getWindowFn(), s.getTrigger()))
+                  .distinct()
+                  .count();
           if (windowFnCounts > 1) {
-            streams = streams.stream()
-                .map(s -> s.asUnwindowed())
-                .collect(Collectors.toList());
+            streams = streams.stream().map(s -> s.asUnwindowed()).collect(Collectors.toList());
           }
-          List<PCollection<T>> collections = streams
-              .stream()
-              .map(s -> ((BeamStream<T>) s).collection.materialize(pipeline))
-              .collect(Collectors.toList());
+          List<PCollection<T>> collections =
+              streams
+                  .stream()
+                  .map(s -> ((BeamStream<T>) s).collection.materialize(pipeline))
+                  .collect(Collectors.toList());
           PCollection<T> any = collections.stream().findAny().orElse(null);
           if (name != null) {
             return PCollectionList.of(collections)
@@ -612,29 +638,37 @@ class BeamStream<T> implements Stream<T> {
     Closure<V> combinerDehydrated = dehydrate(combiner);
     Closure<V> initialValueDehydrated = dehydrate(initialValue);
     // always return unwindowed stream
-    return new BeamStream<>(this.config, this.bounded, pipeline -> {
-      PCollection<T> in = collection.materialize(pipeline);
-      Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
-      Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
-      PCollection<KV<K, V>> kvs = MapElements
-          .named(withSuffix(name, ".mapToKv"))
-          .of(in)
-          .using(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e)))
-          .output()
-          .setCoder(KvCoder.of(keyCoder, valueCoder));
-      KvCoder<K, V> coder = (KvCoder<K, V>) kvs.getCoder();
-      return kvs.apply(ParDo.of(IntegrateDoFn.of(
-          combinerDehydrated, initialValueDehydrated, coder, allowedLateness)))
-          .setCoder(PairCoder.of(keyCoder, valueCoder));
-    }, this.terminateCheck, this.pipelineFactory);
+    return new BeamStream<>(
+        this.config,
+        this.bounded,
+        pipeline -> {
+          PCollection<T> in = collection.materialize(pipeline);
+          Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
+          Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
+          PCollection<KV<K, V>> kvs =
+              MapElements.named(withSuffix(name, ".mapToKv"))
+                  .of(in)
+                  .using(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e)))
+                  .output()
+                  .setCoder(KvCoder.of(keyCoder, valueCoder));
+          KvCoder<K, V> coder = (KvCoder<K, V>) kvs.getCoder();
+          return kvs.apply(
+                  ParDo.of(
+                      IntegrateDoFn.of(
+                          combinerDehydrated, initialValueDehydrated, coder, allowedLateness)))
+              .setCoder(PairCoder.of(keyCoder, valueCoder));
+        },
+        this.terminateCheck,
+        this.pipelineFactory);
   }
 
   @Override
   public Stream<Pair<T, Long>> withTimestamp(@Nullable String name) {
-    return descendant(pipeline -> {
-      PCollection<T> in = collection.materialize(pipeline);
-      return applyExtractTimestamp(name, in, pipeline);
-    });
+    return descendant(
+        pipeline -> {
+          PCollection<T> in = collection.materialize(pipeline);
+          return applyExtractTimestamp(name, in, pipeline);
+        });
   }
 
   static <T> PCollection<Pair<T, Long>> applyExtractTimestamp(
@@ -651,8 +685,12 @@ class BeamStream<T> implements Stream<T> {
 
   @Override
   public <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
-      @Nullable String name, Closure<K> keyExtractor, Closure<V> valueExtractor,
-      Closure<S> initialState, Closure<O> outputFn, Closure<S> stateUpdate,
+      @Nullable String name,
+      Closure<K> keyExtractor,
+      Closure<V> valueExtractor,
+      Closure<S> initialState,
+      Closure<O> outputFn,
+      Closure<S> stateUpdate,
       long allowedLateness) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
@@ -660,38 +698,55 @@ class BeamStream<T> implements Stream<T> {
     Closure<S> stateUpdateDehydrated = dehydrate(stateUpdate);
     Closure<O> outputDehydrated = dehydrate(outputFn);
     Closure<S> initialStateDehydrated = dehydrate(initialState);
-    return new BeamStream<>(config, bounded, pipeline -> {
-      PCollection<T> in = collection.materialize(pipeline);
-      Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
-      Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
-      Coder<O> outputCoder = coderOf(pipeline, outputDehydrated);
-      @SuppressWarnings("unchecked")
-      Coder<S> stateCoder = coderOf(pipeline, initialStateDehydrated);
-      PCollection<KV<K, V>> kvs = MapElements
-          .named(withSuffix(name, ".mapToKvs"))
-          .of(in)
-          .using(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e)))
-          .output()
-          .setCoder(KvCoder.of(keyCoder, valueCoder));
-      final PCollection<Pair<K, O>> ret;
-      if (name != null) {
-        ret = kvs.apply(withSuffix(name, ".reduce"),
-            ParDo.of(ReduceValueStateByKey.of(
-                initialStateDehydrated, stateUpdateDehydrated, outputDehydrated,
-                stateCoder, (KvCoder<K, V>) kvs.getCoder(), allowedLateness)));
-      } else {
-        ret = kvs.apply(
-            ParDo.of(ReduceValueStateByKey.of(
-                initialStateDehydrated, stateUpdateDehydrated, outputDehydrated,
-                stateCoder, (KvCoder<K, V>) kvs.getCoder(), allowedLateness)));
-      }
-      return ret.setCoder(PairCoder.of(keyCoder, outputCoder));
-    }, terminateCheck, pipelineFactory);
+    return new BeamStream<>(
+        config,
+        bounded,
+        pipeline -> {
+          PCollection<T> in = collection.materialize(pipeline);
+          Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
+          Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
+          Coder<O> outputCoder = coderOf(pipeline, outputDehydrated);
+          @SuppressWarnings("unchecked")
+          Coder<S> stateCoder = coderOf(pipeline, initialStateDehydrated);
+          PCollection<KV<K, V>> kvs =
+              MapElements.named(withSuffix(name, ".mapToKvs"))
+                  .of(in)
+                  .using(e -> KV.of(keyDehydrated.call(e), valueDehydrated.call(e)))
+                  .output()
+                  .setCoder(KvCoder.of(keyCoder, valueCoder));
+          final PCollection<Pair<K, O>> ret;
+          if (name != null) {
+            ret =
+                kvs.apply(
+                    withSuffix(name, ".reduce"),
+                    ParDo.of(
+                        ReduceValueStateByKey.of(
+                            initialStateDehydrated,
+                            stateUpdateDehydrated,
+                            outputDehydrated,
+                            stateCoder,
+                            (KvCoder<K, V>) kvs.getCoder(),
+                            allowedLateness)));
+          } else {
+            ret =
+                kvs.apply(
+                    ParDo.of(
+                        ReduceValueStateByKey.of(
+                            initialStateDehydrated,
+                            stateUpdateDehydrated,
+                            outputDehydrated,
+                            stateCoder,
+                            (KvCoder<K, V>) kvs.getCoder(),
+                            allowedLateness)));
+          }
+          return ret.setCoder(PairCoder.of(keyCoder, outputCoder));
+        },
+        terminateCheck,
+        pipelineFactory);
   }
 
   <X> BeamStream<X> descendant(PCollectionProvider<X> provider) {
-    return new BeamStream<>(
-        config, bounded, provider, terminateCheck, pipelineFactory);
+    return new BeamStream<>(config, bounded, provider, terminateCheck, pipelineFactory);
   }
 
   Pipeline createPipeline() {
@@ -704,7 +759,6 @@ class BeamStream<T> implements Stream<T> {
     PipelineOptions opts = PipelineOptionsFactory.create();
     return Pipeline.create(opts);
   }
-
 
   @VisibleForTesting
   <T> Coder<T> coderOf(Pipeline pipeline, Closure<T> closure) {
@@ -720,13 +774,16 @@ class BeamStream<T> implements Stream<T> {
   }
 
   <X> BeamWindowedStream<X> windowed(
-      PCollectionProvider<X> provider,
-      WindowFn<? super X, ?> window) {
+      PCollectionProvider<X> provider, WindowFn<? super X, ?> window) {
 
     return new BeamWindowedStream<>(
-        config, bounded, provider, window,
+        config,
+        bounded,
+        provider,
+        window,
         WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES,
-        terminateCheck, pipelineFactory);
+        terminateCheck,
+        pipelineFactory);
   }
 
   WindowFn<Object, ? extends BoundedWindow> getWindowFn() {
@@ -739,50 +796,44 @@ class BeamStream<T> implements Stream<T> {
 
   @SuppressWarnings("unchecked")
   private void registerCoders(CoderRegistry registry) {
-    registry.registerCoderForClass(
-        GlobalWindow.class, GlobalWindow.Coder.INSTANCE);
+    registry.registerCoderForClass(GlobalWindow.class, GlobalWindow.Coder.INSTANCE);
     registrars.forEach(r -> r.accept(registry));
     // FIXME: need to get rid of this fallback
-    KryoCoder<Object> coder = KryoCoder.of(
-        kryo -> kryo.setInstantiatorStrategy(
-            new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())),
-        kryo -> kryo.addDefaultSerializer(Tuple.class, (Class) TupleSerializer.class));
-    registry.registerCoderForClass(
-        Object.class,
-        coder);
-    registry.registerCoderForClass(
-        Tuple.class,
-        TupleCoder.of(coder));
-    registry.registerCoderForClass(
-        Pair.class, PairCoder.of(coder, coder));
+    KryoCoder<Object> coder =
+        KryoCoder.of(
+            kryo ->
+                kryo.setInstantiatorStrategy(
+                    new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())),
+            kryo -> kryo.addDefaultSerializer(Tuple.class, (Class) TupleSerializer.class));
+    registry.registerCoderForClass(Object.class, coder);
+    registry.registerCoderForClass(Tuple.class, TupleCoder.of(coder));
+    registry.registerCoderForClass(Pair.class, PairCoder.of(coder, coder));
   }
 
-  private <T> RemoteConsumer<T> createRemoteConsumer(
-      Coder<T> coder, Consumer<T> consumer) {
+  private <T> RemoteConsumer<T> createRemoteConsumer(Coder<T> coder, Consumer<T> consumer) {
 
     return RemoteConsumer.create(
-        this, config.getCollectHostname(),
-        config.getPreferredCollectPort(), consumer, coder);
+        this, config.getCollectHostname(), config.getPreferredCollectPort(), consumer, coder);
   }
 
   private BeamStream<T> asUnwindowed() {
-    if (getWindowFn().equals(new GlobalWindows())
-        && getTrigger().equals(DefaultTrigger.of())) {
+    if (getWindowFn().equals(new GlobalWindows()) && getTrigger().equals(DefaultTrigger.of())) {
       return new BeamStream<>(
-          this.config, this.bounded, this.collection,
-          this.terminateCheck, this.pipelineFactory);
+          this.config, this.bounded, this.collection, this.terminateCheck, this.pipelineFactory);
     } else {
       return new BeamStream<>(
-          this.config, this.bounded,
+          this.config,
+          this.bounded,
           pipeline -> {
             PCollection<T> in = this.collection.materialize(pipeline);
-            return in
-                .apply(Window.<T>into(new GlobalWindows())
-                    .triggering(DefaultTrigger.of())
-                    .discardingFiredPanes())
+            return in.apply(
+                    Window.<T>into(new GlobalWindows())
+                        .triggering(DefaultTrigger.of())
+                        .discardingFiredPanes())
                 .setCoder(in.getCoder());
           },
-          this.terminateCheck, this.pipelineFactory);
+          this.terminateCheck,
+          this.pipelineFactory);
     }
   }
 
@@ -798,7 +849,6 @@ class BeamStream<T> implements Stream<T> {
     public void process(@Element T elem) {
       consumer.accept(elem);
     }
-
   }
 
   private static class ExtractWindow<T> extends DoFn<T, Pair<BoundedWindow, T>> {
@@ -809,9 +859,7 @@ class BeamStream<T> implements Stream<T> {
 
     @ProcessElement
     public void process(
-        @Element T elem,
-        BoundedWindow window,
-        OutputReceiver<Pair<BoundedWindow, T>> output) {
+        @Element T elem, BoundedWindow window, OutputReceiver<Pair<BoundedWindow, T>> output) {
 
       output.output(Pair.of(window, elem));
     }
@@ -820,8 +868,7 @@ class BeamStream<T> implements Stream<T> {
     @Override
     public TypeDescriptor<Pair<BoundedWindow, T>> getOutputTypeDescriptor() {
       return PairCoder.descriptor(
-          TypeDescriptor.of(BoundedWindow.class),
-          (TypeDescriptor) TypeDescriptor.of(Object.class));
+          TypeDescriptor.of(BoundedWindow.class), (TypeDescriptor) TypeDescriptor.of(Object.class));
     }
   }
 
@@ -840,10 +887,8 @@ class BeamStream<T> implements Stream<T> {
     @Override
     public TypeDescriptor<Pair<T, Long>> getOutputTypeDescriptor() {
       return PairCoder.descriptor(
-          (TypeDescriptor) TypeDescriptor.of(Object.class),
-          TypeDescriptor.of(Long.class));
+          (TypeDescriptor) TypeDescriptor.of(Object.class), TypeDescriptor.of(Long.class));
     }
-
   }
 
   public abstract static class ElementOrderedDoFn<IN, OUT> extends DoFn<IN, OUT> {
@@ -869,7 +914,9 @@ class BeamStream<T> implements Stream<T> {
         // drop
         log.debug(
             "Dropping element {}, currentWatermark {}, timestamp {}",
-            elem, currentWatermark, timestamp);
+            elem,
+            currentWatermark,
+            timestamp);
       } else {
         unprocessed.add(Pair.of(timestamp, elem));
         unprocessed.readLater();
@@ -880,8 +927,7 @@ class BeamStream<T> implements Stream<T> {
           watermark.readLater();
           currentWatermark = updatedWatermark;
         }
-        consumeElementsAfterWatermark(
-            unprocessed, currentWatermark, flushTimer, consumer);
+        consumeElementsAfterWatermark(unprocessed, currentWatermark, flushTimer, consumer);
       }
     }
 
@@ -896,8 +942,7 @@ class BeamStream<T> implements Stream<T> {
       long currentWatermark = MoreObjects.firstNonNull(watermark.read(), MIN_STAMP);
       if (currentWatermark < stamp) {
         watermark.write(stamp);
-        consumeElementsAfterWatermark(
-            unprocessed, stamp, flushTimer, consumer);
+        consumeElementsAfterWatermark(unprocessed, stamp, flushTimer, consumer);
       }
     }
 
@@ -909,21 +954,23 @@ class BeamStream<T> implements Stream<T> {
 
       List<Pair<Long, IN>> keep = new ArrayList<>();
       List<Pair<Long, IN>> output = new ArrayList<>();
-      Streams.stream(unprocessed.read()).forEach(e -> {
-        if (e.getFirst() <= watermark) {
-          output.add(e);
-        } else {
-          keep.add(e);
-        }
-      });
+      Streams.stream(unprocessed.read())
+          .forEach(
+              e -> {
+                if (e.getFirst() <= watermark) {
+                  output.add(e);
+                } else {
+                  keep.add(e);
+                }
+              });
       unprocessed.clear();
       keep.forEach(unprocessed::add);
-      output.stream()
+      output
+          .stream()
           .sorted((a, b) -> Long.compare(a.getFirst(), b.getFirst()))
           .forEachOrdered(e -> consumer.accept(e.getFirst(), e.getSecond()));
       if (!keep.isEmpty()) {
-        long minStamp = keep.stream()
-            .map(Pair::getFirst).min(Long::compare).orElse(-1L);
+        long minStamp = keep.stream().map(Pair::getFirst).min(Long::compare).orElse(-1L);
         flushTimer.set(new Instant(minStamp));
       }
     }
@@ -932,20 +979,16 @@ class BeamStream<T> implements Stream<T> {
     public Duration getAllowedTimestampSkew() {
       return Duration.millis(Long.MAX_VALUE);
     }
-
   }
 
   @VisibleForTesting
-  public static class IntegrateDoFn<K, V>
-      extends ElementOrderedDoFn<KV<K, V>, Pair<K, V>> {
+  public static class IntegrateDoFn<K, V> extends ElementOrderedDoFn<KV<K, V>, Pair<K, V>> {
 
     static <K, V> DoFn<KV<K, V>, Pair<K, V>> of(
-        Closure<V> combiner, Closure<V> initialValue, KvCoder<K, V> kvCoder,
-        long allowedLateness) {
+        Closure<V> combiner, Closure<V> initialValue, KvCoder<K, V> kvCoder, long allowedLateness) {
 
       return new IntegrateDoFn<>(
-          (a, b) -> combiner.call(a, b), initialValue::call,
-          kvCoder, allowedLateness);
+          (a, b) -> combiner.call(a, b), initialValue::call, kvCoder, allowedLateness);
     }
 
     @StateId("unprocessed")
@@ -964,14 +1007,16 @@ class BeamStream<T> implements Stream<T> {
     final UnaryFunction<K, V> initialValue;
 
     IntegrateDoFn(
-        BiFunction<V, V, V> combiner, UnaryFunction<K, V> initialValue,
-        KvCoder<K, V> kvCoder, long allowedLateness) {
+        BiFunction<V, V, V> combiner,
+        UnaryFunction<K, V> initialValue,
+        KvCoder<K, V> kvCoder,
+        long allowedLateness) {
 
       super(allowedLateness);
       Coder<K> keyCoder = kvCoder.getKeyCoder();
       Coder<V> valueCoder = kvCoder.getValueCoder();
-      this.unprocessed = StateSpecs.bag(
-          PairCoder.of(VarLongCoder.of(), KvCoder.of(keyCoder, valueCoder)));
+      this.unprocessed =
+          StateSpecs.bag(PairCoder.of(VarLongCoder.of(), KvCoder.of(keyCoder, valueCoder)));
       this.watermark = StateSpecs.value(VarLongCoder.of());
       this.stateSpec = StateSpecs.value(valueCoder);
       this.combiner = combiner;
@@ -986,9 +1031,14 @@ class BeamStream<T> implements Stream<T> {
         @TimerId("flush") Timer flushTimer,
         @StateId("combined") ValueState<V> state) {
 
-      onProcessElement(context, unprocessed, watermark, flushTimer, (stamp, elem) -> {
-        consume(elem, state, context, stamp);
-      });
+      onProcessElement(
+          context,
+          unprocessed,
+          watermark,
+          flushTimer,
+          (stamp, elem) -> {
+            consume(elem, state, context, stamp);
+          });
     }
 
     @OnTimer("flush")
@@ -999,24 +1049,24 @@ class BeamStream<T> implements Stream<T> {
         @TimerId("flush") Timer flushTimer,
         @StateId("combined") ValueState<V> state) {
 
-      onFlushTimer(context, unprocessed, watermark, flushTimer, (stamp, elem) -> {
-        consume(elem, state, context, stamp);
-      });
+      onFlushTimer(
+          context,
+          unprocessed,
+          watermark,
+          flushTimer,
+          (stamp, elem) -> {
+            consume(elem, state, context, stamp);
+          });
     }
 
-    void consume(
-        KV<K, V> in,
-        ValueState<V> state,
-        WindowedContext context,
-        long stamp) {
+    void consume(KV<K, V> in, ValueState<V> state, WindowedContext context, long stamp) {
       V val = state.read();
       if (val == null) {
         val = Objects.requireNonNull(initialValue.apply(in.getKey()));
       }
       V result = combiner.apply(in.getValue(), val);
       state.write(result);
-      context.outputWithTimestamp(
-          Pair.of(in.getKey(), result), new Instant(stamp));
+      context.outputWithTimestamp(Pair.of(in.getKey(), result), new Instant(stamp));
     }
 
     @SuppressWarnings("unchecked")
@@ -1026,12 +1076,10 @@ class BeamStream<T> implements Stream<T> {
           (TypeDescriptor) TypeDescriptor.of(Object.class),
           (TypeDescriptor) TypeDescriptor.of(Object.class));
     }
-
   }
 
   @VisibleForTesting
-  static class ReduceValueStateByKey<K, V, S, O>
-      extends ElementOrderedDoFn<KV<K, V>, Pair<K, O>> {
+  static class ReduceValueStateByKey<K, V, S, O> extends ElementOrderedDoFn<KV<K, V>, Pair<K, O>> {
 
     static <K, V, S, O> ReduceValueStateByKey<K, V, S, O> of(
         Closure<S> initialState,
@@ -1042,8 +1090,7 @@ class BeamStream<T> implements Stream<T> {
         long allowedLateness) {
 
       return new ReduceValueStateByKey<>(
-          initialState, stateUpdate, output, stateCoder,
-          kvCoder, allowedLateness);
+          initialState, stateUpdate, output, stateCoder, kvCoder, allowedLateness);
     }
 
     private final Closure<S> initialState;
@@ -1078,10 +1125,9 @@ class BeamStream<T> implements Stream<T> {
 
       Coder<K> keyCoder = kvCoder.getKeyCoder();
       Coder<V> valueCoder = kvCoder.getValueCoder();
-      this.unprocessed = StateSpecs.bag(
-          PairCoder.of(VarLongCoder.of(), KvCoder.of(keyCoder, valueCoder)));
+      this.unprocessed =
+          StateSpecs.bag(PairCoder.of(VarLongCoder.of(), KvCoder.of(keyCoder, valueCoder)));
       this.watermark = StateSpecs.value(VarLongCoder.of());
-
     }
 
     @ProcessElement
@@ -1092,9 +1138,14 @@ class BeamStream<T> implements Stream<T> {
         @TimerId("flush") Timer flushTimer,
         @StateId("value") ValueState<S> value) {
 
-      onProcessElement(context, unprocessed, watermark, flushTimer, (stamp, elem) -> {
-        consume(elem, value, context, stamp);
-      });
+      onProcessElement(
+          context,
+          unprocessed,
+          watermark,
+          flushTimer,
+          (stamp, elem) -> {
+            consume(elem, value, context, stamp);
+          });
     }
 
     @OnTimer("flush")
@@ -1105,16 +1156,17 @@ class BeamStream<T> implements Stream<T> {
         @TimerId("flush") Timer flushTimer,
         @StateId("value") ValueState<S> value) {
 
-      onFlushTimer(context, unprocessed, watermark, flushTimer, (stamp, elem) -> {
-        consume(elem, value, context, stamp);
-      });
+      onFlushTimer(
+          context,
+          unprocessed,
+          watermark,
+          flushTimer,
+          (stamp, elem) -> {
+            consume(elem, value, context, stamp);
+          });
     }
 
-    void consume(
-        KV<K, V> in,
-        ValueState<S> value,
-        WindowedContext context,
-        long stamp) {
+    void consume(KV<K, V> in, ValueState<S> value, WindowedContext context, long stamp) {
 
       S current = value.read();
       if (current == null) {
@@ -1133,10 +1185,7 @@ class BeamStream<T> implements Stream<T> {
           (TypeDescriptor) TypeDescriptor.of(Object.class),
           (TypeDescriptor) TypeDescriptor.of(Object.class));
     }
-
   }
-
-
 
   private static <T> DoFn<T, Void> asDoFn(Consumer<T> consumer) {
     return new ConsumeFn<>(consumer);
@@ -1152,18 +1201,19 @@ class BeamStream<T> implements Stream<T> {
     };
   }
 
-
   private Thread runWatchThread(Runnable terminate) {
-    return runThread("pipeline-terminate-check", () -> {
-      try {
-        while (!terminateCheck.check()) {
-          // nop
-        }
-        terminate.run();
-      } catch (InterruptedException ex) {
-        Thread.currentThread().interrupt();
-      }
-    });
+    return runThread(
+        "pipeline-terminate-check",
+        () -> {
+          try {
+            while (!terminateCheck.check()) {
+              // nop
+            }
+            terminate.run();
+          } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+          }
+        });
   }
 
   private Thread runThread(String name, Runnable runnable) {
@@ -1193,8 +1243,7 @@ class BeamStream<T> implements Stream<T> {
     private static final Random RANDOM = new Random();
 
     private static <T> RemoteConsumer<T> create(
-        Object seed, String hostname, int preferredPort,
-        Consumer<T> consumer, Coder<T> coder) {
+        Object seed, String hostname, int preferredPort, Consumer<T> consumer, Coder<T> coder) {
 
       int retries = 3;
       while (retries > 0) {
@@ -1237,7 +1286,6 @@ class BeamStream<T> implements Stream<T> {
           }
         }
       }
-
     }
 
     private final Coder<T> coder;
@@ -1245,9 +1293,8 @@ class BeamStream<T> implements Stream<T> {
     private final transient Consumer<T> consumer;
     private final transient Server server;
 
-    private RemoteConsumer(
-        String hostname, int port, Consumer<T> consumer,
-        Coder<T> coder) throws MalformedURLException {
+    private RemoteConsumer(String hostname, int port, Consumer<T> consumer, Coder<T> coder)
+        throws MalformedURLException {
 
       this.server = new Server(port);
       this.url = new URL("http://" + hostname + ":" + port);
@@ -1265,8 +1312,8 @@ class BeamStream<T> implements Stream<T> {
         connection.setRequestProperty("Connection", "close");
         IOUtils.copy(serialize(what), connection.getOutputStream());
         connection.connect();
-        String response = new String(IOUtils.toByteArray(
-            connection.getInputStream()), StandardCharsets.US_ASCII);
+        String response =
+            new String(IOUtils.toByteArray(connection.getInputStream()), StandardCharsets.US_ASCII);
         if (!"OK".equals(response)) {
           throw new IllegalStateException("Server replied " + response);
         }
@@ -1302,7 +1349,6 @@ class BeamStream<T> implements Stream<T> {
     public void close() {
       stop();
     }
-
   }
 
   <X> Closure<X> dehydrate(Closure<X> closure) {
@@ -1315,5 +1361,4 @@ class BeamStream<T> implements Stream<T> {
   static @Nullable String withSuffix(@Nullable String prefix, String suffix) {
     return prefix == null ? null : prefix + suffix;
   }
-
 }

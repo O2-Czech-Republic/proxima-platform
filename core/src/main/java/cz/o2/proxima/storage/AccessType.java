@@ -21,22 +21,20 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Access type to {@code attribute family}.
- */
+/** Access type to {@code attribute family}. */
 @Stable
 public interface AccessType extends Serializable {
 
   /**
    * Return {@code AccessType} based on configuration specification.
+   *
    * @param spec the specification in `access` field of attribute family
    * @return the {@code AccessType}
    */
   static AccessType from(String spec) {
 
-    Set<String> specifiers = Arrays.stream(spec.split(","))
-        .map(String::trim)
-        .collect(Collectors.toSet());
+    Set<String> specifiers =
+        Arrays.stream(spec.split(",")).map(String::trim).collect(Collectors.toSet());
 
     boolean isReadOnly = specifiers.remove("read-only");
     boolean isWriteOnly = specifiers.remove("write-only");
@@ -101,20 +99,27 @@ public interface AccessType extends Serializable {
       @Override
       public String toString() {
         return "AccessType("
-            + "canReadBatchUpdates=" + canReadBatchUpdates()
-            + ", canReadBatchSnapshot=" + canReadBatchSnapshot()
-            + ", canRandomRead=" + canRandomRead()
-            + ", canReadCommitLog=" + canReadCommitLog()
-            + ", isReadonly=" + isReadonly()
-            + ", isStateCommitLog=" + isStateCommitLog()
-            + ", isListPrimaryKey=" + isListPrimaryKey
-            + ", isWriteOnly=" + isWriteOnly
-            + ", canCreateCachedView=" + canCreateCachedView
+            + "canReadBatchUpdates="
+            + canReadBatchUpdates()
+            + ", canReadBatchSnapshot="
+            + canReadBatchSnapshot()
+            + ", canRandomRead="
+            + canRandomRead()
+            + ", canReadCommitLog="
+            + canReadCommitLog()
+            + ", isReadonly="
+            + isReadonly()
+            + ", isStateCommitLog="
+            + isStateCommitLog()
+            + ", isListPrimaryKey="
+            + isListPrimaryKey
+            + ", isWriteOnly="
+            + isWriteOnly
+            + ", canCreateCachedView="
+            + canCreateCachedView
             + ")";
       }
-
     };
-
   }
 
   static AccessType or(AccessType left, AccessType right) {
@@ -161,59 +166,39 @@ public interface AccessType extends Serializable {
 
       @Override
       public boolean canCreateCachedView() {
-        return left.canCreateCachedView()
-            || right.canCreateCachedView();
+        return left.canCreateCachedView() || right.canCreateCachedView();
       }
-
     };
   }
 
   /**
-   * @return {@code true} if this family can be used to access data by batch
-   * observing of updates.
+   * @return {@code true} if this family can be used to access data by batch observing of updates.
    */
   boolean canReadBatchUpdates();
 
-  /**
-   * @return {@code true} if this family can be used to access batch snapshot.
-   */
+  /** @return {@code true} if this family can be used to access batch snapshot. */
   boolean canReadBatchSnapshot();
 
-  /**
-   * @return {@code true} if this family can be used for random reads.
-   */
+  /** @return {@code true} if this family can be used for random reads. */
   boolean canRandomRead();
 
-  /**
-   * @return {@code true} if this family can be used for observing the commit log.
-   */
+  /** @return {@code true} if this family can be used for observing the commit log. */
   boolean canReadCommitLog();
 
   /**
-   * @return {@code true} if this family can be used to synthesize batch snapshot
-   * from commit log.
+   * @return {@code true} if this family can be used to synthesize batch snapshot from commit log.
    */
   boolean isStateCommitLog();
 
-  /**
-   * @return {@code true} if we can we modify the family.
-   */
+  /** @return {@code true} if we can we modify the family. */
   boolean isReadonly();
 
-  /**
-   * @return {@code true} if this family can access primary key of entities.
-   */
+  /** @return {@code true} if this family can access primary key of entities. */
   boolean isListPrimaryKey();
 
-  /**
-   * @return {@code true} if this family is accessed only write only
-   */
+  /** @return {@code true} if this family is accessed only write only */
   boolean isWriteOnly();
 
-  /**
-   * @return {@code true} if a cached view can be create from this
-   *         attribute family
-   */
+  /** @return {@code true} if a cached view can be create from this attribute family */
   boolean canCreateCachedView();
-
 }

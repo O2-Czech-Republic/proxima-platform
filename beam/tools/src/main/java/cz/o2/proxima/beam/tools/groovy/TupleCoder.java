@@ -26,9 +26,7 @@ import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.util.VarInt;
 
-/**
- * Coder for {@link Tuple}s.
- */
+/** Coder for {@link Tuple}s. */
 public class TupleCoder extends Coder<Tuple<Object>> {
 
   public static TupleCoder of() {
@@ -58,8 +56,7 @@ public class TupleCoder extends Coder<Tuple<Object>> {
   }
 
   @Override
-  public Tuple<Object> decode(InputStream inStream)
-      throws CoderException, IOException {
+  public Tuple<Object> decode(InputStream inStream) throws CoderException, IOException {
 
     int size = VarInt.decodeInt(inStream);
     Object[] read = new Object[size];
@@ -91,7 +88,4 @@ public class TupleCoder extends Coder<Tuple<Object>> {
   public int hashCode() {
     return hashCode;
   }
-
-
-
 }

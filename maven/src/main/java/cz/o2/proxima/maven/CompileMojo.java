@@ -25,23 +25,17 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
-/**
- * A MOJO for compiling config file to java classes.
- */
+/** A MOJO for compiling config file to java classes. */
 @Mojo(name = "compile", defaultPhase = LifecyclePhase.GENERATE_SOURCES)
 public class CompileMojo extends AbstractMojo {
 
-  @Parameter
-  private String outputDir;
+  @Parameter private String outputDir;
 
-  @Parameter
-  private String config;
+  @Parameter private String config;
 
-  @Parameter
-  private String javaPackage;
+  @Parameter private String javaPackage;
 
-  @Parameter
-  private String className = "Model";
+  @Parameter private String className = "Model";
 
   @Parameter(defaultValue = "${project}")
   private MavenProject project;
@@ -56,8 +50,8 @@ public class CompileMojo extends AbstractMojo {
       targetOutputDir = new File(new File(project.getBasedir(), "target"), outputDir);
     }
 
-    ModelGenerator generator = new ModelGenerator(
-        javaPackage, className, config, targetOutputDir.getAbsolutePath());
+    ModelGenerator generator =
+        new ModelGenerator(javaPackage, className, config, targetOutputDir.getAbsolutePath());
 
     try {
       generator.generate();
@@ -69,8 +63,8 @@ public class CompileMojo extends AbstractMojo {
 
   private void validate() throws MojoFailureException {
     if (outputDir == null || config == null || javaPackage == null) {
-      throw new MojoFailureException("Missing required parameter `outputDir', "
-          + "`config' or `javaPackage'");
+      throw new MojoFailureException(
+          "Missing required parameter `outputDir', " + "`config' or `javaPackage'");
     }
   }
 }

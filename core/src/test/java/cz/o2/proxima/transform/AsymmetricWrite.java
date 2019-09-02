@@ -37,5 +37,4 @@ public class AsymmetricWrite implements ProxyTransform {
     int pos = raw.indexOf('.');
     return target + raw.substring(pos + 1);
   }
-
 }

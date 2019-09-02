@@ -13,20 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.example;
 
-import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.StorageFilter;
+import cz.o2.proxima.storage.StreamElement;
 
-/**
- * Filter for events to be historized in cassandra.
- */
+/** Filter for events to be historized in cassandra. */
 public class EventHistoryFilter implements StorageFilter {
 
   @Override
   public boolean apply(StreamElement ingest) {
     return !ingest.isDelete();
   }
-
 }

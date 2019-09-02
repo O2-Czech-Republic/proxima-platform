@@ -23,5 +23,4 @@ import org.apache.beam.sdk.values.PCollection;
 interface PCollectionProvider<T> extends Serializable {
 
   PCollection<T> materialize(Pipeline pipeline);
-
 }

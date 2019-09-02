@@ -17,6 +17,7 @@ package cz.o2.proxima.scheme.proto;
 
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.Parser;
+import com.google.protobuf.TextFormat;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.util.Classpath;
@@ -95,6 +96,11 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
           throw new IllegalArgumentException(
               "Cannot create parser from class " + protoClassName, ex);
         }
+      }
+
+      @Override
+      public String getLogString(M value) {
+        return TextFormat.shortDebugString(value);
       }
 
     };

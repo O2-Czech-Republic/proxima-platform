@@ -18,6 +18,8 @@ package cz.o2.proxima.direct.view;
 import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.util.HashMap;
@@ -40,11 +42,14 @@ class TimeBoundedVersionedCache implements Serializable {
     boolean overridable;
   }
 
+  private final EntityDescriptor entity;
+
   private final long keepDuration;
 
   private final Map<String, NavigableMap<String, NavigableMap<Long, Payload>>> cache;
 
-  TimeBoundedVersionedCache(long keepDuration) {
+  TimeBoundedVersionedCache(EntityDescriptor entity, long keepDuration) {
+    this.entity = entity;
     this.keepDuration = keepDuration;
     this.cache = new HashMap<>();
   }
@@ -140,12 +145,7 @@ class TimeBoundedVersionedCache implements Serializable {
               canWrite = current == null || current.overridable;
             }
             if (canWrite) {
-              log.debug(
-                  "Caching attribute {} for key {} at {} with payload {}",
-                  attribute,
-                  key,
-                  stamp,
-                  value);
+              logPayloadUpdateIfNecessary(key, attribute, stamp, value);
               valueMap.put(stamp, new Payload(value, !overwrite));
               updated.set(true);
             }
@@ -159,15 +159,35 @@ class TimeBoundedVersionedCache implements Serializable {
     return updated.get();
   }
 
+  private void logPayloadUpdateIfNecessary(
+      String key, String attribute, long stamp, @Nullable Object value) {
+
+    if (log.isDebugEnabled()) {
+      AttributeDescriptor<Object> attrDesc = entity.findAttribute(attribute).orElse(null);
+      if (attrDesc != null) {
+        log.debug(
+            "Caching attribute {} for key {} at {} with payload {}",
+            attribute,
+            key,
+            stamp,
+            value == null ? "(null)" : attrDesc.getValueSerializer().getLogString(value));
+      } else {
+        log.warn("Failed to find attribute descriptor {} in {}", attribute, entity);
+      }
+    }
+  }
+
   @Override
   public int hashCode() {
-    return Objects.hash(super.hashCode(), keepDuration);
+    return Objects.hash(super.hashCode(), keepDuration, entity);
   }
 
   @Override
   public boolean equals(Object o) {
     if (o instanceof TimeBoundedVersionedCache) {
-      return super.equals(o) && ((TimeBoundedVersionedCache) o).keepDuration == keepDuration;
+      return super.equals(o)
+          && entity.equals(((TimeBoundedVersionedCache) o).entity)
+          && ((TimeBoundedVersionedCache) o).keepDuration == keepDuration;
     }
     return false;
   }

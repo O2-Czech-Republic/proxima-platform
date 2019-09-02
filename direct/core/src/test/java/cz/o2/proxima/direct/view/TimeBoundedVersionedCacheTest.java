@@ -17,6 +17,9 @@ package cz.o2.proxima.direct.view;
 
 import static org.junit.Assert.*;
 
+import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.Pair;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,11 +28,15 @@ import org.junit.Test;
 /** Test suite for {@link TimeBoundedVersionedCache}. */
 public class TimeBoundedVersionedCacheTest {
 
+  Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
+  EntityDescriptor entity =
+      repo.findEntity("gateway")
+          .orElseThrow(() -> new IllegalArgumentException("Missing entity gateway"));
   long now = System.currentTimeMillis();
 
   @Test
   public void testCachePutGet() {
-    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
     assertTrue(cache.put("key", "attribute", now, false, "test"));
     assertEquals(Pair.of(now, "test"), cache.get("key", "attribute", now));
     assertEquals(Pair.of(now, "test"), cache.get("key", "attribute", now + 1));
@@ -37,8 +44,17 @@ public class TimeBoundedVersionedCacheTest {
   }
 
   @Test
+  public void testCachePutGetWithCorrectAttribute() {
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
+    assertTrue(cache.put("key", "armed", now, false, "test"));
+    assertEquals(Pair.of(now, "test"), cache.get("key", "armed", now));
+    assertEquals(Pair.of(now, "test"), cache.get("key", "armed", now + 1));
+    assertNull(cache.get("key", "armed", now - 1));
+  }
+
+  @Test
   public void testMultiCacheWithinTimeout() {
-    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
     assertTrue(cache.put("key", "attribute", now, false, "test1"));
     now += 30_000L;
     assertTrue(cache.put("key", "attribute", now, false, "test2"));
@@ -50,7 +66,7 @@ public class TimeBoundedVersionedCacheTest {
 
   @Test
   public void testMultiCacheWithinTimeoutOverwrite() {
-    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
     assertTrue(cache.put("key", "attribute", now, false, "test1"));
     assertTrue(cache.put("key", "attribute", now, false, "test2"));
     assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now));
@@ -62,7 +78,7 @@ public class TimeBoundedVersionedCacheTest {
 
   @Test
   public void testMultiCacheWithinTimeoutReversed() {
-    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
     assertTrue(cache.put("key", "attribute", now, false, "test1"));
     now -= 30_000L;
     assertTrue(cache.put("key", "attribute", now, false, "test2"));
@@ -75,7 +91,7 @@ public class TimeBoundedVersionedCacheTest {
 
   @Test
   public void testMultiCacheOverTimeout() {
-    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
     assertTrue(cache.put("key", "attribute", now, false, "test1"));
     now += 120_000L;
     assertTrue(cache.put("key", "attribute", now, false, "test2"));
@@ -87,7 +103,7 @@ public class TimeBoundedVersionedCacheTest {
 
   @Test
   public void testMultiCacheOverTimeoutReversed() {
-    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
     assertTrue(cache.put("key", "attribute", now, false, "test1"));
     now -= 120_000L;
     assertFalse(cache.put("key", "attribute", now, false, "test2"));
@@ -96,7 +112,7 @@ public class TimeBoundedVersionedCacheTest {
 
   @Test
   public void testMultiCacheScan() {
-    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
     assertTrue(cache.put("key", "a.1", now, false, "test1"));
     now += 1;
     assertTrue(cache.put("key", "a.2", now, false, "test2"));
@@ -144,7 +160,7 @@ public class TimeBoundedVersionedCacheTest {
 
   @Test
   public void testMultiCacheScanWithTombstoneDelete() {
-    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
     assertTrue(cache.put("key", "a.1", now, false, "test1"));
     now += 1;
     assertTrue(cache.put("key", "a.2", now, false, "test2"));

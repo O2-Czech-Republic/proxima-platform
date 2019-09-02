@@ -77,7 +77,7 @@ public class LocalCachedPartitionedView implements CachedView {
       OnlineAttributeWriter writer,
       long keepCachedDuration) {
 
-    this.cache = new TimeBoundedVersionedCache(keepCachedDuration);
+    this.cache = new TimeBoundedVersionedCache(entity, keepCachedDuration);
     this.reader = Objects.requireNonNull(reader);
     this.entity = Objects.requireNonNull(entity);
     this.writer = Objects.requireNonNull(writer);

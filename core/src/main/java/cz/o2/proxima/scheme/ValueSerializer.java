@@ -89,4 +89,12 @@ public interface ValueSerializer<T> extends Serializable {
             + "Please fill issue.");
   }
 
+  /**
+   * Convert value to {@link String} suitable for logging.
+   */
+  default String getLogString(T value) {
+    // by default use toString
+    return value.toString();
+  }
+
 }

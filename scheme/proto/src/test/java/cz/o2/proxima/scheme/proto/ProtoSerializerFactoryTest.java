@@ -56,6 +56,15 @@ public class ProtoSerializerFactoryTest {
   }
 
   @Test
+  public void testToLogString() {
+    Event event = Event.newBuilder()
+        .setGatewayId("gateway")
+        .build();
+    // we have single line string
+    assertEquals(-1, serializer.getLogString(event).indexOf('\n'));
+  }
+
+  @Test
   public void testIsUsable() {
     assertTrue(serializer.isUsable());
   }

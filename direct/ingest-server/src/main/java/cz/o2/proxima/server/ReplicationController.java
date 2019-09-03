@@ -36,7 +36,6 @@ import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.Pair;
-
 import java.io.File;
 import java.util.Collections;
 import java.util.HashSet;
@@ -62,6 +61,7 @@ public class ReplicationController {
 
   /**
    * Run the controller.
+   *
    * @param args command line arguments
    * @throws Throwable on error
    */
@@ -70,12 +70,10 @@ public class ReplicationController {
     if (args.length == 0) {
       repo = ConfigRepository.of(() -> ConfigFactory.load().resolve());
     } else {
-      repo = ConfigRepository.of(() -> ConfigFactory.parseFile(
-          new File(args[0])).resolve());
+      repo = ConfigRepository.of(() -> ConfigFactory.parseFile(new File(args[0])).resolve());
     }
     ReplicationController.of(repo).runReplicationThreads().get();
   }
-
 
   /**
    * Constructs a new {@link ReplicationController}.

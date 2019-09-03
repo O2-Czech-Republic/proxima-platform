@@ -187,11 +187,12 @@ public class IngestServer {
             .addService(new IngestService(repo, direct, scheduler))
             .addService(new RetrieveService(repo, direct))
             .build();
+
     Runtime.getRuntime()
         .addShutdownHook(
             new Thread(
                 () -> {
-                  log.info("Gracefully shuting down server.");
+                  log.info("Gracefully shutting server down.");
                   server.shutdown();
                 }));
 

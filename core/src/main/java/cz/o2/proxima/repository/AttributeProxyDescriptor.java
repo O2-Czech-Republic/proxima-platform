@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,24 +19,16 @@ import cz.o2.proxima.transform.ProxyTransform;
 import javax.annotation.Nullable;
 import lombok.Getter;
 
-/**
- * Proxy to another attribute.
- */
+/** Proxy to another attribute. */
 public class AttributeProxyDescriptor<T> extends AttributeDescriptorBase<T> {
 
-  @Getter
-  private final AttributeDescriptor<T> readTarget;
+  @Getter private final AttributeDescriptor<T> readTarget;
 
-  @Nullable
-  @Getter
-  private final ProxyTransform readTransform;
+  @Nullable @Getter private final ProxyTransform readTransform;
 
-  @Getter
-  private final AttributeDescriptor<T> writeTarget;
+  @Getter private final AttributeDescriptor<T> writeTarget;
 
-  @Nullable
-  @Getter
-  private final ProxyTransform writeTransform;
+  @Nullable @Getter private final ProxyTransform writeTransform;
 
   AttributeProxyDescriptor(
       String name,
@@ -56,9 +48,12 @@ public class AttributeProxyDescriptor<T> extends AttributeDescriptorBase<T> {
   @Override
   public String toString() {
     return "AttributeProxyDescriptor("
-        + "readTarget=" + readTarget
-        + ", writeTarget=" + writeTarget
-        + ", name=" + name
+        + "readTarget="
+        + readTarget
+        + ", writeTarget="
+        + writeTarget
+        + ", name="
+        + name
         + ")";
   }
 
@@ -66,5 +61,4 @@ public class AttributeProxyDescriptor<T> extends AttributeDescriptorBase<T> {
   public boolean isProxy() {
     return true;
   }
-
 }

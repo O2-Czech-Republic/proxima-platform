@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,9 +27,7 @@ import org.apache.beam.sdk.coders.CustomCoder;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeParameter;
 
-/**
- * A coder for {@link Pair}s.
- */
+/** A coder for {@link Pair}s. */
 @Internal
 public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
 
@@ -40,15 +38,12 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
   public static <K, V> TypeDescriptor<Pair<K, V>> descriptor(
       TypeDescriptor<K> key, TypeDescriptor<V> value) {
 
-    return new TypeDescriptor<Pair<K, V>>() {}
-        .where(new TypeParameter<K>() {}, key)
+    return new TypeDescriptor<Pair<K, V>>() {}.where(new TypeParameter<K>() {}, key)
         .where(new TypeParameter<V>() {}, value);
   }
 
-  @Getter
-  private final Coder<K> keyCoder;
-  @Getter
-  private final Coder<V> valueCoder;
+  @Getter private final Coder<K> keyCoder;
+  @Getter private final Coder<V> valueCoder;
 
   private PairCoder(Coder<K> keyCoder, Coder<V> valueCoder) {
     this.keyCoder = keyCoder;
@@ -56,8 +51,7 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
   }
 
   @Override
-  public void encode(
-      Pair<K, V> value, OutputStream outStream) throws IOException {
+  public void encode(Pair<K, V> value, OutputStream outStream) throws IOException {
 
     keyCoder.encode(value.getFirst(), outStream);
     valueCoder.encode(value.getSecond(), outStream);
@@ -70,9 +64,7 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
 
   @Override
   public TypeDescriptor<Pair<K, V>> getEncodedTypeDescriptor() {
-    return descriptor(
-        keyCoder.getEncodedTypeDescriptor(),
-        valueCoder.getEncodedTypeDescriptor());
+    return descriptor(keyCoder.getEncodedTypeDescriptor(), valueCoder.getEncodedTypeDescriptor());
   }
 
   @Override
@@ -88,5 +80,4 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
   public int hashCode() {
     return Objects.hash(keyCoder, valueCoder);
   }
-
 }

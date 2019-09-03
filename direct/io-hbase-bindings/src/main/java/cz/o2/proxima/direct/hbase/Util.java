@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HConstants;
 
-/**
- * Various utils.
- */
+/** Various utils. */
 @Slf4j
 class Util {
 
@@ -37,8 +35,8 @@ class Util {
     Configuration conf = HBaseConfiguration.create();
     List<String> paths = UriUtil.parsePath(uri);
     if (paths.size() > 1) {
-      conf.set(HConstants.ZOOKEEPER_ZNODE_PARENT,
-          String.join("/", paths.subList(0, paths.size() - 1)));
+      conf.set(
+          HConstants.ZOOKEEPER_ZNODE_PARENT, String.join("/", paths.subList(0, paths.size() - 1)));
     }
     conf.set(HConstants.ZOOKEEPER_QUORUM, uri.getAuthority());
     return conf;
@@ -46,16 +44,14 @@ class Util {
 
   static String getTable(URI uri) {
     List<String> paths = UriUtil.parsePath(uri);
-    Preconditions.checkArgument(!paths.isEmpty(),
-        "Table cannot be empty in uri: {}!", uri);
+    Preconditions.checkArgument(!paths.isEmpty(), "Table cannot be empty in uri: {}!", uri);
     return paths.get(paths.size() - 1);
   }
 
   static byte[] getFamily(URI uri) {
     return Optional.ofNullable(UriUtil.parseQuery(uri).get(FAMILY_QUERY))
         .map(String::getBytes)
-        .orElseThrow(() -> new IllegalArgumentException(
-            "Query " + FAMILY_QUERY + " is missing!"));
+        .orElseThrow(() -> new IllegalArgumentException("Query " + FAMILY_QUERY + " is missing!"));
   }
 
   static void closeQuietly(AutoCloseable closeable) {
@@ -75,5 +71,4 @@ class Util {
   private Util() {
     // nop
   }
-
 }

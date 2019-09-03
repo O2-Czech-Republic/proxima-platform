@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,33 +27,28 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-/**
- * Test {@link GroovyEnv} using beam.
- */
+/** Test {@link GroovyEnv} using beam. */
 @RunWith(Parameterized.class)
 public class BeamGroovyEnvTest extends GroovyEnvTest {
 
   @Parameters
   public static Collection<Class<? extends PipelineRunner>> parameters() {
-    return Arrays.asList(
-        DirectRunner.class,
-        FlinkRunner.class);
+    return Arrays.asList(DirectRunner.class, FlinkRunner.class);
   }
 
   public BeamGroovyEnvTest(Class<? extends PipelineRunner> runner) {
     TestBeamStreamProvider.runner = runner;
   }
 
-  private final DirectDataOperator direct = getRepo().getOrCreateOperator(
-      DirectDataOperator.class);
+  private final DirectDataOperator direct = getRepo().getOrCreateOperator(DirectDataOperator.class);
 
   @Override
   protected void write(StreamElement element) {
     direct
         .getWriter(element.getAttributeDescriptor())
-        .orElseThrow(() -> new IllegalStateException(
-            "Missing writer for " + element.getAttributeDescriptor()))
-        .write(element, (succ, exc) -> { });
+        .orElseThrow(
+            () ->
+                new IllegalStateException("Missing writer for " + element.getAttributeDescriptor()))
+        .write(element, (succ, exc) -> {});
   }
-
 }

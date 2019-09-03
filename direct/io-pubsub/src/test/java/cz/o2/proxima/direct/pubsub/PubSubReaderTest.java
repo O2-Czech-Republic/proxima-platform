@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,11 @@
  */
 package cz.o2.proxima.direct.pubsub;
 
+import static cz.o2.proxima.direct.pubsub.Util.delete;
+import static cz.o2.proxima.direct.pubsub.Util.deleteWildcard;
+import static cz.o2.proxima.direct.pubsub.Util.update;
+import static org.junit.Assert.*;
+
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.collect.Sets;
@@ -29,9 +34,6 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.pubsub.PubSubReader.PubSubOffset;
-import static cz.o2.proxima.direct.pubsub.Util.delete;
-import static cz.o2.proxima.direct.pubsub.Util.deleteWildcard;
-import static cz.o2.proxima.direct.pubsub.Util.update;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorImpl;
 import cz.o2.proxima.repository.ConfigRepository;
@@ -59,19 +61,16 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test suite for {@link PubSubReader}.
- */
+/** Test suite for {@link PubSubReader}. */
 public class PubSubReaderTest {
 
   private final Repository repo = ConfigRepository.of(ConfigFactory.load().resolve());
-  private final DirectDataOperator direct = repo.asDataOperator(
-      DirectDataOperator.class, op -> op.withExecutorFactory(
-          Executors::newCachedThreadPool));
+  private final DirectDataOperator direct =
+      repo.asDataOperator(
+          DirectDataOperator.class, op -> op.withExecutorFactory(Executors::newCachedThreadPool));
   private final Context context = direct.getContext();
   private final AttributeDescriptorImpl<?> attr;
   private final AttributeDescriptorImpl<?> wildcard;
@@ -99,13 +98,10 @@ public class PubSubReaderTest {
     }
 
     @Override
-    Subscriber newSubscriber(
-        ProjectSubscriptionName subscription,
-        MessageReceiver receiver) {
+    Subscriber newSubscriber(ProjectSubscriptionName subscription, MessageReceiver receiver) {
 
       return MockSubscriber.create(
-          subscription, receiver, supplier, acked, nacked,
-          context.getExecutorService());
+          subscription, receiver, supplier, acked, nacked, context.getExecutorService());
     }
 
     @Override
@@ -117,28 +113,31 @@ public class PubSubReaderTest {
           .withTimestampSupplier(timestampSupplier::get)
           .build();
     }
-
   }
 
   public PubSubReaderTest() throws URISyntaxException {
-    this.attr = AttributeDescriptor.newBuilder(repo)
-        .setEntity("entity")
-        .setName("attr")
-        .setSchemeUri(new URI("bytes:///"))
-        .build();
-    this.wildcard = AttributeDescriptor.newBuilder(repo)
-        .setEntity("entity")
-        .setName("wildcard.*")
-        .setSchemeUri(new URI("bytes:///"))
-        .build();
-    this.entity = EntityDescriptor.newBuilder()
-        .setName("entity")
-        .addAttribute(attr)
-        .addAttribute(wildcard)
-        .build();
+    this.attr =
+        AttributeDescriptor.newBuilder(repo)
+            .setEntity("entity")
+            .setName("attr")
+            .setSchemeUri(new URI("bytes:///"))
+            .build();
+    this.wildcard =
+        AttributeDescriptor.newBuilder(repo)
+            .setEntity("entity")
+            .setName("wildcard.*")
+            .setSchemeUri(new URI("bytes:///"))
+            .build();
+    this.entity =
+        EntityDescriptor.newBuilder()
+            .setName("entity")
+            .addAttribute(attr)
+            .addAttribute(wildcard)
+            .build();
     assertTrue(entity.findAttribute("attr").isPresent());
-    this.accessor = new PubSubAccessor(
-        storage, entity, new URI("gps://my-project/topic"), Collections.emptyMap());
+    this.accessor =
+        new PubSubAccessor(
+            storage, entity, new URI("gps://my-project/topic"), Collections.emptyMap());
   }
 
   @Before
@@ -150,39 +149,44 @@ public class PubSubReaderTest {
   @Test(timeout = 10000)
   public void testObserve() throws InterruptedException {
     long now = System.currentTimeMillis();
-    Deque<PubsubMessage> inputs = new LinkedList<>(
-        Arrays.asList(
-            update("key1", "attr", new byte[] { 1, 2 }, now),
-            delete("key2", "attr", now + 1000),
-            deleteWildcard("key3", wildcard, now)));
-    reader.setSupplier(() -> {
-      if (inputs.isEmpty()) {
-        LockSupport.park();
-      }
-      return inputs.pop();
-    });
+    Deque<PubsubMessage> inputs =
+        new LinkedList<>(
+            Arrays.asList(
+                update("key1", "attr", new byte[] {1, 2}, now),
+                delete("key2", "attr", now + 1000),
+                deleteWildcard("key3", wildcard, now)));
+    reader.setSupplier(
+        () -> {
+          if (inputs.isEmpty()) {
+            LockSupport.park();
+          }
+          return inputs.pop();
+        });
     List<StreamElement> elems = new ArrayList<>();
     AtomicBoolean cancelled = new AtomicBoolean();
     CountDownLatch latch = new CountDownLatch(3);
-    ObserveHandle handle = reader.observe("dummy", new LogObserver() {
-      @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        elems.add(ingest);
-        context.confirm();
-        latch.countDown();
-        return true;
-      }
+    ObserveHandle handle =
+        reader.observe(
+            "dummy",
+            new LogObserver() {
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                elems.add(ingest);
+                context.confirm();
+                latch.countDown();
+                return true;
+              }
 
-      @Override
-      public void onCancelled() {
-        cancelled.set(true);
-      }
+              @Override
+              public void onCancelled() {
+                cancelled.set(true);
+              }
 
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
-    });
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
     latch.await();
     handle.cancel();
     assertEquals(3, elems.size());
@@ -191,7 +195,7 @@ public class PubSubReaderTest {
     assertEquals("attr", elem.getAttribute());
     assertFalse(elem.isDelete());
     assertFalse(elem.isDeleteWildcard());
-    assertArrayEquals(new byte[] { 1, 2 }, elem.getValue());
+    assertArrayEquals(new byte[] {1, 2}, elem.getValue());
     assertEquals(now, elem.getStamp());
     elem = elems.get(1);
     assertEquals("key2", elem.getKey());
@@ -213,39 +217,41 @@ public class PubSubReaderTest {
   @Test
   public void testObserveWatermark() throws InterruptedException {
     long now = System.currentTimeMillis();
-    Deque<PubsubMessage> inputs = new LinkedList<>(
-        Arrays.asList(
-            update("key1", "attr", new byte[] { 1, 2 }, now),
-            delete("key2", "attr", now + 1000),
-            deleteWildcard("key3", wildcard, now)));
-    reader.setSupplier(() -> {
-      if (inputs.isEmpty()) {
-        LockSupport.park();
-      }
-      return inputs.pop();
-    });
+    Deque<PubsubMessage> inputs =
+        new LinkedList<>(
+            Arrays.asList(
+                update("key1", "attr", new byte[] {1, 2}, now),
+                delete("key2", "attr", now + 1000),
+                deleteWildcard("key3", wildcard, now)));
+    reader.setSupplier(
+        () -> {
+          if (inputs.isEmpty()) {
+            LockSupport.park();
+          }
+          return inputs.pop();
+        });
     CountDownLatch latch = new CountDownLatch(3);
     AtomicLong watermark = new AtomicLong();
-    reader.observe("dummy", new LogObserver() {
-      @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        timestampSupplier.addAndGet(1000);
-        context.confirm();
-        watermark.set(context.getWatermark());
-        latch.countDown();
-        return false;
-      }
+    reader.observe(
+        "dummy",
+        new LogObserver() {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            timestampSupplier.addAndGet(1000);
+            context.confirm();
+            watermark.set(context.getWatermark());
+            latch.countDown();
+            return false;
+          }
 
-      @Override
-      public void onCancelled() {
+          @Override
+          public void onCancelled() {}
 
-      }
-
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
-    });
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        });
     latch.await();
     assertTrue(watermark.get() > 0);
   }
@@ -253,73 +259,76 @@ public class PubSubReaderTest {
   @Test
   public void testObserveCommittedOffset() throws InterruptedException {
     long now = System.currentTimeMillis();
-    Deque<PubsubMessage> inputs = new LinkedList<>(
-        Arrays.asList(
-            update("key1", "attr", new byte[] { 1, 2 }, now),
-            delete("key2", "attr", now + 1000),
-            deleteWildcard("key3", wildcard, now)));
-    reader.setSupplier(() -> {
-      if (inputs.isEmpty()) {
-        LockSupport.park();
-      }
-      return inputs.pop();
-    });
+    Deque<PubsubMessage> inputs =
+        new LinkedList<>(
+            Arrays.asList(
+                update("key1", "attr", new byte[] {1, 2}, now),
+                delete("key2", "attr", now + 1000),
+                deleteWildcard("key3", wildcard, now)));
+    reader.setSupplier(
+        () -> {
+          if (inputs.isEmpty()) {
+            LockSupport.park();
+          }
+          return inputs.pop();
+        });
     CountDownLatch latch = new CountDownLatch(1);
-    ObserveHandle handle = reader.observe("dummy", new LogObserver() {
-      @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        timestampSupplier.addAndGet(1000);
-        context.confirm();
-        latch.countDown();
-        return false;
-      }
+    ObserveHandle handle =
+        reader.observe(
+            "dummy",
+            new LogObserver() {
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                timestampSupplier.addAndGet(1000);
+                context.confirm();
+                latch.countDown();
+                return false;
+              }
 
-      @Override
-      public void onCancelled() {
+              @Override
+              public void onCancelled() {}
 
-      }
-
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
-    });
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
     latch.await();
     assertEquals(1, handle.getCommittedOffsets().size());
-    assertTrue(((PubSubOffset) handle.getCommittedOffsets().get(0))
-        .getWatermark() > 0);
+    assertTrue(((PubSubOffset) handle.getCommittedOffsets().get(0)).getWatermark() > 0);
   }
 
   @Test
   public void testObserveBulkOffsetsWithWatermark() throws InterruptedException {
     long now = System.currentTimeMillis();
     Offset off = new PubSubOffset("dummy", now);
-    reader.setSupplier(() -> {
-      LockSupport.park();
-      return null;
-    });
+    reader.setSupplier(
+        () -> {
+          LockSupport.park();
+          return null;
+        });
     List<Offset> offsets = Arrays.asList(off);
-    ObserveHandle handle = reader.observeBulkOffsets(offsets, new LogObserver() {
-      @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        context.confirm();
-        return false;
-      }
+    ObserveHandle handle =
+        reader.observeBulkOffsets(
+            offsets,
+            new LogObserver() {
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                context.confirm();
+                return false;
+              }
 
-      @Override
-      public void onCancelled() {
+              @Override
+              public void onCancelled() {}
 
-      }
-
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
-    });
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
     handle.waitUntilReady();
     assertEquals(1, handle.getCommittedOffsets().size());
-    assertEquals(now, ((PubSubOffset) handle.getCommittedOffsets().get(0))
-        .getWatermark());
+    assertEquals(now, ((PubSubOffset) handle.getCommittedOffsets().get(0)).getWatermark());
     handle.cancel();
   }
 
@@ -330,28 +339,30 @@ public class PubSubReaderTest {
     assertEquals(1, partitions.size());
     partitions = partitions.get(0).split(3).stream().collect(Collectors.toList());
     assertEquals(3, partitions.size());
-    reader.setSupplier(() -> {
-      LockSupport.park();
-      return null;
-    });
-    ObserveHandle handle = reader.observeBulkPartitions(
-        partitions, Position.NEWEST, new LogObserver() {
-          @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
-            context.confirm();
-            return false;
-          }
-
-          @Override
-          public void onCancelled() {
-
-          }
-
-          @Override
-          public boolean onError(Throwable error) {
-            throw new RuntimeException(error);
-          }
+    reader.setSupplier(
+        () -> {
+          LockSupport.park();
+          return null;
         });
+    ObserveHandle handle =
+        reader.observeBulkPartitions(
+            partitions,
+            Position.NEWEST,
+            new LogObserver() {
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                context.confirm();
+                return false;
+              }
+
+              @Override
+              public void onCancelled() {}
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
     handle.waitUntilReady();
     handle.cancel();
   }
@@ -359,38 +370,43 @@ public class PubSubReaderTest {
   @Test(timeout = 10000)
   public void testObserveError() throws InterruptedException {
     long now = System.currentTimeMillis();
-    Deque<PubsubMessage> inputs = new LinkedList<>(
-        Arrays.asList(
-            update("key1", "attr", new byte[] { 1, 2 }, now),
-            delete("key2", "attr", now + 1000),
-            deleteWildcard("key3", wildcard, now)));
-    reader.setSupplier(() -> {
-      if (inputs.isEmpty()) {
-        LockSupport.park();
-      }
-      return inputs.pop();
-    });
+    Deque<PubsubMessage> inputs =
+        new LinkedList<>(
+            Arrays.asList(
+                update("key1", "attr", new byte[] {1, 2}, now),
+                delete("key2", "attr", now + 1000),
+                deleteWildcard("key3", wildcard, now)));
+    reader.setSupplier(
+        () -> {
+          if (inputs.isEmpty()) {
+            LockSupport.park();
+          }
+          return inputs.pop();
+        });
     final AtomicBoolean cancelled = new AtomicBoolean();
     final CountDownLatch latch = new CountDownLatch(3);
-    final ObserveHandle handle = reader.observe("dummy", new LogObserver() {
+    final ObserveHandle handle =
+        reader.observe(
+            "dummy",
+            new LogObserver() {
 
-      @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        throw new RuntimeException("Fail");
-      }
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                throw new RuntimeException("Fail");
+              }
 
-      @Override
-      public void onCancelled() {
-        cancelled.set(true);
-      }
+              @Override
+              public void onCancelled() {
+                cancelled.set(true);
+              }
 
-      @Override
-      public boolean onError(Throwable error) {
-        assertEquals("Fail", error.getCause().getMessage());
-        latch.countDown();
-        return true;
-      }
-    });
+              @Override
+              public boolean onError(Throwable error) {
+                assertEquals("Fail", error.getCause().getMessage());
+                latch.countDown();
+                return true;
+              }
+            });
     latch.await();
     assertTrue(reader.acked.isEmpty());
     assertFalse(reader.nacked.isEmpty());
@@ -400,40 +416,45 @@ public class PubSubReaderTest {
   @Test(timeout = 10000)
   public void testObserveBulk() throws InterruptedException {
     long now = System.currentTimeMillis();
-    Deque<PubsubMessage> inputs = new LinkedList<>(
-        Arrays.asList(
-            update("key1", "attr", new byte[] { 1, 2 }, now),
-            delete("key2", "attr", now + 1000),
-            deleteWildcard("key3", wildcard, now)));
-    reader.setSupplier(() -> {
-      if (inputs.isEmpty()) {
-        LockSupport.park();
-      }
-      return inputs.pop();
-    });
+    Deque<PubsubMessage> inputs =
+        new LinkedList<>(
+            Arrays.asList(
+                update("key1", "attr", new byte[] {1, 2}, now),
+                delete("key2", "attr", now + 1000),
+                deleteWildcard("key3", wildcard, now)));
+    reader.setSupplier(
+        () -> {
+          if (inputs.isEmpty()) {
+            LockSupport.park();
+          }
+          return inputs.pop();
+        });
     List<StreamElement> elems = new ArrayList<>();
     AtomicBoolean cancelled = new AtomicBoolean();
     CountDownLatch latch = new CountDownLatch(3);
     AtomicReference<OffsetCommitter> commit = new AtomicReference<>();
-    ObserveHandle handle = reader.observeBulk("dummy", new LogObserver() {
-      @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        elems.add(ingest);
-        commit.set(context);
-        latch.countDown();
-        return true;
-      }
+    ObserveHandle handle =
+        reader.observeBulk(
+            "dummy",
+            new LogObserver() {
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                elems.add(ingest);
+                commit.set(context);
+                latch.countDown();
+                return true;
+              }
 
-      @Override
-      public void onCancelled() {
-        cancelled.set(true);
-      }
+              @Override
+              public void onCancelled() {
+                cancelled.set(true);
+              }
 
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
-    });
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
     latch.await();
     commit.get().confirm();
     handle.cancel();
@@ -443,7 +464,7 @@ public class PubSubReaderTest {
     assertEquals("attr", elem.getAttribute());
     assertFalse(elem.isDelete());
     assertFalse(elem.isDeleteWildcard());
-    assertArrayEquals(new byte[] { 1, 2 }, elem.getValue());
+    assertArrayEquals(new byte[] {1, 2}, elem.getValue());
     assertEquals(now, elem.getStamp());
     elem = elems.get(1);
     assertEquals("key2", elem.getKey());
@@ -467,5 +488,4 @@ public class PubSubReaderTest {
     GrpcUtil.Http2Error error = GrpcUtil.Http2Error.NO_ERROR;
     assertNotNull(error);
   }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,10 @@
  */
 package cz.o2.proxima.server;
 
+import static cz.o2.proxima.server.IngestServer.ingestRequest;
+import static cz.o2.proxima.server.IngestServer.notFound;
+import static cz.o2.proxima.server.IngestServer.status;
+
 import com.google.common.base.Strings;
 import com.google.protobuf.TextFormat;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -23,9 +27,6 @@ import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import static cz.o2.proxima.server.IngestServer.ingestRequest;
-import static cz.o2.proxima.server.IngestServer.notFound;
-import static cz.o2.proxima.server.IngestServer.status;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.StreamElement;
 import io.grpc.stub.StreamObserver;
@@ -41,9 +42,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * The ingestion service.
- **/
+/** The ingestion service. */
 @Slf4j
 public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
 
@@ -52,9 +51,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
   private final ScheduledExecutorService scheduler;
 
   public IngestService(
-      Repository repo,
-      DirectDataOperator direct,
-      ScheduledExecutorService scheduler) {
+      Repository repo, DirectDataOperator direct, ScheduledExecutorService scheduler) {
 
     this.repo = repo;
     this.direct = direct;
@@ -76,16 +73,18 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     public void onNext(Rpc.Ingest request) {
       Metrics.INGEST_SINGLE.increment();
       inflightRequests.incrementAndGet();
-      processSingleIngest(request, status -> {
-        synchronized (responseObserverLock) {
-          responseObserver.onNext(status);
-        }
-        if (inflightRequests.decrementAndGet() == 0) {
-          synchronized (inflightRequestsLock) {
-            inflightRequestsLock.notifyAll();
-          }
-        }
-      });
+      processSingleIngest(
+          request,
+          status -> {
+            synchronized (responseObserverLock) {
+              responseObserver.onNext(status);
+            }
+            if (inflightRequests.decrementAndGet() == 0) {
+              synchronized (inflightRequestsLock) {
+                inflightRequestsLock.notifyAll();
+              }
+            }
+          });
     }
 
     @Override
@@ -98,26 +97,27 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
 
     @Override
     public void onCompleted() {
-      inflightRequests.accumulateAndGet(0, (a, b) -> {
-        int res = a + b;
-        if (res > 0) {
-          synchronized (inflightRequestsLock) {
-            try {
-              while (inflightRequests.get() > 0) {
-                inflightRequestsLock.wait();
+      inflightRequests.accumulateAndGet(
+          0,
+          (a, b) -> {
+            int res = a + b;
+            if (res > 0) {
+              synchronized (inflightRequestsLock) {
+                try {
+                  while (inflightRequests.get() > 0) {
+                    inflightRequestsLock.wait();
+                  }
+                } catch (InterruptedException ex) {
+                  Thread.currentThread().interrupt();
+                }
               }
-            } catch (InterruptedException ex) {
-              Thread.currentThread().interrupt();
             }
-          }
-        }
-        synchronized (responseObserverLock) {
-          responseObserver.onCompleted();
-        }
-        return res;
-      });
+            synchronized (responseObserverLock) {
+              responseObserver.onCompleted();
+            }
+            return res;
+          });
     }
-
   }
 
   private class IngestBulkObserver implements StreamObserver<Rpc.IngestBulk> {
@@ -135,8 +135,9 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     Runnable flushTask = createFlushTask();
 
     // schedule the flush periodically
-    ScheduledFuture<?> flushFuture = scheduler.scheduleAtFixedRate(
-        flushTask, MAX_SLEEP_NANOS, MAX_SLEEP_NANOS, TimeUnit.NANOSECONDS);
+    ScheduledFuture<?> flushFuture =
+        scheduler.scheduleAtFixedRate(
+            flushTask, MAX_SLEEP_NANOS, MAX_SLEEP_NANOS, TimeUnit.NANOSECONDS);
 
     IngestBulkObserver(StreamObserver<Rpc.StatusBulk> responseObserver) {
       this.responseObserver = responseObserver;
@@ -159,9 +160,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
               responseObserver.onNext(builder.build());
               builder.clear();
             }
-            if (completed.get()
-                && inflightRequests.get() == 0
-                && statusQueue.isEmpty()) {
+            if (completed.get() && inflightRequests.get() == 0 && statusQueue.isEmpty()) {
 
               responseObserver.onCompleted();
             }
@@ -198,20 +197,25 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
       Metrics.INGEST_BULK.increment();
       Metrics.BULK_SIZE.increment(bulk.getIngestCount());
       inflightRequests.addAndGet(bulk.getIngestCount());
-      bulk.getIngestList().stream()
-          .forEach(r -> processSingleIngest(r, status -> {
-            statusQueue.add(status);
-            if (statusQueue.size() >= MAX_QUEUED_STATUSES) {
-              // enqueue flush
-              scheduler.execute(flushTask);
-            }
-            if (inflightRequests.decrementAndGet() == 0) {
-              // there is no more inflight requests
-              synchronized (inflightRequestsLock) {
-                inflightRequestsLock.notifyAll();
-              }
-            }
-          }));
+      bulk.getIngestList()
+          .stream()
+          .forEach(
+              r ->
+                  processSingleIngest(
+                      r,
+                      status -> {
+                        statusQueue.add(status);
+                        if (statusQueue.size() >= MAX_QUEUED_STATUSES) {
+                          // enqueue flush
+                          scheduler.execute(flushTask);
+                        }
+                        if (inflightRequests.decrementAndGet() == 0) {
+                          // there is no more inflight requests
+                          synchronized (inflightRequestsLock) {
+                            inflightRequestsLock.notifyAll();
+                          }
+                        }
+                      }));
     }
 
     @Override
@@ -243,25 +247,22 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
       flush();
       responseObserver.onCompleted();
     }
-
-
   }
 
-  private void processSingleIngest(
-      Rpc.Ingest request,
-      Consumer<Rpc.Status> consumer) {
+  private void processSingleIngest(Rpc.Ingest request, Consumer<Rpc.Status> consumer) {
 
     if (log.isDebugEnabled()) {
       log.debug("Processing input ingest {}", TextFormat.shortDebugString(request));
     }
-    Consumer<Rpc.Status> loggingConsumer = rpc -> {
-      log.info(
-          "Input ingest {}: {}, {}",
-          TextFormat.shortDebugString(request),
-          rpc.getStatus(),
-          rpc.getStatus() == 200 ? "OK" : rpc.getStatusMessage());
-      consumer.accept(rpc);
-    };
+    Consumer<Rpc.Status> loggingConsumer =
+        rpc -> {
+          log.info(
+              "Input ingest {}: {}, {}",
+              TextFormat.shortDebugString(request),
+              rpc.getStatus(),
+              rpc.getStatus() == 200 ? "OK" : rpc.getStatusMessage());
+          consumer.accept(rpc);
+        };
     Metrics.INGESTS.increment();
     try {
       if (!writeRequest(request, loggingConsumer)) {
@@ -274,57 +275,53 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
   }
 
   /**
-   * Ingest the given request and return {@code true} if successfully
-   * ingested and {@code false} if the request is invalid.
+   * Ingest the given request and return {@code true} if successfully ingested and {@code false} if
+   * the request is invalid.
    */
-  private boolean writeRequest(
-      Rpc.Ingest request,
-      Consumer<Rpc.Status> consumer) {
+  private boolean writeRequest(Rpc.Ingest request, Consumer<Rpc.Status> consumer) {
 
     if (Strings.isNullOrEmpty(request.getKey())
         || Strings.isNullOrEmpty(request.getEntity())
         || Strings.isNullOrEmpty(request.getAttribute())) {
-      consumer.accept(status(request.getUuid(),
-          400, "Missing required fields in input message"));
+      consumer.accept(status(request.getUuid(), 400, "Missing required fields in input message"));
       return false;
     }
     Optional<EntityDescriptor> entity = repo.findEntity(request.getEntity());
 
     if (!entity.isPresent()) {
-      consumer.accept(notFound(request.getUuid(),
-          "Entity " + request.getEntity() + " not found"));
+      consumer.accept(notFound(request.getUuid(), "Entity " + request.getEntity() + " not found"));
       return false;
     }
-    Optional<AttributeDescriptor<Object>> attr = entity.get().findAttribute(
-        request.getAttribute());
+    Optional<AttributeDescriptor<Object>> attr = entity.get().findAttribute(request.getAttribute());
     if (!attr.isPresent()) {
-      consumer.accept(notFound(request.getUuid(),
-          "Attribute " + request.getAttribute() + " of entity "
-              + entity.get().getName() + " not found"));
+      consumer.accept(
+          notFound(
+              request.getUuid(),
+              "Attribute "
+                  + request.getAttribute()
+                  + " of entity "
+                  + entity.get().getName()
+                  + " not found"));
       return false;
     }
     return ingestRequest(
-        direct, toStreamElement(request, entity.get(), attr.get()),
-        request.getUuid(), consumer);
+        direct, toStreamElement(request, entity.get(), attr.get()), request.getUuid(), consumer);
   }
 
-
-
   @Override
-  public void ingest(
-      Rpc.Ingest request, StreamObserver<Rpc.Status> responseObserver) {
+  public void ingest(Rpc.Ingest request, StreamObserver<Rpc.Status> responseObserver) {
 
     Metrics.INGEST_SINGLE.increment();
-    processSingleIngest(request, status -> {
-      responseObserver.onNext(status);
-      responseObserver.onCompleted();
-    });
+    processSingleIngest(
+        request,
+        status -> {
+          responseObserver.onNext(status);
+          responseObserver.onCompleted();
+        });
   }
 
-
   @Override
-  public StreamObserver<Rpc.Ingest> ingestSingle(
-      StreamObserver<Rpc.Status> responseObserver) {
+  public StreamObserver<Rpc.Ingest> ingestSingle(StreamObserver<Rpc.Status> responseObserver) {
 
     return new IngestObserver(responseObserver);
   }
@@ -341,27 +338,23 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
   }
 
   private static StreamElement toStreamElement(
-      Rpc.Ingest request, EntityDescriptor entity,
-      AttributeDescriptor attr) {
+      Rpc.Ingest request, EntityDescriptor entity, AttributeDescriptor attr) {
 
-    long stamp = request.getStamp() == 0
-        ? System.currentTimeMillis()
-        : request.getStamp();
+    long stamp = request.getStamp() == 0 ? System.currentTimeMillis() : request.getStamp();
 
     if (request.getDelete()) {
       return attr.isWildcard() && attr.getName().equals(request.getAttribute())
-        ? StreamElement.deleteWildcard(
-            entity, attr, request.getUuid(),
-            request.getKey(), stamp)
-        : StreamElement.delete(
-            entity, attr, request.getUuid(),
-            request.getKey(), request.getAttribute(), stamp);
+          ? StreamElement.deleteWildcard(entity, attr, request.getUuid(), request.getKey(), stamp)
+          : StreamElement.delete(
+              entity, attr, request.getUuid(), request.getKey(), request.getAttribute(), stamp);
     }
     return StreamElement.update(
-            entity, attr, request.getUuid(),
-            request.getKey(), request.getAttribute(),
-            stamp,
-            request.getValue().toByteArray());
+        entity,
+        attr,
+        request.getUuid(),
+        request.getKey(),
+        request.getAttribute(),
+        stamp,
+        request.getValue().toByteArray());
   }
-
 }

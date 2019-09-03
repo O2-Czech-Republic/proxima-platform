@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,20 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import static org.junit.Assert.*;
+
 import cz.o2.proxima.direct.core.Partition;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.util.CoderUtils;
-import static org.junit.Assert.*;
 import org.junit.Test;
 
 public class DirectBatchUnboundedSourceTest {
 
   @Test
-  public void testCheckpointCoder()
-      throws Coder.NonDeterministicException, CoderException {
+  public void testCheckpointCoder() throws Coder.NonDeterministicException, CoderException {
 
     DirectBatchUnboundedSource.CheckpointCoder coder;
     coder = new DirectBatchUnboundedSource.CheckpointCoder();
@@ -42,14 +42,12 @@ public class DirectBatchUnboundedSourceTest {
 
   @Test
   public void testPartitionsSorted() {
-    List<Partition> partitions = Arrays.asList(
-        partition(0, 4, 5), partition(1, 3, 4), partition(2, 1, 2));
+    List<Partition> partitions =
+        Arrays.asList(partition(0, 4, 5), partition(1, 3, 4), partition(2, 1, 2));
     partitions.sort(DirectBatchUnboundedSource.partitionsComparator());
     assertEquals(
-        Arrays.asList(partition(2, 1, 2), partition(1, 3, 4), partition(0, 4, 5)),
-        partitions);
+        Arrays.asList(partition(2, 1, 2), partition(1, 3, 4), partition(0, 4, 5)), partitions);
   }
-
 
   static Partition partition(int id, long minStamp, long maxStamp) {
     return new Partition() {
@@ -81,8 +79,6 @@ public class DirectBatchUnboundedSourceTest {
       public int hashCode() {
         return id;
       }
-
     };
   }
-
 }

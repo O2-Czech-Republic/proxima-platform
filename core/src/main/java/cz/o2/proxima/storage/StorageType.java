@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,7 @@ import cz.o2.proxima.annotations.Stable;
 import java.util.Objects;
 import lombok.Getter;
 
-/**
- * Types of storage.
- */
+/** Types of storage. */
 @Stable
 public enum StorageType {
 
@@ -29,12 +27,11 @@ public enum StorageType {
   PRIMARY("primary"),
 
   /**
-   * A storage where each write is replicated from commit storage.
-   * Note that is attribute has multiple storages, than exactly one
-   * has to be commit and the commit has to be of type commit-log.
+   * A storage where each write is replicated from commit storage. Note that is attribute has
+   * multiple storages, than exactly one has to be commit and the commit has to be of type
+   * commit-log.
    */
   REPLICA("replica");
-
 
   public static StorageType of(String name) {
     Objects.requireNonNull(name);
@@ -46,12 +43,9 @@ public enum StorageType {
     throw new IllegalArgumentException("Unknown storage type " + name);
   }
 
-  @Getter
-  private final String cfgName;
+  @Getter private final String cfgName;
 
   StorageType(String cfgName) {
     this.cfgName = Objects.requireNonNull(cfgName);
   }
-
-
 }

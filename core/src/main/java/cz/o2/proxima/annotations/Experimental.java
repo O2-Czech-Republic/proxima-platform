@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,12 +22,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * This annotation is used on experimental features and implementations.
- * After the feature is tested the annotation is either changed to {@link Stable}
- * or the feature is removed.
+ * This annotation is used on experimental features and implementations. After the feature is tested
+ * the annotation is either changed to {@link Stable} or the feature is removed.
  *
- * Note that experimental features need not to keep backward compatibility
- * even between minor updates.
+ * <p>Note that experimental features need not to keep backward compatibility even between minor
+ * updates.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.SOURCE)
@@ -35,5 +34,4 @@ import java.lang.annotation.Target;
 public @interface Experimental {
 
   String value() default "";
-
 }

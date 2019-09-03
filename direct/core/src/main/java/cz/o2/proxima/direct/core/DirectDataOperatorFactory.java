@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,8 @@ import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.DataOperatorFactory;
 import cz.o2.proxima.repository.Repository;
 
-/**
- * Factory for {@link DirectDataOperator}.
- */
-public class DirectDataOperatorFactory
-    implements DataOperatorFactory<DirectDataOperator> {
+/** Factory for {@link DirectDataOperator}. */
+public class DirectDataOperatorFactory implements DataOperatorFactory<DirectDataOperator> {
 
   @Override
   public boolean isOfType(Class<? extends DataOperator> cls) {
@@ -39,5 +36,4 @@ public class DirectDataOperatorFactory
   public String getOperatorName() {
     return "direct";
   }
-
 }

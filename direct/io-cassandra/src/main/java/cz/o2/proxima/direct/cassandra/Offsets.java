@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,10 @@ package cz.o2.proxima.direct.cassandra;
 
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
 
-/**
- * Offset based on {@code token} function.
- */
+/** Offset based on {@code token} function. */
 public class Offsets {
 
-  /**
-   * Offset represented by a token (hash) of the key.
-   */
+  /** Offset represented by a token (hash) of the key. */
   public static class Token implements RandomOffset {
 
     final long tkn;
@@ -36,12 +32,9 @@ public class Offsets {
     public long getToken() {
       return tkn;
     }
-
   }
 
-  /**
-   * Offset represented by the raw string value.
-   */
+  /** Offset represented by the raw string value. */
   public static class Raw implements RandomOffset {
 
     final String str;
@@ -53,11 +46,9 @@ public class Offsets {
     public String getRaw() {
       return str;
     }
-
   }
 
   private Offsets() {
     // nop
   }
-
 }

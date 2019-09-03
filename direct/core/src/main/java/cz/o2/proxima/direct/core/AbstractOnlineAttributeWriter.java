@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +20,11 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Abstract implementation of the {@code OnlineAttributeWriter}.
- */
+/** Abstract implementation of the {@code OnlineAttributeWriter}. */
 @Internal
 @Slf4j
-public abstract class AbstractOnlineAttributeWriter
-    extends AbstractAttributeWriter implements OnlineAttributeWriter {
+public abstract class AbstractOnlineAttributeWriter extends AbstractAttributeWriter
+    implements OnlineAttributeWriter {
 
   protected AbstractOnlineAttributeWriter(EntityDescriptor entityDesc, URI uri) {
     super(entityDesc, uri);
@@ -35,10 +33,6 @@ public abstract class AbstractOnlineAttributeWriter
   @Override
   public void close() {
     log.warn(
-        "Fallback to empty close() method in {}.. This should be addressed.",
-        getClass().getName());
+        "Fallback to empty close() method in {}.. This should be addressed.", getClass().getName());
   }
-
-
-
 }

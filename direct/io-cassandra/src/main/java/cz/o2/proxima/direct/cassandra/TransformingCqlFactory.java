@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,25 +24,23 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * A CQL factory that stores data in other fields than what would
- * suggest the model itself.
- * The factory extracts column names and values from ingest by
- * provided extractors. The ingest is first modified by provided parser.
+ * A CQL factory that stores data in other fields than what would suggest the model itself. The
+ * factory extracts column names and values from ingest by provided extractors. The ingest is first
+ * modified by provided parser.
  */
 @Slf4j
 public class TransformingCqlFactory<T extends Serializable> extends CacheableCqlFactory {
 
   /** Parser of ingest to any intermediate type. */
   private final UnaryFunction<StreamElement, T> parser;
-  /** Name of the the primary key column .*/
+  /** Name of the the primary key column . */
   private final List<String> columns;
   /** Extract name value of key from ingest. */
   private final List<UnaryFunction<Pair<String, T>, Object>> extractors;
@@ -66,32 +64,27 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
     this.parser = Objects.requireNonNull(parser);
     this.columns = Objects.requireNonNull(columns);
     this.extractors = Objects.requireNonNull(extractors);
-    if (this.columns.size() != this.extractors.size()
-        || this.columns.isEmpty()) {
-      throw new IllegalArgumentException(
-          "Pass two non-empty same length lists");
+    if (this.columns.size() != this.extractors.size() || this.columns.isEmpty()) {
+      throw new IllegalArgumentException("Pass two non-empty same length lists");
     }
     this.filter = Objects.requireNonNull(filter);
   }
 
   @Override
   protected String createDeleteStatement(StreamElement ingest) {
-    throw new UnsupportedOperationException(
-        "Cannot delete by instance of " + getClass());
+    throw new UnsupportedOperationException("Cannot delete by instance of " + getClass());
   }
 
   @Override
   protected String createDeleteWildcardStatement(StreamElement what) {
-    throw new UnsupportedOperationException(
-        "Cannot delete by instance of " + getClass());
+    throw new UnsupportedOperationException("Cannot delete by instance of " + getClass());
   }
 
   @Override
   protected String createInsertStatement(StreamElement element) {
     StringBuilder sb = new StringBuilder();
     sb.append(
-        String.format("INSERT INTO %s (%s) VALUES (", getTableName(),
-        String.join(", ", columns)));
+        String.format("INSERT INTO %s (%s) VALUES (", getTableName(), String.join(", ", columns)));
     String comma = "";
     for (int i = 0; i < extractors.size(); i++) {
       sb.append(comma);
@@ -107,8 +100,7 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
   }
 
   @Override
-  public Optional<BoundStatement> getWriteStatement(
-      StreamElement element, Session session) {
+  public Optional<BoundStatement> getWriteStatement(StreamElement element, Session session) {
 
     ensureSession(session);
     if (element.isDelete()) {
@@ -118,9 +110,11 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
     PreparedStatement statement = getPreparedStatement(session, element);
     T parsed = parser.apply(element);
     if (filter.apply(parsed)) {
-      List<Object> values = extractors.stream()
-          .map(f -> f.apply(Pair.of(element.getKey(), parsed)))
-          .collect(Collectors.toList());
+      List<Object> values =
+          extractors
+              .stream()
+              .map(f -> f.apply(Pair.of(element.getKey(), parsed)))
+              .collect(Collectors.toList());
       if (values.stream().anyMatch(Objects::isNull)) {
         log.warn("Received null value while writing {}. Discarding.", element);
         return Optional.empty();
@@ -153,11 +147,7 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
 
   @Override
   public BoundStatement getListStatement(
-      String key,
-      AttributeDescriptor wildcard,
-      Offsets.Raw offset,
-      int limit,
-      Session session) {
+      String key, AttributeDescriptor wildcard, Offsets.Raw offset, int limit, Session session) {
 
     throw new UnsupportedOperationException("Not supported.");
   }
@@ -167,7 +157,6 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
     throw new UnsupportedOperationException("Not supported.");
   }
 
-
   @Override
   protected String createFetchTokenStatement() {
     throw new UnsupportedOperationException("Not supported.");
@@ -175,9 +164,7 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
 
   @Override
   public Statement scanPartition(
-      List<AttributeDescriptor<?>> attributes,
-      CassandraPartition partition,
-      Session session) {
+      List<AttributeDescriptor<?>> attributes, CassandraPartition partition, Session session) {
 
     throw new UnsupportedOperationException("Not supported.");
   }
@@ -193,5 +180,4 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
 
     throw new UnsupportedOperationException("Not supported.");
   }
-
 }

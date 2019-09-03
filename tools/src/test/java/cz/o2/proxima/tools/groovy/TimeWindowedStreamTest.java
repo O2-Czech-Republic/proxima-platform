@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,7 @@ package cz.o2.proxima.tools.groovy;
 
 import groovy.lang.Closure;
 
-/**
- * Test suite for {@link TimeWindowedStream}.
- */
+/** Test suite for {@link TimeWindowedStream}. */
 public abstract class TimeWindowedStreamTest extends AbstractWindowedStreamTest {
 
   protected TimeWindowedStreamTest(TestStreamProvider provider) {
@@ -29,13 +27,15 @@ public abstract class TimeWindowedStreamTest extends AbstractWindowedStreamTest 
   @SuppressWarnings("unchecked")
   @Override
   <T> WindowedStream<T> intoSingleWindow(Stream<T> stream) {
-    return (WindowedStream) stream.assignEventTime(new Closure<Long>(this) {
-      @Override
-      public Long call(Object argument) {
-        return 1L;
-      }
-
-    }).timeWindow(1000L);
+    return (WindowedStream)
+        stream
+            .assignEventTime(
+                new Closure<Long>(this) {
+                  @Override
+                  public Long call(Object argument) {
+                    return 1L;
+                  }
+                })
+            .timeWindow(1000L);
   }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,14 +39,13 @@ import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.SequenceFile;
 
-/**
- * Observable of data stored in {@code SequenceFiles} in HDFS.
- */
+/** Observable of data stored in {@code SequenceFiles} in HDFS. */
 @Slf4j
 public class HdfsBatchLogObservable implements BatchLogObservable {
 
   private final EntityDescriptor entityDesc;
   private final URI uri;
+
   @SuppressWarnings("squid:S1948")
   private final Map<String, Object> cfg;
 
@@ -55,10 +54,12 @@ public class HdfsBatchLogObservable implements BatchLogObservable {
   private final Context context;
   private transient Executor executor;
 
-
-  public HdfsBatchLogObservable(EntityDescriptor entityDesc,
-                                URI uri, Map<String, Object> cfg, Context context,
-                                long batchProcessSize) {
+  public HdfsBatchLogObservable(
+      EntityDescriptor entityDesc,
+      URI uri,
+      Map<String, Object> cfg,
+      Context context,
+      long batchProcessSize) {
 
     this.entityDesc = entityDesc;
     this.cfg = cfg;
@@ -110,24 +111,25 @@ public class HdfsBatchLogObservable implements BatchLogObservable {
       executor = context.getExecutorService();
     }
 
-    executor.execute(() -> {
-      boolean run = true;
-      try {
-        for (Iterator<Partition> it = partitions.iterator(); run && it.hasNext();) {
-          HdfsPartition p = (HdfsPartition) it.next();
-          for (URI f : p.getFiles()) {
-            processFile(observer, p, new Path(f));
+    executor.execute(
+        () -> {
+          boolean run = true;
+          try {
+            for (Iterator<Partition> it = partitions.iterator(); run && it.hasNext(); ) {
+              HdfsPartition p = (HdfsPartition) it.next();
+              for (URI f : p.getFiles()) {
+                processFile(observer, p, new Path(f));
+              }
+            }
+            observer.onCompleted();
+          } catch (Throwable ex) {
+            log.warn("Failed to observe partitions {}", partitions, ex);
+            if (observer.onError(ex)) {
+              log.info("Restaring processing by request");
+              observe(partitions, attributes, observer);
+            }
           }
-        }
-        observer.onCompleted();
-      } catch (Throwable ex) {
-        log.warn("Failed to observe partitions {}", partitions, ex);
-        if (observer.onError(ex)) {
-          log.info("Restaring processing by request");
-          observe(partitions, attributes, observer);
-        }
-      }
-    });
+        });
   }
 
   @SuppressWarnings("squid:S00112")
@@ -137,9 +139,9 @@ public class HdfsBatchLogObservable implements BatchLogObservable {
         long element = 0L;
         BytesWritable key = new BytesWritable();
         TimestampedNullableBytesWritable value = new TimestampedNullableBytesWritable();
-        try (SequenceFile.Reader reader = new SequenceFile.Reader(
-            HdfsDataAccessor.toHadoopConf(cfg),
-            SequenceFile.Reader.file(f))) {
+        try (SequenceFile.Reader reader =
+            new SequenceFile.Reader(
+                HdfsDataAccessor.toHadoopConf(cfg), SequenceFile.Reader.file(f))) {
 
           while (reader.next(key, value)) {
             observer.onNext(toStreamElement(f, element++, key, value), p);
@@ -152,10 +154,7 @@ public class HdfsBatchLogObservable implements BatchLogObservable {
   }
 
   private StreamElement toStreamElement(
-      Path file,
-      long number,
-      BytesWritable key,
-      TimestampedNullableBytesWritable value) {
+      Path file, long number, BytesWritable key, TimestampedNullableBytesWritable value) {
 
     String strKey = new String(key.copyBytes());
     String[] split = strKey.split("#", 2);
@@ -166,26 +165,30 @@ public class HdfsBatchLogObservable implements BatchLogObservable {
     String attribute = split[1];
 
     AttributeDescriptor attributeDesc;
-    attributeDesc = entityDesc.findAttribute(attribute).orElseThrow(
-        () -> new IllegalArgumentException(
-            "Attribute " + attribute + " does not exist in entity "
-                + entityDesc.getName()));
+    attributeDesc =
+        entityDesc
+            .findAttribute(attribute)
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        "Attribute "
+                            + attribute
+                            + " does not exist in entity "
+                            + entityDesc.getName()));
     String uuid = file + ":" + number;
     if (value.hasValue()) {
-      return StreamElement.update(entityDesc, attributeDesc,
-          uuid, rawKey, attribute, value.getStamp(), value.getValue());
+      return StreamElement.update(
+          entityDesc, attributeDesc, uuid, rawKey, attribute, value.getStamp(), value.getValue());
     }
-    return StreamElement.delete(entityDesc, attributeDesc,
-        uuid, rawKey, attribute, value.getStamp());
+    return StreamElement.delete(
+        entityDesc, attributeDesc, uuid, rawKey, attribute, value.getStamp());
   }
 
   @VisibleForTesting
   static Map.Entry<Long, Long> getMinMaxStamp(String name) {
     Matcher matched = HdfsDataAccessor.PART_FILE_PARSER.matcher(name);
     if (matched.find()) {
-      return Maps.immutableEntry(
-          Long.valueOf(matched.group(1)),
-          Long.valueOf(matched.group(2)));
+      return Maps.immutableEntry(Long.valueOf(matched.group(1)), Long.valueOf(matched.group(2)));
     }
     return Maps.immutableEntry(-1L, -1L);
   }

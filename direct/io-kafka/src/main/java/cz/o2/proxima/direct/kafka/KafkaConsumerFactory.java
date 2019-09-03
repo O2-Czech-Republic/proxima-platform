@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,9 +30,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.Serdes;
 
-/**
- * Factory for {@code KafkaConsumer}s attached to the given commit log.
- */
+/** Factory for {@code KafkaConsumer}s attached to the given commit log. */
 @Slf4j
 public class KafkaConsumerFactory {
 
@@ -52,8 +50,7 @@ public class KafkaConsumerFactory {
   }
 
   public KafkaConsumer<String, byte[]> create(
-      String name,
-      @Nullable ConsumerRebalanceListener listener) {
+      String name, @Nullable ConsumerRebalanceListener listener) {
 
     log.debug("Creating named consumer with name {} and listener {}", name, listener);
     Properties cloned = clone(this.props);
@@ -61,9 +58,10 @@ public class KafkaConsumerFactory {
     cloned.put(ConsumerConfig.GROUP_ID_CONFIG, name);
     cloned.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 0);
     cloned.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-    cloned.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-        Serdes.String().deserializer().getClass());
-    cloned.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+    cloned.put(
+        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, Serdes.String().deserializer().getClass());
+    cloned.put(
+        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         Serdes.ByteArray().deserializer().getClass());
     KafkaConsumer<String, byte[]> ret = new KafkaConsumer<>(cloned);
     if (listener == null) {
@@ -76,6 +74,7 @@ public class KafkaConsumerFactory {
 
   /**
    * Create kafka consumer based on given parameters.
+   *
    * @param name name of the consumer
    * @return {@link KafkaConsumer} of given name
    */
@@ -88,22 +87,25 @@ public class KafkaConsumerFactory {
     Properties cloned = clone(this.props);
     cloned.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
     cloned.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-    cloned.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-        Serdes.String().deserializer().getClass());
-    cloned.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+    cloned.put(
+        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, Serdes.String().deserializer().getClass());
+    cloned.put(
+        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         Serdes.ByteArray().deserializer().getClass());
     KafkaConsumer<String, byte[]> ret = new KafkaConsumer<>(cloned);
-    List<TopicPartition> topicPartitions = partitions.stream()
-        .map(p -> new TopicPartition(topic, p.getId()))
-        .collect(Collectors.toList());
+    List<TopicPartition> topicPartitions =
+        partitions
+            .stream()
+            .map(p -> new TopicPartition(topic, p.getId()))
+            .collect(Collectors.toList());
 
     ret.assign(topicPartitions);
     return ret;
   }
 
-
   /**
    * Create an unnamed consumer consuming all partitions.
+   *
    * @return unnamed {@link KafkaConsumer} for all partitions
    */
   public KafkaConsumer<String, byte[]> create() {
@@ -111,15 +113,18 @@ public class KafkaConsumerFactory {
     Properties cloned = clone(this.props);
     cloned.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
     cloned.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-    cloned.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-        Serdes.String().deserializer().getClass());
-    cloned.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+    cloned.put(
+        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, Serdes.String().deserializer().getClass());
+    cloned.put(
+        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
         Serdes.ByteArray().deserializer().getClass());
     KafkaConsumer<String, byte[]> ret = new KafkaConsumer<>(cloned);
 
-    List<TopicPartition> partitions = ret.partitionsFor(topic).stream()
-        .map(p -> new TopicPartition(topic, p.partition()))
-        .collect(Collectors.toList());
+    List<TopicPartition> partitions =
+        ret.partitionsFor(topic)
+            .stream()
+            .map(p -> new TopicPartition(topic, p.partition()))
+            .collect(Collectors.toList());
 
     ret.assign(partitions);
     return ret;
@@ -130,5 +135,4 @@ public class KafkaConsumerFactory {
     props.forEach(ret::put);
     return ret;
   }
-
 }

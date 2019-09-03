@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,11 @@ package cz.o2.proxima.scheme.confluent;
 import cz.o2.proxima.scheme.SerializationException;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.generic.GenericContainer;
-
 import java.net.URI;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.generic.GenericContainer;
 
 @Slf4j
 public class SchemaRegistrySerializerFactory implements ValueSerializerFactory {
@@ -35,8 +34,7 @@ public class SchemaRegistrySerializerFactory implements ValueSerializerFactory {
     return "schema-registry";
   }
 
-  private static <M extends GenericContainer> ValueSerializer<M>
-      createSerializer(URI scheme) {
+  private static <M extends GenericContainer> ValueSerializer<M> createSerializer(URI scheme) {
     try {
       return new SchemaRegistryValueSerializer<>(scheme);
     } catch (Exception e) {
@@ -53,8 +51,8 @@ public class SchemaRegistrySerializerFactory implements ValueSerializerFactory {
 
   @Override
   public String getClassName(URI scheme) {
-    SchemaRegistryValueSerializer serializer = (SchemaRegistryValueSerializer)
-        getValueSerializer(scheme);
+    SchemaRegistryValueSerializer serializer =
+        (SchemaRegistryValueSerializer) getValueSerializer(scheme);
 
     return serializer.getClassName();
   }

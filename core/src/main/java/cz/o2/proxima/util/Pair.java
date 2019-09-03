@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,7 @@ import java.io.Serializable;
 import java.util.Objects;
 import lombok.Getter;
 
-/**
- * A generic pair (tuple).
- */
+/** A generic pair (tuple). */
 @Internal
 public class Pair<A, B> implements Serializable {
 
@@ -30,11 +28,9 @@ public class Pair<A, B> implements Serializable {
     return new Pair<>(first, second);
   }
 
-  @Getter
-  final A first;
+  @Getter final A first;
 
-  @Getter
-  final B second;
+  @Getter final B second;
 
   private Pair(A a, B b) {
     this.first = a;
@@ -53,8 +49,7 @@ public class Pair<A, B> implements Serializable {
     }
     if (obj instanceof Pair) {
       Pair other = (Pair) obj;
-      return Objects.equals(other.first, first)
-          && Objects.equals(other.second, second);
+      return Objects.equals(other.first, first) && Objects.equals(other.second, second);
     }
     return false;
   }
@@ -63,7 +58,4 @@ public class Pair<A, B> implements Serializable {
   public int hashCode() {
     return Objects.hash(first, second);
   }
-
-
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,8 @@ import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.DataOperatorFactory;
 import cz.o2.proxima.repository.Repository;
 
-/**
- * A {@link DataOperatorFactory} for {@link BeamDataOperator}.
- */
-public class BeamDataOperatorFactory
-    implements DataOperatorFactory<BeamDataOperator> {
+/** A {@link DataOperatorFactory} for {@link BeamDataOperator}. */
+public class BeamDataOperatorFactory implements DataOperatorFactory<BeamDataOperator> {
 
   @Override
   public String getOperatorName() {
@@ -39,5 +36,4 @@ public class BeamDataOperatorFactory
   public BeamDataOperator create(Repository repo) {
     return new BeamDataOperator(repo);
   }
-
 }

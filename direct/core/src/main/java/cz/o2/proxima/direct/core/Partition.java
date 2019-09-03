@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,9 +21,8 @@ import java.util.Arrays;
 import java.util.Collection;
 
 /**
- * Interface representing a partition of the commit log.
- * A partition is an element of parallelism, an atomic part
- * that is read all at once and cannot be divided.
+ * Interface representing a partition of the commit log. A partition is an element of parallelism,
+ * an atomic part that is read all at once and cannot be divided.
  */
 @Stable
 @FunctionalInterface
@@ -31,26 +30,24 @@ public interface Partition extends Serializable {
 
   /**
    * Retrieve id of the partition.
+   *
    * @return if od the partition
    */
   int getId();
 
-  /**
-   * Retrieve minimal timestamp associated with data in this partition.
-   */
+  /** Retrieve minimal timestamp associated with data in this partition. */
   default long getMinTimestamp() {
     return Long.MIN_VALUE;
   }
 
-  /**
-   * Retrieve maximal timestamp associated with data in this partition.
-   */
+  /** Retrieve maximal timestamp associated with data in this partition. */
   default long getMaxTimestamp() {
     return Long.MAX_VALUE;
   }
 
   /**
    * Check if this is bounded or unbounded partition.
+   *
    * @return {@code true} if this is bounded partition
    */
   default boolean isBounded() {
@@ -59,6 +56,7 @@ public interface Partition extends Serializable {
 
   /**
    * Estimate size of this partition.
+   *
    * @return estimated size of this partition or -1 if unknown
    */
   default long size() {
@@ -67,8 +65,8 @@ public interface Partition extends Serializable {
 
   /**
    * Verify if this partition can be split into two when reading.
-   * @return {@code true} when the partition can be split and read
-   * independently in two consumers.
+   *
+   * @return {@code true} when the partition can be split and read independently in two consumers.
    */
   default boolean isSplittable() {
     return false;
@@ -76,12 +74,11 @@ public interface Partition extends Serializable {
 
   /**
    * Split this partition to given number of sub-partitions.
+   *
    * @param desiredCount desired number of split partitions
    * @return collection of split partitions
    */
   default Collection<Partition> split(int desiredCount) {
     return Arrays.asList(this);
   }
-
 }
-

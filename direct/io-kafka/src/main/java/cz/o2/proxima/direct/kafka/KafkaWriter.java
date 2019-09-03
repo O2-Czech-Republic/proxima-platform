@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.direct.kafka;
 
-import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.direct.core.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Partitioner;
 import java.util.Properties;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -28,19 +28,15 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.Serdes;
 
-/**
- * ${link OnlineAttributeWriter} implementation for Kafka.
- */
+/** ${link OnlineAttributeWriter} implementation for Kafka. */
 @Slf4j
 public class KafkaWriter extends AbstractOnlineAttributeWriter {
 
-  @Getter
-  final KafkaAccessor accessor;
+  @Getter final KafkaAccessor accessor;
   private final Partitioner partitioner;
   private final String topic;
 
-  @Nullable
-  private transient KafkaProducer<String, byte[]> producer;
+  @Nullable private transient KafkaProducer<String, byte[]> producer;
 
   KafkaWriter(KafkaAccessor accessor) {
     super(accessor.getEntityDescriptor(), accessor.getUri());
@@ -56,16 +52,23 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
       if (producer == null) {
         producer = createProducer();
       }
-      int partition = (partitioner.getPartitionId(data) & Integer.MAX_VALUE)
-          % producer.partitionsFor(topic).size();
+      int partition =
+          (partitioner.getPartitionId(data) & Integer.MAX_VALUE)
+              % producer.partitionsFor(topic).size();
       producer.send(
           new ProducerRecord(
-              topic, partition, data.getStamp(),
-              data.getKey() + "#" + data.getAttribute(), data.getValue()),
+              topic,
+              partition,
+              data.getStamp(),
+              data.getKey() + "#" + data.getAttribute(),
+              data.getValue()),
           (metadata, exception) -> {
             log.debug(
                 "Written {} to topic {} offset {} and partition {}",
-                data, metadata.topic(), metadata.offset(), metadata.partition());
+                data,
+                metadata.topic(),
+                metadata.offset(),
+                metadata.partition());
             callback.commit(exception == null, exception);
           });
     } catch (Exception ex) {
@@ -91,5 +94,4 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
       this.producer = null;
     }
   }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,7 @@ import java.util.Optional;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
-/**
- * An interface representing descriptor of entity.
- */
+/** An interface representing descriptor of entity. */
 @Stable
 public interface EntityDescriptor extends Serializable {
 
@@ -52,37 +50,37 @@ public interface EntityDescriptor extends Serializable {
 
     AttributeDescriptor<?> findAttribute(String attr) {
       return Optional.ofNullable(attributes.get(attr))
-          .orElseThrow(() -> new IllegalArgumentException(
-              "Cannot find attribute " + attr + " of entity " + this.name));
+          .orElseThrow(
+              () ->
+                  new IllegalArgumentException(
+                      "Cannot find attribute " + attr + " of entity " + this.name));
     }
-
   }
 
   static Builder newBuilder() {
     return new Builder();
   }
 
-
   /**
    * Name of the entity.
+   *
    * @return name of the entity
    */
   String getName();
 
   /**
    * Find attribute by name.
+   *
    * @param <T> value type
    * @param name name of the attribute to search for
-   * @param includeProtected {@code true} to allow search for protected fields
-   *                         (prefixed by _).
+   * @param includeProtected {@code true} to allow search for protected fields (prefixed by _).
    * @return optional found attribute descriptor
    */
-  <T> Optional<AttributeDescriptor<T>> findAttribute(
-      String name, boolean includeProtected);
+  <T> Optional<AttributeDescriptor<T>> findAttribute(String name, boolean includeProtected);
 
   /**
-   * Find attribute by name.
-   * Do not search protected fields (prefixed by _).
+   * Find attribute by name. Do not search protected fields (prefixed by _).
+   *
    * @param <T> value type
    * @param name name of the attribute to search for
    * @return optional found attribute descriptor
@@ -93,18 +91,19 @@ public interface EntityDescriptor extends Serializable {
 
   /**
    * Find all attributes of this entity.
-   * @param includeProtected when {@code true} then protected attributes are
-   * also included (prefixed by _).
+   *
+   * @param includeProtected when {@code true} then protected attributes are also included (prefixed
+   *     by _).
    * @return all attributes of entity (including protected or not)
    */
   List<AttributeDescriptor<?>> getAllAttributes(boolean includeProtected);
 
   /**
    * List all attribute descriptors of given entity.
+   *
    * @return get all unprotected attributes of entity
    */
   default List<AttributeDescriptor<?>> getAllAttributes() {
     return getAllAttributes(false);
   }
-
 }

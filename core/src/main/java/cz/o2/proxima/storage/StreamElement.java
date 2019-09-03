@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,15 +25,15 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 
 /**
- * Data wrapper for all ingestion requests.
- * NOTE: {@link Serializable} is implemented only for tests. Real-world applications
- * should never use java serialization for passing data elements.
+ * Data wrapper for all ingestion requests. NOTE: {@link Serializable} is implemented only for
+ * tests. Real-world applications should never use java serialization for passing data elements.
  */
 @Evolving("Should change to interface with implementations")
 public class StreamElement implements Serializable {
 
   /**
    * Update given entity attribute with given value.
+   *
    * @param entityDesc descriptor of entity
    * @param attributeDesc descriptor of attribute
    * @param uuid UUID of the request
@@ -52,13 +52,12 @@ public class StreamElement implements Serializable {
       long stamp,
       byte[] value) {
 
-    return new StreamElement(
-        entityDesc, attributeDesc, uuid, key,
-        attribute, stamp, false, value);
+    return new StreamElement(entityDesc, attributeDesc, uuid, key, attribute, stamp, false, value);
   }
 
   /**
    * Delete given instance of attribute.
+   *
    * @param entityDesc descriptor of entity
    * @param attributeDesc descriptor of attribute
    * @param uuid UUID of the event
@@ -75,13 +74,12 @@ public class StreamElement implements Serializable {
       String attribute,
       long stamp) {
 
-    return new StreamElement(
-        entityDesc, attributeDesc, uuid, key,
-        attribute, stamp, false, null);
+    return new StreamElement(entityDesc, attributeDesc, uuid, key, attribute, stamp, false, null);
   }
 
   /**
    * Delete all versions of given wildcard attribute.
+   *
    * @param entityDesc descriptor of entity
    * @param attributeDesc descriptor of attribute
    * @param uuid UUID of the event
@@ -101,13 +99,12 @@ public class StreamElement implements Serializable {
     if (!attribute.endsWith("*")) {
       attribute += "*";
     }
-    return new StreamElement(
-        entityDesc, attributeDesc, uuid,
-        key, attribute, stamp, true, null);
+    return new StreamElement(entityDesc, attributeDesc, uuid, key, attribute, stamp, true, null);
   }
 
   /**
    * Delete all versions of given wildcard attribute.
+   *
    * @param entityDesc descriptor of entity
    * @param attributeDesc descriptor of attribute
    * @param uuid UUID of the event
@@ -123,31 +120,22 @@ public class StreamElement implements Serializable {
       long stamp) {
 
     return deleteWildcard(
-        entityDesc, attributeDesc, uuid, key,
-        attributeDesc.toAttributePrefix() + "*", stamp);
+        entityDesc, attributeDesc, uuid, key, attributeDesc.toAttributePrefix() + "*", stamp);
   }
 
-  @Getter
-  private final EntityDescriptor entityDescriptor;
+  @Getter private final EntityDescriptor entityDescriptor;
 
-  @Getter
-  private final AttributeDescriptor<?> attributeDescriptor;
+  @Getter private final AttributeDescriptor<?> attributeDescriptor;
 
-  @Getter
-  private final String uuid;
+  @Getter private final String uuid;
 
-  @Getter
-  private final String key;
+  @Getter private final String key;
 
-  @Getter
-  private final String attribute;
+  @Getter private final String attribute;
 
-  @Getter
-  private final long stamp;
+  @Getter private final long stamp;
 
-  @Getter
-  @Nullable
-  private final byte[] value;
+  @Getter @Nullable private final byte[] value;
 
   private final boolean deleteWildcard;
 
@@ -173,16 +161,26 @@ public class StreamElement implements Serializable {
 
   @Override
   public String toString() {
-    return "StreamElement(uuid=" + uuid
-        + ", entityDesc=" + entityDescriptor
-        + ", attributeDesc=" + attributeDescriptor
-        + ", key=" + key + ", attribute=" + attribute
-        + ", stamp=" + stamp
-        + ", value.length=" + (value == null ? -1 : value.length) + ")";
+    return "StreamElement(uuid="
+        + uuid
+        + ", entityDesc="
+        + entityDescriptor
+        + ", attributeDesc="
+        + attributeDescriptor
+        + ", key="
+        + key
+        + ", attribute="
+        + attribute
+        + ", stamp="
+        + stamp
+        + ", value.length="
+        + (value == null ? -1 : value.length)
+        + ")";
   }
 
   /**
    * Check if this is a delete ingest.
+   *
    * @return {@code true} if this is delete or delete wildcard event
    */
   public boolean isDelete() {
@@ -191,16 +189,17 @@ public class StreamElement implements Serializable {
 
   /**
    * Check if this is a delete wildcard ingest.
+   *
    * @return {@code true} if this is delete wildcard event
    */
   public boolean isDeleteWildcard() {
-    return isDelete() && (
-        attribute.equals(attributeDescriptor.toAttributePrefix() + "*")
-        || deleteWildcard);
+    return isDelete()
+        && (attribute.equals(attributeDescriptor.toAttributePrefix() + "*") || deleteWildcard);
   }
 
   /**
    * Retrieve parsed value.
+   *
    * @param <T> the deserialized datatype
    * @return optional deserialized value
    */
@@ -227,19 +226,24 @@ public class StreamElement implements Serializable {
 
   /**
    * Dump in more verbose way into given stream.
+   *
    * @return string representing the dumped element
    */
   public String dump() {
-    return "StreamElement(uuid=" + uuid
-        + ", entityDesc=" + entityDescriptor
-        + ", attributeDesc=" + attributeDescriptor
-        + ", key=" + key + ", attribute=" + attribute
-        + ", stamp=" + stamp
-        + ", value=" + (value == null
-            ? "(null)"
-            : getParsed().get().toString())
+    return "StreamElement(uuid="
+        + uuid
+        + ", entityDesc="
+        + entityDescriptor
+        + ", attributeDesc="
+        + attributeDescriptor
+        + ", key="
+        + key
+        + ", attribute="
+        + attribute
+        + ", stamp="
+        + stamp
+        + ", value="
+        + (value == null ? "(null)" : getParsed().get().toString())
         + ")";
   }
-
-
 }

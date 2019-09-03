@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,11 @@ package cz.o2.proxima.direct.randomaccess;
 import cz.o2.proxima.annotations.Stable;
 import lombok.Getter;
 
-/**
- * Offset that is represented by raw string.
- */
+/** Offset that is represented by raw string. */
 @Stable
 public class RawOffset implements RandomOffset {
 
-  @Getter
-  private final String offset;
+  @Getter private final String offset;
 
   public RawOffset(String offset) {
     this.offset = offset;
@@ -35,5 +32,4 @@ public class RawOffset implements RandomOffset {
   public String toString() {
     return "RawOffset(" + offset + ")";
   }
-
 }

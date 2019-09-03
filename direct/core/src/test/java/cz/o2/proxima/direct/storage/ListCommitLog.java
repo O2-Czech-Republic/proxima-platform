@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,20 @@
  */
 package cz.o2.proxima.direct.storage;
 
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
+
 import com.google.common.collect.Lists;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.ObserverUtils;
-import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.storage.InMemStorage.IntOffset;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -39,8 +40,7 @@ import java.util.concurrent.ExecutorService;
 /**
  * A bounded {@link CommitLogReader} containing predefined data.
  *
- * This is very simplistic implementation which just pushes all data
- * to the provided observer.
+ * <p>This is very simplistic implementation which just pushes all data to the provided observer.
  */
 public class ListCommitLog implements CommitLogReader {
 
@@ -57,9 +57,7 @@ public class ListCommitLog implements CommitLogReader {
   private static final class NopObserveHandle implements ObserveHandle {
 
     @Override
-    public void cancel() {
-
-    }
+    public void cancel() {}
 
     @Override
     public List<Offset> getCommittedOffsets() {
@@ -67,9 +65,7 @@ public class ListCommitLog implements CommitLogReader {
     }
 
     @Override
-    public void resetOffsets(List<Offset> offsets) {
-
-    }
+    public void resetOffsets(List<Offset> offsets) {}
 
     @Override
     public List<Offset> getCurrentOffsets() {
@@ -77,10 +73,7 @@ public class ListCommitLog implements CommitLogReader {
     }
 
     @Override
-    public void waitUntilReady() throws InterruptedException {
-
-    }
-
+    public void waitUntilReady() throws InterruptedException {}
   }
 
   private ListCommitLog(List<StreamElement> data, Context context) {
@@ -103,59 +96,67 @@ public class ListCommitLog implements CommitLogReader {
   }
 
   @Override
-  public ObserveHandle observe(
-      String name, Position position, LogObserver observer) {
+  public ObserveHandle observe(String name, Position position, LogObserver observer) {
 
-    pushTo((element, offset) -> observer.onNext(
-        element,
-        asOnNextContext(
-            (succ, exc) -> {
-              if (!succ) {
-                observer.onError(exc);
-              }
-            },
-            new IntOffset(offset, System.currentTimeMillis()))),
+    pushTo(
+        (element, offset) ->
+            observer.onNext(
+                element,
+                asOnNextContext(
+                    (succ, exc) -> {
+                      if (!succ) {
+                        observer.onError(exc);
+                      }
+                    },
+                    new IntOffset(offset, System.currentTimeMillis()))),
         observer::onCompleted);
     return new NopObserveHandle();
   }
 
   @Override
   public ObserveHandle observePartitions(
-      String name, Collection<Partition> partitions,
-      Position position, boolean stopAtCurrent, LogObserver observer) {
+      String name,
+      Collection<Partition> partitions,
+      Position position,
+      boolean stopAtCurrent,
+      LogObserver observer) {
 
     return observe(name, position, observer);
   }
 
   @Override
   public ObserveHandle observeBulk(
-      String name, Position position, boolean stopAtCurrent,
-      LogObserver observer) {
+      String name, Position position, boolean stopAtCurrent, LogObserver observer) {
 
     observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION)));
-    pushTo((element, offset) -> observer.onNext(
-        element, asOnNextContext(
-            (succ, exc) -> {
-              if (!succ) {
-                observer.onError(exc);
-              }
-            },
-            new IntOffset(offset, System.currentTimeMillis()))),
+    pushTo(
+        (element, offset) ->
+            observer.onNext(
+                element,
+                asOnNextContext(
+                    (succ, exc) -> {
+                      if (!succ) {
+                        observer.onError(exc);
+                      }
+                    },
+                    new IntOffset(offset, System.currentTimeMillis()))),
         observer::onCompleted);
     return new NopObserveHandle();
   }
 
   @Override
   public ObserveHandle observeBulkPartitions(
-      String name, Collection<Partition> partitions,
-      Position position, boolean stopAtCurrent, LogObserver observer) {
+      String name,
+      Collection<Partition> partitions,
+      Position position,
+      boolean stopAtCurrent,
+      LogObserver observer) {
 
     return observeBulk(name, position, observer);
   }
 
   @Override
-  public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, LogObserver observer) {
+  public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
 
     return observeBulk(null, null, observer);
   }
@@ -165,17 +166,17 @@ public class ListCommitLog implements CommitLogReader {
     // nop
   }
 
-  private void pushTo(
-      BiConsumer<StreamElement, Integer> consumer,
-      Runnable finish) {
+  private void pushTo(BiConsumer<StreamElement, Integer> consumer, Runnable finish) {
 
-    executor().execute(() -> {
-      int index = 0;
-      for (StreamElement el : data) {
-        consumer.accept(el, index++);
-      }
-      finish.run();
-    });
+    executor()
+        .execute(
+            () -> {
+              int index = 0;
+              for (StreamElement el : data) {
+                consumer.accept(el, index++);
+              }
+              finish.run();
+            });
   }
 
   private ExecutorService executor() {
@@ -190,7 +191,4 @@ public class ListCommitLog implements CommitLogReader {
 
     return ObserverUtils.asOnNextContext(offsetCommitter, offset);
   }
-
-
-
 }

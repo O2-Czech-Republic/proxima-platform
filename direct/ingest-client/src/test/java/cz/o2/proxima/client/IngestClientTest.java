@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 package cz.o2.proxima.client;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.mockito.Mockito.mock;
 
 import com.google.protobuf.ByteString;
 import cz.o2.proxima.proto.service.IngestServiceGrpc;
@@ -30,13 +34,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.mockito.Mockito.mock;
 
-/**
- * Test {@code IngestClient} functionality.
- */
+/** Test {@code IngestClient} functionality. */
 public class IngestClientTest {
 
   private final String host = "localhost";
@@ -53,12 +52,14 @@ public class IngestClientTest {
   @Test(expected = IllegalArgumentException.class)
   public void testMissingUuid() {
     IngestClient client = create(new Options());
-    client.send(Rpc.Ingest.newBuilder()
-          .setKey("gw1")
-        .setEntity("gateway")
-        .setAttribute("armed")
-        .setValue(ByteString.EMPTY)
-        .build(), s -> { });
+    client.send(
+        Rpc.Ingest.newBuilder()
+            .setKey("gw1")
+            .setEntity("gateway")
+            .setAttribute("armed")
+            .setValue(ByteString.EMPTY)
+            .build(),
+        s -> {});
   }
 
   @Test(timeout = 10000)
@@ -67,13 +68,15 @@ public class IngestClientTest {
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Rpc.Status> status = new AtomicReference<>();
     statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
-    client.send(Rpc.Ingest.newBuilder()
-        .setUuid(UUID.randomUUID().toString())
-        .setKey("gw1")
-        .setEntity("gateway")
-        .setAttribute("armed")
-        .setValue(ByteString.EMPTY)
-        .build(), s -> {
+    client.send(
+        Rpc.Ingest.newBuilder()
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("gw1")
+            .setEntity("gateway")
+            .setAttribute("armed")
+            .setValue(ByteString.EMPTY)
+            .build(),
+        s -> {
           status.set(s);
           latch.countDown();
         });
@@ -96,8 +99,7 @@ public class IngestClientTest {
         s -> {
           status.set(s);
           latch.countDown();
-        }
-    );
+        });
     latch.await();
     assertNotNull(status.get());
     assertEquals(200, status.get().getStatus());
@@ -116,8 +118,7 @@ public class IngestClientTest {
         s -> {
           status.set(s);
           latch.countDown();
-        }
-    );
+        });
     latch.await();
     assertNotNull(status.get());
     assertEquals(200, status.get().getStatus());
@@ -138,8 +139,7 @@ public class IngestClientTest {
         s -> {
           status.set(s);
           latch.countDown();
-        }
-    );
+        });
     latch.await();
     assertNotNull(status.get());
     assertEquals(200, status.get().getStatus());
@@ -161,8 +161,7 @@ public class IngestClientTest {
         s -> {
           received.add(s);
           latch.countDown();
-        }
-    );
+        });
     client.delete(
         UUID.randomUUID().toString(),
         "gw1",
@@ -172,8 +171,7 @@ public class IngestClientTest {
         s -> {
           received.add(s);
           latch.countDown();
-        }
-    );
+        });
     latch.await();
     assertEquals(2, received.size());
   }
@@ -185,23 +183,27 @@ public class IngestClientTest {
     List<Rpc.Status> received = new ArrayList<>();
     statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
     statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
-    client.send(Rpc.Ingest.newBuilder()
-        .setUuid(UUID.randomUUID().toString())
-        .setKey("gw1")
-        .setEntity("gateway")
-        .setAttribute("armed")
-        .setValue(ByteString.EMPTY)
-        .build(), s -> {
+    client.send(
+        Rpc.Ingest.newBuilder()
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("gw1")
+            .setEntity("gateway")
+            .setAttribute("armed")
+            .setValue(ByteString.EMPTY)
+            .build(),
+        s -> {
           received.add(s);
           latch.countDown();
         });
-    client.send(Rpc.Ingest.newBuilder()
-        .setUuid(UUID.randomUUID().toString())
-        .setKey("gw1")
-        .setEntity("gateway")
-        .setAttribute("armed")
-        .setValue(ByteString.EMPTY)
-        .build(), s -> {
+    client.send(
+        Rpc.Ingest.newBuilder()
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("gw1")
+            .setEntity("gateway")
+            .setAttribute("armed")
+            .setValue(ByteString.EMPTY)
+            .build(),
+        s -> {
           received.add(s);
           latch.countDown();
         });
@@ -210,19 +212,22 @@ public class IngestClientTest {
     assertEquals(2, received.size());
   }
 
-
   @Test(timeout = 10000)
   public void testTimeoutRequest() throws InterruptedException {
     IngestClient client = create(new Options());
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Rpc.Status> status = new AtomicReference<>();
-    client.send(Rpc.Ingest.newBuilder()
-        .setUuid(UUID.randomUUID().toString())
-        .setKey("gw1")
-        .setEntity("gateway")
-        .setAttribute("armed")
-        .setValue(ByteString.EMPTY)
-        .build(), 500, TimeUnit.MILLISECONDS, s -> {
+    client.send(
+        Rpc.Ingest.newBuilder()
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("gw1")
+            .setEntity("gateway")
+            .setAttribute("armed")
+            .setValue(ByteString.EMPTY)
+            .build(),
+        500,
+        TimeUnit.MILLISECONDS,
+        s -> {
           status.set(s);
           latch.countDown();
         });
@@ -231,7 +236,6 @@ public class IngestClientTest {
     assertEquals(504, status.get().getStatus());
   }
 
-
   private IngestClient create(Options opts) {
     return new IngestClient(host, port, opts) {
 
@@ -239,38 +243,34 @@ public class IngestClientTest {
       void createChannelAndStub() {
         this.channel = mockChannel();
         this.ingestStub = IngestServiceGrpc.newStub(channel);
-        this.ingestRequestObserver = new StreamObserver<Rpc.IngestBulk>() {
+        this.ingestRequestObserver =
+            new StreamObserver<Rpc.IngestBulk>() {
 
-          @Override
-          public void onNext(Rpc.IngestBulk bulk) {
-            ingested.addAll(bulk.getIngestList());
-            Rpc.StatusBulk.Builder responses = Rpc.StatusBulk.newBuilder();
-            bulk.getIngestList().forEach(i -> {
-              if (!statuses.isEmpty()) {
-                responses.addStatus(
-                    statuses.pop().toBuilder().setUuid(i.getUuid()));
+              @Override
+              public void onNext(Rpc.IngestBulk bulk) {
+                ingested.addAll(bulk.getIngestList());
+                Rpc.StatusBulk.Builder responses = Rpc.StatusBulk.newBuilder();
+                bulk.getIngestList()
+                    .forEach(
+                        i -> {
+                          if (!statuses.isEmpty()) {
+                            responses.addStatus(statuses.pop().toBuilder().setUuid(i.getUuid()));
+                          }
+                        });
+                statusObserver.onNext(responses.build());
               }
-            });
-            statusObserver.onNext(responses.build());
-          }
 
-          @Override
-          public void onError(Throwable thrwbl) {
+              @Override
+              public void onError(Throwable thrwbl) {}
 
-          }
-
-          @Override
-          public void onCompleted() {
-
-          }
-        };
+              @Override
+              public void onCompleted() {}
+            };
       }
-
     };
   }
 
   private Channel mockChannel() {
     return mock(Channel.class);
   }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,7 @@ import java.util.Date;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Represent a {@link java.util.Date} with {@code String} representation
- * of epoch millis.
- */
+/** Represent a {@link java.util.Date} with {@code String} representation of epoch millis. */
 @Slf4j
 public class DateToLongConverter implements StringConverter<Date> {
 
@@ -57,5 +54,4 @@ public class DateToLongConverter implements StringConverter<Date> {
   public Date min() {
     return MIN;
   }
-
 }

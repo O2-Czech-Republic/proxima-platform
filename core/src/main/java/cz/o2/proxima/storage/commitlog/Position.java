@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,25 +17,19 @@ package cz.o2.proxima.storage.commitlog;
 
 import cz.o2.proxima.annotations.Stable;
 
-/**
- * An enum specifying the position in the commit log to start reading from.
- */
+/** An enum specifying the position in the commit log to start reading from. */
 @Stable
 public enum Position {
 
   /**
-   * Read the commit log from the current data actually pushed to the log
-   * or the currently committed position.
+   * Read the commit log from the current data actually pushed to the log or the currently committed
+   * position.
    */
   NEWEST,
 
-  /**
-   * Read from given offsets (current).
-   */
+  /** Read from given offsets (current). */
   CURRENT,
 
   /** Read the commit log from the oldest data available. */
   OLDEST;
-
 }
-

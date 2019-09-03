@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,19 +21,16 @@ import com.google.protobuf.TextFormat;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.util.Classpath;
-import lombok.extern.slf4j.Slf4j;
-
-import javax.annotation.Nullable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
-/**
- * Serializer from protobuffers.
- */
+/** Serializer from protobuffers. */
 @Slf4j
 public class ProtoSerializerFactory implements ValueSerializerFactory {
 
@@ -45,13 +42,11 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
   }
 
   @SuppressWarnings("unchecked")
-  private static <M extends AbstractMessage> ValueSerializer<M>
-      createSerializer(URI uri) {
+  private static <M extends AbstractMessage> ValueSerializer<M> createSerializer(URI uri) {
     return new ValueSerializer<M>() {
 
       final String protoClass = uri.getSchemeSpecificPart();
-      @Nullable
-      transient M defVal = null;
+      @Nullable transient M defVal = null;
 
       transient Parser<?> parser = null;
 
@@ -81,17 +76,18 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
         return value.toByteArray();
       }
 
-
       @SuppressWarnings("unchecked")
       private Parser<?> getParserForClass(String protoClassName) {
 
         try {
-          Class<?> proto = Classpath
-              .findClass(protoClassName, AbstractMessage.class);
+          Class<?> proto = Classpath.findClass(protoClassName, AbstractMessage.class);
           Method p = proto.getMethod("parser");
           return (Parser) p.invoke(null);
-        } catch (IllegalAccessException | IllegalArgumentException
-            | NoSuchMethodException | SecurityException | InvocationTargetException ex) {
+        } catch (IllegalAccessException
+            | IllegalArgumentException
+            | NoSuchMethodException
+            | SecurityException
+            | InvocationTargetException ex) {
 
           throw new IllegalArgumentException(
               "Cannot create parser from class " + protoClassName, ex);
@@ -102,21 +98,20 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
       public String getLogString(M value) {
         return TextFormat.shortDebugString(value);
       }
-
     };
   }
+
   @SuppressWarnings("unchecked")
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI scheme) {
-    return (ValueSerializer) parsers.computeIfAbsent(
-        scheme, ProtoSerializerFactory::createSerializer);
+    return (ValueSerializer)
+        parsers.computeIfAbsent(scheme, ProtoSerializerFactory::createSerializer);
   }
 
   @SuppressWarnings("unchecked")
   static <M extends AbstractMessage> M getDefaultInstance(String protoClass) {
     try {
-      Class<? extends AbstractMessage> cls = Classpath.findClass(
-          protoClass, AbstractMessage.class);
+      Class<? extends AbstractMessage> cls = Classpath.findClass(protoClass, AbstractMessage.class);
       Method method = cls.getMethod("getDefaultInstance");
       return (M) method.invoke(null);
     } catch (Exception ex) {
@@ -124,5 +119,4 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
           "Cannot retrieve default instance for type " + protoClass, ex);
     }
   }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,64 +23,61 @@ import java.time.Duration;
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
-/**
- * Metrics related to the ingest server.
- */
+/** Metrics related to the ingest server. */
 public class Metrics {
 
   private static final String GROUP = "cz.o2.proxima.server";
 
-  public static final Metric<Double> INGEST_SINGLE = TimeAveragingMetric.of(
-      GROUP, "ingest-single", 1_000);
+  public static final Metric<Double> INGEST_SINGLE =
+      TimeAveragingMetric.of(GROUP, "ingest-single", 1_000);
 
-  public static final Metric<Double> INGEST_BULK = TimeAveragingMetric.of(
-      GROUP, "ingest-bulk", 1_000);
+  public static final Metric<Double> INGEST_BULK =
+      TimeAveragingMetric.of(GROUP, "ingest-bulk", 1_000);
 
-  public static final ApproxPercentileMetric BULK_SIZE = ApproxPercentileMetric.of(
-      GROUP, "bulk-size", Duration.ofHours(1).toMillis(),
-      Duration.ofMinutes(5).toMillis());
+  public static final ApproxPercentileMetric BULK_SIZE =
+      ApproxPercentileMetric.of(
+          GROUP, "bulk-size", Duration.ofHours(1).toMillis(), Duration.ofMinutes(5).toMillis());
 
-  public static final Metric<Double> INGESTS = TimeAveragingMetric.of(
-      GROUP, "ingests", 1_000);
+  public static final Metric<Double> INGESTS = TimeAveragingMetric.of(GROUP, "ingests", 1_000);
 
-  public static final Metric<Double> COMMIT_LOG_APPEND = TimeAveragingMetric.of(
-      GROUP, "commit-log-append", 1_000);
+  public static final Metric<Double> COMMIT_LOG_APPEND =
+      TimeAveragingMetric.of(GROUP, "commit-log-append", 1_000);
 
-  public static final Metric<Double> GET_REQUESTS = TimeAveragingMetric.of(
-      GROUP, "get-requests", 1_000);
+  public static final Metric<Double> GET_REQUESTS =
+      TimeAveragingMetric.of(GROUP, "get-requests", 1_000);
 
-  public static final Metric<Double> LIST_REQUESTS = TimeAveragingMetric.of(
-      GROUP, "list-requests", 1_000);
+  public static final Metric<Double> LIST_REQUESTS =
+      TimeAveragingMetric.of(GROUP, "list-requests", 1_000);
 
-  public static final Metric<Double> UPDATE_REQUESTS = TimeAveragingMetric.of(
-      GROUP, "update-requests", 1_000);
+  public static final Metric<Double> UPDATE_REQUESTS =
+      TimeAveragingMetric.of(GROUP, "update-requests", 1_000);
 
-  public static final Metric<Double> DELETE_REQUESTS = TimeAveragingMetric.of(
-      GROUP, "delete-requests", 1_000);
+  public static final Metric<Double> DELETE_REQUESTS =
+      TimeAveragingMetric.of(GROUP, "delete-requests", 1_000);
 
-  public static final Metric<Double> DELETE_WILDCARD_REQUESTS = TimeAveragingMetric.of(
-      GROUP, "delete-wildcard-requests", 1_000);
+  public static final Metric<Double> DELETE_WILDCARD_REQUESTS =
+      TimeAveragingMetric.of(GROUP, "delete-wildcard-requests", 1_000);
 
-  public static final Metric<Double> NON_COMMIT_LOG_UPDATES = TimeAveragingMetric.of(
-      GROUP, "non-commit-updates", 1_000);
+  public static final Metric<Double> NON_COMMIT_LOG_UPDATES =
+      TimeAveragingMetric.of(GROUP, "non-commit-updates", 1_000);
 
-  public static final Metric<Double> NON_COMMIT_LOG_DELETES = TimeAveragingMetric.of(
-      GROUP, "non-commit-deletes", 1_000);
+  public static final Metric<Double> NON_COMMIT_LOG_DELETES =
+      TimeAveragingMetric.of(GROUP, "non-commit-deletes", 1_000);
 
-  public static final Metric<Double> COMMIT_UPDATE_DISCARDED = TimeAveragingMetric.of(
-      GROUP, "commits-discarded", 1_000);
+  public static final Metric<Double> COMMIT_UPDATE_DISCARDED =
+      TimeAveragingMetric.of(GROUP, "commits-discarded", 1_000);
 
-  public static final Metric<Double> NON_COMMIT_WRITES_RETRIES = TimeAveragingMetric.of(
-      GROUP, "non-commit-retries", 1_000);
+  public static final Metric<Double> NON_COMMIT_WRITES_RETRIES =
+      TimeAveragingMetric.of(GROUP, "non-commit-retries", 1_000);
 
-  public static final Metric<Double> INVALID_REQUEST = TimeAveragingMetric.of(
-      GROUP, "invalid-request", 1_000);
+  public static final Metric<Double> INVALID_REQUEST =
+      TimeAveragingMetric.of(GROUP, "invalid-request", 1_000);
 
-  public static final Metric<Double> INVALID_ENTITY = TimeAveragingMetric.of(
-      GROUP, "invalid-entity", 1_000);
+  public static final Metric<Double> INVALID_ENTITY =
+      TimeAveragingMetric.of(GROUP, "invalid-entity", 1_000);
 
-  public static final Metric<Double> INVALID_ATTRIBUTE = TimeAveragingMetric.of(
-      GROUP, "invalid-attribute", 1_000);
+  public static final Metric<Double> INVALID_ATTRIBUTE =
+      TimeAveragingMetric.of(GROUP, "invalid-attribute", 1_000);
 
   private static final Metric[] ALL = {
     INGEST_SINGLE,
@@ -102,14 +99,14 @@ public class Metrics {
     INVALID_ATTRIBUTE
   };
 
-
   public static void register() {
 
-    MBeanServer mbs =  ManagementFactory.getPlatformMBeanServer();
+    MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
     try {
       for (Metric m : ALL) {
-        ObjectName mxbeanName = new ObjectName(
-            m.getGroup() + "." + m.getName() + ":type=" + m.getClass().getSimpleName());
+        ObjectName mxbeanName =
+            new ObjectName(
+                m.getGroup() + "." + m.getName() + ":type=" + m.getClass().getSimpleName());
         mbs.registerMBean(m, mxbeanName);
       }
     } catch (Exception ex) {

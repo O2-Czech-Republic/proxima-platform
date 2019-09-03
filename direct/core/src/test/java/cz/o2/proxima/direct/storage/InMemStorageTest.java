@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 package cz.o2.proxima.direct.storage;
+
+import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
@@ -42,53 +44,115 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
-/**
- * Test suite for {@link InMemStorage}.
- */
+/** Test suite for {@link InMemStorage}. */
 public class InMemStorageTest implements Serializable {
 
-  final Repository repo = ConfigRepository.of(
-      ConfigFactory.load("test-reference.conf").resolve());
+  final Repository repo = ConfigRepository.of(ConfigFactory.load("test-reference.conf").resolve());
   final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
-  final EntityDescriptor entity = repo
-      .findEntity("dummy")
-      .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
-  final AttributeDescriptor<?> data = entity.findAttribute("data")
-                .orElseThrow(() -> new IllegalStateException(
-                    "Missing attribute data"));
+  final EntityDescriptor entity =
+      repo.findEntity("dummy").orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
+  final AttributeDescriptor<?> data =
+      entity
+          .findAttribute("data")
+          .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
 
   @Test(timeout = 10000)
-  public void testObservePartitions()
-      throws URISyntaxException, InterruptedException {
+  public void testObservePartitions() throws URISyntaxException, InterruptedException {
 
     InMemStorage storage = new InMemStorage();
-    DataAccessor accessor = storage.createAccessor(
-        direct, entity, new URI("inmem:///inmemstoragetest"),
-        Collections.emptyMap());
-    CommitLogReader reader = accessor.getCommitLogReader(direct.getContext())
-        .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-    AttributeWriterBase writer = accessor.getWriter(direct.getContext())
-        .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    DataAccessor accessor =
+        storage.createAccessor(
+            direct, entity, new URI("inmem:///inmemstoragetest"), Collections.emptyMap());
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    AttributeWriterBase writer =
+        accessor
+            .getWriter(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing writer"));
     AtomicReference<CountDownLatch> latch = new AtomicReference<>();
-    ObserveHandle handle = reader.observePartitions(
-        reader.getPartitions(), new LogObserver() {
+    ObserveHandle handle =
+        reader.observePartitions(
+            reader.getPartitions(),
+            new LogObserver() {
+
+              @Override
+              public void onRepartition(OnRepartitionContext context) {
+                assertEquals(1, context.partitions().size());
+                latch.set(new CountDownLatch(1));
+              }
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+
+                assertEquals(0, context.getPartition().getId());
+                assertEquals("key", ingest.getKey());
+                context.confirm();
+                latch.get().countDown();
+                return false;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
+
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                data,
+                UUID.randomUUID().toString(),
+                "key",
+                data.getName(),
+                System.currentTimeMillis(),
+                new byte[] {1, 2, 3}),
+            (succ, exc) -> {});
+    latch.get().await();
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveBatch() throws URISyntaxException, InterruptedException {
+
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor =
+        storage.createAccessor(
+            direct, entity, new URI("inmem:///inmemstoragetest"), Collections.emptyMap());
+    BatchLogObservable reader =
+        accessor
+            .getBatchLogObservable(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing batch log observable"));
+    AttributeWriterBase writer =
+        accessor
+            .getWriter(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    CountDownLatch latch = new CountDownLatch(1);
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                data,
+                UUID.randomUUID().toString(),
+                "key",
+                data.getName(),
+                System.currentTimeMillis(),
+                new byte[] {1, 2, 3}),
+            (succ, exc) -> {});
+    reader.observe(
+        reader.getPartitions(),
+        Arrays.asList(data),
+        new BatchLogObserver() {
 
           @Override
-          public void onRepartition(OnRepartitionContext context) {
-            assertEquals(1, context.partitions().size());
-            latch.set(new CountDownLatch(1));
-          }
-
-          @Override
-          public boolean onNext(
-              StreamElement ingest, OnNextContext context) {
-
-            assertEquals(0, context.getPartition().getId());
+          public boolean onNext(StreamElement ingest, Partition partition) {
+            assertEquals(0, partition.getId());
             assertEquals("key", ingest.getKey());
-            context.confirm();
-            latch.get().countDown();
+            latch.countDown();
             return false;
           }
 
@@ -96,72 +160,101 @@ public class InMemStorageTest implements Serializable {
           public boolean onError(Throwable error) {
             throw new RuntimeException(error);
           }
-
         });
-
-    writer.online().write(
-        StreamElement.update(
-            entity, data,
-            UUID.randomUUID().toString(), "key", data.getName(),
-            System.currentTimeMillis(), new byte[] { 1, 2, 3 }),
-        (succ, exc) -> { });
-    latch.get().await();
-  }
-
-  @Test(timeout = 10000)
-  public void testObserveBatch()
-      throws URISyntaxException, InterruptedException {
-
-    InMemStorage storage = new InMemStorage();
-    DataAccessor accessor = storage.createAccessor(
-        direct, entity, new URI("inmem:///inmemstoragetest"),
-        Collections.emptyMap());
-    BatchLogObservable reader = accessor.getBatchLogObservable(direct.getContext())
-        .orElseThrow(() -> new IllegalStateException("Missing batch log observable"));
-    AttributeWriterBase writer = accessor.getWriter(direct.getContext())
-        .orElseThrow(() -> new IllegalStateException("Missing writer"));
-    CountDownLatch latch = new CountDownLatch(1);
-    writer.online().write(
-        StreamElement.update(
-            entity, data,
-            UUID.randomUUID().toString(), "key", data.getName(),
-            System.currentTimeMillis(), new byte[] { 1, 2, 3 }),
-        (succ, exc) -> { });
-    reader.observe(reader.getPartitions(), Arrays.asList(data), new BatchLogObserver() {
-
-      @Override
-      public boolean onNext(StreamElement ingest, Partition partition) {
-        assertEquals(0, partition.getId());
-        assertEquals("key", ingest.getKey());
-        latch.countDown();
-        return false;
-      }
-
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
-
-    });
     latch.await();
   }
 
-
   @Test(timeout = 10000)
-  public void testObserveCancel()
-      throws URISyntaxException, InterruptedException {
+  public void testObserveCancel() throws URISyntaxException, InterruptedException {
 
     InMemStorage storage = new InMemStorage();
-    DataAccessor accessor = storage.createAccessor(
-        direct, entity, new URI("inmem:///inmemstoragetest"),
-        Collections.emptyMap());
-    CommitLogReader reader = accessor.getCommitLogReader(direct.getContext())
-        .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-    AttributeWriterBase writer = accessor.getWriter(direct.getContext())
-        .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    DataAccessor accessor =
+        storage.createAccessor(
+            direct, entity, new URI("inmem:///inmemstoragetest"), Collections.emptyMap());
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    AttributeWriterBase writer =
+        accessor
+            .getWriter(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing writer"));
     List<Byte> received = new ArrayList<>();
-    ObserveHandle handle = reader.observePartitions(
-        reader.getPartitions(), new LogObserver() {
+    ObserveHandle handle =
+        reader.observePartitions(
+            reader.getPartitions(),
+            new LogObserver() {
+
+              @Override
+              public void onRepartition(LogObserver.OnRepartitionContext context) {
+                assertEquals(1, context.partitions().size());
+              }
+
+              @Override
+              public boolean onNext(StreamElement ingest, LogObserver.OnNextContext context) {
+
+                assertEquals(0, context.getPartition().getId());
+                assertEquals("key", ingest.getKey());
+                context.confirm();
+                received.add(ingest.getValue()[0]);
+                return false;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
+
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                data,
+                UUID.randomUUID().toString(),
+                "key",
+                data.getName(),
+                System.currentTimeMillis(),
+                new byte[] {1}),
+            (succ, exc) -> {});
+    List<Offset> offsets = handle.getCurrentOffsets();
+    assertEquals(1, offsets.size());
+    assertEquals(Arrays.asList((byte) 1), received);
+    handle.cancel();
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                data,
+                UUID.randomUUID().toString(),
+                "key",
+                data.getName(),
+                System.currentTimeMillis(),
+                new byte[] {2}),
+            (succ, exc) -> {});
+    assertEquals(Arrays.asList((byte) 1), received);
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveOffsets() throws URISyntaxException, InterruptedException {
+
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor =
+        storage.createAccessor(
+            direct, entity, new URI("inmem:///inmemstoragetest"), Collections.emptyMap());
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    AttributeWriterBase writer =
+        accessor
+            .getWriter(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    List<Byte> received = new ArrayList<>();
+    LogObserver observer =
+        new LogObserver() {
 
           @Override
           public void onRepartition(LogObserver.OnRepartitionContext context) {
@@ -169,8 +262,7 @@ public class InMemStorageTest implements Serializable {
           }
 
           @Override
-          public boolean onNext(
-              StreamElement ingest, LogObserver.OnNextContext context) {
+          public boolean onNext(StreamElement ingest, LogObserver.OnNextContext context) {
 
             assertEquals(0, context.getPartition().getId());
             assertEquals("key", ingest.getKey());
@@ -183,75 +275,21 @@ public class InMemStorageTest implements Serializable {
           public boolean onError(Throwable error) {
             throw new RuntimeException(error);
           }
+        };
+    ObserveHandle handle = reader.observePartitions(reader.getPartitions(), observer);
 
-        });
-
-    writer.online().write(
-        StreamElement.update(
-            entity, data,
-            UUID.randomUUID().toString(), "key", data.getName(),
-            System.currentTimeMillis(), new byte[] { 1 }),
-        (succ, exc) -> { });
-    List<Offset> offsets = handle.getCurrentOffsets();
-    assertEquals(1, offsets.size());
-    assertEquals(Arrays.asList((byte) 1), received);
-    handle.cancel();
-    writer.online().write(
-        StreamElement.update(
-            entity, data,
-            UUID.randomUUID().toString(), "key", data.getName(),
-            System.currentTimeMillis(), new byte[] { 2 }),
-        (succ, exc) -> { });
-    assertEquals(Arrays.asList((byte) 1), received);
-  }
-
-
-  @Test(timeout = 10000)
-  public void testObserveOffsets()
-      throws URISyntaxException, InterruptedException {
-
-    InMemStorage storage = new InMemStorage();
-    DataAccessor accessor = storage.createAccessor(
-        direct, entity, new URI("inmem:///inmemstoragetest"),
-        Collections.emptyMap());
-    CommitLogReader reader = accessor.getCommitLogReader(direct.getContext())
-        .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-    AttributeWriterBase writer = accessor.getWriter(direct.getContext())
-        .orElseThrow(() -> new IllegalStateException("Missing writer"));
-    List<Byte> received = new ArrayList<>();
-    LogObserver observer = new LogObserver() {
-
-      @Override
-      public void onRepartition(LogObserver.OnRepartitionContext context) {
-        assertEquals(1, context.partitions().size());
-      }
-
-      @Override
-      public boolean onNext(
-          StreamElement ingest, LogObserver.OnNextContext context) {
-
-        assertEquals(0, context.getPartition().getId());
-        assertEquals("key", ingest.getKey());
-        context.confirm();
-        received.add(ingest.getValue()[0]);
-        return false;
-      }
-
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
-
-    };
-    ObserveHandle handle = reader.observePartitions(
-        reader.getPartitions(), observer);
-
-    writer.online().write(
-        StreamElement.update(
-            entity, data,
-            UUID.randomUUID().toString(), "key", data.getName(),
-            System.currentTimeMillis(), new byte[] { 1 }),
-        (succ, exc) -> { });
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                data,
+                UUID.randomUUID().toString(),
+                "key",
+                data.getName(),
+                System.currentTimeMillis(),
+                new byte[] {1}),
+            (succ, exc) -> {});
     List<Offset> offsets = handle.getCurrentOffsets();
     assertEquals(1, offsets.size());
     assertTrue(offsets.get(0).getWatermark() > 0);
@@ -261,13 +299,18 @@ public class InMemStorageTest implements Serializable {
     offsets = handle.getCurrentOffsets();
     assertEquals(1, offsets.size());
     assertTrue(offsets.get(0).getWatermark() > 0);
-    writer.online().write(
-        StreamElement.update(
-            entity, data,
-            UUID.randomUUID().toString(), "key", data.getName(),
-            System.currentTimeMillis(), new byte[] { 2 }),
-        (succ, exc) -> { });
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                data,
+                UUID.randomUUID().toString(),
+                "key",
+                data.getName(),
+                System.currentTimeMillis(),
+                new byte[] {2}),
+            (succ, exc) -> {});
     assertEquals(Arrays.asList((byte) 1, (byte) 2), received);
   }
-
 }

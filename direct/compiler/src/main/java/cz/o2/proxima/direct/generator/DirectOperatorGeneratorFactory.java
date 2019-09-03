@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,18 +26,14 @@ import cz.o2.proxima.generator.OperatorGenerator;
 import cz.o2.proxima.generator.OperatorGeneratorFactory;
 import cz.o2.proxima.repository.DataOperatorFactory;
 import cz.o2.proxima.repository.Repository;
-import java.util.Set;
-
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateExceptionHandler;
 import java.io.StringWriter;
 import java.util.HashMap;
+import java.util.Set;
 
-
-/**
- * {@link OperatorGeneratorFactory} for {@link DirectDataOperator}.
- */
+/** {@link OperatorGeneratorFactory} for {@link DirectDataOperator}. */
 public class DirectOperatorGeneratorFactory implements OperatorGeneratorFactory {
 
   static class Generator implements OperatorGenerator {
@@ -61,8 +57,7 @@ public class DirectOperatorGeneratorFactory implements OperatorGeneratorFactory 
           DirectAttributeFamilyDescriptor.class.getName(),
           CommitLogReader.class.getName(),
           KeyValue.class.getName(),
-          RandomAccessReader.class.getName()
-      );
+          RandomAccessReader.class.getName());
     }
 
     @Override
@@ -79,12 +74,10 @@ public class DirectOperatorGeneratorFactory implements OperatorGeneratorFactory 
     }
 
     private Configuration getConf() {
-      Configuration freeMarkerConf = new Configuration(
-          Configuration.VERSION_2_3_23);
+      Configuration freeMarkerConf = new Configuration(Configuration.VERSION_2_3_23);
       freeMarkerConf.setDefaultEncoding("utf-8");
       freeMarkerConf.setClassForTemplateLoading(getClass(), "/");
-      freeMarkerConf.setTemplateExceptionHandler(
-          TemplateExceptionHandler.RETHROW_HANDLER);
+      freeMarkerConf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
       freeMarkerConf.setLogTemplateExceptions(false);
       return freeMarkerConf;
     }
@@ -93,12 +86,10 @@ public class DirectOperatorGeneratorFactory implements OperatorGeneratorFactory 
     public String getOperatorClassName() {
       return DirectDataOperator.class.getName();
     }
-
   }
 
   @Override
   public OperatorGenerator create(Repository repo) {
     return new Generator(repo);
   }
-
 }

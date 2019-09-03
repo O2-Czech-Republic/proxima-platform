@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,17 +23,13 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Getter;
 
-/**
- * Offset used in bulk consumption.
- */
+/** Offset used in bulk consumption. */
 class TopicOffset implements Offset {
 
   // map of partitionId -> committed offset
   private final int partition;
-  @Getter
-  private final long offset;
-  @Getter
-  private final long watermark;
+  @Getter private final long offset;
+  @Getter private final long watermark;
 
   TopicOffset(int partition, long offset, long watermark) {
     this.partition = partition;
@@ -44,9 +40,12 @@ class TopicOffset implements Offset {
   @Override
   public String toString() {
     return "TopicOffset("
-        + "partition=" + partition
-        + ", offset=" + offset
-        + ", watermark=" + watermark
+        + "partition="
+        + partition
+        + ", offset="
+        + offset
+        + ", watermark="
+        + watermark
         + ")";
   }
 
@@ -59,8 +58,7 @@ class TopicOffset implements Offset {
   public boolean equals(Object obj) {
     if (obj instanceof TopicOffset) {
       TopicOffset other = (TopicOffset) obj;
-      return other.partition == partition && other.offset == offset
-          && other.watermark == watermark;
+      return other.partition == partition && other.offset == offset && other.watermark == watermark;
     }
     return false;
   }
@@ -70,12 +68,11 @@ class TopicOffset implements Offset {
     return Objects.hash(partition, offset, watermark);
   }
 
-
   static List<TopicOffset> fromMap(Map<Integer, Long> offsetMap, long watermark) {
-    return offsetMap.entrySet().stream()
+    return offsetMap
+        .entrySet()
+        .stream()
         .map(e -> new TopicOffset(e.getKey(), e.getValue(), watermark))
         .collect(Collectors.toList());
   }
-
 }
-

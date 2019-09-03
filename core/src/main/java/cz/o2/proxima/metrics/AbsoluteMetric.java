@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,7 @@ import com.google.common.util.concurrent.AtomicDouble;
 import cz.o2.proxima.annotations.Stable;
 import java.beans.ConstructorProperties;
 
-/**
- * A metric with absolute value.
- */
+/** A metric with absolute value. */
 @Stable
 public class AbsoluteMetric extends ScalarMetric {
 
@@ -31,7 +29,7 @@ public class AbsoluteMetric extends ScalarMetric {
 
   AtomicDouble value = new AtomicDouble();
 
-  @ConstructorProperties({ "group", "name" })
+  @ConstructorProperties({"group", "name"})
   public AbsoluteMetric(String group, String name) {
     super(group, name);
   }
@@ -54,5 +52,4 @@ public class AbsoluteMetric extends ScalarMetric {
   public void reset() {
     setValue(0.0);
   }
-
 }

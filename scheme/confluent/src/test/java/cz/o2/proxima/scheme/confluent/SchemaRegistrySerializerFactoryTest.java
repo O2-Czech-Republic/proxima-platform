@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,24 +15,21 @@
  */
 package cz.o2.proxima.scheme.confluent;
 
+import static org.junit.Assert.*;
+
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.scheme.avro.AvroSerializer;
 import cz.o2.proxima.scheme.avro.test.Event;
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import org.junit.Before;
-import org.junit.Test;
-
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Optional;
+import org.junit.Before;
+import org.junit.Test;
 
-import static org.junit.Assert.*;
-
-/**
- * Test {@link SchemaRegistrySerializerFactory}.
- */
+/** Test {@link SchemaRegistrySerializerFactory}. */
 public class SchemaRegistrySerializerFactoryTest {
   private SchemaRegistryClient schemaRegistry;
   private SchemaRegistryValueSerializer<Event> serializer;
@@ -44,49 +41,48 @@ public class SchemaRegistrySerializerFactoryTest {
     schemaRegistry = new MockSchemaRegistryClient();
     schemaRegistry.register("event", Event.getClassSchema());
 
-    serializer = (SchemaRegistryValueSerializer) factory.getValueSerializer(
-        new URI("schema-registry:http://schema-registry:8081/event")
-    );
+    serializer =
+        (SchemaRegistryValueSerializer)
+            factory.getValueSerializer(
+                new URI("schema-registry:http://schema-registry:8081/event"));
     serializer.setSchemaRegistry(schemaRegistry);
-
   }
 
   @Test
   public void testSerializeAndDeserialize() throws Exception {
-    Event event = Event.newBuilder()
-        .setGatewayId("gateway")
-        .setPayload(ByteBuffer.wrap("my-payload".getBytes()))
-        .build();
+    Event event =
+        Event.newBuilder()
+            .setGatewayId("gateway")
+            .setPayload(ByteBuffer.wrap("my-payload".getBytes()))
+            .build();
 
     byte[] bytes = serializer.serialize(event);
     Optional<Event> deserialized = serializer.deserialize(bytes);
     assertTrue(deserialized.isPresent());
     assertEquals(event, deserialized.get());
-    assertEquals(event.getClass().getName(),factory.getClassName(
-        new URI("schema-registry:http://schema-registry:8081/event")
-    ));
+    assertEquals(
+        event.getClass().getName(),
+        factory.getClassName(new URI("schema-registry:http://schema-registry:8081/event")));
   }
 
   @Test
   public void testGetClassname() throws Exception {
-    assertEquals(Event.class.getName(),factory.getClassName(
-        new URI("schema-registry:http://schema-registry:8081/event")
-    ));
-
+    assertEquals(
+        Event.class.getName(),
+        factory.getClassName(new URI("schema-registry:http://schema-registry:8081/event")));
   }
 
   @Test
   public void testByteSerialization() throws Exception {
-    Event event = Event.newBuilder()
-        .setGatewayId("gateway")
-        .setPayload(ByteBuffer.wrap("my-payload".getBytes()))
-        .build();
+    Event event =
+        Event.newBuilder()
+            .setGatewayId("gateway")
+            .setPayload(ByteBuffer.wrap("my-payload".getBytes()))
+            .build();
 
     ByteBuffer buffer = ByteBuffer.wrap(serializer.serialize(event));
     assertEquals(SchemaRegistryValueSerializer.MAGIC_BYTE, buffer.get());
-    assertEquals(
-        schemaRegistry.getLatestSchemaMetadata("event").getId(), buffer.getInt());
-
+    assertEquals(schemaRegistry.getLatestSchemaMetadata("event").getId(), buffer.getInt());
 
     AvroSerializer<Event> avroSerializer = new AvroSerializer<>(event.getSchema());
 
@@ -99,23 +95,22 @@ public class SchemaRegistrySerializerFactoryTest {
 
   @Test
   public void testWithInvalidUri() throws Exception {
-    ValueSerializer s = factory.getValueSerializer(
-        new URI("schema-registry:not-valid"));
+    ValueSerializer s = factory.getValueSerializer(new URI("schema-registry:not-valid"));
     assertFalse(s.isUsable());
   }
 
   @Test
   public void testDeserializeWithInvalidMagicByte() {
-    assertFalse(serializer.deserialize(new byte[]{ 0x1 }).isPresent());
+    assertFalse(serializer.deserialize(new byte[] {0x1}).isPresent());
   }
 
   @Test
   public void testDeserializeNotRegisteredSubject() throws Exception {
 
-    SchemaRegistryValueSerializer s = (SchemaRegistryValueSerializer) factory
-        .getValueSerializer(
-            new URI("schema-registry:http://schema-registry:8081/not-registered")
-        );
+    SchemaRegistryValueSerializer s =
+        (SchemaRegistryValueSerializer)
+            factory.getValueSerializer(
+                new URI("schema-registry:http://schema-registry:8081/not-registered"));
     s.setSchemaRegistry(schemaRegistry);
     assertFalse(s.isUsable());
   }
@@ -123,15 +118,16 @@ public class SchemaRegistrySerializerFactoryTest {
   @Test
   public void testBytesDeserialization() throws Exception {
     int schemaId = schemaRegistry.getLatestSchemaMetadata("event").getId();
-    Event event = Event.newBuilder()
-        .setGatewayId("gateway")
-        .setPayload(ByteBuffer.wrap("my-payload".getBytes()))
-        .build();
+    Event event =
+        Event.newBuilder()
+            .setGatewayId("gateway")
+            .setPayload(ByteBuffer.wrap("my-payload".getBytes()))
+            .build();
 
     AvroSerializer<Event> avroSerializer = new AvroSerializer<>(event.getSchema());
     byte[] eventBytes = avroSerializer.serialize(event);
-    ByteBuffer buffer = ByteBuffer
-        .allocate(1 + SchemaRegistryValueSerializer.SCHEMA_ID_SIZE + eventBytes.length);
+    ByteBuffer buffer =
+        ByteBuffer.allocate(1 + SchemaRegistryValueSerializer.SCHEMA_ID_SIZE + eventBytes.length);
 
     buffer.put(SchemaRegistryValueSerializer.MAGIC_BYTE);
     buffer.putInt(schemaId);
@@ -141,12 +137,10 @@ public class SchemaRegistrySerializerFactoryTest {
 
     assertTrue(fromBytes.isPresent());
     assertEquals(event, fromBytes.get());
-
   }
 
   @Test
   public void testIsUsable() {
     assertTrue(serializer.isUsable());
   }
-
 }

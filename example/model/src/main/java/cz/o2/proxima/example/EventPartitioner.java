@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Partitioner;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Partitioner for the events.
- */
+/** Partitioner for the events. */
 @Slf4j
 public class EventPartitioner implements Partitioner {
 
@@ -39,7 +37,8 @@ public class EventPartitioner implements Partitioner {
         if (log.isDebugEnabled()) {
           log.debug(
               "Partitioned event {} to partition ID {}",
-              TextFormat.shortDebugString(event), partition);
+              TextFormat.shortDebugString(event),
+              partition);
         }
         return partition;
       } catch (InvalidProtocolBufferException ex) {
@@ -48,5 +47,4 @@ public class EventPartitioner implements Partitioner {
     }
     return 0;
   }
-
 }

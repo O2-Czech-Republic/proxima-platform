@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,8 +30,6 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.TemplateExceptionHandler;
-import org.apache.commons.io.IOUtils;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -46,10 +44,9 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.IOUtils;
 
-/**
- * Generates code for accessing data of entity and it's attributes.
- */
+/** Generates code for accessing data of entity and it's attributes. */
 @Slf4j
 public class ModelGenerator {
 
@@ -59,24 +56,21 @@ public class ModelGenerator {
   private final File outputPath;
 
   public ModelGenerator(
-      String javaPackage, String className,
-      String sourceConfigPath, String outputPath) {
+      String javaPackage, String className, String sourceConfigPath, String outputPath) {
 
     this(javaPackage, className, sourceConfigPath, outputPath, true);
   }
 
   ModelGenerator(
-      String javaPackage, String className,
-      String sourceConfigPath, String outputPath,
+      String javaPackage,
+      String className,
+      String sourceConfigPath,
+      String outputPath,
       boolean validate) {
 
-
     Preconditions.checkArgument(
-        !Strings.isNullOrEmpty(javaPackage),
-        "Java package name is missing");
-    Preconditions.checkArgument(
-        !Strings.isNullOrEmpty(className),
-        "Class name is missing");
+        !Strings.isNullOrEmpty(javaPackage), "Java package name is missing");
+    Preconditions.checkArgument(!Strings.isNullOrEmpty(className), "Class name is missing");
 
     this.javaPackage = javaPackage;
     this.className = className;
@@ -90,8 +84,7 @@ public class ModelGenerator {
       }
 
       if (!this.outputPath.isAbsolute()) {
-        throw new IllegalArgumentException(
-            "Output path must be absolute [ " + outputPath + " ]");
+        throw new IllegalArgumentException("Output path must be absolute [ " + outputPath + " ]");
       }
     }
   }
@@ -105,39 +98,35 @@ public class ModelGenerator {
     }
 
     try (FileOutputStream out = new FileOutputStream(outputFile)) {
-      generate(
-          ConfigFactory.parseFile(sourceConfigPath).resolve(),
-          new OutputStreamWriter(out));
+      generate(ConfigFactory.parseFile(sourceConfigPath).resolve(), new OutputStreamWriter(out));
     }
   }
 
   @VisibleForTesting
-  void generate(Config config, Writer writer)
-      throws IOException, TemplateException {
+  void generate(Config config, Writer writer) throws IOException, TemplateException {
 
     final Configuration conf = getConf();
 
-    final Repository repo = ConfigRepository.Builder
-        .of(config)
-        .withReadOnly(true)
-        .withValidate(false)
-        .withLoadFamilies(false)
-        .withLoadClasses(false)
-        .build();
+    final Repository repo =
+        ConfigRepository.Builder.of(config)
+            .withReadOnly(true)
+            .withValidate(false)
+            .withLoadFamilies(false)
+            .withLoadClasses(false)
+            .build();
 
     Map<String, Object> root = new HashMap<>();
 
     List<OperatorGenerator> operatorGenerators = getOperatorGenerators(repo);
 
-    final Set<String> operatorImports = operatorGenerators
-        .stream()
-        .map(OperatorGenerator::imports)
-        .reduce(Sets.newHashSet(), Sets::union);
+    final Set<String> operatorImports =
+        operatorGenerators
+            .stream()
+            .map(OperatorGenerator::imports)
+            .reduce(Sets.newHashSet(), Sets::union);
 
-    final List<Map<String, String>> operators = operatorGenerators
-        .stream()
-        .map(this::toOperatorSubclassDef)
-        .collect(Collectors.toList());
+    final List<Map<String, String>> operators =
+        operatorGenerators.stream().map(this::toOperatorSubclassDef).collect(Collectors.toList());
 
     final List<Map<String, Object>> entities = getEntities(repo);
 
@@ -179,27 +168,31 @@ public class ModelGenerator {
     ret.put("name", e.getName());
     ret.put("nameCamel", CamelCase.apply(e.getName()));
 
-    List<Map<String, Object>> attributes = e.getAllAttributes().stream()
-        .map(attr -> {
-          ValueSerializerFactory serializerFactory = repo
-              .getValueSerializerFactory(attr.getSchemeUri().getScheme())
-              .orElseThrow(() -> new IllegalStateException(
-                  "Unable to retrieve serializer factory for scheme "
-                      + attr.getSchemeUri().getScheme()
-                      + ". Looks like missing dependency for maven plugin.")
-              );
+    List<Map<String, Object>> attributes =
+        e.getAllAttributes()
+            .stream()
+            .map(
+                attr -> {
+                  ValueSerializerFactory serializerFactory =
+                      repo.getValueSerializerFactory(attr.getSchemeUri().getScheme())
+                          .orElseThrow(
+                              () ->
+                                  new IllegalStateException(
+                                      "Unable to retrieve serializer factory for scheme "
+                                          + attr.getSchemeUri().getScheme()
+                                          + ". Looks like missing dependency for maven plugin."));
 
-          Map<String, Object> attrMap = new HashMap<>();
-          String nameModified = attr.toAttributePrefix(false);
-          attrMap.put("wildcard", attr.isWildcard());
-          attrMap.put("nameRaw", attr.getName());
-          attrMap.put("name", nameModified);
-          attrMap.put("nameCamel", CamelCase.apply(nameModified));
-          attrMap.put("nameUpper", nameModified.toUpperCase());
-          attrMap.put("type", serializerFactory.getClassName(attr.getSchemeUri()));
-          return attrMap;
-        })
-        .collect(Collectors.toList());
+                  Map<String, Object> attrMap = new HashMap<>();
+                  String nameModified = attr.toAttributePrefix(false);
+                  attrMap.put("wildcard", attr.isWildcard());
+                  attrMap.put("nameRaw", attr.getName());
+                  attrMap.put("name", nameModified);
+                  attrMap.put("nameCamel", CamelCase.apply(nameModified));
+                  attrMap.put("nameUpper", nameModified.toUpperCase());
+                  attrMap.put("type", serializerFactory.getClassName(attr.getSchemeUri()));
+                  return attrMap;
+                })
+            .collect(Collectors.toList());
     ret.put("attributes", attributes);
     return ret;
   }
@@ -224,8 +217,8 @@ public class ModelGenerator {
 
   private List<OperatorGenerator> getOperatorGenerators(Repository repo) {
     List<OperatorGenerator> ret = new ArrayList<>();
-    ServiceLoader<OperatorGeneratorFactory> loader = ServiceLoader.load(
-        OperatorGeneratorFactory.class);
+    ServiceLoader<OperatorGeneratorFactory> loader =
+        ServiceLoader.load(OperatorGeneratorFactory.class);
     for (OperatorGeneratorFactory ogf : loader) {
       ret.add(ogf.create(repo));
     }
@@ -237,10 +230,8 @@ public class ModelGenerator {
     ret.put("operatorClass", generator.getOperatorClassName());
     ret.put("classdef", generator.classDef());
     ret.put("name", generator.operatorFactory().getOperatorName());
-    ret.put("classname", toClassName(
-        generator.operatorFactory().getOperatorName() + " operator"));
+    ret.put("classname", toClassName(generator.operatorFactory().getOperatorName() + " operator"));
 
     return ret;
   }
-
 }

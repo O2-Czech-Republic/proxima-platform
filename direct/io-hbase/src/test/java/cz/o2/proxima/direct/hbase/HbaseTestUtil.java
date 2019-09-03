@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,18 +20,14 @@ import java.nio.charset.Charset;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Table;
 
-
-/**
- * Various test related utilities.
- */
+/** Various test related utilities. */
 class HbaseTestUtil {
 
   static byte[] bytes(String s) {
     return s.getBytes(Charset.forName("UTF-8"));
   }
 
-  static void write(
-      String key, String attribute, String value, long stamp, Table client)
+  static void write(String key, String attribute, String value, long stamp, Table client)
       throws IOException {
 
     Put p = new Put(bytes(key));
@@ -39,7 +35,5 @@ class HbaseTestUtil {
     client.put(p);
   }
 
-  private HbaseTestUtil() { }
-
-
+  private HbaseTestUtil() {}
 }

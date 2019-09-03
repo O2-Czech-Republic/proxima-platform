@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,7 @@ import java.util.Arrays;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Serializer factory for Longs.
- */
+/** Serializer factory for Longs. */
 @Stable
 @Slf4j
 public class LongSerializer implements ValueSerializerFactory {
@@ -37,47 +35,46 @@ public class LongSerializer implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
-    return (ValueSerializer) new ValueSerializer<Long>() {
+    return (ValueSerializer)
+        new ValueSerializer<Long>() {
 
-      @Override
-      public Optional<Long> deserialize(byte[] input) {
-        try {
-          ByteBuffer buffer = ByteBuffer.wrap(input);
-          return Optional.ofNullable(buffer.getLong());
-        } catch (Exception ex) {
-          log.warn("Failed to parse bytes {}", Arrays.toString(input));
-          return Optional.empty();
-        }
-      }
+          @Override
+          public Optional<Long> deserialize(byte[] input) {
+            try {
+              ByteBuffer buffer = ByteBuffer.wrap(input);
+              return Optional.ofNullable(buffer.getLong());
+            } catch (Exception ex) {
+              log.warn("Failed to parse bytes {}", Arrays.toString(input));
+              return Optional.empty();
+            }
+          }
 
-      @Override
-      public byte[] serialize(Long value) {
-        ByteBuffer buffer = ByteBuffer.allocate(8);
-        buffer.putLong(value);
-        return buffer.array();
-      }
+          @Override
+          public byte[] serialize(Long value) {
+            ByteBuffer buffer = ByteBuffer.allocate(8);
+            buffer.putLong(value);
+            return buffer.array();
+          }
 
-      @Override
-      public Long getDefault() {
-        return 0L;
-      }
+          @Override
+          public Long getDefault() {
+            return 0L;
+          }
 
-      @Override
-      public String asJsonValue(Long value) {
-        return String.valueOf(value);
-      }
+          @Override
+          public String asJsonValue(Long value) {
+            return String.valueOf(value);
+          }
 
-      @Override
-      public Long fromJsonValue(String json) {
-        return Long.valueOf(json);
-      }
-    };
+          @Override
+          public Long fromJsonValue(String json) {
+            return Long.valueOf(json);
+          }
+        };
   }
 
   @Override
   public String getClassName(URI specifier) {
     return "Long";
   }
-
-
 }

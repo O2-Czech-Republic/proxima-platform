@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,14 +59,14 @@ import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.sdk.values.WindowingStrategy;
 import org.joda.time.Duration;
 
-/**
- * A {@link WindowedStream} backed by beam.
- */
+/** A {@link WindowedStream} backed by beam. */
 class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @SuppressWarnings("unchecked")
   BeamWindowedStream(
-      StreamConfig config, boolean bounded, PCollectionProvider<T> input,
+      StreamConfig config,
+      boolean bounded,
+      PCollectionProvider<T> input,
       WindowingStrategy windowingStrategy,
       StreamProvider.TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory) {
@@ -85,117 +85,114 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<V> valueDehydrated = dehydrate(valueExtractor);
     Closure<V> reducerDehydrated = dehydrate(reducer);
-    return descendant(pipeline -> {
-      Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
-      Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
-      PCollection<T> input = collection.materialize(pipeline);
-      PCollection<KV<K, V>> kvs = ReduceByKey
-          .named(withSuffix(name, ".reduce"))
-          .of(input)
-          .keyBy(keyDehydrated::call)
-          .valueBy(valueDehydrated::call)
-          .reduceBy((java.util.stream.Stream<V> in) -> {
-            V current = initialValue;
-            return in.reduce(current, reducerDehydrated::call);
-          })
-          .applyIf(
-              !windowingStrategy.equals(input.getWindowingStrategy()),
-              this::createWindowFn)
-          .output()
-          .setCoder(KvCoder.of(keyCoder, valueCoder));
+    return descendant(
+        pipeline -> {
+          Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
+          Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
+          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<KV<K, V>> kvs =
+              ReduceByKey.named(withSuffix(name, ".reduce"))
+                  .of(input)
+                  .keyBy(keyDehydrated::call)
+                  .valueBy(valueDehydrated::call)
+                  .reduceBy(
+                      (java.util.stream.Stream<V> in) -> {
+                        V current = initialValue;
+                        return in.reduce(current, reducerDehydrated::call);
+                      })
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+                  .output()
+                  .setCoder(KvCoder.of(keyCoder, valueCoder));
 
-      return asPairs(withSuffix(name, ".asPairs"), kvs, keyCoder, valueCoder);
-    });
+          return asPairs(withSuffix(name, ".asPairs"), kvs, keyCoder, valueCoder);
+        });
   }
 
   @Override
   public <K, V> WindowedStream<Pair<K, V>> reduce(
-      @Nullable String name,
-      Closure<K> keyExtractor,
-      V initialValue,
-      Closure<V> reducer) {
+      @Nullable String name, Closure<K> keyExtractor, V initialValue, Closure<V> reducer) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<V> reducerDehydrated = dehydrate(reducer);
-    return descendant(pipeline -> {
-      Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
-      Coder<V> valueCoder = coderOf(pipeline, reducerDehydrated);
-      PCollection<T> input = collection.materialize(pipeline);
-      return asPairs(
-          withSuffix(name, ".asPairs"),
-          ReduceByKey
-              .named(withSuffix(name, ".reduce"))
-              .of(input)
-              .keyBy(keyDehydrated::call)
-              .valueBy(e -> e)
-              .reduceBy((java.util.stream.Stream<T> in) -> {
-                V current = initialValue;
-                Iterable<T> iter = in::iterator;
-                for (T v : iter) {
-                  current = reducerDehydrated.call(current, v);
-                }
-                return current;
-              })
-              .applyIf(
-                  !windowingStrategy.equals(input.getWindowingStrategy()),
-                  this::createWindowFn)
-              .output()
-              .setCoder(KvCoder.of(keyCoder, valueCoder)),
-          keyCoder, valueCoder);
-    });
+    return descendant(
+        pipeline -> {
+          Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
+          Coder<V> valueCoder = coderOf(pipeline, reducerDehydrated);
+          PCollection<T> input = collection.materialize(pipeline);
+          return asPairs(
+              withSuffix(name, ".asPairs"),
+              ReduceByKey.named(withSuffix(name, ".reduce"))
+                  .of(input)
+                  .keyBy(keyDehydrated::call)
+                  .valueBy(e -> e)
+                  .reduceBy(
+                      (java.util.stream.Stream<T> in) -> {
+                        V current = initialValue;
+                        Iterable<T> iter = in::iterator;
+                        for (T v : iter) {
+                          current = reducerDehydrated.call(current, v);
+                        }
+                        return current;
+                      })
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+                  .output()
+                  .setCoder(KvCoder.of(keyCoder, valueCoder)),
+              keyCoder,
+              valueCoder);
+        });
   }
 
   @SuppressWarnings("unchecked")
   @Override
   public WindowedStream<StreamElement> reduceToLatest(@Nullable String name) {
-    return descendant(pipeline -> PCollectionTools.reduceAsSnapshot(
-            name, (PCollection) collection.materialize(pipeline)));
+    return descendant(
+        pipeline ->
+            PCollectionTools.reduceAsSnapshot(
+                name, (PCollection) collection.materialize(pipeline)));
   }
 
   @Override
   public <K, V> WindowedStream<Pair<K, V>> groupReduce(
-      @Nullable String name,
-      Closure<K> keyExtractor,
-      Closure<Iterable<V>> listReduce) {
-
+      @Nullable String name, Closure<K> keyExtractor, Closure<Iterable<V>> listReduce) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<Iterable<V>> reducerDehydrated = dehydrate(listReduce);
 
-    return descendant(pipeline -> {
-      final Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
-      // FIXME: need a way to retrieve inner type of the list
-      @SuppressWarnings("unchecked")
-      final Coder<V> valueCoder = (Coder) getCoder(
-          pipeline, TypeDescriptor.of(Object.class));
-      PCollection<T> input = collection.materialize(pipeline);
-      if (!input.getWindowingStrategy().equals(windowingStrategy)) {
-        if (name != null) {
-          input = input.apply(name + ".windowFn", createWindowFn());
-        } else {
-          input = input.apply(createWindowFn());
-        }
-      }
-      PCollection<KV<K, T>> keyed = MapElements
-          .named(withSuffix(name, ".mapToKvs"))
-          .of(input)
-          .using(el -> KV.of(keyDehydrated.call(el), el))
-          .output()
-          .setCoder(KvCoder.of(keyCoder, input.getCoder()));
+    return descendant(
+        pipeline -> {
+          final Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+          // FIXME: need a way to retrieve inner type of the list
+          @SuppressWarnings("unchecked")
+          final Coder<V> valueCoder = (Coder) getCoder(pipeline, TypeDescriptor.of(Object.class));
+          PCollection<T> input = collection.materialize(pipeline);
+          if (!input.getWindowingStrategy().equals(windowingStrategy)) {
+            if (name != null) {
+              input = input.apply(name + ".windowFn", createWindowFn());
+            } else {
+              input = input.apply(createWindowFn());
+            }
+          }
+          PCollection<KV<K, T>> keyed =
+              MapElements.named(withSuffix(name, ".mapToKvs"))
+                  .of(input)
+                  .using(el -> KV.of(keyDehydrated.call(el), el))
+                  .output()
+                  .setCoder(KvCoder.of(keyCoder, input.getCoder()));
 
-      // use native beam, beamphoria doesn't allow access
-      // to window label as of 2.12
-      final PCollection<KV<K, Iterable<T>>> groupped;
-      if (name != null) {
-        groupped = keyed.apply(name + ".groupByKey", GroupByKey.create());
-      } else {
-        groupped = keyed.apply(GroupByKey.create());
-      }
-      return applyGroupReduce(withSuffix(name, ".applyGroupReduce"),
-          groupped, reducerDehydrated)
-          .setCoder(PairCoder.of(keyCoder, valueCoder));
-    });
-
+          // use native beam, beamphoria doesn't allow access
+          // to window label as of 2.12
+          final PCollection<KV<K, Iterable<T>>> groupped;
+          if (name != null) {
+            groupped = keyed.apply(name + ".groupByKey", GroupByKey.create());
+          } else {
+            groupped = keyed.apply(GroupByKey.create());
+          }
+          return applyGroupReduce(
+                  withSuffix(name, ".applyGroupReduce"), groupped, reducerDehydrated)
+              .setCoder(PairCoder.of(keyCoder, valueCoder));
+        });
   }
 
   private static class GroupReduce<K, T, O> extends DoFn<KV<K, Iterable<T>>, Pair<K, O>> {
@@ -208,9 +205,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
     @ProcessElement
     public void process(
-        @Element KV<K, Iterable<T>> elem,
-        BoundedWindow window,
-        OutputReceiver<Pair<K, O>> output) {
+        @Element KV<K, Iterable<T>> elem, BoundedWindow window, OutputReceiver<Pair<K, O>> output) {
 
       Iterable<O> res = reducer.call(window, elem.getValue());
       res.forEach(o -> output.output(Pair.of(elem.getKey(), o)));
@@ -221,14 +216,10 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     public TypeDescriptor<Pair<K, O>> getOutputTypeDescriptor() {
       return (TypeDescriptor) TypeDescriptor.of(Object.class);
     }
-
   }
 
-
   private static <K, V, T> PCollection<Pair<K, V>> applyGroupReduce(
-      @Nullable String name,
-      PCollection<KV<K, Iterable<T>>> in,
-      Closure<Iterable<V>> reducer) {
+      @Nullable String name, PCollection<KV<K, Iterable<T>>> in, Closure<Iterable<V>> reducer) {
 
     if (name != null) {
       return in.apply(name, ParDo.of(new GroupReduce<>(reducer)));
@@ -249,21 +240,20 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       default:
         throw new IllegalArgumentException("Unknown mode " + windowingStrategy.getMode());
     }
-    return ret
-        .triggering(getTrigger())
-        .withAllowedLateness(windowingStrategy.getAllowedLateness());
+    return ret.triggering(getTrigger()).withAllowedLateness(windowingStrategy.getAllowedLateness());
   }
 
-  private <O extends W, W extends Builders.WindowedOutput<O>,
-      A extends Builders.AccumulationMode<W>,
-      T extends Builders.TriggeredBy<A>>
+  private <
+          O extends W,
+          W extends Builders.WindowedOutput<O>,
+          A extends Builders.AccumulationMode<W>,
+          T extends Builders.TriggeredBy<A>>
       O createWindowFn(Builders.WindowBy<T> b) {
     return b.windowBy(windowingStrategy.getWindowFn())
         .triggeredBy(getTrigger())
         .accumulationMode(windowingStrategy.getMode())
         .withAllowedLateness(
-            windowingStrategy.getAllowedLateness(),
-            windowingStrategy.getClosingBehavior())
+            windowingStrategy.getAllowedLateness(), windowingStrategy.getClosingBehavior())
         .withOnTimeBehavior(windowingStrategy.getOnTimeBehavior())
         .withTimestampCombiner(windowingStrategy.getTimestampCombiner());
   }
@@ -271,192 +261,177 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   @Override
   public <K, V> WindowedStream<Pair<K, V>> combine(
       @Nullable String name,
-      Closure<K> keyExtractor, Closure<V> valueExtractor,
-      V initial, Closure<V> combine) {
+      Closure<K> keyExtractor,
+      Closure<V> valueExtractor,
+      V initial,
+      Closure<V> combine) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<V> valueDehydrated = dehydrate(valueExtractor);
     Closure<V> combineDehydrated = dehydrate(combine);
 
-    return descendant(pipeline -> {
-      Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
-      Coder<V> valueCoder = coderOf(pipeline, valueExtractor);
-      PCollection<T> input = collection.materialize(pipeline);
-      return asPairs(
-          withSuffix(name, ".asPairs"),
-          ReduceByKey
-              .named(withSuffix(name, ".reduce"))
-              .of(input)
-              .keyBy(keyDehydrated::call)
-              .valueBy(valueDehydrated::call)
-              .combineBy((java.util.stream.Stream<V> in) ->
-                  in.reduce(initial, combineDehydrated::call))
-              .applyIf(
-                  !windowingStrategy.equals(input.getWindowingStrategy()),
-                  this::createWindowFn)
-              .output()
-              .setCoder(KvCoder.of(keyCoder, valueCoder)),
-          keyCoder, valueCoder);
-    });
+    return descendant(
+        pipeline -> {
+          Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+          Coder<V> valueCoder = coderOf(pipeline, valueExtractor);
+          PCollection<T> input = collection.materialize(pipeline);
+          return asPairs(
+              withSuffix(name, ".asPairs"),
+              ReduceByKey.named(withSuffix(name, ".reduce"))
+                  .of(input)
+                  .keyBy(keyDehydrated::call)
+                  .valueBy(valueDehydrated::call)
+                  .combineBy(
+                      (java.util.stream.Stream<V> in) ->
+                          in.reduce(initial, combineDehydrated::call))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+                  .output()
+                  .setCoder(KvCoder.of(keyCoder, valueCoder)),
+              keyCoder,
+              valueCoder);
+        });
   }
 
   @Override
   public <K> WindowedStream<Pair<K, T>> combine(
-      @Nullable String name,
-      Closure<K> keyExtractor,
-      T initial,
-      Closure<T> combine) {
-
+      @Nullable String name, Closure<K> keyExtractor, T initial, Closure<T> combine) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<T> combineDehydrated = dehydrate(combine);
 
-    return descendant(pipeline -> {
-      Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
-      Coder<T> valueCoder = coderOf(pipeline, combine);
-      PCollection<T> input = collection.materialize(pipeline);
-      return asPairs(
-          withSuffix(name, ".asPairs"),
-          ReduceByKey
-              .named(withSuffix(name, ".reduce"))
-              .of(input)
-              .keyBy(keyDehydrated::call)
-              .valueBy(e -> e)
-              .combineBy(in -> in.reduce(initial, combineDehydrated::call))
-              .applyIf(
-                  !windowingStrategy.equals(input.getWindowingStrategy()),
-                  this::createWindowFn)
-              .output()
-              .setCoder(KvCoder.of(keyCoder, valueCoder)),
-          keyCoder, valueCoder);
-    });
+    return descendant(
+        pipeline -> {
+          Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+          Coder<T> valueCoder = coderOf(pipeline, combine);
+          PCollection<T> input = collection.materialize(pipeline);
+          return asPairs(
+              withSuffix(name, ".asPairs"),
+              ReduceByKey.named(withSuffix(name, ".reduce"))
+                  .of(input)
+                  .keyBy(keyDehydrated::call)
+                  .valueBy(e -> e)
+                  .combineBy(in -> in.reduce(initial, combineDehydrated::call))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+                  .output()
+                  .setCoder(KvCoder.of(keyCoder, valueCoder)),
+              keyCoder,
+              valueCoder);
+        });
   }
 
   @Override
   public <K> WindowedStream<Pair<K, Long>> countByKey(
-      @Nullable String name,
-      Closure<K> keyExtractor) {
+      @Nullable String name, Closure<K> keyExtractor) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
-    return descendant(pipeline -> {
-      Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
-      Coder<Long> valueCoder = getCoder(pipeline, TypeDescriptors.longs());
-      PCollection<T> input = collection.materialize(pipeline);
-      return asPairs(
-          withSuffix(name, ".asPairs"),
-          ReduceByKey
-              .named(withSuffix(name, ".reduce"))
-              .of(input)
-              .keyBy(keyDehydrated::call)
-              .valueBy(e -> 1L, TypeDescriptors.longs())
-              .combineBy(Sums.ofLongs())
-              .applyIf(
-                  !windowingStrategy.equals(input.getWindowingStrategy()),
-                  this::createWindowFn)
-              .output(),
-          keyCoder, valueCoder);
-    });
+    return descendant(
+        pipeline -> {
+          Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+          Coder<Long> valueCoder = getCoder(pipeline, TypeDescriptors.longs());
+          PCollection<T> input = collection.materialize(pipeline);
+          return asPairs(
+              withSuffix(name, ".asPairs"),
+              ReduceByKey.named(withSuffix(name, ".reduce"))
+                  .of(input)
+                  .keyBy(keyDehydrated::call)
+                  .valueBy(e -> 1L, TypeDescriptors.longs())
+                  .combineBy(Sums.ofLongs())
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+                  .output(),
+              keyCoder,
+              valueCoder);
+        });
   }
 
   @Override
-  public WindowedStream<Double> average(
-      @Nullable String name,
-      Closure<Double> valueExtractor) {
+  public WindowedStream<Double> average(@Nullable String name, Closure<Double> valueExtractor) {
 
     Closure<Double> valueDehydrated = dehydrate(valueExtractor);
-    return descendant(pipeline -> {
-      PCollection<T> input = collection.materialize(pipeline);
-      PCollection<KV<Double, Long>> intermediate = ReduceByKey
-          .named(withSuffix(name, ".reduce"))
-          .of(input)
-          .keyBy(e -> "", TypeDescriptors.strings())
-          .valueBy(
-              e -> KV.of(valueDehydrated.call(e), 1L),
-              TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
-          .combineBy(Fold.of(
-              (a, b) -> KV.of(a.getKey() + b.getKey(), a.getValue() + b.getValue())),
-              TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
-          .applyIf(
-              !windowingStrategy.equals(input.getWindowingStrategy()),
-              this::createWindowFn)
-          .outputValues();
-      intermediate.setTypeDescriptor(
-          TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()));
+    return descendant(
+        pipeline -> {
+          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<KV<Double, Long>> intermediate =
+              ReduceByKey.named(withSuffix(name, ".reduce"))
+                  .of(input)
+                  .keyBy(e -> "", TypeDescriptors.strings())
+                  .valueBy(
+                      e -> KV.of(valueDehydrated.call(e), 1L),
+                      TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
+                  .combineBy(
+                      Fold.of(
+                          (a, b) -> KV.of(a.getKey() + b.getKey(), a.getValue() + b.getValue())),
+                      TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+                  .outputValues();
+          intermediate.setTypeDescriptor(
+              TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()));
 
-      return MapElements
-          .named(withSuffix(name, ".mapToResult"))
-          .of(intermediate)
-          .using(p -> p.getKey() / p.getValue(), TypeDescriptors.doubles())
-          .output()
-          .setCoder(DoubleCoder.of());
-    });
+          return MapElements.named(withSuffix(name, ".mapToResult"))
+              .of(intermediate)
+              .using(p -> p.getKey() / p.getValue(), TypeDescriptors.doubles())
+              .output()
+              .setCoder(DoubleCoder.of());
+        });
   }
 
   @Override
   public <K> WindowedStream<Pair<K, Double>> averageByKey(
-      @Nullable String name,
-      Closure<K> keyExtractor,
-      Closure<Double> valueExtractor) {
+      @Nullable String name, Closure<K> keyExtractor, Closure<Double> valueExtractor) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<Double> valueDehydrated = dehydrate(valueExtractor);
 
-    return descendant(pipeline -> {
-      Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
-      Coder<KV<Double, Long>> valueCoder = getCoder(pipeline, TypeDescriptors.kvs(
-          TypeDescriptors.doubles(), TypeDescriptors.longs()));
-      PCollection<T> input = collection.materialize(pipeline);
-      PCollection<KV<K, KV<Double, Long>>> intermediate = ReduceByKey
-          .named(withSuffix(name, ".reduce"))
-          .of(input)
-          .keyBy(keyDehydrated::call)
-          .valueBy(
-              e -> KV.of(valueDehydrated.call(e), 1L),
-              TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
-          .combineBy(Fold.of(
-              (a, b) -> KV.of(a.getKey() + b.getKey(), a.getValue() + b.getValue())),
-              TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
-          .applyIf(
-              !windowingStrategy.equals(input.getWindowingStrategy()),
-              this::createWindowFn)
-          .output()
-          .setCoder(KvCoder.of(keyCoder, valueCoder));
-      return MapElements
-          .named(withSuffix(name, ".mapToResult"))
-          .of(intermediate)
-          .using(
-              p -> Pair.of(
-                  p.getKey(), p.getValue().getKey() / p.getValue().getValue()))
-          .output()
-          .setCoder(PairCoder.of(
-              keyCoder,
-              getCoder(pipeline, TypeDescriptors.doubles())));
-    });
+    return descendant(
+        pipeline -> {
+          Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+          Coder<KV<Double, Long>> valueCoder =
+              getCoder(
+                  pipeline,
+                  TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()));
+          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<KV<K, KV<Double, Long>>> intermediate =
+              ReduceByKey.named(withSuffix(name, ".reduce"))
+                  .of(input)
+                  .keyBy(keyDehydrated::call)
+                  .valueBy(
+                      e -> KV.of(valueDehydrated.call(e), 1L),
+                      TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
+                  .combineBy(
+                      Fold.of(
+                          (a, b) -> KV.of(a.getKey() + b.getKey(), a.getValue() + b.getValue())),
+                      TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+                  .output()
+                  .setCoder(KvCoder.of(keyCoder, valueCoder));
+          return MapElements.named(withSuffix(name, ".mapToResult"))
+              .of(intermediate)
+              .using(p -> Pair.of(p.getKey(), p.getValue().getKey() / p.getValue().getValue()))
+              .output()
+              .setCoder(PairCoder.of(keyCoder, getCoder(pipeline, TypeDescriptors.doubles())));
+        });
   }
 
   @Override
   public <K, OTHER> WindowedStream<Pair<T, OTHER>> join(
-      @Nullable String name,
-      WindowedStream<OTHER> right,
-      Closure<K> leftKey,
-      Closure<K> rightKey) {
+      @Nullable String name, WindowedStream<OTHER> right, Closure<K> leftKey, Closure<K> rightKey) {
 
     Closure<K> leftKeyDehydrated = dehydrate(leftKey);
     Closure<K> rightKeyDehydrated = dehydrate(rightKey);
     return descendant(
         pipeline -> {
           PCollection<T> lc = collection.materialize(pipeline);
-          PCollection<OTHER> rc = ((BeamWindowedStream<OTHER>) right)
-              .collection.materialize(pipeline);
-          return Join
-              .named(name)
+          PCollection<OTHER> rc =
+              ((BeamWindowedStream<OTHER>) right).collection.materialize(pipeline);
+          return Join.named(name)
               .of(lc, rc)
               .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
-              .using((T l, OTHER r, Collector<Pair<T, OTHER>> ctx) ->
-                  ctx.collect(Pair.of(l, r)))
-              .applyIf(
-                  !windowingStrategy.equals(lc.getWindowingStrategy()),
-                  this::createWindowFn)
+              .using((T l, OTHER r, Collector<Pair<T, OTHER>> ctx) -> ctx.collect(Pair.of(l, r)))
+              .applyIf(!windowingStrategy.equals(lc.getWindowingStrategy()), this::createWindowFn)
               .outputValues()
               .setCoder(PairCoder.of(lc.getCoder(), rc.getCoder()));
         });
@@ -464,10 +439,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @Override
   public <K, RIGHT> WindowedStream<Pair<T, RIGHT>> leftJoin(
-      @Nullable String name,
-      WindowedStream<RIGHT> right,
-      Closure<K> leftKey,
-      Closure<K> rightKey) {
+      @Nullable String name, WindowedStream<RIGHT> right, Closure<K> leftKey, Closure<K> rightKey) {
 
     Closure<K> leftKeyDehydrated = dehydrate(leftKey);
     Closure<K> rightKeyDehydrated = dehydrate(rightKey);
@@ -475,204 +447,196 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     return descendant(
         pipeline -> {
           PCollection<T> lc = collection.materialize(pipeline);
-          PCollection<RIGHT> rc = ((BeamWindowedStream<RIGHT>) right)
-              .collection.materialize(pipeline);
-          return LeftJoin
-              .named(name)
+          PCollection<RIGHT> rc =
+              ((BeamWindowedStream<RIGHT>) right).collection.materialize(pipeline);
+          return LeftJoin.named(name)
               .of(lc, rc)
               .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
-              .using((T l, Optional<RIGHT> r, Collector<Pair<T, RIGHT>> ctx) ->
-                  ctx.collect(Pair.of(l, r.orElse(null))))
-              .applyIf(
-                  !windowingStrategy.equals(lc.getWindowingStrategy()),
-                  this::createWindowFn)
+              .using(
+                  (T l, Optional<RIGHT> r, Collector<Pair<T, RIGHT>> ctx) ->
+                      ctx.collect(Pair.of(l, r.orElse(null))))
+              .applyIf(!windowingStrategy.equals(lc.getWindowingStrategy()), this::createWindowFn)
               .outputValues()
               .setCoder(PairCoder.of(lc.getCoder(), rc.getCoder()));
         });
   }
 
   @Override
-  public WindowedStream<T> sorted(
-      @Nullable String name,
-      Closure<Integer> compareFn) {
+  public WindowedStream<T> sorted(@Nullable String name, Closure<Integer> compareFn) {
 
     Closure<Integer> dehydrated = dehydrate(compareFn);
-    return descendant(pipeline -> {
-      PCollection<T> input = collection.materialize(pipeline);
-      return ReduceByKey
-          .named(name)
-          .of(input)
-          .keyBy(e -> null, TypeDescriptors.nulls())
-          .reduceBy((Stream<T> values, Collector<T> ctx) ->
-              values.forEach(ctx::collect))
-          .withSortedValues(dehydrated::call)
-          .applyIf(
-              !windowingStrategy.equals(input.getWindowingStrategy()),
-              this::createWindowFn)
-          .outputValues();
-    });
+    return descendant(
+        pipeline -> {
+          PCollection<T> input = collection.materialize(pipeline);
+          return ReduceByKey.named(name)
+              .of(input)
+              .keyBy(e -> null, TypeDescriptors.nulls())
+              .reduceBy((Stream<T> values, Collector<T> ctx) -> values.forEach(ctx::collect))
+              .withSortedValues(dehydrated::call)
+              .applyIf(
+                  !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+              .outputValues();
+        });
   }
 
   @SuppressWarnings("unchecked")
   @Override
   public WindowedStream<Comparable<T>> sorted(@Nullable String name) {
-    return (WindowedStream) descendant(pipeline -> {
-      PCollection<T> input = collection.materialize(pipeline);
-      return ReduceByKey
-          .named(name)
-          .of((PCollection<Comparable<T>>) input)
-          .keyBy(e -> null, TypeDescriptors.nulls())
-          .reduceBy((values, ctx) ->
-              values.forEach(ctx::collect))
-          .withSortedValues((a, b) -> a.compareTo((T) b))
-          .applyIf(
-              !windowingStrategy.equals(input.getWindowingStrategy()),
-              this::createWindowFn)
-          .outputValues();
-    });
+    return (WindowedStream)
+        descendant(
+            pipeline -> {
+              PCollection<T> input = collection.materialize(pipeline);
+              return ReduceByKey.named(name)
+                  .of((PCollection<Comparable<T>>) input)
+                  .keyBy(e -> null, TypeDescriptors.nulls())
+                  .reduceBy((values, ctx) -> values.forEach(ctx::collect))
+                  .withSortedValues((a, b) -> a.compareTo((T) b))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+                  .outputValues();
+            });
   }
 
   @Override
   public WindowedStream<Long> count(@Nullable String name) {
-    return descendant(pipeline -> {
-      PCollection<T> input = collection.materialize(pipeline);
-      return ReduceByKey
-          .named(name)
-          .of(input)
-          .keyBy(e -> null, TypeDescriptors.nulls())
-          .valueBy(e -> 1L, TypeDescriptors.longs())
-          .combineBy(Sums.ofLongs())
-          .applyIf(
-              !windowingStrategy.equals(input.getWindowingStrategy()),
-              this::createWindowFn)
-          .outputValues();
-    });
+    return descendant(
+        pipeline -> {
+          PCollection<T> input = collection.materialize(pipeline);
+          return ReduceByKey.named(name)
+              .of(input)
+              .keyBy(e -> null, TypeDescriptors.nulls())
+              .valueBy(e -> 1L, TypeDescriptors.longs())
+              .combineBy(Sums.ofLongs())
+              .applyIf(
+                  !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+              .outputValues();
+        });
   }
 
   @Override
-  public WindowedStream<Double> sum(
-      @Nullable String name,
-      Closure<Double> valueExtractor) {
+  public WindowedStream<Double> sum(@Nullable String name, Closure<Double> valueExtractor) {
 
     Closure<Double> valueDehydrated = dehydrate(valueExtractor);
-    return descendant(pipeline -> {
-      PCollection<T> input = collection.materialize(pipeline);
-      return ReduceByKey
-          .named(name)
-          .of(input)
-          .keyBy(e -> null, TypeDescriptors.nulls())
-          .valueBy(valueDehydrated::call, TypeDescriptors.doubles())
-          .combineBy(Sums.ofDoubles())
-          .applyIf(
-              !windowingStrategy.equals(input.getWindowingStrategy()),
-              this::createWindowFn)
-          .outputValues();
-    });
+    return descendant(
+        pipeline -> {
+          PCollection<T> input = collection.materialize(pipeline);
+          return ReduceByKey.named(name)
+              .of(input)
+              .keyBy(e -> null, TypeDescriptors.nulls())
+              .valueBy(valueDehydrated::call, TypeDescriptors.doubles())
+              .combineBy(Sums.ofDoubles())
+              .applyIf(
+                  !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+              .outputValues();
+        });
   }
 
   @Override
   public <K> WindowedStream<Pair<K, Double>> sumByKey(
-      @Nullable String name,
-      Closure<K> keyExtractor,
-      Closure<Double> valueExtractor) {
+      @Nullable String name, Closure<K> keyExtractor, Closure<Double> valueExtractor) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<Double> valueDehydrated = dehydrate(valueExtractor);
-    return descendant(pipeline -> {
-      Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
-      Coder<Double> valueCoder = getCoder(pipeline, TypeDescriptors.doubles());
-      PCollection<T> input = collection.materialize(pipeline);
-      return asPairs(
-          withSuffix(name, ".asPairs"),
-          ReduceByKey
-              .named(withSuffix(name, ".reduce"))
-              .of(input)
-              .keyBy(keyDehydrated::call)
-              .valueBy(valueDehydrated::call, TypeDescriptors.doubles())
-              .combineBy(Sums.ofDoubles())
-              .applyIf(
-                  !windowingStrategy.equals(input.getWindowingStrategy()),
-                  this::createWindowFn)
-              .output()
-              .setCoder(KvCoder.of(keyCoder, valueCoder)),
-          /*
-          combinePerKey(
-              collection.materialize(pipeline), name, keyDehydrated, valueDehydrated,
-              keyCoder, valueCoder, 0.0, (a, b) -> a + b),
-          */
-          keyCoder, valueCoder);
-    });
+    return descendant(
+        pipeline -> {
+          Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
+          Coder<Double> valueCoder = getCoder(pipeline, TypeDescriptors.doubles());
+          PCollection<T> input = collection.materialize(pipeline);
+          return asPairs(
+              withSuffix(name, ".asPairs"),
+              ReduceByKey.named(withSuffix(name, ".reduce"))
+                  .of(input)
+                  .keyBy(keyDehydrated::call)
+                  .valueBy(valueDehydrated::call, TypeDescriptors.doubles())
+                  .combineBy(Sums.ofDoubles())
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+                  .output()
+                  .setCoder(KvCoder.of(keyCoder, valueCoder)),
+              /*
+              combinePerKey(
+                  collection.materialize(pipeline), name, keyDehydrated, valueDehydrated,
+                  keyCoder, valueCoder, 0.0, (a, b) -> a + b),
+              */
+              keyCoder,
+              valueCoder);
+        });
   }
 
   private <IN, K, V> PCollection<KV<K, V>> combinePerKey(
-      PCollection<IN> in, String name, Closure<K> key, Closure<V> value,
-      Coder<K> keyCoder, Coder<V> valueCoder,
-      V identity, BiFunction<V, V, V> combineFn) {
+      PCollection<IN> in,
+      String name,
+      Closure<K> key,
+      Closure<V> value,
+      Coder<K> keyCoder,
+      Coder<V> valueCoder,
+      V identity,
+      BiFunction<V, V, V> combineFn) {
 
-    PCollection<KV<K, V>> kvs = MapElements
-        .named(withSuffix(name, ".toKvs"))
-        .of(in)
-        .using(e -> KV.of(key.call(e), value.call(e)))
-        .output()
-        .setCoder(KvCoder.of(keyCoder, valueCoder));
-    return kvs
-        .apply(Window.into(windowingStrategy.getWindowFn()))
+    PCollection<KV<K, V>> kvs =
+        MapElements.named(withSuffix(name, ".toKvs"))
+            .of(in)
+            .using(e -> KV.of(key.call(e), value.call(e)))
+            .output()
+            .setCoder(KvCoder.of(keyCoder, valueCoder));
+    return kvs.apply(Window.into(windowingStrategy.getWindowFn()))
         .apply(GroupByKey.create())
-        .apply(Combine.groupedValues(values -> {
-          V init = identity;
-          for (V v : values) {
-            init = combineFn.apply(init, v);
-          }
-          return init;
-        }));
+        .apply(
+            Combine.groupedValues(
+                values -> {
+                  V init = identity;
+                  for (V v : values) {
+                    init = combineFn.apply(init, v);
+                  }
+                  return init;
+                }));
   }
 
   @Override
   public WindowedStream<T> distinct(@Nullable String name) {
-    return descendant(pipeline -> {
-      PCollection<T> input = collection.materialize(pipeline);
-      return Distinct
-          .named(name)
-          .of(input)
-          .applyIf(
-              !windowingStrategy.equals(input.getWindowingStrategy()),
-              this::createWindowFn)
-          .output()
-          .setCoder(input.getCoder());
-    });
+    return descendant(
+        pipeline -> {
+          PCollection<T> input = collection.materialize(pipeline);
+          return Distinct.named(name)
+              .of(input)
+              .applyIf(
+                  !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+              .output()
+              .setCoder(input.getCoder());
+        });
   }
 
   @SuppressWarnings("unchecked")
   @Override
   public WindowedStream<T> distinct(@Nullable String name, Closure<?> mapper) {
     Closure<Object> dehydrated = (Closure) dehydrate(mapper);
-    return descendant(pipeline -> {
-      PCollection<T> input = collection.materialize(pipeline);
-      return Distinct
-          .named(name)
-          .of(input)
-          .projected(dehydrated::call, Distinct.SelectionPolicy.NEWEST)
-          .applyIf(
-              !windowingStrategy.equals(input.getWindowingStrategy()),
-              this::createWindowFn)
-          .output()
-          .setCoder(input.getCoder());
-    });
+    return descendant(
+        pipeline -> {
+          PCollection<T> input = collection.materialize(pipeline);
+          return Distinct.named(name)
+              .of(input)
+              .projected(dehydrated::call, Distinct.SelectionPolicy.NEWEST)
+              .applyIf(
+                  !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+              .output()
+              .setCoder(input.getCoder());
+        });
   }
 
   @Override
   public WindowedStream<T> withEarlyEmitting(long duration) {
-    this.windowingStrategy = windowingStrategy
-        .withTrigger(AfterWatermark.pastEndOfWindow()
-          .withEarlyFirings(AfterProcessingTime.pastFirstElementInPane()
-              .plusDelayOf(Duration.millis(duration))));
+    this.windowingStrategy =
+        windowingStrategy.withTrigger(
+            AfterWatermark.pastEndOfWindow()
+                .withEarlyFirings(
+                    AfterProcessingTime.pastFirstElementInPane()
+                        .plusDelayOf(Duration.millis(duration))));
     return this;
   }
 
   @Override
   public WindowedStream<T> withAllowedLateness(long lateness) {
-    this.windowingStrategy = windowingStrategy
-        .withAllowedLateness(Duration.millis(lateness));
+    this.windowingStrategy = windowingStrategy.withAllowedLateness(Duration.millis(lateness));
     return this;
   }
 
@@ -680,17 +644,24 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   @Override
   <X> BeamWindowedStream<X> descendant(Function<Pipeline, PCollection<X>> factory) {
     return new BeamWindowedStream<>(
-        config, bounded, PCollectionProvider.withParents(factory, collection),
-        windowingStrategy, terminateCheck, pipelineFactory);
+        config,
+        bounded,
+        PCollectionProvider.withParents(factory, collection),
+        windowingStrategy,
+        terminateCheck,
+        pipelineFactory);
   }
 
   BeamWindowedStream<T> intoGlobalWindow() {
     return new BeamWindowedStream<>(
-        config, bounded, PCollectionProvider.withParents(
-            pipeline ->
-                collection.materialize(pipeline).apply(Window.into(new GlobalWindows())),
+        config,
+        bounded,
+        PCollectionProvider.withParents(
+            pipeline -> collection.materialize(pipeline).apply(Window.into(new GlobalWindows())),
             collection),
-        WindowingStrategy.globalDefault(), terminateCheck, pipelineFactory);
+        WindowingStrategy.globalDefault(),
+        terminateCheck,
+        pipelineFactory);
   }
 
   @Override
@@ -712,17 +683,12 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   }
 
   private static <K, V> PCollection<Pair<K, V>> asPairs(
-      @Nullable String name,
-      PCollection<KV<K, V>> kvs,
-      Coder<K> keyCoder,
-      Coder<V> valueCoder) {
+      @Nullable String name, PCollection<KV<K, V>> kvs, Coder<K> keyCoder, Coder<V> valueCoder) {
 
-    return MapElements
-        .named(name)
+    return MapElements.named(name)
         .of(kvs)
         .using(kv -> Pair.of(kv.getKey(), kv.getValue()))
         .output()
         .setCoder(PairCoder.of(keyCoder, valueCoder));
   }
-
 }

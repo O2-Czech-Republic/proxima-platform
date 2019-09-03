@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,16 +30,12 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
 import org.apache.beam.sdk.values.PCollection;
 
-/**
- * {@link DataAccessor} for {@link AttributeFamilyProxyDescriptor}.
- */
+/** {@link DataAccessor} for {@link AttributeFamilyProxyDescriptor}. */
 @Slf4j
 public class AttributeFamilyProxyDataAccessor implements DataAccessor {
 
   public static AttributeFamilyProxyDataAccessor of(
-      AttributeFamilyProxyDescriptor proxy,
-      DataAccessor readAccessor,
-      DataAccessor writeAccessor) {
+      AttributeFamilyProxyDescriptor proxy, DataAccessor readAccessor, DataAccessor writeAccessor) {
 
     return new AttributeFamilyProxyDataAccessor(proxy, readAccessor, writeAccessor);
   }
@@ -50,51 +46,54 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
   private final Map<AttributeDescriptor<?>, AttributeProxyDescriptor<?>> lookupRead;
 
   private AttributeFamilyProxyDataAccessor(
-      AttributeFamilyProxyDescriptor proxy,
-      DataAccessor readAccessor,
-      DataAccessor writeAccessor) {
+      AttributeFamilyProxyDescriptor proxy, DataAccessor readAccessor, DataAccessor writeAccessor) {
 
     this.proxy = proxy;
     this.readAccessor = readAccessor;
     this.writeAccessor = writeAccessor;
-    this.lookupRead = proxy.getAttributes()
-        .stream()
-        .map(AttributeDescriptor::asProxy)
-        .collect(Collectors.toMap(
-            AttributeProxyDescriptor::getReadTarget, Function.identity()));
+    this.lookupRead =
+        proxy
+            .getAttributes()
+            .stream()
+            .map(AttributeDescriptor::asProxy)
+            .collect(
+                Collectors.toMap(AttributeProxyDescriptor::getReadTarget, Function.identity()));
   }
 
   @Override
   public PCollection<StreamElement> createStream(
-      String name, Pipeline pipeline, Position position,
-      boolean stopAtCurrent, boolean eventTime, long limit) {
+      String name,
+      Pipeline pipeline,
+      Position position,
+      boolean stopAtCurrent,
+      boolean eventTime,
+      long limit) {
 
-    return applyTransform(readAccessor.createStream(
-        name, pipeline, position, stopAtCurrent, eventTime, limit));
+    return applyTransform(
+        readAccessor.createStream(name, pipeline, position, stopAtCurrent, eventTime, limit));
   }
 
   @Override
   public PCollection<StreamElement> createBatch(
-      Pipeline pipeline, List<AttributeDescriptor<?>> attrs,
-      long startStamp, long endStamp) {
+      Pipeline pipeline, List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp) {
 
-    return applyTransform(readAccessor.createBatch(
-        pipeline, attrs, startStamp, endStamp));
+    return applyTransform(readAccessor.createBatch(pipeline, attrs, startStamp, endStamp));
   }
 
   @Override
   public PCollection<StreamElement> createStreamFromUpdates(
-      Pipeline pipeline, List<AttributeDescriptor<?>> attrs,
-      long startStamp, long endStamp, long limit) {
+      Pipeline pipeline,
+      List<AttributeDescriptor<?>> attrs,
+      long startStamp,
+      long endStamp,
+      long limit) {
 
-    return applyTransform(readAccessor.createStreamFromUpdates(
-        pipeline, attrs, startStamp, endStamp, limit));
+    return applyTransform(
+        readAccessor.createStreamFromUpdates(pipeline, attrs, startStamp, endStamp, limit));
   }
 
   private PCollection<StreamElement> applyTransform(PCollection<StreamElement> in) {
-    return MapElements.of(in)
-        .using(this::transformSingleRead, in.getTypeDescriptor())
-        .output();
+    return MapElements.of(in).using(this::transformSingleRead, in.getTypeDescriptor()).output();
   }
 
   private StreamElement transformSingleRead(StreamElement input) {
@@ -112,10 +111,8 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
           input.getValue());
     }
     log.warn(
-        "Received unknown attribute {}. Letting though, but this "
-            + "might cause other issues.",
+        "Received unknown attribute {}. Letting though, but this " + "might cause other issues.",
         input.getAttributeDescriptor());
     return input;
   }
-
 }

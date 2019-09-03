@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,13 @@
  */
 package cz.o2.proxima.direct.cassandra;
 
-import cz.o2.proxima.direct.cassandra.Offsets;
-import cz.o2.proxima.direct.cassandra.StringConverter;
-import cz.o2.proxima.direct.cassandra.DefaultCqlFactory;
-import cz.o2.proxima.direct.cassandra.CqlFactory;
+import static org.junit.Assert.*;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 import com.datastax.driver.core.BoundStatement;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.Session;
@@ -36,18 +39,10 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-/**
- * Test for default CQL factory.
- */
+/** Test for default CQL factory. */
 public class DefaultCqlFactoryTest {
 
   final Config cfg = ConfigFactory.defaultApplication();
@@ -62,121 +57,109 @@ public class DefaultCqlFactoryTest {
   List<String> preparedStatement;
 
   public DefaultCqlFactoryTest() throws URISyntaxException {
-    this.attr = AttributeDescriptor.newBuilder(repo)
-        .setEntity("dummy")
-        .setName("myAttribute")
-        .setSchemeUri(new URI("bytes:///"))
-        .build();
-    this.attrWildcard = AttributeDescriptor.newBuilder(repo)
-        .setEntity("dummy")
-        .setName("device.*")
-        .setSchemeUri(new URI("bytes:///"))
-        .build();
-    this.entity = EntityDescriptor.newBuilder()
-        .setName("dummy")
-        .addAttribute(attr)
-        .addAttribute(attrWildcard)
-        .build();
+    this.attr =
+        AttributeDescriptor.newBuilder(repo)
+            .setEntity("dummy")
+            .setName("myAttribute")
+            .setSchemeUri(new URI("bytes:///"))
+            .build();
+    this.attrWildcard =
+        AttributeDescriptor.newBuilder(repo)
+            .setEntity("dummy")
+            .setName("device.*")
+            .setSchemeUri(new URI("bytes:///"))
+            .build();
+    this.entity =
+        EntityDescriptor.newBuilder()
+            .setName("dummy")
+            .addAttribute(attr)
+            .addAttribute(attrWildcard)
+            .build();
   }
 
   @Before
   public void setup() throws URISyntaxException {
     preparedStatement = new ArrayList<>();
-    factory = new DefaultCqlFactory() {
+    factory =
+        new DefaultCqlFactory() {
 
-      // store the generated statements for inspection
+          // store the generated statements for inspection
 
-      @Override
-      protected String createInsertStatement(StreamElement what) {
-        preparedStatement.add(super.createInsertStatement(what));
-        return preparedStatement.get(preparedStatement.size() - 1);
-      }
+          @Override
+          protected String createInsertStatement(StreamElement what) {
+            preparedStatement.add(super.createInsertStatement(what));
+            return preparedStatement.get(preparedStatement.size() - 1);
+          }
 
-      @Override
-      protected String createDeleteStatement(StreamElement what) {
-        preparedStatement.add(super.createDeleteStatement(what));
-        return preparedStatement.get(preparedStatement.size() - 1);
-      }
+          @Override
+          protected String createDeleteStatement(StreamElement what) {
+            preparedStatement.add(super.createDeleteStatement(what));
+            return preparedStatement.get(preparedStatement.size() - 1);
+          }
 
-      @Override
-      protected String createDeleteWildcardStatement(StreamElement what) {
-        preparedStatement.add(super.createDeleteWildcardStatement(what));
-        return preparedStatement.get(preparedStatement.size() - 1);
-      }
+          @Override
+          protected String createDeleteWildcardStatement(StreamElement what) {
+            preparedStatement.add(super.createDeleteWildcardStatement(what));
+            return preparedStatement.get(preparedStatement.size() - 1);
+          }
 
-      @Override
-      protected String createListStatement(AttributeDescriptor desc) {
-        preparedStatement.add(super.createListStatement(desc));
-        return preparedStatement.get(preparedStatement.size() - 1);
-      }
+          @Override
+          protected String createListStatement(AttributeDescriptor desc) {
+            preparedStatement.add(super.createListStatement(desc));
+            return preparedStatement.get(preparedStatement.size() - 1);
+          }
 
-      @Override
-      protected String createGetStatement(String attribute, AttributeDescriptor desc) {
-        preparedStatement.add(super.createGetStatement(attribute, desc));
-        return preparedStatement.get(preparedStatement.size() - 1);
-      }
+          @Override
+          protected String createGetStatement(String attribute, AttributeDescriptor desc) {
+            preparedStatement.add(super.createGetStatement(attribute, desc));
+            return preparedStatement.get(preparedStatement.size() - 1);
+          }
 
-      @Override
-      protected String createFetchTokenStatement() {
-        preparedStatement.add(super.createFetchTokenStatement());
-        return preparedStatement.get(preparedStatement.size() - 1);
-      }
+          @Override
+          protected String createFetchTokenStatement() {
+            preparedStatement.add(super.createFetchTokenStatement());
+            return preparedStatement.get(preparedStatement.size() - 1);
+          }
 
-      @Override
-      protected String createListEntititiesStatement() {
-        preparedStatement.add(super.createListEntititiesStatement());
-        return preparedStatement.get(preparedStatement.size() - 1);
-      }
-
-    };
+          @Override
+          protected String createListEntititiesStatement() {
+            preparedStatement.add(super.createListEntititiesStatement());
+            return preparedStatement.get(preparedStatement.size() - 1);
+          }
+        };
     factory.setup(
         entity,
         new URI("cassandra://wherever/my_table?data=my_col&primary=hgw"),
         StringConverter.getDefault());
   }
 
-
   @Test(expected = IllegalStateException.class)
   public void testSetupWithNoQuery() throws URISyntaxException {
-    factory.setup(
-        entity,
-        new URI("cassandra://wherever/my_table"),
-        StringConverter.getDefault());
+    factory.setup(entity, new URI("cassandra://wherever/my_table"), StringConverter.getDefault());
   }
-
 
   @Test
   public void testSetupWithJustPrimary() throws URISyntaxException {
     factory.setup(
-        entity,
-        new URI("cassandra://wherever/my_table?primary=hgw"),
-        StringConverter.getDefault());
+        entity, new URI("cassandra://wherever/my_table?primary=hgw"), StringConverter.getDefault());
   }
-
 
   @Test(expected = IllegalArgumentException.class)
   public void testSetupWithNoPath() throws URISyntaxException {
-    factory.setup(
-        entity,
-        new URI("cassandra://wherever/"),
-        StringConverter.getDefault());
+    factory.setup(entity, new URI("cassandra://wherever/"), StringConverter.getDefault());
   }
 
   @Test
   public void testIngest() {
     long now = System.currentTimeMillis();
-    StreamElement ingest = StreamElement.update(
-        entity, attr, "", "key", "myAttribute",
-        now, "value".getBytes());
+    StreamElement ingest =
+        StreamElement.update(entity, attr, "", "key", "myAttribute", now, "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind(
-        "key",
-        ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
+    when(statement.bind("key", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
-    verify(statement)
-        .bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
+    verify(statement).bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
     assertEquals(
@@ -191,19 +174,15 @@ public class DefaultCqlFactoryTest {
         entity,
         new URI("cassandra://wherever/my_table?data=my_col&primary=hgw&ttl=86400"),
         StringConverter.getDefault());
-    StreamElement ingest = StreamElement.update(
-        entity, attr, "", "key", "myAttribute",
-        now, "value".getBytes());
+    StreamElement ingest =
+        StreamElement.update(entity, attr, "", "key", "myAttribute", now, "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind(
-        "key",
-        ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
+    when(statement.bind("key", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
     when(bound.setBytes(eq(1), any())).thenReturn(bound);
 
     Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
-    verify(statement)
-        .bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
+    verify(statement).bind(eq("key"), eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
     assertEquals(
@@ -215,20 +194,18 @@ public class DefaultCqlFactoryTest {
   @Test
   public void testIngestWildcard() {
     long now = System.currentTimeMillis();
-    StreamElement ingest = StreamElement.update(
-        entity, attrWildcard, "", "key", "device.1",
-        now, "value".getBytes());
+    StreamElement ingest =
+        StreamElement.update(entity, attrWildcard, "", "key", "device.1", now, "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
-    when(statement.bind(
-        "key", "1",
-        ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
+    when(statement.bind("key", "1", ByteBuffer.wrap("value".getBytes()), now * 1000L))
+        .thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
-    Optional<BoundStatement> boundStatement = factory
-        .getWriteStatement(ingest, session);
-    verify(statement).bind(
-        eq("key"), eq("1"),
-        eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
+    Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
+    verify(statement)
+        .bind(
+            eq("key"), eq("1"),
+            eq(ByteBuffer.wrap("value".getBytes())), eq(now * 1000L));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
     assertEquals(
@@ -239,14 +216,12 @@ public class DefaultCqlFactoryTest {
   @Test
   public void testIngestDeleteSimple() {
     long now = System.currentTimeMillis();
-    StreamElement ingest = StreamElement.delete(
-        entity, attr, "", "key", "myAttribute", now);
+    StreamElement ingest = StreamElement.delete(entity, attr, "", "key", "myAttribute", now);
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind(now * 1000L, "key")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
-    Optional<BoundStatement> boundStatement = factory
-        .getWriteStatement(ingest, session);
+    Optional<BoundStatement> boundStatement = factory.getWriteStatement(ingest, session);
     verify(statement).bind(eq(now * 1000L), eq("key"));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
@@ -255,12 +230,10 @@ public class DefaultCqlFactoryTest {
         preparedStatement.get(0));
   }
 
-
   @Test
   public void testIngestDeleteWildcard() {
     long now = System.currentTimeMillis();
-    StreamElement ingest = StreamElement.delete(
-        entity, attrWildcard, "", "key", "device.1", now);
+    StreamElement ingest = StreamElement.delete(entity, attrWildcard, "", "key", "device.1", now);
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind(now * 1000L, "1", "key")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
@@ -277,8 +250,7 @@ public class DefaultCqlFactoryTest {
   @Test
   public void testIngestDeleteWildcardAll() {
     long now = System.currentTimeMillis();
-    StreamElement ingest = StreamElement.deleteWildcard(
-        entity, attrWildcard, "", "key", now);
+    StreamElement ingest = StreamElement.deleteWildcard(entity, attrWildcard, "", "key", now);
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind(now * 1000L, "key")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
@@ -287,10 +259,8 @@ public class DefaultCqlFactoryTest {
     verify(statement).bind(eq(now * 1000L), eq("key"));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
-    assertEquals("DELETE FROM my_table USING TIMESTAMP ? WHERE hgw=?",
-        preparedStatement.get(0));
+    assertEquals("DELETE FROM my_table USING TIMESTAMP ? WHERE hgw=?", preparedStatement.get(0));
   }
-
 
   @Test
   public void testGetAttribute() {
@@ -298,13 +268,11 @@ public class DefaultCqlFactoryTest {
     when(statement.bind("key")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
-    BoundStatement boundStatement = factory.getReadStatement(
-        "key", attr.getName(), attr, session);
+    BoundStatement boundStatement = factory.getReadStatement("key", attr.getName(), attr, session);
     verify(statement).bind(eq("key"));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
-    assertEquals("SELECT my_attribute FROM my_table WHERE hgw=?",
-        preparedStatement.get(0));
+    assertEquals("SELECT my_attribute FROM my_table WHERE hgw=?", preparedStatement.get(0));
   }
 
   @Test
@@ -313,14 +281,13 @@ public class DefaultCqlFactoryTest {
     when(statement.bind("key", "1")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
-    BoundStatement boundStatement = factory.getReadStatement(
-        "key", "device.1", attrWildcard, session);
+    BoundStatement boundStatement =
+        factory.getReadStatement("key", "device.1", attrWildcard, session);
 
     verify(statement).bind(eq("key"), eq("1"));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
-    assertEquals("SELECT my_col FROM my_table WHERE hgw=? AND device=?",
-        preparedStatement.get(0));
+    assertEquals("SELECT my_col FROM my_table WHERE hgw=? AND device=?", preparedStatement.get(0));
   }
 
   @Test
@@ -329,16 +296,14 @@ public class DefaultCqlFactoryTest {
     when(statement.bind("key", "1:2")).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
-    BoundStatement boundStatement = factory.getReadStatement(
-        "key", "device.1:2", attrWildcard, session);
+    BoundStatement boundStatement =
+        factory.getReadStatement("key", "device.1:2", attrWildcard, session);
 
     verify(statement).bind(eq("key"), eq("1:2"));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
-    assertEquals("SELECT my_col FROM my_table WHERE hgw=? AND device=?",
-        preparedStatement.get(0));
+    assertEquals("SELECT my_col FROM my_table WHERE hgw=? AND device=?", preparedStatement.get(0));
   }
-
 
   @Test
   public void testListWildcardWithoutStart() {
@@ -346,8 +311,8 @@ public class DefaultCqlFactoryTest {
     when(statement.bind("key", "", Integer.MAX_VALUE)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
-    BoundStatement boundStatement = factory.getListStatement(
-        "key", attrWildcard, null, -1, session);
+    BoundStatement boundStatement =
+        factory.getListStatement("key", attrWildcard, null, -1, session);
     verify(statement).bind(eq("key"), eq(""), eq(Integer.MAX_VALUE));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
@@ -362,8 +327,8 @@ public class DefaultCqlFactoryTest {
     when(statement.bind("key", "1", 10)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
-    BoundStatement boundStatement = factory.getListStatement(
-        "key", attrWildcard, new Offsets.Raw("device.1"), 10, session);
+    BoundStatement boundStatement =
+        factory.getListStatement("key", attrWildcard, new Offsets.Raw("device.1"), 10, session);
     verify(statement).bind(eq("key"), eq("1"), eq(10));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
@@ -371,7 +336,6 @@ public class DefaultCqlFactoryTest {
         "SELECT device, my_col FROM my_table WHERE hgw=? AND device>? LIMIT ?",
         preparedStatement.get(0));
   }
-
 
   @Test
   public void testFetchOffset() {
@@ -383,24 +347,21 @@ public class DefaultCqlFactoryTest {
     verify(statement).bind(eq("key"));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
-    assertEquals(
-        "SELECT token(hgw) FROM my_table WHERE hgw=?",
-        preparedStatement.get(0));
+    assertEquals("SELECT token(hgw) FROM my_table WHERE hgw=?", preparedStatement.get(0));
   }
 
   @Test
   public void testListWildcardWithExplicitSecondaryField() throws URISyntaxException {
     factory.setup(
         entity,
-        new URI("cassandra://wherever/my_table?data=my_col"
-            + "&primary=hgw&secondary=stamp"),
+        new URI("cassandra://wherever/my_table?data=my_col" + "&primary=hgw&secondary=stamp"),
         StringConverter.getDefault());
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", "", Integer.MAX_VALUE)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
 
-    BoundStatement boundStatement = factory.getListStatement(
-        "key", attrWildcard, null, -1, session);
+    BoundStatement boundStatement =
+        factory.getListStatement("key", attrWildcard, null, -1, session);
     verify(statement).bind(eq("key"), eq(""), eq(Integer.MAX_VALUE));
     assertNotNull("Bound statement cannot be null", boundStatement);
     assertEquals(1, preparedStatement.size());
@@ -408,5 +369,4 @@ public class DefaultCqlFactoryTest {
         "SELECT stamp, my_col FROM my_table WHERE hgw=? AND stamp>? LIMIT ?",
         preparedStatement.get(0));
   }
-
 }

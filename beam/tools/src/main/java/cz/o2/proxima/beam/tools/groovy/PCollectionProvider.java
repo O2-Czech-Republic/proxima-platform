@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,15 +26,13 @@ import org.apache.beam.sdk.values.PCollection;
 
 interface PCollectionProvider<T> extends Serializable {
 
-  static class ParentNotifyingProvider<T>
-      implements PCollectionProvider<T> {
+  static class ParentNotifyingProvider<T> implements PCollectionProvider<T> {
 
     final Function<Pipeline, PCollection<T>> factory;
     final List<PCollectionProvider<?>> parents = new ArrayList<>();
 
     ParentNotifyingProvider(
-        Function<Pipeline, PCollection<T>> factory,
-        List<PCollectionProvider<?>> parents) {
+        Function<Pipeline, PCollection<T>> factory, List<PCollectionProvider<?>> parents) {
 
       this.factory = factory;
       this.parents.addAll(parents);
@@ -49,7 +47,6 @@ interface PCollectionProvider<T> extends Serializable {
     public PCollection<T> materialize(Pipeline pipeline) {
       return factory.apply(pipeline);
     }
-
   }
 
   static class CachedPCollectionProvider<T> implements PCollectionProvider<T> {
@@ -73,14 +70,11 @@ interface PCollectionProvider<T> extends Serializable {
     public void asUnbounded() {
       underlying.asUnbounded();
     }
-
   }
-
 
   @SafeVarargs
   static <T> PCollectionProvider<T> withParents(
-      Function<Pipeline, PCollection<T>> factory,
-      PCollectionProvider<?>... parents) {
+      Function<Pipeline, PCollection<T>> factory, PCollectionProvider<?>... parents) {
 
     return new ParentNotifyingProvider<>(factory, Arrays.asList(parents));
   }
@@ -89,8 +83,7 @@ interface PCollectionProvider<T> extends Serializable {
     return new CachedPCollectionProvider<>(underlying);
   }
 
-  static <T> PCollectionProvider<T> fixedType(
-      Function<Pipeline, PCollection<T>> factory) {
+  static <T> PCollectionProvider<T> fixedType(Function<Pipeline, PCollection<T>> factory) {
     return new ParentNotifyingProvider<>(factory, Collections.emptyList());
   }
 
@@ -115,21 +108,17 @@ interface PCollectionProvider<T> extends Serializable {
       public void asUnbounded() {
         isBounded = false;
       }
-
     };
   }
 
   /**
    * Create {@link PCollection} in given {@link Pipeline}.
+   *
    * @param pipeline the pipeline to create to PCollection in
    * @return resulting PCollection
    */
   PCollection<T> materialize(Pipeline pipeline);
 
-  /**
-   * Convert given materialization process to create unbounded
-   * PCollection, if possible.
-   */
+  /** Convert given materialization process to create unbounded PCollection, if possible. */
   void asUnbounded();
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,13 +24,9 @@ import cz.o2.proxima.storage.StreamElement;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * A {@link OnlineAttributeWriter} implementation for Cassandra.
- */
+/** A {@link OnlineAttributeWriter} implementation for Cassandra. */
 @Slf4j
-class CassandraWriter
-    extends AbstractOnlineAttributeWriter
-    implements OnlineAttributeWriter {
+class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAttributeWriter {
 
   private final CassandraDBAccessor accessor;
 
@@ -40,14 +36,11 @@ class CassandraWriter
   }
 
   @Override
-  public synchronized void write(
-      StreamElement data,
-      CommitCallback statusCallback) {
+  public synchronized void write(StreamElement data, CommitCallback statusCallback) {
 
     try {
       Session session = accessor.ensureSession();
-      Optional<BoundStatement> cql = accessor.getCqlFactory()
-          .getWriteStatement(data, session);
+      Optional<BoundStatement> cql = accessor.getCqlFactory().getWriteStatement(data, session);
       if (cql.isPresent()) {
         if (log.isDebugEnabled()) {
           log.debug(
@@ -67,5 +60,4 @@ class CassandraWriter
       statusCallback.commit(false, ex);
     }
   }
-
 }

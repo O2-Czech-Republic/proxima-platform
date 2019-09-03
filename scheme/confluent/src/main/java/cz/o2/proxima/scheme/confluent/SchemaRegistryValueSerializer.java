@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,11 +25,6 @@ import cz.o2.proxima.util.Classpath;
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericContainer;
-import org.apache.avro.specific.SpecificRecord;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
@@ -39,10 +34,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericContainer;
+import org.apache.avro.specific.SpecificRecord;
 
 @Slf4j
-class SchemaRegistryValueSerializer<M extends GenericContainer>
-    implements ValueSerializer<M> {
+class SchemaRegistryValueSerializer<M extends GenericContainer> implements ValueSerializer<M> {
 
   static final byte MAGIC_BYTE = 0x0;
   static final int SCHEMA_ID_SIZE = 4;
@@ -54,7 +52,6 @@ class SchemaRegistryValueSerializer<M extends GenericContainer>
   private transient M defaultInstance = null;
 
   private transient Map<Integer, AvroSerializer> serializersCache = null;
-
 
   SchemaRegistryValueSerializer(URI scheme) throws URISyntaxException {
 
@@ -88,9 +85,12 @@ class SchemaRegistryValueSerializer<M extends GenericContainer>
     try {
       return deserialize(serialize(getDefault())).isPresent();
     } catch (Exception ex) {
-      log.warn("Exception during (de)serialization of default value for "
-          + "URI {}. Please consider making all fields optional, otherwise "
-          + "you might encounter unexpected behavior.", schemaRegistryUri, ex);
+      log.warn(
+          "Exception during (de)serialization of default value for "
+              + "URI {}. Please consider making all fields optional, otherwise "
+              + "you might encounter unexpected behavior.",
+          schemaRegistryUri,
+          ex);
     }
     try {
       return getDefault() != null;
@@ -108,30 +108,31 @@ class SchemaRegistryValueSerializer<M extends GenericContainer>
   }
 
   @SuppressWarnings("unchecked")
-  private <M extends GenericContainer> byte[]
-      serializeValue(M value, int schemaId) throws IOException {
+  private <M extends GenericContainer> byte[] serializeValue(M value, int schemaId)
+      throws IOException {
 
     final ByteArrayOutputStream out = new ByteArrayOutputStream();
     out.write(MAGIC_BYTE);
     out.write(ByteBuffer.allocate(SCHEMA_ID_SIZE).putInt(schemaId).array());
-    AvroSerializer<M> avroSerializer = (AvroSerializer<M>) getAvroSerializersCache()
-        .computeIfAbsent(schemaId, this::createSerializer);
+    AvroSerializer<M> avroSerializer =
+        (AvroSerializer<M>)
+            getAvroSerializersCache().computeIfAbsent(schemaId, this::createSerializer);
     avroSerializer.serialize(value, out);
     out.flush();
     return out.toByteArray();
   }
 
   @SuppressWarnings("unchecked")
-  private <M extends GenericContainer> Optional<M>
-      deserializeValue(byte[] bytes) {
+  private <M extends GenericContainer> Optional<M> deserializeValue(byte[] bytes) {
 
     try {
       ByteBuffer buffer = getByteBuffer(bytes);
       int dataSchemaId = buffer.getInt();
       int len = buffer.limit() - 1 - SCHEMA_ID_SIZE;
       int start = buffer.position() + buffer.arrayOffset();
-      AvroSerializer<M> avroSerializer = (AvroSerializer<M>) getAvroSerializersCache()
-          .computeIfAbsent(dataSchemaId, this::createSerializer);
+      AvroSerializer<M> avroSerializer =
+          (AvroSerializer<M>)
+              getAvroSerializersCache().computeIfAbsent(dataSchemaId, this::createSerializer);
       return Optional.of(avroSerializer.deserialize(buffer, start, len));
     } catch (Exception e) {
       log.warn("Unable to deserialize payload.", e);
@@ -144,8 +145,7 @@ class SchemaRegistryValueSerializer<M extends GenericContainer>
     try {
       schema = getSchemaRegistry().getById(schemaId);
     } catch (Exception e) {
-      throw new SerializationException(
-          "Unable to get schema with id " + schemaId + ".", e);
+      throw new SerializationException("Unable to get schema with id " + schemaId + ".", e);
     }
     return new AvroSerializer<>(schema);
   }
@@ -195,20 +195,19 @@ class SchemaRegistryValueSerializer<M extends GenericContainer>
     if (loadClass) {
       clazz = (Class<M>) Classpath.findClass(className, SpecificRecord.class);
     }
-
   }
 
   private SchemaRegistryClient getSchemaRegistry() throws URISyntaxException {
     if (schemaRegistry == null) {
-      URI baseUrl = new URI(
-          schemaRegistryUri.getScheme(),
-          schemaRegistryUri.getUserInfo(),
-          schemaRegistryUri.getHost(),
-          schemaRegistryUri.getPort(),
-          null,
-          null,
-          null
-      );
+      URI baseUrl =
+          new URI(
+              schemaRegistryUri.getScheme(),
+              schemaRegistryUri.getUserInfo(),
+              schemaRegistryUri.getHost(),
+              schemaRegistryUri.getPort(),
+              null,
+              null,
+              null);
       schemaRegistry = new CachedSchemaRegistryClient(baseUrl.toString(), 10);
     }
     return schemaRegistry;
@@ -221,9 +220,7 @@ class SchemaRegistryValueSerializer<M extends GenericContainer>
 
   private String getSchemaRegistrySubject(URI uri) {
     List<String> paths = UriUtil.parsePath(uri);
-    Preconditions.checkArgument(
-        !paths.isEmpty(),"Subject cannot be empty! Uri: {}!", uri);
+    Preconditions.checkArgument(!paths.isEmpty(), "Subject cannot be empty! Uri: {}!", uri);
     return paths.get(paths.size() - 1);
   }
-
 }

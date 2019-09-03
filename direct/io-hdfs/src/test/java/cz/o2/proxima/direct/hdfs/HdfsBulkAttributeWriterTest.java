@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,42 +15,40 @@
  */
 package cz.o2.proxima.direct.hdfs;
 
+import static org.junit.Assert.assertEquals;
+
 import com.google.common.collect.Maps;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-
 import org.apache.hadoop.fs.Path;
 import org.junit.After;
-import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Simple tests for {@code HdfsBulkAttributeWriter}.
- */
+/** Simple tests for {@code HdfsBulkAttributeWriter}. */
 public class HdfsBulkAttributeWriterTest {
 
   private HdfsBulkAttributeWriter writer;
 
   @Before
   public void setUp() throws URISyntaxException {
-    writer = new HdfsBulkAttributeWriter(
-        EntityDescriptor.newBuilder().setName("dummy").build(),
-        new URI("file://dummy/dir"), Maps.newHashMap(),
-        HdfsDataAccessor.HDFS_MIN_ELEMENTS_TO_FLUSH_DEFAULT,
-        HdfsDataAccessor.HDFS_ROLL_INTERVAL_DEFAULT);
+    writer =
+        new HdfsBulkAttributeWriter(
+            EntityDescriptor.newBuilder().setName("dummy").build(),
+            new URI("file://dummy/dir"),
+            Maps.newHashMap(),
+            HdfsDataAccessor.HDFS_MIN_ELEMENTS_TO_FLUSH_DEFAULT,
+            HdfsDataAccessor.HDFS_ROLL_INTERVAL_DEFAULT);
   }
 
   @After
-  public void tearDown() {
-  }
+  public void tearDown() {}
 
   @Test
-  public void testTempPathGeneration()
-      throws UnknownHostException, URISyntaxException {
+  public void testTempPathGeneration() throws UnknownHostException, URISyntaxException {
 
     Path tmp = writer.toTmpLocation(1500000000000L);
     assertEquals(
@@ -60,8 +58,7 @@ public class HdfsBulkAttributeWriterTest {
   }
 
   @Test
-  public void testFinalPathGeneration()
-      throws UnknownHostException, URISyntaxException {
+  public void testFinalPathGeneration() throws UnknownHostException, URISyntaxException {
 
     Path tmp = writer.toFinalLocation(1500000000000L, 1499999999000L, 1500000001000L);
     assertEquals(
@@ -71,11 +68,9 @@ public class HdfsBulkAttributeWriterTest {
   }
 
   @Test
-  public void testFinalPathGeneration2017_12_31()
-      throws UnknownHostException, URISyntaxException {
+  public void testFinalPathGeneration2017_12_31() throws UnknownHostException, URISyntaxException {
 
-    Path tmp = writer.toFinalLocation(
-        1514761200000L, 1514761200000L, 1514761200000L + 1000L);
+    Path tmp = writer.toFinalLocation(1514761200000L, 1514761200000L, 1514761200000L + 1000L);
     assertEquals(
         "file://dummy/dir/2017/12/part-1514761200000_1514761201000-"
             + InetAddress.getLocalHost().getCanonicalHostName(),
@@ -89,5 +84,4 @@ public class HdfsBulkAttributeWriterTest {
         Maps.immutableEntry(1499999999000L, 1500000001000L),
         HdfsBatchLogObservable.getMinMaxStamp(part));
   }
-
 }

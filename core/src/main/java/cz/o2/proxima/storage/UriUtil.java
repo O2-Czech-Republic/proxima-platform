@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,14 +25,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Utilities related to URIs.
- */
+/** Utilities related to URIs. */
 @Internal
 public class UriUtil {
 
   /**
    * Parse query string from URI
+   *
    * @param uri uri for parsing
    * @return Map of query params
    */
@@ -41,7 +40,8 @@ public class UriUtil {
     if (query == null) {
       return Collections.emptyMap();
     }
-    return Arrays.asList(query.split("&")).stream()
+    return Arrays.asList(query.split("&"))
+        .stream()
         .map(s -> Arrays.copyOf(s.split("="), 2))
         .collect(Collectors.toMap(s -> decode(s[0]), s -> decode(s[1])));
   }
@@ -55,9 +55,8 @@ public class UriUtil {
   }
 
   /**
-   * Get normalized path from URI, which:
-   *  * is not null
-   *  * doesn't start or end with slash
+   * Get normalized path from URI, which: * is not null * doesn't start or end with slash
+   *
    * @param uri the URI to extract path from
    * @return normalized path
    */
@@ -74,6 +73,7 @@ public class UriUtil {
 
   /**
    * Parse path from URI
+   *
    * @param uri uri for parsing
    * @return list of paths as string
    */
@@ -85,11 +85,8 @@ public class UriUtil {
     if (path.isEmpty()) {
       return Collections.emptyList();
     }
-    return Arrays.stream(path.split("/")).map(UriUtil::decode)
-        .collect(Collectors.toList());
-  }
-  private UriUtil() {
-    
+    return Arrays.stream(path.split("/")).map(UriUtil::decode).collect(Collectors.toList());
   }
 
+  private UriUtil() {}
 }

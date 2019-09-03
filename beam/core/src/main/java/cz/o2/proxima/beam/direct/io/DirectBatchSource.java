@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,15 +30,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
 
-/**
- * An {@link BoundedSource} created from direct operator's {@link BatchLogObservable}.
- */
+/** An {@link BoundedSource} created from direct operator's {@link BatchLogObservable}. */
 @Slf4j
 public class DirectBatchSource extends AbstractDirectBoundedSource {
 
   static DirectBatchSource of(
-      RepositoryFactory factory, BatchLogObservable reader,
-      List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp) {
+      RepositoryFactory factory,
+      BatchLogObservable reader,
+      List<AttributeDescriptor<?>> attrs,
+      long startStamp,
+      long endStamp) {
 
     return new DirectBatchSource(factory, reader, attrs, startStamp, endStamp);
   }
@@ -50,9 +51,11 @@ public class DirectBatchSource extends AbstractDirectBoundedSource {
   private final @Nullable Partition split;
 
   private DirectBatchSource(
-      RepositoryFactory factory, BatchLogObservable reader,
+      RepositoryFactory factory,
+      BatchLogObservable reader,
       List<AttributeDescriptor<?>> attrs,
-      long startStamp, long endStamp) {
+      long startStamp,
+      long endStamp) {
 
     super(factory);
     this.reader = Objects.requireNonNull(reader);
@@ -78,18 +81,16 @@ public class DirectBatchSource extends AbstractDirectBoundedSource {
     if (split != null) {
       return Arrays.asList(this);
     }
-    return reader.getPartitions(startStamp, endStamp)
+    return reader
+        .getPartitions(startStamp, endStamp)
         .stream()
         .map(p -> new DirectBatchSource(this, p))
         .collect(Collectors.toList());
   }
 
   @Override
-  public BoundedReader<StreamElement> createReader(PipelineOptions options)
-      throws IOException {
+  public BoundedReader<StreamElement> createReader(PipelineOptions options) throws IOException {
 
-    return BeamBatchLogReader.of(
-        this, reader, attrs, split, startStamp, endStamp);
+    return BeamBatchLogReader.of(this, reader, attrs, split, startStamp, endStamp);
   }
-
 }

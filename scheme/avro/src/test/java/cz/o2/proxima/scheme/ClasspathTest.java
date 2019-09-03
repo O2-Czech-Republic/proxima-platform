@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,20 @@
  */
 package cz.o2.proxima.scheme;
 
+import static junit.framework.TestCase.assertEquals;
+
 import cz.o2.proxima.scheme.avro.test.Event;
 import cz.o2.proxima.util.Classpath;
 import org.apache.avro.specific.SpecificRecord;
 import org.junit.Test;
 
-import static junit.framework.TestCase.assertEquals;
-
-/**
- * Test for {@link Classpath} with inner classes.
- */
+/** Test for {@link Classpath} with inner classes. */
 public class ClasspathTest {
   private final String eventClassName = "cz.o2.proxima.scheme.avro.test.Event";
 
   @Test
   public void testFindInnerClassWithValidSuperClass() {
-    assertEquals(Event.class,
-        Classpath.findClass(eventClassName, SpecificRecord.class));
+    assertEquals(Event.class, Classpath.findClass(eventClassName, SpecificRecord.class));
   }
 
   @Test(expected = RuntimeException.class)
@@ -41,14 +38,12 @@ public class ClasspathTest {
 
   @Test
   public void testCreateNewInstanceForInnerClassWithValidSuper() {
-    assertEquals(Event.class,
-        Classpath.newInstance(eventClassName, SpecificRecord.class)
-            .getClass());
+    assertEquals(
+        Event.class, Classpath.newInstance(eventClassName, SpecificRecord.class).getClass());
   }
 
   @Test(expected = RuntimeException.class)
   public void testCreateNewInstanceForInnerClassWithInvalidSuper() {
-    Classpath
-        .newInstance(eventClassName, Classpath.class);
+    Classpath.newInstance(eventClassName, Classpath.class);
   }
 }

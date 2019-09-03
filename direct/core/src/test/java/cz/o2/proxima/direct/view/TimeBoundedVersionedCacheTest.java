@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,14 @@
  */
 package cz.o2.proxima.direct.view;
 
+import static org.junit.Assert.*;
+
 import cz.o2.proxima.util.Pair;
 import java.util.HashMap;
 import java.util.Map;
-import static org.junit.Assert.*;
 import org.junit.Test;
 
-/**
- * Test suite for {@link TimeBoundedVersionedCache}.
- */
+/** Test suite for {@link TimeBoundedVersionedCache}. */
 public class TimeBoundedVersionedCacheTest {
 
   long now = System.currentTimeMillis();
@@ -33,9 +32,7 @@ public class TimeBoundedVersionedCacheTest {
     TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(60_000L);
     assertTrue(cache.put("key", "attribute", now, false, "test"));
     assertEquals(Pair.of(now, "test"), cache.get("key", "attribute", now));
-    assertEquals(
-        Pair.of(now, "test"),
-        cache.get("key", "attribute", now + 1));
+    assertEquals(Pair.of(now, "test"), cache.get("key", "attribute", now + 1));
     assertNull(cache.get("key", "attribute", now - 1));
   }
 
@@ -47,9 +44,7 @@ public class TimeBoundedVersionedCacheTest {
     assertTrue(cache.put("key", "attribute", now, false, "test2"));
     assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now));
     assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now + 1));
-    assertEquals(
-        Pair.of(now - 30_000L, "test1"),
-        cache.get("key", "attribute", now - 1));
+    assertEquals(Pair.of(now - 30_000L, "test1"), cache.get("key", "attribute", now - 1));
     assertEquals(2, cache.get("key").get("attribute").size());
   }
 
@@ -73,13 +68,10 @@ public class TimeBoundedVersionedCacheTest {
     assertTrue(cache.put("key", "attribute", now, false, "test2"));
     assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now));
     assertEquals(Pair.of(now, "test2"), cache.get("key", "attribute", now + 1));
-    assertEquals(
-        Pair.of(now + 30_000L, "test1"),
-        cache.get("key", "attribute", now + 31_000L));
+    assertEquals(Pair.of(now + 30_000L, "test1"), cache.get("key", "attribute", now + 31_000L));
     assertNull(cache.get("key", "attribute", now - 1));
     assertEquals(2, cache.get("key").get("attribute").size());
   }
-
 
   @Test
   public void testMultiCacheOverTimeout() {
@@ -110,26 +102,42 @@ public class TimeBoundedVersionedCacheTest {
     assertTrue(cache.put("key", "a.2", now, false, "test2"));
     assertTrue(cache.put("key", "a.3", now, false, "test3"));
     Map<String, Pair<Long, Object>> scanned = new HashMap<>();
-    cache.scan("key", "a.", now, k -> null, (k, v) -> {
-      scanned.put(k, v);
-      return true;
-    });
+    cache.scan(
+        "key",
+        "a.",
+        now,
+        k -> null,
+        (k, v) -> {
+          scanned.put(k, v);
+          return true;
+        });
     assertEquals(3, scanned.size());
 
     now += 1;
     assertTrue(cache.put("key", "a.2", now, false, null));
     scanned.clear();
-    cache.scan("key", "a.", now, k -> null, (k, v) -> {
-      scanned.put(k, v);
-      return true;
-    });
+    cache.scan(
+        "key",
+        "a.",
+        now,
+        k -> null,
+        (k, v) -> {
+          scanned.put(k, v);
+          return true;
+        });
     assertEquals(3, scanned.size());
 
     scanned.clear();
-    cache.scan("key", "a.", "a.2", now, k -> null, (k, v) -> {
-      scanned.put(k, v);
-      return true;
-    });
+    cache.scan(
+        "key",
+        "a.",
+        "a.2",
+        now,
+        k -> null,
+        (k, v) -> {
+          scanned.put(k, v);
+          return true;
+        });
     assertEquals(1, scanned.size());
     assertNotNull(scanned.get("a.3"));
   }
@@ -146,36 +154,55 @@ public class TimeBoundedVersionedCacheTest {
     now += 1;
     assertTrue(cache.put("key", "a.3", now, false, "test3"));
     Map<String, Pair<Long, Object>> scanned = new HashMap<>();
-    cache.scan("key", "a.", now, k -> "a.", (k, v) -> {
-      scanned.put(k, v);
-      return true;
-    });
+    cache.scan(
+        "key",
+        "a.",
+        now,
+        k -> "a.",
+        (k, v) -> {
+          scanned.put(k, v);
+          return true;
+        });
     assertEquals(1, scanned.size());
 
     now += 1;
     assertTrue(cache.put("key", "a.2", now, false, null));
     scanned.clear();
-    cache.scan("key", "a.", now, k -> "a.", (k, v) -> {
-      scanned.put(k, v);
-      return true;
-    });
+    cache.scan(
+        "key",
+        "a.",
+        now,
+        k -> "a.",
+        (k, v) -> {
+          scanned.put(k, v);
+          return true;
+        });
     assertEquals(2, scanned.size());
 
     scanned.clear();
-    cache.scan("key", "a.", "a.2", now, k -> "a.", (k, v) -> {
-      scanned.put(k, v);
-      return true;
-    });
+    cache.scan(
+        "key",
+        "a.",
+        "a.2",
+        now,
+        k -> "a.",
+        (k, v) -> {
+          scanned.put(k, v);
+          return true;
+        });
     assertEquals(1, scanned.size());
     assertNotNull(scanned.get("a.3"));
 
     scanned.clear();
-    cache.scan("key", "a.", now - 3, k -> "a.", (k, v) -> {
-      scanned.put(k, v);
-      return true;
-    });
+    cache.scan(
+        "key",
+        "a.",
+        now - 3,
+        k -> "a.",
+        (k, v) -> {
+          scanned.put(k, v);
+          return true;
+        });
     assertEquals(2, scanned.size());
-
   }
-
 }

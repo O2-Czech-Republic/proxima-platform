@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.hbase;
 
 import static cz.o2.proxima.direct.hbase.Util.cloneArray;
+
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader.Listing;
@@ -41,11 +42,8 @@ import org.apache.hadoop.hbase.filter.ColumnPaginationFilter;
 import org.apache.hadoop.hbase.filter.ColumnPrefixFilter;
 import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
 
-/**
- * {@code RandomAccessReader} for HBase.
- */
-public class RandomHBaseReader extends HBaseClientWrapper
-    implements RandomAccessReader {
+/** {@code RandomAccessReader} for HBase. */
+public class RandomHBaseReader extends HBaseClientWrapper implements RandomAccessReader {
 
   private static final String KEYS_SCANNER_CACHING = "hbase.list-keys.caching";
   private static final int KEYS_SCANNER_CACHING_DEFAULT = 1000;
@@ -53,15 +51,16 @@ public class RandomHBaseReader extends HBaseClientWrapper
   private final EntityDescriptor entity;
   private final int keyCaching;
 
-  public RandomHBaseReader(URI uri, Configuration conf,
-      Map<String, Object> cfg,
-      EntityDescriptor entity) {
+  public RandomHBaseReader(
+      URI uri, Configuration conf, Map<String, Object> cfg, EntityDescriptor entity) {
 
     super(uri, conf);
     this.entity = entity;
-    this.keyCaching = Integer.valueOf(
-        Optional.ofNullable(cfg.get(KEYS_SCANNER_CACHING))
-            .orElse(KEYS_SCANNER_CACHING_DEFAULT).toString());
+    this.keyCaching =
+        Integer.valueOf(
+            Optional.ofNullable(cfg.get(KEYS_SCANNER_CACHING))
+                .orElse(KEYS_SCANNER_CACHING_DEFAULT)
+                .toString());
   }
 
   @Override
@@ -81,9 +80,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
     try {
       Result res = client.get(get);
       Cell cell = res.getColumnLatestCell(family, qualifier);
-      return Optional.ofNullable(cell == null
-          ? null
-          : kv(desc, cell));
+      return Optional.ofNullable(cell == null ? null : kv(desc, cell));
     } catch (IOException ex) {
       throw new RuntimeException(ex);
     }
@@ -92,24 +89,29 @@ public class RandomHBaseReader extends HBaseClientWrapper
   @SuppressWarnings("unchecked")
   @Override
   public <T> void scanWildcard(
-      String key, AttributeDescriptor<T> wildcard, RandomOffset offset,
-      long stamp, int limit, Consumer<KeyValue<T>> consumer) {
+      String key,
+      AttributeDescriptor<T> wildcard,
+      RandomOffset offset,
+      long stamp,
+      int limit,
+      Consumer<KeyValue<T>> consumer) {
 
     try {
       ensureClient();
       final RawOffset stroff = (RawOffset) offset;
       final Get get = new Get(key.getBytes(StandardCharsets.UTF_8));
       get.addFamily(family);
-      get.setFilter(new ColumnPrefixFilter(
-          (wildcard.toAttributePrefix()).getBytes(StandardCharsets.UTF_8)));
+      get.setFilter(
+          new ColumnPrefixFilter((wildcard.toAttributePrefix()).getBytes(StandardCharsets.UTF_8)));
       final Scan scan = new Scan(get);
       if (limit <= 0) {
         limit = Integer.MAX_VALUE;
       }
       scan.setBatch(limit);
       if (stroff != null) {
-        scan.setFilter(new ColumnPaginationFilter(
-            limit, (stroff.getOffset() + '\00').getBytes(StandardCharsets.UTF_8)));
+        scan.setFilter(
+            new ColumnPaginationFilter(
+                limit, (stroff.getOffset() + '\00').getBytes(StandardCharsets.UTF_8)));
       }
 
       int accepted = 0;
@@ -131,15 +133,13 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
   @Override
   public void listEntities(
-      RandomOffset offset,
-      int limit,
-      Consumer<Pair<RandomOffset, String>> consumer) {
+      RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
 
     ensureClient();
-    Scan s = offset == null
-        ? new Scan()
-        : new Scan((((RawOffset) offset).getOffset() + '\00').getBytes(
-            StandardCharsets.UTF_8));
+    Scan s =
+        offset == null
+            ? new Scan()
+            : new Scan((((RawOffset) offset).getOffset() + '\00').getBytes(StandardCharsets.UTF_8));
     s.addFamily(family);
     s.setFilter(new KeyOnlyFilter());
 
@@ -170,16 +170,16 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
   @SuppressWarnings("unchecked")
   private KeyValue kv(AttributeDescriptor<?> desc, Cell cell) {
-    String key = new String(
-        cell.getRowArray(),
-        cell.getRowOffset(), cell.getRowLength());
-    String attribute = new String(
-        cell.getQualifierArray(), cell.getQualifierOffset(),
-        cell.getQualifierLength());
+    String key = new String(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
+    String attribute =
+        new String(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
 
     return KeyValue.of(
-        entity, desc, key,
-        attribute, asOffset(attribute),
+        entity,
+        desc,
+        key,
+        attribute,
+        asOffset(attribute),
         cloneArray(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength()),
         cell.getTimestamp());
   }
@@ -191,8 +191,7 @@ public class RandomHBaseReader extends HBaseClientWrapper
 
   @Override
   public void scanWildcardAll(
-      String key, RandomOffset offset, long stamp,
-      int limit, Consumer<KeyValue<?>> consumer) {
+      String key, RandomOffset offset, long stamp, int limit, Consumer<KeyValue<?>> consumer) {
 
     throw new UnsupportedOperationException(
         "Unsupported. See https://github.com/O2-Czech-Republic/proxima-platform/issues/68");
@@ -201,5 +200,4 @@ public class RandomHBaseReader extends HBaseClientWrapper
   static RawOffset asOffset(String what) {
     return new RawOffset(what);
   }
-
 }

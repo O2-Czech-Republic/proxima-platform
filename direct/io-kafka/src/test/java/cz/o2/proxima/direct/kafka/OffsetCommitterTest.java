@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,14 @@
  */
 package cz.o2.proxima.direct.kafka;
 
-import cz.o2.proxima.direct.kafka.OffsetCommitter;
+import static org.junit.Assert.*;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.Before;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
-/**
- * Test {@code OffsetCommitter}.
- */
+/** Test {@code OffsetCommitter}. */
 public class OffsetCommitterTest {
 
   OffsetCommitter<String> committer;
@@ -34,9 +32,7 @@ public class OffsetCommitterTest {
     committer = new OffsetCommitter<>();
   }
 
-  /**
-   * Test simple commit.
-   */
+  /** Test simple commit. */
   @Test
   public void testSimpleCommit() {
     String id = "dummy-0";
@@ -50,9 +46,7 @@ public class OffsetCommitterTest {
     assertTrue(committed.get());
   }
 
-  /**
-   * Test commit with two offsets.
-   */
+  /** Test commit with two offsets. */
   @Test
   public void testTwoOffsetCommit() {
     String id = "dummy-0";
@@ -104,7 +98,6 @@ public class OffsetCommitterTest {
     assertEquals(offset, committed.get());
   }
 
-
   @Test
   public void testCommitWithZeroActions() {
     String id = "dummy-0";
@@ -120,6 +113,4 @@ public class OffsetCommitterTest {
     committer.confirm(id, offset);
     assertEquals(offset + 1, committed.get());
   }
-
-
 }

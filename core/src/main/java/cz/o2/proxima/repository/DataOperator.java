@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,7 @@ package cz.o2.proxima.repository;
 import java.io.Serializable;
 
 /**
- * Labeling interface for Repository implementations to be able to mark
- * their respective operators.
+ * Labeling interface for Repository implementations to be able to mark their respective operators.
  */
 public interface DataOperator extends AutoCloseable, Serializable {
 
@@ -29,15 +28,14 @@ public interface DataOperator extends AutoCloseable, Serializable {
   /**
    * Reload the operator after {@link Repository} has been changed.
    *
-   * This method is called automatically, when {@link ConfigRepository#reloadConfig}
-   * is called.
+   * <p>This method is called automatically, when {@link ConfigRepository#reloadConfig} is called.
    */
   void reload();
 
   /**
    * Retrieve repository associated with the operator.
+   *
    * @return {@link Repository} associated with the operator
    */
   Repository getRepository();
-
 }

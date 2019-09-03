@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,9 +56,7 @@ import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.joda.time.Instant;
 
-/**
- * Source reading from {@link BatchLogObservable} in unbounded manner.
- */
+/** Source reading from {@link BatchLogObservable} in unbounded manner. */
 @Slf4j
 public class DirectBatchUnboundedSource
     extends UnboundedSource<StreamElement, DirectBatchUnboundedSource.Checkpoint> {
@@ -75,10 +73,8 @@ public class DirectBatchUnboundedSource
 
   public static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
 
-    @Getter
-    private final List<Partition> partitions;
-    @Getter
-    private final long skipFromFirst;
+    @Getter private final List<Partition> partitions;
+    @Getter private final long skipFromFirst;
 
     Checkpoint(List<Partition> partitions, long skipFromFirst) {
       this.partitions = Lists.newArrayList(partitions);
@@ -92,8 +88,8 @@ public class DirectBatchUnboundedSource
   }
 
   /**
-   * Use gzip to compress the serialized checkpoint, as it might easily grow
-   * in size (batch partitions might contain many files).
+   * Use gzip to compress the serialized checkpoint, as it might easily grow in size (batch
+   * partitions might contain many files).
    */
   public static class CheckpointCoder extends Coder<Checkpoint> {
 
@@ -133,10 +129,7 @@ public class DirectBatchUnboundedSource
     }
 
     @Override
-    public void verifyDeterministic() {
-
-    }
-
+    public void verifyDeterministic() {}
   }
 
   private final RepositoryFactory factory;
@@ -198,7 +191,8 @@ public class DirectBatchUnboundedSource
         splits.get(current).add(p);
         current = (current + 1) % desiredNumSplits;
       }
-      return splits.stream()
+      return splits
+          .stream()
           .map(s -> new DirectBatchUnboundedSource(this, s, startStamp, endStamp))
           .collect(Collectors.toList());
     }
@@ -209,10 +203,9 @@ public class DirectBatchUnboundedSource
   public UnboundedReader<StreamElement> createReader(
       PipelineOptions options, Checkpoint checkpointMark) throws IOException {
 
-    List<Partition> toProcess = Collections.synchronizedList(
-        new ArrayList<>(checkpointMark == null
-            ? partitions
-            : checkpointMark.partitions));
+    List<Partition> toProcess =
+        Collections.synchronizedList(
+            new ArrayList<>(checkpointMark == null ? partitions : checkpointMark.partitions));
     return new UnboundedReader<StreamElement>() {
 
       BlockingQueue<StreamElement> queue = new ArrayBlockingQueue<>(100);
@@ -240,8 +233,7 @@ public class DirectBatchUnboundedSource
               // read partitions one by one
               runningPartition = toProcess.get(0);
               reader.observe(
-                  Arrays.asList(runningPartition),
-                  attributes, asObserver(queue, running));
+                  Arrays.asList(runningPartition), attributes, asObserver(queue, running));
               running.set(true);
               watermark = new Instant(runningPartition.getMinTimestamp());
               consumedFromCurrent = 0;
@@ -288,10 +280,7 @@ public class DirectBatchUnboundedSource
       }
 
       @Override
-      public void close() throws IOException {
-
-      }
-
+      public void close() throws IOException {}
     };
   }
 
@@ -317,8 +306,7 @@ public class DirectBatchUnboundedSource
   }
 
   private static BatchLogObserver asObserver(
-      BlockingQueue<StreamElement> queue,
-      AtomicBoolean running) {
+      BlockingQueue<StreamElement> queue, AtomicBoolean running) {
 
     return new BatchLogObserver() {
 
@@ -343,10 +331,6 @@ public class DirectBatchUnboundedSource
       public boolean onError(Throwable error) {
         throw new RuntimeException(error);
       }
-
     };
   }
-
-
-
 }

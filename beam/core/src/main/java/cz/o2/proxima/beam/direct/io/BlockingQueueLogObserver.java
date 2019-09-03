@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,9 +33,7 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * A {@link LogObserver} that caches data in {@link BlockingQueue}.
- */
+/** A {@link LogObserver} that caches data in {@link BlockingQueue}. */
 @Slf4j
 class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
@@ -43,27 +41,20 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return create(null, Long.MAX_VALUE, startingWatermark);
   }
 
-  static BlockingQueueLogObserver create(
-      String name, long limit, long startingWatermark) {
+  static BlockingQueueLogObserver create(String name, long limit, long startingWatermark) {
     return new BlockingQueueLogObserver(name, limit, startingWatermark);
   }
 
-  @Nullable
-  private final String name;
+  @Nullable private final String name;
   private final AtomicReference<Throwable> error = new AtomicReference<>();
   private final AtomicLong watermark;
   private final BlockingQueue<Pair<StreamElement, OnNextContext>> queue;
   AtomicBoolean stopped = new AtomicBoolean();
-  @Getter
-  @Nullable
-  private OnNextContext lastWrittenContext;
-  @Getter
-  @Nullable
-  private OnNextContext lastReadContext;
+  @Getter @Nullable private OnNextContext lastWrittenContext;
+  @Getter @Nullable private OnNextContext lastReadContext;
   private long limit;
 
-  private BlockingQueueLogObserver(
-      String name, long limit, long startingWatermark) {
+  private BlockingQueueLogObserver(String name, long limit, long startingWatermark) {
 
     this.name = name;
     this.watermark = new AtomicLong(startingWatermark);
@@ -119,9 +110,8 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     }
   }
 
-  private boolean putToQueue(
-      @Nullable StreamElement element,
-      @Nullable OnNextContext context) throws InterruptedException {
+  private boolean putToQueue(@Nullable StreamElement element, @Nullable OnNextContext context)
+      throws InterruptedException {
 
     Pair<StreamElement, OnNextContext> p = Pair.of(element, context);
     while (!stopped.get()) {
@@ -132,7 +122,6 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return false;
   }
 
-
   @Override
   public void onIdle(OnIdleContext context) {
     watermark.set(context.getWatermark());
@@ -140,8 +129,8 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   /**
    * Take next element without blocking.
-   * @return {@code} element that was taken without blocking or {@code null}
-   * otherwise
+   *
+   * @return {@code} element that was taken without blocking or {@code null} otherwise
    */
   @Nullable
   StreamElement take() {
@@ -154,6 +143,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   /**
    * Take next element waiting for input if necessary.
+   *
    * @return {@code} element that was taken or {@code null} on end of input
    */
   @Nullable
@@ -192,5 +182,4 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   void clearIncomingQueue() {
     queue.clear();
   }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,7 @@ import cz.o2.proxima.storage.commitlog.Position;
 import java.io.Closeable;
 import java.util.function.Predicate;
 
-/**
- * Provider of {@link Stream} based on various parameters.
- */
+/** Provider of {@link Stream} based on various parameters. */
 public interface StreamProvider extends Closeable {
 
   @FunctionalInterface
@@ -32,29 +30,26 @@ public interface StreamProvider extends Closeable {
     boolean check() throws InterruptedException;
   }
 
-
   /**
    * Initialize the provider with given repository.
+   *
    * @param repo the repository
    * @param args command line arguments passed to {@link Console}
    */
-  default void init(Repository repo, String[] args) {
+  default void init(Repository repo, String[] args) {}
 
-  }
-
-  /**
-   * Close and release all resources.
-   */
+  /** Close and release all resources. */
   @Override
   void close();
 
   /**
    * Create stream from commit log(s).
+   *
    * @param position position in commit log
    * @param stopAtCurrent {@code true} to stop at current data
    * @param eventTime {@code true} to process using event time
-   * @param terminateCheck {@link Predicate} that tests if the execution
-   *        of any terminal operation should be interrupted
+   * @param terminateCheck {@link Predicate} that tests if the execution of any terminal operation
+   *     should be interrupted
    * @param attrs attributes to get stream for
    * @return stream from commit log
    */
@@ -67,30 +62,33 @@ public interface StreamProvider extends Closeable {
 
   /**
    * Retrieve batch updates stream.
+   *
    * @param startStamp starting stamp (inclusive)
    * @param endStamp ending stamp (exclusive)
-   * @param terminateCheck {@link Predicate} that tests if the execution
-   *        of any terminal operation should be interrupted
+   * @param terminateCheck {@link Predicate} that tests if the execution of any terminal operation
+   *     should be interrupted
    * @param attrs attributes to read
    * @return globally windowed stream
    */
   WindowedStream<StreamElement> getBatchUpdates(
-      long startStamp, long endStamp,
+      long startStamp,
+      long endStamp,
       TerminatePredicate terminateCheck,
       AttributeDescriptor<?>... attrs);
 
   /**
    * Retrieve batch snapshot stream.
+   *
    * @param fromStamp starting stamp (inclusive)
    * @param toStamp ending stamp (exclusive)
-   * @param terminateCheck {@link Predicate} that tests if the execution
-   *        of any terminal operation should be interrupted
+   * @param terminateCheck {@link Predicate} that tests if the execution of any terminal operation
+   *     should be interrupted
    * @param attrs attributes to read
    * @return globally windowed stream
    */
   WindowedStream<StreamElement> getBatchSnapshot(
-      long fromStamp, long toStamp,
+      long fromStamp,
+      long toStamp,
       TerminatePredicate terminateCheck,
       AttributeDescriptor<?>... attrs);
-
 }

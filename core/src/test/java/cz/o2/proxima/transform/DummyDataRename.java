@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,16 +17,12 @@ package cz.o2.proxima.transform;
 
 import com.google.common.base.Preconditions;
 
-/**
- * Rename dummy.data to dummy._d.
- */
+/** Rename dummy.data to dummy._d. */
 public class DummyDataRename implements ProxyTransform {
 
   @Override
   public String fromProxy(String proxy) {
-    Preconditions.checkArgument(
-        proxy.equals("data"),
-        "Invalid proxy input " + proxy);
+    Preconditions.checkArgument(proxy.equals("data"), "Invalid proxy input " + proxy);
     return "_d";
   }
 
@@ -35,5 +31,4 @@ public class DummyDataRename implements ProxyTransform {
     Preconditions.checkArgument(raw.equals("_d"), "Invalid raw input " + raw);
     return "data";
   }
-
 }

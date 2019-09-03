@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,11 @@ import cz.o2.proxima.annotations.Stable;
 import java.net.URI;
 import java.util.Optional;
 
-/**
- * Validator of bytes scheme.
- */
+/** Validator of bytes scheme. */
 @Stable
 public class BytesSerializer implements ValueSerializerFactory {
 
-  private static final byte[] DEFAULT = new byte[] { };
+  private static final byte[] DEFAULT = new byte[] {};
 
   @Override
   public String getAcceptableScheme() {
@@ -35,24 +33,24 @@ public class BytesSerializer implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI scheme) {
-    return (ValueSerializer) new ValueSerializer<byte[]>() {
+    return (ValueSerializer)
+        new ValueSerializer<byte[]>() {
 
-      @Override
-      public Optional<byte[]> deserialize(byte[] input) {
-        return Optional.of(input);
-      }
+          @Override
+          public Optional<byte[]> deserialize(byte[] input) {
+            return Optional.of(input);
+          }
 
-      @Override
-      public byte[] getDefault() {
-        return DEFAULT;
-      }
+          @Override
+          public byte[] getDefault() {
+            return DEFAULT;
+          }
 
-      @Override
-      public byte[] serialize(byte[] value) {
-        return value;
-      }
-
-    };
+          @Override
+          public byte[] serialize(byte[] value) {
+            return value;
+          }
+        };
   }
 
   @Override

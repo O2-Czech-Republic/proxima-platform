@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,15 +19,12 @@ import cz.o2.proxima.example.event.Event;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transform.Transformation;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Optional;
-
-/**
- * Transformation function from {@code event.data} to {@code user.event.<stamp>}.
- */
+/** Transformation function from {@code event.data} to {@code user.event.<stamp>}. */
 @Slf4j
 public class EventDataToUserHistory implements Transformation {
 
@@ -38,10 +35,14 @@ public class EventDataToUserHistory implements Transformation {
   @SuppressWarnings("unchecked")
   @Override
   public void setup(Repository repo) {
-    user = repo.findEntity("user").orElseThrow(
-        () -> new IllegalArgumentException("No entity named `user` found"));
-    event = (AttributeDescriptor) user.findAttribute("event.*").orElseThrow(
-        () -> new IllegalArgumentException("No attribute `event.*` found in `user`"));
+    user =
+        repo.findEntity("user")
+            .orElseThrow(() -> new IllegalArgumentException("No entity named `user` found"));
+    event =
+        (AttributeDescriptor)
+            user.findAttribute("event.*")
+                .orElseThrow(
+                    () -> new IllegalArgumentException("No attribute `event.*` found in `user`"));
     prefix = event.toAttributePrefix();
   }
 
@@ -50,11 +51,15 @@ public class EventDataToUserHistory implements Transformation {
     if (!input.isDelete()) {
       Optional<Event.BaseEvent> data = input.getParsed();
       if (data.isPresent()) {
-        collector.collect(StreamElement.update(
-            user, event, input.getUuid(),
-            data.get().getUserName(),
-            prefix + input.getStamp(),
-            input.getStamp(), input.getValue()));
+        collector.collect(
+            StreamElement.update(
+                user,
+                event,
+                input.getUuid(),
+                data.get().getUserName(),
+                prefix + input.getStamp(),
+                input.getStamp(),
+                input.getValue()));
         return 1;
       }
     } else {
@@ -62,5 +67,4 @@ public class EventDataToUserHistory implements Transformation {
     }
     return 0;
   }
-
 }

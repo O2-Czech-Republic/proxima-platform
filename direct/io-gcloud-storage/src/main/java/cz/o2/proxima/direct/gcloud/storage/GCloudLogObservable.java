@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,9 +29,6 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -55,22 +52,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
-/**
- * {@link BatchLogObservable} for gcloud storage.
- */
+/** {@link BatchLogObservable} for gcloud storage. */
 @Slf4j
-public class GCloudLogObservable
-    extends GCloudClient
-    implements BatchLogObservable {
+public class GCloudLogObservable extends GCloudClient implements BatchLogObservable {
 
-  private static final Pattern BLOB_NAME_PATTERN = Pattern.compile(
-      ".*/?[^-/]+-([0-9]+)_([0-9]+)[^/]*\\.blob[^/]*$");
+  private static final Pattern BLOB_NAME_PATTERN =
+      Pattern.compile(".*/?[^-/]+-([0-9]+)_([0-9]+)[^/]*\\.blob[^/]*$");
 
   private static class GCloudStoragePartition implements Partition {
 
-    @Getter
-    private final List<Blob> blobs = new ArrayList<>();
+    @Getter private final List<Blob> blobs = new ArrayList<>();
     private final int id;
     private long minStamp;
     private long maxStamp;
@@ -99,10 +93,7 @@ public class GCloudLogObservable
 
     @Override
     public long size() {
-      return blobs.stream()
-          .map(Blob::getSize)
-          .reduce((a, b) -> a + b)
-          .orElse(0L);
+      return blobs.stream().map(Blob::getSize).reduce((a, b) -> a + b).orElse(0L);
     }
 
     public int getNumBlobs() {
@@ -118,29 +109,31 @@ public class GCloudLogObservable
     public long getMaxTimestamp() {
       return maxStamp;
     }
-
   }
 
   private final long partitionMinSize;
   private final int partitionMaxNumBlobs;
   private final Factory<Executor> executorFactory;
-  @Nullable
-  private transient Executor executor = null;
+  @Nullable private transient Executor executor = null;
   private long backoff = 100;
 
   public GCloudLogObservable(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg,
+      EntityDescriptor entityDesc,
+      URI uri,
+      Map<String, Object> cfg,
       Factory<Executor> executorFactory) {
 
     super(entityDesc, uri, cfg);
-    this.partitionMinSize = Optional.ofNullable(cfg.get("partition.size"))
-        .map(Object::toString)
-        .map(Long::valueOf)
-        .orElse(100 * 1024 * 1024L);
-    this.partitionMaxNumBlobs = Optional.ofNullable(cfg.get("partition.max-blobs"))
-        .map(Object::toString)
-        .map(Integer::valueOf)
-        .orElse(1000);
+    this.partitionMinSize =
+        Optional.ofNullable(cfg.get("partition.size"))
+            .map(Object::toString)
+            .map(Long::valueOf)
+            .orElse(100 * 1024 * 1024L);
+    this.partitionMaxNumBlobs =
+        Optional.ofNullable(cfg.get("partition.max-blobs"))
+            .map(Object::toString)
+            .map(Integer::valueOf)
+            .orElse(1000);
     this.executorFactory = executorFactory;
   }
 
@@ -150,26 +143,26 @@ public class GCloudLogObservable
     Set<String> prefixes = convertStampsToPrefixes(this.path, startStamp, endStamp);
     AtomicInteger id = new AtomicInteger();
     AtomicReference<GCloudStoragePartition> current = new AtomicReference<>();
-    prefixes.forEach(prefix -> {
-      Page<Blob> p = client().list(this.bucket, BlobListOption.prefix(prefix));
-      List<Blob> sorted = Lists.newArrayList(p.iterateAll());
-      sorted.sort(Comparator.comparing(Blob::getName));
-      for (Blob blob : sorted) {
-        considerBlobForPartitionInclusion(
-            startStamp, endStamp, blob, id, current, ret);
-      }
-    });
+    prefixes.forEach(
+        prefix -> {
+          Page<Blob> p = client().list(this.bucket, BlobListOption.prefix(prefix));
+          List<Blob> sorted = Lists.newArrayList(p.iterateAll());
+          sorted.sort(Comparator.comparing(Blob::getName));
+          for (Blob blob : sorted) {
+            considerBlobForPartitionInclusion(startStamp, endStamp, blob, id, current, ret);
+          }
+        });
     if (current.get() != null) {
       ret.add(current.get());
     }
-    log.debug(
-        "Parsed partitions {} for startStamp {}, endStamp {}",
-        ret, startStamp, endStamp);
+    log.debug("Parsed partitions {} for startStamp {}, endStamp {}", ret, startStamp, endStamp);
     return ret;
   }
 
   private void considerBlobForPartitionInclusion(
-      long startStamp, long endStamp, Blob b,
+      long startStamp,
+      long endStamp,
+      Blob b,
       AtomicInteger partitionId,
       AtomicReference<GCloudStoragePartition> currentPartition,
       List<Partition> resultingPartitions) {
@@ -180,9 +173,7 @@ public class GCloudLogObservable
       if (currentPartition.get() == null) {
         currentPartition.set(
             new GCloudStoragePartition(
-                partitionId.getAndIncrement(),
-                minMaxStamp.getFirst(),
-                minMaxStamp.getSecond()));
+                partitionId.getAndIncrement(), minMaxStamp.getFirst(), minMaxStamp.getSecond()));
       }
       currentPartition.get().add(b, minMaxStamp.getFirst(), minMaxStamp.getSecond());
       log.trace("Blob {} added to partition {}", b.getName(), currentPartition.get());
@@ -191,14 +182,12 @@ public class GCloudLogObservable
         resultingPartitions.add(currentPartition.getAndSet(null));
       }
     } else {
-      log.trace(
-          "Blob {} is not in range {} - {}", b.getName(), startStamp, endStamp);
+      log.trace("Blob {} is not in range {} - {}", b.getName(), startStamp, endStamp);
     }
   }
 
   @VisibleForTesting
-  static Set<String> convertStampsToPrefixes(
-      String basePath, long startStamp, long endStamp) {
+  static Set<String> convertStampsToPrefixes(String basePath, long startStamp, long endStamp) {
 
     DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy/MM");
     // use TreeSet, so that prefixes are sorted, which will yield
@@ -212,17 +201,20 @@ public class GCloudLogObservable
     basePath += "/";
     long t = startStamp;
     if (startStamp > Long.MIN_VALUE && endStamp < Long.MAX_VALUE) {
-      LocalDateTime time = LocalDateTime.ofInstant(
-          Instant.ofEpochMilli(t), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
-      LocalDateTime end = LocalDateTime.ofInstant(
-          Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
+      LocalDateTime time =
+          LocalDateTime.ofInstant(Instant.ofEpochMilli(t), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
+      LocalDateTime end =
+          LocalDateTime.ofInstant(
+              Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
       while (time.isBefore(end)) {
         prefixes.add(basePath + format.format(time));
         time = time.plusMonths(1);
       }
       prefixes.add(
-          basePath + format.format(LocalDateTime.ofInstant(
-              Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC))));
+          basePath
+              + format.format(
+                  LocalDateTime.ofInstant(
+                      Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC))));
     } else {
       prefixes.add(basePath);
     }
@@ -254,48 +246,52 @@ public class GCloudLogObservable
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor().execute(() -> {
-      try {
-        Set<AttributeDescriptor<?>> attrs = attributes
-            .stream()
-            .collect(Collectors.toSet());
+    executor()
+        .execute(
+            () -> {
+              try {
+                Set<AttributeDescriptor<?>> attrs = attributes.stream().collect(Collectors.toSet());
 
-        partitions.forEach(p -> {
-          GCloudStoragePartition part = (GCloudStoragePartition) p;
-          part.getBlobs().forEach(blob -> {
-            for (;;) {
-              final String name = blob.getName();
-              log.debug("Starting to observe partition {}", p);
-              try (InputStream s = Channels.newInputStream(blob.reader());
-                  BinaryBlob.Reader reader = BinaryBlob.reader(
-                      getEntityDescriptor(), name, s)) {
+                partitions.forEach(
+                    p -> {
+                      GCloudStoragePartition part = (GCloudStoragePartition) p;
+                      part.getBlobs()
+                          .forEach(
+                              blob -> {
+                                for (; ; ) {
+                                  final String name = blob.getName();
+                                  log.debug("Starting to observe partition {}", p);
+                                  try (InputStream s = Channels.newInputStream(blob.reader());
+                                      BinaryBlob.Reader reader =
+                                          BinaryBlob.reader(getEntityDescriptor(), name, s)) {
 
-                reader.forEach(e -> {
-                  if (attrs.contains(e.getAttributeDescriptor())) {
-                    observer.onNext(e, p);
-                  }
-                });
-                backoff = 100;
-              } catch (GoogleJsonResponseException ex) {
-                if (handleResponseException(ex, blob)) {
-                  continue;
+                                    reader.forEach(
+                                        e -> {
+                                          if (attrs.contains(e.getAttributeDescriptor())) {
+                                            observer.onNext(e, p);
+                                          }
+                                        });
+                                    backoff = 100;
+                                  } catch (GoogleJsonResponseException ex) {
+                                    if (handleResponseException(ex, blob)) {
+                                      continue;
+                                    }
+                                  } catch (IOException ex) {
+                                    handleGeneralException(ex, blob);
+                                  }
+                                  break;
+                                }
+                              });
+                    });
+                observer.onCompleted();
+              } catch (Exception ex) {
+                log.warn("Failed to observe partitions {}", partitions, ex);
+                if (observer.onError(ex)) {
+                  log.info("Restaring processing by request");
+                  observe(partitions, attributes, observer);
                 }
-              } catch (IOException ex) {
-                handleGeneralException(ex, blob);
               }
-              break;
-            }
-          });
-        });
-        observer.onCompleted();
-      } catch (Exception ex) {
-        log.warn("Failed to observe partitions {}", partitions, ex);
-        if (observer.onError(ex)) {
-          log.info("Restaring processing by request");
-          observe(partitions, attributes, observer);
-        }
-      }
-    });
+            });
   }
 
   private void handleGeneralException(Exception ex, Blob blob) {
@@ -307,12 +303,11 @@ public class GCloudLogObservable
     switch (ex.getStatusCode()) {
       case 404:
         log.warn(
-            "Received 404: {} on getting {}. Skipping gone object.",
-            ex.getStatusMessage(), blob);
+            "Received 404: {} on getting {}. Skipping gone object.", ex.getStatusMessage(), blob);
         break;
       case 429:
-        log.warn("Received 429: {} on getting {}. Backoff {}.",
-            ex.getStatusMessage(), blob, backoff);
+        log.warn(
+            "Received 429: {} on getting {}. Backoff {}.", ex.getStatusMessage(), blob, backoff);
         ExceptionUtils.unchecked(() -> Thread.currentThread().sleep(backoff));
         backoff *= 2;
         return true;
@@ -328,5 +323,4 @@ public class GCloudLogObservable
     }
     return executor;
   }
-
 }

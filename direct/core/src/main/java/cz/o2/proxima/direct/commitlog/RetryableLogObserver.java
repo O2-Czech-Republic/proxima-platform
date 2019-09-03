@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,22 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
-import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Position;
 import lombok.extern.slf4j.Slf4j;
 
-
 /**
- * {@code LogObserver} which is able to retry the observation on error.
- * The number of retries is configurable.
+ * {@code LogObserver} which is able to retry the observation on error. The number of retries is
+ * configurable.
  */
 @Stable
 @Slf4j
-public class RetryableLogObserver
-    extends AbstractRetryableLogObserver implements LogObserver {
+public class RetryableLogObserver extends AbstractRetryableLogObserver implements LogObserver {
 
   /**
    * Create online retryable log observer.
+   *
    * @param numRetries number of allowed successive failures
    * @param name name of the consumer
    * @param reader the {@link CommitLogReader}
@@ -46,6 +45,7 @@ public class RetryableLogObserver
 
   /**
    * Create bulk retryable log observer.
+   *
    * @param numRetries number of allowed successive failures
    * @param name name of the consumer
    * @param reader the {@link CommitLogReader}
@@ -62,11 +62,7 @@ public class RetryableLogObserver
   private final boolean bulk;
 
   private RetryableLogObserver(
-      int maxRetries,
-      String name,
-      CommitLogReader commitLog,
-      boolean bulk,
-      LogObserver observer) {
+      int maxRetries, String name, CommitLogReader commitLog, boolean bulk, LogObserver observer) {
 
     super(maxRetries, name, commitLog);
     this.bulk = bulk;
@@ -85,7 +81,9 @@ public class RetryableLogObserver
   protected final ObserveHandle startInternal(Position position) {
     log.info(
         "Starting to process commitlog {} as {} from {}",
-        getCommitLog().getUri(), getName(), position);
+        getCommitLog().getUri(),
+        getName(),
+        position);
     if (bulk) {
       return getCommitLog().observeBulk(getName(), position, this);
     }
@@ -116,5 +114,4 @@ public class RetryableLogObserver
   public void onIdle(OnIdleContext context) {
     observer.onIdle(context);
   }
-
 }

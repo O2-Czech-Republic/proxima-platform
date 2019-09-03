@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,24 +21,18 @@ import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
-import lombok.extern.slf4j.Slf4j;
-
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
-/**
- * Writer to HDFS.
- */
+/** Writer to HDFS. */
 @Slf4j
 public class HdfsStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator direct,
-      EntityDescriptor entityDesc,
-      URI uri,
-      Map<String, Object> cfg) {
+      DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     return new HdfsDataAccessor(entityDesc, remap(uri), cfg);
   }
@@ -50,8 +44,10 @@ public class HdfsStorage implements DataAccessorFactory {
           "When using generic `hadoop` scheme, please use scheme-specific part "
               + "for actual filesystem scheme");
       try {
-        return new URI(input.toString().replace(
-            "hadoop:" + input.getSchemeSpecificPart(), input.getSchemeSpecificPart()));
+        return new URI(
+            input
+                .toString()
+                .replace("hadoop:" + input.getSchemeSpecificPart(), input.getSchemeSpecificPart()));
       } catch (URISyntaxException ex) {
         throw new RuntimeException(ex);
       }
@@ -62,7 +58,7 @@ public class HdfsStorage implements DataAccessorFactory {
   @Override
   public Accept accepts(URI uri) {
     return uri.getScheme().equals("hdfs") || uri.getScheme().equals("hadoop")
-        ? Accept.ACCEPT : Accept.REJECT;
+        ? Accept.ACCEPT
+        : Accept.REJECT;
   }
-
 }

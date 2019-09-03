@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.direct.storage;
 
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
@@ -24,7 +26,6 @@ import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.ObserverUtils;
-import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
@@ -75,9 +76,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * InMemStorage for testing purposes.
- */
+/** InMemStorage for testing purposes. */
 @Slf4j
 public class InMemStorage implements DataAccessorFactory {
 
@@ -87,10 +86,8 @@ public class InMemStorage implements DataAccessorFactory {
 
   static class IntOffset implements Offset {
 
-    @Getter
-    final long offset;
-    @Getter
-    final long watermark;
+    @Getter final long offset;
+    @Getter final long watermark;
 
     public IntOffset(long offset, long watermark) {
       this.offset = offset;
@@ -104,18 +101,14 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public String toString() {
-      return "IntOffset("
-          + "offset=" + offset
-          + ", watermark=" + watermark
-          + ")";
+      return "IntOffset(" + "offset=" + offset + ", watermark=" + watermark + ")";
     }
 
     @Override
     public boolean equals(Object obj) {
       if (obj instanceof IntOffset) {
         IntOffset other = (IntOffset) obj;
-        return other.offset == this.offset
-            && other.watermark == this.watermark;
+        return other.offset == this.offset && other.watermark == this.watermark;
       }
       return false;
     }
@@ -124,7 +117,6 @@ public class InMemStorage implements DataAccessorFactory {
     public int hashCode() {
       return (int) ((offset ^ watermark) % Integer.MAX_VALUE);
     }
-
   }
 
   @FunctionalInterface
@@ -132,8 +124,7 @@ public class InMemStorage implements DataAccessorFactory {
     void write(StreamElement data);
   }
 
-  public final class Writer
-      extends AbstractOnlineAttributeWriter {
+  public final class Writer extends AbstractOnlineAttributeWriter {
 
     private Writer(EntityDescriptor entityDesc, URI uri) {
       super(entityDesc, uri);
@@ -145,21 +136,22 @@ public class InMemStorage implements DataAccessorFactory {
       if (log.isDebugEnabled()) {
         synchronized (writeObservers) {
           log.debug(
-              "Writing element {} to {} with {} observers",
-              data, getUri(), writeObservers.size());
+              "Writing element {} to {} with {} observers", data, getUri(), writeObservers.size());
         }
       }
-      String attr = data.isDeleteWildcard()
-          ? data.getAttributeDescriptor().toAttributePrefix()
-          : data.getAttribute();
-      getData().compute(
-          toMapKey(getUri(), data.getKey(), attr),
-          (key, old) -> {
-            if (old != null && old.getFirst() > data.getStamp()) {
-              return old;
-            }
-            return Pair.of(data.getStamp(), data.getValue());
-          });
+      String attr =
+          data.isDeleteWildcard()
+              ? data.getAttributeDescriptor().toAttributePrefix()
+              : data.getAttribute();
+      getData()
+          .compute(
+              toMapKey(getUri(), data.getKey(), attr),
+              (key, old) -> {
+                if (old != null && old.getFirst() > data.getStamp()) {
+                  return old;
+                }
+                return Pair.of(data.getStamp(), data.getValue());
+              });
       synchronized (writeObservers) {
         writeObservers.values().forEach(o -> o.write(data));
       }
@@ -170,21 +162,16 @@ public class InMemStorage implements DataAccessorFactory {
     public void close() {
       // nop
     }
-
   }
 
-  private class InMemCommitLogReader
-      extends AbstractStorage
-      implements CommitLogReader {
+  private class InMemCommitLogReader extends AbstractStorage implements CommitLogReader {
 
     private InMemCommitLogReader(EntityDescriptor entityDesc, URI uri) {
       super(entityDesc, uri);
     }
 
     @Override
-    public void close() {
-
-    }
+    public void close() {}
 
     @Override
     public List<Partition> getPartitions() {
@@ -192,22 +179,15 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     @Override
-    public ObserveHandle observe(
-        String name,
-        Position position,
-        LogObserver observer) {
+    public ObserveHandle observe(String name, Position position, LogObserver observer) {
 
       return observe(name, position, false, observer);
     }
 
     private ObserveHandle observe(
-        String name,
-        Position position,
-        boolean stopAtCurrent,
-        LogObserver observer) {
+        String name, Position position, boolean stopAtCurrent, LogObserver observer) {
 
-      return observe(
-          name, position, new IntOffset(0L, Long.MIN_VALUE), stopAtCurrent, observer);
+      return observe(name, position, new IntOffset(0L, Long.MIN_VALUE), stopAtCurrent, observer);
     }
 
     private ObserveHandle observe(
@@ -235,10 +215,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public ObserveHandle observeBulk(
-        String name,
-        Position position,
-        boolean stopAtCurrent,
-        LogObserver observer) {
+        String name, Position position, boolean stopAtCurrent, LogObserver observer) {
 
       return observeBulk(
           name, position, new IntOffset(0L, Long.MIN_VALUE), stopAtCurrent, observer);
@@ -266,39 +243,26 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     @Override
-    public ObserveHandle observeBulkOffsets(
-        Collection<Offset> offsets, LogObserver observer) {
+    public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
 
-      return doObserve(Position.OLDEST,
-          ((IntOffset) Iterables.getOnlyElement(offsets)),
-          false,
-          observer);
+      return doObserve(
+          Position.OLDEST, ((IntOffset) Iterables.getOnlyElement(offsets)), false, observer);
     }
 
     private ObserveHandle doObserve(
-        Position position,
-        IntOffset offset,
-        boolean stopAtCurrent,
-        LogObserver observer) {
+        Position position, IntOffset offset, boolean stopAtCurrent, LogObserver observer) {
 
       int id = createConsumerId(stopAtCurrent);
 
       observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION)));
       AtomicReference<Thread> threadInterrupt = new AtomicReference<>();
       AtomicBoolean killSwitch = new AtomicBoolean();
-      Supplier<IntOffset> offsetSupplier = flushBasedOnPosition(
-          position,
-          offset,
-          id,
-          stopAtCurrent,
-          killSwitch,
-          threadInterrupt,
-          observer);
+      Supplier<IntOffset> offsetSupplier =
+          flushBasedOnPosition(
+              position, offset, id, stopAtCurrent, killSwitch, threadInterrupt, observer);
 
-      return createHandle(
-          id, observer, offsetSupplier, killSwitch, threadInterrupt);
+      return createHandle(id, observer, offsetSupplier, killSwitch, threadInterrupt);
     }
-
 
     private int createConsumerId(boolean stopAtCurrent) {
       final int id;
@@ -307,7 +271,7 @@ public class InMemStorage implements DataAccessorFactory {
         synchronized (uriObservers) {
           id = uriObservers.isEmpty() ? 0 : uriObservers.lastKey() + 1;
           // insert placeholder
-          uriObservers.put(id, elem -> { });
+          uriObservers.put(id, elem -> {});
         }
       } else {
         id = -1;
@@ -316,7 +280,8 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     private ObserveHandle createHandle(
-        int consumerId, LogObserver observer,
+        int consumerId,
+        LogObserver observer,
         Supplier<IntOffset> offsetTracker,
         AtomicBoolean killSwitch,
         AtomicReference<Thread> threadInterrupt) {
@@ -351,7 +316,6 @@ public class InMemStorage implements DataAccessorFactory {
         public void waitUntilReady() throws InterruptedException {
           // nop
         }
-
       };
     }
 
@@ -367,9 +331,19 @@ public class InMemStorage implements DataAccessorFactory {
       AtomicLong offsetTracker = new AtomicLong(offset.getOffset());
       AtomicLong watermark = new AtomicLong(offset.getWatermark());
       CountDownLatch latch = new CountDownLatch(1);
-      observeThread.set(new Thread(() -> handleFlushDataBaseOnPosition(
-          position, offset, consumerId, stopAtCurrent, killSwitch,
-          offsetTracker, watermark, latch, observer)));
+      observeThread.set(
+          new Thread(
+              () ->
+                  handleFlushDataBaseOnPosition(
+                      position,
+                      offset,
+                      consumerId,
+                      stopAtCurrent,
+                      killSwitch,
+                      offsetTracker,
+                      watermark,
+                      latch,
+                      observer)));
       observeThread.get().start();
       try {
         latch.await();
@@ -392,23 +366,23 @@ public class InMemStorage implements DataAccessorFactory {
 
       AtomicLong restartedOffset = new AtomicLong();
 
-      BiConsumer<StreamElement, OffsetCommitter> consumer = (el, committer) -> {
-        try {
-          if (!killSwitch.get()) {
-            el = cloneAndUpdateAttribute(getEntityDescriptor(), el);
-            long stamp = el.getStamp();
-            long off = offsetTracker.incrementAndGet();
-            long w = watermark.updateAndGet(current -> Math.max(
-                current, stamp - BOUNDED_OUT_OF_ORDERNESS));
-            killSwitch.compareAndSet(false,
-                !observer.onNext(
-                    el,
-                    asOnNextContext(committer, new IntOffset(off, w))));
-          }
-        } catch (Exception ex) {
-          observer.onError(ex);
-        }
-      };
+      BiConsumer<StreamElement, OffsetCommitter> consumer =
+          (el, committer) -> {
+            try {
+              if (!killSwitch.get()) {
+                el = cloneAndUpdateAttribute(getEntityDescriptor(), el);
+                long stamp = el.getStamp();
+                long off = offsetTracker.incrementAndGet();
+                long w =
+                    watermark.updateAndGet(
+                        current -> Math.max(current, stamp - BOUNDED_OUT_OF_ORDERNESS));
+                killSwitch.compareAndSet(
+                    false, !observer.onNext(el, asOnNextContext(committer, new IntOffset(off, w))));
+              }
+            } catch (Exception ex) {
+              observer.onError(ex);
+            }
+          };
 
       NavigableMap<Integer, InMemIngestWriter> uriObservers = getObservers(getUri());
       if (position == Position.OLDEST) {
@@ -416,37 +390,46 @@ public class InMemStorage implements DataAccessorFactory {
           latch.countDown();
           String prefix = getUri().getPath() + "/";
           int prefixLength = prefix.length();
-          getData().entrySet()
+          getData()
+              .entrySet()
               .stream()
               .filter(e -> e.getKey().startsWith(prefix))
-              .sorted((a, b) ->
-                  Long.compare(a.getValue().getFirst(), b.getValue().getFirst()))
-              .forEachOrdered(e -> {
-                if (restartedOffset.getAndIncrement() < offset.getOffset()) {
-                  return;
-                }
-                String[] parts = e.getKey().substring(prefixLength).split("#");
-                String key = parts[0];
-                String attribute = parts[1];
-                AttributeDescriptor<?> desc = getEntityDescriptor()
-                    .findAttribute(attribute, true)
-                    .orElseThrow(() -> new IllegalArgumentException(
-                        "Missing attribute " + attribute));
-                byte[] value = e.getValue().getSecond();
-                StreamElement element = StreamElement.update(
-                    getEntityDescriptor(), desc, UUID.randomUUID().toString(),
-                    key, attribute, e.getValue().getFirst(), value);
-                consumer.accept(element, (succ, exc) -> {
-                  if (!succ && exc != null) {
-                    throw new IllegalStateException("Error in observing old data", exc);
-                  }
-                });
-              });
+              .sorted((a, b) -> Long.compare(a.getValue().getFirst(), b.getValue().getFirst()))
+              .forEachOrdered(
+                  e -> {
+                    if (restartedOffset.getAndIncrement() < offset.getOffset()) {
+                      return;
+                    }
+                    String[] parts = e.getKey().substring(prefixLength).split("#");
+                    String key = parts[0];
+                    String attribute = parts[1];
+                    AttributeDescriptor<?> desc =
+                        getEntityDescriptor()
+                            .findAttribute(attribute, true)
+                            .orElseThrow(
+                                () ->
+                                    new IllegalArgumentException("Missing attribute " + attribute));
+                    byte[] value = e.getValue().getSecond();
+                    StreamElement element =
+                        StreamElement.update(
+                            getEntityDescriptor(),
+                            desc,
+                            UUID.randomUUID().toString(),
+                            key,
+                            attribute,
+                            e.getValue().getFirst(),
+                            value);
+                    consumer.accept(
+                        element,
+                        (succ, exc) -> {
+                          if (!succ && exc != null) {
+                            throw new IllegalStateException("Error in observing old data", exc);
+                          }
+                        });
+                  });
           if (!killSwitch.get()) {
             if (!stopAtCurrent) {
-              uriObservers.put(
-                  consumerId,
-                  el -> consumer.accept(el, (succ, exc) -> { }));
+              uriObservers.put(consumerId, el -> consumer.accept(el, (succ, exc) -> {}));
             } else {
               observer.onCompleted();
             }
@@ -454,9 +437,7 @@ public class InMemStorage implements DataAccessorFactory {
         }
       } else {
         if (!stopAtCurrent) {
-          uriObservers.put(
-              consumerId,
-              el -> consumer.accept(el, (succ, exc) -> { }));
+          uriObservers.put(consumerId, el -> consumer.accept(el, (succ, exc) -> {}));
         } else {
           observer.onCompleted();
         }
@@ -468,15 +449,12 @@ public class InMemStorage implements DataAccessorFactory {
     public boolean hasExternalizableOffsets() {
       return true;
     }
-
   }
 
-  private final class Reader
-      extends AbstractStorage
+  private final class Reader extends AbstractStorage
       implements RandomAccessReader, BatchLogObservable {
 
-    @Setter
-    private Factory<Executor> executorFactory;
+    @Setter private Factory<Executor> executorFactory;
     private transient Executor executor;
 
     private Reader(EntityDescriptor entityDesc, URI uri) {
@@ -485,31 +463,31 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public <T> Optional<KeyValue<T>> get(
-        String key,
-        String attribute,
-        AttributeDescriptor<T> desc,
-        long stamp) {
+        String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
-      Optional<Pair<Long, byte[]>> wildcard
-          = desc.isWildcard() && !attribute.equals(desc.toAttributePrefix())
+      Optional<Pair<Long, byte[]>> wildcard =
+          desc.isWildcard() && !attribute.equals(desc.toAttributePrefix())
               ? getMapKey(key, desc.toAttributePrefix())
               : Optional.empty();
       return getMapKey(key, attribute)
           .filter(p -> p.getSecond() != null)
           .filter(p -> !wildcard.isPresent() || wildcard.get().getFirst() < p.getFirst())
-          .map(b -> {
-            try {
-              return KeyValue.of(
-                  getEntityDescriptor(),
-                  desc, key, attribute,
-                  new RawOffset(attribute),
-                  desc.getValueSerializer().deserialize(b.getSecond()).get(),
-                  b.getSecond(),
-                  b.getFirst());
-            } catch (Exception ex) {
-              throw new RuntimeException(ex);
-            }
-          });
+          .map(
+              b -> {
+                try {
+                  return KeyValue.of(
+                      getEntityDescriptor(),
+                      desc,
+                      key,
+                      attribute,
+                      new RawOffset(attribute),
+                      desc.getValueSerializer().deserialize(b.getSecond()).get(),
+                      b.getSecond(),
+                      b.getFirst());
+                } catch (Exception ex) {
+                  throw new RuntimeException(ex);
+                }
+              });
     }
 
     private Optional<Pair<Long, byte[]>> getMapKey(String key, String attribute) {
@@ -523,8 +501,7 @@ public class InMemStorage implements DataAccessorFactory {
     @SuppressWarnings("unchecked")
     @Override
     public void scanWildcardAll(
-        String key, RandomOffset offset, long stamp,
-        int limit, Consumer<KeyValue<?>> consumer) {
+        String key, RandomOffset offset, long stamp, int limit, Consumer<KeyValue<?>> consumer) {
 
       scanWildcardPrefix(key, "", offset, stamp, limit, (Consumer) consumer);
     }
@@ -568,30 +545,28 @@ public class InMemStorage implements DataAccessorFactory {
             Optional<AttributeDescriptor<Object>> attr;
             attr = getEntityDescriptor().findAttribute(attribute, true);
             if (attr.isPresent()) {
-              Optional<Pair<Long, byte[]>> wildcard = attr.get().isWildcard()
-                  ? getMapKey(key, attr.get().toAttributePrefix())
-                  : Optional.empty();
-              if (!wildcard.isPresent()
-                  || wildcard.get().getFirst() < e.getValue().getFirst()) {
+              Optional<Pair<Long, byte[]>> wildcard =
+                  attr.get().isWildcard()
+                      ? getMapKey(key, attr.get().toAttributePrefix())
+                      : Optional.empty();
+              if (!wildcard.isPresent() || wildcard.get().getFirst() < e.getValue().getFirst()) {
 
-                consumer.accept(KeyValue.of(
-                    getEntityDescriptor(),
-                    (AttributeDescriptor) attr.get(),
-                    key,
-                    attribute,
-                    new RawOffset(attribute),
-                    attr.get().getValueSerializer().deserialize(
-                        e.getValue().getSecond()).get(),
-                    e.getValue().getSecond()));
+                consumer.accept(
+                    KeyValue.of(
+                        getEntityDescriptor(),
+                        (AttributeDescriptor) attr.get(),
+                        key,
+                        attribute,
+                        new RawOffset(attribute),
+                        attr.get().getValueSerializer().deserialize(e.getValue().getSecond()).get(),
+                        e.getValue().getSecond()));
 
                 if (++count == limit) {
                   break;
                 }
               }
             } else {
-              log.warn(
-                  "Unknown attribute {} in entity {}",
-                  attribute, getEntityDescriptor());
+              log.warn("Unknown attribute {} in entity {}", attribute, getEntityDescriptor());
             }
           } else {
             break;
@@ -600,12 +575,9 @@ public class InMemStorage implements DataAccessorFactory {
       }
     }
 
-
     @Override
     public void listEntities(
-        RandomOffset offset,
-        int limit,
-        Consumer<Pair<RandomOffset, String>> consumer) {
+        RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
 
       String off = offset == null ? "" : ((RawOffset) offset).getOffset();
       for (String k : getData().tailMap(off).keySet()) {
@@ -622,9 +594,7 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     @Override
-    public void close() {
-
-    }
+    public void close() {}
 
     @Override
     public RandomOffset fetchOffset(Listing type, String key) {
@@ -646,37 +616,49 @@ public class InMemStorage implements DataAccessorFactory {
           partitions.size() == 1,
           "This observable works on single partition only, got " + partitions);
       int prefixLength = getUri().getPath().length() + 1;
-      executor().execute(() -> {
-        try {
-          NavigableMap<String, Pair<Long, byte[]>> data = getData();
-          synchronized (data) {
-            for (Map.Entry<String, Pair<Long, byte[]>> e : data.entrySet()) {
-              String k = e.getKey();
-              Pair<Long, byte[]> v = e.getValue();
-              String[] parts = k.substring(prefixLength).split("#");
-              String key = parts[0];
-              String attribute = parts[1];
-              boolean shouldContinue = getEntityDescriptor()
-                  .findAttribute(attribute, true)
-                  .flatMap(desc -> attributes.contains(desc)
-                      ? Optional.of(desc) : Optional.empty())
-                  .map(desc ->
-                      observer.onNext(
-                          StreamElement.update(getEntityDescriptor(),
-                              desc, UUID.randomUUID().toString(), key,
-                              attribute, v.getFirst(), v.getSecond()),
-                          PARTITION))
-                  .orElse(true);
-              if (!shouldContinue) {
-                break;
-              }
-            }
-          }
-          observer.onCompleted();
-        } catch (Throwable err) {
-          observer.onError(err);
-        }
-      });
+      executor()
+          .execute(
+              () -> {
+                try {
+                  NavigableMap<String, Pair<Long, byte[]>> data = getData();
+                  synchronized (data) {
+                    for (Map.Entry<String, Pair<Long, byte[]>> e : data.entrySet()) {
+                      String k = e.getKey();
+                      Pair<Long, byte[]> v = e.getValue();
+                      String[] parts = k.substring(prefixLength).split("#");
+                      String key = parts[0];
+                      String attribute = parts[1];
+                      boolean shouldContinue =
+                          getEntityDescriptor()
+                              .findAttribute(attribute, true)
+                              .flatMap(
+                                  desc ->
+                                      attributes.contains(desc)
+                                          ? Optional.of(desc)
+                                          : Optional.empty())
+                              .map(
+                                  desc ->
+                                      observer.onNext(
+                                          StreamElement.update(
+                                              getEntityDescriptor(),
+                                              desc,
+                                              UUID.randomUUID().toString(),
+                                              key,
+                                              attribute,
+                                              v.getFirst(),
+                                              v.getSecond()),
+                                          PARTITION))
+                              .orElse(true);
+                      if (!shouldContinue) {
+                        break;
+                      }
+                    }
+                  }
+                  observer.onCompleted();
+                } catch (Throwable err) {
+                  observer.onError(err);
+                }
+              });
     }
 
     private Executor executor() {
@@ -685,7 +667,6 @@ public class InMemStorage implements DataAccessorFactory {
       }
       return executor;
     }
-
   }
 
   private static class InMemCachedView implements CachedView {
@@ -696,9 +677,7 @@ public class InMemStorage implements DataAccessorFactory {
     private BiConsumer<StreamElement, Pair<Long, Object>> updateCallback;
 
     InMemCachedView(
-        RandomAccessReader reader,
-        CommitLogReader commitLogReader,
-        OnlineAttributeWriter writer) {
+        RandomAccessReader reader, CommitLogReader commitLogReader, OnlineAttributeWriter writer) {
 
       this.reader = reader;
       this.commitLogReader = commitLogReader;
@@ -716,9 +695,7 @@ public class InMemStorage implements DataAccessorFactory {
             UUID.randomUUID().toString(),
             new LogObserver() {
               @Override
-              public boolean onNext(
-                  StreamElement ingest,
-                  OnNextContext context) {
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
 
                 cache(ingest);
                 context.confirm();
@@ -731,7 +708,6 @@ public class InMemStorage implements DataAccessorFactory {
               }
             });
       }
-
     }
 
     @Override
@@ -753,7 +729,8 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public <T> void scanWildcard(
-        String key, AttributeDescriptor<T> wildcard,
+        String key,
+        AttributeDescriptor<T> wildcard,
         RandomOffset offset,
         long stamp,
         int limit,
@@ -764,9 +741,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public void listEntities(
-        RandomOffset offset,
-        int limit,
-        Consumer<Pair<RandomOffset, String>> consumer) {
+        RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
 
       reader.listEntities(offset, limit, consumer);
     }
@@ -777,9 +752,7 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     @Override
-    public void close() {
-
-    }
+    public void close() {}
 
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
@@ -795,8 +768,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public void scanWildcardAll(
-        String key, RandomOffset offset, long stamp,
-        int limit, Consumer<KeyValue<?>> consumer) {
+        String key, RandomOffset offset, long stamp, int limit, Consumer<KeyValue<?>> consumer) {
 
       reader.scanWildcardAll(key, offset, stamp, limit, consumer);
     }
@@ -805,25 +777,27 @@ public class InMemStorage implements DataAccessorFactory {
     public void cache(StreamElement element) {
       updateCallback.accept(
           element,
-          Pair.of(-1L, get(
-              element.getKey(), element.getAttribute(),
-              element.getAttributeDescriptor()).orElse(null)));
+          Pair.of(
+              -1L,
+              get(element.getKey(), element.getAttribute(), element.getAttributeDescriptor())
+                  .orElse(null)));
     }
 
     @Override
     public Collection<Partition> getPartitions() {
       return Arrays.asList(PARTITION);
     }
-
   }
 
   private static class DataHolder {
     final NavigableMap<String, Pair<Long, byte[]>> data;
     final Map<URI, NavigableMap<Integer, InMemIngestWriter>> observers;
+
     DataHolder() {
       this.data = Collections.synchronizedNavigableMap(new TreeMap<>());
       this.observers = Collections.synchronizedMap(new HashMap<>());
     }
+
     void clear() {
       this.data.clear();
       this.observers.clear();
@@ -857,14 +831,10 @@ public class InMemStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator op,
-      EntityDescriptor entity,
-      URI uri,
-      Map<String, Object> cfg) {
+      DirectDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     holder.observers.computeIfAbsent(
-        uri,
-        k -> Collections.synchronizedNavigableMap(new TreeMap<>()));
+        uri, k -> Collections.synchronizedNavigableMap(new TreeMap<>()));
     Writer writer = new Writer(entity, uri);
     InMemCommitLogReader commitLogReader = new InMemCommitLogReader(entity, uri);
     Reader reader = new Reader(entity, uri);
@@ -901,19 +871,20 @@ public class InMemStorage implements DataAccessorFactory {
         reader.setExecutorFactory(() -> context.getExecutorService());
         return Optional.of(reader);
       }
-
     };
   }
 
   @SuppressWarnings("unchecked")
   private static <T> AttributeDescriptor<T> getAttributeOfEntity(
-      EntityDescriptor entity,
-      StreamElement ingest) {
+      EntityDescriptor entity, StreamElement ingest) {
 
-    return (AttributeDescriptor<T>) entity
-        .findAttribute(ingest.getAttribute(), true)
-        .orElseThrow(() -> new IllegalStateException(
-            "Missing attribute " + ingest.getAttribute() + " in " + entity));
+    return (AttributeDescriptor<T>)
+        entity
+            .findAttribute(ingest.getAttribute(), true)
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "Missing attribute " + ingest.getAttribute() + " in " + entity));
   }
 
   private static StreamElement cloneAndUpdateAttribute(
@@ -938,5 +909,4 @@ public class InMemStorage implements DataAccessorFactory {
 
     return ObserverUtils.asOnNextContext(committer, offset);
   }
-
 }

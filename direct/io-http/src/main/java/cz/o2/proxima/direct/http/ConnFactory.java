@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,16 +22,14 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import javax.annotation.Nullable;
 
-/**
- * A factory for connections based on input elements.
- */
+/** A factory for connections based on input elements. */
 @FunctionalInterface
 public interface ConnFactory extends Serializable {
 
   /**
-   * Open and return HTTP(S) connection to given base URI with given
-   * input stream element.
-   * The returned connection must be open and ready to retrieve status.
+   * Open and return HTTP(S) connection to given base URI with given input stream element. The
+   * returned connection must be open and ready to retrieve status.
+   *
    * @param base URI
    * @param elem input element
    * @return new connection
@@ -39,5 +37,4 @@ public interface ConnFactory extends Serializable {
    */
   @Nullable
   HttpURLConnection openConnection(URI base, StreamElement elem) throws IOException;
-
 }

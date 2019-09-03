@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.direct;
 
 import com.typesafe.config.ConfigFactory;
@@ -25,8 +24,8 @@ import cz.o2.proxima.testing.model.Model;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Class that uses all code that is pasted in root README.md to ensure
- * that this code is always actual.
+ * Class that uses all code that is pasted in root README.md to ensure that this code is always
+ * actual.
  */
 @Slf4j
 class ReadMe {
@@ -37,33 +36,35 @@ class ReadMe {
 
   private void consumeCommitLog() {
     Model model = createModel();
-    DirectDataOperator operator = model.getRepo().asDataOperator(
-        DirectDataOperator.class);
-    CommitLogReader commitLog = operator.getCommitLogReader(
-        model.getEvent().getDataDescriptor())
-        .orElseThrow(() -> new IllegalArgumentException("Missing commit log for "
-            + model.getEvent().getDataDescriptor()));
-    commitLog.observe("MyObservationProcess", new LogObserver() {
+    DirectDataOperator operator = model.getRepo().asDataOperator(DirectDataOperator.class);
+    CommitLogReader commitLog =
+        operator
+            .getCommitLogReader(model.getEvent().getDataDescriptor())
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        "Missing commit log for " + model.getEvent().getDataDescriptor()));
+    commitLog.observe(
+        "MyObservationProcess",
+        new LogObserver() {
 
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
 
-      @Override
-      public boolean onNext(StreamElement elem, OnNextContext context) {
-        log.info("Consumed element {}", elem);
-        // commit processing, so that it is not redelivered
-        context.confirm();
-        // continue processing
-        return true;
-      }
-
-    });
+          @Override
+          public boolean onNext(StreamElement elem, OnNextContext context) {
+            log.info("Consumed element {}", elem);
+            // commit processing, so that it is not redelivered
+            context.confirm();
+            // continue processing
+            return true;
+          }
+        });
   }
 
   private ReadMe() {
     consumeCommitLog();
   }
-
 }

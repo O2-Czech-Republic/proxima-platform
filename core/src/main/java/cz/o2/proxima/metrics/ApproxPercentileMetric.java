@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,24 +21,20 @@ import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.util.Pair;
 import java.util.Arrays;
 
-/**
- * An approximation of 1st, 10th, 30th, 50th, 70th, 90th and 99th percentile.
- */
+/** An approximation of 1st, 10th, 30th, 50th, 70th, 90th and 99th percentile. */
 @Stable
-public class ApproxPercentileMetric
-    extends Metric<Stats>
-    implements ApproxPercentileMetricMXBean {
+public class ApproxPercentileMetric extends Metric<Stats> implements ApproxPercentileMetricMXBean {
 
   /**
    * Construct the metric.
+   *
    * @param group group name
    * @param name metric name
    * @param duration total duration of the statistic in ms
    * @param window windowNs size in ms
    * @return the metric
    */
-  public static ApproxPercentileMetric of(
-      String group, String name, long duration, long window) {
+  public static ApproxPercentileMetric of(String group, String name, long duration, long window) {
 
     return new ApproxPercentileMetric(group, name, duration, window);
   }
@@ -50,6 +46,7 @@ public class ApproxPercentileMetric
 
   /**
    * Construct the metric.
+   *
    * @param group group name
    * @param name metric name
    * @param duration total duration of the statistic in ms
@@ -60,8 +57,7 @@ public class ApproxPercentileMetric
     Preconditions.checkArgument(window > 0, "Window must be non-zero length");
     this.maxDigests = (int) (duration / window);
     Preconditions.checkArgument(
-        maxDigests > 0,
-        "Duration must be at least of length of the window");
+        maxDigests > 0, "Duration must be at least of length of the window");
     this.windowNs = window * 1_000_000L;
     _reset();
   }
@@ -69,7 +65,6 @@ public class ApproxPercentileMetric
   private TDigest createDigest() {
     return TDigest.createMergingDigest(100.0);
   }
-
 
   @Override
   public synchronized void increment(double d) {
@@ -79,20 +74,20 @@ public class ApproxPercentileMetric
     digests[current].getFirst().add(d);
   }
 
-
   @Override
   public synchronized Stats getValue() {
     TDigest result = createDigest();
     Arrays.stream(digests, 0, current + 1).forEach(p -> result.add(p.getFirst()));
-    return new Stats(new double[] {
-      result.quantile(0.01),
-      result.quantile(0.1),
-      result.quantile(0.3),
-      result.quantile(0.5),
-      result.quantile(0.7),
-      result.quantile(0.9),
-      result.quantile(0.99),
-    });
+    return new Stats(
+        new double[] {
+          result.quantile(0.01),
+          result.quantile(0.1),
+          result.quantile(0.3),
+          result.quantile(0.5),
+          result.quantile(0.7),
+          result.quantile(0.9),
+          result.quantile(0.99),
+        });
   }
 
   @Override
@@ -116,5 +111,4 @@ public class ApproxPercentileMetric
     this.digests[0] = Pair.of(createDigest(), System.nanoTime());
     this.current = 0;
   }
-
 }

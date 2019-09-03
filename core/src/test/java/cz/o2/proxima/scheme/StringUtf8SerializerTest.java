@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,10 @@
 package cz.o2.proxima.scheme;
 
 import static org.junit.Assert.*;
+
 import org.junit.Test;
 
-/**
- * Test suite for {@link StringUtf8Serializer}.
- */
+/** Test suite for {@link StringUtf8Serializer}. */
 public class StringUtf8SerializerTest {
 
   private final StringUtf8Serializer serializer = new StringUtf8Serializer();
@@ -58,5 +57,4 @@ public class StringUtf8SerializerTest {
     ValueSerializer<String> s = serializer.getValueSerializer(null);
     assertEquals("", s.getDefault());
   }
-
 }

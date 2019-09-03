@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,8 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Proxy attribute family applying transformations of attributes
- * to and from private space to public space.
+ * Proxy attribute family applying transformations of attributes to and from private space to public
+ * space.
  */
 @Slf4j
 public class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
@@ -37,17 +37,12 @@ public class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
       AttributeFamilyDescriptor targetFamilyRead,
       AttributeFamilyDescriptor targetFamilyWrite) {
 
-    return new AttributeFamilyProxyDescriptor(
-        attrs,
-        targetFamilyRead,
-        targetFamilyWrite);
+    return new AttributeFamilyProxyDescriptor(attrs, targetFamilyRead, targetFamilyWrite);
   }
 
-  @Getter
-  private final AttributeFamilyDescriptor targetFamilyRead;
+  @Getter private final AttributeFamilyDescriptor targetFamilyRead;
 
-  @Getter
-  private final AttributeFamilyDescriptor targetFamilyWrite;
+  @Getter private final AttributeFamilyDescriptor targetFamilyWrite;
 
   @SuppressWarnings("unchecked")
   private AttributeFamilyProxyDescriptor(
@@ -64,11 +59,10 @@ public class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
         getProxyUri(targetFamilyRead, targetFamilyWrite),
         unionMap(targetFamilyRead.getCfg(), targetFamilyWrite.getCfg()),
         (Collection) attrs,
-        targetFamilyWrite.getType()
-            == StorageType.PRIMARY && targetFamilyRead.getType() == StorageType.PRIMARY
-                ? targetFamilyRead.getAccess()
-                : AccessType.or(
-                    targetFamilyRead.getAccess(), AccessType.from("read-only")),
+        targetFamilyWrite.getType() == StorageType.PRIMARY
+                && targetFamilyRead.getType() == StorageType.PRIMARY
+            ? targetFamilyRead.getAccess()
+            : AccessType.or(targetFamilyRead.getAccess(), AccessType.from("read-only")),
         targetFamilyRead.getFilter(),
         null);
 
@@ -77,14 +71,12 @@ public class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
   }
 
   private static String getFamilyName(
-      AttributeFamilyDescriptor targetFamilyRead,
-      AttributeFamilyDescriptor targetFamilyWrite) {
+      AttributeFamilyDescriptor targetFamilyRead, AttributeFamilyDescriptor targetFamilyWrite) {
 
     return "proxy::" + targetFamilyRead.getName() + "::" + targetFamilyWrite.getName();
   }
 
-  private static Map<String, Object> unionMap(
-      Map<String, Object> left, Map<String, Object> right) {
+  private static Map<String, Object> unionMap(Map<String, Object> left, Map<String, Object> right) {
 
     Map<String, Object> ret = new HashMap<>(left);
     ret.putAll(right);
@@ -102,16 +94,14 @@ public class AttributeFamilyProxyDescriptor extends AttributeFamilyDescriptor {
   }
 
   private static URI getProxyUri(
-      AttributeFamilyDescriptor targetFamilyRead,
-      AttributeFamilyDescriptor targetFamilyWrite) {
+      AttributeFamilyDescriptor targetFamilyRead, AttributeFamilyDescriptor targetFamilyWrite) {
 
     try {
-      return new URI(String.format(
-          "proxy://%s:%s", targetFamilyRead.getName(), targetFamilyWrite.getName())
-          .replace("_", "-"));
+      return new URI(
+          String.format("proxy://%s:%s", targetFamilyRead.getName(), targetFamilyWrite.getName())
+              .replace("_", "-"));
     } catch (URISyntaxException ex) {
       throw new RuntimeException(ex);
     }
   }
-
 }

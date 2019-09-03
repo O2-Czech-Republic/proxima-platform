@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 
-/**
- * Transform {@code event.data} to {@code dummy2.event}.
- */
+/** Transform {@code event.data} to {@code dummy2.event}. */
 public class EventToDummy2 implements Transformation {
 
   EntityDescriptor dummy2;
@@ -30,19 +28,26 @@ public class EventToDummy2 implements Transformation {
 
   @Override
   public void setup(Repository repo) {
-    dummy2 = repo.findEntity("dummy2")
-        .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
-    event = dummy2.findAttribute("event.*")
-        .orElseThrow(() -> new IllegalStateException("Missing attribute event.*"));
+    dummy2 =
+        repo.findEntity("dummy2")
+            .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
+    event =
+        dummy2
+            .findAttribute("event.*")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute event.*"));
   }
 
   @Override
   public int apply(StreamElement input, Collector<StreamElement> collector) {
-    collector.collect(StreamElement.update(
-        dummy2, event, input.getUuid(), input.getKey(),
-        event.toAttributePrefix() + input.getStamp(),
-        input.getStamp(), input.getValue()));
+    collector.collect(
+        StreamElement.update(
+            dummy2,
+            event,
+            input.getUuid(),
+            input.getKey(),
+            event.toAttributePrefix() + input.getStamp(),
+            input.getStamp(),
+            input.getValue()));
     return 1;
   }
-
 }

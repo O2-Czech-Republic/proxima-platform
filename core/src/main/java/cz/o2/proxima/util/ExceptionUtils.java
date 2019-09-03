@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,13 +19,12 @@ import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.UnaryFunction;
 import java.io.Serializable;
 
-/**
- * Utilities related to exception throwing and handling.
- */
+/** Utilities related to exception throwing and handling. */
 public class ExceptionUtils {
 
   /**
    * Consumer throwing exceptions.
+   *
    * @param <T> type parameter
    */
   @FunctionalInterface
@@ -33,9 +32,7 @@ public class ExceptionUtils {
     void apply(T what) throws Exception;
   }
 
-  /**
-   * Runnable throwing exception.
-   */
+  /** Runnable throwing exception. */
   @FunctionalInterface
   public static interface ThrowingRunnable extends Serializable {
     void run() throws Exception;
@@ -43,6 +40,7 @@ public class ExceptionUtils {
 
   /**
    * Factory throwing exception.
+   *
    * @param <T> type parameter
    */
   @FunctionalInterface
@@ -52,6 +50,7 @@ public class ExceptionUtils {
 
   /**
    * Function throwing exception.
+   *
    * @param <IN> input type parameter
    * @param <OUT> output type parameter
    */
@@ -62,6 +61,7 @@ public class ExceptionUtils {
 
   /**
    * Wrap consumer throwing exceptions to regular consumer.
+   *
    * @param <T> type parameter
    * @param wrap the consumer to wrap
    * @return regular consumer
@@ -78,6 +78,7 @@ public class ExceptionUtils {
 
   /**
    * Run given runnable rethrowing exceptions as {@link RuntimeException}s.
+   *
    * @param runnable the runnable to run
    */
   public static void unchecked(ThrowingRunnable runnable) {
@@ -90,6 +91,7 @@ public class ExceptionUtils {
 
   /**
    * Run given factory and return result.
+   *
    * @param <T> type parameter
    * @param factory the factory that throws exceptions
    * @return created instance of the factory
@@ -104,13 +106,13 @@ public class ExceptionUtils {
 
   /**
    * Wrap throwing unary function as regular one.
+   *
    * @param <IN> input type parameter
    * @param <OUT> output type parameter
    * @param fn the function to wrap
    * @return regular unary function
    */
-  public static <IN, OUT> UnaryFunction<IN, OUT> uncheckedFn(
-      ThrowingUnaryFunction<IN, OUT> fn) {
+  public static <IN, OUT> UnaryFunction<IN, OUT> uncheckedFn(ThrowingUnaryFunction<IN, OUT> fn) {
 
     return in -> {
       try {
@@ -121,6 +123,5 @@ public class ExceptionUtils {
     };
   }
 
-  private ExceptionUtils() { }
-
+  private ExceptionUtils() {}
 }

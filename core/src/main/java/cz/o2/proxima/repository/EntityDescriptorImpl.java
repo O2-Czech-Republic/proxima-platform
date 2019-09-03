@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,17 +29,13 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Descriptor of entity.
- */
+/** Descriptor of entity. */
 @Slf4j
 @Internal
 public class EntityDescriptorImpl implements EntityDescriptor {
 
-
   /** Name of the entity. */
-  @Getter
-  private final String name;
+  @Getter private final String name;
 
   /** List of all attribute descriptors. */
   private final List<AttributeDescriptor<?>> attributes;
@@ -54,35 +50,35 @@ public class EntityDescriptorImpl implements EntityDescriptor {
     this.name = Objects.requireNonNull(name);
     this.attributes = Lists.newArrayList(Objects.requireNonNull(attrs));
 
-    List<AttributeDescriptor<?>> fullyQualified = attrs.stream()
-        .filter(a -> !a.isWildcard())
-        .collect(Collectors.toList());
+    List<AttributeDescriptor<?>> fullyQualified =
+        attrs.stream().filter(a -> !a.isWildcard()).collect(Collectors.toList());
 
-    attributesByPattern = attrs.stream()
-        .filter(AttributeDescriptor::isWildcard)
-        .map(p -> Pair.of(new NamePattern(p.getName()), p))
-        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+    attributesByPattern =
+        attrs
+            .stream()
+            .filter(AttributeDescriptor::isWildcard)
+            .map(p -> Pair.of(new NamePattern(p.getName()), p))
+            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
 
-    this.attributesByName = fullyQualified.stream()
-        .collect(Collectors.toMap(AttributeDescriptor::getName, e -> e));
+    this.attributesByName =
+        fullyQualified.stream().collect(Collectors.toMap(AttributeDescriptor::getName, e -> e));
   }
-
 
   /** Find attribute based by name. */
   @SuppressWarnings("unchecked")
   @Override
-  public <T> Optional<AttributeDescriptor<T>> findAttribute(
-      String name, boolean includeProtected) {
+  public <T> Optional<AttributeDescriptor<T>> findAttribute(String name, boolean includeProtected) {
 
     AttributeDescriptor found = attributesByName.get(name);
     if (found == null) {
-      found = attributesByPattern
-          .entrySet()
-          .stream()
-          .filter(e -> e.getKey().matches(name))
-          .findFirst()
-          .map(Map.Entry::getValue)
-          .orElse(null);
+      found =
+          attributesByPattern
+              .entrySet()
+              .stream()
+              .filter(e -> e.getKey().matches(name))
+              .findFirst()
+              .map(Map.Entry::getValue)
+              .orElse(null);
     }
     if (found != null && (includeProtected || found.isPublic())) {
       return Optional.of(found);
@@ -90,16 +86,13 @@ public class EntityDescriptorImpl implements EntityDescriptor {
     return Optional.empty();
   }
 
-
   /** List all attribute descriptors of given entity. */
   @Override
   public List<AttributeDescriptor<?>> getAllAttributes(boolean includeProtected) {
     if (includeProtected) {
       return Collections.unmodifiableList(attributes);
     }
-    return attributes.stream()
-        .filter(AttributeDescriptor::isPublic)
-        .collect(Collectors.toList());
+    return attributes.stream().filter(AttributeDescriptor::isPublic).collect(Collectors.toList());
   }
 
   @Override
@@ -135,5 +128,4 @@ public class EntityDescriptorImpl implements EntityDescriptor {
     }
     return current;
   }
-
 }

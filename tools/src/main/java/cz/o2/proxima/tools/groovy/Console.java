@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc.RetrieveServiceBlockingStub;
 import cz.o2.proxima.proto.service.Rpc;
@@ -30,11 +32,9 @@ import cz.o2.proxima.repackaged.groovy.tools.shell.IO;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.tools.groovy.internal.ProximaInterpreter;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
 import cz.o2.proxima.util.Classpath;
@@ -63,9 +63,7 @@ import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * This is the groovysh based console.
- */
+/** This is the groovysh based console. */
 @Slf4j
 public class Console {
 
@@ -74,8 +72,8 @@ public class Console {
   public static final String INITIAL_STATEMENT = "env = new Environment()";
 
   /**
-   * This is supposed to be called only from the groovysh initialized in this
-   * main method.
+   * This is supposed to be called only from the groovysh initialized in this main method.
+   *
    * @return the singleton instance
    */
   public static final Console get() {
@@ -94,7 +92,7 @@ public class Console {
   }
 
   public static Console create(Config config, Repository repo) {
-    INSTANCE.set(new Console(config, repo, new String[] { }));
+    INSTANCE.set(new Console(config, repo, new String[] {}));
     return INSTANCE.get();
   }
 
@@ -104,13 +102,14 @@ public class Console {
     Console console = Console.get(args);
     Binding binding = new Binding();
     console.runInputForwarding();
-    console.setShell(new Groovysh(
-        loader,
-        binding,
-        new IO(console.getInputStream(), System.out, System.err),
-        null,
-        null,
-        new ProximaInterpreter(loader, binding)));
+    console.setShell(
+        new Groovysh(
+            loader,
+            binding,
+            new IO(console.getInputStream(), System.out, System.err),
+            null,
+            null,
+            new ProximaInterpreter(loader, binding)));
     Runtime.getRuntime().addShutdownHook(new Thread(console::close));
     console.createWrapperClass();
     console.runShell(INITIAL_STATEMENT);
@@ -120,22 +119,22 @@ public class Console {
 
   final String[] args;
   final BlockingQueue<Byte> input = new ArrayBlockingQueue<>(1000);
-  @Getter
-  final Repository repo;
+  @Getter final Repository repo;
   final List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;
   final Config config;
-  final ExecutorService executor = Executors.newCachedThreadPool(r -> {
-    Thread t = new Thread(r);
-    t.setName("input-forwarder");
-    t.setDaemon(true);
-    t.setUncaughtExceptionHandler((thrd, err) ->
-        log.error("Error in thread {}", thrd.getName(), err));
-    return t;
-  });
+  final ExecutorService executor =
+      Executors.newCachedThreadPool(
+          r -> {
+            Thread t = new Thread(r);
+            t.setName("input-forwarder");
+            t.setDaemon(true);
+            t.setUncaughtExceptionHandler(
+                (thrd, err) -> log.error("Error in thread {}", thrd.getName(), err));
+            return t;
+          });
   StreamProvider streamProvider;
-  @Getter
-  final Optional<DirectDataOperator> direct;
+  @Getter final Optional<DirectDataOperator> direct;
   Groovysh shell;
 
   Console(String[] args) {
@@ -150,9 +149,10 @@ public class Console {
     this.args = args;
     this.config = config;
     this.repo = repo;
-    this.direct = repo.hasOperator("direct")
-        ? Optional.of(repo.getOrCreateOperator(DirectDataOperator.class))
-        : Optional.empty();
+    this.direct =
+        repo.hasOperator("direct")
+            ? Optional.of(repo.getOrCreateOperator(DirectDataOperator.class))
+            : Optional.empty();
     conf = new Configuration(Configuration.VERSION_2_3_23);
     conf.setDefaultEncoding("utf-8");
     conf.setClassForTemplateLoading(getClass(), "/");
@@ -169,29 +169,31 @@ public class Console {
 
   public void createWrapperClass() throws Exception {
     updateClassLoader();
-    ToolsClassLoader classLoader = (ToolsClassLoader) Thread
-        .currentThread().getContextClassLoader();
+    ToolsClassLoader classLoader =
+        (ToolsClassLoader) Thread.currentThread().getContextClassLoader();
     log.debug("Creating Environment class in classloader {}", classLoader);
     GroovyEnv.createWrapperInLoader(conf, repo, classLoader);
   }
 
   private void initializeStreamProvider() {
     ServiceLoader<StreamProvider> loader = ServiceLoader.load(StreamProvider.class);
-    streamProvider = Streams.stream(loader)
-        // sort possible test implementations on top
-        .sorted((a, b) -> {
-          String cls1 = a.getClass().getSimpleName();
-          String cls2 = a.getClass().getSimpleName();
-          if (cls1.startsWith("Test") ^ cls2.startsWith("Test")) {
-            if (cls1.startsWith("Test")) {
-              return -1;
-            }
-            return 1;
-          }
-          return cls1.compareTo(cls2);
-        })
-        .findFirst()
-        .orElseThrow(() -> new IllegalArgumentException("No StreamProvider found"));
+    streamProvider =
+        Streams.stream(loader)
+            // sort possible test implementations on top
+            .sorted(
+                (a, b) -> {
+                  String cls1 = a.getClass().getSimpleName();
+                  String cls2 = a.getClass().getSimpleName();
+                  if (cls1.startsWith("Test") ^ cls2.startsWith("Test")) {
+                    if (cls1.startsWith("Test")) {
+                      return -1;
+                    }
+                    return 1;
+                  }
+                  return cls1.compareTo(cls2);
+                })
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("No StreamProvider found"));
     log.info("Using {} as StreamProvider", streamProvider);
     streamProvider.init(repo, args == null ? new String[] {} : args);
   }
@@ -208,9 +210,7 @@ public class Console {
 
   @SuppressWarnings("unchecked")
   public <T> Stream<StreamElement> getStream(
-      AttributeDescriptor<T> attrDesc,
-      Position position,
-      boolean stopAtCurrent) {
+      AttributeDescriptor<T> attrDesc, Position position, boolean stopAtCurrent) {
 
     return getStream(attrDesc, position, stopAtCurrent, false);
   }
@@ -223,95 +223,88 @@ public class Console {
       boolean eventTime) {
 
     return streamProvider.getStream(
-        position, stopAtCurrent, eventTime,
-        this::unboundedStreamInterrupt,
-        attrDesc);
+        position, stopAtCurrent, eventTime, this::unboundedStreamInterrupt, attrDesc);
   }
 
   @SuppressWarnings("unchecked")
   public Stream<StreamElement> getUnionStream(
-      Position position, boolean eventTime,
+      Position position,
+      boolean eventTime,
       boolean stopAtCurrent,
       AttributeDescriptorProvider<?>... descriptors) {
 
-    List<AttributeDescriptor<?>> attrs = Arrays.stream(descriptors)
-        .map(AttributeDescriptorProvider::desc)
-        .collect(Collectors.toList());
+    List<AttributeDescriptor<?>> attrs =
+        Arrays.stream(descriptors)
+            .map(AttributeDescriptorProvider::desc)
+            .collect(Collectors.toList());
 
     return streamProvider.getStream(
-        position, stopAtCurrent, eventTime,
+        position,
+        stopAtCurrent,
+        eventTime,
         this::unboundedStreamInterrupt,
         attrs.toArray(new AttributeDescriptor[attrs.size()]));
-
   }
 
-  public WindowedStream<StreamElement> getBatchSnapshot(
-      AttributeDescriptor<?> attrDesc) {
+  public WindowedStream<StreamElement> getBatchSnapshot(AttributeDescriptor<?> attrDesc) {
 
     return getBatchSnapshot(attrDesc, Long.MIN_VALUE, Long.MAX_VALUE);
   }
 
-
   @SuppressWarnings("unchecked")
   public WindowedStream<StreamElement> getBatchSnapshot(
-      AttributeDescriptor<?> attrDesc,
-      long fromStamp,
-      long toStamp) {
+      AttributeDescriptor<?> attrDesc, long fromStamp, long toStamp) {
 
     return streamProvider.getBatchSnapshot(
-        fromStamp, toStamp,
-        this::unboundedStreamInterrupt,
-        attrDesc);
+        fromStamp, toStamp, this::unboundedStreamInterrupt, attrDesc);
   }
-
 
   @SuppressWarnings("unchecked")
   public WindowedStream<StreamElement> getBatchUpdates(
-      long startStamp,
-      long endStamp,
-      AttributeDescriptorProvider<?>... attrs) {
+      long startStamp, long endStamp, AttributeDescriptorProvider<?>... attrs) {
 
-    List<AttributeDescriptor<?>> attrList = Arrays.stream(attrs)
-        .map(AttributeDescriptorProvider::desc)
-        .collect(Collectors.toList());
+    List<AttributeDescriptor<?>> attrList =
+        Arrays.stream(attrs).map(AttributeDescriptorProvider::desc).collect(Collectors.toList());
 
     return streamProvider.getBatchUpdates(
-        startStamp, endStamp,
+        startStamp,
+        endStamp,
         this::unboundedStreamInterrupt,
         attrList.toArray(new AttributeDescriptor[attrList.size()]));
   }
 
-
   public ConsoleRandomReader getRandomAccessReader(String entity) {
     if (!direct.isPresent()) {
       throw new IllegalStateException(
-        "Can create random access reader with direct operator only. "
-            + "Add runtime dependency.");
+          "Can create random access reader with direct operator only. "
+              + "Add runtime dependency.");
     }
     EntityDescriptor entityDesc = findEntityDescriptor(entity);
-    ConsoleRandomReader reader = new ConsoleRandomReader(
-        entityDesc, repo, direct.get());
+    ConsoleRandomReader reader = new ConsoleRandomReader(entityDesc, repo, direct.get());
     readers.add(reader);
     return reader;
   }
 
-
   public void put(
       EntityDescriptor entityDesc,
       AttributeDescriptor attrDesc,
-      String key, String attribute, String textFormat)
+      String key,
+      String attribute,
+      String textFormat)
       throws NoSuchMethodException, IllegalAccessException, InvocationTargetException,
           ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
           TextFormat.ParseException {
 
-    put(entityDesc, attrDesc, key, attribute,
-        System.currentTimeMillis(), textFormat);
+    put(entityDesc, attrDesc, key, attribute, System.currentTimeMillis(), textFormat);
   }
 
   public void put(
       EntityDescriptor entityDesc,
       AttributeDescriptor attrDesc,
-      String key, String attribute, long stamp, String textFormat)
+      String key,
+      String attribute,
+      long stamp,
+      String textFormat)
       throws NoSuchMethodException, IllegalAccessException, InvocationTargetException,
           ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
           TextFormat.ParseException {
@@ -321,16 +314,19 @@ public class Console {
           "Can write with direct operator only. Add runtime dependecncy");
     }
     if (attrDesc.getSchemeUri().getScheme().equals("proto")) {
-      ValueSerializerFactory factory = repo.getValueSerializerFactory(
-          attrDesc.getSchemeUri().getScheme())
-          .orElseThrow(() -> new IllegalStateException(
-              "Unable to get ValueSerializerFactory for attribute " + attrDesc.getName()
-                  + " with scheme " + attrDesc.getSchemeUri().toString() + ".")
-          );
+      ValueSerializerFactory factory =
+          repo.getValueSerializerFactory(attrDesc.getSchemeUri().getScheme())
+              .orElseThrow(
+                  () ->
+                      new IllegalStateException(
+                          "Unable to get ValueSerializerFactory for attribute "
+                              + attrDesc.getName()
+                              + " with scheme "
+                              + attrDesc.getSchemeUri().toString()
+                              + "."));
 
       String protoClass = factory.getClassName(attrDesc.getSchemeUri());
-      Class<? extends AbstractMessage> cls = Classpath.findClass(
-          protoClass, AbstractMessage.class);
+      Class<? extends AbstractMessage> cls = Classpath.findClass(protoClass, AbstractMessage.class);
       byte[] payload = null;
       if (textFormat != null) {
         Method newBuilder = cls.getDeclaredMethod("newBuilder");
@@ -338,14 +334,17 @@ public class Console {
         TextFormat.merge(textFormat, builder);
         payload = builder.build().toByteArray();
       }
-      OnlineAttributeWriter writer = direct.get().getWriter(attrDesc)
-          .orElseThrow(() -> new IllegalArgumentException(
-              "Missing writer for " + attrDesc));
+      OnlineAttributeWriter writer =
+          direct
+              .get()
+              .getWriter(attrDesc)
+              .orElseThrow(() -> new IllegalArgumentException("Missing writer for " + attrDesc));
       CountDownLatch latch = new CountDownLatch(1);
       AtomicReference<Throwable> exc = new AtomicReference<>();
-      writer.write(StreamElement.update(
-          entityDesc, attrDesc, UUID.randomUUID().toString(),
-          key, attribute, stamp, payload), (success, ex) -> {
+      writer.write(
+          StreamElement.update(
+              entityDesc, attrDesc, UUID.randomUUID().toString(), key, attribute, stamp, payload),
+          (success, ex) -> {
             if (!success) {
               exc.set(ex);
             }
@@ -357,35 +356,40 @@ public class Console {
       }
     } else {
       throw new IllegalArgumentException(
-          "Don't know how to make builder for "
-          + attrDesc.getSchemeUri());
+          "Don't know how to make builder for " + attrDesc.getSchemeUri());
     }
-
   }
 
   public void delete(
-      EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc,
-      String key, String attribute) throws InterruptedException {
+      EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc, String key, String attribute)
+      throws InterruptedException {
 
     delete(entityDesc, attrDesc, key, attribute, System.currentTimeMillis());
   }
 
   public void delete(
-      EntityDescriptor entityDesc, AttributeDescriptor<?> attrDesc,
-      String key, String attribute, long stamp) throws InterruptedException {
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<?> attrDesc,
+      String key,
+      String attribute,
+      long stamp)
+      throws InterruptedException {
 
     if (!direct.isPresent()) {
       throw new IllegalStateException(
           "Can write with direct operator only. Add runtime dependecncy");
     }
-    OnlineAttributeWriter writer = direct.get().getWriter(attrDesc)
-        .orElseThrow(() -> new IllegalArgumentException(
-            "Missing writer for " + attrDesc));
+    OnlineAttributeWriter writer =
+        direct
+            .get()
+            .getWriter(attrDesc)
+            .orElseThrow(() -> new IllegalArgumentException("Missing writer for " + attrDesc));
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Throwable> exc = new AtomicReference<>();
-    writer.write(StreamElement.update(
-        entityDesc, attrDesc, UUID.randomUUID().toString(),
-        key, attribute, stamp, null), (success, ex) -> {
+    writer.write(
+        StreamElement.update(
+            entityDesc, attrDesc, UUID.randomUUID().toString(), key, attribute, stamp, null),
+        (success, ex) -> {
           if (!success) {
             exc.set(ex);
           }
@@ -398,46 +402,46 @@ public class Console {
   }
 
   public EntityDescriptor findEntityDescriptor(String entity) {
-    return repo.findEntity(entity).orElseThrow(
-        () -> new IllegalArgumentException("Entity " + entity + " not found"));
+    return repo.findEntity(entity)
+        .orElseThrow(() -> new IllegalArgumentException("Entity " + entity + " not found"));
   }
 
+  public Rpc.ListResponse rpcList(
+      EntityDescriptor entity,
+      String key,
+      AttributeDescriptor wildcard,
+      String offset,
+      int limit,
+      String host,
+      int port) {
 
-  public Rpc.ListResponse rpcList(EntityDescriptor entity,
-      String key, AttributeDescriptor wildcard, String offset, int limit,
-      String host, int port) {
-
-    Channel channel = ManagedChannelBuilder
-        .forAddress(host, port)
-        .directExecutor()
-        .usePlaintext()
-        .build();
+    Channel channel =
+        ManagedChannelBuilder.forAddress(host, port).directExecutor().usePlaintext().build();
 
     RetrieveServiceBlockingStub stub = RetrieveServiceGrpc.newBlockingStub(channel);
-    return stub.listAttributes(Rpc.ListRequest.newBuilder()
-        .setEntity(entity.getName())
-        .setKey(key)
-        .setWildcardPrefix(wildcard.toAttributePrefix(false))
-        .setOffset(offset)
-        .setLimit(limit)
-        .build());
+    return stub.listAttributes(
+        Rpc.ListRequest.newBuilder()
+            .setEntity(entity.getName())
+            .setKey(key)
+            .setWildcardPrefix(wildcard.toAttributePrefix(false))
+            .setOffset(offset)
+            .setLimit(limit)
+            .build());
   }
 
-  public Rpc.GetResponse rpcGet(EntityDescriptor entity,
-      String key, String attr, String host, int port) {
+  public Rpc.GetResponse rpcGet(
+      EntityDescriptor entity, String key, String attr, String host, int port) {
 
-    Channel channel = ManagedChannelBuilder
-        .forAddress(host, port)
-        .directExecutor()
-        .usePlaintext()
-        .build();
+    Channel channel =
+        ManagedChannelBuilder.forAddress(host, port).directExecutor().usePlaintext().build();
 
     RetrieveServiceBlockingStub stub = RetrieveServiceGrpc.newBlockingStub(channel);
-    return stub.get(Rpc.GetRequest.newBuilder()
-        .setEntity(entity.getName())
-        .setAttribute(attr)
-        .setKey(key)
-        .build());
+    return stub.get(
+        Rpc.GetRequest.newBuilder()
+            .setEntity(entity.getName())
+            .setAttribute(attr)
+            .setKey(key)
+            .build());
   }
 
   private void close() {
@@ -458,18 +462,19 @@ public class Console {
   }
 
   private void runInputForwarding() {
-    executor.execute(() -> {
-      while (!Thread.currentThread().isInterrupted()) {
-        try {
-          byte next = (byte) System.in.read();
-          while (!input.offer(next)) {
-            input.remove();
+    executor.execute(
+        () -> {
+          while (!Thread.currentThread().isInterrupted()) {
+            try {
+              byte next = (byte) System.in.read();
+              while (!input.offer(next)) {
+                input.remove();
+              }
+            } catch (IOException ex) {
+              throw new RuntimeException(ex);
+            }
           }
-        } catch (IOException ex) {
-          throw new RuntimeException(ex);
-        }
-      }
-    });
+        });
   }
 
   private InputStream getInputStream() {
@@ -484,7 +489,6 @@ public class Console {
           return -1;
         }
       }
-
     };
   }
 
@@ -495,5 +499,4 @@ public class Console {
   private void runShell(String script) {
     this.shell.run(script);
   }
-
 }

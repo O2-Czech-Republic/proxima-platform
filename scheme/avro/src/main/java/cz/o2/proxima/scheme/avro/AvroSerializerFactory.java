@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,15 +15,10 @@
  */
 package cz.o2.proxima.scheme.avro;
 
-
 import cz.o2.proxima.scheme.SerializationException;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.util.Classpath;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.Schema;
-import org.apache.avro.specific.SpecificRecord;
-
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -31,11 +26,11 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Schema;
+import org.apache.avro.specific.SpecificRecord;
 
-
-/**
- * Avro serializer factory for manipulate with SpecificRecords
- */
+/** Avro serializer factory for manipulate with SpecificRecords */
 @Slf4j
 public class AvroSerializerFactory implements ValueSerializerFactory {
   private final Map<URI, ValueSerializer<?>> serializersCache = new ConcurrentHashMap<>();
@@ -48,8 +43,8 @@ public class AvroSerializerFactory implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
-    return (ValueSerializer<T>) serializersCache.computeIfAbsent(
-        specifier, AvroSerializerFactory::createSerializer);
+    return (ValueSerializer<T>)
+        serializersCache.computeIfAbsent(specifier, AvroSerializerFactory::createSerializer);
   }
 
   private static <M extends SpecificRecord> ValueSerializer<M> createSerializer(URI uri) {
@@ -89,28 +84,28 @@ public class AvroSerializerFactory implements ValueSerializerFactory {
       @Override
       public M getDefault() {
         if (defaultInstance == null) {
-          defaultInstance = Classpath.newInstance(
-              (Class<M>) Classpath.findClass(avroClassName, SpecificRecord.class)
-          );
+          defaultInstance =
+              Classpath.newInstance(
+                  (Class<M>) Classpath.findClass(avroClassName, SpecificRecord.class));
         }
         return defaultInstance;
       }
 
-
       private Schema getAvroSchemaForClass(String avroClassName) {
         try {
-          Class<? extends SpecificRecord> avroClass = Classpath
-              .findClass(avroClassName, SpecificRecord.class);
+          Class<? extends SpecificRecord> avroClass =
+              Classpath.findClass(avroClassName, SpecificRecord.class);
           Method method = avroClass.getMethod("getSchema");
           return (Schema) method.invoke(avroClass.newInstance());
-        } catch (IllegalAccessException | IllegalArgumentException
-            | NoSuchMethodException | SecurityException | InvocationTargetException
+        } catch (IllegalAccessException
+            | IllegalArgumentException
+            | NoSuchMethodException
+            | SecurityException
+            | InvocationTargetException
             | InstantiationException ex) {
 
-          throw new IllegalArgumentException(
-              "Cannot get schema from class " + avroClassName, ex);
+          throw new IllegalArgumentException("Cannot get schema from class " + avroClassName, ex);
         }
-
       }
 
       @Override
@@ -118,9 +113,12 @@ public class AvroSerializerFactory implements ValueSerializerFactory {
         try {
           return deserialize(serialize(getDefault())).isPresent();
         } catch (Exception ex) {
-          log.warn("Exception during (de)serialization of default value for "
-              + "class {}. Please consider making all fields optional, otherwise "
-              + "you might encounter unexpected behavior.", avroClassName, ex);
+          log.warn(
+              "Exception during (de)serialization of default value for "
+                  + "class {}. Please consider making all fields optional, otherwise "
+                  + "you might encounter unexpected behavior.",
+              avroClassName,
+              ex);
         }
         try {
           return getDefault() != null;
@@ -129,7 +127,6 @@ public class AvroSerializerFactory implements ValueSerializerFactory {
           return false;
         }
       }
-
     };
   }
 }

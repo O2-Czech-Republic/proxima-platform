@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,19 +29,12 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Writer via HTTP(S) requests.
- */
-public class HttpWriter
-    extends AbstractStorage
-    implements OnlineAttributeWriter, DataAccessor {
+/** Writer via HTTP(S) requests. */
+public class HttpWriter extends AbstractStorage implements OnlineAttributeWriter, DataAccessor {
 
   final ConnFactory connFactory;
 
-  public HttpWriter(
-      EntityDescriptor entityDesc,
-      URI uri,
-      Map<String, Object> cfg) {
+  public HttpWriter(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     super(entityDesc, uri);
     try {
@@ -52,9 +45,7 @@ public class HttpWriter
   }
 
   @Override
-  public void write(
-      StreamElement data,
-      CommitCallback statusCallback) {
+  public void write(StreamElement data, CommitCallback statusCallback) {
 
     HttpURLConnection conn = null;
     try {
@@ -66,8 +57,7 @@ public class HttpWriter
         if (code / 100 == 2) {
           statusCallback.commit(true, null);
         } else {
-          statusCallback.commit(false, new RuntimeException(
-              "Invalid status code " + code));
+          statusCallback.commit(false, new RuntimeException("Invalid status code " + code));
         }
       } else {
         statusCallback.commit(true, null);
@@ -101,5 +91,4 @@ public class HttpWriter
   public void close() {
     // nop
   }
-
 }

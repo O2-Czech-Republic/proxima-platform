@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 package cz.o2.proxima.direct.hbase;
+
+import static cz.o2.proxima.direct.hbase.HbaseTestUtil.bytes;
+import static org.junit.Assert.*;
 
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
@@ -36,18 +39,13 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Table;
-import static org.junit.Assert.*;
-
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import static cz.o2.proxima.direct.hbase.HbaseTestUtil.bytes;
 
-/**
- * Test suite for {@link HBaseLogObservable}.
- */
+/** Test suite for {@link HBaseLogObservable}. */
 public class HBaseLogObservableTest {
 
   private static final TableName tableName = TableName.valueOf("test");
@@ -55,12 +53,10 @@ public class HBaseLogObservableTest {
 
   private static MiniHBaseCluster cluster;
 
-  private final Repository repo = ConfigRepository.Builder.ofTest(
-      ConfigFactory.load()).build();
+  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.load()).build();
   private final EntityDescriptor entity = repo.findEntity("test").get();
   private final AttributeDescriptor<?> attr = entity.findAttribute("dummy").get();
-  private final AttributeDescriptor<?> wildcard = entity.findAttribute(
-      "wildcard.*").get();
+  private final AttributeDescriptor<?> wildcard = entity.findAttribute("wildcard.*").get();
 
   private HBaseLogObservable reader;
   private Connection conn;
@@ -81,16 +77,15 @@ public class HBaseLogObservableTest {
   @Before
   public void setUp() throws Exception {
     util.deleteTableIfAny(tableName);
-    util.createTable(tableName, bytes("u"), new byte[][] {
-        bytes("first"), bytes("second")
-    });
+    util.createTable(tableName, bytes("u"), new byte[][] {bytes("first"), bytes("second")});
     conn = ConnectionFactory.createConnection(util.getConfiguration());
     client = conn.getTable(tableName);
-    reader = new HBaseLogObservable(
-        new URI("hbase://localhost:2181/test?family=u"),
-        cluster.getConfiguration(),
-        entity,
-        () -> Executors.newCachedThreadPool());
+    reader =
+        new HBaseLogObservable(
+            new URI("hbase://localhost:2181/test?family=u"),
+            cluster.getConfiguration(),
+            entity,
+            () -> Executors.newCachedThreadPool());
   }
 
   @After
@@ -104,10 +99,11 @@ public class HBaseLogObservableTest {
   public void testGetPartitions() {
     List<HBasePartition> partitions = (List) reader.getPartitions(-1, 1);
     assertEquals(partitions.toString(), 3, partitions.size());
-    partitions.forEach(p -> {
-      assertEquals(0, p.getStartStamp());
-      assertEquals(1, p.getEndStamp());
-    });
+    partitions.forEach(
+        p -> {
+          assertEquals(0, p.getStartStamp());
+          assertEquals(1, p.getEndStamp());
+        });
 
     assertEquals("", new String(partitions.get(0).getStartKey()));
     assertEquals("first", new String(partitions.get(0).getEndKey()));
@@ -130,7 +126,8 @@ public class HBaseLogObservableTest {
     List<String> keys = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
-        partitions.subList(0, 1), Lists.newArrayList(attr),
+        partitions.subList(0, 1),
+        Lists.newArrayList(attr),
         new BatchLogObserver() {
 
           @Override
@@ -144,7 +141,6 @@ public class HBaseLogObservableTest {
           public void onCompleted() {
             latch.countDown();
           }
-
         });
     latch.await();
 
@@ -163,7 +159,8 @@ public class HBaseLogObservableTest {
     List<String> keys = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
-        partitions.subList(2, 3), Lists.newArrayList(attr),
+        partitions.subList(2, 3),
+        Lists.newArrayList(attr),
         new BatchLogObserver() {
 
           @Override
@@ -177,7 +174,6 @@ public class HBaseLogObservableTest {
           public void onCompleted() {
             latch.countDown();
           }
-
         });
     latch.await();
 
@@ -199,7 +195,8 @@ public class HBaseLogObservableTest {
     assertEquals(3, partitions.size());
 
     reader.observe(
-        partitions.subList(0, 1), Lists.newArrayList(attr, wildcard),
+        partitions.subList(0, 1),
+        Lists.newArrayList(attr, wildcard),
         new BatchLogObserver() {
 
           @Override
@@ -218,7 +215,6 @@ public class HBaseLogObservableTest {
           public boolean onError(Throwable error) {
             throw new RuntimeException(error);
           }
-
         });
 
     latch.await();
@@ -226,11 +222,7 @@ public class HBaseLogObservableTest {
     assertEquals(Lists.newArrayList("a", "fir", "firs"), keys);
   }
 
-  private void write(
-      String key, String attribute, String value,
-      long stamp) throws IOException {
+  private void write(String key, String attribute, String value, long stamp) throws IOException {
     HbaseTestUtil.write(key, attribute, value, stamp, client);
   }
-
-
 }

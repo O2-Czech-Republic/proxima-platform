@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,17 @@
  */
 package cz.o2.proxima.direct.kafka;
 
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnIdleContext;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
+
 import com.google.common.base.MoreObjects;
+import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.time.WatermarkSupplier;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -30,16 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
-import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnIdleContext;
-import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
-import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
-import cz.o2.proxima.time.WatermarkSupplier;
 
-/**
- * Placeholder class for consumers.
- */
+/** Placeholder class for consumers. */
 @Slf4j
 class Consumers {
 
@@ -65,18 +64,16 @@ class Consumers {
     }
 
     @Override
-    public void onAssign(
-        KafkaConsumer<String, byte[]> consumer,
-        List<TopicOffset> offsets) {
+    public void onAssign(KafkaConsumer<String, byte[]> consumer, List<TopicOffset> offsets) {
 
       committed.clear();
-      committed.putAll(offsets.stream().collect(Collectors.toMap(
-          o -> o.getPartition().getId(),
-          TopicOffset::getOffset)));
+      committed.putAll(
+          offsets
+              .stream()
+              .collect(Collectors.toMap(o -> o.getPartition().getId(), TopicOffset::getOffset)));
     }
 
     abstract LogObserver observer();
-
   }
 
   static final class OnlineConsumer extends ConsumerBase {
@@ -98,7 +95,8 @@ class Consumers {
     @Override
     public boolean consumeWithConfirm(
         @Nullable StreamElement element,
-        TopicPartition tp, long offset,
+        TopicPartition tp,
+        long offset,
         WatermarkSupplier watermarkSupplier,
         Consumer<Throwable> errorHandler) {
 
@@ -107,21 +105,19 @@ class Consumers {
       if (element != null) {
         return observer.onNext(
             element,
-            asOnNextContext((succ, exc) -> {
-              if (succ) {
-                committed.compute(
-                    tp.partition(),
-                    (k, v) -> v == null || v <= offset ? offset + 1 : v);
-                committer.confirm(tp, offset);
-              } else {
-                errorHandler.accept(exc);
-              }
-            },
-            new TopicOffset(tp.partition(), offset, watermark)));
+            asOnNextContext(
+                (succ, exc) -> {
+                  if (succ) {
+                    committed.compute(
+                        tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
+                    committer.confirm(tp, offset);
+                  } else {
+                    errorHandler.accept(exc);
+                  }
+                },
+                new TopicOffset(tp.partition(), offset, watermark)));
       }
-      committed.compute(
-          tp.partition(),
-          (k, v) -> v == null || v <= offset ? offset + 1 : v);
+      committed.compute(tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
       committer.confirm(tp, offset);
       return true;
     }
@@ -147,16 +143,12 @@ class Consumers {
     }
 
     @Override
-    public void onAssign(
-        KafkaConsumer<String, byte[]> consumer,
-        List<TopicOffset> offsets) {
+    public void onAssign(KafkaConsumer<String, byte[]> consumer, List<TopicOffset> offsets) {
 
       super.onAssign(consumer, offsets);
       observer.onRepartition(
           asRepartitionContext(
-              offsets.stream()
-                  .map(TopicOffset::getPartition)
-                  .collect(Collectors.toList())));
+              offsets.stream().map(TopicOffset::getPartition).collect(Collectors.toList())));
     }
 
     @Override
@@ -168,7 +160,6 @@ class Consumers {
     public void onIdle(WatermarkSupplier watermarkSupplier) {
       observer.onIdle(asOnIdleContext(watermarkSupplier));
     }
-
   }
 
   static final class BulkConsumer extends ConsumerBase {
@@ -196,21 +187,22 @@ class Consumers {
     @Override
     public boolean consumeWithConfirm(
         @Nullable StreamElement element,
-        TopicPartition tp, long offset,
+        TopicPartition tp,
+        long offset,
         WatermarkSupplier watermarkSupplier,
         Consumer<Throwable> errorHandler) {
 
       processing.put(tp.partition(), offset);
       watermark = watermarkSupplier.getWatermark();
       if (element != null) {
-        return observer.onNext(
-            element, context(tp, offset, watermarkSupplier, errorHandler));
+        return observer.onNext(element, context(tp, offset, watermarkSupplier, errorHandler));
       }
       return true;
     }
 
     private OnNextContext context(
-        TopicPartition tp, long offset,
+        TopicPartition tp,
+        long offset,
         WatermarkSupplier watermarkSupplier,
         Consumer<Throwable> errorHandler) {
 
@@ -218,12 +210,11 @@ class Consumers {
       return asOnNextContext(
           (succ, err) -> {
             if (succ) {
-              toCommit.forEach((part, off) ->
-                  committed.compute(
-                      part,
-                      (k, v) -> Math.max(MoreObjects.firstNonNull(v, 0L), off + 1)));
-              committed.forEach((p, o) ->
-                  commit.accept(new TopicPartition(tp.topic(), p), o));
+              toCommit.forEach(
+                  (part, off) ->
+                      committed.compute(
+                          part, (k, v) -> Math.max(MoreObjects.firstNonNull(v, 0L), off + 1)));
+              committed.forEach((p, o) -> commit.accept(new TopicPartition(tp.topic(), p), o));
             } else {
               errorHandler.accept(err);
             }
@@ -253,15 +244,12 @@ class Consumers {
 
     @SuppressWarnings("unchecked")
     @Override
-    public void onAssign(
-        KafkaConsumer<String, byte[]> consumer,
-        List<TopicOffset> offsets) {
+    public void onAssign(KafkaConsumer<String, byte[]> consumer, List<TopicOffset> offsets) {
 
       super.onAssign(consumer, offsets);
-      observer.onRepartition(asRepartitionContext(
-          offsets.stream()
-              .map(TopicOffset::getPartition)
-              .collect(Collectors.toList())));
+      observer.onRepartition(
+          asRepartitionContext(
+              offsets.stream().map(TopicOffset::getPartition).collect(Collectors.toList())));
 
       Utils.seekToOffsets(topic, (List) offsets, consumer);
     }
@@ -275,12 +263,9 @@ class Consumers {
     public void onIdle(WatermarkSupplier watermarkSupplier) {
       observer.onIdle(asOnIdleContext(watermarkSupplier));
     }
-
   }
-
 
   private Consumers() {
     // nop
   }
-
 }

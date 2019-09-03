@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,16 +26,14 @@ import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Estimator of watermark based on timestamps of flowing elements.
- * The estimator tries to estimate when it reaches near-realtime consumption
- * of events and holds the watermark until then.
+ * Estimator of watermark based on timestamps of flowing elements. The estimator tries to estimate
+ * when it reaches near-realtime consumption of events and holds the watermark until then.
  */
 @Slf4j
 @Internal
 public class WatermarkEstimator implements WatermarkSupplier {
 
-  @VisibleForTesting
-  static final long MIN_WATERMARK = Long.MIN_VALUE + 365 * 86400000L;
+  @VisibleForTesting static final long MIN_WATERMARK = Long.MIN_VALUE + 365 * 86400000L;
 
   @Internal
   @FunctionalInterface
@@ -43,9 +41,7 @@ public class WatermarkEstimator implements WatermarkSupplier {
     long get();
   }
 
-  /**
-   * Builder of the {@link WatermarkEstimator}.
-   */
+  /** Builder of the {@link WatermarkEstimator}. */
   public static class Builder {
 
     private final long durationMs;
@@ -73,28 +69,23 @@ public class WatermarkEstimator implements WatermarkSupplier {
     }
 
     public Builder withDurationMs(long durationMs) {
-      return new Builder(
-          durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
+      return new Builder(durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
     }
 
     public Builder withStepMs(long stepMs) {
-      return new Builder(
-          durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
+      return new Builder(durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
     }
 
     public Builder withAllowedTimestampSkew(long allowedTimestampSkew) {
-      return new Builder(
-          durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
+      return new Builder(durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
     }
 
     public Builder withMinWatermark(long minWatermark) {
-      return new Builder(
-          durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
+      return new Builder(durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
     }
 
     public Builder withTimestampSupplier(TimestampSupplier timestampSupplier) {
-      return new Builder(
-          durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
+      return new Builder(durationMs, stepMs, allowedTimestampSkew, minWatermark, timestampSupplier);
     }
 
     public WatermarkEstimator build() {
@@ -131,8 +122,7 @@ public class WatermarkEstimator implements WatermarkSupplier {
     Preconditions.checkArgument(durationMs > 0, "durationMs must be positive");
     Preconditions.checkArgument(stepMs > 0, "stepMs must be positive");
     Preconditions.checkArgument(
-        durationMs / stepMs * stepMs == durationMs,
-        "durationMs must be divisible by stepMs");
+        durationMs / stepMs * stepMs == durationMs, "durationMs must be divisible by stepMs");
     stepDiffs = new long[(int) (durationMs / stepMs) + 1];
     for (int i = 0; i < stepDiffs.length; i++) {
       stepDiffs[i] = 0;
@@ -143,6 +133,7 @@ public class WatermarkEstimator implements WatermarkSupplier {
 
   /**
    * Accumulate given timestamp at current processing time.
+   *
    * @param stamp the stamp to accumulate
    */
   public void add(long stamp) {
@@ -155,17 +146,17 @@ public class WatermarkEstimator implements WatermarkSupplier {
 
   /**
    * Retrieve watermark estimate.
+   *
    * @return the watermark estimate
    */
   @Override
   public long getWatermark() {
     rotateIfNeeded();
     if (rotatesToInitialize.get() <= 0) {
-      boolean isProcessingBacklog = Arrays.stream(stepDiffs)
-          .anyMatch(diff -> diff > allowedTimestampSkew);
+      boolean isProcessingBacklog =
+          Arrays.stream(stepDiffs).anyMatch(diff -> diff > allowedTimestampSkew);
       if (!isProcessingBacklog) {
-        watermark.accumulateAndGet(
-            timestampSupplier.get() - allowedTimestampSkew, Math::max);
+        watermark.accumulateAndGet(timestampSupplier.get() - allowedTimestampSkew, Math::max);
       }
     }
     return watermark.get();
@@ -179,7 +170,8 @@ public class WatermarkEstimator implements WatermarkSupplier {
     if (now - lastStatLogged.get() > 10000) {
       log.info(
           "Watermark delay stats: {} with allowedTimestampSkew {}",
-          Arrays.toString(stepDiffs), allowedTimestampSkew);
+          Arrays.toString(stepDiffs),
+          allowedTimestampSkew);
       lastStatLogged.set(now);
     }
   }
@@ -195,5 +187,4 @@ public class WatermarkEstimator implements WatermarkSupplier {
     }
     lastRotate.set(now);
   }
-
 }

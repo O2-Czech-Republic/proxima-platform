@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,8 @@
  */
 package cz.o2.proxima.direct.gcloud.storage;
 
-import cz.o2.proxima.direct.gcloud.storage.BinaryBlob;
+import static org.junit.Assert.assertEquals;
+
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
@@ -29,7 +30,6 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.UUID;
-import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -38,7 +38,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 /**
- * Test suite for {@link BinaryBlob} for reading and writing.
+ * Test suite for {@link cz.o2.proxima.direct.gcloud.storage.BinaryBlob} for reading and writing.
  */
 @RunWith(Parameterized.class)
 public class BinaryBlobTest {
@@ -48,11 +48,9 @@ public class BinaryBlobTest {
   final AttributeDescriptor<?> wildcard;
   final EntityDescriptor entity;
 
-  @Rule
-  public TemporaryFolder folder = new TemporaryFolder();
+  @Rule public TemporaryFolder folder = new TemporaryFolder();
 
-  @Parameterized.Parameter
-  public boolean gzip;
+  @Parameterized.Parameter public boolean gzip;
 
   @Parameterized.Parameters
   public static Collection<Boolean> params() {
@@ -63,23 +61,25 @@ public class BinaryBlobTest {
   BinaryBlob blob;
 
   public BinaryBlobTest() throws URISyntaxException {
-    this.wildcard = AttributeDescriptor.newBuilder(repo)
-        .setEntity("dummy")
-        .setSchemeUri(new URI("bytes:///"))
-        .setName("wildcard.*")
-        .build();
-    this.attr = AttributeDescriptor.newBuilder(repo)
-        .setEntity("dummy")
-        .setSchemeUri(new URI("bytes:///"))
-        .setName("attr")
-        .build();
-    this.entity = EntityDescriptor.newBuilder()
-        .setName("dummy")
-        .addAttribute((AttributeDescriptorBase<?>) attr)
-        .addAttribute((AttributeDescriptorBase<?>) wildcard)
-        .build();
+    this.wildcard =
+        AttributeDescriptor.newBuilder(repo)
+            .setEntity("dummy")
+            .setSchemeUri(new URI("bytes:///"))
+            .setName("wildcard.*")
+            .build();
+    this.attr =
+        AttributeDescriptor.newBuilder(repo)
+            .setEntity("dummy")
+            .setSchemeUri(new URI("bytes:///"))
+            .setName("attr")
+            .build();
+    this.entity =
+        EntityDescriptor.newBuilder()
+            .setName("dummy")
+            .addAttribute((AttributeDescriptorBase<?>) attr)
+            .addAttribute((AttributeDescriptorBase<?>) wildcard)
+            .build();
   }
-
 
   @Before
   public void setUp() throws IOException {
@@ -89,9 +89,15 @@ public class BinaryBlobTest {
 
   @Test
   public void testWriteAndRead() throws IOException {
-    StreamElement el = StreamElement.update(
-        entity, attr, UUID.randomUUID().toString(),
-        "key", "attr", System.currentTimeMillis(), new byte[] { 1, 2 });
+    StreamElement el =
+        StreamElement.update(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            "attr",
+            System.currentTimeMillis(),
+            new byte[] {1, 2});
 
     try (BinaryBlob.Writer writer = blob.writer(gzip)) {
       writer.write(el);
@@ -105,7 +111,5 @@ public class BinaryBlobTest {
       }
       assertEquals(1, matched);
     }
-
   }
-
 }

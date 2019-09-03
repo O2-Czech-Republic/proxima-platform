@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,32 +22,28 @@ import java.util.concurrent.TimeUnit;
 import lombok.Getter;
 import lombok.Setter;
 
-/**
- * Client related options.
- */
+/** Client related options. */
 public class Options {
 
-  @Getter
-  @Setter
+  @Getter @Setter
   /** How often to flush the data in microseconds. */
   private int flushUsec = 50000;
 
-  @Getter
-  @Setter
+  @Getter @Setter
   /** Maximal size of the bulk before being sent even before flushUsec. */
   private int maxFlushRecords = 1000;
 
-  @Getter
-  @Setter
+  @Getter @Setter
   /** Executor to use for grpc. */
-  private Executor executor = new ThreadPoolExecutor(
-      Runtime.getRuntime().availableProcessors(),
-      5 * Runtime.getRuntime().availableProcessors(), 5, TimeUnit.SECONDS,
-      new ArrayBlockingQueue<>(5 * Runtime.getRuntime().availableProcessors()));
+  private Executor executor =
+      new ThreadPoolExecutor(
+          Runtime.getRuntime().availableProcessors(),
+          5 * Runtime.getRuntime().availableProcessors(),
+          5,
+          TimeUnit.SECONDS,
+          new ArrayBlockingQueue<>(5 * Runtime.getRuntime().availableProcessors()));
 
-  @Getter
-  @Setter
+  @Getter @Setter
   /** Maximal count of inflight records. */
   private int maxInflightRequests = 500000;
-
 }

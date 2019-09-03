@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,7 @@ package cz.o2.proxima.tools.groovy;
 import groovy.lang.Closure;
 import lombok.Getter;
 
-/**
- * A {@link Closure} that was created from java and is aware of its return type.
- */
+/** A {@link Closure} that was created from java and is aware of its return type. */
 public class JavaTypedClosure<T> extends Closure<T> {
 
   static <T> Closure<T> wrap(Closure<T> w, Class<? extends T> cls) {
@@ -28,8 +26,7 @@ public class JavaTypedClosure<T> extends Closure<T> {
   }
 
   final Closure<T> delegate;
-  @Getter
-  final Class<? extends T> type;
+  @Getter final Class<? extends T> type;
 
   JavaTypedClosure(Closure<T> delegate, Class<? extends T> type) {
     super(delegate.getOwner(), delegate.getThisObject());
@@ -39,8 +36,7 @@ public class JavaTypedClosure<T> extends Closure<T> {
 
   @Override
   public Closure<T> rehydrate(Object delegate, Object owner, Object thisObject) {
-    return new JavaTypedClosure<>(
-        this.delegate.rehydrate(delegate, owner, thisObject), type);
+    return new JavaTypedClosure<>(this.delegate.rehydrate(delegate, owner, thisObject), type);
   }
 
   @Override
@@ -81,14 +77,12 @@ public class JavaTypedClosure<T> extends Closure<T> {
 
   @Override
   public Closure<T> memoizeAtLeast(int protectedCacheSize) {
-    return new JavaTypedClosure<>(
-        this.delegate.memoizeAtLeast(protectedCacheSize), type);
+    return new JavaTypedClosure<>(this.delegate.memoizeAtLeast(protectedCacheSize), type);
   }
 
   @Override
   public Closure<T> memoizeAtMost(int maxCacheSize) {
-    return new JavaTypedClosure<>(
-        this.delegate.memoizeAtMost(maxCacheSize), type);
+    return new JavaTypedClosure<>(this.delegate.memoizeAtMost(maxCacheSize), type);
   }
 
   @Override
@@ -220,7 +214,4 @@ public class JavaTypedClosure<T> extends Closure<T> {
   public void setResolveStrategy(int resolveStrategy) {
     this.delegate.setResolveStrategy(resolveStrategy);
   }
-
-
-
 }

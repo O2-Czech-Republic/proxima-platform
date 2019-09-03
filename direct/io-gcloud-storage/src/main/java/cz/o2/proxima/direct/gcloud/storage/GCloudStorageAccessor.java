@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,15 +25,12 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * A {@link DataAccessor} for gcloud storage.
- */
+/** A {@link DataAccessor} for gcloud storage. */
 class GCloudStorageAccessor extends AbstractStorage implements DataAccessor {
 
   final Map<String, Object> cfg;
 
-  public GCloudStorageAccessor(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public GCloudStorageAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     super(entityDesc, uri);
     this.cfg = cfg;
@@ -41,15 +38,12 @@ class GCloudStorageAccessor extends AbstractStorage implements DataAccessor {
 
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
-    return Optional.of(new BulkGCloudStorageWriter(
-        getEntityDescriptor(), getUri(), cfg, context));
+    return Optional.of(new BulkGCloudStorageWriter(getEntityDescriptor(), getUri(), cfg, context));
   }
 
   @Override
   public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-    return Optional.of(new GCloudLogObservable(
-        getEntityDescriptor(), getUri(), cfg,
-        context::getExecutorService));
+    return Optional.of(
+        new GCloudLogObservable(getEntityDescriptor(), getUri(), cfg, context::getExecutorService));
   }
-
 }

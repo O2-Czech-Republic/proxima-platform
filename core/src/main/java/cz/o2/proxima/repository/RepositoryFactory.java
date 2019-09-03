@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,9 @@
  */
 package cz.o2.proxima.repository;
 
-import cz.o2.proxima.repository.Repository;
 import java.io.Serializable;
 
-/**
- * Factory for {@link Repository}.
- */
+/** Factory for {@link cz.o2.proxima.repository.Repository}. */
 @FunctionalInterface
 public interface RepositoryFactory extends Serializable {
 
@@ -40,7 +37,6 @@ public interface RepositoryFactory extends Serializable {
       }
       return repo;
     }
-
   }
 
   public static RepositoryFactory caching(RepositoryFactory factory) {
@@ -48,9 +44,9 @@ public interface RepositoryFactory extends Serializable {
   }
 
   /**
-   * Create new {@link Repository}
+   * Create new {@link cz.o2.proxima.repository.Repository}
+   *
    * @return new repository
    */
   Repository apply();
-
 }

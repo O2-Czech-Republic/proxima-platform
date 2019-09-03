@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,42 +17,32 @@ package cz.o2.proxima.direct.core;
 
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import lombok.Getter;
-import cz.o2.proxima.direct.view.CachedView;
 
-/**
- * Attribute descriptor with associated accessors.
- */
+/** Attribute descriptor with associated accessors. */
 public class DirectAttributeFamilyDescriptor implements Serializable {
 
-  @Getter
-  private final AttributeFamilyDescriptor desc;
+  @Getter private final AttributeFamilyDescriptor desc;
 
-  /**
-   * Writer associated with this attribute family.
-   */
-  @Nullable
-  private final AttributeWriterBase writer;
+  /** Writer associated with this attribute family. */
+  @Nullable private final AttributeWriterBase writer;
 
-  @Nullable
-  private final CommitLogReader commitLogReader;
+  @Nullable private final CommitLogReader commitLogReader;
 
-  @Nullable
-  private final BatchLogObservable batchObservable;
+  @Nullable private final BatchLogObservable batchObservable;
 
-  @Nullable
-  private final RandomAccessReader randomAccessReader;
+  @Nullable private final RandomAccessReader randomAccessReader;
 
-  @Nullable
-  private final CachedView cachedView;
+  @Nullable private final CachedView cachedView;
 
   DirectAttributeFamilyDescriptor(
       AttributeFamilyDescriptor desc,
@@ -71,11 +61,10 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
   }
 
   DirectAttributeFamilyDescriptor(
-      AttributeFamilyDescriptor desc,
-      Context context,
-      DataAccessor accessor) {
+      AttributeFamilyDescriptor desc, Context context, DataAccessor accessor) {
 
-    this(desc,
+    this(
+        desc,
         accessor.getWriter(context),
         accessor.getCommitLogReader(context),
         accessor.getBatchLogObservable(context),
@@ -107,83 +96,87 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
   }
 
   /**
-   * Retrieve writer for this family.
-   * Empty if this family is not writable.
+   * Retrieve writer for this family. Empty if this family is not writable.
+   *
    * @return optional {@link AttributeWriterBase} of this family
    */
   public Optional<AttributeWriterBase> getWriter() {
     if (!desc.getAccess().isReadonly()) {
-      return Optional.of(Objects.requireNonNull(writer,
-          () ->  "Family " + desc.getName() + " has no writer"));
+      return Optional.of(
+          Objects.requireNonNull(writer, () -> "Family " + desc.getName() + " has no writer"));
     }
     return Optional.empty();
   }
 
   /**
-   * Retrieve a commit log reader of this family.
-   * Empty if this attribute family is not a commit log.
+   * Retrieve a commit log reader of this family. Empty if this attribute family is not a commit
+   * log.
+   *
    * @return optional {@link CommitLogReader} of this family
    */
   public Optional<CommitLogReader> getCommitLogReader() {
     if (desc.getAccess().canReadCommitLog()) {
-      return Optional.of(Objects.requireNonNull(commitLogReader,
-          () -> "Family " + desc.getName()
-              + " doesn't have commit-log reader"));
+      return Optional.of(
+          Objects.requireNonNull(
+              commitLogReader,
+              () -> "Family " + desc.getName() + " doesn't have commit-log reader"));
     }
     return Optional.empty();
   }
 
   /**
    * Retrieve batch reader of this family.
+   *
    * @return optional {@link BatchLogObservable} of this family
    */
   public Optional<BatchLogObservable> getBatchObservable() {
-    if (desc.getAccess().canReadBatchSnapshot()
-        || desc.getAccess().canReadBatchUpdates()) {
+    if (desc.getAccess().canReadBatchSnapshot() || desc.getAccess().canReadBatchUpdates()) {
 
-      return Optional.of(Objects.requireNonNull(batchObservable,
-          () -> "Family " + desc.getName() + " doesn't have batch observable"));
+      return Optional.of(
+          Objects.requireNonNull(
+              batchObservable,
+              () -> "Family " + desc.getName() + " doesn't have batch observable"));
     }
     return Optional.empty();
   }
 
-
   /**
-   * Retrieve a random access reader.
-   * Empty if this attribute family is not a random access.
+   * Retrieve a random access reader. Empty if this attribute family is not a random access.
+   *
    * @return optional {@link RandomAccessReader} of this family
    */
   public Optional<RandomAccessReader> getRandomAccessReader() {
     if (desc.getAccess().canRandomRead()) {
-      return Optional.of(Objects.requireNonNull(randomAccessReader,
-          () -> "Family " + desc.getName()
-              + " doesn't have random access reader"));
+      return Optional.of(
+          Objects.requireNonNull(
+              randomAccessReader,
+              () -> "Family " + desc.getName() + " doesn't have random access reader"));
     }
     return Optional.empty();
   }
 
   /**
-   * Retrieve cached view.
-   * Empty if the attribute family cannot create cached view.
+   * Retrieve cached view. Empty if the attribute family cannot create cached view.
+   *
    * @return optional {@link CachedView} of this family
    */
   public Optional<CachedView> getCachedView() {
     if (desc.getAccess().canCreateCachedView()) {
-      return Optional.of(Objects.requireNonNull(cachedView,
-          () -> "Family " + desc.getName() + " cannot create cached view"));
+      return Optional.of(
+          Objects.requireNonNull(
+              cachedView, () -> "Family " + desc.getName() + " cannot create cached view"));
     }
     return Optional.empty();
   }
 
   /**
-   * Retrieve optional name of source attribute family, if this is replica.
-   * The source might not be explicitly specified (in which case this method
-   * returns {@code Optional.empty()} and the source is determined
-   * automatically.
+   * Retrieve optional name of source attribute family, if this is replica. The source might not be
+   * explicitly specified (in which case this method returns {@code Optional.empty()} and the source
+   * is determined automatically.
+   *
    * @return optional specified source family
    */
   public Optional<String> getSource() {
     return desc.getSource();
   }
-
 }

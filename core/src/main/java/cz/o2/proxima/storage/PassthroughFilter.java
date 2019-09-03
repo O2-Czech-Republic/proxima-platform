@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,7 @@ package cz.o2.proxima.storage;
 
 import cz.o2.proxima.annotations.Stable;
 
-/**
- * A {@code StorageFilter} passing in all values.
- */
+/** A {@code StorageFilter} passing in all values. */
 @Stable
 public class PassthroughFilter implements StorageFilter {
 
@@ -29,5 +27,4 @@ public class PassthroughFilter implements StorageFilter {
   public boolean apply(StreamElement ingest) {
     return true;
   }
-
 }

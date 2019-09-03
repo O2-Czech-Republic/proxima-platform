@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package cz.o2.proxima.direct.hbase;
 
-/**
- * Force creation of -sources and -javadoc jars
- **/
+/** Force creation of -sources and -javadoc jars */
 public class Placeholder {
 
-  protected Placeholder() { }
-
+  protected Placeholder() {}
 }

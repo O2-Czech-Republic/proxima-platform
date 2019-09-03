@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,6 +41,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
 
   /**
    * Create coder for StreamElements originating in given {@link Repository}.
+   *
    * @param factory the repository factory to create coder for
    * @return the coder
    */
@@ -50,6 +51,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
 
   /**
    * Create coder for StreamElements originating in given {@link Repository}.
+   *
    * @param repository the repository to create coder for
    * @return the coder
    */
@@ -64,8 +66,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
   }
 
   @Override
-  public void encode(StreamElement value, OutputStream outStream)
-      throws IOException {
+  public void encode(StreamElement value, OutputStream outStream) throws IOException {
 
     final DataOutput output = new DataOutputStream(outStream);
     output.writeUTF(value.getEntityDescriptor().getName());
@@ -79,9 +80,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
     }
     output.writeInt(type.ordinal());
     String attribute = value.getAttribute();
-    output.writeUTF(attribute == null
-        ? value.getAttributeDescriptor().getName()
-        : attribute);
+    output.writeUTF(attribute == null ? value.getAttributeDescriptor().getName() : attribute);
     output.writeLong(value.getStamp());
     writeBytes(value.getValue(), output);
   }
@@ -92,8 +91,11 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
     final DataInput input = new DataInputStream(inStream);
 
     final String entityName = input.readUTF();
-    final EntityDescriptor entityDescriptor = repository.apply().findEntity(entityName)
-        .orElseThrow(() -> new IOException("Unable to find entity " + entityName + "."));
+    final EntityDescriptor entityDescriptor =
+        repository
+            .apply()
+            .findEntity(entityName)
+            .orElseThrow(() -> new IOException("Unable to find entity " + entityName + "."));
 
     final String uuid = input.readUTF();
     final String key = input.readUTF();
@@ -105,10 +107,13 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
     }
     final String attribute = attributeName;
 
-    AttributeDescriptor<?> attributeDescriptor = entityDescriptor
-        .findAttribute(attribute, true)
-        .orElseThrow(() -> new IOException(
-            "Unable to find attribute " + attribute + " of entity " + entityName));
+    AttributeDescriptor<?> attributeDescriptor =
+        entityDescriptor
+            .findAttribute(attribute, true)
+            .orElseThrow(
+                () ->
+                    new IOException(
+                        "Unable to find attribute " + attribute + " of entity " + entityName));
     final long stamp = input.readLong();
 
     byte[] value = readBytes(input);
@@ -121,8 +126,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
             entityDescriptor, attributeDescriptor, uuid, key, attribute, stamp);
       case UPDATE:
         return StreamElement.update(
-            entityDescriptor, attributeDescriptor, uuid,
-            key, attribute, stamp, value);
+            entityDescriptor, attributeDescriptor, uuid, key, attribute, stamp, value);
       default:
         throw new IllegalStateException("Unknown type " + type);
     }
@@ -138,8 +142,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
     return TypeDescriptor.of(StreamElement.class);
   }
 
-  private static void writeBytes(@Nullable byte[] value, DataOutput output)
-      throws IOException {
+  private static void writeBytes(@Nullable byte[] value, DataOutput output) throws IOException {
 
     if (value == null) {
       output.writeInt(-1);
@@ -168,6 +171,4 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
   public int hashCode() {
     return 0;
   }
-
-
 }

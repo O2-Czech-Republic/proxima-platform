@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +20,12 @@ import org.codehaus.groovy.reflection.CachedClass;
 import org.codehaus.groovy.reflection.CachedMethod;
 import org.codehaus.groovy.reflection.ReflectionCache;
 
-/**
- * Various type-related utilities.
- */
+/** Various type-related utilities. */
 public class Types {
 
   /**
    * Retrieve class object of return type of given {@link Closure}.
+   *
    * @param <T> type parameter
    * @param closure the closure
    * @return {@link Class} object of given closure return type.
@@ -40,10 +39,8 @@ public class Types {
         return (Class) m.getReturnType();
       }
     }
-    throw new IllegalStateException(
-        "Cannot find appropriate doCall method of " + closure);
+    throw new IllegalStateException("Cannot find appropriate doCall method of " + closure);
   }
 
-  private Types() { }
-
+  private Types() {}
 }

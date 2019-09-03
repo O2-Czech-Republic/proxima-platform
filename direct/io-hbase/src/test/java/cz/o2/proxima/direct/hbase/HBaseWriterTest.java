@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 package cz.o2.proxima.direct.hbase;
+
+import static cz.o2.proxima.direct.hbase.HbaseTestUtil.bytes;
+import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -37,18 +40,13 @@ import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Table;
 import org.junit.After;
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
-import static cz.o2.proxima.direct.hbase.HbaseTestUtil.bytes;
 
-/**
- * Test {@code HBaseWriter} via a local instance of HBase cluster.
- */
+/** Test {@code HBaseWriter} via a local instance of HBase cluster. */
 public class HBaseWriterTest {
 
-  private final Repository repo = ConfigRepository.Builder.ofTest(
-      ConfigFactory.load()).build();
+  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.load()).build();
   private final EntityDescriptor entity = repo.findEntity("test").get();
   private final AttributeDescriptor<?> attr = entity.findAttribute("dummy").get();
 
@@ -61,10 +59,11 @@ public class HBaseWriterTest {
     util = HBaseTestingUtility.createLocalHTU();
     cluster = util.startMiniCluster();
     util.createTable(TableName.valueOf("users"), bytes("u"));
-    writer = new HBaseWriter(
-        new URI("hbase://localhost:2181/users?family=u"),
-        cluster.getConfiguration(),
-        Collections.emptyMap());
+    writer =
+        new HBaseWriter(
+            new URI("hbase://localhost:2181/users?family=u"),
+            cluster.getConfiguration(),
+            Collections.emptyMap());
   }
 
   @After
@@ -75,13 +74,14 @@ public class HBaseWriterTest {
   @Test
   public void testWriteIntoNotExistsTable() throws URISyntaxException {
     long now = 1500000000000L;
-    HBaseWriter failWriter = new HBaseWriter(
-        new URI("hbase://localhost:2181/not-exists?family=u"),
-        cluster.getConfiguration(),
-        Collections.emptyMap());
-    failWriter.write(StreamElement.update(
-        entity, attr, UUID.randomUUID().toString(),
-        "entity", "dummy", now, new byte[] { 1, 2}),
+    HBaseWriter failWriter =
+        new HBaseWriter(
+            new URI("hbase://localhost:2181/not-exists?family=u"),
+            cluster.getConfiguration(),
+            Collections.emptyMap());
+    failWriter.write(
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(), "entity", "dummy", now, new byte[] {1, 2}),
         ((success, error) -> {
           assertFalse(success);
         }));
@@ -91,9 +91,9 @@ public class HBaseWriterTest {
   public void testWrite() throws InterruptedException, IOException {
     CountDownLatch latch = new CountDownLatch(1);
     long now = 1500000000000L;
-    writer.write(StreamElement.update(
-        entity, attr, UUID.randomUUID().toString(),
-        "entity", "dummy", now, new byte[] { 1, 2 }),
+    writer.write(
+        StreamElement.update(
+            entity, attr, UUID.randomUUID().toString(), "entity", "dummy", now, new byte[] {1, 2}),
         (succ, exc) -> {
           assertTrue("Error on write: " + exc, succ);
           latch.countDown();
@@ -105,9 +105,8 @@ public class HBaseWriterTest {
     Result res = table.get(get);
     NavigableMap<byte[], byte[]> familyMap = res.getFamilyMap(bytes("u"));
     assertEquals(1, familyMap.size());
-    assertArrayEquals(new byte[] { 1, 2 }, familyMap.get(bytes("dummy")));
-    assertEquals(now, (long) res.getMap().get(bytes("u"))
-        .get(bytes("dummy")).firstEntry().getKey());
+    assertArrayEquals(new byte[] {1, 2}, familyMap.get(bytes("dummy")));
+    assertEquals(
+        now, (long) res.getMap().get(bytes("u")).get(bytes("dummy")).firstEntry().getKey());
   }
-
 }

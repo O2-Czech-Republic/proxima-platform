@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,23 +18,16 @@ package cz.o2.proxima.direct.hbase;
 import cz.o2.proxima.direct.core.Partition;
 import lombok.Getter;
 
-/**
- * A {@code Partition} of data in HBase.
- */
+/** A {@code Partition} of data in HBase. */
 class HBasePartition implements Partition {
 
   final int id;
-  @Getter
-  final byte[] startKey;
-  @Getter
-  final byte[] endKey;
-  @Getter
-  final long startStamp;
-  @Getter
-  final long endStamp;
+  @Getter final byte[] startKey;
+  @Getter final byte[] endKey;
+  @Getter final long startStamp;
+  @Getter final long endStamp;
 
-  HBasePartition(
-      int id, byte[] startKey, byte[] endKey, long startStamp, long endStamp) {
+  HBasePartition(int id, byte[] startKey, byte[] endKey, long startStamp, long endStamp) {
 
     this.id = id;
     this.startKey = startKey;
@@ -51,12 +44,16 @@ class HBasePartition implements Partition {
   @Override
   public String toString() {
     return "HBasePartition("
-        + "id: " + id
-        + ", startKey: " + new String(startKey)
-        + ", endKey: " + new String(endKey)
-        + ", startStamp: " + startStamp
-        + ", endStamp: " + endStamp
+        + "id: "
+        + id
+        + ", startKey: "
+        + new String(startKey)
+        + ", endKey: "
+        + new String(endKey)
+        + ", startStamp: "
+        + startStamp
+        + ", endStamp: "
+        + endStamp
         + ")";
   }
-
 }

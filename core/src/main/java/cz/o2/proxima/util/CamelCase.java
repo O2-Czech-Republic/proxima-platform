@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,12 @@
  */
 package cz.o2.proxima.util;
 
-/**
- * Transform string to camel case.
- */
+/** Transform string to camel case. */
 public class CamelCase {
 
   /**
    * Convert given string to camelCase with first letter upper case.
+   *
    * @param what the string to convert
    * @return the converted string
    */
@@ -31,9 +30,10 @@ public class CamelCase {
 
   /**
    * Convert given string to camelCase.
+   *
    * @param what the string to convert
-   * @param startWithCapital should the returned string start with upper (true)
-   *                         or lower case (false)
+   * @param startWithCapital should the returned string start with upper (true) or lower case
+   *     (false)
    * @return the converted string
    */
   public static String apply(String what, boolean startWithCapital) {
@@ -55,6 +55,5 @@ public class CamelCase {
     return sb.toString();
   }
 
-  private CamelCase() { }
-
+  private CamelCase() {}
 }

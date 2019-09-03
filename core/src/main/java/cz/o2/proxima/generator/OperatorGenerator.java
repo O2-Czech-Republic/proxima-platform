@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,36 +20,40 @@ import cz.o2.proxima.repository.DataOperatorFactory;
 import java.util.Set;
 
 /**
- * Factory for {@link DataOperator} specific enhancements to generated
- * model.
- * These enhancements are encapsulated into nested subclass of the model
- * with name <pre>[moduleName]Operator</pre>.
+ * Factory for {@link DataOperator} specific enhancements to generated model. These enhancements are
+ * encapsulated into nested subclass of the model with name
+ *
+ * <pre>[moduleName]Operator</pre>
+ *
+ * .
  */
 public interface OperatorGenerator {
 
   /**
    * Retrieve {@link DataOperatorFactory} associated with this generator.
+   *
    * @return {@link DataOperatorFactory} associated with this generator.
    */
   DataOperatorFactory operatorFactory();
 
   /**
    * Retrieve imports for the operator module subclass.
+   *
    * @return set of imports
    */
   Set<String> imports();
 
   /**
    * Retrieve class definition for the subclass.
+   *
    * @return the subclass definition
    */
   String classDef();
 
   /**
-   * Retrieve name of class that represents the {@link DataOperator}
-   * implementation.
+   * Retrieve name of class that represents the {@link DataOperator} implementation.
+   *
    * @return the class name
    */
   String getOperatorClassName();
-
 }

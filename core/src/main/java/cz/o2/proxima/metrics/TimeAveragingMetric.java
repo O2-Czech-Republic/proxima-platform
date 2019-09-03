@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,24 +21,18 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-/**
- * Metric calculating average per time window.
- */
+/** Metric calculating average per time window. */
 @Stable
 public class TimeAveragingMetric extends ScalarMetric {
 
-  public static TimeAveragingMetric of(String group, String name, long windowLengthMs,
-      long checkpointMs, long purgeMs) {
+  public static TimeAveragingMetric of(
+      String group, String name, long windowLengthMs, long checkpointMs, long purgeMs) {
     return new TimeAveragingMetric(group, name, windowLengthMs, checkpointMs, purgeMs);
   }
 
   public static TimeAveragingMetric of(String group, String name, long windowLengthMs) {
     // by default, checkpoint every window length and purge after thirty windows
-    return of(
-        group, name,
-        windowLengthMs,
-        windowLengthMs,
-        30 * windowLengthMs);
+    return of(group, name, windowLengthMs, windowLengthMs, 30 * windowLengthMs);
   }
 
   private final long windowLengthNanos;
@@ -55,8 +49,7 @@ public class TimeAveragingMetric extends ScalarMetric {
   private double sum = 0.0;
 
   TimeAveragingMetric(
-      String group, String name,
-      long windowLengthMs, long checkpointMs, long purgeMs) {
+      String group, String name, long windowLengthMs, long checkpointMs, long purgeMs) {
 
     super(group, name);
     this.windowLengthNanos = windowLengthMs * 1_000_000L;
@@ -100,12 +93,15 @@ public class TimeAveragingMetric extends ScalarMetric {
       if (!headMap.isEmpty()) {
         Map.Entry<Long, Double> lastEntry = headMap.lastEntry();
         headMap
-            .entrySet().stream().collect(Collectors.toList())
-            .forEach(e -> {
-              sum -= e.getValue();
-              checkpoints.remove(e.getKey());
-              sumCheckpoints -= e.getValue();
-            });
+            .entrySet()
+            .stream()
+            .collect(Collectors.toList())
+            .forEach(
+                e -> {
+                  sum -= e.getValue();
+                  checkpoints.remove(e.getKey());
+                  sumCheckpoints -= e.getValue();
+                });
         startNanos = lastEntry.getKey();
       }
     }
@@ -119,5 +115,4 @@ public class TimeAveragingMetric extends ScalarMetric {
       sumCheckpoints += checkpointValue;
     }
   }
-
 }

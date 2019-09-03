@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,22 +15,19 @@
  */
 package cz.o2.proxima.scheme.proto;
 
-import cz.o2.proxima.scheme.ValueSerializer;
-import cz.o2.proxima.scheme.ValueSerializerFactory;
-import cz.o2.proxima.scheme.proto.test.Scheme.Event;
-import org.junit.Before;
-import org.junit.Test;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Optional;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-/**
- * Test for {@link ProtoSerializerFactory}.
- */
+import cz.o2.proxima.scheme.ValueSerializer;
+import cz.o2.proxima.scheme.ValueSerializerFactory;
+import cz.o2.proxima.scheme.proto.test.Scheme.Event;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Optional;
+import org.junit.Before;
+import org.junit.Test;
+
+/** Test for {@link ProtoSerializerFactory}. */
 public class ProtoSerializerFactoryTest {
 
   private final ValueSerializerFactory factory = new ProtoSerializerFactory();
@@ -43,23 +40,19 @@ public class ProtoSerializerFactoryTest {
 
   @Test
   public void testSerializeAndDeserialize() throws Exception {
-    Event event = Event.newBuilder()
-        .setGatewayId("gateway")
-        .build();
+    Event event = Event.newBuilder().setGatewayId("gateway").build();
     byte[] bytes = serializer.serialize(event);
     Optional<Event> deserialized = serializer.deserialize(bytes);
     assertTrue(deserialized.isPresent());
     assertEquals(event, deserialized.get());
-    assertEquals(event.getClass().getName(), factory.getClassName(
-        new URI("proto:" + Event.class.getName())
-    ));
+    assertEquals(
+        event.getClass().getName(),
+        factory.getClassName(new URI("proto:" + Event.class.getName())));
   }
 
   @Test
   public void testToLogString() {
-    Event event = Event.newBuilder()
-        .setGatewayId("gateway")
-        .build();
+    Event event = Event.newBuilder().setGatewayId("gateway").build();
     // we have single line string
     assertEquals(-1, serializer.getLogString(event).indexOf('\n'));
   }
@@ -68,5 +61,4 @@ public class ProtoSerializerFactoryTest {
   public void testIsUsable() {
     assertTrue(serializer.isUsable());
   }
-
 }

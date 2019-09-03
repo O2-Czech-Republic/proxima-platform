@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,10 @@ package cz.o2.proxima.functional;
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 
-/**
- * Binary function of two arguments.
- */
+/** Binary function of two arguments. */
 @Stable
 @FunctionalInterface
 public interface BiFunction<A, B, OUT> extends Serializable {
 
   OUT apply(A first, B second);
-
 }

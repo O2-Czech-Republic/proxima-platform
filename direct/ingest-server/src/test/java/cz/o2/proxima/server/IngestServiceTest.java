@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 package cz.o2.proxima.server;
+
+import static org.junit.Assert.*;
 
 import com.google.protobuf.ByteString;
 import com.typesafe.config.ConfigFactory;
@@ -32,13 +34,10 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test server API.
- */
+/** Test server API. */
 public class IngestServiceTest {
 
   IngestServer server;
@@ -50,47 +49,47 @@ public class IngestServiceTest {
 
   @Before
   public void setup() throws InterruptedException {
-    server = new IngestServer(ConfigFactory.load()
-        .withFallback(ConfigFactory.load("test-reference.conf"))
-        .resolve());
+    server =
+        new IngestServer(
+            ConfigFactory.load().withFallback(ConfigFactory.load("test-reference.conf")).resolve());
     ingest = new IngestService(server.repo, server.direct, server.scheduler);
     server.startConsumerThreads();
     latch = new CountDownLatch(1);
 
     responses = new LinkedBlockingQueue<>();
 
-    responseObserver = new StreamObserver<Rpc.StatusBulk>() {
+    responseObserver =
+        new StreamObserver<Rpc.StatusBulk>() {
 
-      @Override
-      public void onNext(Rpc.StatusBulk status) {
-        for (Rpc.Status s : status.getStatusList()) {
-          responses.add(s);
-        }
-      }
+          @Override
+          public void onNext(Rpc.StatusBulk status) {
+            for (Rpc.Status s : status.getStatusList()) {
+              responses.add(s);
+            }
+          }
 
-      @Override
-      public void onError(Throwable thrwbl) {
+          @Override
+          public void onError(Throwable thrwbl) {}
 
-      }
-
-      @Override
-      public void onCompleted() {
-        latch.countDown();
-      }
-    };
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+        };
   }
-
 
   @Test(timeout = 10000)
   public void testIngestBulkInvalidScheme() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
-    result.onNext(bulk(Rpc.Ingest.newBuilder()
-        .setEntity("gateway")
-        .setAttribute("fail")
-        .setKey("gateway1")
-        .setValue(ByteString.EMPTY)
-        .build()));
+    result.onNext(
+        bulk(
+            Rpc.Ingest.newBuilder()
+                .setEntity("gateway")
+                .setAttribute("fail")
+                .setKey("gateway1")
+                .setValue(ByteString.EMPTY)
+                .build()));
 
     result.onCompleted();
     latch.await();
@@ -103,12 +102,14 @@ public class IngestServiceTest {
   public void testIngestBulkInvalidEntity() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
-    result.onNext(bulk(Rpc.Ingest.newBuilder()
-        .setEntity("gateway-invalid")
-        .setAttribute("fail")
-        .setKey("gateway1")
-        .setValue(ByteString.EMPTY)
-        .build()));
+    result.onNext(
+        bulk(
+            Rpc.Ingest.newBuilder()
+                .setEntity("gateway-invalid")
+                .setAttribute("fail")
+                .setKey("gateway1")
+                .setValue(ByteString.EMPTY)
+                .build()));
 
     result.onCompleted();
     latch.await();
@@ -122,12 +123,14 @@ public class IngestServiceTest {
   public void testIngestBulkInvalidEntityAttribute() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
-    result.onNext(bulk(Rpc.Ingest.newBuilder()
-        .setEntity("gateway")
-        .setAttribute("fail-invalid")
-        .setKey("gateway1")
-        .setValue(ByteString.EMPTY)
-        .build()));
+    result.onNext(
+        bulk(
+            Rpc.Ingest.newBuilder()
+                .setEntity("gateway")
+                .setAttribute("fail-invalid")
+                .setKey("gateway1")
+                .setValue(ByteString.EMPTY)
+                .build()));
 
     result.onCompleted();
     latch.await();
@@ -141,12 +144,14 @@ public class IngestServiceTest {
   public void testIngestBulkMissingKey() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
-    result.onNext(bulk(Rpc.Ingest.newBuilder()
-        .setEntity("dummy")
-        .setAttribute("data")
-        .setUuid(UUID.randomUUID().toString())
-        .setValue(ByteString.EMPTY)
-        .build()));
+    result.onNext(
+        bulk(
+            Rpc.Ingest.newBuilder()
+                .setEntity("dummy")
+                .setAttribute("data")
+                .setUuid(UUID.randomUUID().toString())
+                .setValue(ByteString.EMPTY)
+                .build()));
 
     result.onCompleted();
     latch.await();
@@ -154,21 +159,21 @@ public class IngestServiceTest {
     assertEquals(1, responses.size());
     Rpc.Status status = responses.poll();
     assertEquals(400, status.getStatus());
-
   }
-
 
   @Test(timeout = 10000)
   public void testIngestBulkValid() throws Exception {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
-    result.onNext(bulk(Rpc.Ingest.newBuilder()
-        .setEntity("dummy")
-        .setAttribute("data")
-        .setUuid(UUID.randomUUID().toString())
-        .setKey("my-dummy-entity")
-        .setValue(ByteString.EMPTY)
-        .build()));
+    result.onNext(
+        bulk(
+            Rpc.Ingest.newBuilder()
+                .setEntity("dummy")
+                .setAttribute("data")
+                .setUuid(UUID.randomUUID().toString())
+                .setKey("my-dummy-entity")
+                .setValue(ByteString.EMPTY)
+                .build()));
 
     result.onCompleted();
     latch.await();
@@ -180,36 +185,37 @@ public class IngestServiceTest {
     InMemStorage storage = getInMemStorage();
     Map<String, Pair<Long, byte[]>> data = storage.getData();
     assertEquals(1, data.size());
-    assertArrayEquals(
-        new byte[0], data.get("/proxima/dummy/my-dummy-entity#data").getSecond());
+    assertArrayEquals(new byte[0], data.get("/proxima/dummy/my-dummy-entity#data").getSecond());
   }
 
   @Test(timeout = 10000)
   public void testIngestBulkWildcardEntityAttribute() throws Exception {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
-    result.onNext(bulk(
-        Rpc.Ingest.newBuilder()
-          .setEntity("dummy")
-          .setAttribute("wildcard.1234")
-          .setKey("dummy1")
-          .setValue(Scheme.Device.newBuilder()
-              .setType("motion")
-              .setPayload(ByteString.copyFromUtf8("muhehe"))
-              .build()
-              .toByteString())
-          .build(),
-        Rpc.Ingest.newBuilder()
-        .setEntity("dummy")
-        .setAttribute("wildcard.12345")
-        .setKey("dummy2")
-        .setValue(Scheme.Device.newBuilder()
-            .setType("motion")
-            .setPayload(ByteString.copyFromUtf8("muhehe"))
-            .build()
-            .toByteString())
-        .build()));
-
+    result.onNext(
+        bulk(
+            Rpc.Ingest.newBuilder()
+                .setEntity("dummy")
+                .setAttribute("wildcard.1234")
+                .setKey("dummy1")
+                .setValue(
+                    Scheme.Device.newBuilder()
+                        .setType("motion")
+                        .setPayload(ByteString.copyFromUtf8("muhehe"))
+                        .build()
+                        .toByteString())
+                .build(),
+            Rpc.Ingest.newBuilder()
+                .setEntity("dummy")
+                .setAttribute("wildcard.12345")
+                .setKey("dummy2")
+                .setValue(
+                    Scheme.Device.newBuilder()
+                        .setType("motion")
+                        .setPayload(ByteString.copyFromUtf8("muhehe"))
+                        .build()
+                        .toByteString())
+                .build()));
 
     result.onCompleted();
     latch.await();
@@ -221,24 +227,30 @@ public class IngestServiceTest {
     InMemStorage storage = getInMemStorage();
     Map<String, Pair<Long, byte[]>> data = storage.getData();
     assertEquals(2, data.size());
-    assertEquals("muhehe", Scheme.Device.parseFrom(
-        data.get("/proxima/dummy/dummy1#wildcard.1234").getSecond())
-        .getPayload().toStringUtf8());
-    assertEquals("muhehe", Scheme.Device.parseFrom(
-        data.get("/proxima/dummy/dummy2#wildcard.12345").getSecond())
-        .getPayload().toStringUtf8());
+    assertEquals(
+        "muhehe",
+        Scheme.Device.parseFrom(data.get("/proxima/dummy/dummy1#wildcard.1234").getSecond())
+            .getPayload()
+            .toStringUtf8());
+    assertEquals(
+        "muhehe",
+        Scheme.Device.parseFrom(data.get("/proxima/dummy/dummy2#wildcard.12345").getSecond())
+            .getPayload()
+            .toStringUtf8());
   }
 
   @Test(timeout = 10000)
   public void testIngestWildcardEntityInvalidScheme() throws InterruptedException {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
-    result.onNext(bulk(Rpc.Ingest.newBuilder()
-        .setEntity("dummy")
-        .setAttribute("wildcard.1234")
-        .setKey("dummy1")
-        .setValue(ByteString.copyFromUtf8("muhehe"))
-        .build()));
+    result.onNext(
+        bulk(
+            Rpc.Ingest.newBuilder()
+                .setEntity("dummy")
+                .setAttribute("wildcard.1234")
+                .setKey("dummy1")
+                .setValue(ByteString.copyFromUtf8("muhehe"))
+                .build()));
 
     result.onCompleted();
     latch.await();
@@ -256,38 +268,39 @@ public class IngestServiceTest {
     return ret.build();
   }
 
-
   @Test(timeout = 10000)
   public void testIngestSingleValid() throws Exception {
 
     latch = new CountDownLatch(1);
 
     final StreamObserver<Rpc.Ingest> result;
-    result = ingest.ingestSingle(new StreamObserver<Rpc.Status>() {
+    result =
+        ingest.ingestSingle(
+            new StreamObserver<Rpc.Status>() {
 
-      @Override
-      public void onNext(Rpc.Status status) {
-        responses.add(status);
-      }
+              @Override
+              public void onNext(Rpc.Status status) {
+                responses.add(status);
+              }
 
-      @Override
-      public void onError(Throwable thrwbl) {
-        // nop
-      }
+              @Override
+              public void onError(Throwable thrwbl) {
+                // nop
+              }
 
-      @Override
-      public void onCompleted() {
-        latch.countDown();
-      }
-
-    });
-    result.onNext(Rpc.Ingest.newBuilder()
-        .setEntity("dummy")
-        .setAttribute("data")
-        .setUuid(UUID.randomUUID().toString())
-        .setKey("my-dummy-entity")
-        .setValue(ByteString.EMPTY)
-        .build());
+              @Override
+              public void onCompleted() {
+                latch.countDown();
+              }
+            });
+    result.onNext(
+        Rpc.Ingest.newBuilder()
+            .setEntity("dummy")
+            .setAttribute("data")
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("my-dummy-entity")
+            .setValue(ByteString.EMPTY)
+            .build());
 
     result.onCompleted();
     latch.await();
@@ -308,32 +321,34 @@ public class IngestServiceTest {
     latch = new CountDownLatch(1);
 
     final StreamObserver<Rpc.Ingest> result;
-    result = ingest.ingestSingle(new StreamObserver<Rpc.Status>() {
+    result =
+        ingest.ingestSingle(
+            new StreamObserver<Rpc.Status>() {
 
-      @Override
-      public void onNext(Rpc.Status status) {
-        responses.add(status);
-      }
+              @Override
+              public void onNext(Rpc.Status status) {
+                responses.add(status);
+              }
 
-      @Override
-      public void onError(Throwable thrwbl) {
-        // nop
-      }
+              @Override
+              public void onError(Throwable thrwbl) {
+                // nop
+              }
 
-      @Override
-      public void onCompleted() {
-        latch.countDown();
-      }
-
-    });
-    result.onNext(Rpc.Ingest.newBuilder()
-        .setEntity("dummy")
-        .setAttribute("data")
-        .setUuid(UUID.randomUUID().toString())
-        .setKey("my-dummy-entity")
-        // the filter filters out everything with value length of two
-        .setValue(ByteString.copyFrom(new byte[] { 0, 1 }))
-        .build());
+              @Override
+              public void onCompleted() {
+                latch.countDown();
+              }
+            });
+    result.onNext(
+        Rpc.Ingest.newBuilder()
+            .setEntity("dummy")
+            .setAttribute("data")
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("my-dummy-entity")
+            // the filter filters out everything with value length of two
+            .setValue(ByteString.copyFrom(new byte[] {0, 1}))
+            .build());
 
     result.onCompleted();
     latch.await();
@@ -350,18 +365,17 @@ public class IngestServiceTest {
     assertFalse(data.isEmpty());
   }
 
-
-
   @Test(timeout = 10000)
   public void testIngestValid() throws Exception {
 
-    Rpc.Ingest request = Rpc.Ingest.newBuilder()
-        .setEntity("dummy")
-        .setAttribute("data")
-        .setUuid(UUID.randomUUID().toString())
-        .setKey("my-dummy-entity")
-        .setValue(ByteString.EMPTY)
-        .build();
+    Rpc.Ingest request =
+        Rpc.Ingest.newBuilder()
+            .setEntity("dummy")
+            .setAttribute("data")
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("my-dummy-entity")
+            .setValue(ByteString.EMPTY)
+            .build();
 
     flushToIngest(request);
 
@@ -375,17 +389,17 @@ public class IngestServiceTest {
     assertTrue(data.containsKey("/proxima/dummy/my-dummy-entity#data"));
   }
 
-
   @Test(timeout = 10000)
   public void testIngestValidBulk() throws Exception {
 
-    Rpc.Ingest request = Rpc.Ingest.newBuilder()
-        .setEntity("event")
-        .setAttribute("data")
-        .setUuid(UUID.randomUUID().toString())
-        .setKey("my-dummy-entity")
-        .setValue(ByteString.EMPTY)
-        .build();
+    Rpc.Ingest request =
+        Rpc.Ingest.newBuilder()
+            .setEntity("event")
+            .setAttribute("data")
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("my-dummy-entity")
+            .setValue(ByteString.EMPTY)
+            .build();
 
     flushToIngest(request);
 
@@ -402,16 +416,16 @@ public class IngestServiceTest {
 
   @Test(timeout = 10000)
   public void testIngestValidExtendedScheme() throws Exception {
-    ExtendedMessage payload = ExtendedMessage.newBuilder()
-        .setFirst(1).setSecond(2).build();
+    ExtendedMessage payload = ExtendedMessage.newBuilder().setFirst(1).setSecond(2).build();
 
-    Rpc.Ingest request = Rpc.Ingest.newBuilder()
-        .setEntity("test")
-        .setAttribute("data")
-        .setUuid(UUID.randomUUID().toString())
-        .setKey("my-dummy-entity")
-        .setValue(payload.toByteString())
-        .build();
+    Rpc.Ingest request =
+        Rpc.Ingest.newBuilder()
+            .setEntity("test")
+            .setAttribute("data")
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("my-dummy-entity")
+            .setValue(payload.toByteString())
+            .build();
 
     flushToIngest(request);
 
@@ -434,14 +448,15 @@ public class IngestServiceTest {
   public void testTransform() throws Exception {
     // write event.data and check that we receive write to dummy.wildcard.<stamp>
     long now = System.currentTimeMillis();
-    Rpc.Ingest request = Rpc.Ingest.newBuilder()
-        .setEntity("event")
-        .setAttribute("data")
-        .setUuid(UUID.randomUUID().toString())
-        .setKey("my-dummy-entity")
-        .setValue(ByteString.EMPTY)
-        .setStamp(now)
-        .build();
+    Rpc.Ingest request =
+        Rpc.Ingest.newBuilder()
+            .setEntity("event")
+            .setAttribute("data")
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("my-dummy-entity")
+            .setValue(ByteString.EMPTY)
+            .setStamp(now)
+            .build();
 
     flushToIngest(request);
 
@@ -454,9 +469,7 @@ public class IngestServiceTest {
     assertEquals(2, data.size());
     byte[] value = data.get("/proxima_events/my-dummy-entity#data").getSecond();
     assertTrue(value != null);
-    assertEquals(
-        (Long) now,
-        data.get("/proxima_events/my-dummy-entity#data").getFirst());
+    assertEquals((Long) now, data.get("/proxima_events/my-dummy-entity#data").getFirst());
     value = data.get("/proxima/dummy/my-dummy-entity#wildcard." + now).getSecond();
     assertTrue(value != null);
   }
@@ -464,52 +477,57 @@ public class IngestServiceTest {
   @Test
   public void testConfigReadWithReplicatedProxy() {
     // just verify this doesn't throw exceptions
-    IngestServer dummy = new IngestServer(
-        ConfigFactory.load("test-replication.conf")
-        .withFallback(ConfigFactory.load("test-reference.conf"))
-        .resolve());
+    IngestServer dummy =
+        new IngestServer(
+            ConfigFactory.load("test-replication.conf")
+                .withFallback(ConfigFactory.load("test-reference.conf"))
+                .resolve());
     dummy.startConsumerThreads();
   }
 
   private void flushToIngest(Rpc.Ingest request) throws InterruptedException {
 
-    ingest.ingest(request, new StreamObserver<Rpc.Status>() {
+    ingest.ingest(
+        request,
+        new StreamObserver<Rpc.Status>() {
 
-      @Override
-      public void onNext(Rpc.Status status) {
-        responses.add(status);
-      }
+          @Override
+          public void onNext(Rpc.Status status) {
+            responses.add(status);
+          }
 
-      @Override
-      public void onError(Throwable thrwbl) {
-        // nop
-      }
+          @Override
+          public void onError(Throwable thrwbl) {
+            // nop
+          }
 
-      @Override
-      public void onCompleted() {
-        latch.countDown();
-      }
-
-    });
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+        });
 
     latch.await();
   }
 
   private InMemStorage getInMemStorage() throws URISyntaxException {
-    InMemStorage storage = (InMemStorage) server
-        .direct
-        .getAccessorFactory(new URI("inmem:///"))
-        .orElseThrow(() -> new IllegalStateException("Missing accessor for inmem:///"));
+    InMemStorage storage =
+        (InMemStorage)
+            server
+                .direct
+                .getAccessorFactory(new URI("inmem:///"))
+                .orElseThrow(() -> new IllegalStateException("Missing accessor for inmem:///"));
     return storage;
   }
 
   private InMemBulkStorage getInMemBulkStorage() throws URISyntaxException {
-    InMemBulkStorage storage = (InMemBulkStorage) server
-        .direct
-        .getAccessorFactory(new URI("inmem-bulk:///"))
-        .orElseThrow(() -> new IllegalStateException(
-            "Missing accessor for inmem-bulk:///"));
+    InMemBulkStorage storage =
+        (InMemBulkStorage)
+            server
+                .direct
+                .getAccessorFactory(new URI("inmem-bulk:///"))
+                .orElseThrow(
+                    () -> new IllegalStateException("Missing accessor for inmem-bulk:///"));
     return storage;
   }
-
 }

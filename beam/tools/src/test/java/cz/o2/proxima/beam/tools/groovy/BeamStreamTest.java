@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 package cz.o2.proxima.beam.tools.groovy;
+
+import static org.junit.Assert.*;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
@@ -63,7 +65,6 @@ import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.sdk.values.WindowingStrategy;
 import org.joda.time.Instant;
-import static org.junit.Assert.*;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -90,15 +91,12 @@ public class BeamStreamTest extends StreamTest {
       @SuppressWarnings("unchecked")
       @Override
       public <T> Stream<T> of(List<T> values) {
-        Set<Class<?>> classes = values.stream()
-            .map(Object::getClass).collect(Collectors.toSet());
+        Set<Class<?>> classes = values.stream().map(Object::getClass).collect(Collectors.toSet());
 
         Preconditions.checkArgument(
-            classes.size() == 1,
-            "Please pass uniform object types, got " + classes);
+            classes.size() == 1, "Please pass uniform object types, got " + classes);
 
-        TypeDescriptor<T> typeDesc = TypeDescriptor.of(
-            (Class) Iterables.getOnlyElement(classes));
+        TypeDescriptor<T> typeDesc = TypeDescriptor.of((Class) Iterables.getOnlyElement(classes));
 
         return injectTypeOf(
             new BeamStream<>(
@@ -127,8 +125,10 @@ public class BeamStreamTest extends StreamTest {
 
   static <T> BeamStream<T> injectTypeOf(BeamStream<T> delegate) {
     return new BeamStream<T>(
-        StreamConfig.empty(), delegate.isBounded(),
-        delegate.collection, WindowingStrategy.globalDefault(),
+        StreamConfig.empty(),
+        delegate.isBounded(),
+        delegate.collection,
+        WindowingStrategy.globalDefault(),
         delegate.terminateCheck) {
 
       @SuppressWarnings("unchecked")
@@ -146,8 +146,7 @@ public class BeamStreamTest extends StreamTest {
 
       @Override
       <X> BeamWindowedStream<X> windowed(
-          Function<Pipeline, PCollection<X>> factory,
-          WindowFn<? super X, ?> window) {
+          Function<Pipeline, PCollection<X>> factory, WindowFn<? super X, ?> window) {
 
         return injectTypeOf(super.windowed(factory, window));
       }
@@ -156,13 +155,14 @@ public class BeamStreamTest extends StreamTest {
       <X> BeamStream<X> descendant(Function<Pipeline, PCollection<X>> factory) {
         return injectTypeOf(super.descendant(factory));
       }
-
     };
   }
 
   static <T> BeamWindowedStream<T> injectTypeOf(BeamWindowedStream<T> delegate) {
     return new BeamWindowedStream<T>(
-        StreamConfig.empty(), delegate.isBounded(), delegate.collection,
+        StreamConfig.empty(),
+        delegate.isBounded(),
+        delegate.collection,
         delegate.getWindowingStrategy(),
         delegate.terminateCheck,
         delegate.pipelineFactory) {
@@ -182,8 +182,7 @@ public class BeamStreamTest extends StreamTest {
 
       @Override
       <X> BeamWindowedStream<X> windowed(
-          Function<Pipeline, PCollection<X>> factory,
-          WindowFn<? super X, ?> window) {
+          Function<Pipeline, PCollection<X>> factory, WindowFn<? super X, ?> window) {
 
         return injectTypeOf(super.windowed(factory, window));
       }
@@ -207,20 +206,30 @@ public class BeamStreamTest extends StreamTest {
   public void testInterruptible() throws InterruptedException {
     Repository repo = Repository.of(() -> ConfigFactory.load("test-reference.conf"));
     BeamDataOperator op = repo.asDataOperator(BeamDataOperator.class);
-    EntityDescriptor gateway = repo.findEntity("gateway")
-        .orElseThrow(() -> new IllegalStateException("Missing gateway"));
-    AttributeDescriptor<?> armed = gateway.findAttribute("armed")
-        .orElseThrow(() -> new IllegalStateException("Missing armed"));
+    EntityDescriptor gateway =
+        repo.findEntity("gateway").orElseThrow(() -> new IllegalStateException("Missing gateway"));
+    AttributeDescriptor<?> armed =
+        gateway
+            .findAttribute("armed")
+            .orElseThrow(() -> new IllegalStateException("Missing armed"));
     SynchronousQueue<Boolean> interrupt = new SynchronousQueue<>();
-    Stream<StreamElement> stream = BeamStream.stream(
-        op, Position.OLDEST, false, true, interrupt::take,
-        BeamStream::createPipelineDefault, armed);
+    Stream<StreamElement> stream =
+        BeamStream.stream(
+            op,
+            Position.OLDEST,
+            false,
+            true,
+            interrupt::take,
+            BeamStream::createPipelineDefault,
+            armed);
     CountDownLatch latch = new CountDownLatch(1);
-    new Thread(() -> {
-      // collect endless stream
-      stream.collect();
-      latch.countDown();
-    }).start();
+    new Thread(
+            () -> {
+              // collect endless stream
+              stream.collect();
+              latch.countDown();
+            })
+        .start();
     // terminate
     interrupt.put(true);
     // and wait until the pipeline terminates
@@ -233,27 +242,33 @@ public class BeamStreamTest extends StreamTest {
   public void testIntegratePerKeyDoFn() {
     for (int r = 0; r < 1; r++) {
       long now = System.currentTimeMillis();
-      TestStream<Integer> test = TestStream.create(KryoCoder.<Integer>of())
-          .addElements(
-              TimestampedValue.of(1, new Instant(now)),
-              TimestampedValue.of(2, new Instant(now - 1)),
-              TimestampedValue.of(3, new Instant(now - 2)))
-          .advanceWatermarkTo(new Instant(now + 1000))
-          .advanceWatermarkToInfinity();
+      TestStream<Integer> test =
+          TestStream.create(KryoCoder.<Integer>of())
+              .addElements(
+                  TimestampedValue.of(1, new Instant(now)),
+                  TimestampedValue.of(2, new Instant(now - 1)),
+                  TimestampedValue.of(3, new Instant(now - 2)))
+              .advanceWatermarkTo(new Instant(now + 1000))
+              .advanceWatermarkToInfinity();
       PipelineOptions opts = PipelineOptionsFactory.create();
       Pipeline pipeline = Pipeline.create(opts);
       PCollection<Integer> input = pipeline.apply(test);
-      PCollection<KV<Integer, Integer>> kvs = MapElements.of(input)
-          .using(
-              i -> KV.of(0, i),
-              TypeDescriptors.kvs(TypeDescriptors.integers(), TypeDescriptors.integers()))
-          .output();
-      PCollection<Pair<Integer, Integer>> result = kvs.apply(ParDo.of(new IntegrateDoFn<>(
-          (a, b) -> a + b, k -> 0,
-          KvCoder.of(VarIntCoder.of(), VarIntCoder.of()),
-          10))).setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
-      PAssert.that(result)
-          .containsInAnyOrder(Pair.of(0, 3), Pair.of(0, 5), Pair.of(0, 6));
+      PCollection<KV<Integer, Integer>> kvs =
+          MapElements.of(input)
+              .using(
+                  i -> KV.of(0, i),
+                  TypeDescriptors.kvs(TypeDescriptors.integers(), TypeDescriptors.integers()))
+              .output();
+      PCollection<Pair<Integer, Integer>> result =
+          kvs.apply(
+                  ParDo.of(
+                      new IntegrateDoFn<>(
+                          (a, b) -> a + b,
+                          k -> 0,
+                          KvCoder.of(VarIntCoder.of(), VarIntCoder.of()),
+                          10)))
+              .setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
+      PAssert.that(result).containsInAnyOrder(Pair.of(0, 3), Pair.of(0, 5), Pair.of(0, 6));
       assertNotNull(pipeline.run());
     }
   }
@@ -262,27 +277,33 @@ public class BeamStreamTest extends StreamTest {
   public void testIntegratePerKeyDoFnWithStateBootstrap() {
     for (int r = 0; r < 1; r++) {
       long now = System.currentTimeMillis();
-      TestStream<Integer> test = TestStream.create(KryoCoder.<Integer>of())
-          .addElements(
-              TimestampedValue.of(1, new Instant(now)),
-              TimestampedValue.of(2, new Instant(now - 1)),
-              TimestampedValue.of(3, new Instant(now - 2)))
-          .advanceWatermarkTo(new Instant(now + 1000))
-          .advanceWatermarkToInfinity();
+      TestStream<Integer> test =
+          TestStream.create(KryoCoder.<Integer>of())
+              .addElements(
+                  TimestampedValue.of(1, new Instant(now)),
+                  TimestampedValue.of(2, new Instant(now - 1)),
+                  TimestampedValue.of(3, new Instant(now - 2)))
+              .advanceWatermarkTo(new Instant(now + 1000))
+              .advanceWatermarkToInfinity();
       PipelineOptions opts = PipelineOptionsFactory.create();
       Pipeline pipeline = Pipeline.create(opts);
       PCollection<Integer> input = pipeline.apply(test);
-      PCollection<KV<Integer, Integer>> kvs = MapElements.of(input)
-          .using(
-              i -> KV.of(i % 2, i),
-              TypeDescriptors.kvs(TypeDescriptors.integers(), TypeDescriptors.integers()))
-          .output();
-      PCollection<Pair<Integer, Integer>> result = kvs.apply(ParDo.of(new IntegrateDoFn<>(
-          (a, b) -> a + b, k -> k,
-          KvCoder.of(VarIntCoder.of(), VarIntCoder.of()),
-          10))).setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
-      PAssert.that(result)
-          .containsInAnyOrder(Pair.of(0, 2), Pair.of(1, 4), Pair.of(1, 5));
+      PCollection<KV<Integer, Integer>> kvs =
+          MapElements.of(input)
+              .using(
+                  i -> KV.of(i % 2, i),
+                  TypeDescriptors.kvs(TypeDescriptors.integers(), TypeDescriptors.integers()))
+              .output();
+      PCollection<Pair<Integer, Integer>> result =
+          kvs.apply(
+                  ParDo.of(
+                      new IntegrateDoFn<>(
+                          (a, b) -> a + b,
+                          k -> k,
+                          KvCoder.of(VarIntCoder.of(), VarIntCoder.of()),
+                          10)))
+              .setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
+      PAssert.that(result).containsInAnyOrder(Pair.of(0, 2), Pair.of(1, 4), Pair.of(1, 5));
       assertNotNull(pipeline.run());
     }
   }
@@ -292,15 +313,19 @@ public class BeamStreamTest extends StreamTest {
     Stream<Integer> stream = provider(true).of(Arrays.asList(1, 2, 3, 4));
     Stream<Integer> other = provider(this.stream).of(Arrays.asList(2, 3, 4, 5));
     @SuppressWarnings("unchecked")
-    List<Double> collect = stream.union(other)
-        .timeWindow(1000).sum(new Closure<Double>(this) {
-          @Override
-          public Double call(Object arg) {
-            return Double.valueOf(arg.toString());
-          }
-        }).collect();
+    List<Double> collect =
+        stream
+            .union(other)
+            .timeWindow(1000)
+            .sum(
+                new Closure<Double>(this) {
+                  @Override
+                  public Double call(Object arg) {
+                    return Double.valueOf(arg.toString());
+                  }
+                })
+            .collect();
     assertEquals(1, collect.size());
     assertEquals(24.0, collect.get(0), 0.001);
   }
-
 }

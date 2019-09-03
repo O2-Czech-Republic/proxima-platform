@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,25 +20,31 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.Getter;
 
-/**
- * Data read from a kafka partition.
- */
+/** Data read from a kafka partition. */
 public class KafkaStreamElement extends StreamElement {
 
-  @Getter
-  private final int partition;
-  @Getter
-  private final long offset;
+  @Getter private final int partition;
+  @Getter private final long offset;
 
   KafkaStreamElement(
       EntityDescriptor entityDesc,
       AttributeDescriptor attributeDesc,
-      String uuid, String key, String attribute,
-      long stamp, byte[] value, int partition, long offset) {
+      String uuid,
+      String key,
+      String attribute,
+      long stamp,
+      byte[] value,
+      int partition,
+      long offset) {
 
     super(
-        entityDesc, attributeDesc, uuid, key, attribute,
-        stamp, false /* not forced, is inferred from attribute descriptor name */,
+        entityDesc,
+        attributeDesc,
+        uuid,
+        key,
+        attribute,
+        stamp,
+        false /* not forced, is inferred from attribute descriptor name */,
         value);
 
     this.partition = partition;
@@ -47,16 +53,24 @@ public class KafkaStreamElement extends StreamElement {
 
   @Override
   public String toString() {
-    return "KafkaStreamElement(entityDesc=" + getEntityDescriptor()
-        + ", attributeDesc=" + getAttributeDescriptor()
-        + ", uuid=" + getUuid()
-        + ", key=" + getKey()
-        + ", attribute=" + getAttribute()
-        + ", stamp=" + getStamp()
-        + ", value.length=" + (getValue() == null ? 0 : getValue().length)
-        + ", partition=" + partition
-        + ", offset=" + offset
+    return "KafkaStreamElement(entityDesc="
+        + getEntityDescriptor()
+        + ", attributeDesc="
+        + getAttributeDescriptor()
+        + ", uuid="
+        + getUuid()
+        + ", key="
+        + getKey()
+        + ", attribute="
+        + getAttribute()
+        + ", stamp="
+        + getStamp()
+        + ", value.length="
+        + (getValue() == null ? 0 : getValue().length)
+        + ", partition="
+        + partition
+        + ", offset="
+        + offset
         + ")";
   }
-
 }

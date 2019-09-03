@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,10 @@
 package cz.o2.proxima.direct.core;
 
 /**
- * Provider or {@link Context}. This is useful to enable methods accept
- * both raw {@link Context} and {@link DirectDataOperator} which both implement
- * this interface.
+ * Provider or {@link Context}. This is useful to enable methods accept both raw {@link Context} and
+ * {@link DirectDataOperator} which both implement this interface.
  */
 public interface ContextProvider {
 
   Context getContext();
-
 }

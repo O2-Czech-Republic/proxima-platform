@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,9 +22,7 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Dummy storage printing data to stdout.
- */
+/** Dummy storage printing data to stdout. */
 @Stable
 public class StdoutStorage implements DataAccessorFactory {
 
@@ -35,29 +33,27 @@ public class StdoutStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator op,
-      EntityDescriptor entity,
-      URI uri,
-      Map<String, Object> cfg) {
+      DirectDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     return new DataAccessor() {
 
       @Override
       public Optional<AttributeWriterBase> getWriter(Context context) {
-        return Optional.of(new AbstractOnlineAttributeWriter(entity, uri) {
-          @Override
-          public void write(StreamElement data, CommitCallback callback) {
-            System.out.println(String.format(
-                "Writing entity %s to attribute %s with key %s and value of size %d",
-                data.getEntityDescriptor(), data.getAttributeDescriptor(), data.getKey(),
-                data.getValue().length));
-            callback.commit(true, null);
-          }
-        });
+        return Optional.of(
+            new AbstractOnlineAttributeWriter(entity, uri) {
+              @Override
+              public void write(StreamElement data, CommitCallback callback) {
+                System.out.println(
+                    String.format(
+                        "Writing entity %s to attribute %s with key %s and value of size %d",
+                        data.getEntityDescriptor(),
+                        data.getAttributeDescriptor(),
+                        data.getKey(),
+                        data.getValue().length));
+                callback.commit(true, null);
+              }
+            });
       }
-
     };
-
   }
-
 }

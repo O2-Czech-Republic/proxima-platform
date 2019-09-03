@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,9 +18,7 @@ package cz.o2.proxima.metrics;
 import cz.o2.proxima.annotations.Stable;
 import java.util.Arrays;
 
-/**
- * Stats aggregating the distribution percentiles.
- */
+/** Stats aggregating the distribution percentiles. */
 @Stable
 public class Stats implements StatsMBean {
 
@@ -73,5 +71,4 @@ public class Stats implements StatsMBean {
   double[] getRaw() {
     return raw;
   }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package cz.o2.proxima.beam.io.pubsub;
 
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
-// FIXME: move this to separate module
 import cz.o2.proxima.direct.pubsub.proto.PubSub;
 import cz.o2.proxima.pubsub.shaded.com.google.protobuf.InvalidProtocolBufferException;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -40,9 +39,7 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.joda.time.Duration;
 
-/**
- * A {@link DataAccessor} for PubSub.
- */
+/** A {@link DataAccessor} for PubSub. */
 @Slf4j
 public class PubSubDataAccessor implements DataAccessor {
 
@@ -50,11 +47,7 @@ public class PubSubDataAccessor implements DataAccessor {
   private final EntityDescriptor entity;
   private final String topic;
 
-  PubSubDataAccessor(
-      Repository repo,
-      EntityDescriptor entity,
-      String project,
-      String topic) {
+  PubSubDataAccessor(Repository repo, EntityDescriptor entity, String project, String topic) {
 
     this.repo = repo;
     this.entity = entity;
@@ -67,21 +60,27 @@ public class PubSubDataAccessor implements DataAccessor {
       String uuid = UUID.randomUUID().toString();
       PubSub.KeyValue parsed = PubSub.KeyValue.parseFrom(payload);
       long stamp = parsed.getStamp();
-      Optional<AttributeDescriptor<Object>> attribute = entity
-          .findAttribute(parsed.getAttribute(), true /* allow protected */);
+      Optional<AttributeDescriptor<Object>> attribute =
+          entity.findAttribute(parsed.getAttribute(), true /* allow protected */);
       if (attribute.isPresent()) {
         if (parsed.getDelete()) {
-          return Optional.of(StreamElement.delete(
-              entity, attribute.get(), uuid,
-              parsed.getKey(), parsed.getAttribute(), stamp));
+          return Optional.of(
+              StreamElement.delete(
+                  entity, attribute.get(), uuid, parsed.getKey(), parsed.getAttribute(), stamp));
         } else if (parsed.getDeleteWildcard()) {
-          return Optional.of(StreamElement.deleteWildcard(
-              entity, attribute.get(), uuid, parsed.getKey(),
-              parsed.getAttribute(), stamp));
+          return Optional.of(
+              StreamElement.deleteWildcard(
+                  entity, attribute.get(), uuid, parsed.getKey(), parsed.getAttribute(), stamp));
         }
-        return Optional.of(StreamElement.update(
-            entity, attribute.get(), uuid, parsed.getKey(), parsed.getAttribute(),
-            stamp, parsed.getValue().toByteArray()));
+        return Optional.of(
+            StreamElement.update(
+                entity,
+                attribute.get(),
+                uuid,
+                parsed.getKey(),
+                parsed.getAttribute(),
+                stamp,
+                parsed.getValue().toByteArray()));
       }
       log.warn("Failed to find attribute {} in entity {}", parsed.getAttribute(), entity);
     } catch (InvalidProtocolBufferException ex) {
@@ -92,17 +91,22 @@ public class PubSubDataAccessor implements DataAccessor {
 
   @Override
   public PCollection<StreamElement> createStream(
-      String name, Pipeline pipeline, Position position,
-      boolean stopAtCurrent, boolean eventTime, long limit) {
+      String name,
+      Pipeline pipeline,
+      Position position,
+      boolean stopAtCurrent,
+      boolean eventTime,
+      long limit) {
 
-    PCollection<PubsubMessage> input = pipeline.apply(
-        PubsubIO.readMessages().fromTopic(topic));
-    PCollection<StreamElement> parsed = FlatMap.of(input)
-        .using((PubsubMessage in, Collector<StreamElement> ctx) ->
-            toElement(entity, in.getPayload()).ifPresent(ctx::collect),
-            TypeDescriptor.of(StreamElement.class))
-        .output()
-        .setCoder(StreamElementCoder.of(repo));
+    PCollection<PubsubMessage> input = pipeline.apply(PubsubIO.readMessages().fromTopic(topic));
+    PCollection<StreamElement> parsed =
+        FlatMap.of(input)
+            .using(
+                (PubsubMessage in, Collector<StreamElement> ctx) ->
+                    toElement(entity, in.getPayload()).ifPresent(ctx::collect),
+                TypeDescriptor.of(StreamElement.class))
+            .output()
+            .setCoder(StreamElementCoder.of(repo));
     if (eventTime) {
       return AssignEventTime.of(parsed)
           .using(StreamElement::getStamp, Duration.millis(5000))
@@ -114,8 +118,7 @@ public class PubSubDataAccessor implements DataAccessor {
 
   @Override
   public PCollection<StreamElement> createBatch(
-      Pipeline pipeline, List<AttributeDescriptor<?>> attrs,
-      long startStamp, long endStamp) {
+      Pipeline pipeline, List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp) {
 
     throw new UnsupportedOperationException("Not supported yet.");
   }
@@ -130,5 +133,4 @@ public class PubSubDataAccessor implements DataAccessor {
 
     throw new UnsupportedOperationException("Not supported yet.");
   }
-
 }

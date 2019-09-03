@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,40 +21,38 @@ import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
 
 /**
- * A stateless element-wise transformation applied on incoming data
- * converting single {@code StreamElement} to another {@code StreamElement}(s).
+ * A stateless element-wise transformation applied on incoming data converting single {@code
+ * StreamElement} to another {@code StreamElement}(s).
  */
 @Stable
 public interface Transformation extends Serializable {
 
-  /**
-   * Collector for outputs.
-   */
+  /** Collector for outputs. */
   @FunctionalInterface
   interface Collector<T> extends Serializable {
 
     /**
      * Collect transformed value.
+     *
      * @param value the value to collect
      */
     void collect(T value);
-
   }
 
   /**
    * Read the repository and setup descriptors of target entity and attributes.
+   *
    * @param repo the repository
    */
   void setup(Repository repo);
 
-
   /**
    * Apply the transformation function.
+   *
    * @param input the input stream element to transform
    * @param collector collector for outputs
-   * @return how many invocations of collector to expect before the elements
-   * should be considered processed
+   * @return how many invocations of collector to expect before the elements should be considered
+   *     processed
    */
   int apply(StreamElement input, Collector<StreamElement> collector);
-
 }

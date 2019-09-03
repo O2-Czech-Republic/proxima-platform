@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,16 @@
  */
 package cz.o2.proxima.direct.pubsub;
 
+import static cz.o2.proxima.direct.pubsub.Util.delete;
+import static cz.o2.proxima.direct.pubsub.Util.deleteWildcard;
+import static cz.o2.proxima.direct.pubsub.Util.update;
+import static org.junit.Assert.*;
+
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.pubsub.v1.PubsubMessage;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import static cz.o2.proxima.direct.pubsub.Util.delete;
-import static cz.o2.proxima.direct.pubsub.Util.deleteWildcard;
-import static cz.o2.proxima.direct.pubsub.Util.update;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorImpl;
 import cz.o2.proxima.repository.ConfigRepository;
@@ -39,28 +41,30 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test suite for {@link PubSubWriter}.
- */
+/** Test suite for {@link PubSubWriter}. */
 @Slf4j
 public class PubSubWriterTest {
 
   private final Repository repo = ConfigRepository.of(ConfigFactory.load().resolve());
-  private final DirectDataOperator direct = repo.asDataOperator(
-      DirectDataOperator.class, op -> op.withExecutorFactory(
-        () -> Executors.newFixedThreadPool(
-            5, runnable -> {
-              Thread t = new Thread(runnable);
-              t.setName(PubSubWriterTest.class.getSimpleName());
-              t.setDaemon(true);
-              t.setUncaughtExceptionHandler(
-                  (thr, err) -> log.error("Error in thread {}", thr.getName(), err));
-              return t;
-            })));
+  private final DirectDataOperator direct =
+      repo.asDataOperator(
+          DirectDataOperator.class,
+          op ->
+              op.withExecutorFactory(
+                  () ->
+                      Executors.newFixedThreadPool(
+                          5,
+                          runnable -> {
+                            Thread t = new Thread(runnable);
+                            t.setName(PubSubWriterTest.class.getSimpleName());
+                            t.setDaemon(true);
+                            t.setUncaughtExceptionHandler(
+                                (thr, err) -> log.error("Error in thread {}", thr.getName(), err));
+                            return t;
+                          })));
   private final Context context = direct.getContext();
   private final AttributeDescriptorImpl<?> attr;
   private final AttributeDescriptorImpl<?> wildcard;
@@ -83,35 +87,40 @@ public class PubSubWriterTest {
 
     @Override
     Publisher newPublisher(String project, String topic) throws IOException {
-      return MockPublisher.create(project, topic, m -> {
-        if (consumer != null) {
-          consumer.accept(m);
-        }
-      });
+      return MockPublisher.create(
+          project,
+          topic,
+          m -> {
+            if (consumer != null) {
+              consumer.accept(m);
+            }
+          });
     }
-
   }
 
   public PubSubWriterTest() throws URISyntaxException {
-    this.attr = AttributeDescriptor.newBuilder(repo)
-        .setEntity("entity")
-        .setName("attr")
-        .setSchemeUri(new URI("bytes:///"))
-        .build();
-    this.wildcard = AttributeDescriptor.newBuilder(repo)
-        .setEntity("entity")
-        .setName("wildcard.*")
-        .setSchemeUri(new URI("bytes:///"))
-        .build();
-    this.entity = EntityDescriptor.newBuilder()
-        .setName("entity")
-        .addAttribute(attr)
-        .addAttribute(wildcard)
-        .build();
+    this.attr =
+        AttributeDescriptor.newBuilder(repo)
+            .setEntity("entity")
+            .setName("attr")
+            .setSchemeUri(new URI("bytes:///"))
+            .build();
+    this.wildcard =
+        AttributeDescriptor.newBuilder(repo)
+            .setEntity("entity")
+            .setName("wildcard.*")
+            .setSchemeUri(new URI("bytes:///"))
+            .build();
+    this.entity =
+        EntityDescriptor.newBuilder()
+            .setName("entity")
+            .addAttribute(attr)
+            .addAttribute(wildcard)
+            .build();
     assertTrue(entity.findAttribute("attr").isPresent());
-    this.accessor = new PubSubAccessor(
-        storage, entity, new URI("gps://my-project/topic"),
-        Collections.emptyMap());
+    this.accessor =
+        new PubSubAccessor(
+            storage, entity, new URI("gps://my-project/topic"), Collections.emptyMap());
   }
 
   @Before
@@ -125,20 +134,20 @@ public class PubSubWriterTest {
     List<PubsubMessage> written = new ArrayList<>();
     writer.setConsumer(written::add);
     CountDownLatch latch = new CountDownLatch(3);
-    writer.write(PubSubReader.toElement(
-        entity, update("key1", "attr", new byte[] { 1, 2 }, now)).get(),
+    writer.write(
+        PubSubReader.toElement(entity, update("key1", "attr", new byte[] {1, 2}, now)).get(),
         (succ, exc) -> {
           assertTrue(succ);
           latch.countDown();
         });
-    writer.write(PubSubReader.toElement(
-        entity, delete("key2", "attr", now + 1000)).get(),
+    writer.write(
+        PubSubReader.toElement(entity, delete("key2", "attr", now + 1000)).get(),
         (succ, exc) -> {
           assertTrue(succ);
           latch.countDown();
         });
-    writer.write(PubSubReader.toElement(
-        entity, deleteWildcard("key3", wildcard, now)).get(),
+    writer.write(
+        PubSubReader.toElement(entity, deleteWildcard("key3", wildcard, now)).get(),
         (succ, exc) -> {
           assertTrue(succ);
           latch.countDown();
@@ -151,7 +160,7 @@ public class PubSubWriterTest {
     assertEquals("attr", elem.getAttribute());
     assertFalse(elem.isDelete());
     assertFalse(elem.isDeleteWildcard());
-    assertArrayEquals(new byte[] { 1, 2 }, elem.getValue());
+    assertArrayEquals(new byte[] {1, 2}, elem.getValue());
     assertEquals(now, elem.getStamp());
     elem = PubSubReader.toElement(entity, written.get(1)).get();
     assertEquals("key2", elem.getKey());
@@ -170,26 +179,27 @@ public class PubSubWriterTest {
   @Test(timeout = 10000)
   public void testWriteFail() throws InterruptedException {
     long now = System.currentTimeMillis();
-    writer.setConsumer(e -> {
-      throw new RuntimeException("Fail");
-    });
+    writer.setConsumer(
+        e -> {
+          throw new RuntimeException("Fail");
+        });
     CountDownLatch latch = new CountDownLatch(3);
-    writer.write(PubSubReader.toElement(
-        entity, update("key1", "attr", new byte[] { 1, 2 }, now)).get(),
+    writer.write(
+        PubSubReader.toElement(entity, update("key1", "attr", new byte[] {1, 2}, now)).get(),
         (succ, exc) -> {
           assertFalse(succ);
           assertEquals("Fail", exc.getMessage());
           latch.countDown();
         });
-    writer.write(PubSubReader.toElement(
-        entity, delete("key2", "attr", now + 1000)).get(),
+    writer.write(
+        PubSubReader.toElement(entity, delete("key2", "attr", now + 1000)).get(),
         (succ, exc) -> {
           assertFalse(succ);
           assertEquals("Fail", exc.getMessage());
           latch.countDown();
         });
-    writer.write(PubSubReader.toElement(
-        entity, deleteWildcard("key3", wildcard, now)).get(),
+    writer.write(
+        PubSubReader.toElement(entity, deleteWildcard("key3", wildcard, now)).get(),
         (succ, exc) -> {
           assertFalse(succ);
           assertEquals("Fail", exc.getMessage());
@@ -197,6 +207,4 @@ public class PubSubWriterTest {
         });
     latch.await();
   }
-
-
 }

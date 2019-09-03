@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-/**
- * Base class for tests of all stream classes.
- */
+/** Base class for tests of all stream classes. */
 abstract class AbstractStreamTest implements Serializable {
 
   final transient TestStreamProvider provider;
@@ -34,5 +32,4 @@ abstract class AbstractStreamTest implements Serializable {
   final <T> Stream<T> stream(T... items) {
     return provider.of(Arrays.stream(items).collect(Collectors.toList()));
   }
-
 }

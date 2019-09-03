@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,8 @@
  */
 package cz.o2.proxima.direct.hbase;
 
-import cz.o2.proxima.direct.hbase.RandomHBaseReader;
-import cz.o2.proxima.direct.hbase.HBaseLogObservable;
-import cz.o2.proxima.direct.hbase.HBaseWriter;
+import static org.junit.Assert.assertNotNull;
+
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -29,24 +28,21 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.concurrent.Executors;
 import org.apache.hadoop.conf.Configuration;
-import static org.junit.Assert.assertNotNull;
 import org.junit.Test;
 
-/**
- * Test that all writers and readers are serializable.
- */
+/** Test that all writers and readers are serializable. */
 public class SerializationTest {
 
-  Repository repo =  Repository.of(ConfigFactory.empty());
+  Repository repo = Repository.of(ConfigFactory.empty());
   EntityDescriptor entity = EntityDescriptor.newBuilder().setName("dummy").build();
 
   @Test
   public void testRandomReader() throws Exception {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     ObjectOutputStream oos = new ObjectOutputStream(baos);
-    RandomHBaseReader reader = new RandomHBaseReader(
-        new URI("hbase://dummy/dummy?family=x"), new Configuration(),
-        new HashMap<>(), entity);
+    RandomHBaseReader reader =
+        new RandomHBaseReader(
+            new URI("hbase://dummy/dummy?family=x"), new Configuration(), new HashMap<>(), entity);
     oos.writeObject(reader);
     oos.flush();
     ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
@@ -59,9 +55,9 @@ public class SerializationTest {
   public void testWriter() throws Exception {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     ObjectOutputStream oos = new ObjectOutputStream(baos);
-    HBaseWriter writer = new HBaseWriter(
-        new URI("hbase://dummy/dummy?family=x"), new Configuration(),
-        new HashMap<>());
+    HBaseWriter writer =
+        new HBaseWriter(
+            new URI("hbase://dummy/dummy?family=x"), new Configuration(), new HashMap<>());
     oos.writeObject(writer);
     oos.flush();
     ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
@@ -74,9 +70,12 @@ public class SerializationTest {
   public void testLogObservable() throws Exception {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     ObjectOutputStream oos = new ObjectOutputStream(baos);
-    HBaseLogObservable observable = new HBaseLogObservable(
-        new URI("hbase://dummy/dummy?family=x"), new Configuration(),
-        entity, () -> Executors.newCachedThreadPool());
+    HBaseLogObservable observable =
+        new HBaseLogObservable(
+            new URI("hbase://dummy/dummy?family=x"),
+            new Configuration(),
+            entity,
+            () -> Executors.newCachedThreadPool());
     oos.writeObject(observable);
     oos.flush();
     ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
@@ -84,5 +83,4 @@ public class SerializationTest {
     observable = (HBaseLogObservable) ois.readObject();
     assertNotNull(observable);
   }
-
 }

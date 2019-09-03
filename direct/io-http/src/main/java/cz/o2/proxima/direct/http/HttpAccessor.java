@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,15 +26,12 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Accessor for HTTP(s) and websocket URLs.
- */
+/** Accessor for HTTP(s) and websocket URLs. */
 public class HttpAccessor extends AbstractStorage implements DataAccessor {
 
   final Map<String, Object> cfg;
 
-  public HttpAccessor(
-      EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public HttpAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     super(entityDesc, uri);
     this.cfg = cfg;
@@ -58,7 +55,4 @@ public class HttpAccessor extends AbstractStorage implements DataAccessor {
     }
     return Optional.empty();
   }
-
-
-
 }

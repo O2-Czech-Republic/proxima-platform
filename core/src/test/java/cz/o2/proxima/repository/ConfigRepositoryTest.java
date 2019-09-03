@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 package cz.o2.proxima.repository;
+
+import static org.junit.Assert.*;
 
 import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
@@ -38,29 +40,26 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
-/**
- * Test repository config parsing.
- */
+/** Test repository config parsing. */
 @Slf4j
 public class ConfigRepositoryTest {
 
   private final ConfigRepository repo;
 
   public ConfigRepositoryTest() {
-    this.repo = ConfigRepository.Builder.of(
-        ConfigFactory.load()
-            .withFallback(ConfigFactory.load("test-reference.conf"))
-            .resolve()).build();
+    this.repo =
+        ConfigRepository.Builder.of(
+                ConfigFactory.load()
+                    .withFallback(ConfigFactory.load("test-reference.conf"))
+                    .resolve())
+            .build();
   }
 
   @Test
   public void testConfigParsing() throws IOException {
-    assertTrue("Entity event should have been parsed",
-        repo.findEntity("event").isPresent());
-    assertTrue("Entity gateway should have been parsed",
-        repo.findEntity("gateway").isPresent());
+    assertTrue("Entity event should have been parsed", repo.findEntity("event").isPresent());
+    assertTrue("Entity gateway should have been parsed", repo.findEntity("gateway").isPresent());
 
     EntityDescriptor event = repo.findEntity("event").get();
     assertEquals("event", event.getName());
@@ -70,43 +69,40 @@ public class ConfigRepositoryTest {
 
     EntityDescriptor gateway = repo.findEntity("gateway").get();
     assertEquals("gateway", gateway.getName());
-    assertEquals("bytes:///",
-        gateway.findAttribute("armed").get().getSchemeUri().toString());
-    assertEquals("fail:whenever",
-        gateway.findAttribute("fail").get().getSchemeUri().toString());
-    assertEquals("bytes:///",
-        gateway.findAttribute("bytes").get().getSchemeUri().toString());
+    assertEquals("bytes:///", gateway.findAttribute("armed").get().getSchemeUri().toString());
+    assertEquals("fail:whenever", gateway.findAttribute("fail").get().getSchemeUri().toString());
+    assertEquals("bytes:///", gateway.findAttribute("bytes").get().getSchemeUri().toString());
 
     assertEquals(1, repo.getTransformations().size());
-    TransformationDescriptor transform = Iterables.getOnlyElement(
-        repo.getTransformations().values());
+    TransformationDescriptor transform =
+        Iterables.getOnlyElement(repo.getTransformations().values());
     assertEquals(PassthroughFilter.class, transform.getFilter().getClass());
     assertEquals(event, transform.getEntity());
-    assertEquals(
-        Arrays.asList(event.findAttribute("data").get()),
-        transform.getAttributes());
+    assertEquals(Arrays.asList(event.findAttribute("data").get()), transform.getAttributes());
     assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidFamily() {
     ConfigRepository.Builder.of(
-      ConfigFactory.load()
-          .withFallback(ConfigFactory.load("test-reference.conf"))
-          .withFallback(ConfigFactory.parseString(
-              "attributeFamilies.invalid.invalid = true"))
-          .resolve()).build();
+            ConfigFactory.load()
+                .withFallback(ConfigFactory.load("test-reference.conf"))
+                .withFallback(ConfigFactory.parseString("attributeFamilies.invalid.invalid = true"))
+                .resolve())
+        .build();
   }
 
   @Test
   public void testInvalidDisabledFamily() {
     ConfigRepository.Builder.of(
-      ConfigFactory.load()
-          .withFallback(ConfigFactory.load("test-reference.conf"))
-          .withFallback(ConfigFactory.parseString(
-              "attributeFamilies.invalid.invalid = true\n"
-            + "attributeFamilies.invalid.disabled = true"))
-          .resolve()).build();
+            ConfigFactory.load()
+                .withFallback(ConfigFactory.load("test-reference.conf"))
+                .withFallback(
+                    ConfigFactory.parseString(
+                        "attributeFamilies.invalid.invalid = true\n"
+                            + "attributeFamilies.invalid.disabled = true"))
+                .resolve())
+        .build();
   }
 
   @Test(expected = NotSerializableException.class)
@@ -138,40 +134,32 @@ public class ConfigRepositoryTest {
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
-    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
-        () -> new AssertionError("Missing entity gateway"));
+    EntityDescriptor gateway =
+        repo.findEntity("gateway").orElseThrow(() -> new AssertionError("Missing entity gateway"));
     // assert that we have created all necessary protected attributes
-    assertTrue(gateway.findAttribute(
-        "_gatewayReplication_inmemFirst$status", true).isPresent());
-    assertTrue(gateway.findAttribute(
-        "_gatewayReplication_inmemSecond$armed", true).isPresent());
-    assertTrue(gateway.findAttribute(
-        "_gatewayReplication_read$status", true).isPresent());
-    assertTrue(gateway.findAttribute(
-        "_gatewayReplication_write$device.*", true).isPresent());
-    assertTrue(gateway.findAttribute(
-        "_gatewayReplication_replicated$rule.*", true).isPresent());
-    assertTrue(gateway.findAttribute(
-        "_gatewayReplication_read$rule.*", true).isPresent());
-    assertTrue(gateway.findAttribute(
-        "_gatewayReplication_read$rule.*", true).get().isWildcard());
+    assertTrue(gateway.findAttribute("_gatewayReplication_inmemFirst$status", true).isPresent());
+    assertTrue(gateway.findAttribute("_gatewayReplication_inmemSecond$armed", true).isPresent());
+    assertTrue(gateway.findAttribute("_gatewayReplication_read$status", true).isPresent());
+    assertTrue(gateway.findAttribute("_gatewayReplication_write$device.*", true).isPresent());
+    assertTrue(gateway.findAttribute("_gatewayReplication_replicated$rule.*", true).isPresent());
+    assertTrue(gateway.findAttribute("_gatewayReplication_read$rule.*", true).isPresent());
+    assertTrue(gateway.findAttribute("_gatewayReplication_read$rule.*", true).get().isWildcard());
     assertTrue(gateway.findAttribute("status").isPresent());
     assertTrue(gateway.findAttribute("status").get().isPublic());
 
     // check that all produced families that have scheme `proxy` are
     // really proxies
     repo.getAllFamilies()
-        .forEach(af ->
-            assertTrue(!af.getStorageUri().getScheme().equals("proxy")
-                || af.isProxy()));
+        .forEach(af -> assertTrue(!af.getStorageUri().getScheme().equals("proxy") || af.isProxy()));
   }
 
   @Test
   public void testReplicationGloballyDisabled() throws InterruptedException {
-    Config config = ConfigFactory.parseString("replications.disabled = true")
-        .withFallback(ConfigFactory.load("test-replication.conf"))
-        .withFallback(ConfigFactory.load("test-reference.conf"))
-        .resolve();
+    Config config =
+        ConfigFactory.parseString("replications.disabled = true")
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve();
     repo.reloadConfig(true, config);
     // we have only single explicitly defined transformation left, others were
     // switched off
@@ -181,10 +169,11 @@ public class ConfigRepositoryTest {
 
   @Test
   public void testReplicationGloballyReadOnly() throws InterruptedException {
-    Config config = ConfigFactory.parseString("replications.read-only = true")
-        .withFallback(ConfigFactory.load("test-replication.conf"))
-        .withFallback(ConfigFactory.load("test-reference.conf"))
-        .resolve();
+    Config config =
+        ConfigFactory.parseString("replications.read-only = true")
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve();
     repo.reloadConfig(true, config);
     // we have only single explicitly defined transformation left, others were
     // switched off
@@ -194,20 +183,24 @@ public class ConfigRepositoryTest {
 
   @Test
   public void testReplicationGloballyReadLocal() throws InterruptedException {
-    Config config = ConfigFactory.parseString("replications.read = local")
-        .withFallback(ConfigFactory.load("test-replication.conf"))
-        .withFallback(ConfigFactory.load("test-reference.conf"))
-        .resolve();
+    Config config =
+        ConfigFactory.parseString("replications.read = local")
+            .withFallback(ConfigFactory.load("test-replication.conf"))
+            .withFallback(ConfigFactory.load("test-reference.conf"))
+            .resolve();
     repo.reloadConfig(true, config);
     // we have only single explicitly defined transformation left, others were
     // switched off
     assertEquals(1, repo.getTransformations().size());
     assertNotNull(repo.getTransformations().get("event-data-to-dummy-wildcard"));
 
-    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
-        () -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<?> armed = gateway.findAttribute("armed").orElseThrow(
-        () -> new IllegalStateException("Missing attribute armed"));
+    EntityDescriptor gateway =
+        repo.findEntity("gateway")
+            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    AttributeDescriptor<?> armed =
+        gateway
+            .findAttribute("armed")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
     assertTrue(armed instanceof AttributeProxyDescriptor);
     assertEquals(
         "_gatewayReplication_write$armed",
@@ -222,8 +215,8 @@ public class ConfigRepositoryTest {
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
-    TransformationDescriptor desc = repo.getTransformations()
-        .get("_dummyReplicationMasterSlave_slave");
+    TransformationDescriptor desc =
+        repo.getTransformations().get("_dummyReplicationMasterSlave_slave");
     assertNotNull(desc);
     assertEquals(DummyFilter.class, desc.getFilter().getClass());
   }
@@ -237,8 +230,9 @@ public class ConfigRepositoryTest {
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
 
-    final EntityDescriptor dummy = repo.findEntity("dummy").orElseThrow(
-        () -> new IllegalStateException("Missing entity dummy"));
+    final EntityDescriptor dummy =
+        repo.findEntity("dummy")
+            .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
     Map<String, TransformationDescriptor> transformations = repo.getTransformations();
     assertNotNull(transformations.get("_dummyReplicationMasterSlave_slave"));
     assertNotNull(transformations.get("_dummyReplicationMasterSlave_replicated"));
@@ -282,19 +276,16 @@ public class ConfigRepositoryTest {
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
 
-    EntityDescriptor gateway = repo.findEntity("gateway").orElseThrow(
-        () -> new IllegalStateException("Missing entity gateway"));
+    EntityDescriptor gateway =
+        repo.findEntity("gateway")
+            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
     Map<String, TransformationDescriptor> transformations = repo.getTransformations();
     assertNotNull(transformations.get("_gatewayReplication_read"));
     assertNotNull(transformations.get("_gatewayReplication_inmemSecond"));
 
     // transformation from remote writes to local replicated result
     // without proxy
-    checkTransformation(
-        gateway,
-        transformations.get("_gatewayReplication_read"),
-        "armed",
-        "armed");
+    checkTransformation(gateway, transformations.get("_gatewayReplication_read"), "armed", "armed");
 
     // transformation from local writes to slave
     checkTransformation(
@@ -308,19 +299,19 @@ public class ConfigRepositoryTest {
 
   @Test
   public void testReplicationProxies() {
-    repo.reloadConfig(
-        true,
-        ConfigFactory.load("test-replication-proxy.conf")
-            .resolve());
+    repo.reloadConfig(true, ConfigFactory.load("test-replication-proxy.conf").resolve());
 
-    EntityDescriptor dummy = repo.findEntity("dummy").orElseThrow(
-        () -> new IllegalStateException("Missing entity dummy"));
+    EntityDescriptor dummy =
+        repo.findEntity("dummy")
+            .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
 
     // attribute _d should be proxy to
     // _dummyReplicationMasterSlave_write$_d
     // and _dummyReplicationMasterSlave_replicated$_d
-    AttributeDescriptor<Object> _d = dummy.findAttribute("_d", true)
-        .orElseThrow(() -> new IllegalStateException("Missing attribute _d"));
+    AttributeDescriptor<Object> _d =
+        dummy
+            .findAttribute("_d", true)
+            .orElseThrow(() -> new IllegalStateException("Missing attribute _d"));
     assertTrue(((AttributeDescriptorBase<?>) _d).isProxy());
     Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(_d);
     assertEquals(1, families.size());
@@ -349,23 +340,14 @@ public class ConfigRepositoryTest {
 
     // attribute dummy.data should be proxy to _d
     attr = (AttributeProxyDescriptor<?>) dummy.findAttribute("data").get();
-    assertEquals(
-        "data",
-        attr.getWriteTransform().toProxy("_d"));
-    assertEquals(
-        "data",
-        attr.getReadTransform().toProxy("_d"));
-    assertEquals(
-        "_d",
-        attr.getWriteTransform().fromProxy("data"));
-    assertEquals(
-        "_d",
-        attr.getReadTransform().fromProxy("data"));
+    assertEquals("data", attr.getWriteTransform().toProxy("_d"));
+    assertEquals("data", attr.getReadTransform().toProxy("_d"));
+    assertEquals("_d", attr.getWriteTransform().fromProxy("data"));
+    assertEquals("_d", attr.getReadTransform().fromProxy("data"));
     families = repo.getFamiliesForAttribute(attr);
     assertEquals(2, families.size());
-    primary = families.stream()
-        .filter(af -> af.getType() == StorageType.PRIMARY).findAny()
-        .orElse(null);
+    primary =
+        families.stream().filter(af -> af.getType() == StorageType.PRIMARY).findAny().orElse(null);
     assertNotNull(primary);
     assertTrue(primary.isProxy());
     proxy = (AttributeFamilyProxyDescriptor) primary;
@@ -390,17 +372,12 @@ public class ConfigRepositoryTest {
     // check that all produced families that have scheme `proxy` are
     // really proxies
     repo.getAllFamilies()
-        .forEach(af ->
-            assertTrue(!af.getStorageUri().getScheme().equals("proxy")
-                || af.isProxy()));
+        .forEach(af -> assertTrue(!af.getStorageUri().getScheme().equals("proxy") || af.isProxy()));
   }
 
   // validate that given transformation transforms in the desired way
   private void checkTransformation(
-      EntityDescriptor entity,
-      TransformationDescriptor transform,
-      String from,
-      String to) {
+      EntityDescriptor entity, TransformationDescriptor transform, String from, String to) {
 
     checkTransformation(entity, transform, from, from, to, to);
   }
@@ -414,9 +391,7 @@ public class ConfigRepositoryTest {
       String toAttrDesc) {
 
     Optional<AttributeDescriptor<Object>> f = entity.findAttribute(fromAttrDesc, true);
-    assertTrue(
-        "Entity " + entity + " doesn't contain attribute " + fromAttrDesc,
-        f.isPresent());
+    assertTrue("Entity " + entity + " doesn't contain attribute " + fromAttrDesc, f.isPresent());
     assertTrue(
         "Entity " + entity + " doesn't contain attribute " + toAttrDesc,
         entity.findAttribute(toAttrDesc, true).isPresent());
@@ -424,7 +399,9 @@ public class ConfigRepositoryTest {
     assertEquals(
         toAttr,
         collectSingleAttributeUpdate(
-            transform.getTransformation(), entity, fromAttr,
+            transform.getTransformation(),
+            entity,
+            fromAttr,
             entity.findAttribute(fromAttr, true).get()));
   }
 
@@ -435,14 +412,18 @@ public class ConfigRepositoryTest {
       AttributeDescriptor<?> inputDesc) {
 
     AtomicReference<StreamElement> element = new AtomicReference<>();
-    assertEquals(1,
+    assertEquals(
+        1,
         transform.apply(
             StreamElement.update(
-                entity, inputDesc, UUID.randomUUID().toString(), "key",
-                inputAttribute, System.currentTimeMillis(), new byte[] { 1, 2, 3 }),
+                entity,
+                inputDesc,
+                UUID.randomUUID().toString(),
+                "key",
+                inputAttribute,
+                System.currentTimeMillis(),
+                new byte[] {1, 2, 3}),
             element::set));
     return element.get().getAttribute();
   }
-
-
 }

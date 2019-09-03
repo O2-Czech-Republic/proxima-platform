@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,30 +15,24 @@
  */
 package cz.o2.proxima.generator;
 
+import static org.junit.Assert.*;
+
 import com.typesafe.config.ConfigFactory;
 import java.io.StringWriter;
-import static org.junit.Assert.*;
 import org.junit.Test;
 
-/**
- * Briefly test {@link ModelGenerator}.
- */
+/** Briefly test {@link ModelGenerator}. */
 public class ModelGeneratorTest {
 
   @Test
   public void testModelGeneration() throws Exception {
-    ModelGenerator generator = new ModelGenerator(
-        "test", "Test", "ignored", "ignored", false);
+    ModelGenerator generator = new ModelGenerator("test", "Test", "ignored", "ignored", false);
     StringWriter writer = new StringWriter();
-    generator.generate(
-        ConfigFactory.load("test-reference.conf"),
-        writer);
+    generator.generate(ConfigFactory.load("test-reference.conf"), writer);
     assertFalse(writer.toString().isEmpty());
     // validate we have some imports from direct submodule
     assertTrue(writer.toString().contains(".direct."));
     // and that we have some code related to CommitLogReader
     assertTrue(writer.toString().contains("CommitLogReader"));
   }
-
-
 }

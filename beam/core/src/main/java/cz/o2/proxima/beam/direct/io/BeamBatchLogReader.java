@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,9 +29,7 @@ import org.apache.beam.sdk.io.BoundedSource.BoundedReader;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.joda.time.Instant;
 
-/**
- * A {@link BoundedReader} reading from {@link BatchLogObservable}.
- */
+/** A {@link BoundedReader} reading from {@link BatchLogObservable}. */
 class BeamBatchLogReader extends BoundedReader<StreamElement> {
 
   private static final Instant LOWEST_INSTANT = BoundedWindow.TIMESTAMP_MIN_VALUE;
@@ -45,8 +43,7 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
       long startStamp,
       long endStamp) {
 
-    return new BeamBatchLogReader(
-        source, reader, attrs, split, startStamp, endStamp);
+    return new BeamBatchLogReader(source, reader, attrs, split, startStamp, endStamp);
   }
 
   private final DirectBatchSource source;
@@ -90,11 +87,10 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
 
   @Override
   public boolean advance() throws IOException {
-    for (;;) {
+    for (; ; ) {
       try {
         current = observer.takeBlocking();
-        if (current == null || current.getStamp() >= startStamp
-            && current.getStamp() < endStamp) {
+        if (current == null || current.getStamp() >= startStamp && current.getStamp() < endStamp) {
           break;
         }
       } catch (InterruptedException ex) {
@@ -135,5 +131,4 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
     }
     return HIGHEST_INSTANT;
   }
-
 }

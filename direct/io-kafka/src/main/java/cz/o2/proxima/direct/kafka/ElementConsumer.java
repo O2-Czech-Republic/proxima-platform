@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,14 +26,14 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 
 /**
- * Consumer of stream elements.
- * The callback may or might not be called depending on the consuming mode
- * (bulk or online).
+ * Consumer of stream elements. The callback may or might not be called depending on the consuming
+ * mode (bulk or online).
  */
 interface ElementConsumer {
 
   /**
    * Process the ingest element and return result of {@code onNext} call to the observer.
+   *
    * @param element element to process
    * @param tp partition
    * @param offset offset
@@ -42,39 +42,34 @@ interface ElementConsumer {
    */
   boolean consumeWithConfirm(
       @Nullable StreamElement element,
-      TopicPartition tp, long offset,
+      TopicPartition tp,
+      long offset,
       WatermarkSupplier watermarkSupplier,
       Consumer<Throwable> errorHandler);
 
   /**
-   * Retrieve map of offsets that should be committed right away.
-   * The offset map has to be atomically cloned and swapped with empty map
+   * Retrieve map of offsets that should be committed right away. The offset map has to be
+   * atomically cloned and swapped with empty map
+   *
    * @return map of actually committed offsets
    */
   Map<TopicPartition, OffsetAndMetadata> prepareOffsetsForCommit();
 
-  /**
-   * @return list of current offsets
-   */
+  /** @return list of current offsets */
   List<TopicOffset> getCurrentOffsets();
 
-  /**
-   * @return list of committed offsets
-   */
+  /** @return list of committed offsets */
   List<TopicOffset> getCommittedOffsets();
 
-  /**
-   * Called when processing finishes.
-   */
+  /** Called when processing finishes. */
   void onCompleted();
 
-  /**
-   * Called when processing is canceled.
-   */
+  /** Called when processing is canceled. */
   void onCancelled();
 
   /**
    * Called when processing throws error.
+   *
    * @param err the error thrown
    * @return result of {@link LogObserverBase#onError}
    */
@@ -82,22 +77,15 @@ interface ElementConsumer {
 
   /**
    * Called by reassign listener when partitions are assigned.
+   *
    * @param consumer the consumer that actually reads data
    * @param offsets the assigned partitions
    */
-  void onAssign(
-      KafkaConsumer<String, byte[]> consumer,
-      List<TopicOffset> offsets);
+  void onAssign(KafkaConsumer<String, byte[]> consumer, List<TopicOffset> offsets);
 
-  /**
-   * Called before the processing actually starts.
-   */
+  /** Called before the processing actually starts. */
   void onStart();
 
-  /**
-   * Called when consumer is idle.
-   */
+  /** Called when consumer is idle. */
   void onIdle(WatermarkSupplier watermarkSupplier);
-
 }
-

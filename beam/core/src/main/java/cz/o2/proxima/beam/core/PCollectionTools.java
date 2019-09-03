@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,34 +24,28 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 
-/**
- * Various tools related to manipulation with {@link PCollection}s.
- */
+/** Various tools related to manipulation with {@link PCollection}s. */
 public class PCollectionTools {
 
   /**
    * Reduce given {@link PCollection} from updates to snapshot.
+   *
    * @param name name of the operation
    * @param other the other {@link PCollection} containing updates
    * @return snapshot
    */
   public static PCollection<StreamElement> reduceAsSnapshot(
-      @Nullable String name,
-      PCollection<StreamElement> other) {
+      @Nullable String name, PCollection<StreamElement> other) {
 
-    return ReduceByKey
-        .named(name)
+    return ReduceByKey.named(name)
         .of(other)
         .keyBy(e -> e.getKey() + "#" + e.getAttribute(), TypeDescriptors.strings())
         .valueBy(e -> e, TypeDescriptor.of(StreamElement.class))
-        .combineBy(values -> Optionals.get(values.max(
-            Comparator.comparingLong(StreamElement::getStamp))),
+        .combineBy(
+            values -> Optionals.get(values.max(Comparator.comparingLong(StreamElement::getStamp))),
             TypeDescriptor.of(StreamElement.class))
         .outputValues();
   }
 
-  private PCollectionTools() {
-
-  }
-
+  private PCollectionTools() {}
 }

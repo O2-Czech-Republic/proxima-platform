@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import java.io.Serializable;
 import java.util.Arrays;
-
 import java.util.Map;
 import java.util.Optional;
 import java.util.ServiceLoader;
@@ -30,9 +29,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
-/**
- * Repository of all entities configured in the system.
- */
+/** Repository of all entities configured in the system. */
 @Evolving
 public abstract class Repository {
 
@@ -47,6 +44,7 @@ public abstract class Repository {
 
   /**
    * Construct the repository.
+   *
    * @param factory the factory to create instance of this {@link Config}
    */
   Repository(ConfigFactory factory) {
@@ -55,6 +53,7 @@ public abstract class Repository {
 
   /**
    * Create {@link Repository} from given {@link Config}.
+   *
    * @param factory the config factory
    * @return repository
    */
@@ -126,8 +125,7 @@ public abstract class Repository {
    * @param scheme scheme of the {@link cz.o2.proxima.scheme.ValueSerializerFactory}
    * @return optional {@link ValueSerializerFactory} for the scheme
    */
-  public abstract Optional<ValueSerializerFactory> getValueSerializerFactory(
-      String scheme);
+  public abstract Optional<ValueSerializerFactory> getValueSerializerFactory(String scheme);
 
   /**
    * Retrieve {@link DataOperator} representation for this {@link Repository}.
@@ -135,7 +133,6 @@ public abstract class Repository {
    * @param <T> type of the operator
    * @param type the operator class
    * @param modifiers functions to be applied to the operator before it is returned
-   *
    * @return the data operator of given type
    */
   @SuppressWarnings("unchecked")
@@ -143,38 +140,36 @@ public abstract class Repository {
   public final synchronized <T extends DataOperator> T asDataOperator(
       Class<T> type, Consumer<T>... modifiers) {
 
-    ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(
-        DataOperatorFactory.class);
+    ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(DataOperatorFactory.class);
 
-    T ret = Streams
-        .stream(loaders)
-        .filter(factory ->  factory.isOfType(type))
-        .findAny()
-        .map(o -> (DataOperatorFactory<T>) o)
-        .map(f -> {
-          T op = f.create(this);
-          Arrays.stream(modifiers).forEach(m -> m.accept(op));
-          addedDataOperator(op);
-          return op;
-        })
-        .orElseThrow(() -> new IllegalStateException(
-            "Operator " + type + " not found."));
+    T ret =
+        Streams.stream(loaders)
+            .filter(factory -> factory.isOfType(type))
+            .findAny()
+            .map(o -> (DataOperatorFactory<T>) o)
+            .map(
+                f -> {
+                  T op = f.create(this);
+                  Arrays.stream(modifiers).forEach(m -> m.accept(op));
+                  addedDataOperator(op);
+                  return op;
+                })
+            .orElseThrow(() -> new IllegalStateException("Operator " + type + " not found."));
 
     operatorCache.put(type, ret);
     return ret;
   }
 
   /**
-   * Retrieve an already created (via call to #asDataOperator} instance
-   * of data operator or create new instance with default settings.
+   * Retrieve an already created (via call to #asDataOperator} instance of data operator or create
+   * new instance with default settings.
    *
    * @param <T> type of operator
    * @param type the operator class
    * @return the data operator of given type
    */
   @SuppressWarnings("unchecked")
-  public final synchronized <T extends DataOperator> T getOrCreateOperator(
-      Class<T> type) {
+  public final synchronized <T extends DataOperator> T getOrCreateOperator(Class<T> type) {
 
     T ret = (T) operatorCache.get(type);
     if (ret != null) {
@@ -184,28 +179,22 @@ public abstract class Repository {
   }
 
   /**
-   * Check if given implementation of data operator is available on classpath
-   * and {@link #asDataOperator(java.lang.Class, Consumer...)} will return
-   * non-null object for class corresponding the given name.
+   * Check if given implementation of data operator is available on classpath and {@link
+   * #asDataOperator(java.lang.Class, Consumer...)} will return non-null object for class
+   * corresponding the given name.
+   *
    * @param name name of the operator
    * @return {@code true} if the operator is available, {@code false} otherwise
    */
   public boolean hasOperator(String name) {
-    ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(
-        DataOperatorFactory.class);
-    return Streams
-        .stream(loaders)
-        .anyMatch(f -> f.getOperatorName().equals(name));
+    ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(DataOperatorFactory.class);
+    return Streams.stream(loaders).anyMatch(f -> f.getOperatorName().equals(name));
   }
-
 
   /**
    * Called when new {@link DataOperator} is created.
+   *
    * @param op the operator that was created
    */
-  protected void addedDataOperator(DataOperator op) {
-
-  }
-
-
+  protected void addedDataOperator(DataOperator op) {}
 }

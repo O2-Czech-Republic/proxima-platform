@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,15 +21,12 @@ import java.io.Serializable;
 import java.net.URI;
 import lombok.Getter;
 
-/**
- * A class that is super type of all data accessors.
- */
+/** A class that is super type of all data accessors. */
 @Internal
 public class AbstractStorage implements Serializable {
 
   /** The entity this writer is created for. */
-  @Getter
-  private final EntityDescriptor entityDescriptor;
+  @Getter private final EntityDescriptor entityDescriptor;
 
   private final URI uri;
 
@@ -55,5 +52,4 @@ public class AbstractStorage implements Serializable {
   public int hashCode() {
     return uri.hashCode();
   }
-
 }

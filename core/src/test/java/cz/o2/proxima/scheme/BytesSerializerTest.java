@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,18 +15,15 @@
  */
 package cz.o2.proxima.scheme;
 
-import org.junit.Before;
-import org.junit.Test;
+import static org.junit.Assert.*;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Optional;
+import org.junit.Before;
+import org.junit.Test;
 
-import static org.junit.Assert.*;
-
-/**
- * Simple test for {@link BytesSerializer}
- */
+/** Simple test for {@link BytesSerializer} */
 public class BytesSerializerTest {
   private final BytesSerializer factory = new BytesSerializer();
   private ValueSerializer<byte[]> serializer;
@@ -61,7 +58,6 @@ public class BytesSerializerTest {
 
   @Test
   public void testDefaultValue() {
-    assertArrayEquals(new byte[] { }, serializer.getDefault());
+    assertArrayEquals(new byte[] {}, serializer.getDefault());
   }
-
 }

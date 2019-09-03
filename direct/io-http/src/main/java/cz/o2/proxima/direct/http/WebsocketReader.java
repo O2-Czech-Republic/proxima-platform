@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,21 @@
  */
 package cz.o2.proxima.direct.http;
 
+import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
+
 import com.google.common.collect.Iterables;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
-import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -42,30 +43,28 @@ import java.util.function.Consumer;
 import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 
-/**
- * Reader of data from websocket (ws, or wss).
- */
+/** Reader of data from websocket (ws, or wss). */
 public class WebsocketReader extends AbstractStorage implements CommitLogReader {
 
   private static final Partition PARTITION = () -> 0;
-  private static final Offset OFFSET = new Offset() {
-    @Override
-    public Partition getPartition() {
-      return PARTITION;
-    }
+  private static final Offset OFFSET =
+      new Offset() {
+        @Override
+        public Partition getPartition() {
+          return PARTITION;
+        }
 
-    @Override
-    public long getWatermark() {
-      return System.currentTimeMillis();
-    }
-  };
+        @Override
+        public long getWatermark() {
+          return System.currentTimeMillis();
+        }
+      };
 
   private final AttributeDescriptor<?> attr;
   private final UnaryFunction<String, String> keyExtractor;
   private final String hello;
 
-  public WebsocketReader(
-      EntityDescriptor entityDescriptor, URI uri, Map<String, Object> cfg) {
+  public WebsocketReader(EntityDescriptor entityDescriptor, URI uri, Map<String, Object> cfg) {
 
     super(entityDescriptor, uri);
     @SuppressWarnings("unchecked")
@@ -85,15 +84,19 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
       name = Iterables.getOnlyElement(entityDescriptor.getAllAttributes()).getName();
     }
     String attrName = name;
-    attr = entityDescriptor
-        .findAttribute(attrName)
-        .orElseThrow(() -> new IllegalStateException(
-            "Attribute " + attrName + " should be present in " + entityDescriptor));
+    attr =
+        entityDescriptor
+            .findAttribute(attrName)
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "Attribute " + attrName + " should be present in " + entityDescriptor));
     // FIXME: keyExtractor
     keyExtractor = m -> UUID.randomUUID().toString();
-    hello = Optional.ofNullable(cfg.get("hello"))
-        .map(Object::toString)
-        .orElseThrow(() -> new IllegalArgumentException("Missing 'hello' message"));
+    hello =
+        Optional.ofNullable(cfg.get("hello"))
+            .map(Object::toString)
+            .orElseThrow(() -> new IllegalArgumentException("Missing 'hello' message"));
   }
 
   @Override
@@ -103,48 +106,48 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   }
 
   @Override
-  public ObserveHandle observe(
-      String name, Position position, LogObserver observer) {
+  public ObserveHandle observe(String name, Position position, LogObserver observer) {
 
     checkSupportedPosition(position);
-    return observe(
-        element -> observer.onNext(element, nullContext()),
-        observer::onError);
+    return observe(element -> observer.onNext(element, nullContext()), observer::onError);
   }
 
-  private ObserveHandle observe(
-      Consumer<StreamElement> onNext,
-      Consumer<Throwable> onError) {
+  private ObserveHandle observe(Consumer<StreamElement> onNext, Consumer<Throwable> onError) {
 
-    WebSocketClient client = new WebSocketClient(getUri()) {
+    WebSocketClient client =
+        new WebSocketClient(getUri()) {
 
-      @Override
-      public void onOpen(ServerHandshake sh) {
-        send(hello);
-      }
+          @Override
+          public void onOpen(ServerHandshake sh) {
+            send(hello);
+          }
 
-      @Override
-      public void onMessage(String m) {
-        StreamElement elem = StreamElement.update(
-            getEntityDescriptor(), attr, UUID.randomUUID().toString(),
-            keyExtractor.apply(m), attr.getName(), System.currentTimeMillis(),
-            m.getBytes(StandardCharsets.UTF_8));
-        onNext.accept(elem);
-      }
+          @Override
+          public void onMessage(String m) {
+            StreamElement elem =
+                StreamElement.update(
+                    getEntityDescriptor(),
+                    attr,
+                    UUID.randomUUID().toString(),
+                    keyExtractor.apply(m),
+                    attr.getName(),
+                    System.currentTimeMillis(),
+                    m.getBytes(StandardCharsets.UTF_8));
+            onNext.accept(elem);
+          }
 
-      @Override
-      public void onClose(int code, String reason, boolean remote) {
-        if (remote) {
-          onError.accept(new RuntimeException("Server error: " + code + ": " + reason));
-        }
-      }
+          @Override
+          public void onClose(int code, String reason, boolean remote) {
+            if (remote) {
+              onError.accept(new RuntimeException("Server error: " + code + ": " + reason));
+            }
+          }
 
-      @Override
-      public void onError(Exception excptn) {
-        onError.accept(excptn);
-      }
-
-    };
+          @Override
+          public void onError(Exception excptn) {
+            onError.accept(excptn);
+          }
+        };
     client.connect();
     return new ObserveHandle() {
       @Override
@@ -176,13 +179,14 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
   @Override
   public ObserveHandle observePartitions(
-      String name, Collection<Partition> partitions, Position position,
-      boolean stopAtCurrent, LogObserver observer) {
+      String name,
+      Collection<Partition> partitions,
+      Position position,
+      boolean stopAtCurrent,
+      LogObserver observer) {
 
     checkSupportedPosition(position);
-    return observe(
-        element -> observer.onNext(element, nullContext()),
-        observer::onError);
+    return observe(element -> observer.onNext(element, nullContext()), observer::onError);
   }
 
   @Override
@@ -190,22 +194,22 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
       String name, Position position, boolean stopAtCurrent, LogObserver observer) {
 
     checkSupportedPosition(position);
-    return observe(
-        element -> observer.onNext(element, nullContext()),
-        observer::onError);
+    return observe(element -> observer.onNext(element, nullContext()), observer::onError);
   }
 
   @Override
   public ObserveHandle observeBulkPartitions(
-      String name, Collection<Partition> partitions, Position position,
-      boolean stopAtCurrent, LogObserver observer) {
+      String name,
+      Collection<Partition> partitions,
+      Position position,
+      boolean stopAtCurrent,
+      LogObserver observer) {
 
     return observeBulk(name, position, observer);
   }
 
   @Override
-  public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, LogObserver observer) {
+  public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
 
     return observeBulk(null, Position.NEWEST, observer);
   }
@@ -216,14 +220,12 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   }
 
   private OnNextContext nullContext() {
-    return asOnNextContext((succ, err) -> { }, OFFSET);
+    return asOnNextContext((succ, err) -> {}, OFFSET);
   }
 
   private void checkSupportedPosition(Position position) {
     if (position == Position.OLDEST) {
-      throw new UnsupportedOperationException(
-          "Cannot read OLDEST data from websocket");
+      throw new UnsupportedOperationException("Cannot read OLDEST data from websocket");
     }
   }
-
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,7 @@
  */
 package cz.o2.proxima.transform;
 
-/**
- * Rename {@code wildcard.*} to {@code _w.*}.
- */
+/** Rename {@code wildcard.*} to {@code _w.*}. */
 public class WildcardRename implements ProxyTransform {
 
   @Override
@@ -29,5 +27,4 @@ public class WildcardRename implements ProxyTransform {
   public String toProxy(String raw) {
     return "wildcard." + raw.substring(3);
   }
-
 }

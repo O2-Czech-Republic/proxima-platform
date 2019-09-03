@@ -1,5 +1,5 @@
 /**
- * Copyright 2017-2019 O2 Czech Republic, a.s.
+ * Copyright 2017-${Year} O2 Czech Republic, a.s.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,40 +28,35 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 
-/**
- * A factory CQL queries for data access.
- */
+/** A factory CQL queries for data access. */
 public interface CqlFactory extends Serializable {
 
-  /**
-   * Interface for iteration over returned results returning {@link KeyValue}s.
-   */
+  /** Interface for iteration over returned results returning {@link KeyValue}s. */
   interface KvIterable<T> {
     Iterable<KeyValue<T>> iterable(CassandraDBAccessor accessor);
   }
 
   /**
    * Setup the factory from URI and given string converter.
+   *
    * @param entity descriptor of entity
    * @param uri URI of the source
    * @param converter payload to string converter
    */
   void setup(EntityDescriptor entity, URI uri, StringConverter<?> converter);
 
-
   /**
    * Retrieve a CQL query to execute in order to ingest the request.
+   *
    * @param element input data
    * @param session current session
    * @return the statement to execute. When empty, the ingest is silently discarded.
    */
-  Optional<BoundStatement> getWriteStatement(
-      StreamElement element,
-      Session session);
-
+  Optional<BoundStatement> getWriteStatement(StreamElement element, Session session);
 
   /**
    * Retrieve a CQL query to execute in order to read data.
+   *
    * @param key the primary key whose attribute to return
    * @param attribute the attribute to fetch
    * @param desc descriptor of the attribute
@@ -69,13 +64,11 @@ public interface CqlFactory extends Serializable {
    * @return the statement to execute
    */
   BoundStatement getReadStatement(
-      String key,
-      String attribute,
-      AttributeDescriptor<?> desc,
-      Session session);
+      String key, String attribute, AttributeDescriptor<?> desc, Session session);
 
   /**
    * Retrieve wrapped statement to execute to list all attributes of given key.
+   *
    * @param key key to list attributes of
    * @param offset offset to start from (return next attribute)
    * @param limit maximum number of items to return
@@ -84,19 +77,15 @@ public interface CqlFactory extends Serializable {
    * @return iterable over keyvalues
    */
   <T> KvIterable<T> getListAllStatement(
-      String key,
-      @Nullable Offsets.Raw offset,
-      int limit,
-      Session session);
+      String key, @Nullable Offsets.Raw offset, int limit, Session session);
 
   /**
-   * Retrieve a CQL query to execute in order to list wildcard attributes.
-   * The prefix is name of wildcard attribute shortened by two last characters
-   * (.*).
+   * Retrieve a CQL query to execute in order to list wildcard attributes. The prefix is name of
+   * wildcard attribute shortened by two last characters (.*).
+   *
    * @param key the primary key value (first part of the composite key)
    * @param wildcard the wildcard attribute to list
-   * @param offset the offset to start from
-   *                 this might be null (start from beginning)
+   * @param offset the offset to start from this might be null (start from beginning)
    * @param limit maximal number of elements to list (-1 for all)
    * @param session the connection session
    * @return the statement to execute
@@ -108,42 +97,34 @@ public interface CqlFactory extends Serializable {
       int limit,
       Session session);
 
-
   /**
    * Get statement for listing entities.
+   *
    * @param offset offset of the query
    * @param limit maximal number of elements to list (-1 for all)
    * @param session connection session
    * @return the statement to execute
    */
   BoundStatement getListEntitiesStatement(
-      @Nullable Offsets.Token offset,
-      int limit,
-      Session session);
-
+      @Nullable Offsets.Token offset, int limit, Session session);
 
   /**
    * Retrieve a bound statement to fetch a token for given entity.
+   *
    * @param key key to fetch token for
    * @param session connection session
    * @return the statement to execute
    */
-  BoundStatement getFetchTokenStatement(
-      String key,
-      Session session);
-
+  BoundStatement getFetchTokenStatement(String key, Session session);
 
   /**
-   * Retrieve a bound statement to scan data for given attribute
-   * and partition.
+   * Retrieve a bound statement to scan data for given attribute and partition.
+   *
    * @param attributes list of attributes to scan
    * @param partition the partition to scan
    * @param session connection session
    * @return the statement to execute
    */
   Statement scanPartition(
-      List<AttributeDescriptor<?>> attributes,
-      CassandraPartition partition,
-      Session session);
-
+      List<AttributeDescriptor<?>> attributes, CassandraPartition partition, Session session);
 }

@@ -868,10 +868,14 @@ public class InMemStorage implements DataAccessorFactory {
       @Override
       public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
         Objects.requireNonNull(context);
-        reader.setExecutorFactory(() -> context.getExecutorService());
+        reader.setExecutorFactory(asExecutorFactory(context));
         return Optional.of(reader);
       }
     };
+  }
+
+  private static Factory<Executor> asExecutorFactory(Context context) {
+    return context::getExecutorService;
   }
 
   @SuppressWarnings("unchecked")

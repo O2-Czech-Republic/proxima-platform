@@ -50,6 +50,19 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DirectDataOperator implements DataOperator, ContextProvider {
 
+  private static Factory<ExecutorService> createExecutorFactory() {
+    final AtomicInteger threadId = new AtomicInteger();
+    return () ->
+        Executors.newCachedThreadPool(
+            r -> {
+              Thread t = new Thread(r);
+              t.setName(String.format("ProximaRepositoryPool-%d", threadId.incrementAndGet()));
+              t.setUncaughtExceptionHandler(
+                  (thr, exc) -> log.error("Error running task in thread {}", thr.getName(), exc));
+              return t;
+            });
+  }
+
   /** Repository. */
   private final Repository repo;
 
@@ -61,17 +74,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   private final Map<AttributeDescriptor<?>, OnlineAttributeWriter> writers =
       Collections.synchronizedMap(new HashMap<>());
 
-  private final AtomicInteger threadId = new AtomicInteger();
-  private Factory<ExecutorService> executorFactory =
-      () ->
-          Executors.newCachedThreadPool(
-              r -> {
-                Thread t = new Thread(r);
-                t.setName(String.format("ProximaRepositoryPool-%d", threadId.incrementAndGet()));
-                t.setUncaughtExceptionHandler(
-                    (thr, exc) -> log.error("Error running task in thread {}", thr.getName(), exc));
-                return t;
-              });
+  private Factory<ExecutorService> executorFactory = createExecutorFactory();
 
   private final Context context;
   private final DataAccessorLoader<DirectDataOperator, DataAccessor, DataAccessorFactory> loader;

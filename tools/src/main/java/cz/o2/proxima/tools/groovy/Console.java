@@ -51,11 +51,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import lombok.Getter;
@@ -118,7 +118,7 @@ public class Console {
   }
 
   final String[] args;
-  final BlockingQueue<Byte> input = new ArrayBlockingQueue<>(1000);
+  final BlockingQueue<Byte> input = new LinkedBlockingDeque<>();
   @Getter final Repository repo;
   final List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;

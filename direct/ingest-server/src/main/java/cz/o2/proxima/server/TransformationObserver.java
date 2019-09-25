@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.server;
 
-import static cz.o2.proxima.server.IngestServer.die;
 import static cz.o2.proxima.server.IngestServer.ingestRequest;
 
 import cz.o2.proxima.direct.commitlog.LogObserver;
@@ -46,7 +45,7 @@ public class TransformationObserver implements LogObserver {
 
   @Override
   public boolean onError(Throwable error) {
-    die(String.format("Failed to transform using %s. Bailing out.", transformation));
+    Utils.die(String.format("Failed to transform using %s. Bailing out.", transformation));
     return false;
   }
 

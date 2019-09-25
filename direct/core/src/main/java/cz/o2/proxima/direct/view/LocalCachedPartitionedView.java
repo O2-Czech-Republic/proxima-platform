@@ -83,7 +83,6 @@ public class LocalCachedPartitionedView implements CachedView {
     this.writer = Objects.requireNonNull(writer);
   }
 
-  @SuppressWarnings("unchecked")
   protected void onCache(StreamElement ingest, boolean overwrite) {
 
     final Optional<Object> parsed = ingest.isDelete() ? Optional.empty() : ingest.getParsed();

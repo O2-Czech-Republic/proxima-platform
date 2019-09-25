@@ -44,7 +44,7 @@ public class RetrieveServiceTest {
         new IngestServer(
             ConfigFactory.load("test-reference.conf").withFallback(ConfigFactory.load()).resolve());
     retrieve = new RetrieveService(server.repo, server.direct);
-    server.startConsumerThreads();
+    server.runReplications();
   }
 
   @Test

@@ -167,12 +167,14 @@ public class WatermarkEstimator implements WatermarkSupplier {
     if (now > lastRotate.get() + stepMs) {
       rotate(now, (int) ((now - lastRotate.get()) / stepMs));
     }
-    if (now - lastStatLogged.get() > 10000) {
-      log.info(
-          "Watermark delay stats: {} with allowedTimestampSkew {}",
-          Arrays.toString(stepDiffs),
-          allowedTimestampSkew);
-      lastStatLogged.set(now);
+    if (log.isDebugEnabled()) {
+      if (now - lastStatLogged.get() > 10000) {
+        log.debug(
+            "Watermark delay stats: {} with allowedTimestampSkew {}",
+            Arrays.toString(stepDiffs),
+            allowedTimestampSkew);
+        lastStatLogged.set(now);
+      }
     }
   }
 

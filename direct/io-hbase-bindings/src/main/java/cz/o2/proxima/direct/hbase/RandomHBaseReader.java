@@ -31,6 +31,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellScanner;
@@ -43,6 +44,7 @@ import org.apache.hadoop.hbase.filter.ColumnPrefixFilter;
 import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
 
 /** {@code RandomAccessReader} for HBase. */
+@Slf4j
 public class RandomHBaseReader extends HBaseClientWrapper implements RandomAccessReader {
 
   private static final String KEYS_SCANNER_CACHING = "hbase.list-keys.caching";

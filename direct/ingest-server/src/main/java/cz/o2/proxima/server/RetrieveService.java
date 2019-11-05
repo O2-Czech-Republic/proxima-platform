@@ -16,6 +16,7 @@
 package cz.o2.proxima.server;
 
 import com.google.protobuf.ByteString;
+import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.TextFormat;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -23,6 +24,7 @@ import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.Rpc;
+import cz.o2.proxima.proto.service.Rpc.ListResponse;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -63,7 +65,6 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
 
     try {
       Metrics.LIST_REQUESTS.increment();
-      log.info("Processing listAttributes {}", TextFormat.shortDebugString(request));
       if (request.getEntity().isEmpty()
           || request.getKey().isEmpty()
           || request.getWildcardPrefix().isEmpty()) {
@@ -102,21 +103,34 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
                         .setAttribute(kv.getAttribute())
                         .setValue(ByteString.copyFrom(kv.getValueBytes()))));
       }
-      responseObserver.onNext(response.build());
-      responseObserver.onCompleted();
+      replyLogged(responseObserver, request, response.build());
     } catch (Status s) {
-      responseObserver.onNext(
-          Rpc.ListResponse.newBuilder()
-              .setStatus(s.statusCode)
-              .setStatusMessage(s.message)
-              .build());
-      responseObserver.onCompleted();
+      replyStatusLogged(responseObserver, request, s.statusCode, s.message);
     } catch (Exception ex) {
       log.error("Failed to process request {}", request, ex);
-      responseObserver.onNext(
-          Rpc.ListResponse.newBuilder().setStatus(500).setStatusMessage(ex.getMessage()).build());
-      responseObserver.onCompleted();
+      replyStatusLogged(responseObserver, request, 500, ex.getMessage());
     }
+    responseObserver.onCompleted();
+  }
+
+  private static void replyStatusLogged(
+      StreamObserver<ListResponse> responseObserver,
+      MessageOrBuilder request,
+      int statusCode,
+      String message) {
+
+    replyLogged(
+        responseObserver,
+        request,
+        ListResponse.newBuilder().setStatus(statusCode).setStatusMessage(message).build());
+  }
+
+  private static void replyLogged(
+      StreamObserver<ListResponse> responseObserver,
+      MessageOrBuilder request,
+      ListResponse response) {
+    logStatus("listAttributes", request, response.getStatus(), response.getStatusMessage());
+    responseObserver.onNext(response);
   }
 
   @SuppressWarnings("unchecked")
@@ -124,7 +138,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
   public void get(Rpc.GetRequest request, StreamObserver<Rpc.GetResponse> responseObserver) {
 
     Metrics.GET_REQUESTS.increment();
-    log.info("Processing get {}", TextFormat.shortDebugString(request));
+
     try {
       if (request.getEntity().isEmpty()
           || request.getKey().isEmpty()
@@ -164,24 +178,24 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
                                 + request.getAttribute()
                                 + " not found"));
 
+        logStatus("get", request, 200, "OK");
         responseObserver.onNext(
             Rpc.GetResponse.newBuilder()
                 .setStatus(200)
                 .setValue(ByteString.copyFrom(kv.getValueBytes()))
                 .build());
       }
-
-      responseObserver.onCompleted();
     } catch (Status s) {
+      logStatus("get", request, s.statusCode, s.message);
       responseObserver.onNext(
           Rpc.GetResponse.newBuilder().setStatus(s.statusCode).setStatusMessage(s.message).build());
-      responseObserver.onCompleted();
     } catch (Exception ex) {
       log.error("Failed to process request {}", request, ex);
+      logStatus("get", request, 500, ex.getMessage());
       responseObserver.onNext(
           Rpc.GetResponse.newBuilder().setStatus(500).setStatusMessage(ex.getMessage()).build());
-      responseObserver.onCompleted();
     }
+    responseObserver.onCompleted();
   }
 
   private RandomAccessReader instantiateReader(AttributeDescriptor<?> attr) throws Status {
@@ -208,5 +222,9 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       }
       return reader;
     }
+  }
+
+  private static void logStatus(String name, MessageOrBuilder request, int status, String message) {
+    log.info("{} {}: {} {}", name, TextFormat.shortDebugString(request), status, message);
   }
 }

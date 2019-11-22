@@ -29,7 +29,7 @@ import org.apache.kafka.common.TopicPartition;
  * Consumer of stream elements. The callback may or might not be called depending on the consuming
  * mode (bulk or online).
  */
-interface ElementConsumer {
+interface ElementConsumer<K, V> {
 
   /**
    * Process the ingest element and return result of {@code onNext} call to the observer.
@@ -81,7 +81,7 @@ interface ElementConsumer {
    * @param consumer the consumer that actually reads data
    * @param offsets the assigned partitions
    */
-  void onAssign(KafkaConsumer<String, byte[]> consumer, List<TopicOffset> offsets);
+  void onAssign(KafkaConsumer<K, V> consumer, List<TopicOffset> offsets);
 
   /** Called before the processing actually starts. */
   void onStart();

@@ -42,7 +42,7 @@ import org.apache.kafka.common.TopicPartition;
 @Slf4j
 class Consumers {
 
-  private abstract static class ConsumerBase implements ElementConsumer {
+  private abstract static class ConsumerBase<K, V> implements ElementConsumer<K, V> {
 
     final Map<Integer, Long> committed = Collections.synchronizedMap(new HashMap<>());
     final Map<Integer, Long> processing = Collections.synchronizedMap(new HashMap<>());
@@ -64,7 +64,7 @@ class Consumers {
     }
 
     @Override
-    public void onAssign(KafkaConsumer<String, byte[]> consumer, List<TopicOffset> offsets) {
+    public void onAssign(KafkaConsumer<K, V> consumer, List<TopicOffset> offsets) {
 
       committed.clear();
       committed.putAll(
@@ -76,7 +76,7 @@ class Consumers {
     abstract LogObserver observer();
   }
 
-  static final class OnlineConsumer extends ConsumerBase {
+  static final class OnlineConsumer<K, V> extends ConsumerBase<K, V> {
 
     private final LogObserver observer;
     private final OffsetCommitter<TopicPartition> committer;
@@ -143,7 +143,7 @@ class Consumers {
     }
 
     @Override
-    public void onAssign(KafkaConsumer<String, byte[]> consumer, List<TopicOffset> offsets) {
+    public void onAssign(KafkaConsumer<K, V> consumer, List<TopicOffset> offsets) {
 
       super.onAssign(consumer, offsets);
       observer.onRepartition(
@@ -162,7 +162,7 @@ class Consumers {
     }
   }
 
-  static final class BulkConsumer extends ConsumerBase {
+  static final class BulkConsumer<K, V> extends ConsumerBase<K, V> {
 
     private final String topic;
     private final LogObserver observer;
@@ -244,7 +244,7 @@ class Consumers {
 
     @SuppressWarnings("unchecked")
     @Override
-    public void onAssign(KafkaConsumer<String, byte[]> consumer, List<TopicOffset> offsets) {
+    public void onAssign(KafkaConsumer<K, V> consumer, List<TopicOffset> offsets) {
 
       super.onAssign(consumer, offsets);
       observer.onRepartition(

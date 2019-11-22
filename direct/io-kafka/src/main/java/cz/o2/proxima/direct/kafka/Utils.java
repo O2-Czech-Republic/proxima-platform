@@ -40,7 +40,7 @@ class Utils {
   }
 
   static void seekToOffsets(
-      String topic, Collection<Offset> offsets, final KafkaConsumer<String, byte[]> consumer) {
+      String topic, Collection<Offset> offsets, final KafkaConsumer<?, ?> consumer) {
 
     // seek to given offsets
     offsets.forEach(

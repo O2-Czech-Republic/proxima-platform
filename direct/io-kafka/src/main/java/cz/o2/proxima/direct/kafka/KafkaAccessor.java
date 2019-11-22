@@ -20,6 +20,7 @@ import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
+import cz.o2.proxima.direct.kafka.KafkaStreamElement.KafkaStreamElementSerializer;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -31,6 +32,7 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +45,11 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   public static final String POLL_INTERVAL_CFG = "poll.interval";
   /** Partitioner class for entity key-attribute pair. */
   public static final String PARTITIONER_CLASS = "partitioner";
+  /**
+   * Class performing parsing from (String, byte[]) to StreamElement. This kas to implement {@link
+   * ElementSerializer} interface.
+   */
+  public static final String SERIALIZER_CLASS = "serializer-class";
   /** Maximal read speed in bytes per second. */
   public static final String MAX_BYTES_PER_SEC = "bytes-per-sec-max";
   /** Allowed timestamp skew between consumer and producer. */
@@ -82,6 +89,8 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Getter(AccessLevel.PACKAGE)
   private int maxPollRecords = 500;
+
+  @Nullable Class<ElementSerializer<?, ?>> serializerClass;
 
   public KafkaAccessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
@@ -130,6 +139,14 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
             .map(v -> Integer.valueOf(v.toString()))
             .orElse(maxPollRecords);
 
+    @SuppressWarnings("unchecked")
+    Class<ElementSerializer<?, ?>> serializer =
+        Optional.ofNullable(cfg.get(SERIALIZER_CLASS))
+            .map(Object::toString)
+            .map(c -> (Class) Classpath.findClass(c, ElementSerializer.class))
+            .orElse(KafkaStreamElementSerializer.class);
+    this.serializerClass = serializer;
+
     log.info(
         "Configured accessor with "
             + "consumerPollInterval {},"
@@ -138,6 +155,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
             + "timestampSkew {}, "
             + "emptyPolls {}, "
             + "maxPollRecords {}, "
+            + "serializerClass {},"
             + "for URI {}",
         consumerPollInterval,
         partitioner.getClass(),
@@ -145,6 +163,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
         timestampSkew,
         emptyPolls,
         maxPollRecords,
+        serializerClass,
         getUri());
   }
 
@@ -165,8 +184,10 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
    *
    * @return {@link KafkaConsumerFactory} for creating consumers
    */
-  public KafkaConsumerFactory createConsumerFactory() {
-    return new KafkaConsumerFactory(getUri(), createProps());
+  public <K, V> KafkaConsumerFactory<K, V> createConsumerFactory() {
+    ElementSerializer<K, V> serializer = getSerializer();
+    return new KafkaConsumerFactory<>(
+        getUri(), createProps(), serializer.keySerde(), serializer.valueSerde());
   }
 
   @Override
@@ -191,5 +212,19 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   KafkaLogReader newReader(Context context) {
     return new KafkaLogReader(this, context);
+  }
+
+  /**
+   * Retrieve {@link ElementSerializer}.
+   *
+   * @param <K> the key type
+   * @param <V> the value type
+   * @return the {@link ElementSerializer}.
+   */
+  @SuppressWarnings("unchecked")
+  public <K, V> ElementSerializer<K, V> getSerializer() {
+    ElementSerializer<K, V> res = (ElementSerializer<K, V>) Classpath.newInstance(serializerClass);
+    res.setup(getEntityDescriptor());
+    return res;
   }
 }

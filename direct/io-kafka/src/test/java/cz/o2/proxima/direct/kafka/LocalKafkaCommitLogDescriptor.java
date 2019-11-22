@@ -99,10 +99,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         return false;
       }
       final ConsumerId other = (ConsumerId) obj;
-      if (this.id != other.id || !Objects.equals(this.name, other.name)) {
-        return false;
-      }
-      return true;
+      return this.id == other.id && Objects.equals(this.name, other.name);
     }
 
     @Override

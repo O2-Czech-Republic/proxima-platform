@@ -23,8 +23,9 @@ public interface RepositoryFactory extends Serializable {
 
   public static class Caching implements RepositoryFactory {
 
-    private final RepositoryFactory underlying;
     private static Repository repo;
+
+    private final RepositoryFactory underlying;
 
     private Caching(RepositoryFactory underlying) {
       this.underlying = underlying;
@@ -36,6 +37,10 @@ public interface RepositoryFactory extends Serializable {
         repo = underlying.apply();
       }
       return repo;
+    }
+
+    void drop() {
+      repo = null;
     }
   }
 

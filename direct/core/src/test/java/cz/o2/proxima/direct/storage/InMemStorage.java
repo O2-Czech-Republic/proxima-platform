@@ -814,6 +814,7 @@ public class InMemStorage implements DataAccessorFactory {
     // simultaneously, as that would imply we are working with
     // two repositories, which is not supported
     holder.clear();
+    log.info("Created new empty {}", getClass().getName());
   }
 
   public NavigableMap<String, Pair<Long, byte[]>> getData() {

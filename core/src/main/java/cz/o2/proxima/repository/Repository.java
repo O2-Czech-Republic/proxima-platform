@@ -197,4 +197,9 @@ public abstract class Repository {
    * @param op the operator that was created
    */
   protected void addedDataOperator(DataOperator op) {}
+
+  /** Discard any cached {@link Repository}. */
+  public void discard() {
+    ((RepositoryFactory.Caching) asFactory()).drop();
+  }
 }

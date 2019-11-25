@@ -19,6 +19,7 @@ import cz.o2.proxima.direct.core.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Partitioner;
+import cz.o2.proxima.util.Pair;
 import java.util.Properties;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -35,6 +36,7 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
   @Getter final KafkaAccessor accessor;
   private final Partitioner partitioner;
   private final String topic;
+  private final ElementSerializer<?, ?> serializer;
 
   @Nullable private transient KafkaProducer<String, byte[]> producer;
 
@@ -43,6 +45,7 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
     this.accessor = accessor;
     this.partitioner = accessor.getPartitioner();
     this.topic = accessor.getTopic();
+    this.serializer = accessor.getSerializer();
   }
 
   @Override
@@ -55,13 +58,11 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
       int partition =
           (partitioner.getPartitionId(data) & Integer.MAX_VALUE)
               % producer.partitionsFor(topic).size();
+
+      Pair<?, ?> output = serializer.write(data);
       producer.send(
           new ProducerRecord(
-              topic,
-              partition,
-              data.getStamp(),
-              data.getKey() + "#" + data.getAttribute(),
-              data.getValue()),
+              topic, partition, data.getStamp(), output.getFirst(), output.getSecond()),
           (metadata, exception) -> {
             log.debug(
                 "Written {} to topic {} offset {} and partition {}",

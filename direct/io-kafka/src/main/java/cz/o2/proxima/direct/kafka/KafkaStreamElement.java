@@ -18,10 +18,68 @@ package cz.o2.proxima.direct.kafka;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.Pair;
+import java.util.Optional;
+import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.common.serialization.Serde;
+import org.apache.kafka.common.serialization.Serdes;
 
 /** Data read from a kafka partition. */
+@Slf4j
 public class KafkaStreamElement extends StreamElement {
+
+  public static class KafkaStreamElementSerializer implements ElementSerializer<String, byte[]> {
+
+    @Nullable
+    @Override
+    public StreamElement read(ConsumerRecord<String, byte[]> record, EntityDescriptor entityDesc) {
+      String key = record.key();
+      byte[] value = record.value();
+      // in kafka, each entity attribute is separated by `#' from entity key
+      int hashPos = key.lastIndexOf('#');
+      if (hashPos < 0 || hashPos >= key.length()) {
+        log.error("Invalid key in kafka topic: {}", key);
+      } else {
+        String entityKey = key.substring(0, hashPos);
+        String attribute = key.substring(hashPos + 1);
+        Optional<AttributeDescriptor<Object>> attr =
+            entityDesc.findAttribute(attribute, true /* allow reading protected */);
+        if (!attr.isPresent()) {
+          log.error("Invalid attribute {} in kafka key {}", attribute, key);
+        } else {
+          return new KafkaStreamElement(
+              entityDesc,
+              attr.get(),
+              String.valueOf(record.topic() + "#" + record.partition() + "#" + record.offset()),
+              entityKey,
+              attribute,
+              record.timestamp(),
+              value,
+              record.partition(),
+              record.offset());
+        }
+      }
+      return null;
+    }
+
+    @Override
+    public Pair<String, byte[]> write(StreamElement data) {
+      return Pair.of(data.getKey() + "#" + data.getAttribute(), data.getValue());
+    }
+
+    @Override
+    public Serde<String> keySerde() {
+      return Serdes.String();
+    }
+
+    @Override
+    public Serde<byte[]> valueSerde() {
+      return Serdes.ByteArray();
+    }
+  }
 
   @Getter private final int partition;
   @Getter private final long offset;

@@ -29,6 +29,7 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -45,6 +46,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nullable;
@@ -113,8 +115,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
   public static class Accessor extends KafkaAccessor {
 
-    final int descriptorId;
-    final int numPartitions;
+    int descriptorId;
+    int numPartitions = 1;
 
     // list of consumers by name with assigned partitions
     transient Map<String, ConsumerGroup> consumerGroups;
@@ -124,6 +126,17 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     transient Map<ConsumerId, List<Pair<Integer, AtomicInteger>>> consumerOffsets;
     // (consumer name, partition id) -> committed offset
     transient Map<Pair<String, Integer>, AtomicInteger> committedOffsets;
+
+    Accessor(Accessor copy, Map<String, Object> cfg) {
+      super(copy.getEntityDescriptor(), copy.getUri(), cfg);
+      this.descriptorId = copy.descriptorId;
+      this.numPartitions = copy.numPartitions;
+      this.consumerGroups = copy.consumerGroups;
+      this.written = copy.written;
+      this.consumerOffsets = copy.consumerOffsets;
+      this.committedOffsets = copy.committedOffsets;
+      configure(copy.getUri(), cfg);
+    }
 
     public Accessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg, int descriptorId) {
 
@@ -135,43 +148,58 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       this.consumerGroups = Collections.synchronizedMap(new HashMap<>());
       this.committedOffsets = Collections.synchronizedMap(new HashMap<>());
 
+      configure(uri, cfg);
+    }
+
+    private void configure(URI uri, Map<String, Object> cfg) {
       numPartitions =
           Optional.ofNullable(cfg.get(CFG_NUM_PARTITIONS))
               .filter(o -> o != null)
               .map(o -> Integer.valueOf(o.toString()))
-              .orElse(1);
+              .orElse(numPartitions);
 
       for (int i = 0; i < numPartitions; i++) {
         written.add(Collections.synchronizedList(new ArrayList<>()));
       }
 
+      @SuppressWarnings("unchecked")
+      Class<ElementSerializer<?, ?>> cls =
+          Optional.ofNullable(cfg.get(KafkaAccessor.SERIALIZER_CLASS))
+              .map(Object::toString)
+              .map(c -> (Class) Classpath.findClass(c, ElementSerializer.class))
+              .orElse(serializerClass);
+
+      serializerClass = cls;
+
       log.info("Created accessor with URI {} and {} partitions", uri, numPartitions);
     }
 
     @Override
-    public KafkaConsumerFactory createConsumerFactory() {
+    public <K, V> KafkaConsumerFactory<K, V> createConsumerFactory() {
 
-      return new KafkaConsumerFactory(getUri(), new Properties()) {
+      ElementSerializer<K, V> serializer = getSerializer();
+      return new KafkaConsumerFactory<K, V>(
+          getUri(), new Properties(), serializer.keySerde(), serializer.valueSerde()) {
 
         @Override
-        public KafkaConsumer<String, byte[]> create() {
+        public KafkaConsumer<K, V> create() {
           return create(allPartitions());
         }
 
         @Override
-        public KafkaConsumer<String, byte[]> create(Collection<Partition> partitions) {
+        public KafkaConsumer<K, V> create(Collection<Partition> partitions) {
           String name = "unnamed-consumer-" + UUID.randomUUID().toString();
           ConsumerGroup group = new ConsumerGroup(name, getTopic(), numPartitions);
-          return mockKafkaConsumer(name, group, partitions, null);
+          return mockKafkaConsumer(name, group, serializer, partitions, null);
         }
 
         @Override
-        public KafkaConsumer<String, byte[]> create(String name) {
+        public KafkaConsumer<K, V> create(String name) {
           return create(name, null);
         }
 
         @Override
-        public KafkaConsumer<String, byte[]> create(
+        public KafkaConsumer<K, V> create(
             String name, @Nullable ConsumerRebalanceListener listener) {
 
           synchronized (LocalKafkaCommitLogDescriptor.class) {
@@ -181,7 +209,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
               consumerGroups.put(name, group);
             }
 
-            return mockKafkaConsumer(name, group, null, listener);
+            return mockKafkaConsumer(name, group, serializer, null, listener);
           }
         }
 
@@ -196,15 +224,12 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       };
     }
 
-    /**
-     * Mock kafka consumer consuming from specified partitions.
-     *
-     * @param id ID of the consumer in the associated consumer group
-     */
+    /** Mock kafka consumer consuming from specified partitions. */
     @SuppressWarnings("unchecked")
-    KafkaConsumer<String, byte[]> mockKafkaConsumer(
+    <K, V> KafkaConsumer<K, V> mockKafkaConsumer(
         String name,
         ConsumerGroup group,
+        ElementSerializer<K, V> serializer,
         @Nullable Collection<Partition> assignedPartitions,
         @Nullable ConsumerRebalanceListener listener) {
 
@@ -213,7 +238,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           name,
           committedOffsets);
 
-      KafkaConsumer<String, byte[]> mock = mock(KafkaConsumer.class);
+      KafkaConsumer<K, V> mock = mock(KafkaConsumer.class);
 
       int assignedId =
           assignedPartitions != null ? group.add(assignedPartitions) : group.add(listener);
@@ -234,7 +259,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       doAnswer(
               invocation -> {
                 long sleep = (long) invocation.getArguments()[0];
-                return pollConsumer(group, sleep, consumerId, listener);
+                return pollConsumer(group, sleep, consumerId, serializer, listener);
               })
           .when(mock)
           .poll(anyLong());
@@ -417,10 +442,11 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       return ends;
     }
 
-    private ConsumerRecords<String, byte[]> pollConsumer(
+    private <K, V> ConsumerRecords<K, V> pollConsumer(
         ConsumerGroup group,
         long period,
         ConsumerId consumerId,
+        ElementSerializer<K, V> serializer,
         @Nullable ConsumerRebalanceListener listener)
         throws InterruptedException {
 
@@ -444,7 +470,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       log.debug("Sleeping {} ms before attempting to poll", period);
       Thread.sleep(period);
 
-      Map<TopicPartition, List<ConsumerRecord<String, byte[]>>> map;
+      Map<TopicPartition, List<ConsumerRecord<K, V>>> map;
       map = new HashMap<>();
       Collection<Partition> assignment = group.getAssignment(consumerId.getId());
       List<Pair<Integer, AtomicInteger>> offsets = consumerOffsets.get(consumerId);
@@ -462,7 +488,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         int partition = part.getId();
         List<StreamElement> partitionData = written.get(partition);
         int last = partitionData.size();
-        List<ConsumerRecord<String, byte[]>> records = new ArrayList<>();
+        List<ConsumerRecord<K, V>> records = new ArrayList<>();
         int off =
             offsets
                 .stream()
@@ -474,7 +500,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
         while (off < last && maxToPoll-- > 0) {
           if (off >= 0) {
-            records.add(toConsumerRecord(partitionData.get(off), part.getId(), off));
+            records.add(toConsumerRecord(partitionData.get(off), serializer, part.getId(), off));
           }
           off++;
         }
@@ -505,11 +531,16 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       return new ConsumerRecords<>(map);
     }
 
-    private ConsumerRecord<String, byte[]> toConsumerRecord(
-        StreamElement ingest, int partitionId, int offset) {
+    private <K, V> ConsumerRecord<K, V> toConsumerRecord(
+        StreamElement ingest, ElementSerializer<K, V> serializer, int partitionId, int offset) {
 
-      final String key = ingest.getKey() + "#" + ingest.getAttribute();
-      final byte[] value = ingest.getValue();
+      Pair<K, V> elem = serializer.write(ingest);
+      int keyLength =
+          serializer.keySerde().serializer().serialize(getTopic(), elem.getFirst()).length;
+      int valueLength =
+          ingest.isDelete()
+              ? 0
+              : serializer.valueSerde().serializer().serialize(getTopic(), elem.getSecond()).length;
 
       return new ConsumerRecord<>(
           getTopic(),
@@ -518,10 +549,10 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           ingest.getStamp(),
           TimestampType.CREATE_TIME,
           0L,
-          key.length(),
-          value != null ? value.length : 0,
-          key,
-          value);
+          keyLength,
+          valueLength,
+          elem.getFirst(),
+          elem.getSecond());
     }
 
     public boolean allConsumed() {
@@ -586,7 +617,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   @Slf4j
   public static class LocalKafkaLogReader extends KafkaLogReader {
 
-    private KafkaConsumer<String, byte[]> consumer = null;
+    private KafkaConsumer<Object, Object> consumer = null;
 
     public LocalKafkaLogReader(KafkaAccessor accessor, Context context) {
       super(accessor, context);
@@ -647,12 +678,12 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     @VisibleForTesting
-    KafkaConsumer<String, byte[]> getConsumer() {
+    KafkaConsumer<Object, Object> getConsumer() {
       return Objects.requireNonNull(consumer);
     }
 
     @Override
-    KafkaConsumer<String, byte[]> createConsumer(
+    KafkaConsumer<Object, Object> createConsumer(
         String name,
         Collection<Offset> offsets,
         ConsumerRebalanceListener listener,
@@ -701,9 +732,15 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   }
 
   private final int id = System.identityHashCode(this);
+  private final Function<Accessor, Accessor> accessorModifier;
 
   public LocalKafkaCommitLogDescriptor() {
+    this(Function.identity());
+  }
+
+  public LocalKafkaCommitLogDescriptor(Function<Accessor, Accessor> accessorModifier) {
     ACCESSORS.put(id, Collections.synchronizedMap(new HashMap<>()));
+    this.accessorModifier = accessorModifier;
   }
 
   @Override
@@ -711,7 +748,12 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
     Map<URI, Accessor> accessorsForId = ACCESSORS.get(id);
-    return accessorsForId.computeIfAbsent(uri, u -> new Accessor(entityDesc, u, cfg, id));
+    return accessorsForId.computeIfAbsent(
+        uri,
+        u -> {
+          Accessor newAccessor = new Accessor(entityDesc, u, cfg, id);
+          return accessorModifier.apply(newAccessor);
+        });
   }
 
   @Override

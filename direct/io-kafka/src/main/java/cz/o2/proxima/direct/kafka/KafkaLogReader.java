@@ -26,8 +26,8 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.kafka.Consumers.BulkConsumer;
 import cz.o2.proxima.direct.kafka.Consumers.OnlineConsumer;
 import cz.o2.proxima.functional.BiConsumer;
-import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.VectorClock;
 import java.util.ArrayList;
@@ -137,7 +137,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   @Override
   public List<Partition> getPartitions() {
     final List<PartitionInfo> partitions;
-    try (KafkaConsumer<String, byte[]> consumer = createConsumer()) {
+    try (KafkaConsumer<Object, Object> consumer = createConsumer()) {
       partitions = consumer.partitionsFor(topic);
     }
     return partitions
@@ -232,7 +232,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
     final OffsetCommitter<TopicPartition> offsetCommitter = new OffsetCommitter<>();
 
-    BiConsumer<TopicPartition, ConsumerRecord<String, byte[]>> preWrite =
+    BiConsumer<TopicPartition, ConsumerRecord<Object, Object>> preWrite =
         (tp, r) ->
             offsetCommitter.register(
                 tp,
@@ -245,8 +245,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                   }
                 });
 
-    OnlineConsumer onlineConsumer =
-        new OnlineConsumer(
+    OnlineConsumer<Object, Object> onlineConsumer =
+        new OnlineConsumer<>(
             observer,
             offsetCommitter,
             () -> {
@@ -290,8 +290,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     Map<TopicPartition, OffsetAndMetadata> kafkaCommitMap;
     kafkaCommitMap = Collections.synchronizedMap(new HashMap<>());
 
-    final BulkConsumer bulkConsumer =
-        new BulkConsumer(
+    @SuppressWarnings("unchecked")
+    final BulkConsumer<Object, Object> bulkConsumer =
+        new BulkConsumer<>(
             topic,
             observer,
             (tp, o) -> {
@@ -320,8 +321,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       final @Nullable Collection<Offset> offsets,
       final Position position,
       boolean stopAtCurrent,
-      final BiConsumer<TopicPartition, ConsumerRecord<String, byte[]>> preWrite,
-      final ElementConsumer consumer,
+      final BiConsumer<TopicPartition, ConsumerRecord<Object, Object>> preWrite,
+      final ElementConsumer<Object, Object> consumer,
       final ExecutorService executor,
       final AtomicReference<ObserveHandle> handle)
       throws InterruptedException {
@@ -333,7 +334,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     executor.submit(
         () -> {
           handle.set(createObserveHandle(completed, seekOffsets, consumer, latch));
-          final AtomicReference<KafkaConsumer<String, byte[]>> consumerRef;
+          final AtomicReference<KafkaConsumer<Object, Object>> consumerRef;
           final AtomicReference<VectorClock> clock = new AtomicReference<>();
           final Map<Integer, Integer> partitionToClockDimension = new ConcurrentHashMap<>();
           final Map<Integer, Integer> emptyPollCount = new ConcurrentHashMap<>();
@@ -342,8 +343,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           ConsumerRebalanceListener listener =
               listener(
                   name, consumerRef, consumer, clock, partitionToClockDimension, emptyPollCount);
+          final ElementSerializer<Object, Object> serializer = accessor.getSerializer();
 
-          try (KafkaConsumer<String, byte[]> kafka =
+          try (KafkaConsumer<Object, Object> kafka =
               createConsumer(name, offsets, name != null ? listener : null, position)) {
 
             consumerRef.set(kafka);
@@ -353,7 +355,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
             // we need to poll first to initialize kafka assignments and
             // rebalance listener
-            ConsumerRecords<String, byte[]> poll = kafka.poll(consumerPollInterval);
+            ConsumerRecords<Object, Object> poll = kafka.poll(consumerPollInterval);
 
             if (offsets != null) {
               // when manual offsets are assigned, we need to ensure calling
@@ -418,43 +420,17 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 // increase all partition's empty poll counter by 1
                 emptyPollCount.replaceAll((k, v) -> v + 1);
               }
-              for (ConsumerRecord<String, byte[]> r : poll) {
+              for (ConsumerRecord<Object, Object> r : poll) {
                 bytesPolled += r.serializedKeySize() + r.serializedValueSize();
-                String key = r.key();
-                byte[] value = r.value();
                 TopicPartition tp = new TopicPartition(r.topic(), r.partition());
                 emptyPollCount.put(tp.partition(), 0);
                 preWrite.accept(tp, r);
-                // in kafka, each entity attribute is separated by `#' from entity key
-                int hashPos = key.lastIndexOf('#');
-                KafkaStreamElement ingest = null;
-                if (hashPos < 0 || hashPos >= key.length()) {
-                  log.error("Invalid key in kafka topic: {}", key);
-                } else {
-                  String entityKey = key.substring(0, hashPos);
-                  String attribute = key.substring(hashPos + 1);
-                  Optional<AttributeDescriptor<Object>> attr =
-                      getEntityDescriptor()
-                          .findAttribute(attribute, true /* allow reading protected */);
-                  if (!attr.isPresent()) {
-                    log.error("Invalid attribute {} in kafka key {}", attribute, key);
-                  } else {
-                    ingest =
-                        new KafkaStreamElement(
-                            getEntityDescriptor(),
-                            attr.get(),
-                            String.valueOf(r.topic() + "#" + r.partition() + "#" + r.offset()),
-                            entityKey,
-                            attribute,
-                            r.timestamp(),
-                            value,
-                            r.partition(),
-                            r.offset());
-                    // move watermark
-                    clock
-                        .get()
-                        .update(partitionToClockDimension.get(tp.partition()), ingest.getStamp());
-                  }
+                StreamElement ingest = serializer.read(r, getEntityDescriptor());
+                if (ingest != null) {
+                  // move watermark
+                  clock
+                      .get()
+                      .update(partitionToClockDimension.get(tp.partition()), ingest.getStamp());
                 }
                 boolean cont =
                     consumer.consumeWithConfirm(ingest, tp, r.offset(), clock.get(), error::set);
@@ -533,7 +509,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     }
   }
 
-  private void flushCommits(final KafkaConsumer<String, byte[]> kafka, ElementConsumer consumer) {
+  private void flushCommits(
+      final KafkaConsumer<Object, Object> kafka, ElementConsumer<?, ?> consumer) {
 
     Map<TopicPartition, OffsetAndMetadata> commitMapClone;
     commitMapClone = consumer.prepareOffsetsForCommit();
@@ -594,7 +571,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   }
 
   private Map<TopicPartition, Long> findNonEmptyEndOffsets(
-      final KafkaConsumer<String, byte[]> kafka) {
+      final KafkaConsumer<Object, Object> kafka) {
 
     Set<TopicPartition> assignment = kafka.assignment();
     Map<TopicPartition, Long> beginning;
@@ -608,14 +585,14 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  private KafkaConsumer<String, byte[]> createConsumer() {
+  private KafkaConsumer<Object, Object> createConsumer() {
     return createConsumer(UUID.randomUUID().toString(), null, null, Position.NEWEST);
   }
 
   /** Create kafka consumer for the data. */
   @VisibleForTesting
   @SuppressWarnings("unchecked")
-  KafkaConsumer<String, byte[]> createConsumer(
+  KafkaConsumer<Object, Object> createConsumer(
       @Nullable String name,
       @Nullable Collection<Offset> offsets,
       @Nullable ConsumerRebalanceListener listener,
@@ -625,7 +602,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         name != null || listener == null,
         "Please use either named group (with listener) or offsets without listener");
     KafkaConsumerFactory factory = accessor.createConsumerFactory();
-    final KafkaConsumer<String, byte[]> consumer;
+    final KafkaConsumer<Object, Object> consumer;
 
     if ("".equals(name)) {
       throw new IllegalArgumentException("Consumer group cannot be empty string");
@@ -715,8 +692,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   // create rebalance listener from consumer
   private ConsumerRebalanceListener listener(
       String name,
-      AtomicReference<KafkaConsumer<String, byte[]>> kafka,
-      ElementConsumer consumer,
+      AtomicReference<KafkaConsumer<Object, Object>> kafka,
+      ElementConsumer<Object, Object> consumer,
       AtomicReference<VectorClock> clock,
       Map<Integer, Integer> partitionToClockDimension,
       Map<Integer, Integer> emptyPollCount) {

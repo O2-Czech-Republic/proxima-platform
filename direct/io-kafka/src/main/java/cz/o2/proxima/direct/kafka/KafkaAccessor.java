@@ -32,7 +32,6 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -90,7 +89,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   @Getter(AccessLevel.PACKAGE)
   private int maxPollRecords = 500;
 
-  @Nullable Class<ElementSerializer<?, ?>> serializerClass;
+  Class<ElementSerializer<?, ?>> serializerClass;
 
   public KafkaAccessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 

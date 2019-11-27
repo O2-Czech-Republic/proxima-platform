@@ -145,6 +145,7 @@ public class LocalCachedPartitionedView implements CachedView {
             latch.countDown();
           }
         };
+
     LogObserver observer =
         new LogObserver() {
 

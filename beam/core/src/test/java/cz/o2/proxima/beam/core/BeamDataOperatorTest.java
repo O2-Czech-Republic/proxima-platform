@@ -30,6 +30,7 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
 import org.apache.beam.sdk.testing.PAssert;
+import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Sessions;
@@ -114,7 +115,8 @@ public class BeamDataOperatorTest {
         CountByKey.of(stream)
             .keyBy(e -> "", TypeDescriptors.strings())
             .windowBy(FixedWindows.of(Duration.millis(1000)))
-            .triggeredBy(AfterWatermark.pastEndOfWindow())
+            .triggeredBy(
+                AfterWatermark.pastEndOfWindow().withLateFirings(AfterPane.elementCountAtLeast(1)))
             .discardingFiredPanes()
             .withAllowedLateness(Duration.ZERO)
             .output();
@@ -147,7 +149,8 @@ public class BeamDataOperatorTest {
         CountByKey.of(stream)
             .keyBy(e -> "", TypeDescriptors.strings())
             .windowBy(FixedWindows.of(Duration.millis(1000)))
-            .triggeredBy(AfterWatermark.pastEndOfWindow())
+            .triggeredBy(
+                AfterWatermark.pastEndOfWindow().withLateFirings(AfterPane.elementCountAtLeast(1)))
             .discardingFiredPanes()
             .withAllowedLateness(Duration.millis(10000))
             .output();
@@ -245,7 +248,8 @@ public class BeamDataOperatorTest {
         CountByKey.of(input.apply())
             .keyBy(e -> "", TypeDescriptors.strings())
             .windowBy(Sessions.withGapDuration(Duration.millis(1000)))
-            .triggeredBy(AfterWatermark.pastEndOfWindow())
+            .triggeredBy(
+                AfterWatermark.pastEndOfWindow().withLateFirings(AfterPane.elementCountAtLeast(1)))
             .discardingFiredPanes()
             .withAllowedLateness(Duration.millis(10000))
             .output();

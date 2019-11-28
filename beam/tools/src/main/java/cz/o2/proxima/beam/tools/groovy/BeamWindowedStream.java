@@ -45,6 +45,7 @@ import org.apache.beam.sdk.transforms.Combine;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
@@ -630,7 +631,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
             AfterWatermark.pastEndOfWindow()
                 .withEarlyFirings(
                     AfterProcessingTime.pastFirstElementInPane()
-                        .plusDelayOf(Duration.millis(duration))));
+                        .plusDelayOf(Duration.millis(duration)))
+                .withLateFirings(AfterPane.elementCountAtLeast(1)));
     return this;
   }
 

@@ -22,7 +22,7 @@
 
   <groupId>cz.o2.proxima</groupId>
   <artifactId>platform-parent</artifactId>
-  <version>0.3.0-rc1-SNAPSHOT</version>
+  <version>0.3.0-rc1</version>
   <packaging>pom</packaging>
   <inceptionYear>2017</inceptionYear>
 
@@ -98,6 +98,11 @@
   <profiles>
     <profile>
       <id>release</id>
+      <properties>
+        <!-- workaround of duplicate key: META-INF/services error -->
+        <!-- works only locally, not to be used on any CI machine -->
+        <maven.shade.version>3.2.2-SNAPSHOT</maven.shade.version>
+      </properties>
       <build>
         <plugins>
           <plugin>
@@ -409,6 +414,24 @@
             <artifactId>protobuf-lite</artifactId>
           </exclusion>
         </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-core</artifactId>
+        <version>${grpc.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-protobuf</artifactId>
+        <version>${grpc.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>io.grpc</groupId>
+        <artifactId>grpc-stub</artifactId>
+        <version>${grpc.version}</version>
       </dependency>
 
       <dependency>

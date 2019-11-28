@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>proxima-beam</artifactId>
-    <version>0.3.0-rc1-SNAPSHOT</version>
+    <version>0.3.0-rc1</version>
   </parent>
 
   <artifactId>proxima-beam-tools</artifactId>
@@ -86,22 +86,22 @@
     </dependency>
 
     <dependency>
-      <groupId>org.apache.beam</groupId>
+      <groupId>${apache.beam.groupId}</groupId>
       <artifactId>beam-sdks-java-core</artifactId>
     </dependency>
 
     <dependency>
-      <groupId>org.apache.beam</groupId>
+      <groupId>${apache.beam.groupId}</groupId>
       <artifactId>beam-sdks-java-extensions-euphoria</artifactId>
     </dependency>
 
     <dependency>
-      <groupId>org.apache.beam</groupId>
+      <groupId>${apache.beam.groupId}</groupId>
       <artifactId>beam-sdks-java-extensions-kryo</artifactId>
     </dependency>
 
     <dependency>
-      <groupId>org.apache.beam</groupId>
+      <groupId>${apache.beam.groupId}</groupId>
       <artifactId>beam-runners-direct-java</artifactId>
       <scope>provided</scope>
     </dependency>
@@ -148,7 +148,7 @@
     </dependency>
 
     <dependency> 
-      <groupId>org.apache.beam</groupId> 
+      <groupId>${apache.beam.groupId}</groupId> 
       <artifactId>beam-runners-flink-1.8</artifactId>
     </dependency> 
 

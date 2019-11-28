@@ -22,42 +22,28 @@
 
   <parent>
     <groupId>cz.o2.proxima</groupId>
-    <artifactId>proxima-direct</artifactId>
+    <artifactId>proxima-beam</artifactId>
     <version>0.3.0-rc1</version>
   </parent>
-     
-  <artifactId>proxima-direct-io-hbase-bindings</artifactId>
-  <packaging>jar</packaging>
-     
+
+  <groupId>cz.o2.proxima.beam</groupId>
+  <artifactId>proxima-beam-vendor</artifactId>
+  <packaging>pom</packaging>
+
   <name>${project.groupId}:${project.artifactId}</name>
 
-  <dependencies>
+  <description>Proxima platform's Apache Beam vendored modules.</description>
 
-    <dependency>
-      <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-direct-core</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.projectlombok</groupId>
-      <artifactId>lombok</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.hbase</groupId>
-      <artifactId>hbase-client</artifactId>
-      <version>${hbase.version}</version>
-      <scope>provided</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>jdk.tools</groupId>
-          <artifactId>jdk.tools</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-  </dependencies>
+  <modules>
+    <module>beam-runners-direct-java</module>
+    <module>beam-runners-flink-1.8</module>
+    <module>beam-sdks-java-core</module>
+    <module>beam-sdks-java-extensions-euphoria</module>
+    <module>beam-sdks-java-extensions-kryo</module>
+    <module>beam-sdks-java-io-google-cloud-platform</module>
+    <module>beam-sdks-java-io-kafka</module>
+    
+  </modules>
 
 </project>
 

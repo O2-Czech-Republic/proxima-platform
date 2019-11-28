@@ -21,47 +21,35 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>cz.o2.proxima.example</groupId>
-    <artifactId>example-parent</artifactId>
+    <groupId>cz.o2.proxima.beam</groupId>
+    <artifactId>proxima-beam-vendor</artifactId>
     <version>0.3.0-rc1</version>
   </parent>
-     
-  <artifactId>example-proto</artifactId>
+
+  <artifactId>beam-sdks-java-extensions-kryo</artifactId>
   <packaging>jar</packaging>
-     
+
   <name>${project.groupId}:${project.artifactId}</name>
 
-  <properties>
-    <sonar.jacoco.reportPaths>${project.basedir}/../../target/jacoco.exec</sonar.jacoco.reportPaths>
-  </properties>
-
   <build>
-    <extensions>
-      <extension>
-        <groupId>kr.motd.maven</groupId>
-        <artifactId>os-maven-plugin</artifactId>
-        <version>1.4.1.Final</version>
-      </extension>
-    </extensions>
-
     <plugins>
-
-      <!-- compile protobuffers -->
       <plugin>
-        <groupId>org.xolstice.maven.plugins</groupId>
-        <artifactId>protobuf-maven-plugin</artifactId>
-        <version>0.5.0</version>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>${maven.shade.version}</version>
         <configuration>
-          <protocArtifact>com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}</protocArtifact>
-          <pluginId>grpc-java</pluginId>
-          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                <resource>reference.conf</resource>
+            </transformer>
+          </transformers>
         </configuration>
         <executions>
           <execution>
+            <phase>package</phase>
             <goals>
-              <goal>compile</goal>
-              <goal>test-compile</goal>
-              <goal>compile-custom</goal>
+              <goal>shade</goal>
             </goals>
           </execution>
         </executions>
@@ -70,14 +58,12 @@
     </plugins>
   </build>
 
-
   <dependencies>
 
     <dependency>
-      <groupId>com.google.protobuf</groupId>
-      <artifactId>protobuf-java</artifactId>
-      <version>${proto.version}</version>
-      <scope>compile</scope>
+      <groupId>org.apache.beam</groupId>
+      <artifactId>beam-sdks-java-extensions-kryo</artifactId>
+      <version>${apache.beam.version.raw}</version>
     </dependency>
 
   </dependencies>

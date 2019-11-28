@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>proxima-beam</artifactId>
-    <version>0.3.0-rc1-SNAPSHOT</version>
+    <version>0.3.0-rc1</version>
   </parent>
 
   <artifactId>proxima-beam-io-pubsub</artifactId>
@@ -48,6 +48,7 @@
             <excludes>
               <exclude>${project.groupId}:proxima-core</exclude>
               <exclude>${project.groupId}:proxima-beam-core</exclude>
+              <exclude>${apache.beam.groupId}:*</exclude>
             </excludes>
           </artifactSet>
           <transformers>
@@ -127,7 +128,7 @@
     </dependency>
 
     <dependency>
-      <groupId>org.apache.beam</groupId>
+      <groupId>${apache.beam.groupId}</groupId>
       <artifactId>beam-sdks-java-core</artifactId>
     </dependency>
 
@@ -137,7 +138,7 @@
     </dependency>
 
     <dependency>
-      <groupId>org.apache.beam</groupId>
+      <groupId>${apache.beam.groupId}</groupId>
       <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
       <version>${apache.beam.version}</version>
     </dependency>
@@ -171,7 +172,7 @@
     </dependency>
 
     <dependency>
-      <groupId>org.apache.beam</groupId>
+      <groupId>${apache.beam.groupId}</groupId>
       <artifactId>beam-runners-direct-java</artifactId>
     </dependency>
 

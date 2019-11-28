@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.3.0-rc1-SNAPSHOT</version>
+    <version>0.3.0-rc1</version>
   </parent>
 
   <artifactId>proxima-beam</artifactId>
@@ -34,8 +34,49 @@
   <description>Proxima platform's Apache Beam module.</description>
 
   <properties>
-    <apache.beam.version>2.16.0-SNAPSHOT</apache.beam.version>
+    <apache.beam.groupId>org.apache.beam</apache.beam.groupId>
+    <apache.beam.version>2.18.0-SNAPSHOT</apache.beam.version>
   </properties>
+
+  <profiles>
+    <profile>
+      <id>buildVendoredBeam</id>
+      <properties>
+        <apache.beam.groupId>cz.o2.proxima.beam</apache.beam.groupId>
+        <apache.beam.version>${project.version}</apache.beam.version>
+        <apache.beam.version.raw>2.18.0-SNAPSHOT</apache.beam.version.raw>
+      </properties>
+      <modules>
+        <module>beam-vendor</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>useVendoredBeam</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <apache.beam.groupId>cz.o2.proxima.beam</apache.beam.groupId>
+        <apache.beam.version>${project.version}</apache.beam.version>
+        <apache.beam.version.raw>2.18.0-SNAPSHOT</apache.beam.version.raw>
+      </properties>
+      <modules>
+        <module>core</module>
+        <module>core-testing</module>
+        <module>io-pubsub</module>
+        <module>tools</module>
+      </modules>
+    </profile>
+    <profile>
+      <id>useNativeBeam</id>
+      <modules>
+        <module>core</module>
+        <module>core-testing</module>
+        <module>io-pubsub</module>
+        <module>tools</module>
+      </modules>
+    </profile>
+  </profiles>
 
   <dependencyManagement>
     <dependencies>
@@ -54,62 +95,44 @@
       </dependency>
 
       <dependency>
-        <groupId>org.apache.beam</groupId>
+        <groupId>${apache.beam.groupId}</groupId>
         <artifactId>beam-sdks-java-core</artifactId>
         <version>${apache.beam.version}</version>
       </dependency>
 
       <dependency>
-        <groupId>org.apache.beam</groupId>
+        <groupId>${apache.beam.groupId}</groupId>
         <artifactId>beam-sdks-java-extensions-euphoria</artifactId>
         <version>${apache.beam.version}</version>
       </dependency>
 
       <dependency>
-        <groupId>org.apache.beam</groupId>
+        <groupId>${apache.beam.groupId}</groupId>
         <artifactId>beam-sdks-java-extensions-kryo</artifactId>
         <version>${apache.beam.version}</version>
       </dependency>
 
       <dependency>
-        <groupId>org.apache.beam</groupId>
+        <groupId>${apache.beam.groupId}</groupId>
         <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
         <version>${apache.beam.version}</version>
       </dependency>
 
       <dependency>
-        <groupId>org.apache.beam</groupId>
+        <groupId>${apache.beam.groupId}</groupId>
         <artifactId>beam-sdks-java-io-kafka</artifactId>
         <version>${apache.beam.version}</version>
       </dependency>
 
       <dependency>
-        <groupId>org.apache.beam</groupId>
-        <artifactId>beam-sdks-java-io-hdfs</artifactId>
-        <version>${apache.beam.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.apache.beam</groupId>
-        <artifactId>beam-sdks-java-io-hbase</artifactId>
-        <version>${apache.beam.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.apache.beam</groupId>
-        <artifactId>beam-sdks-java-io-cassandra</artifactId>
-        <version>${apache.beam.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.apache.beam</groupId>
+        <groupId>${apache.beam.groupId}</groupId>
         <artifactId>beam-runners-direct-java</artifactId>
         <version>${apache.beam.version}</version>
         <scope>test</scope>
       </dependency>
 
       <dependency> 
-        <groupId>org.apache.beam</groupId> 
+        <groupId>${apache.beam.groupId}</groupId> 
         <artifactId>beam-runners-flink-1.8</artifactId>
         <version>${apache.beam.version}</version>
         <scope>provided</scope>
@@ -172,22 +195,6 @@
     </dependencies>
 
   </dependencyManagement>
-
-  <modules>
-    <!--module>compiler</module-->
-    <module>core</module>
-    <module>core-testing</module>
-    <!--module>io-bigtable</module-->
-    <!--module>io-cassandra</module-->
-    <!--module>io-gcloud-storage</module-->
-    <!--module>io-hbase</module-->
-    <!--module>io-hbase-bindings</module-->
-    <!--module>io-hdfs</module-->
-    <!--module>io-http</module-->
-    <!--module>io-kafka</module-->
-    <module>io-pubsub</module>
-    <module>tools</module>
-  </modules>
 
 </project>
 

@@ -115,6 +115,7 @@ public class LocalCachedPartitionedView implements CachedView {
     this.updateCallback = Objects.requireNonNull(updateCallback);
     CountDownLatch latch = new CountDownLatch(1);
     AtomicLong prefetchedCount = new AtomicLong();
+    final long prefetchStartTime = System.currentTimeMillis();
 
     LogObserver prefetchObserver =
         new LogObserver() {
@@ -123,7 +124,13 @@ public class LocalCachedPartitionedView implements CachedView {
           public boolean onNext(StreamElement ingest, OnNextContext context) {
 
             try {
-              prefetchedCount.incrementAndGet();
+              final long prefetched = prefetchedCount.incrementAndGet();
+              if (prefetched % 10000 == 0) {
+                log.info(
+                    "Prefetched so far {} elements in {} millis",
+                    prefetched,
+                    System.currentTimeMillis() - prefetchStartTime);
+              }
               onCache(ingest, false);
               context.confirm();
               return true;
@@ -179,8 +186,9 @@ public class LocalCachedPartitionedView implements CachedView {
           reader.observeBulkPartitions(partitions, Position.OLDEST, true, prefetchObserver);
       latch.await();
       log.info(
-          "Finished prefetching of data after {} records. Starting consumption " + "of updates.",
-          prefetchedCount.get());
+          "Finished prefetching of data after {} records in {} millis. Starting consumption of updates.",
+          prefetchedCount.get(),
+          System.currentTimeMillis() - prefetchStartTime);
       List<Offset> offsets = h.getCommittedOffsets();
       // continue the processing
       handle.set(reader.observeBulkOffsets(offsets, observer));

@@ -50,19 +50,6 @@
       </dependency>
 
       <dependency>
-        <groupId>io.grpc</groupId>
-        <artifactId>grpc-all</artifactId>
-        <version>${grpc.version}</version>
-        <exclusions>
-          <!-- do not use protobuf-lite, use protobuf-java -->
-          <exclusion>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-lite</artifactId>
-          </exclusion>
-        </exclusions>
-      </dependency>
-
-      <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>
         <version>1.7.25</version>

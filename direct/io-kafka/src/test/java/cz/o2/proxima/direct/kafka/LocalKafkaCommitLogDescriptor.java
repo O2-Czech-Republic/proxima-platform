@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -255,11 +256,11 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
       doAnswer(
               invocation -> {
-                long sleep = (long) invocation.getArguments()[0];
-                return pollConsumer(group, sleep, consumerId, serializer, listener);
+                Duration sleep = (Duration) invocation.getArguments()[0];
+                return pollConsumer(group, sleep.toMillis(), consumerId, serializer, listener);
               })
           .when(mock)
-          .poll(anyLong());
+          .poll((Duration) any());
 
       doAnswer(
               invocation -> {
@@ -312,7 +313,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
                 return null;
               })
           .when(mock)
-          .commitSync(any());
+          .commitSync((Map<TopicPartition, OffsetAndMetadata>) any());
 
       doAnswer(
               invocation -> {

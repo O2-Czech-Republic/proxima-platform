@@ -30,6 +30,7 @@ import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.VectorClock;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -335,9 +336,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         () -> {
           handle.set(createObserveHandle(completed, seekOffsets, consumer, latch));
           final AtomicReference<KafkaConsumer<Object, Object>> consumerRef;
-          final AtomicReference<VectorClock> clock = new AtomicReference<>();
+          final AtomicReference<VectorClock> clock = new AtomicReference<>(VectorClock.of(1));
           final Map<Integer, Integer> partitionToClockDimension = new ConcurrentHashMap<>();
           final Map<Integer, Integer> emptyPollCount = new ConcurrentHashMap<>();
+          final Duration pollDuration = Duration.ofMillis(consumerPollInterval);
           consumerRef = new AtomicReference<>();
           consumer.onStart();
           ConsumerRebalanceListener listener =
@@ -353,9 +355,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
             Map<TopicPartition, Long> endOffsets =
                 stopAtCurrent ? findNonEmptyEndOffsets(kafka) : null;
 
-            // we need to poll first to initialize kafka assignments and
-            // rebalance listener
-            ConsumerRecords<Object, Object> poll = kafka.poll(consumerPollInterval);
+            // we need to poll first to initialize kafka assignments and rebalance listener
+            ConsumerRecords<Object, Object> poll = kafka.poll(pollDuration);
 
             if (offsets != null) {
               // when manual offsets are assigned, we need to ensure calling
@@ -453,7 +454,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               rethrowErrorIfPresent(error);
               terminateIfConsumed(stopAtCurrent, endOffsets, completed);
               waitToReduceThroughput(bytesPolled, bytesPerPoll);
-              poll = kafka.poll(consumerPollInterval);
+              poll = kafka.poll(pollDuration);
             } while (!shutdown.get()
                 && !completed.get()
                 && !Thread.currentThread().isInterrupted());

@@ -49,6 +49,7 @@ import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -167,7 +168,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     latch.await();
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(1, polled.count());
     assertEquals(1, polled.partitions().size());
     TopicPartition partition = Iterators.getOnlyElement(polled.partitions().iterator());
@@ -222,7 +223,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     latch.await();
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(2, polled.count());
     assertEquals(2, polled.partitions().size());
     Iterator<TopicPartition> iterator = polled.partitions().iterator();
@@ -248,7 +249,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     LocalKafkaCommitLogDescriptor.Accessor accessor;
     accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(2));
     KafkaConsumer<Object, Object> consumer = accessor.createConsumerFactory().create();
-    assertTrue(consumer.poll(100).isEmpty());
+    assertTrue(consumer.poll(Duration.ofMillis(100)).isEmpty());
   }
 
   @Test
@@ -266,7 +267,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         StreamElement.delete(
             entity, attr, UUID.randomUUID().toString(), "key", attr.getName(), now + 1000),
         (succ, exc) -> {});
-    ConsumerRecords<Object, Object> polled = consumer.poll(100);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(100));
     assertEquals(2, polled.count());
     int matched = 0;
     for (ConsumerRecord<Object, Object> r : polled) {
@@ -315,7 +316,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           assertNull(exc);
         });
 
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(2, polled.count());
     assertEquals(2, polled.partitions().size());
     Iterator<TopicPartition> iterator = polled.partitions().iterator();
@@ -358,7 +359,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           assertNull(exc);
         });
 
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(1, polled.count());
     assertEquals(1, polled.partitions().size());
 
@@ -376,7 +377,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           assertNull(exc);
         });
 
-    polled = consumer.poll(1000);
+    polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(1, polled.count());
     assertEquals(1, polled.partitions().size());
   }
@@ -408,7 +409,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         });
     latch.await();
     for (KafkaConsumer<Object, Object> consumer : consumers) {
-      ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+      ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
       assertEquals(1, polled.count());
       assertEquals(1, polled.partitions().size());
       TopicPartition partition = Iterators.getOnlyElement(polled.partitions().iterator());
@@ -462,7 +463,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     latch.await();
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(1, polled.count());
     assertEquals(1, polled.partitions().size());
     Iterator<TopicPartition> iterator = polled.partitions().iterator();
@@ -518,7 +519,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     KafkaConsumer<Object, Object> consumer =
         accessor.createConsumerFactory().create(Arrays.asList((Partition) () -> 0));
 
-    ConsumerRecords<Object, Object> polled = consumer.poll(100);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(100));
     assertTrue(polled.isEmpty());
   }
 
@@ -560,7 +561,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         accessor.createConsumerFactory().create(Arrays.asList((Partition) () -> 0));
     consumer.seek(new TopicPartition("topic", 0), 1);
 
-    ConsumerRecords<Object, Object> polled = consumer.poll(100);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(100));
     assertEquals(1, polled.count());
   }
 
@@ -582,7 +583,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    ConsumerRecords<Object, Object> poll = c1.poll(1000);
+    ConsumerRecords<Object, Object> poll = c1.poll(Duration.ofMillis(1000));
     assertEquals(2, c1.assignment().size());
     assertEquals(1, poll.count());
 
@@ -597,7 +598,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    poll = c1.poll(1000);
+    poll = c1.poll(Duration.ofMillis(1000));
     assertEquals(1, poll.count());
 
     // commit already processed offsets
@@ -623,9 +624,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    poll = c2.poll(1000);
+    poll = c2.poll(Duration.ofMillis(1000));
     assertEquals(1, poll.count());
-    poll = c1.poll(1000);
+    poll = c1.poll(Duration.ofMillis(1000));
     assertTrue(poll.isEmpty());
 
     // rebalanced
@@ -650,7 +651,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    ConsumerRecords<Object, Object> poll = c1.poll(1000);
+    ConsumerRecords<Object, Object> poll = c1.poll(Duration.ofMillis(1000));
     assertEquals(1, c1.assignment().size());
     assertEquals(1, poll.count());
 
@@ -665,7 +666,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    poll = c1.poll(1000);
+    poll = c1.poll(Duration.ofMillis(1000));
     assertEquals(1, poll.count());
 
     // commit already processed offsets
@@ -690,9 +691,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    poll = c2.poll(1000);
+    poll = c2.poll(Duration.ofMillis(1000));
     assertEquals(1, poll.count());
-    poll = c1.poll(1000);
+    poll = c1.poll(Duration.ofMillis(1000));
     assertTrue(poll.isEmpty());
 
     // not rebalanced (there are no free partitions)
@@ -2158,7 +2159,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     latch.await();
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(1, polled.count());
     assertEquals(1, polled.partitions().size());
     TopicPartition partition = Iterators.getOnlyElement(polled.partitions().iterator());

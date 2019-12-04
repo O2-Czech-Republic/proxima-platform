@@ -33,7 +33,8 @@
 
   <properties>
     <shadePattern>cz.o2.proxima.bigtable.shaded</shadePattern>
-    <bigtable.version>1.3.0</bigtable.version>
+    <bigtable.version>1.12.0</bigtable.version>
+    <grpc.version>1.21.0</grpc.version>
   </properties>
 
   <build>
@@ -82,16 +83,16 @@
             <configuration>
               <fileSets>
                 <fileSet>
-                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_linux_x86_64.so</sourceFile>
-                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_bigtable_shaded_netty_tcnative_linux_x86_64.so</destinationFile>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libio_grpc_netty_shaded_netty_tcnative_linux_x86_64.so</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_bigtable_shaded_io_grpc_netty_shaded_netty_tcnative_linux_x86_64.so</destinationFile>
                 </fileSet>
                 <fileSet>
-                  <sourceFile>${project.build.directory}/classes/META-INF/native/netty_tcnative_windows_x86_64.dll</sourceFile>
-                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_bigtable_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/io_grpc_netty_shaded_netty_tcnative_windows_x86_64.dll</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/cz_o2_proxima_bigtable_shaded_grpc_io_netty_shaded_netty_tcnative_windows_x86_64.dll</destinationFile>
                 </fileSet>
                 <fileSet>
-                  <sourceFile>${project.build.directory}/classes/META-INF/native/libnetty_tcnative_osx_x86_64.jnilib</sourceFile>
-                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_bigtable_shaded_libnetty_tcnative_osx_x86_64.jnilib</destinationFile>
+                  <sourceFile>${project.build.directory}/classes/META-INF/native/libio_grpc_netty_shaded_netty_tcnative_osx_x86_64.jnilib</sourceFile>
+                  <destinationFile>${project.build.directory}/classes/META-INF/native/libcz_o2_proxima_bigtable_shaded_grpc_io_netty_shaded_netty_tcnative_osx_x86_64.jnilib</destinationFile>
                 </fileSet>
               </fileSets>
             </configuration>
@@ -109,8 +110,8 @@
           </transformers>
           <relocations>
             <relocation>
-              <pattern>io.netty.</pattern>
-              <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
+              <pattern>io.grpc.netty.shaded.</pattern>
+              <shadedPattern>${shadePattern}.io.grpc.netty.shaded.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>io.grpc.</pattern>

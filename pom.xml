@@ -73,15 +73,16 @@
   <properties>
     <maven.shade.version>3.2.1</maven.shade.version>
     <groovy.version>2.5.8</groovy.version>
-    <hbase.version>1.4.10</hbase.version>
-    <kafka.version>1.1.0</kafka.version>
-    <proto.version>3.7.0</proto.version>
-    <protoc.version>3.7.1</protoc.version>
-    <grpc.version>1.19.0</grpc.version>
-    <guava.version>23.0</guava.version>
+    <hadoop.version>2.10.0</hadoop.version>
+    <hbase.version>1.5.0</hbase.version>
+    <kafka.version>2.3.1</kafka.version>
+    <proto.version>3.11.0</proto.version>
+    <protoc.version>3.11.0</protoc.version>
+    <grpc.version>1.25.0</grpc.version>
+    <guava.version>28.1-jre</guava.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <netty.version>4.1.22.Final</netty.version>
+    <netty.version>4.1.42.Final</netty.version>
     <argLine></argLine>
     <surefire.forkCount>8</surefire.forkCount>
     <!-- sonar config -->
@@ -91,8 +92,8 @@
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <error-prone.version>2.3.3</error-prone.version>
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
-    <lombok.version>1.18.8</lombok.version>
-    <spotless.version>1.14.0</spotless.version>
+    <lombok.version>1.18.10</lombok.version>
+    <spotless.version>1.26.1</spotless.version>
   </properties>
 
   <profiles>

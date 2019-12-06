@@ -19,7 +19,6 @@ import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.time.WatermarkSupplier;
 import java.util.Collection;
-import java.util.Objects;
 
 /** Various utilities for working with {@link LogObserver}. */
 @Internal

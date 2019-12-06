@@ -67,6 +67,10 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -313,7 +317,7 @@ public class InMemStorage implements DataAccessorFactory {
         }
 
         @Override
-        public void waitUntilReady() throws InterruptedException {
+        public void waitUntilReady() {
           // nop
         }
       };
@@ -366,6 +370,17 @@ public class InMemStorage implements DataAccessorFactory {
 
       AtomicLong restartedOffset = new AtomicLong();
 
+      AtomicLong onIdleTime = new AtomicLong(watermark.get());
+      Runnable onIdle =
+          () -> {
+            synchronized (observer) {
+              observer.onIdle(onIdleTime::get);
+              onIdleTime.set(
+                  watermark.updateAndGet(current -> Math.max(current, onIdleTime.get() + 500)));
+            }
+          };
+      ScheduledFuture<?> onIdleFuture =
+          scheduler.scheduleAtFixedRate(onIdle, 500, 500, TimeUnit.MILLISECONDS);
       BiConsumer<StreamElement, OffsetCommitter> consumer =
           (el, committer) -> {
             try {
@@ -376,11 +391,16 @@ public class InMemStorage implements DataAccessorFactory {
                 long w =
                     watermark.updateAndGet(
                         current -> Math.max(current, stamp - BOUNDED_OUT_OF_ORDERNESS));
-                killSwitch.compareAndSet(
-                    false, !observer.onNext(el, asOnNextContext(committer, new IntOffset(off, w))));
+                synchronized (observer) {
+                  killSwitch.compareAndSet(
+                      false,
+                      !observer.onNext(el, asOnNextContext(committer, new IntOffset(off, w))));
+                }
               }
             } catch (Exception ex) {
-              observer.onError(ex);
+              synchronized (observer) {
+                observer.onError(ex);
+              }
             }
           };
 
@@ -432,6 +452,7 @@ public class InMemStorage implements DataAccessorFactory {
               uriObservers.put(consumerId, el -> consumer.accept(el, (succ, exc) -> {}));
             } else {
               observer.onCompleted();
+              onIdleFuture.cancel(true);
             }
           }
         }
@@ -440,6 +461,7 @@ public class InMemStorage implements DataAccessorFactory {
           uriObservers.put(consumerId, el -> consumer.accept(el, (succ, exc) -> {}));
         } else {
           observer.onCompleted();
+          onIdleFuture.cancel(true);
         }
         latch.countDown();
       }
@@ -805,6 +827,8 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   private static final DataHolder holder = new DataHolder();
+
+  private ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(4);
 
   public InMemStorage() {
     // this is hackish, but working as expected

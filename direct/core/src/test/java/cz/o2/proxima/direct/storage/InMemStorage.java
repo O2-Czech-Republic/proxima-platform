@@ -828,7 +828,7 @@ public class InMemStorage implements DataAccessorFactory {
 
   private static final DataHolder holder = new DataHolder();
 
-  private ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(4);
+  private static final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(4);
 
   public InMemStorage() {
     // this is hackish, but working as expected

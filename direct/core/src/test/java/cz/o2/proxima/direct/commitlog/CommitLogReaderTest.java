@@ -301,6 +301,68 @@ public class CommitLogReaderTest {
         received.stream().map(s -> s.getStamp() - now).collect(Collectors.toList()));
   }
 
+  @Test(timeout = 10000)
+  public void testObserveOrderedPerPartition() throws InterruptedException {
+    List<StreamElement> received = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(100);
+    reader.observe(
+        "test",
+        LogObservers.withSortBufferWithinPartition(
+            new LogObserver() {
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                received.add(ingest);
+                latch.countDown();
+                context.confirm();
+                return true;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            },
+            Duration.ofMillis(500)));
+
+    long now = System.currentTimeMillis();
+    for (int i = 0; i < 100; i++) {
+      writer
+          .online()
+          .write(
+              StreamElement.update(
+                  entity,
+                  attr,
+                  UUID.randomUUID().toString(),
+                  "key",
+                  attr.getName(),
+                  now + 99 - i,
+                  new byte[] {1, 2}),
+              (succ, exc) -> {});
+    }
+
+    // put one latecomer to test it is dropped
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                attr,
+                UUID.randomUUID().toString(),
+                "key",
+                attr.getName(),
+                now + 99 - 10000,
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
+
+    latch.await();
+
+    assertEquals(100, received.size());
+    assertEquals(
+        LongStream.range(0, 100).mapToObj(Long::valueOf).collect(Collectors.toList()),
+        received.stream().map(s -> s.getStamp() - now).collect(Collectors.toList()));
+  }
+
   @Test
   public void testOrderedObserverLifycycle() {
     StreamElement update =

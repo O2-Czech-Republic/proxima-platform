@@ -68,8 +68,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   private final long consumerPollInterval;
   private final long maxBytesPerSec;
   private final long timestampSkew;
-  private final int emptyPolls;
-  private final int maxPollRecords;
   private final String topic;
 
   KafkaLogReader(KafkaAccessor accessor, Context context) {
@@ -79,8 +77,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     this.consumerPollInterval = accessor.getConsumerPollInterval();
     this.maxBytesPerSec = accessor.getMaxBytesPerSec();
     this.timestampSkew = accessor.getTimestampSkew();
-    this.emptyPolls = accessor.getEmptyPolls();
-    this.maxPollRecords = accessor.getMaxPollRecords();
     this.topic = accessor.getTopic();
   }
 
@@ -367,22 +363,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
             latch.countDown();
 
             AtomicReference<Throwable> error = new AtomicReference<>();
-            int nonEmptyNotFullPolled = 0;
-            int emptyPolled = 0;
             do {
               if (poll.isEmpty()) {
-                emptyPolled++;
                 consumer.onIdle(clock.get());
-              } else {
-                emptyPolled = 0;
-                if (poll.count() < maxPollRecords) {
-                  nonEmptyNotFullPolled++;
-                } else {
-                  nonEmptyNotFullPolled = 0;
-                }
               }
-              boolean moveWatemarkToProcessingTime =
-                  nonEmptyNotFullPolled > 0 || emptyPolled >= emptyPolls;
               if (log.isDebugEnabled()) {
                 log.debug(
                     "Current watermark of consumer name {} with offsets {} "
@@ -417,10 +401,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                       ? Math.max(1L, maxBytesPerSec / (1000L * consumerPollInterval))
                       : Long.MAX_VALUE;
               long bytesPolled = 0L;
-              if (moveWatemarkToProcessingTime && poll.isEmpty()) {
-                // increase all partition's empty poll counter by 1
-                emptyPollCount.replaceAll((k, v) -> v + 1);
-              }
+              // increase all partition's empty poll counter by 1
+              emptyPollCount.replaceAll((k, v) -> v + 1);
               for (ConsumerRecord<Object, Object> r : poll) {
                 bytesPolled += r.serializedKeySize() + r.serializedValueSize();
                 TopicPartition tp = new TopicPartition(r.topic(), r.partition());
@@ -447,9 +429,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                   }
                 }
               }
-              if (moveWatemarkToProcessingTime) {
-                increaseWatermarkOnEmptyPolls(emptyPollCount, partitionToClockDimension, clock);
-              }
+              increaseWatermarkOnEmptyPolls(emptyPollCount, partitionToClockDimension, clock);
               flushCommits(kafka, consumer);
               rethrowErrorIfPresent(error);
               terminateIfConsumed(stopAtCurrent, endOffsets, completed);
@@ -526,10 +506,13 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       AtomicReference<VectorClock> clock) {
 
     long nowSkewed = clock.get().getProcessingStamp() - timestampSkew;
+    // we have to poll at least number of assigned partitions-times and still have empty poll
+    // on that partition to be sure that it is actually empty
+    int numEmptyPolls = emptyPollCount.size();
     emptyPollCount
         .entrySet()
         .stream()
-        .filter(e -> e.getValue() >= emptyPolls)
+        .filter(e -> e.getValue() >= numEmptyPolls)
         .forEach(e -> clock.get().update(partitionToClockDimension.get(e.getKey()), nowSkewed));
   }
 

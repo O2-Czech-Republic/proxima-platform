@@ -26,7 +26,7 @@ import org.apache.beam.sdk.values.PCollection;
 
 interface PCollectionProvider<T> extends Serializable {
 
-  static class ParentNotifyingProvider<T> implements PCollectionProvider<T> {
+  class ParentNotifyingProvider<T> implements PCollectionProvider<T> {
 
     final Function<Pipeline, PCollection<T>> factory;
     final List<PCollectionProvider<?>> parents = new ArrayList<>();
@@ -49,7 +49,7 @@ interface PCollectionProvider<T> extends Serializable {
     }
   }
 
-  static class CachedPCollectionProvider<T> implements PCollectionProvider<T> {
+  class CachedPCollectionProvider<T> implements PCollectionProvider<T> {
 
     private final PCollectionProvider<T> underlying;
     private transient PCollection<T> materialized;

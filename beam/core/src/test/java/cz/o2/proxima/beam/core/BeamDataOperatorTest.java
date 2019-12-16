@@ -29,7 +29,9 @@ import cz.o2.proxima.storage.commitlog.Position;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
+import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
 import org.apache.beam.sdk.testing.PAssert;
+import org.apache.beam.sdk.transforms.Count;
 import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
@@ -214,6 +216,38 @@ public class BeamDataOperatorTest {
     PCollection<KV<String, Long>> counted =
         CountByKey.of(stream).keyBy(e -> "", TypeDescriptors.strings()).output();
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L));
+    assertNotNull(pipeline.run());
+  }
+
+  @Test
+  public void testUnion() {
+    direct
+        .getWriter(event)
+        .orElseThrow(() -> new IllegalStateException("Missing writer for event"))
+        .write(
+            StreamElement.update(
+                gateway,
+                event,
+                "uuid",
+                "key",
+                event.toAttributePrefix() + "1",
+                now,
+                new byte[] {1, 2, 3}),
+            (succ, exc) -> {});
+    direct
+        .getWriter(armed)
+        .orElseThrow(() -> new IllegalStateException("Missing writer for event"))
+        .write(
+            StreamElement.update(
+                gateway, armed, "uuid", "key2", armed.getName(), now + 1, new byte[] {1, 2, 3, 4}),
+            (succ, exc) -> {});
+
+    PCollection<StreamElement> events =
+        beam.getStream(pipeline, Position.OLDEST, true, true, event);
+    PCollection<StreamElement> armedStream =
+        beam.getStream(pipeline, Position.OLDEST, true, true, armed);
+    PCollection<Long> result = Union.of(events, armedStream).output().apply(Count.globally());
+    PAssert.that(result).containsInAnyOrder(2L);
     assertNotNull(pipeline.run());
   }
 

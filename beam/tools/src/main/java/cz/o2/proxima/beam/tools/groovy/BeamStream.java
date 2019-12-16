@@ -626,42 +626,49 @@ class BeamStream<T> implements Stream<T> {
   @Override
   public Stream<T> union(@Nullable String name, List<Stream<T>> others) {
     boolean allBounded = others.stream().allMatch(Stream::isBounded) && isBounded();
+    PCollectionProvider<?>[] parents = new PCollectionProvider[others.size() + 1];
+    int i = 0;
+    for (Stream<T> s : others) {
+      parents[i++] = ((BeamStream<T>) s).collection;
+    }
+    parents[parents.length - 1] = collection;
     if (!allBounded) {
       // turn all inputs to reading in unbouded mode
       // this propagates to sources
       others.stream().forEach(s -> ((BeamStream<T>) s).collection.asUnbounded());
       collection.asUnbounded();
     }
-    return descendant(
+    boolean sameWindows =
+        java.util.stream.Stream.concat(java.util.stream.Stream.of(this), others.stream())
+                .map(s -> (BeamStream<T>) s)
+                .map(s -> Pair.of(s.getWindowFn(), s.getTrigger()))
+                .distinct()
+                .count()
+            == 1;
+    return childOf(
+        sameWindows ? windowingStrategy : WindowingStrategy.globalDefault(),
         pipeline -> {
-          List<BeamStream<T>> streams =
+          java.util.stream.Stream<BeamStream<T>> streams =
               java.util.stream.Stream.concat(java.util.stream.Stream.of(this), others.stream())
-                  .map(s -> (BeamStream<T>) s)
-                  .collect(Collectors.toList());
-          long windowFnCounts =
-              streams
-                  .stream()
-                  .map(s -> Pair.of(s.getWindowFn(), s.getTrigger()))
-                  .distinct()
-                  .count();
-          if (windowFnCounts > 1) {
-            streams = streams.stream().map(s -> s.asUnwindowed()).collect(Collectors.toList());
+                  .map(s -> (BeamStream<T>) s);
+          if (!sameWindows) {
+            streams = streams.map(s -> s.asUnwindowed());
           }
           List<PCollection<T>> collections =
-              streams
-                  .stream()
-                  .map(s -> ((BeamStream<T>) s).collection.materialize(pipeline))
-                  .collect(Collectors.toList());
+              streams.map(s -> s.collection.materialize(pipeline)).collect(Collectors.toList());
           PCollection<T> any = collections.stream().findAny().orElse(null);
           if (name != null) {
             return PCollectionList.of(collections)
                 .apply(name, Flatten.pCollections())
+                .setTypeDescriptor(any.getTypeDescriptor())
                 .setCoder(any.getCoder());
           }
           return PCollectionList.of(collections)
               .apply(Flatten.pCollections())
+              .setTypeDescriptor(any.getTypeDescriptor())
               .setCoder(any.getCoder());
-        });
+        },
+        parents);
   }
 
   @Override
@@ -798,11 +805,18 @@ class BeamStream<T> implements Stream<T> {
 
   private <X> BeamStream<X> child(
       Function<Pipeline, PCollection<X>> factory, WindowingStrategy<Object, ?> windowingStrategy) {
+    return childOf(windowingStrategy, factory, collection);
+  }
+
+  private <X> BeamStream<X> childOf(
+      WindowingStrategy<Object, ?> windowingStrategy,
+      Function<Pipeline, PCollection<X>> factory,
+      PCollectionProvider<?>... parents) {
 
     return new BeamStream<>(
         config,
         bounded,
-        PCollectionProvider.withParents(factory, collection),
+        PCollectionProvider.withParents(factory, parents),
         windowingStrategy,
         terminateCheck,
         pipelineFactory);

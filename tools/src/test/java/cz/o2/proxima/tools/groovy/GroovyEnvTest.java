@@ -666,13 +666,19 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + ".batchUpdates().timeWindow(5000).count()).collect()");
     write(
         StreamElement.update(
-            batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
+            batch,
+            data,
+            "uuid1",
+            "key1",
+            data.getName(),
+            System.currentTimeMillis(),
+            new byte[] {}));
     write(
         StreamElement.update(
             batch,
             wildcard,
-            "uuid",
-            "key",
+            "uuid2",
+            "key2",
             wildcard.toAttributePrefix() + "1",
             System.currentTimeMillis(),
             new byte[] {}));

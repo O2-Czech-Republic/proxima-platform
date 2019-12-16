@@ -15,10 +15,12 @@
  */
 package cz.o2.proxima.storage;
 
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.io.Serializable;
+import java.util.Date;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -230,20 +232,20 @@ public class StreamElement implements Serializable {
    * @return string representing the dumped element
    */
   public String dump() {
-    return "StreamElement(uuid="
-        + uuid
-        + ", entityDesc="
-        + entityDescriptor
-        + ", attributeDesc="
-        + attributeDescriptor
-        + ", key="
-        + key
-        + ", attribute="
-        + attribute
-        + ", stamp="
-        + stamp
-        + ", value="
-        + (value == null ? "(null)" : getParsed().get().toString())
-        + ")";
+    @SuppressWarnings("unchecked")
+    AttributeDescriptor<Object> attrDesc = (AttributeDescriptor) getAttributeDescriptor();
+    return MoreObjects.toStringHelper(getClass())
+        .add("uuid", uuid)
+        .add("entityDesc", entityDescriptor)
+        .add("attributeDesc", attributeDescriptor)
+        .add("key", key)
+        .add("attribute", attribute)
+        .add("stamp", new Date(stamp))
+        .add(
+            "value",
+            value == null
+                ? "(null)"
+                : attrDesc.getValueSerializer().getLogString(getParsed().get()))
+        .toString();
   }
 }

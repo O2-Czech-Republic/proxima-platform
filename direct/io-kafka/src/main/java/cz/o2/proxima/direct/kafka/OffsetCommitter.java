@@ -47,6 +47,8 @@ public class OffsetCommitter<ID> {
 
     @Getter Callback commit; // the associated commit callback
 
+    @Getter final long createdNanos = System.nanoTime();
+
     OffsetMeta(int actions, Callback commit) {
       this.actions = new AtomicInteger(actions);
       this.commit = commit;
@@ -54,6 +56,10 @@ public class OffsetCommitter<ID> {
 
     int getActions() {
       return actions.get();
+    }
+
+    long getNanoAge() {
+      return System.nanoTime() - createdNanos;
     }
 
     synchronized void decrement() {
@@ -123,11 +129,22 @@ public class OffsetCommitter<ID> {
         log.debug("Adding offset {} of ID {} to committable map.", e.getKey(), id);
         committable.add(e);
       } else {
-        log.debug(
-            "Waiting for still non-committed offset {} in {}, {} actions missing",
-            e.getKey(),
-            id,
-            e.getValue().getActions());
+        long age = e.getValue().getNanoAge();
+        // FIXME: add config option for auto-commit
+        if (age > 60000000000L) {
+          log.warn(
+              "Offset {} ID {} was not committed in {} ns ({} actions missing). Please verify your commit logic!",
+              e.getKey(),
+              id,
+              age,
+              e.getValue().getActions());
+        } else {
+          log.debug(
+              "Waiting for still non-committed offset {} in {}, {} actions missing",
+              e.getKey(),
+              id,
+              e.getValue().getActions());
+        }
         break;
       }
     }

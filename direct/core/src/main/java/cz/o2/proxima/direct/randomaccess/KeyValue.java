@@ -27,7 +27,6 @@ import lombok.Getter;
 @Stable
 public class KeyValue<T> {
 
-  @SuppressWarnings("unchecked")
   public static <T> KeyValue<T> of(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
@@ -39,7 +38,6 @@ public class KeyValue<T> {
     return of(entityDesc, attrDesc, key, attribute, offset, valueBytes, System.currentTimeMillis());
   }
 
-  @SuppressWarnings("unchecked")
   public static <T> KeyValue<T> of(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
@@ -112,7 +110,7 @@ public class KeyValue<T> {
 
   @Getter private final long stamp;
 
-  KeyValue(
+  private KeyValue(
       EntityDescriptor entityDesc,
       AttributeDescriptor<T> attrDesc,
       String key,

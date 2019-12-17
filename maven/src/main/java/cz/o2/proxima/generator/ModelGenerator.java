@@ -162,7 +162,7 @@ public class ModelGenerator {
     return ret;
   }
 
-  Map<String, Object> getEntityDict(EntityDescriptor e, Repository repo) {
+  private Map<String, Object> getEntityDict(EntityDescriptor e, Repository repo) {
     Map<String, Object> ret = new HashMap<>();
     ret.put("classname", toClassName(e.getName()));
     ret.put("name", e.getName());
@@ -201,14 +201,12 @@ public class ModelGenerator {
     return CamelCase.apply(name);
   }
 
-  private String readFileToString(File path) throws IOException {
+  private String readFileToString(File path) {
     try {
-      return String.join(
-          "\n + ",
-          IOUtils.readLines(new FileInputStream(path), "UTF-8")
-              .stream()
-              .map(s -> "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\\n\"")
-              .collect(Collectors.toList()));
+      return IOUtils.readLines(new FileInputStream(path), "UTF-8")
+          .stream()
+          .map(s -> "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\\n\"")
+          .collect(Collectors.joining("\n + "));
     } catch (IOException ex) {
       log.warn("Failed to read file {}. Ignoring.", path, ex);
       return "FAILED: " + ex.getMessage();

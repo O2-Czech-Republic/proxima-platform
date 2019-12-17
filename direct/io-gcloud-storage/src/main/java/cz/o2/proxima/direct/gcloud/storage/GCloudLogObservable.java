@@ -20,12 +20,15 @@ import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -36,11 +39,12 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -62,13 +66,19 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
 
     @Getter private final List<Blob> blobs = new ArrayList<>();
     private final int id;
+    private long minStamp;
+    private long maxStamp;
 
-    GCloudStoragePartition(int id) {
+    GCloudStoragePartition(int id, long minStamp, long maxStamp) {
       this.id = id;
+      this.minStamp = minStamp;
+      this.maxStamp = maxStamp;
     }
 
-    void add(Blob b) {
+    void add(Blob b, long minStamp, long maxStamp) {
       blobs.add(b);
+      this.minStamp = Math.min(this.minStamp, minStamp);
+      this.maxStamp = Math.max(this.maxStamp, maxStamp);
     }
 
     @Override
@@ -89,12 +99,23 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
     public int getNumBlobs() {
       return blobs.size();
     }
+
+    @Override
+    public long getMinTimestamp() {
+      return minStamp;
+    }
+
+    @Override
+    public long getMaxTimestamp() {
+      return maxStamp;
+    }
   }
 
   private final long partitionMinSize;
   private final int partitionMaxNumBlobs;
   private final Factory<Executor> executorFactory;
   @Nullable private transient Executor executor = null;
+  private long backoff = 100;
 
   public GCloudLogObservable(
       EntityDescriptor entityDesc,
@@ -125,7 +146,9 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
     prefixes.forEach(
         prefix -> {
           Page<Blob> p = client().list(this.bucket, BlobListOption.prefix(prefix));
-          for (Blob blob : p.iterateAll()) {
+          List<Blob> sorted = Lists.newArrayList(p.iterateAll());
+          sorted.sort(Comparator.comparing(Blob::getName));
+          for (Blob blob : sorted) {
             considerBlobForPartitionInclusion(startStamp, endStamp, blob, id, current, ret);
           }
         });
@@ -143,12 +166,16 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
       AtomicInteger partitionId,
       AtomicReference<GCloudStoragePartition> currentPartition,
       List<Partition> resultingPartitions) {
+
     log.trace("Considering blob {} for partition inclusion", b.getName());
-    if (isInRange(b.getName(), startStamp, endStamp)) {
+    Pair<Long, Long> minMaxStamp = parseMinMaxStamp(b.getName());
+    if (isInRange(minMaxStamp, startStamp, endStamp)) {
       if (currentPartition.get() == null) {
-        currentPartition.set(new GCloudStoragePartition(partitionId.getAndIncrement()));
+        currentPartition.set(
+            new GCloudStoragePartition(
+                partitionId.getAndIncrement(), minMaxStamp.getFirst(), minMaxStamp.getSecond()));
       }
-      currentPartition.get().add(b);
+      currentPartition.get().add(b, minMaxStamp.getFirst(), minMaxStamp.getSecond());
       log.trace("Blob {} added to partition {}", b.getName(), currentPartition.get());
       if (currentPartition.get().size() >= partitionMinSize
           || currentPartition.get().getNumBlobs() >= partitionMaxNumBlobs) {
@@ -163,7 +190,9 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
   static Set<String> convertStampsToPrefixes(String basePath, long startStamp, long endStamp) {
 
     DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy/MM");
-    Set<String> prefixes = new HashSet<>();
+    // use TreeSet, so that prefixes are sorted, which will yield
+    // partitions roughly sorted by timestamp
+    Set<String> prefixes = new TreeSet<>();
     // remove trailing slashes
     while (basePath.endsWith("/")) {
       basePath = basePath.substring(0, basePath.length() - 1);
@@ -193,15 +222,22 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
   }
 
   @VisibleForTesting
-  static boolean isInRange(String name, long startStamp, long endStamp) {
+  static @Nullable Pair<Long, Long> parseMinMaxStamp(String name) {
     Matcher matcher = BLOB_NAME_PATTERN.matcher(name);
     if (matcher.matches()) {
       long min = Long.parseLong(matcher.group(1));
       long max = Long.parseLong(matcher.group(2));
-      return max >= startStamp && min <= endStamp;
+      return Pair.of(min, max);
     }
     log.warn("Skipping unparseable name {}", name);
-    return false;
+    return null;
+  }
+
+  @VisibleForTesting
+  static boolean isInRange(Pair<Long, Long> minMaxStamp, long startStamp, long endStamp) {
+    return minMaxStamp != null
+        && minMaxStamp.getFirst() <= endStamp
+        && minMaxStamp.getSecond() >= startStamp;
   }
 
   @Override
@@ -222,22 +258,28 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
                       part.getBlobs()
                           .forEach(
                               blob -> {
-                                final String name = blob.getName();
-                                log.debug("Starting to observe partition {}", p);
-                                try (InputStream s = Channels.newInputStream(blob.reader());
-                                    BinaryBlob.Reader reader =
-                                        BinaryBlob.reader(getEntityDescriptor(), name, s)) {
+                                for (; ; ) {
+                                  final String name = blob.getName();
+                                  log.debug("Starting to observe partition {}", p);
+                                  try (InputStream s = Channels.newInputStream(blob.reader());
+                                      BinaryBlob.Reader reader =
+                                          BinaryBlob.reader(getEntityDescriptor(), name, s)) {
 
-                                  reader.forEach(
-                                      e -> {
-                                        if (attrs.contains(e.getAttributeDescriptor())) {
-                                          observer.onNext(e, p);
-                                        }
-                                      });
-                                } catch (GoogleJsonResponseException ex) {
-                                  handleResponseException(ex, blob);
-                                } catch (IOException ex) {
-                                  handleGeneralException(ex, blob);
+                                    reader.forEach(
+                                        e -> {
+                                          if (attrs.contains(e.getAttributeDescriptor())) {
+                                            observer.onNext(e, p);
+                                          }
+                                        });
+                                    backoff = 100;
+                                  } catch (GoogleJsonResponseException ex) {
+                                    if (handleResponseException(ex, blob)) {
+                                      continue;
+                                    }
+                                  } catch (IOException ex) {
+                                    handleGeneralException(ex, blob);
+                                  }
+                                  break;
                                 }
                               });
                     });
@@ -257,13 +299,22 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
     throw new RuntimeException(ex);
   }
 
-  private void handleResponseException(GoogleJsonResponseException ex, Blob blob) {
-    if (ex.getStatusCode() == 404) {
-      log.warn(
-          "Received 404: {} on getting {}. Skipping gone object.", ex.getStatusMessage(), blob);
-    } else {
-      handleGeneralException(ex, blob);
+  private boolean handleResponseException(GoogleJsonResponseException ex, Blob blob) {
+    switch (ex.getStatusCode()) {
+      case 404:
+        log.warn(
+            "Received 404: {} on getting {}. Skipping gone object.", ex.getStatusMessage(), blob);
+        break;
+      case 429:
+        log.warn(
+            "Received 429: {} on getting {}. Backoff {}.", ex.getStatusMessage(), blob, backoff);
+        ExceptionUtils.unchecked(() -> Thread.sleep(backoff));
+        backoff *= 2;
+        return true;
+      default:
+        handleGeneralException(ex, blob);
     }
+    return false;
   }
 
   private Executor executor() {

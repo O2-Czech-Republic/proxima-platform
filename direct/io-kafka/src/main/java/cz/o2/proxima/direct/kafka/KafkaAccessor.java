@@ -56,7 +56,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   /** Number of empty polls to consider partition empty. */
   public static final String EMPTY_POLLS = "poll.count-for-empty";
   /** Number of records per poll() */
-  public static final String MAX_POLL_RECORDS = "max.poll.records";
+  public static final String MAX_POLL_RECORDS = "kafka.max.poll.records";
 
   /**
    * Minimal time poll() has to return empty records, before first moving watermark to processing

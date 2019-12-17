@@ -35,22 +35,77 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import lombok.Value;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
+import org.apache.beam.sdk.transforms.Filter;
+import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.TypeDescriptor;
 
 /** A {@link DataOperator} for Apache Beam transformations. */
 public class BeamDataOperator implements DataOperator {
 
+  @FunctionalInterface
+  private interface PCollectionFactoryFromDescriptor<T extends PCollectionDescriptor> {
+    PCollection<StreamElement> apply(T desc);
+  }
+
+  // labelling interface
+  private interface PCollectionDescriptor {}
+
+  @Value
+  private final class StreamDescriptor implements PCollectionDescriptor {
+    private final @Nullable String name;
+    private final Position position;
+    private final boolean stopAtCurrent;
+    private final boolean useEventTime;
+
+    PCollection<StreamElement> createStream(Pipeline pipeline, long limit, DataAccessor da) {
+      return da.createStream(name, pipeline, position, stopAtCurrent, useEventTime, limit)
+          .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
+    }
+  }
+
+  @Value
+  private final class BatchUpdatesDescriptor implements PCollectionDescriptor {
+    private final long startStamp;
+    private final long endStamp;
+    private final boolean asStream;
+
+    PCollection<StreamElement> createBatchUpdates(
+        Pipeline pipeline, List<AttributeDescriptor<?>> attrList, DataAccessor da) {
+
+      return asStream
+          ? da.createStreamFromUpdates(pipeline, attrList, startStamp, endStamp, -1)
+          : da.createBatch(pipeline, attrList, startStamp, endStamp);
+    }
+  }
+
+  @Value
+  private final class BatchSnapshotDescriptor implements PCollectionDescriptor {
+    private final long fromStamp;
+    private final long untilStamp;
+
+    PCollection<StreamElement> createBatchUpdates(
+        Pipeline pipeline, List<AttributeDescriptor<?>> attrList, DataAccessor da) {
+
+      return da.createBatch(pipeline, attrList, fromStamp, untilStamp);
+    }
+  }
+
   private final Repository repo;
-  @Nullable private final DirectDataOperator direct;
+  private final @Nullable DirectDataOperator direct;
   private final DataAccessorLoader<BeamDataOperator, DataAccessor, DataAccessorFactory> loader;
   private final Map<AttributeFamilyDescriptor, DataAccessor> accessorMap;
+  private final Map<PCollectionDescriptor, PCollection<StreamElement>> createdStreamsMap =
+      new HashMap<>();
 
   BeamDataOperator(Repository repo) {
     this.repo = repo;
@@ -63,12 +118,13 @@ public class BeamDataOperator implements DataOperator {
   @Override
   public void close() {
     direct.close();
-    accessorMap.clear();
+    reload();
   }
 
   @Override
   public void reload() {
-    // nop
+    accessorMap.clear();
+    createdStreamsMap.clear();
   }
 
   /**
@@ -131,7 +187,7 @@ public class BeamDataOperator implements DataOperator {
   @VisibleForTesting
   @SafeVarargs
   final PCollection<StreamElement> getStream(
-      String name,
+      @Nullable String name,
       Pipeline pipeline,
       Position position,
       boolean stopAtCurrent,
@@ -140,9 +196,16 @@ public class BeamDataOperator implements DataOperator {
       AttributeDescriptor<?>... attrs) {
 
     return findSuitableAccessors(af -> af.getAccess().canReadCommitLog(), "commit-log", attrs)
-        .map(da -> da.createStream(name, pipeline, position, stopAtCurrent, useEventTime, limit))
+        .map(
+            da -> {
+              StreamDescriptor desc =
+                  new StreamDescriptor(name, position, stopAtCurrent, useEventTime);
+              return getOrCreatePCollection(
+                  desc, limit < 0, d -> d.createStream(pipeline, limit, da));
+            })
         .reduce((left, right) -> Union.of(left, right).output())
-        .orElseThrow(failEmpty());
+        .orElseThrow(failEmpty())
+        .apply(filterAttrs(attrs));
   }
 
   /**
@@ -172,12 +235,50 @@ public class BeamDataOperator implements DataOperator {
   public final PCollection<StreamElement> getBatchUpdates(
       Pipeline pipeline, long startStamp, long endStamp, AttributeDescriptor<?>... attrs) {
 
-    List<AttributeDescriptor<?>> attrList = Arrays.stream(attrs).collect(Collectors.toList());
+    return getBatchUpdates(pipeline, startStamp, endStamp, false, attrs);
+  }
 
-    return findSuitableAccessors(af -> af.getAccess().canReadBatchUpdates(), "batch-updates", attrs)
-        .map(da -> da.createBatch(pipeline, attrList, startStamp, endStamp))
+  /**
+   * Create {@link PCollection} from updates to given attributes with given time range.
+   *
+   * @param pipeline {@link Pipeline} to create the {@link PCollection} in
+   * @param startStamp timestamp (inclusive) of first update taken into account
+   * @param endStamp timestamp (exclusive) of last update taken into account
+   * @param asStream create PCollection that is suitable for streaming processing (i.e. can update
+   *     watermarks before end of input)
+   * @param attrs attributes to read updates for
+   * @return the {@link PCollection}
+   */
+  @SafeVarargs
+  public final PCollection<StreamElement> getBatchUpdates(
+      Pipeline pipeline,
+      long startStamp,
+      long endStamp,
+      boolean asStream,
+      AttributeDescriptor<?>... attrs) {
+
+    List<AttributeDescriptor<?>> attrClosure =
+        findSuitableFamilies(af -> af.getAccess().canReadBatchUpdates(), attrs)
+            .filter(p -> p.getSecond().isPresent())
+            .map(p -> p.getSecond().get())
+            .flatMap(d -> d.getAttributes().stream())
+            .distinct()
+            .collect(Collectors.toList());
+    AttributeDescriptor<?>[] closureAsArray =
+        attrClosure.toArray(new AttributeDescriptor[attrClosure.size()]);
+
+    return findSuitableAccessors(
+            af -> af.getAccess().canReadBatchUpdates(), "batch-updates", closureAsArray)
+        .map(
+            da -> {
+              BatchUpdatesDescriptor desc =
+                  new BatchUpdatesDescriptor(startStamp, endStamp, asStream);
+              return getOrCreatePCollection(
+                  desc, true, d -> d.createBatchUpdates(pipeline, attrClosure, da));
+            })
         .reduce((left, right) -> Union.of(left, right).output())
-        .orElseThrow(failEmpty());
+        .orElseThrow(failEmpty())
+        .apply(filterAttrs(attrs));
   }
 
   /**
@@ -220,12 +321,29 @@ public class BeamDataOperator implements DataOperator {
     if (!unresolved) {
       return resolvedAttrs
           .stream()
-          .map(p -> p.getSecond().get())
+          // take all attributes from the same family
+          // it will be filtered away then, this is needed to enable fusion of multiple reads from
+          // the same family
+          .flatMap(
+              p ->
+                  p.getSecond()
+                      .get()
+                      .getAttributes()
+                      .stream()
+                      .map(a -> Pair.of(a, p.getSecond().get())))
+          .map(Pair::getSecond)
+          .distinct()
           .map(this::accessorFor)
           .distinct()
-          .map(a -> a.createBatch(pipeline, attrList, fromStamp, untilStamp))
+          .map(
+              da -> {
+                BatchSnapshotDescriptor desc = new BatchSnapshotDescriptor(fromStamp, untilStamp);
+                return getOrCreatePCollection(
+                    desc, true, d -> d.createBatchUpdates(pipeline, attrList, da));
+              })
           .reduce((left, right) -> Union.of(left, right).output())
-          .orElseThrow(failEmpty());
+          .orElseThrow(failEmpty())
+          .apply(filterAttrs(attrs));
     }
     return PCollectionTools.reduceAsSnapshot(
         "getBatchSnapshot:" + Arrays.toString(attrs),
@@ -269,6 +387,10 @@ public class BeamDataOperator implements DataOperator {
   }
 
   private DataAccessor accessorFor(AttributeFamilyDescriptor family) {
+    return accessorMap.computeIfAbsent(family, this::createAccessorFor);
+  }
+
+  private DataAccessor createAccessorFor(AttributeFamilyDescriptor family) {
 
     if (family.isProxy()) {
       AttributeFamilyProxyDescriptor proxy = family.toProxy();
@@ -297,7 +419,34 @@ public class BeamDataOperator implements DataOperator {
     return direct != null;
   }
 
+  private PTransform<PCollection<StreamElement>, PCollection<StreamElement>> filterAttrs(
+      AttributeDescriptor<?>[] attrs) {
+
+    Set<AttributeDescriptor<?>> attrSet = Arrays.stream(attrs).collect(Collectors.toSet());
+    return new PTransform<PCollection<StreamElement>, PCollection<StreamElement>>() {
+      @Override
+      public PCollection<StreamElement> expand(PCollection<StreamElement> input) {
+        return input
+            .apply(Filter.by(el -> attrSet.contains(el.getAttributeDescriptor())))
+            .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
+      }
+    };
+  }
+
   private static Supplier<IllegalArgumentException> failEmpty() {
     return () -> new IllegalArgumentException("Pass non empty attribute list");
+  }
+
+  private <T extends PCollectionDescriptor> PCollection<StreamElement> getOrCreatePCollection(
+      T desc, boolean cacheable, PCollectionFactoryFromDescriptor<T> factory) {
+
+    final PCollection<StreamElement> ret;
+    if (cacheable) {
+      ret = createdStreamsMap.computeIfAbsent(desc, tmp -> factory.apply(desc));
+    } else {
+      // when limit is applied we must create a new source for each input
+      ret = factory.apply(desc);
+    }
+    return ret;
   }
 }

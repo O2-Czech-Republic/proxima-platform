@@ -38,7 +38,7 @@ class TimeBoundedVersionedCache implements Serializable {
 
   @Value
   private static class Payload {
-    Object data;
+    @Nullable Object data;
     boolean overridable;
   }
 
@@ -139,15 +139,12 @@ class TimeBoundedVersionedCache implements Serializable {
           NavigableMap<Long, Payload> valueMap =
               attrMap.computeIfAbsent(attribute, tmp -> new TreeMap<>());
           if (valueMap.isEmpty() || valueMap.firstKey() - keepDuration < stamp) {
-            boolean canWrite = true;
-            if (!overwrite) {
-              Payload current = valueMap.get(stamp);
-              canWrite = current == null || current.overridable;
-            }
-            if (canWrite) {
+            final Payload oldPayload = valueMap.get(stamp);
+            if (overwrite || oldPayload == null || oldPayload.overridable) {
               logPayloadUpdateIfNecessary(key, attribute, stamp, value);
-              valueMap.put(stamp, new Payload(value, !overwrite));
-              updated.set(true);
+              Payload newPayload = new Payload(value, !overwrite);
+              valueMap.put(stamp, newPayload);
+              updated.set(!newPayload.equals(oldPayload));
             }
           }
           long first;

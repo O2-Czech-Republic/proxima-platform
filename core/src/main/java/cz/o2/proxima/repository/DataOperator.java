@@ -15,12 +15,10 @@
  */
 package cz.o2.proxima.repository;
 
-import java.io.Serializable;
-
 /**
  * Labeling interface for Repository implementations to be able to mark their respective operators.
  */
-public interface DataOperator extends AutoCloseable, Serializable {
+public interface DataOperator extends AutoCloseable {
 
   @Override
   void close();

@@ -22,6 +22,7 @@ import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.net.URI;
@@ -35,7 +36,7 @@ import org.apache.beam.sdk.values.TypeDescriptor;
 /** Wrapper of direct data accessor to beam one. */
 public class DirectDataAccessorWrapper implements DataAccessor {
 
-  private final Repository repo;
+  private final RepositoryFactory factory;
   private final cz.o2.proxima.direct.core.DataAccessor direct;
   private final URI uri;
   private final Context context;
@@ -43,7 +44,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
   public DirectDataAccessorWrapper(
       Repository repo, cz.o2.proxima.direct.core.DataAccessor direct, URI uri, Context context) {
 
-    this.repo = repo;
+    this.factory = repo.asFactory();
     this.direct = direct;
     this.uri = uri;
     this.context = context;
@@ -70,15 +71,16 @@ public class DirectDataAccessorWrapper implements DataAccessor {
       ret =
           pipeline.apply(
               "ReadBounded:" + uri,
-              Read.from(DirectBoundedSource.of(repo, name, reader, position, limit)));
+              Read.from(DirectBoundedSource.of(factory, name, reader, position, limit)));
     } else {
       // unbounded
       ret =
           pipeline.apply(
               "ReadUnbounded:" + uri,
-              Read.from(DirectUnboundedSource.of(repo, name, reader, position, eventTime, limit)));
+              Read.from(
+                  DirectUnboundedSource.of(factory, name, reader, position, eventTime, limit)));
     }
-    return ret.setCoder(StreamElementCoder.of(repo))
+    return ret.setCoder(StreamElementCoder.of(factory))
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
   }
 
@@ -90,18 +92,44 @@ public class DirectDataAccessorWrapper implements DataAccessor {
         direct
             .getBatchLogObservable(context)
             .orElseThrow(
-                () -> new IllegalArgumentException("Cannot create commit log from " + direct));
+                () ->
+                    new IllegalArgumentException("Cannot create batch observable from " + direct));
 
     PCollection<StreamElement> ret =
-        pipeline.apply(Read.from(DirectBatchSource.of(repo, reader, attrs, startStamp, endStamp)));
+        pipeline.apply(
+            Read.from(DirectBatchSource.of(factory, reader, attrs, startStamp, endStamp)));
 
     ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class))
-        .setCoder(StreamElementCoder.of(repo));
+        .setCoder(StreamElementCoder.of(factory));
 
     return AssignEventTime.of(ret)
         .using(StreamElement::getStamp)
         .output()
         .setCoder(ret.getCoder())
+        .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
+  }
+
+  @Override
+  public PCollection<StreamElement> createStreamFromUpdates(
+      Pipeline pipeline,
+      List<AttributeDescriptor<?>> attrs,
+      long startStamp,
+      long endStamp,
+      long limit) {
+
+    BatchLogObservable reader =
+        direct
+            .getBatchLogObservable(context)
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException("Cannot create batch observable from " + direct));
+
+    final PCollection<StreamElement> ret;
+    ret =
+        pipeline.apply(
+            "ReadBatchUnbounded:" + uri,
+            Read.from(DirectBatchUnboundedSource.of(factory, reader, attrs, startStamp, endStamp)));
+    return ret.setCoder(StreamElementCoder.of(factory))
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
   }
 }

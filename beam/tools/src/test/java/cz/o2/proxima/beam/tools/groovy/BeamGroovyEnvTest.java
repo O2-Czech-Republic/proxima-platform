@@ -18,9 +18,27 @@ package cz.o2.proxima.beam.tools.groovy;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.tools.groovy.GroovyEnvTest;
+import java.util.Arrays;
+import java.util.Collection;
+import org.apache.beam.runners.direct.DirectRunner;
+import org.apache.beam.runners.flink.FlinkRunner;
+import org.apache.beam.sdk.PipelineRunner;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 /** Test {@link GroovyEnv} using beam. */
+@RunWith(Parameterized.class)
 public class BeamGroovyEnvTest extends GroovyEnvTest {
+
+  @Parameters
+  public static Collection<Class<? extends PipelineRunner>> parameters() {
+    return Arrays.asList(DirectRunner.class, FlinkRunner.class);
+  }
+
+  public BeamGroovyEnvTest(Class<? extends PipelineRunner> runner) {
+    TestBeamStreamProvider.runner = runner;
+  }
 
   private final DirectDataOperator direct = getRepo().getOrCreateOperator(DirectDataOperator.class);
 

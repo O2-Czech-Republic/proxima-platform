@@ -18,20 +18,27 @@ package cz.o2.proxima.direct.commitlog;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
+import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Optionals;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -230,5 +237,216 @@ public class CommitLogReaderTest {
     latch.await();
 
     assertEquals(2, received.size());
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveOrdered() throws InterruptedException {
+    List<StreamElement> received = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(100);
+    reader.observe(
+        "test",
+        LogObservers.withSortBuffer(
+            new LogObserver() {
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                received.add(ingest);
+                latch.countDown();
+                context.confirm();
+                return true;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            },
+            Duration.ofMillis(500)));
+
+    long now = System.currentTimeMillis();
+    for (int i = 0; i < 100; i++) {
+      writer
+          .online()
+          .write(
+              StreamElement.update(
+                  entity,
+                  attr,
+                  UUID.randomUUID().toString(),
+                  "key",
+                  attr.getName(),
+                  now + 99 - i,
+                  new byte[] {1, 2}),
+              (succ, exc) -> {});
+    }
+
+    // put one latecomer to test it is dropped
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                attr,
+                UUID.randomUUID().toString(),
+                "key",
+                attr.getName(),
+                now + 99 - 10000,
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
+
+    latch.await();
+
+    assertEquals(100, received.size());
+    assertEquals(
+        LongStream.range(0, 100).mapToObj(Long::valueOf).collect(Collectors.toList()),
+        received.stream().map(s -> s.getStamp() - now).collect(Collectors.toList()));
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveOrderedPerPartition() throws InterruptedException {
+    List<StreamElement> received = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(100);
+    reader.observe(
+        "test",
+        LogObservers.withSortBufferWithinPartition(
+            new LogObserver() {
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                received.add(ingest);
+                latch.countDown();
+                context.confirm();
+                return true;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            },
+            Duration.ofMillis(500)));
+
+    long now = System.currentTimeMillis();
+    for (int i = 0; i < 100; i++) {
+      writer
+          .online()
+          .write(
+              StreamElement.update(
+                  entity,
+                  attr,
+                  UUID.randomUUID().toString(),
+                  "key",
+                  attr.getName(),
+                  now + 99 - i,
+                  new byte[] {1, 2}),
+              (succ, exc) -> {});
+    }
+
+    // put one latecomer to test it is dropped
+    writer
+        .online()
+        .write(
+            StreamElement.update(
+                entity,
+                attr,
+                UUID.randomUUID().toString(),
+                "key",
+                attr.getName(),
+                now + 99 - 10000,
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
+
+    latch.await();
+
+    assertEquals(100, received.size());
+    assertEquals(
+        LongStream.range(0, 100).mapToObj(Long::valueOf).collect(Collectors.toList()),
+        received.stream().map(s -> s.getStamp() - now).collect(Collectors.toList()));
+  }
+
+  @Test
+  public void testOrderedObserverLifycycle() {
+    StreamElement update =
+        StreamElement.update(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            attr.getName(),
+            0,
+            new byte[] {1, 2});
+    AtomicInteger mask = new AtomicInteger();
+    LogObserver inner =
+        new LogObserver() {
+
+          @Override
+          public void onCompleted() {
+            mask.updateAndGet(m -> m | 0x1);
+          }
+
+          @Override
+          public void onCancelled() {
+            mask.updateAndGet(m -> m | 0x2);
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            mask.updateAndGet(m -> m | 0x4);
+            return true;
+          }
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            mask.updateAndGet(m -> m | 0x8);
+            return true;
+          }
+
+          @Override
+          public void onRepartition(OnRepartitionContext context) {
+            mask.updateAndGet(m -> m | 0x10);
+          }
+
+          @Override
+          public void onIdle(OnIdleContext context) {
+            mask.updateAndGet(m -> m | 0x20);
+          }
+        };
+    assertEquals(0x0, mask.get());
+    inner.onCompleted();
+    assertEquals(0x1, mask.get());
+    inner.onCancelled();
+    assertEquals(0x3, mask.get());
+    inner.onError(null);
+    assertEquals(0x7, mask.get());
+    inner.onNext(update, asOnNextContext(0));
+    assertEquals(0x0F, mask.get());
+    inner.onRepartition(() -> Collections.emptyList());
+    assertEquals(0x1F, mask.get());
+    inner.onIdle(() -> 0);
+    assertEquals(0x3F, mask.get());
+  }
+
+  private OnNextContext asOnNextContext(long watermark) {
+    return new OnNextContext() {
+
+      @Override
+      public OffsetCommitter committer() {
+        return null;
+      }
+
+      @Override
+      public Partition getPartition() {
+        return null;
+      }
+
+      @Override
+      public long getWatermark() {
+        return watermark;
+      }
+
+      @Override
+      public Offset getOffset() {
+        return null;
+      }
+    };
   }
 }

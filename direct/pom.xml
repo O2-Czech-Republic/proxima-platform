@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <version>0.3.0-rc1</version>
   </parent>
 
   <artifactId>proxima-direct</artifactId>
@@ -47,19 +47,6 @@
         <artifactId>lombok</artifactId>
         <version>${lombok.version}</version>
         <scope>provided</scope>
-      </dependency>
-
-      <dependency>
-        <groupId>io.grpc</groupId>
-        <artifactId>grpc-all</artifactId>
-        <version>${grpc.version}</version>
-        <exclusions>
-          <!-- do not use protobuf-lite, use protobuf-java -->
-          <exclusion>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-lite</artifactId>
-          </exclusion>
-        </exclusions>
       </dependency>
 
       <dependency>

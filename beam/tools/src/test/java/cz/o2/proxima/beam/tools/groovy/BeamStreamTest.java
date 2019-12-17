@@ -34,12 +34,15 @@ import cz.o2.proxima.tools.groovy.StreamTest;
 import cz.o2.proxima.tools.groovy.TestStreamProvider;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.locks.LockSupport;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
@@ -60,17 +63,30 @@ import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
+import org.apache.beam.sdk.values.WindowingStrategy;
 import org.joda.time.Instant;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 @Slf4j
+@RunWith(Parameterized.class)
 public class BeamStreamTest extends StreamTest {
 
-  public BeamStreamTest() {
-    super(provider());
+  @Parameters
+  public static Collection<Boolean> parameters() {
+    return Arrays.asList(false, true);
   }
 
-  static TestStreamProvider provider() {
+  final boolean stream;
+
+  public BeamStreamTest(boolean stream) {
+    super(provider(stream));
+    this.stream = stream;
+  }
+
+  static TestStreamProvider provider(boolean stream) {
     return new TestStreamProvider() {
       @SuppressWarnings("unchecked")
       @Override
@@ -86,7 +102,11 @@ public class BeamStreamTest extends StreamTest {
             new BeamStream<>(
                 StreamConfig.empty(),
                 true,
-                p -> p.apply(Create.of(values)).setTypeDescriptor(typeDesc),
+                PCollectionProvider.boundedOrUnbounded(
+                    p -> p.apply(Create.of(values)).setTypeDescriptor(typeDesc),
+                    p -> p.apply(asTestStream(values)).setTypeDescriptor(typeDesc),
+                    stream),
+                WindowingStrategy.globalDefault(),
                 () -> {
                   LockSupport.park();
                   return false;
@@ -95,9 +115,21 @@ public class BeamStreamTest extends StreamTest {
     };
   }
 
+  static <T> TestStream<T> asTestStream(List<T> values) {
+    TestStream.Builder<T> builder = TestStream.create(KryoCoder.of());
+    for (T val : values) {
+      builder = builder.addElements(val);
+    }
+    return builder.advanceWatermarkToInfinity();
+  }
+
   static <T> BeamStream<T> injectTypeOf(BeamStream<T> delegate) {
     return new BeamStream<T>(
-        StreamConfig.empty(), delegate.isBounded(), delegate.collection, delegate.terminateCheck) {
+        StreamConfig.empty(),
+        delegate.isBounded(),
+        delegate.collection,
+        WindowingStrategy.globalDefault(),
+        delegate.terminateCheck) {
 
       @SuppressWarnings("unchecked")
       @Override
@@ -114,14 +146,14 @@ public class BeamStreamTest extends StreamTest {
 
       @Override
       <X> BeamWindowedStream<X> windowed(
-          PCollectionProvider<X> provider, WindowFn<? super X, ?> window) {
+          Function<Pipeline, PCollection<X>> factory, WindowFn<? super X, ?> window) {
 
-        return injectTypeOf(super.windowed(provider, window));
+        return injectTypeOf(super.windowed(factory, window));
       }
 
       @Override
-      <X> BeamStream<X> descendant(PCollectionProvider<X> provider) {
-        return injectTypeOf(super.descendant(provider));
+      <X> BeamStream<X> descendant(Function<Pipeline, PCollection<X>> factory) {
+        return injectTypeOf(super.descendant(factory));
       }
     };
   }
@@ -131,8 +163,7 @@ public class BeamStreamTest extends StreamTest {
         StreamConfig.empty(),
         delegate.isBounded(),
         delegate.collection,
-        delegate.getWindowing(),
-        delegate.getMode(),
+        delegate.getWindowingStrategy(),
         delegate.terminateCheck,
         delegate.pipelineFactory) {
 
@@ -151,14 +182,14 @@ public class BeamStreamTest extends StreamTest {
 
       @Override
       <X> BeamWindowedStream<X> windowed(
-          PCollectionProvider<X> provider, WindowFn<? super X, ?> window) {
+          Function<Pipeline, PCollection<X>> factory, WindowFn<? super X, ?> window) {
 
-        return injectTypeOf(super.windowed(provider, window));
+        return injectTypeOf(super.windowed(factory, window));
       }
 
       @Override
-      <X> BeamWindowedStream<X> descendant(PCollectionProvider<X> provider) {
-        return injectTypeOf(super.descendant(provider));
+      <X> BeamWindowedStream<X> descendant(Function<Pipeline, PCollection<X>> factory) {
+        return injectTypeOf(super.descendant(factory));
       }
     };
   }
@@ -173,7 +204,7 @@ public class BeamStreamTest extends StreamTest {
 
   @Test(timeout = 10000)
   public void testInterruptible() throws InterruptedException {
-    Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
+    Repository repo = Repository.of(() -> ConfigFactory.load("test-reference.conf"));
     BeamDataOperator op = repo.asDataOperator(BeamDataOperator.class);
     EntityDescriptor gateway =
         repo.findEntity("gateway").orElseThrow(() -> new IllegalStateException("Missing gateway"));
@@ -217,6 +248,7 @@ public class BeamStreamTest extends StreamTest {
                   TimestampedValue.of(1, new Instant(now)),
                   TimestampedValue.of(2, new Instant(now - 1)),
                   TimestampedValue.of(3, new Instant(now - 2)))
+              .advanceWatermarkTo(new Instant(now + 1000))
               .advanceWatermarkToInfinity();
       PipelineOptions opts = PipelineOptionsFactory.create();
       Pipeline pipeline = Pipeline.create(opts);
@@ -237,12 +269,7 @@ public class BeamStreamTest extends StreamTest {
                           10)))
               .setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
       PAssert.that(result).containsInAnyOrder(Pair.of(0, 3), Pair.of(0, 5), Pair.of(0, 6));
-      try {
-        assertNotNull(pipeline.run());
-      } catch (Exception ex) {
-        ex.printStackTrace(System.err);
-        throw ex;
-      }
+      assertNotNull(pipeline.run());
     }
   }
 
@@ -256,6 +283,7 @@ public class BeamStreamTest extends StreamTest {
                   TimestampedValue.of(1, new Instant(now)),
                   TimestampedValue.of(2, new Instant(now - 1)),
                   TimestampedValue.of(3, new Instant(now - 2)))
+              .advanceWatermarkTo(new Instant(now + 1000))
               .advanceWatermarkToInfinity();
       PipelineOptions opts = PipelineOptionsFactory.create();
       Pipeline pipeline = Pipeline.create(opts);
@@ -276,12 +304,28 @@ public class BeamStreamTest extends StreamTest {
                           10)))
               .setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
       PAssert.that(result).containsInAnyOrder(Pair.of(0, 2), Pair.of(1, 4), Pair.of(1, 5));
-      try {
-        assertNotNull(pipeline.run());
-      } catch (Exception ex) {
-        ex.printStackTrace(System.err);
-        throw ex;
-      }
+      assertNotNull(pipeline.run());
     }
+  }
+
+  @Test
+  public void testUnionWithUnbounded() {
+    Stream<Integer> stream = provider(true).of(Arrays.asList(1, 2, 3, 4));
+    Stream<Integer> other = provider(this.stream).of(Arrays.asList(2, 3, 4, 5));
+    @SuppressWarnings("unchecked")
+    List<Double> collect =
+        stream
+            .union(other)
+            .timeWindow(1000)
+            .sum(
+                new Closure<Double>(this) {
+                  @Override
+                  public Double call(Object arg) {
+                    return Double.valueOf(arg.toString());
+                  }
+                })
+            .collect();
+    assertEquals(1, collect.size());
+    assertEquals(24.0, collect.get(0), 0.001);
   }
 }

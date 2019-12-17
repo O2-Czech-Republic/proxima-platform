@@ -17,7 +17,7 @@ package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
@@ -35,9 +35,13 @@ import org.apache.beam.sdk.options.PipelineOptions;
 class DirectBoundedSource extends AbstractDirectBoundedSource {
 
   static DirectBoundedSource of(
-      Repository repo, String name, CommitLogReader reader, Position position, long limit) {
+      RepositoryFactory factory,
+      String name,
+      CommitLogReader reader,
+      Position position,
+      long limit) {
 
-    return new DirectBoundedSource(repo, name, reader, position, limit, null);
+    return new DirectBoundedSource(factory, name, reader, position, limit, null);
   }
 
   private final String name;
@@ -47,14 +51,14 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
   private final Partition partition;
 
   DirectBoundedSource(
-      Repository repo,
+      RepositoryFactory factory,
       String name,
       CommitLogReader reader,
       Position position,
       long limit,
       @Nullable Partition partition) {
 
-    super(repo);
+    super(factory);
     this.name = name;
     this.reader = Objects.requireNonNull(reader);
     this.position = position;
@@ -72,7 +76,8 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
     List<BoundedSource<StreamElement>> ret = new ArrayList<>();
     List<Partition> partitions = reader.getPartitions();
     for (Partition p : partitions) {
-      ret.add(new DirectBoundedSource(repo, name, reader, position, limit / partitions.size(), p));
+      ret.add(
+          new DirectBoundedSource(factory, name, reader, position, limit / partitions.size(), p));
     }
     log.debug("Split source {} into {}", this, ret);
     return ret;

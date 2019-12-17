@@ -21,12 +21,12 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>cz.o2.proxima</groupId>
-    <artifactId>platform-parent</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <groupId>cz.o2.proxima.beam</groupId>
+    <artifactId>proxima-beam-vendor</artifactId>
+    <version>0.3.0-rc1</version>
   </parent>
 
-  <artifactId>proxima-groovy-groovysh</artifactId>
+  <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
   <packaging>jar</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
@@ -38,27 +38,16 @@
         <artifactId>maven-shade-plugin</artifactId>
         <version>${maven.shade.version}</version>
         <configuration>
-          <shadeTestJar>true</shadeTestJar>
-          <artifactSet>
-            <includes>
-              <include>org.codehaus.groovy:groovy</include>
-              <include>org.codehaus.groovy:groovy-groovysh</include>
-            </includes>
-          </artifactSet>
-          <relocations>
-            <relocation>
-              <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.o2.proxima.internal.shaded.com.google.common.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>org.codehaus.groovy.tools.shell.</pattern>
-              <shadedPattern>cz.o2.proxima.repackaged.groovy.tools.shell.</shadedPattern>
-            </relocation>
-          </relocations>
+          <transformers>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                <resource>reference.conf</resource>
+            </transformer>
+          </transformers>
         </configuration>
         <executions>
           <execution>
-            <phase>verify</phase>
+            <phase>package</phase>
             <goals>
               <goal>shade</goal>
             </goals>
@@ -72,15 +61,9 @@
   <dependencies>
 
     <dependency>
-      <groupId>org.codehaus.groovy</groupId>
-      <artifactId>groovy-groovysh</artifactId>
-      <version>2.5.8-SNAPSHOT</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.codehaus.groovy</groupId>
-      <artifactId>groovy</artifactId>
-      <version>2.5.8-SNAPSHOT</version>
+      <groupId>org.apache.beam</groupId>
+      <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
+      <version>${apache.beam.version.raw}</version>
     </dependency>
 
   </dependencies>

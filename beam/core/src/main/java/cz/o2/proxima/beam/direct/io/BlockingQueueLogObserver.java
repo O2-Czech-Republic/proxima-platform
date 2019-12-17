@@ -155,7 +155,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return consumeTaken(taken);
   }
 
-  private StreamElement consumeTaken(Pair<StreamElement, OnNextContext> taken) {
+  private StreamElement consumeTaken(@Nullable Pair<StreamElement, OnNextContext> taken) {
     if (taken != null && taken.getFirst() != null) {
       lastReadContext = taken.getSecond();
       return taken.getFirst();

@@ -49,6 +49,7 @@ import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -58,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -166,7 +168,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     latch.await();
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(1, polled.count());
     assertEquals(1, polled.partitions().size());
     TopicPartition partition = Iterators.getOnlyElement(polled.partitions().iterator());
@@ -221,7 +223,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     latch.await();
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(2, polled.count());
     assertEquals(2, polled.partitions().size());
     Iterator<TopicPartition> iterator = polled.partitions().iterator();
@@ -247,7 +249,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     LocalKafkaCommitLogDescriptor.Accessor accessor;
     accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(2));
     KafkaConsumer<Object, Object> consumer = accessor.createConsumerFactory().create();
-    assertTrue(consumer.poll(100).isEmpty());
+    assertTrue(consumer.poll(Duration.ofMillis(100)).isEmpty());
   }
 
   @Test
@@ -265,7 +267,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         StreamElement.delete(
             entity, attr, UUID.randomUUID().toString(), "key", attr.getName(), now + 1000),
         (succ, exc) -> {});
-    ConsumerRecords<Object, Object> polled = consumer.poll(100);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(100));
     assertEquals(2, polled.count());
     int matched = 0;
     for (ConsumerRecord<Object, Object> r : polled) {
@@ -314,7 +316,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           assertNull(exc);
         });
 
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(2, polled.count());
     assertEquals(2, polled.partitions().size());
     Iterator<TopicPartition> iterator = polled.partitions().iterator();
@@ -357,7 +359,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           assertNull(exc);
         });
 
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(1, polled.count());
     assertEquals(1, polled.partitions().size());
 
@@ -375,7 +377,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           assertNull(exc);
         });
 
-    polled = consumer.poll(1000);
+    polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(1, polled.count());
     assertEquals(1, polled.partitions().size());
   }
@@ -407,7 +409,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         });
     latch.await();
     for (KafkaConsumer<Object, Object> consumer : consumers) {
-      ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+      ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
       assertEquals(1, polled.count());
       assertEquals(1, polled.partitions().size());
       TopicPartition partition = Iterators.getOnlyElement(polled.partitions().iterator());
@@ -461,7 +463,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     latch.await();
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(1, polled.count());
     assertEquals(1, polled.partitions().size());
     Iterator<TopicPartition> iterator = polled.partitions().iterator();
@@ -517,7 +519,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     KafkaConsumer<Object, Object> consumer =
         accessor.createConsumerFactory().create(Arrays.asList((Partition) () -> 0));
 
-    ConsumerRecords<Object, Object> polled = consumer.poll(100);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(100));
     assertTrue(polled.isEmpty());
   }
 
@@ -559,7 +561,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         accessor.createConsumerFactory().create(Arrays.asList((Partition) () -> 0));
     consumer.seek(new TopicPartition("topic", 0), 1);
 
-    ConsumerRecords<Object, Object> polled = consumer.poll(100);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(100));
     assertEquals(1, polled.count());
   }
 
@@ -581,7 +583,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    ConsumerRecords<Object, Object> poll = c1.poll(1000);
+    ConsumerRecords<Object, Object> poll = c1.poll(Duration.ofMillis(1000));
     assertEquals(2, c1.assignment().size());
     assertEquals(1, poll.count());
 
@@ -596,7 +598,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    poll = c1.poll(1000);
+    poll = c1.poll(Duration.ofMillis(1000));
     assertEquals(1, poll.count());
 
     // commit already processed offsets
@@ -622,9 +624,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    poll = c2.poll(1000);
+    poll = c2.poll(Duration.ofMillis(1000));
     assertEquals(1, poll.count());
-    poll = c1.poll(1000);
+    poll = c1.poll(Duration.ofMillis(1000));
     assertTrue(poll.isEmpty());
 
     // rebalanced
@@ -649,7 +651,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    ConsumerRecords<Object, Object> poll = c1.poll(1000);
+    ConsumerRecords<Object, Object> poll = c1.poll(Duration.ofMillis(1000));
     assertEquals(1, c1.assignment().size());
     assertEquals(1, poll.count());
 
@@ -664,7 +666,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    poll = c1.poll(1000);
+    poll = c1.poll(Duration.ofMillis(1000));
     assertEquals(1, poll.count());
 
     // commit already processed offsets
@@ -689,9 +691,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             emptyValue()),
         (succ, exc) -> {});
 
-    poll = c2.poll(1000);
+    poll = c2.poll(Duration.ofMillis(1000));
     assertEquals(1, poll.count());
-    poll = c1.poll(1000);
+    poll = c1.poll(Duration.ofMillis(1000));
     assertTrue(poll.isEmpty());
 
     // not rebalanced (there are no free partitions)
@@ -1002,6 +1004,82 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test(timeout = 10000)
+  public void testPillFromMoreConsumersThanPartitionsMovesWatermark() throws InterruptedException {
+
+    testPollFromNConsumersMovesWatermark(4);
+  }
+
+  @Test(timeout = 100000)
+  public void testPillFromManyMoreConsumersThanPartitionsMovesWatermark()
+      throws InterruptedException {
+
+    testPollFromNConsumersMovesWatermark(400);
+  }
+
+  void testPollFromNConsumersMovesWatermark(int numObservers) throws InterruptedException {
+
+    Accessor accessor =
+        kafka.createAccessor(
+            direct,
+            entity,
+            storageUri,
+            and(partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(context())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    final long now = System.currentTimeMillis();
+    CountDownLatch latch = new CountDownLatch(numObservers);
+    Map<LogObserver, Long> observerWatermarks = new ConcurrentHashMap<>();
+    for (int i = 0; i < numObservers; i++) {
+      reader
+          .observe(
+              "test",
+              Position.NEWEST,
+              new LogObserver() {
+
+                @Override
+                public boolean onNext(StreamElement ingest, OnNextContext context) {
+                  return true;
+                }
+
+                @Override
+                public void onCompleted() {
+                  fail("This should not be called");
+                }
+
+                @Override
+                public boolean onError(Throwable error) {
+                  throw new RuntimeException(error);
+                }
+
+                @Override
+                public void onIdle(OnIdleContext context) {
+                  if (!observerWatermarks.containsKey(this)) {
+                    latch.countDown();
+                  }
+                  observerWatermarks.compute(
+                      this,
+                      (k, v) -> Math.max(v == null ? Long.MIN_VALUE : v, context.getWatermark()));
+                }
+              })
+          .waitUntilReady();
+    }
+
+    // for two seconds we have empty data
+    TimeUnit.SECONDS.sleep(2);
+
+    latch.await();
+
+    assertEquals(numObservers, observerWatermarks.size());
+    long watermark = observerWatermarks.values().stream().min(Long::compare).orElse(Long.MIN_VALUE);
+
+    // watermark should be moved
+    assertTrue(watermark > 0);
+    assertTrue(watermark < now * 10);
+  }
+
+  @Test(timeout = 10000)
   public void testObserveBulkCommitsCorrectly() throws InterruptedException {
     Accessor accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
@@ -1066,13 +1144,101 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     assertEquals(
         100,
-        handle
-            .getCommittedOffsets()
+        consumer
+            .committed(
+                handle
+                    .getCommittedOffsets()
+                    .stream()
+                    .map(o -> new TopicPartition(topic, o.getPartition().getId()))
+                    .collect(Collectors.toSet()))
+            .values()
             .stream()
-            .map(o -> new TopicPartition(topic, o.getPartition().getId()))
-            .map(consumer::committed)
             .mapToLong(OffsetAndMetadata::offset)
             .sum());
+  }
+
+  @Test(timeout = 10000)
+  public void testOnlineObserveWithRebalanceResetsOffsetCommitter() throws InterruptedException {
+    int numWrites = 5;
+    Accessor accessor =
+        kafka.createAccessor(
+            direct,
+            entity,
+            storageUri,
+            cfg(
+                Pair.of(LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS, 3),
+                // poll single record to commit it in atomic way
+                Pair.of(KafkaAccessor.MAX_POLL_RECORDS, 1)));
+    final CountDownLatch latch = new CountDownLatch(numWrites);
+    AtomicInteger consumed = new AtomicInteger();
+    List<OnNextContext> unconfirmed = Collections.synchronizedList(new ArrayList<>());
+
+    LogObserver observer =
+        new LogObserver() {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            latch.countDown();
+            switch (consumed.getAndIncrement()) {
+              case 0:
+                // we must confirm the first message to create a committed position
+                context.confirm();
+                break;
+              case 2:
+                throw new RuntimeException("Failing first consumer!");
+              default:
+                unconfirmed.add(context);
+                break;
+            }
+            if (consumed.get() == numWrites) {
+              unconfirmed.forEach(OnNextContext::confirm);
+            }
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {}
+
+          @Override
+          public boolean onError(Throwable error) {
+            return true;
+          }
+        };
+    testOnlineObserveWithRebalanceResetsOffsetCommitterWithObserver(observer, accessor, numWrites);
+    latch.await();
+    assertEquals(3, accessor.committedOffsets.values().stream().mapToInt(e -> e.get()).sum());
+  }
+
+  private void testOnlineObserveWithRebalanceResetsOffsetCommitterWithObserver(
+      LogObserver observer, Accessor accessor, int numWrites) throws InterruptedException {
+
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(context())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+
+    final StreamElement update =
+        StreamElement.update(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            attr.getName(),
+            System.currentTimeMillis(),
+            new byte[] {1, 2});
+
+    AtomicInteger consumed = new AtomicInteger();
+    List<OnNextContext> unconfirmed = Collections.synchronizedList(new ArrayList<>());
+
+    // observe from two observers
+    final ObserveHandle[] handles = {
+      reader.observe("test", Position.NEWEST, observer),
+      reader.observe("test", Position.NEWEST, observer)
+    };
+
+    for (int i = 0; i < numWrites; i++) {
+      writer.write(update, (succ, e) -> assertTrue(succ));
+    }
   }
 
   @Test(timeout = 10000)
@@ -2081,7 +2247,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     latch.await();
-    ConsumerRecords<Object, Object> polled = consumer.poll(1000);
+    ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(1000));
     assertEquals(1, polled.count());
     assertEquals(1, polled.partitions().size());
     TopicPartition partition = Iterators.getOnlyElement(polled.partitions().iterator());

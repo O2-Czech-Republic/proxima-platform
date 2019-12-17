@@ -24,9 +24,9 @@ import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
-import lombok.Getter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.DoubleCoder;
@@ -37,15 +37,17 @@ import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Join;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.LeftJoin;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.ReduceByKey;
+import org.apache.beam.sdk.extensions.euphoria.core.client.operator.base.Builders;
 import org.apache.beam.sdk.extensions.euphoria.core.client.util.Fold;
 import org.apache.beam.sdk.extensions.euphoria.core.client.util.Sums;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
-import org.apache.beam.sdk.transforms.windowing.DefaultTrigger;
+import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Trigger;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
@@ -59,24 +61,16 @@ import org.joda.time.Duration;
 /** A {@link WindowedStream} backed by beam. */
 class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
-  @Getter private final WindowFn<Object, ?> windowing;
-  @Getter private final WindowingStrategy.AccumulationMode mode;
-  private long earlyEmitting = -1L;
-  private long allowedLateness = 0;
-
   @SuppressWarnings("unchecked")
   BeamWindowedStream(
       StreamConfig config,
       boolean bounded,
       PCollectionProvider<T> input,
-      WindowFn<? super T, ?> windowing,
-      WindowingStrategy.AccumulationMode mode,
+      WindowingStrategy windowingStrategy,
       StreamProvider.TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory) {
 
-    super(config, bounded, input, terminateCheck, pipelineFactory);
-    this.windowing = (WindowFn) windowing;
-    this.mode = mode;
+    super(config, bounded, input, windowingStrategy, terminateCheck, pipelineFactory);
   }
 
   @Override
@@ -94,9 +88,10 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
           Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
+          PCollection<T> input = collection.materialize(pipeline);
           PCollection<KV<K, V>> kvs =
               ReduceByKey.named(withSuffix(name, ".reduce"))
-                  .of(collection.materialize(pipeline))
+                  .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(valueDehydrated::call)
                   .reduceBy(
@@ -104,10 +99,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
                         V current = initialValue;
                         return in.reduce(current, reducerDehydrated::call);
                       })
-                  .windowBy(windowing)
-                  .triggeredBy(createTrigger())
-                  .accumulationMode(mode)
-                  .withAllowedLateness(Duration.millis(allowedLateness))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
                   .output()
                   .setCoder(KvCoder.of(keyCoder, valueCoder));
 
@@ -125,11 +118,11 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
           Coder<V> valueCoder = coderOf(pipeline, reducerDehydrated);
-          PCollection<T> c = collection.materialize(pipeline);
+          PCollection<T> input = collection.materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
               ReduceByKey.named(withSuffix(name, ".reduce"))
-                  .of(c)
+                  .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(e -> e)
                   .reduceBy(
@@ -141,10 +134,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
                         }
                         return current;
                       })
-                  .windowBy(windowing)
-                  .triggeredBy(createTrigger())
-                  .accumulationMode(mode)
-                  .withAllowedLateness(Duration.millis(allowedLateness))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
                   .output()
                   .setCoder(KvCoder.of(keyCoder, valueCoder)),
               keyCoder,
@@ -174,20 +165,23 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
           // FIXME: need a way to retrieve inner type of the list
           @SuppressWarnings("unchecked")
           final Coder<V> valueCoder = (Coder) getCoder(pipeline, TypeDescriptor.of(Object.class));
-          PCollection<T> in = collection.materialize(pipeline);
-          // use native beam, beamphoria doesn't allow access
-          // to window label as of 2.12
-          if (name != null) {
-            in = in.apply(name + ".accessWindow", createWindowFn());
-          } else {
-            in = in.apply(createWindowFn());
+          PCollection<T> input = collection.materialize(pipeline);
+          if (!input.getWindowingStrategy().equals(windowingStrategy)) {
+            if (name != null) {
+              input = input.apply(name + ".windowFn", createWindowFn());
+            } else {
+              input = input.apply(createWindowFn());
+            }
           }
           PCollection<KV<K, T>> keyed =
               MapElements.named(withSuffix(name, ".mapToKvs"))
-                  .of(in)
+                  .of(input)
                   .using(el -> KV.of(keyDehydrated.call(el), el))
                   .output()
-                  .setCoder(KvCoder.of(keyCoder, in.getCoder()));
+                  .setCoder(KvCoder.of(keyCoder, input.getCoder()));
+
+          // use native beam, beamphoria doesn't allow access
+          // to window label as of 2.12
           final PCollection<KV<K, Iterable<T>>> groupped;
           if (name != null) {
             groupped = keyed.apply(name + ".groupByKey", GroupByKey.create());
@@ -234,8 +228,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @SuppressWarnings("unchecked")
   private Window<T> createWindowFn() {
-    Window ret = Window.into(windowing);
-    switch (mode) {
+    Window ret = Window.into(windowingStrategy.getWindowFn());
+    switch (windowingStrategy.getMode()) {
       case ACCUMULATING_FIRED_PANES:
         ret = ret.accumulatingFiredPanes();
         break;
@@ -243,9 +237,24 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         ret = ret.discardingFiredPanes();
         break;
       default:
-        throw new IllegalArgumentException("Unknown mode " + mode);
+        throw new IllegalArgumentException("Unknown mode " + windowingStrategy.getMode());
     }
-    return ret.triggering(createTrigger()).withAllowedLateness(Duration.millis(allowedLateness));
+    return ret.triggering(getTrigger()).withAllowedLateness(windowingStrategy.getAllowedLateness());
+  }
+
+  private <
+          O extends W,
+          W extends Builders.WindowedOutput<O>,
+          A extends Builders.AccumulationMode<W>,
+          T extends Builders.TriggeredBy<A>>
+      O createWindowFn(Builders.WindowBy<T> b) {
+    return b.windowBy(windowingStrategy.getWindowFn())
+        .triggeredBy(getTrigger())
+        .accumulationMode(windowingStrategy.getMode())
+        .withAllowedLateness(
+            windowingStrategy.getAllowedLateness(), windowingStrategy.getClosingBehavior())
+        .withOnTimeBehavior(windowingStrategy.getOnTimeBehavior())
+        .withTimestampCombiner(windowingStrategy.getTimestampCombiner());
   }
 
   @Override
@@ -264,19 +273,18 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
           Coder<V> valueCoder = coderOf(pipeline, valueExtractor);
+          PCollection<T> input = collection.materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
               ReduceByKey.named(withSuffix(name, ".reduce"))
-                  .of(collection.materialize(pipeline))
+                  .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(valueDehydrated::call)
                   .combineBy(
                       (java.util.stream.Stream<V> in) ->
                           in.reduce(initial, combineDehydrated::call))
-                  .windowBy(windowing)
-                  .triggeredBy(createTrigger())
-                  .accumulationMode(mode)
-                  .withAllowedLateness(Duration.millis(allowedLateness))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
                   .output()
                   .setCoder(KvCoder.of(keyCoder, valueCoder)),
               keyCoder,
@@ -295,17 +303,16 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
           Coder<T> valueCoder = coderOf(pipeline, combine);
+          PCollection<T> input = collection.materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
               ReduceByKey.named(withSuffix(name, ".reduce"))
-                  .of(collection.materialize(pipeline))
+                  .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(e -> e)
                   .combineBy(in -> in.reduce(initial, combineDehydrated::call))
-                  .windowBy(windowing)
-                  .triggeredBy(createTrigger())
-                  .accumulationMode(mode)
-                  .withAllowedLateness(Duration.millis(allowedLateness))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
                   .output()
                   .setCoder(KvCoder.of(keyCoder, valueCoder)),
               keyCoder,
@@ -322,17 +329,16 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
           Coder<Long> valueCoder = getCoder(pipeline, TypeDescriptors.longs());
+          PCollection<T> input = collection.materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
               ReduceByKey.named(withSuffix(name, ".reduce"))
-                  .of(collection.materialize(pipeline))
+                  .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(e -> 1L, TypeDescriptors.longs())
-                  .combineBy(Sums.ofLongs(), TypeDescriptors.longs())
-                  .windowBy(windowing)
-                  .triggeredBy(createTrigger())
-                  .accumulationMode(mode)
-                  .withAllowedLateness(Duration.millis(allowedLateness))
+                  .combineBy(Sums.ofLongs())
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
                   .output(),
               keyCoder,
               valueCoder);
@@ -345,9 +351,10 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<Double> valueDehydrated = dehydrate(valueExtractor);
     return descendant(
         pipeline -> {
+          PCollection<T> input = collection.materialize(pipeline);
           PCollection<KV<Double, Long>> intermediate =
               ReduceByKey.named(withSuffix(name, ".reduce"))
-                  .of(collection.materialize(pipeline))
+                  .of(input)
                   .keyBy(e -> "", TypeDescriptors.strings())
                   .valueBy(
                       e -> KV.of(valueDehydrated.call(e), 1L),
@@ -356,10 +363,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
                       Fold.of(
                           (a, b) -> KV.of(a.getKey() + b.getKey(), a.getValue() + b.getValue())),
                       TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
-                  .windowBy(windowing)
-                  .triggeredBy(createTrigger())
-                  .accumulationMode(mode)
-                  .withAllowedLateness(Duration.millis(allowedLateness))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
                   .outputValues();
           intermediate.setTypeDescriptor(
               TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()));
@@ -386,9 +391,10 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
               getCoder(
                   pipeline,
                   TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()));
+          PCollection<T> input = collection.materialize(pipeline);
           PCollection<KV<K, KV<Double, Long>>> intermediate =
               ReduceByKey.named(withSuffix(name, ".reduce"))
-                  .of(collection.materialize(pipeline))
+                  .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(
                       e -> KV.of(valueDehydrated.call(e), 1L),
@@ -397,10 +403,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
                       Fold.of(
                           (a, b) -> KV.of(a.getKey() + b.getKey(), a.getValue() + b.getValue())),
                       TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()))
-                  .windowBy(windowing)
-                  .triggeredBy(createTrigger())
-                  .accumulationMode(mode)
-                  .withAllowedLateness(Duration.millis(allowedLateness))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
                   .output()
                   .setCoder(KvCoder.of(keyCoder, valueCoder));
           return MapElements.named(withSuffix(name, ".mapToResult"))
@@ -426,10 +430,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
               .of(lc, rc)
               .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
               .using((T l, OTHER r, Collector<Pair<T, OTHER>> ctx) -> ctx.collect(Pair.of(l, r)))
-              .windowBy(windowing)
-              .triggeredBy(createTrigger())
-              .accumulationMode(mode)
-              .withAllowedLateness(Duration.millis(allowedLateness))
+              .applyIf(!windowingStrategy.equals(lc.getWindowingStrategy()), this::createWindowFn)
               .outputValues()
               .setCoder(PairCoder.of(lc.getCoder(), rc.getCoder()));
         });
@@ -453,10 +454,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
               .using(
                   (T l, Optional<RIGHT> r, Collector<Pair<T, RIGHT>> ctx) ->
                       ctx.collect(Pair.of(l, r.orElse(null))))
-              .windowBy(windowing)
-              .triggeredBy(createTrigger())
-              .accumulationMode(mode)
-              .withAllowedLateness(Duration.millis(allowedLateness))
+              .applyIf(!windowingStrategy.equals(lc.getWindowingStrategy()), this::createWindowFn)
               .outputValues()
               .setCoder(PairCoder.of(lc.getCoder(), rc.getCoder()));
         });
@@ -468,16 +466,14 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<Integer> dehydrated = dehydrate(compareFn);
     return descendant(
         pipeline -> {
-          PCollection<T> in = collection.materialize(pipeline);
+          PCollection<T> input = collection.materialize(pipeline);
           return ReduceByKey.named(name)
-              .of(in)
+              .of(input)
               .keyBy(e -> null, TypeDescriptors.nulls())
               .reduceBy((Stream<T> values, Collector<T> ctx) -> values.forEach(ctx::collect))
               .withSortedValues(dehydrated::call)
-              .windowBy(windowing)
-              .triggeredBy(createTrigger())
-              .accumulationMode(mode)
-              .withAllowedLateness(Duration.millis(allowedLateness))
+              .applyIf(
+                  !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
               .outputValues();
         });
   }
@@ -488,16 +484,14 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     return (WindowedStream)
         descendant(
             pipeline -> {
-              PCollection<T> in = collection.materialize(pipeline);
+              PCollection<T> input = collection.materialize(pipeline);
               return ReduceByKey.named(name)
-                  .of((PCollection<Comparable<T>>) in)
+                  .of((PCollection<Comparable<T>>) input)
                   .keyBy(e -> null, TypeDescriptors.nulls())
                   .reduceBy((values, ctx) -> values.forEach(ctx::collect))
                   .withSortedValues((a, b) -> a.compareTo((T) b))
-                  .windowBy(windowing)
-                  .triggeredBy(createTrigger())
-                  .accumulationMode(mode)
-                  .withAllowedLateness(Duration.millis(allowedLateness))
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
                   .outputValues();
             });
   }
@@ -505,17 +499,17 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   @Override
   public WindowedStream<Long> count(@Nullable String name) {
     return descendant(
-        pipeline ->
-            ReduceByKey.named(name)
-                .of(collection.materialize(pipeline))
-                .keyBy(e -> null, TypeDescriptors.nulls())
-                .valueBy(e -> 1L, TypeDescriptors.longs())
-                .combineBy(Sums.ofLongs(), TypeDescriptors.longs())
-                .windowBy(windowing)
-                .triggeredBy(createTrigger())
-                .accumulationMode(mode)
-                .withAllowedLateness(Duration.millis(allowedLateness))
-                .outputValues());
+        pipeline -> {
+          PCollection<T> input = collection.materialize(pipeline);
+          return ReduceByKey.named(name)
+              .of(input)
+              .keyBy(e -> null, TypeDescriptors.nulls())
+              .valueBy(e -> 1L, TypeDescriptors.longs())
+              .combineBy(Sums.ofLongs())
+              .applyIf(
+                  !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+              .outputValues();
+        });
   }
 
   @Override
@@ -523,17 +517,17 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
     Closure<Double> valueDehydrated = dehydrate(valueExtractor);
     return descendant(
-        pipeline ->
-            ReduceByKey.named(name)
-                .of(collection.materialize(pipeline))
-                .keyBy(e -> null, TypeDescriptors.nulls())
-                .valueBy(valueDehydrated::call, TypeDescriptors.doubles())
-                .combineBy(Fold.of(0.0, (a, b) -> a + b), TypeDescriptors.doubles())
-                .windowBy(windowing)
-                .triggeredBy(createTrigger())
-                .accumulationMode(mode)
-                .withAllowedLateness(Duration.millis(allowedLateness))
-                .outputValues());
+        pipeline -> {
+          PCollection<T> input = collection.materialize(pipeline);
+          return ReduceByKey.named(name)
+              .of(input)
+              .keyBy(e -> null, TypeDescriptors.nulls())
+              .valueBy(valueDehydrated::call, TypeDescriptors.doubles())
+              .combineBy(Sums.ofDoubles())
+              .applyIf(
+                  !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
+              .outputValues();
+        });
   }
 
   @Override
@@ -546,17 +540,16 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
           Coder<Double> valueCoder = getCoder(pipeline, TypeDescriptors.doubles());
+          PCollection<T> input = collection.materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
               ReduceByKey.named(withSuffix(name, ".reduce"))
-                  .of(collection.materialize(pipeline))
+                  .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(valueDehydrated::call, TypeDescriptors.doubles())
-                  .combineBy(Fold.of(0.0, (a, b) -> a + b), TypeDescriptors.doubles())
-                  .windowBy(windowing)
-                  .triggeredBy(createTrigger())
-                  .accumulationMode(mode)
-                  .withAllowedLateness(Duration.millis(allowedLateness))
+                  .combineBy(Sums.ofDoubles())
+                  .applyIf(
+                      !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
                   .output()
                   .setCoder(KvCoder.of(keyCoder, valueCoder)),
               keyCoder,
@@ -568,15 +561,13 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   public WindowedStream<T> distinct(@Nullable String name) {
     return descendant(
         pipeline -> {
-          PCollection<T> in = collection.materialize(pipeline);
+          PCollection<T> input = collection.materialize(pipeline);
           return Distinct.named(name)
-              .of(in)
-              .windowBy(windowing)
-              .triggeredBy(createTrigger())
-              .accumulationMode(mode)
-              .withAllowedLateness(Duration.millis(allowedLateness))
+              .of(input)
+              .applyIf(
+                  !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
               .output()
-              .setCoder(in.getCoder());
+              .setCoder(input.getCoder());
         });
   }
 
@@ -586,46 +577,75 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<Object> dehydrated = (Closure) dehydrate(mapper);
     return descendant(
         pipeline -> {
-          PCollection<T> in = collection.materialize(pipeline);
+          PCollection<T> input = collection.materialize(pipeline);
           return Distinct.named(name)
-              .of(in)
+              .of(input)
               .projected(dehydrated::call, Distinct.SelectionPolicy.NEWEST)
-              .windowBy(windowing)
-              .triggeredBy(createTrigger())
-              .accumulationMode(mode)
-              .withAllowedLateness(Duration.millis(allowedLateness))
+              .applyIf(
+                  !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
               .output()
-              .setCoder(in.getCoder());
+              .setCoder(input.getCoder());
         });
   }
 
   @Override
   public WindowedStream<T> withEarlyEmitting(long duration) {
-    this.earlyEmitting = duration;
+    this.windowingStrategy =
+        windowingStrategy.withTrigger(
+            AfterWatermark.pastEndOfWindow()
+                .withEarlyFirings(
+                    AfterProcessingTime.pastFirstElementInPane()
+                        .plusDelayOf(Duration.millis(duration)))
+                .withLateFirings(AfterPane.elementCountAtLeast(1)));
     return this;
   }
 
   @Override
   public WindowedStream<T> withAllowedLateness(long lateness) {
-    this.allowedLateness = lateness;
+    this.windowingStrategy = windowingStrategy.withAllowedLateness(Duration.millis(lateness));
     return this;
   }
 
   @SuppressWarnings("unchecked")
   @Override
-  <X> BeamWindowedStream<X> descendant(PCollectionProvider<X> provider) {
+  <X> BeamWindowedStream<X> descendant(Function<Pipeline, PCollection<X>> factory) {
     return new BeamWindowedStream<>(
-        config, bounded, provider, (WindowFn) windowing, mode, terminateCheck, pipelineFactory);
+        config,
+        bounded,
+        PCollectionProvider.withParents(factory, collection),
+        windowingStrategy,
+        terminateCheck,
+        pipelineFactory);
+  }
+
+  BeamWindowedStream<T> intoGlobalWindow() {
+    return new BeamWindowedStream<>(
+        config,
+        bounded,
+        PCollectionProvider.withParents(
+            pipeline -> collection.materialize(pipeline).apply(Window.into(new GlobalWindows())),
+            collection),
+        WindowingStrategy.globalDefault(),
+        terminateCheck,
+        pipelineFactory);
   }
 
   @Override
   WindowFn<Object, ? extends BoundedWindow> getWindowFn() {
-    return this.windowing;
+    return this.windowingStrategy.getWindowFn();
   }
 
   @Override
   Trigger getTrigger() {
-    return createTrigger();
+    return windowingStrategy.getTrigger();
+  }
+
+  @Override
+  public WindowedStream<T> windowAll() {
+    if (!windowingStrategy.equals(WindowingStrategy.globalDefault())) {
+      return intoGlobalWindow();
+    }
+    return this;
   }
 
   private static <K, V> PCollection<Pair<K, V>> asPairs(
@@ -636,15 +656,5 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         .using(kv -> Pair.of(kv.getKey(), kv.getValue()))
         .output()
         .setCoder(PairCoder.of(keyCoder, valueCoder));
-  }
-
-  private Trigger createTrigger() {
-    if (earlyEmitting > 0) {
-      return AfterWatermark.pastEndOfWindow()
-          .withEarlyFirings(
-              AfterProcessingTime.pastFirstElementInPane()
-                  .plusDelayOf(Duration.millis(earlyEmitting)));
-    }
-    return DefaultTrigger.of();
   }
 }

@@ -29,7 +29,10 @@ import cz.o2.proxima.storage.commitlog.Position;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
+import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
 import org.apache.beam.sdk.testing.PAssert;
+import org.apache.beam.sdk.transforms.Count;
+import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Sessions;
@@ -114,7 +117,8 @@ public class BeamDataOperatorTest {
         CountByKey.of(stream)
             .keyBy(e -> "", TypeDescriptors.strings())
             .windowBy(FixedWindows.of(Duration.millis(1000)))
-            .triggeredBy(AfterWatermark.pastEndOfWindow())
+            .triggeredBy(
+                AfterWatermark.pastEndOfWindow().withLateFirings(AfterPane.elementCountAtLeast(1)))
             .discardingFiredPanes()
             .withAllowedLateness(Duration.ZERO)
             .output();
@@ -147,7 +151,8 @@ public class BeamDataOperatorTest {
         CountByKey.of(stream)
             .keyBy(e -> "", TypeDescriptors.strings())
             .windowBy(FixedWindows.of(Duration.millis(1000)))
-            .triggeredBy(AfterWatermark.pastEndOfWindow())
+            .triggeredBy(
+                AfterWatermark.pastEndOfWindow().withLateFirings(AfterPane.elementCountAtLeast(1)))
             .discardingFiredPanes()
             .withAllowedLateness(Duration.millis(10000))
             .output();
@@ -168,7 +173,15 @@ public class BeamDataOperatorTest {
     }
   }
 
-  @Test(timeout = 5000)
+  @Test(timeout = 180000)
+  public synchronized void testUnboundedCommitLogConsumptionWithWindowManyMany() {
+    final long elements = 1000L;
+    validatePCollectionWindowedRead(
+        () -> beam.getStream("", pipeline, Position.OLDEST, false, true, elements + 1, armed),
+        elements);
+  }
+
+  @Test /* (timeout = 5000) */
   public synchronized void testBatchUpdatesConsumptionWithWindowMany() {
     validatePCollectionWindowedRead(() -> beam.getBatchUpdates(pipeline, armed), 99L);
   }
@@ -206,6 +219,38 @@ public class BeamDataOperatorTest {
     assertNotNull(pipeline.run());
   }
 
+  @Test
+  public void testUnion() {
+    direct
+        .getWriter(event)
+        .orElseThrow(() -> new IllegalStateException("Missing writer for event"))
+        .write(
+            StreamElement.update(
+                gateway,
+                event,
+                "uuid",
+                "key",
+                event.toAttributePrefix() + "1",
+                now,
+                new byte[] {1, 2, 3}),
+            (succ, exc) -> {});
+    direct
+        .getWriter(armed)
+        .orElseThrow(() -> new IllegalStateException("Missing writer for event"))
+        .write(
+            StreamElement.update(
+                gateway, armed, "uuid", "key2", armed.getName(), now + 1, new byte[] {1, 2, 3, 4}),
+            (succ, exc) -> {});
+
+    PCollection<StreamElement> events =
+        beam.getStream(pipeline, Position.OLDEST, true, true, event);
+    PCollection<StreamElement> armedStream =
+        beam.getStream(pipeline, Position.OLDEST, true, true, armed);
+    PCollection<Long> result = Union.of(events, armedStream).output().apply(Count.globally());
+    PAssert.that(result).containsInAnyOrder(2L);
+    assertNotNull(pipeline.run());
+  }
+
   @SuppressWarnings("unchecked")
   private synchronized void validatePCollectionWindowedRead(
       Factory<PCollection<StreamElement>> input, long elements) {
@@ -237,7 +282,8 @@ public class BeamDataOperatorTest {
         CountByKey.of(input.apply())
             .keyBy(e -> "", TypeDescriptors.strings())
             .windowBy(Sessions.withGapDuration(Duration.millis(1000)))
-            .triggeredBy(AfterWatermark.pastEndOfWindow())
+            .triggeredBy(
+                AfterWatermark.pastEndOfWindow().withLateFirings(AfterPane.elementCountAtLeast(1)))
             .discardingFiredPanes()
             .withAllowedLateness(Duration.millis(10000))
             .output();

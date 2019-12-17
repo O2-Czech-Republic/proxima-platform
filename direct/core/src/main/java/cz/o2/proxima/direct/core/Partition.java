@@ -35,6 +35,16 @@ public interface Partition extends Serializable {
    */
   int getId();
 
+  /** Retrieve minimal timestamp associated with data in this partition. */
+  default long getMinTimestamp() {
+    return Long.MIN_VALUE;
+  }
+
+  /** Retrieve maximal timestamp associated with data in this partition. */
+  default long getMaxTimestamp() {
+    return Long.MAX_VALUE;
+  }
+
   /**
    * Check if this is bounded or unbounded partition.
    *

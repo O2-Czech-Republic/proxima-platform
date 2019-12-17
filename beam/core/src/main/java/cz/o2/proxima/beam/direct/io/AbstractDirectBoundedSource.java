@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.io.BoundedSource;
@@ -25,10 +26,14 @@ import org.apache.beam.sdk.options.PipelineOptions;
 /** Abstract super class for bounded sources. */
 abstract class AbstractDirectBoundedSource extends BoundedSource<StreamElement> {
 
-  final Repository repo;
+  final RepositoryFactory factory;
 
   AbstractDirectBoundedSource(Repository repo) {
-    this.repo = repo;
+    this.factory = repo.asFactory();
+  }
+
+  AbstractDirectBoundedSource(RepositoryFactory factory) {
+    this.factory = factory;
   }
 
   @Override
@@ -38,6 +43,6 @@ abstract class AbstractDirectBoundedSource extends BoundedSource<StreamElement> 
 
   @Override
   public Coder<StreamElement> getOutputCoder() {
-    return StreamElementCoder.of(repo);
+    return StreamElementCoder.of(factory);
   }
 }

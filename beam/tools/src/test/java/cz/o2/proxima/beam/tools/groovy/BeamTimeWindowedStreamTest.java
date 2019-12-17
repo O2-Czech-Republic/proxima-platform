@@ -22,7 +22,7 @@ import org.junit.Test;
 public class BeamTimeWindowedStreamTest extends TimeWindowedStreamTest {
 
   public BeamTimeWindowedStreamTest() {
-    super(BeamStreamTest.provider());
+    super(BeamStreamTest.provider(true));
   }
 
   @Ignore("Sorting is TODO in Beamphoria")
@@ -38,14 +38,4 @@ public class BeamTimeWindowedStreamTest extends TimeWindowedStreamTest {
   public void testWindowAllSorted() {
     super.testWindowAllSorted();
   }
-
-  /*
-  @Ignore("FlatReduce not implemented yet")
-  @Test
-  @Override
-  public void testWindowAllGroupReduce() {
-    super.testWindowAllGroupReduce();
-  }
-  */
-
 }

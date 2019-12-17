@@ -170,7 +170,7 @@ public class ConsumerGroup implements Serializable {
       double shared = 0.0;
       int partition = 0;
       Iterator<Map.Entry<Integer, Assignment>> iter = assignments.entrySet().iterator();
-      while (partition < numPartitions) {
+      while (partition < numPartitions && iter.hasNext()) {
         Map.Entry<Integer, Assignment> next = iter.next();
         List<Partition> partitions = new ArrayList<>();
         shared += equalShare;

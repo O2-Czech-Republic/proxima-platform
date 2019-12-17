@@ -666,13 +666,19 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + ".batchUpdates().timeWindow(5000).count()).collect()");
     write(
         StreamElement.update(
-            batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
+            batch,
+            data,
+            "uuid1",
+            "key1",
+            data.getName(),
+            System.currentTimeMillis(),
+            new byte[] {}));
     write(
         StreamElement.update(
             batch,
             wildcard,
-            "uuid",
-            "key",
+            "uuid2",
+            "key2",
             wildcard.toAttributePrefix() + "1",
             System.currentTimeMillis(),
             new byte[] {}));
@@ -702,6 +708,88 @@ public abstract class GroovyEnvTest extends GroovyTest {
     @SuppressWarnings("unchecked")
     List<Long> result = (List) compiled.run();
     assertEquals(2, result.size());
+  }
+
+  @Test
+  public void testIntegratePerKeyAfterWindowing() throws Exception {
+    Script compiled =
+        compile(
+            "env.batch.wildcard.batchUpdates().timeWindow(1000).count()"
+                + ".windowAll().integratePerKey({ \"\" }, { it }, { 0 }, {a, b -> a + b}, 0)"
+                + ".collect()");
+    write(
+        StreamElement.update(
+            batch,
+            wildcard,
+            "uuid",
+            "key",
+            wildcard.toAttributePrefix() + "0",
+            System.currentTimeMillis(),
+            new byte[] {}));
+    write(
+        StreamElement.update(
+            batch,
+            wildcard,
+            "uuid",
+            "key",
+            wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis() + 2000,
+            new byte[] {}));
+    @SuppressWarnings("unchecked")
+    List<Long> result = (List) compiled.run();
+    assertEquals(2, result.size());
+    assertEquals(Arrays.asList(Pair.of("", 1L), Pair.of("", 2L)), result);
+  }
+
+  @Test
+  public void testSumDistinctSlidingWindow() throws Exception {
+    long now = 0L;
+    final Script compiled =
+        compile(
+            "env.batch.wildcard.batchUpdates()"
+                + ".timeSlidingWindow(1000, 500)"
+                + ".map({ it.key })"
+                + ".distinct().count().collect()");
+    write(
+        StreamElement.update(
+            batch,
+            wildcard,
+            "uuid",
+            "key",
+            wildcard.toAttributePrefix() + "0",
+            now + 1,
+            new byte[] {}));
+    write(
+        StreamElement.update(
+            batch,
+            wildcard,
+            "uuid",
+            "key2",
+            wildcard.toAttributePrefix() + "0",
+            now + 50,
+            new byte[] {}));
+    write(
+        StreamElement.update(
+            batch,
+            wildcard,
+            "uuid",
+            "key",
+            wildcard.toAttributePrefix() + "1",
+            now + 700,
+            new byte[] {}));
+    write(
+        StreamElement.update(
+            batch,
+            wildcard,
+            "uuid",
+            "key3",
+            wildcard.toAttributePrefix() + "1",
+            now + 800,
+            new byte[] {}));
+    @SuppressWarnings("unchecked")
+    List<Long> result = (List) compiled.run();
+    assertEquals(3, result.size());
+    assertUnorderedEquals(Arrays.asList(2L, 3L, 2L), result);
   }
 
   protected abstract void write(StreamElement element);

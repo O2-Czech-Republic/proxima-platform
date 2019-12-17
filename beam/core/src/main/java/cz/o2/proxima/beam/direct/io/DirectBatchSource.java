@@ -18,7 +18,7 @@ package cz.o2.proxima.beam.direct.io;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.util.Arrays;
@@ -35,13 +35,13 @@ import org.apache.beam.sdk.options.PipelineOptions;
 public class DirectBatchSource extends AbstractDirectBoundedSource {
 
   static DirectBatchSource of(
-      Repository repo,
+      RepositoryFactory factory,
       BatchLogObservable reader,
       List<AttributeDescriptor<?>> attrs,
       long startStamp,
       long endStamp) {
 
-    return new DirectBatchSource(repo, reader, attrs, startStamp, endStamp);
+    return new DirectBatchSource(factory, reader, attrs, startStamp, endStamp);
   }
 
   private final BatchLogObservable reader;
@@ -51,13 +51,13 @@ public class DirectBatchSource extends AbstractDirectBoundedSource {
   private final @Nullable Partition split;
 
   private DirectBatchSource(
-      Repository repo,
+      RepositoryFactory factory,
       BatchLogObservable reader,
       List<AttributeDescriptor<?>> attrs,
       long startStamp,
       long endStamp) {
 
-    super(repo);
+    super(factory);
     this.reader = Objects.requireNonNull(reader);
     this.attrs = Objects.requireNonNull(attrs);
     this.startStamp = startStamp;
@@ -66,7 +66,7 @@ public class DirectBatchSource extends AbstractDirectBoundedSource {
   }
 
   private DirectBatchSource(DirectBatchSource parent, Partition split) {
-    super(parent.repo);
+    super(parent.factory);
     this.reader = parent.reader;
     this.attrs = parent.attrs;
     this.startStamp = parent.startStamp;

@@ -20,7 +20,7 @@ import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.Getter;
-import org.apache.beam.repackaged.beam_sdks_java_extensions_kryo.com.esotericsoftware.kryo.serializers.JavaSerializer;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.serializers.JavaSerializer;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.io.UnboundedSource;
@@ -42,14 +42,14 @@ class DirectUnboundedSource
     extends UnboundedSource<StreamElement, DirectUnboundedSource.Checkpoint> {
 
   static DirectUnboundedSource of(
-      Repository repo,
+      RepositoryFactory factory,
       String name,
       CommitLogReader reader,
       Position position,
       boolean eventTime,
       long limit) {
 
-    return new DirectUnboundedSource(repo, name, reader, position, eventTime, limit, null);
+    return new DirectUnboundedSource(factory, name, reader, position, eventTime, limit, null);
   }
 
   static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
@@ -99,7 +99,7 @@ class DirectUnboundedSource
     }
   }
 
-  private final Repository repo;
+  private final RepositoryFactory factory;
   private final String name;
   private final CommitLogReader reader;
   private final Position position;
@@ -109,7 +109,7 @@ class DirectUnboundedSource
   private final @Nullable Partition partition;
 
   DirectUnboundedSource(
-      Repository repo,
+      RepositoryFactory factory,
       String name,
       CommitLogReader reader,
       Position position,
@@ -117,7 +117,7 @@ class DirectUnboundedSource
       long limit,
       @Nullable Partition partition) {
 
-    this.repo = repo;
+    this.factory = factory;
     this.name = name;
     this.reader = reader;
     this.position = position;
@@ -150,7 +150,7 @@ class DirectUnboundedSource
         .map(
             p ->
                 new DirectUnboundedSource(
-                    repo, name, reader, position, eventTime, limit / resulting, p))
+                    factory, name, reader, position, eventTime, limit / resulting, p))
         .collect(Collectors.toList());
   }
 
@@ -171,7 +171,7 @@ class DirectUnboundedSource
 
   @Override
   public Coder<StreamElement> getOutputCoder() {
-    return StreamElementCoder.of(repo);
+    return StreamElementCoder.of(factory);
   }
 
   @Override

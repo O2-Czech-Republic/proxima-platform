@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>proxima-direct</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <version>0.3.0-rc1</version>
   </parent>
      
   <artifactId>proxima-direct-io-pubsub</artifactId>
@@ -33,6 +33,8 @@
 
   <properties>
     <shadePattern>cz.o2.proxima.pubsub.shaded</shadePattern>
+    <pubsub.version>1.101.0</pubsub.version>
+    <grpc.version>1.23.0</grpc.version>
   </properties>
 
   <build>
@@ -224,7 +226,7 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <version>1.66.0</version>
+      <version>${pubsub.version}</version>
     </dependency>
 
     <dependency>

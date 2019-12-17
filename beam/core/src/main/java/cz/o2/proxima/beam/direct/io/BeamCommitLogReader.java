@@ -316,13 +316,16 @@ class BeamCommitLogReader {
   }
 
   public void close() throws IOException {
-    observer.stop();
+    if (observer != null) {
+      observer.stop();
+      if (observer.getLastWrittenContext() != null) {
+        observer.getLastWrittenContext().nack();
+      }
+      observer = null;
+    }
     if (handle != null) {
       handle.cancel();
       handle = null;
-    }
-    if (observer.getLastWrittenContext() != null) {
-      observer.getLastWrittenContext().nack();
     }
     reader.close();
   }

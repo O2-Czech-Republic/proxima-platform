@@ -144,7 +144,6 @@ class Consumers {
 
     @Override
     public void onAssign(KafkaConsumer<K, V> consumer, List<TopicOffset> offsets) {
-
       super.onAssign(consumer, offsets);
       observer.onRepartition(
           asRepartitionContext(
@@ -245,7 +244,6 @@ class Consumers {
     @SuppressWarnings("unchecked")
     @Override
     public void onAssign(KafkaConsumer<K, V> consumer, List<TopicOffset> offsets) {
-
       super.onAssign(consumer, offsets);
       observer.onRepartition(
           asRepartitionContext(

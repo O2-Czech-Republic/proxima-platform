@@ -44,6 +44,7 @@ import cz.o2.proxima.util.TransformationRunner;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.NotSerializableException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
@@ -566,8 +567,8 @@ public class DirectDataOperatorTest {
     assertEquals("key", read.get(1).getKey());
   }
 
-  @Test
-  public void testRepositorySerializable() throws Exception {
+  @Test(expected = NotSerializableException.class)
+  public void testRepositoryNotSerializable() throws Exception {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     ObjectOutputStream oos = new ObjectOutputStream(baos);
     oos.writeObject(repo);

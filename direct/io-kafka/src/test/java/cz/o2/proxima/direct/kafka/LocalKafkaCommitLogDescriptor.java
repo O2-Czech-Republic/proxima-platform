@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.URI;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -44,6 +45,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -101,10 +103,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         return false;
       }
       final ConsumerId other = (ConsumerId) obj;
-      if (this.id != other.id || !Objects.equals(this.name, other.name)) {
-        return false;
-      }
-      return true;
+      return this.id == other.id && Objects.equals(this.name, other.name);
     }
 
     @Override
@@ -258,11 +257,11 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
       doAnswer(
               invocation -> {
-                long sleep = (long) invocation.getArguments()[0];
-                return pollConsumer(group, sleep, consumerId, serializer, listener);
+                Duration sleep = (Duration) invocation.getArguments()[0];
+                return pollConsumer(group, sleep.toMillis(), consumerId, serializer, listener);
               })
           .when(mock)
-          .poll(anyLong());
+          .poll((Duration) any());
 
       doAnswer(
               invocation -> {
@@ -315,19 +314,26 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
                 return null;
               })
           .when(mock)
-          .commitSync(any());
+          .commitSync((Map<TopicPartition, OffsetAndMetadata>) any());
 
       doAnswer(
               invocation -> {
-                TopicPartition part = (TopicPartition) invocation.getArguments()[0];
-                int off = getCommittedOffset(name, part.partition());
-                if (off >= 0) {
-                  return new OffsetAndMetadata(off);
-                }
-                return null;
+                Set<TopicPartition> parts = (Set<TopicPartition>) invocation.getArguments()[0];
+                return parts
+                    .stream()
+                    .map(
+                        tp -> {
+                          int off = getCommittedOffset(name, tp.partition());
+                          if (off >= 0) {
+                            return Pair.of(tp, new OffsetAndMetadata(off));
+                          }
+                          return Pair.of(tp, null);
+                        })
+                    .filter(p -> p.getSecond() != null)
+                    .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
               })
           .when(mock)
-          .committed(any());
+          .committed((Set<TopicPartition>) any());
 
       doAnswer(
               invocation -> {
@@ -381,7 +387,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     private void commitConsumer(String name, Map<TopicPartition, OffsetAndMetadata> commitMap) {
-
       commitMap
           .entrySet()
           .forEach(

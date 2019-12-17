@@ -27,10 +27,8 @@ import org.codehaus.groovy.control.customizers.builder.CompilerCustomizationBuil
 @CompileStatic
 class ClassloaderUtils {
   
-  public static CompilerConfiguration createConfiguration() {
-    CompilerConfiguration config = new CompilerConfiguration();
-    //config.addCompilationCustomizers(new ASTTransformationCustomizer(CompileStatic))
-    return config
+  static CompilerConfiguration createConfiguration() {
+    return CompilerConfiguration.DEFAULT;
   }
 
 }

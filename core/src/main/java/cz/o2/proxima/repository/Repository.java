@@ -31,19 +31,54 @@ import java.util.stream.Stream;
 
 /** Repository of all entities configured in the system. */
 @Evolving
-public abstract class Repository implements Serializable {
+public abstract class Repository {
+
+  public static interface ConfigFactory extends Serializable {
+    Config apply();
+  }
+
+  private final ConfigFactory factory;
 
   private final Map<Class<? extends DataOperator>, DataOperator> operatorCache =
       new ConcurrentHashMap<>();
 
   /**
+   * Construct the repository.
+   *
+   * @param factory the factory to create instance of this {@link Config}
+   */
+  Repository(ConfigFactory factory) {
+    this.factory = factory;
+  }
+
+  /**
    * Create {@link Repository} from given {@link Config}.
    *
-   * @param config the config
+   * @param factory the config factory
    * @return repository
    */
+  public static Repository of(ConfigFactory factory) {
+    return ConfigRepository.of(factory);
+  }
+
+  /**
+   * Create new {@link Repository} from {@link Config}.
+   *
+   * @param config the config to use
+   * @return new {@link Repository}
+   * @deprecated use {@link #of(ConfigFactory)} instead.
+   */
+  @Deprecated
   public static Repository of(Config config) {
     return ConfigRepository.of(config);
+  }
+
+  public RepositoryFactory asFactory() {
+    return RepositoryFactory.caching(staticFactory(factory));
+  }
+
+  private static RepositoryFactory staticFactory(ConfigFactory factory) {
+    return () -> Repository.of(factory.apply());
   }
 
   /**
@@ -116,7 +151,7 @@ public abstract class Repository implements Serializable {
 
     T ret =
         Streams.stream(loaders)
-            .filter(factory -> factory.isOfType(type))
+            .filter(f -> f.isOfType(type))
             .findAny()
             .map(o -> (DataOperatorFactory<T>) o)
             .map(
@@ -169,4 +204,9 @@ public abstract class Repository implements Serializable {
    * @param op the operator that was created
    */
   protected void addedDataOperator(DataOperator op) {}
+
+  /** Discard any cached {@link Repository}. */
+  public void discard() {
+    ((RepositoryFactory.Caching) asFactory()).drop();
+  }
 }

@@ -49,37 +49,40 @@ public class GCloudLogObservableTest {
   @Test
   public void testPartitionsRange() {
     assertTrue(
-        GCloudLogObservable.isInRange(
+        isInRange(
             "prefix-1234567890000_9876543210000.blob.whatever", 1234567890000L, 12345678901000L));
     assertTrue(
-        GCloudLogObservable.isInRange(
-            "prefix-1234567890000_9876543210000.blob", 1234567891000L, 12345678902000L));
+        isInRange("prefix-1234567890000_9876543210000.blob", 1234567891000L, 12345678902000L));
     assertTrue(
-        GCloudLogObservable.isInRange(
+        isInRange(
             "/my/dummy/path/prefix-1234567890000_9876543210000.blob",
             1234567891000L,
             12345678902000L));
     assertTrue(
-        GCloudLogObservable.isInRange(
+        isInRange(
             "/my/dummy/path/prefix-1234567890000_9876543210000_suffix.blob",
             1234567891000L,
             12345678902000L));
     assertTrue(
-        GCloudLogObservable.isInRange(
+        isInRange(
             "prefix-1234567890000_9876543210000.blob.whatever", 1234567891000L, 12345678902000L));
     assertTrue(
-        GCloudLogObservable.isInRange(
+        isInRange(
             "prefix-1234567890000_9876543210000.blob.whatever", 1234567880000L, 12345678902000L));
     assertTrue(
-        GCloudLogObservable.isInRange(
+        isInRange(
             "prefix-1234567890000_9876543210000.blob.whatever", 9876543200000L, 9999999999999L));
 
     assertFalse(
-        GCloudLogObservable.isInRange(
+        isInRange(
             "prefix-1234567890000_9876543210000.blob.whatever", 1234567880000L, 1234567881000L));
     assertFalse(
-        GCloudLogObservable.isInRange(
+        isInRange(
             "prefix-1234567890000_9876543210000.blob.whatever", 9999999999000L, 9999999999999L));
+  }
+
+  private boolean isInRange(String name, long start, long end) {
+    return GCloudLogObservable.isInRange(GCloudLogObservable.parseMinMaxStamp(name), start, end);
   }
 
   @Test
@@ -137,5 +140,7 @@ public class GCloudLogObservableTest {
         };
 
     assertEquals(2, observable.getPartitions().size());
+    assertEquals(1234567890000L, observable.getPartitions().get(0).getMinTimestamp());
+    assertEquals(9876543210000L, observable.getPartitions().get(0).getMaxTimestamp());
   }
 }

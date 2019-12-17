@@ -17,19 +17,37 @@ package cz.o2.proxima.beam.direct.io;
 
 import static org.junit.Assert.*;
 
+import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
+import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.StreamElement;
 import java.util.Arrays;
 import java.util.List;
-import org.apache.beam.sdk.coders.Coder;
+import java.util.UUID;
+import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.CoderException;
+import org.apache.beam.sdk.io.Read;
+import org.apache.beam.sdk.testing.PAssert;
+import org.apache.beam.sdk.transforms.Count;
+import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
+import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
+import org.apache.beam.sdk.transforms.windowing.Repeatedly;
+import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.util.CoderUtils;
+import org.apache.beam.sdk.values.PCollection;
+import org.joda.time.Duration;
 import org.junit.Test;
 
 public class DirectBatchUnboundedSourceTest {
 
   @Test
-  public void testCheckpointCoder() throws Coder.NonDeterministicException, CoderException {
-
+  public void testCheckpointCoder() throws CoderException {
     DirectBatchUnboundedSource.CheckpointCoder coder;
     coder = new DirectBatchUnboundedSource.CheckpointCoder();
     coder.verifyDeterministic();
@@ -47,6 +65,77 @@ public class DirectBatchUnboundedSourceTest {
     partitions.sort(DirectBatchUnboundedSource.partitionsComparator());
     assertEquals(
         Arrays.asList(partition(2, 1, 2), partition(1, 3, 4), partition(0, 4, 5)), partitions);
+  }
+
+  @Test
+  public void testDirectBatchUnboundedSource() {
+    testBatchUnboundedSourceWithCount(2);
+  }
+
+  @Test(timeout = 20000)
+  public void testDirectBatchUnboundedSourceWithMany() {
+    testBatchUnboundedSourceWithCount(50);
+  }
+
+  void testBatchUnboundedSourceWithCount(int count) {
+    Pipeline pipeline = Pipeline.create();
+    Repository repo = Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
+    EntityDescriptor gateway =
+        repo.findEntity("gateway")
+            .orElseThrow(() -> new IllegalArgumentException("Missing entity gateway"));
+    AttributeDescriptor<Object> armed =
+        gateway
+            .findAttribute("armed")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+    DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
+    BatchLogObservable observable =
+        direct
+            .getFamiliesForAttribute(armed)
+            .stream()
+            .filter(af -> af.getDesc().getAccess().canReadBatchSnapshot())
+            .findFirst()
+            .flatMap(DirectAttributeFamilyDescriptor::getBatchObservable)
+            .orElseThrow(() -> new IllegalArgumentException("Missing batch snapshot for armed"));
+    PCollection<StreamElement> input =
+        pipeline.apply(
+            Read.from(
+                DirectBatchUnboundedSource.of(
+                    repo.asFactory(),
+                    observable,
+                    Arrays.asList(armed),
+                    Long.MIN_VALUE,
+                    Long.MAX_VALUE)));
+    PCollection<Long> res =
+        input
+            .apply(
+                Window.<StreamElement>into(new GlobalWindows())
+                    .triggering(
+                        Repeatedly.forever(
+                            AfterProcessingTime.pastFirstElementInPane()
+                                .plusDelayOf(Duration.standardSeconds(1))))
+                    .accumulatingFiredPanes())
+            .apply(Count.globally());
+    PAssert.that(res).containsInAnyOrder((long) count);
+    OnlineAttributeWriter writer =
+        direct
+            .getWriter(armed)
+            .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
+    long now = System.currentTimeMillis();
+    for (int i = 0; i < count; i++) {
+      writer.write(
+          StreamElement.update(
+              gateway,
+              armed,
+              UUID.randomUUID().toString(),
+              "key" + i,
+              armed.getName(),
+              now + i,
+              new byte[] {1, 2}),
+          (succ, exc) -> {});
+    }
+    pipeline.run();
+    direct.close();
+    repo.discard();
   }
 
   static Partition partition(int id, long minStamp, long maxStamp) {

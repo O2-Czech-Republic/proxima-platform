@@ -151,7 +151,7 @@ public abstract class Repository {
 
     T ret =
         Streams.stream(loaders)
-            .filter(factory -> factory.isOfType(type))
+            .filter(f -> f.isOfType(type))
             .findAny()
             .map(o -> (DataOperatorFactory<T>) o)
             .map(

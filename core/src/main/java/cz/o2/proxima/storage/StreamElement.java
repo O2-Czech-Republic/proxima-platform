@@ -245,7 +245,7 @@ public class StreamElement implements Serializable {
         .add(
             "value",
             parsed.isPresent()
-                ? attrDesc.getValueSerializer().getLogString(getParsed().get())
+                ? attrDesc.getValueSerializer().getLogString(parsed.get())
                 : "(null)")
         .toString();
   }

@@ -20,7 +20,6 @@ import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
@@ -269,12 +268,9 @@ public class DirectBatchUnboundedSource
     private final UnboundedSource<StreamElement, ?> source;
     private final BatchLogObservable reader;
     private final List<AttributeDescriptor<?>> attributes;
-    private final Checkpoint checkpointMark;
     private final List<Partition> toProcess;
     private final BlockingQueue<StreamElement> queue = new ArrayBlockingQueue<>(100);
     private final AtomicBoolean running = new AtomicBoolean();
-
-    private transient @Nullable ObserveHandle handle;
 
     long consumedFromCurrent;
     @Nullable StreamElement current = null;
@@ -286,13 +282,12 @@ public class DirectBatchUnboundedSource
         UnboundedSource<StreamElement, ?> source,
         BatchLogObservable reader,
         List<AttributeDescriptor<?>> attributes,
-        Checkpoint checkpointMark,
+        @Nullable Checkpoint checkpointMark,
         List<Partition> toProcess) {
 
       this.source = Objects.requireNonNull(source);
       this.reader = Objects.requireNonNull(reader);
       this.attributes = new ArrayList<>(Objects.requireNonNull(attributes));
-      this.checkpointMark = Objects.requireNonNull(checkpointMark);
       this.toProcess = new ArrayList<>(Objects.requireNonNull(toProcess));
       this.consumedFromCurrent = 0;
       this.skip = checkpointMark == null ? 0 : checkpointMark.skipFromFirst;

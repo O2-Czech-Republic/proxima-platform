@@ -19,6 +19,7 @@ import static cz.o2.proxima.server.IngestServer.ingestRequest;
 
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transform.Transformation;
@@ -29,15 +30,17 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TransformationObserver implements LogObserver {
 
-  private final DirectDataOperator direct;
+  private final RepositoryFactory repoFactory;
   private final Transformation transformation;
   private final StorageFilter filter;
   private final String name;
 
+  private transient DirectDataOperator direct;
+
   TransformationObserver(
       DirectDataOperator direct, String name, Transformation transformation, StorageFilter filter) {
 
-    this.direct = direct;
+    this.repoFactory = direct.getRepository().asFactory();
     this.name = name;
     this.transformation = transformation;
     this.filter = filter;
@@ -70,7 +73,7 @@ public class TransformationObserver implements LogObserver {
             try {
               log.debug("Transformation {}: writing transformed element {}", name, elem);
               ingestRequest(
-                  direct,
+                  direct(),
                   elem,
                   elem.getUuid(),
                   rpc -> {
@@ -100,5 +103,12 @@ public class TransformationObserver implements LogObserver {
       toConfirm.set(-1);
       committer.fail(ex);
     }
+  }
+
+  private DirectDataOperator direct() {
+    if (direct == null) {
+      direct = repoFactory.apply().getOrCreateOperator(DirectDataOperator.class);
+    }
+    return direct;
   }
 }

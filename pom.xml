@@ -75,7 +75,7 @@
     <groovy.version>2.5.8</groovy.version>
     <hadoop.version>2.10.0</hadoop.version>
     <hbase.version>1.5.0</hbase.version>
-    <kafka.version>2.3.1</kafka.version>
+    <kafka.version>2.4.0</kafka.version>
     <proto.version>3.11.0</proto.version>
     <protoc.version>3.11.0</protoc.version>
     <grpc.version>1.25.0</grpc.version>

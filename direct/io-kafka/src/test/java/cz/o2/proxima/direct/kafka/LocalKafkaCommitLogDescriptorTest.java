@@ -1154,6 +1154,90 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test(timeout = 10000)
+  public void testOnlineObserveWithRebalanceResetsOffsetCommitter() throws InterruptedException {
+    int numWrites = 5;
+    Accessor accessor =
+        kafka.createAccessor(
+            direct,
+            entity,
+            storageUri,
+            cfg(
+                Pair.of(LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS, 3),
+                // poll single record to commit it in atomic way
+                Pair.of(KafkaAccessor.MAX_POLL_RECORDS, 1)));
+    final CountDownLatch latch = new CountDownLatch(numWrites);
+    AtomicInteger consumed = new AtomicInteger();
+    List<OnNextContext> unconfirmed = Collections.synchronizedList(new ArrayList<>());
+
+    LogObserver observer =
+        new LogObserver() {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            latch.countDown();
+            switch (consumed.getAndIncrement()) {
+              case 0:
+                // we must confirm the first message to create a committed position
+                context.confirm();
+                break;
+              case 2:
+                throw new RuntimeException("Failing first consumer!");
+              default:
+                unconfirmed.add(context);
+                break;
+            }
+            if (consumed.get() == numWrites) {
+              unconfirmed.forEach(OnNextContext::confirm);
+            }
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {}
+
+          @Override
+          public boolean onError(Throwable error) {
+            return true;
+          }
+        };
+    testOnlineObserveWithRebalanceResetsOffsetCommitterWithObserver(observer, accessor, numWrites);
+    latch.await();
+    assertEquals(3, accessor.committedOffsets.values().stream().mapToInt(e -> e.get()).sum());
+  }
+
+  private void testOnlineObserveWithRebalanceResetsOffsetCommitterWithObserver(
+      LogObserver observer, Accessor accessor, int numWrites) throws InterruptedException {
+
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(context())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+
+    final StreamElement update =
+        StreamElement.update(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            attr.getName(),
+            System.currentTimeMillis(),
+            new byte[] {1, 2});
+
+    AtomicInteger consumed = new AtomicInteger();
+    List<OnNextContext> unconfirmed = Collections.synchronizedList(new ArrayList<>());
+
+    // observe from two observers
+    final ObserveHandle[] handles = {
+      reader.observe("test", Position.NEWEST, observer),
+      reader.observe("test", Position.NEWEST, observer)
+    };
+
+    for (int i = 0; i < numWrites; i++) {
+      writer.write(update, (succ, e) -> assertTrue(succ));
+    }
+  }
+
+  @Test(timeout = 10000)
   public void testObserveWithException() throws InterruptedException {
     Accessor accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();

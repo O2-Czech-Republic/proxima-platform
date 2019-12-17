@@ -325,7 +325,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
                 return null;
               })
           .when(mock)
-          .committed(any());
+          .committed((TopicPartition) any());
 
       doAnswer(
               invocation -> {
@@ -379,7 +379,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     private void commitConsumer(String name, Map<TopicPartition, OffsetAndMetadata> commitMap) {
-
       commitMap
           .entrySet()
           .forEach(

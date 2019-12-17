@@ -234,6 +234,7 @@ public class StreamElement implements Serializable {
   public String dump() {
     @SuppressWarnings("unchecked")
     AttributeDescriptor<Object> attrDesc = (AttributeDescriptor) getAttributeDescriptor();
+    Optional<Object> parsed = getParsed();
     return MoreObjects.toStringHelper(getClass())
         .add("uuid", uuid)
         .add("entityDesc", entityDescriptor)
@@ -243,9 +244,9 @@ public class StreamElement implements Serializable {
         .add("stamp", new Date(stamp))
         .add(
             "value",
-            value == null
-                ? "(null)"
-                : attrDesc.getValueSerializer().getLogString(getParsed().get()))
+            parsed.isPresent()
+                ? attrDesc.getValueSerializer().getLogString(getParsed().get())
+                : "(null)")
         .toString();
   }
 }

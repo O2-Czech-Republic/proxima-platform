@@ -61,6 +61,13 @@ public abstract class Repository {
     return ConfigRepository.of(factory);
   }
 
+  /**
+   * Create new {@link Repository} from {@link Config}.
+   *
+   * @param config the config to use
+   * @return new {@link Repository}
+   * @deprecated use {@link #of(ConfigFactory)} instead.
+   */
   @Deprecated
   public static Repository of(Config config) {
     return ConfigRepository.of(config);

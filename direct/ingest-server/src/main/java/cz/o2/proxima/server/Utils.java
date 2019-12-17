@@ -40,4 +40,8 @@ class Utils {
     }
     System.exit(1);
   }
+
+  private Utils() {
+    // do not construct
+  }
 }

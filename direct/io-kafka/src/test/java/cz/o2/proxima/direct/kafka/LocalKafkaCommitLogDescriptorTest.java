@@ -1144,11 +1144,15 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     assertEquals(
         100,
-        handle
-            .getCommittedOffsets()
+        consumer
+            .committed(
+                handle
+                    .getCommittedOffsets()
+                    .stream()
+                    .map(o -> new TopicPartition(topic, o.getPartition().getId()))
+                    .collect(Collectors.toSet()))
+            .values()
             .stream()
-            .map(o -> new TopicPartition(topic, o.getPartition().getId()))
-            .map(consumer::committed)
             .mapToLong(OffsetAndMetadata::offset)
             .sum());
   }

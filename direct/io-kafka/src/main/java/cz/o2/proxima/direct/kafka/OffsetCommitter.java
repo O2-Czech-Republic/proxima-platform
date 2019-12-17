@@ -74,10 +74,16 @@ public class OffsetCommitter<ID> {
     }
   }
 
-  final Map<ID, NavigableMap<Long, OffsetMeta>> waitingOffsets;
+  private final Map<ID, NavigableMap<Long, OffsetMeta>> waitingOffsets;
+  private final long stateCommitWarningNanos;
 
   public OffsetCommitter() {
-    waitingOffsets = Collections.synchronizedMap(new HashMap<>());
+    this(60000000000L);
+  }
+
+  public OffsetCommitter(long staleCommitWarningNanos) {
+    this.waitingOffsets = Collections.synchronizedMap(new HashMap<>());
+    this.stateCommitWarningNanos = staleCommitWarningNanos;
   }
 
   /**
@@ -130,8 +136,7 @@ public class OffsetCommitter<ID> {
         committable.add(e);
       } else {
         long age = e.getValue().getNanoAge();
-        // FIXME: add config option for auto-commit
-        if (age > 60000000000L) {
+        if (age > stateCommitWarningNanos) {
           log.warn(
               "Offset {} ID {} was not committed in {} ns ({} actions missing). Please verify your commit logic!",
               e.getKey(),

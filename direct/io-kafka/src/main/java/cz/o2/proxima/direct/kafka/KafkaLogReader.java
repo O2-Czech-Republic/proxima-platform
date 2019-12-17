@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -706,23 +707,39 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 c ->
                     consumer.onAssign(
                         c,
-                        parts
-                            .stream()
-                            .map(
-                                tp -> {
-                                  final long offset;
-                                  if (name != null) {
-                                    offset =
-                                        Optional.ofNullable(c.committed(tp))
-                                            .map(OffsetAndMetadata::offset)
-                                            .orElse(0L);
-                                  } else {
-                                    offset = c.position(tp);
-                                  }
-                                  return new TopicOffset(
-                                      tp.partition(), offset, clock.get().getWatermark());
-                                })
-                            .collect(Collectors.toList())));
+                        name != null
+                            ? getCommittedTopicOffsets(parts, c)
+                            : getCurrentTopicOffsets(parts, c)));
+      }
+
+      List<TopicOffset> getCurrentTopicOffsets(
+          Collection<TopicPartition> parts, KafkaConsumer<Object, Object> c) {
+        return parts
+            .stream()
+            .map(tp -> new TopicOffset(tp.partition(), c.position(tp), clock.get().getWatermark()))
+            .collect(Collectors.toList());
+      }
+
+      List<TopicOffset> getCommittedTopicOffsets(
+          Collection<TopicPartition> parts, KafkaConsumer<Object, Object> c) {
+
+        Map<TopicPartition, OffsetAndMetadata> committed =
+            new HashMap<>(c.committed(new HashSet<>(parts)));
+        for (TopicPartition tp : parts) {
+          if (committed.get(tp) == null) {
+            committed.put(tp, null);
+          }
+        }
+        return committed
+            .entrySet()
+            .stream()
+            .map(
+                entry -> {
+                  final long offset = entry.getValue() == null ? 0L : entry.getValue().offset();
+                  return new TopicOffset(
+                      entry.getKey().partition(), offset, clock.get().getWatermark());
+                })
+            .collect(Collectors.toList());
       }
     };
   }

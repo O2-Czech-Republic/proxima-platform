@@ -241,7 +241,6 @@ public class LogObservers {
 
       super(upstream, allowedLateness, latecomerConsumer);
       this.queue = new PriorityQueue<>(Comparator.comparing(p -> p.getFirst().getStamp()));
-      ;
     }
 
     @Override

@@ -308,7 +308,7 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
       case 429:
         log.warn(
             "Received 429: {} on getting {}. Backoff {}.", ex.getStatusMessage(), blob, backoff);
-        ExceptionUtils.unchecked(() -> Thread.currentThread().sleep(backoff));
+        ExceptionUtils.unchecked(() -> Thread.sleep(backoff));
         backoff *= 2;
         return true;
       default:

@@ -144,7 +144,7 @@ public class ReplicationController {
 
   private final Repository repository;
   private final DirectDataOperator dataOperator;
-  final boolean ignoreErrors = true;
+  private final boolean ignoreErrors = false;
 
   private final List<CompletableFuture<Void>> replications = new CopyOnWriteArrayList<>();
 
@@ -355,18 +355,15 @@ public class ReplicationController {
     final AbstractRetryableLogObserver observer;
     switch (writerBase.getType()) {
       case ONLINE:
-        {
-          final OnlineAttributeWriter writer = writerBase.online();
-          observer =
-              createOnlineObserver(consumerName, commitLog, allowedAttributes, filter, writer);
-          break;
-        }
+        observer =
+            createOnlineObserver(
+                consumerName, commitLog, allowedAttributes, filter, writerBase.online());
+        break;
       case BULK:
-        {
-          final BulkAttributeWriter writer = writerBase.bulk();
-          observer = createBulkObserver(consumerName, commitLog, allowedAttributes, filter, writer);
-          break;
-        }
+        observer =
+            createBulkObserver(
+                consumerName, commitLog, allowedAttributes, filter, writerBase.bulk());
+        break;
       default:
         throw new IllegalStateException(
             String.format("Unknown writer type %s.", writerBase.getType()));
@@ -496,7 +493,7 @@ public class ReplicationController {
     }
   }
 
-  private void onReplicationError(Throwable t) {
+  private static void onReplicationError(Throwable t) {
     Utils.die(t.getMessage(), t);
   }
 }

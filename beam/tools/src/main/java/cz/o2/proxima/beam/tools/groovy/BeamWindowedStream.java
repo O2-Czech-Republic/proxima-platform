@@ -61,6 +61,8 @@ import org.joda.time.Duration;
 /** A {@link WindowedStream} backed by beam. */
 class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
+  private static final String REDUCE_SUFFIX = ".reduce";
+
   @SuppressWarnings("unchecked")
   BeamWindowedStream(
       StreamConfig config,
@@ -90,7 +92,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
           Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
           PCollection<T> input = collection.materialize(pipeline);
           PCollection<KV<K, V>> kvs =
-              ReduceByKey.named(withSuffix(name, ".reduce"))
+              ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
                   .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(valueDehydrated::call)
@@ -121,7 +123,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
           PCollection<T> input = collection.materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
-              ReduceByKey.named(withSuffix(name, ".reduce"))
+              ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
                   .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(e -> e)
@@ -276,7 +278,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
           PCollection<T> input = collection.materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
-              ReduceByKey.named(withSuffix(name, ".reduce"))
+              ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
                   .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(valueDehydrated::call)
@@ -306,7 +308,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
           PCollection<T> input = collection.materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
-              ReduceByKey.named(withSuffix(name, ".reduce"))
+              ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
                   .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(e -> e)
@@ -332,7 +334,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
           PCollection<T> input = collection.materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
-              ReduceByKey.named(withSuffix(name, ".reduce"))
+              ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
                   .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(e -> 1L, TypeDescriptors.longs())
@@ -353,7 +355,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           PCollection<T> input = collection.materialize(pipeline);
           PCollection<KV<Double, Long>> intermediate =
-              ReduceByKey.named(withSuffix(name, ".reduce"))
+              ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
                   .of(input)
                   .keyBy(e -> "", TypeDescriptors.strings())
                   .valueBy(
@@ -393,7 +395,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
                   TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()));
           PCollection<T> input = collection.materialize(pipeline);
           PCollection<KV<K, KV<Double, Long>>> intermediate =
-              ReduceByKey.named(withSuffix(name, ".reduce"))
+              ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
                   .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(
@@ -543,7 +545,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
           PCollection<T> input = collection.materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
-              ReduceByKey.named(withSuffix(name, ".reduce"))
+              ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
                   .of(input)
                   .keyBy(keyDehydrated::call)
                   .valueBy(valueDehydrated::call, TypeDescriptors.doubles())

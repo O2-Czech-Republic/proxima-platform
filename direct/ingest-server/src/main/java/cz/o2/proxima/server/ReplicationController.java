@@ -144,7 +144,7 @@ public class ReplicationController {
 
   private final Repository repository;
   private final DirectDataOperator dataOperator;
-  private final boolean ignoreErrors = false;
+  private static final boolean ignoreErrors = false;
 
   private final List<CompletableFuture<Void>> replications = new CopyOnWriteArrayList<>();
 

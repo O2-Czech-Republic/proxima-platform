@@ -36,6 +36,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -203,7 +204,7 @@ public class ModelGenerator {
 
   private String readFileToString(File path) {
     try {
-      return IOUtils.readLines(new FileInputStream(path), "UTF-8")
+      return IOUtils.readLines(new FileInputStream(path), StandardCharsets.UTF_8)
           .stream()
           .map(s -> "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\\n\"")
           .collect(Collectors.joining("\n + "));

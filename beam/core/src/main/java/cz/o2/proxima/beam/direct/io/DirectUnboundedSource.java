@@ -178,8 +178,6 @@ class DirectUnboundedSource
   public boolean requiresDeduping() {
     // when offsets are externalizable we have certainty that we can pause and
     // continue without duplicates
-
-    // FIXME: ??
     return !reader.hasExternalizableOffsets() && eventTime;
   }
 }

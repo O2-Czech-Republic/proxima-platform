@@ -92,7 +92,8 @@ public class DirectDataAccessorWrapper implements DataAccessor {
         direct
             .getBatchLogObservable(context)
             .orElseThrow(
-                () -> new IllegalArgumentException("Cannot create commit log from " + direct));
+                () ->
+                    new IllegalArgumentException("Cannot create batch observable from " + direct));
 
     PCollection<StreamElement> ret =
         pipeline.apply(
@@ -120,7 +121,8 @@ public class DirectDataAccessorWrapper implements DataAccessor {
         direct
             .getBatchLogObservable(context)
             .orElseThrow(
-                () -> new IllegalArgumentException("Cannot create commit log from " + direct));
+                () ->
+                    new IllegalArgumentException("Cannot create batch observable from " + direct));
 
     final PCollection<StreamElement> ret;
     ret =

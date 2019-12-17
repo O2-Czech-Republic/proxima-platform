@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
@@ -40,6 +41,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -129,7 +131,9 @@ public class DirectBatchUnboundedSource
     }
 
     @Override
-    public void verifyDeterministic() {}
+    public void verifyDeterministic() {
+      // nop
+    }
   }
 
   private final RepositoryFactory factory;
@@ -206,82 +210,8 @@ public class DirectBatchUnboundedSource
     List<Partition> toProcess =
         Collections.synchronizedList(
             new ArrayList<>(checkpointMark == null ? partitions : checkpointMark.partitions));
-    return new UnboundedReader<StreamElement>() {
-
-      BlockingQueue<StreamElement> queue = new ArrayBlockingQueue<>(100);
-      AtomicBoolean running = new AtomicBoolean();
-      long consumedFromCurrent = 0;
-      @Nullable StreamElement current = null;
-      long skip = checkpointMark == null ? 0 : checkpointMark.skipFromFirst;
-      Instant watermark;
-      Partition runningPartition = null;
-
-      @Override
-      public boolean start() throws IOException {
-        return advance();
-      }
-
-      @Override
-      public boolean advance() throws IOException {
-        do {
-          if (queue.isEmpty() && !running.get()) {
-            if (runningPartition != null) {
-              toProcess.remove(0);
-              runningPartition = null;
-            }
-            if (!toProcess.isEmpty()) {
-              // read partitions one by one
-              runningPartition = toProcess.get(0);
-              reader.observe(
-                  Arrays.asList(runningPartition), attributes, asObserver(queue, running));
-              running.set(true);
-              watermark = new Instant(runningPartition.getMinTimestamp());
-              consumedFromCurrent = 0;
-            } else {
-              watermark = BoundedWindow.TIMESTAMP_MAX_VALUE;
-              return false;
-            }
-          }
-          current = queue.poll();
-          if (current == null) {
-            return false;
-          }
-          consumedFromCurrent++;
-        } while (skip-- > 0);
-        return current != null;
-      }
-
-      @Override
-      public Instant getWatermark() {
-        return watermark;
-      }
-
-      @Override
-      public CheckpointMark getCheckpointMark() {
-        return new Checkpoint(toProcess, consumedFromCurrent);
-      }
-
-      @Override
-      public UnboundedSource<StreamElement, ?> getCurrentSource() {
-        return DirectBatchUnboundedSource.this;
-      }
-
-      @Override
-      public StreamElement getCurrent() throws NoSuchElementException {
-        return current;
-      }
-
-      @Override
-      public Instant getCurrentTimestamp() throws NoSuchElementException {
-        if (current == null) {
-          return BoundedWindow.TIMESTAMP_MIN_VALUE;
-        }
-        return new Instant(current.getStamp());
-      }
-
-      @Override
-      public void close() throws IOException {}
-    };
+    return new StreamElementUnboundedReader(
+        DirectBatchUnboundedSource.this, reader, attributes, checkpointMark, toProcess);
   }
 
   @Override
@@ -332,5 +262,107 @@ public class DirectBatchUnboundedSource
         throw new RuntimeException(error);
       }
     };
+  }
+
+  private static class StreamElementUnboundedReader extends UnboundedReader<StreamElement> {
+
+    private final UnboundedSource<StreamElement, ?> source;
+    private final BatchLogObservable reader;
+    private final List<AttributeDescriptor<?>> attributes;
+    private final Checkpoint checkpointMark;
+    private final List<Partition> toProcess;
+    private final BlockingQueue<StreamElement> queue = new ArrayBlockingQueue<>(100);
+    private final AtomicBoolean running = new AtomicBoolean();
+
+    private transient @Nullable ObserveHandle handle;
+
+    long consumedFromCurrent;
+    @Nullable StreamElement current = null;
+    long skip;
+    Instant watermark;
+    @Nullable Partition runningPartition = null;
+
+    public StreamElementUnboundedReader(
+        UnboundedSource<StreamElement, ?> source,
+        BatchLogObservable reader,
+        List<AttributeDescriptor<?>> attributes,
+        Checkpoint checkpointMark,
+        List<Partition> toProcess) {
+
+      this.source = Objects.requireNonNull(source);
+      this.reader = Objects.requireNonNull(reader);
+      this.attributes = new ArrayList<>(Objects.requireNonNull(attributes));
+      this.checkpointMark = Objects.requireNonNull(checkpointMark);
+      this.toProcess = new ArrayList<>(Objects.requireNonNull(toProcess));
+      this.consumedFromCurrent = 0;
+      this.skip = checkpointMark == null ? 0 : checkpointMark.skipFromFirst;
+    }
+
+    @Override
+    public boolean start() throws IOException {
+      return advance();
+    }
+
+    @Override
+    public boolean advance() throws IOException {
+      do {
+        if (queue.isEmpty() && !running.get()) {
+          if (runningPartition != null) {
+            toProcess.remove(0);
+            runningPartition = null;
+          }
+          if (!toProcess.isEmpty()) {
+            // read partitions one by one
+            runningPartition = toProcess.get(0);
+            reader.observe(Arrays.asList(runningPartition), attributes, asObserver(queue, running));
+            running.set(true);
+            watermark = new Instant(runningPartition.getMinTimestamp());
+            consumedFromCurrent = 0;
+          } else {
+            watermark = BoundedWindow.TIMESTAMP_MAX_VALUE;
+            return false;
+          }
+        }
+        current = queue.poll();
+        if (current == null) {
+          return false;
+        }
+        consumedFromCurrent++;
+      } while (skip-- > 0);
+      return current != null;
+    }
+
+    @Override
+    public Instant getWatermark() {
+      return watermark;
+    }
+
+    @Override
+    public CheckpointMark getCheckpointMark() {
+      return new Checkpoint(toProcess, consumedFromCurrent);
+    }
+
+    @Override
+    public UnboundedSource<StreamElement, ?> getCurrentSource() {
+      return source;
+    }
+
+    @Override
+    public StreamElement getCurrent() throws NoSuchElementException {
+      return current;
+    }
+
+    @Override
+    public Instant getCurrentTimestamp() throws NoSuchElementException {
+      if (current == null) {
+        return BoundedWindow.TIMESTAMP_MIN_VALUE;
+      }
+      return new Instant(current.getStamp());
+    }
+
+    @Override
+    public void close() {
+      // nop
+    }
   }
 }

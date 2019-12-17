@@ -17,7 +17,6 @@ package cz.o2.proxima.beam.tools.groovy;
 
 import cz.o2.proxima.beam.core.PCollectionTools;
 import cz.o2.proxima.beam.core.io.PairCoder;
-import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.tools.groovy.StreamProvider;
@@ -41,7 +40,6 @@ import org.apache.beam.sdk.extensions.euphoria.core.client.operator.ReduceByKey;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.base.Builders;
 import org.apache.beam.sdk.extensions.euphoria.core.client.util.Fold;
 import org.apache.beam.sdk.extensions.euphoria.core.client.util.Sums;
-import org.apache.beam.sdk.transforms.Combine;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
@@ -554,43 +552,9 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
                       !windowingStrategy.equals(input.getWindowingStrategy()), this::createWindowFn)
                   .output()
                   .setCoder(KvCoder.of(keyCoder, valueCoder)),
-              /*
-              combinePerKey(
-                  collection.materialize(pipeline), name, keyDehydrated, valueDehydrated,
-                  keyCoder, valueCoder, 0.0, (a, b) -> a + b),
-              */
               keyCoder,
               valueCoder);
         });
-  }
-
-  private <IN, K, V> PCollection<KV<K, V>> combinePerKey(
-      PCollection<IN> in,
-      String name,
-      Closure<K> key,
-      Closure<V> value,
-      Coder<K> keyCoder,
-      Coder<V> valueCoder,
-      V identity,
-      BiFunction<V, V, V> combineFn) {
-
-    PCollection<KV<K, V>> kvs =
-        MapElements.named(withSuffix(name, ".toKvs"))
-            .of(in)
-            .using(e -> KV.of(key.call(e), value.call(e)))
-            .output()
-            .setCoder(KvCoder.of(keyCoder, valueCoder));
-    return kvs.apply(Window.into(windowingStrategy.getWindowFn()))
-        .apply(GroupByKey.create())
-        .apply(
-            Combine.groupedValues(
-                values -> {
-                  V init = identity;
-                  for (V v : values) {
-                    init = combineFn.apply(init, v);
-                  }
-                  return init;
-                }));
   }
 
   @Override

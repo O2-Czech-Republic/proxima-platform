@@ -331,7 +331,7 @@ public class BeamDataOperator implements DataOperator {
                       .getAttributes()
                       .stream()
                       .map(a -> Pair.of(a, p.getSecond().get())))
-          .map(p -> p.getSecond())
+          .map(Pair::getSecond)
           .distinct()
           .map(this::accessorFor)
           .distinct()

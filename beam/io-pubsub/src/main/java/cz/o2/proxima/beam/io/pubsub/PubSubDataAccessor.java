@@ -22,6 +22,7 @@ import cz.o2.proxima.pubsub.shaded.com.google.protobuf.InvalidProtocolBufferExce
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.util.Arrays;
@@ -43,13 +44,13 @@ import org.joda.time.Duration;
 @Slf4j
 public class PubSubDataAccessor implements DataAccessor {
 
-  private final Repository repo;
+  private final RepositoryFactory repoFactory;
   private final EntityDescriptor entity;
   private final String topic;
 
   PubSubDataAccessor(Repository repo, EntityDescriptor entity, String project, String topic) {
 
-    this.repo = repo;
+    this.repoFactory = repo.asFactory();
     this.entity = entity;
     this.topic = String.format("projects/%s/topics/%s", project, topic);
   }
@@ -106,7 +107,7 @@ public class PubSubDataAccessor implements DataAccessor {
                     toElement(entity, in.getPayload()).ifPresent(ctx::collect),
                 TypeDescriptor.of(StreamElement.class))
             .output()
-            .setCoder(StreamElementCoder.of(repo));
+            .setCoder(StreamElementCoder.of(repoFactory));
     if (eventTime) {
       return AssignEventTime.of(parsed)
           .using(StreamElement::getStamp, Duration.millis(5000))

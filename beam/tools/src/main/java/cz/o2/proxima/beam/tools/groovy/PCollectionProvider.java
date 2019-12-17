@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -24,7 +23,7 @@ import java.util.function.Function;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.values.PCollection;
 
-interface PCollectionProvider<T> extends Serializable {
+interface PCollectionProvider<T> {
 
   class ParentNotifyingProvider<T> implements PCollectionProvider<T> {
 

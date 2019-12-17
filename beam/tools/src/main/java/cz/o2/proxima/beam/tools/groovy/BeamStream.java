@@ -59,7 +59,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
@@ -652,7 +651,7 @@ class BeamStream<T> implements Stream<T> {
               java.util.stream.Stream.concat(java.util.stream.Stream.of(this), others.stream())
                   .map(s -> (BeamStream<T>) s);
           if (!sameWindows) {
-            streams = streams.map(s -> s.asUnwindowed());
+            streams = streams.map(BeamStream::asUnwindowed);
           }
           List<PCollection<T>> collections =
               streams.map(s -> s.collection.materialize(pipeline)).collect(Collectors.toList());
@@ -1005,8 +1004,9 @@ class BeamStream<T> implements Stream<T> {
     @StateId("combined")
     private final StateSpec<ValueState<V>> stateSpec;
 
-    final BiFunction<V, V, V> combiner;
-    final UnaryFunction<K, V> initialValue;
+    private final BiFunction<V, V, V> combiner;
+    private final UnaryFunction<K, V> initialValue;
+    private final long allowedLateness;
 
     IntegrateDoFn(
         BiFunction<V, V, V> combiner,
@@ -1017,6 +1017,8 @@ class BeamStream<T> implements Stream<T> {
       this.stateSpec = StateSpecs.value(kvCoder.getValueCoder());
       this.combiner = combiner;
       this.initialValue = initialValue;
+      // this is ignored for now due to not being implemented in @RequiresTimeSortedInput
+      this.allowedLateness = allowedLateness;
     }
 
     @RequiresTimeSortedInput
@@ -1158,8 +1160,6 @@ class BeamStream<T> implements Stream<T> {
   // iterable that collects elements using HTTP
   // this is first shot implementation with no optimizations
   private static class RemoteConsumer<T> implements Serializable, AutoCloseable {
-
-    private static final Random RANDOM = new Random();
 
     private static <T> RemoteConsumer<T> create(
         Object seed, String hostname, int preferredPort, Consumer<T> consumer, Coder<T> coder) {

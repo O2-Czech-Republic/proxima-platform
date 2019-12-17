@@ -33,7 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DirectDataAccessorFactory implements DataAccessorFactory {
 
-  @Nullable private DirectDataOperator direct;
+  @Nullable private transient DirectDataOperator direct;
 
   @Override
   public void setup(Repository repo) {

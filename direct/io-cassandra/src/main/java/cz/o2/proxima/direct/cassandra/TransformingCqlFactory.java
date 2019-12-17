@@ -109,7 +109,7 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
     }
     PreparedStatement statement = getPreparedStatement(session, element);
     T parsed = parser.apply(element);
-    if (filter.apply(parsed)) {
+    if (Boolean.TRUE.equals(filter.apply(parsed))) {
       List<Object> values =
           extractors
               .stream()

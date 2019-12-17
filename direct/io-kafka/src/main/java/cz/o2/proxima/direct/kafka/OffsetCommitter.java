@@ -102,9 +102,7 @@ public class OffsetCommitter<ID> {
     log.debug("Registered offset {} for ID {} with {} actions", offset, id, numActions);
     current.put(offset, new OffsetMeta(numActions, commit));
     if (numActions == 0) {
-      synchronized (current) {
-        checkCommittable(id, current);
-      }
+      checkCommittable(id, current);
     }
   }
 
@@ -122,41 +120,41 @@ public class OffsetCommitter<ID> {
       if (meta != null) {
         meta.decrement();
       }
-      synchronized (current) {
-        checkCommittable(id, current);
-      }
+      checkCommittable(id, current);
     }
   }
 
-  private void checkCommittable(ID id, Map<Long, OffsetMeta> current) {
-    List<Map.Entry<Long, OffsetMeta>> committable = new ArrayList<>();
-    for (Map.Entry<Long, OffsetMeta> e : current.entrySet()) {
-      if (e.getValue().getActions() <= 0) {
-        log.debug("Adding offset {} of ID {} to committable map.", e.getKey(), id);
-        committable.add(e);
-      } else {
-        long age = e.getValue().getNanoAge();
-        if (age > stateCommitWarningNanos) {
-          log.warn(
-              "Offset {} ID {} was not committed in {} ns ({} actions missing). Please verify your commit logic!",
-              e.getKey(),
-              id,
-              age,
-              e.getValue().getActions());
+  private void checkCommittable(ID id, final Map<Long, OffsetMeta> current) {
+    synchronized (current) {
+      List<Map.Entry<Long, OffsetMeta>> committable = new ArrayList<>();
+      for (Map.Entry<Long, OffsetMeta> e : current.entrySet()) {
+        if (e.getValue().getActions() <= 0) {
+          committable.add(e);
+          log.debug("Added offset {} of ID {} to committable map.", e.getKey(), id);
         } else {
-          log.debug(
-              "Waiting for still non-committed offset {} in {}, {} actions missing",
-              e.getKey(),
-              id,
-              e.getValue().getActions());
+          long age = e.getValue().getNanoAge();
+          if (age > stateCommitWarningNanos) {
+            log.warn(
+                "Offset {} ID {} was not committed in {} ns ({} actions missing). Please verify your commit logic!",
+                e.getKey(),
+                id,
+                age,
+                e.getValue().getActions());
+          } else {
+            log.debug(
+                "Waiting for still non-committed offset {} in {}, {} actions missing",
+                e.getKey(),
+                id,
+                e.getValue().getActions());
+          }
+          break;
         }
-        break;
       }
-    }
-    if (!committable.isEmpty()) {
-      Map.Entry<Long, OffsetMeta> toCommit = committable.get(committable.size() - 1);
-      committable.forEach(e -> current.remove(e.getKey()));
-      toCommit.getValue().getCommit().apply();
+      if (!committable.isEmpty()) {
+        Map.Entry<Long, OffsetMeta> toCommit = committable.get(committable.size() - 1);
+        committable.forEach(e -> current.remove(e.getKey()));
+        toCommit.getValue().getCommit().apply();
+      }
     }
   }
 

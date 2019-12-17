@@ -614,7 +614,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         }
       } catch (Throwable ex) {
         log.error("Failed to consume element {}", m, ex);
-        if (errorHandler.apply(ex)) {
+        if (Boolean.TRUE.equals(errorHandler.apply(ex))) {
           log.info("Restarting consumption by request.");
           stopAsync(subscriber).awaitTerminated();
           onRestart.run();

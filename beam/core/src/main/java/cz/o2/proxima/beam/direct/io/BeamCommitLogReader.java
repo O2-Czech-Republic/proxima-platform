@@ -107,8 +107,7 @@ class BeamCommitLogReader {
 
     @Override
     public DirectUnboundedSource.Checkpoint getCheckpointMark() {
-      DirectUnboundedSource.Checkpoint ret = new DirectUnboundedSource.Checkpoint(reader);
-      return ret;
+      return new DirectUnboundedSource.Checkpoint(reader);
     }
 
     @Override

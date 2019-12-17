@@ -51,7 +51,7 @@ interface PCollectionProvider<T> {
   class CachedPCollectionProvider<T> implements PCollectionProvider<T> {
 
     private final PCollectionProvider<T> underlying;
-    private transient PCollection<T> materialized;
+    private PCollection<T> materialized;
 
     CachedPCollectionProvider(PCollectionProvider<T> underlying) {
       this.underlying = underlying;

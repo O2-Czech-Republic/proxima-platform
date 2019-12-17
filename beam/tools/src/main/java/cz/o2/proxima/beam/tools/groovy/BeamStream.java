@@ -250,18 +250,13 @@ class BeamStream<T> implements Stream<T> {
     return descendant(
         pipeline -> {
           // FIXME: need a way to retrieve inner type of the list
-          @SuppressWarnings("unchecked")
-          final Coder<Object> valueCoder =
-              (Coder) getCoder(pipeline, TypeDescriptor.of(Object.class));
+          final Coder<Object> valueCoder = getCoder(pipeline, TypeDescriptor.of(Object.class));
           @SuppressWarnings("unchecked")
           final PCollection<X> ret =
               (PCollection)
                   FlatMap.named(name)
                       .of(collection.materialize(pipeline))
-                      .using(
-                          (elem, ctx) -> {
-                            dehydrated.call(elem).forEach(ctx::collect);
-                          })
+                      .using((elem, ctx) -> dehydrated.call(elem).forEach(ctx::collect))
                       .output()
                       .setCoder(valueCoder);
           return ret;
@@ -715,12 +710,12 @@ class BeamStream<T> implements Stream<T> {
     return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
-          return applyExtractTimestamp(name, in, pipeline);
+          return applyExtractTimestamp(name, in);
         });
   }
 
   static <T> PCollection<Pair<T, Long>> applyExtractTimestamp(
-      @Nullable String name, PCollection<T> in, Pipeline pipeline) {
+      @Nullable String name, PCollection<T> in) {
 
     final PCollection<Pair<T, Long>> ret;
     if (name != null) {
@@ -997,8 +992,7 @@ class BeamStream<T> implements Stream<T> {
     static <K, V> DoFn<KV<K, V>, Pair<K, V>> of(
         Closure<V> combiner, Closure<V> initialValue, KvCoder<K, V> kvCoder, long allowedLateness) {
 
-      return new IntegrateDoFn<>(
-          (a, b) -> combiner.call(a, b), initialValue::call, kvCoder, allowedLateness);
+      return new IntegrateDoFn<>(combiner::call, initialValue::call, kvCoder, allowedLateness);
     }
 
     @StateId("combined")

@@ -57,6 +57,10 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   public static final String EMPTY_POLLS = "poll.count-for-empty";
   /** Number of records per poll() */
   public static final String MAX_POLL_RECORDS = "kafka.max.poll.records";
+  /** Auto commit interval in milliseconds. */
+  public static final String AUTO_COMMIT_INTERVAL_MS = "commit.auto-interval-ms";
+  /** Log stale commit interval in milliseconds. */
+  public static final String LOG_STALE_COMMIT_INTERVAL_MS = "commit.log-stale-interval-ms";
 
   /**
    * Minimal time poll() has to return empty records, before first moving watermark to processing
@@ -88,6 +92,12 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Getter(AccessLevel.PACKAGE)
   private int maxPollRecords = 500;
+
+  @Getter(AccessLevel.PACKAGE)
+  private long autoCommitIntervalNs = Long.MAX_VALUE;
+
+  @Getter(AccessLevel.PACKAGE)
+  private long logStaleCommitIntervalNs = Long.MAX_VALUE;
 
   Class<ElementSerializer<?, ?>> serializerClass;
 
@@ -138,6 +148,16 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
             .map(v -> Integer.valueOf(v.toString()))
             .orElse(maxPollRecords);
 
+    this.autoCommitIntervalNs =
+        Optional.ofNullable(cfg.get(AUTO_COMMIT_INTERVAL_MS))
+            .map(v -> Long.valueOf(v.toString()) * 1_000_000L)
+            .orElse(autoCommitIntervalNs);
+
+    this.logStaleCommitIntervalNs =
+        Optional.ofNullable(cfg.get(LOG_STALE_COMMIT_INTERVAL_MS))
+            .map(v -> Long.valueOf(v.toString()) * 1_000_000L)
+            .orElse(logStaleCommitIntervalNs);
+
     @SuppressWarnings("unchecked")
     Class<ElementSerializer<?, ?>> serializer =
         Optional.ofNullable(cfg.get(SERIALIZER_CLASS))
@@ -154,6 +174,8 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
             + "timestampSkew {}, "
             + "emptyPolls {}, "
             + "maxPollRecords {}, "
+            + "autoCommitIntervalNs {}, "
+            + "logStaleCommitIntervalNs {}, "
             + "serializerClass {},"
             + "for URI {}",
         consumerPollInterval,
@@ -162,6 +184,8 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
         timestampSkew,
         emptyPolls,
         maxPollRecords,
+        autoCommitIntervalNs,
+        logStaleCommitIntervalNs,
         serializerClass,
         getUri());
   }

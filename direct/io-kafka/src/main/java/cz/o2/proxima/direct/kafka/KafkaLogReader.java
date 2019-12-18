@@ -228,7 +228,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     Map<TopicPartition, OffsetAndMetadata> kafkaCommitMap;
     kafkaCommitMap = Collections.synchronizedMap(new HashMap<>());
 
-    final OffsetCommitter<TopicPartition> offsetCommitter = new OffsetCommitter<>();
+    final OffsetCommitter<TopicPartition> offsetCommitter = createOffsetCommitter();
 
     BiConsumer<TopicPartition, ConsumerRecord<Object, Object>> preWrite =
         (tp, r) ->
@@ -672,6 +672,11 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         proxy.get().waitUntilReady();
       }
     };
+  }
+
+  private OffsetCommitter createOffsetCommitter() {
+    return new OffsetCommitter<>(
+        accessor.getLogStaleCommitIntervalNs(), accessor.getAutoCommitIntervalNs());
   }
 
   // create rebalance listener from consumer

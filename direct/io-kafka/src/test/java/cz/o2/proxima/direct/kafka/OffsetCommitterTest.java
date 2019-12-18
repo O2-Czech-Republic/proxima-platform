@@ -41,6 +41,7 @@ public class OffsetCommitterTest {
     committer.register(id, offset, 5, () -> committed.set(true));
     assertFalse(committed.get());
     for (int i = 0; i < 5; i++) {
+      assertFalse(committed.get());
       committer.confirm(id, offset);
     }
     assertTrue(committed.get());
@@ -112,5 +113,17 @@ public class OffsetCommitterTest {
     assertEquals(0, committed.get());
     committer.confirm(id, offset);
     assertEquals(offset + 1, committed.get());
+  }
+
+  @Test
+  public void testAutoCommit() {
+    committer = new OffsetCommitter<>(Long.MAX_VALUE, 1);
+    String id = "dummy-0";
+    AtomicBoolean committed = new AtomicBoolean();
+    long offset = 1;
+    committer.register(id, offset, 5, () -> committed.set(true));
+    assertFalse(committed.get());
+    committer.confirm(id, offset);
+    assertTrue(committed.get());
   }
 }

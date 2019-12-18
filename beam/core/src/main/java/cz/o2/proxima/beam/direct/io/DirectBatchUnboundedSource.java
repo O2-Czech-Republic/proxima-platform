@@ -43,12 +43,14 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderException;
@@ -72,6 +74,7 @@ public class DirectBatchUnboundedSource
     return new DirectBatchUnboundedSource(factory, reader, attrs, startStamp, endStamp);
   }
 
+  @ToString
   public static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
 
     @Getter private final List<Partition> partitions;
@@ -83,7 +86,7 @@ public class DirectBatchUnboundedSource
     }
 
     @Override
-    public void finalizeCheckpoint() throws IOException {
+    public void finalizeCheckpoint() {
       // nop
     }
   }
@@ -235,20 +238,24 @@ public class DirectBatchUnboundedSource
   }
 
   private static BatchLogObserver asObserver(
-      BlockingQueue<StreamElement> queue, AtomicBoolean running) {
+      BlockingQueue<StreamElement> queue, AtomicBoolean running, AtomicBoolean stopped) {
 
     return new BatchLogObserver() {
 
       @Override
       public boolean onNext(StreamElement element) {
         try {
-          queue.put(element);
-          return true;
+          while (!stopped.get()) {
+            if (queue.offer(element, 100, TimeUnit.MILLISECONDS)) {
+              return true;
+            }
+            // the queue is full, give it another round
+          }
         } catch (InterruptedException ex) {
           log.warn("Interrupted while reading data.", ex);
           Thread.currentThread().interrupt();
-          return false;
         }
+        return false;
       }
 
       @Override
@@ -271,6 +278,7 @@ public class DirectBatchUnboundedSource
     private final List<Partition> toProcess;
     private final BlockingQueue<StreamElement> queue = new ArrayBlockingQueue<>(100);
     private final AtomicBoolean running = new AtomicBoolean();
+    private final AtomicBoolean stopped = new AtomicBoolean();
 
     long consumedFromCurrent;
     @Nullable StreamElement current = null;
@@ -294,12 +302,12 @@ public class DirectBatchUnboundedSource
     }
 
     @Override
-    public boolean start() throws IOException {
+    public boolean start() {
       return advance();
     }
 
     @Override
-    public boolean advance() throws IOException {
+    public boolean advance() {
       do {
         if (queue.isEmpty() && !running.get()) {
           if (runningPartition != null) {
@@ -309,7 +317,8 @@ public class DirectBatchUnboundedSource
           if (!toProcess.isEmpty()) {
             // read partitions one by one
             runningPartition = toProcess.get(0);
-            reader.observe(Arrays.asList(runningPartition), attributes, asObserver(queue, running));
+            reader.observe(
+                Arrays.asList(runningPartition), attributes, asObserver(queue, running, stopped));
             running.set(true);
             watermark = new Instant(runningPartition.getMinTimestamp());
             consumedFromCurrent = 0;
@@ -357,7 +366,7 @@ public class DirectBatchUnboundedSource
 
     @Override
     public void close() {
-      // nop
+      stopped.set(true);
     }
   }
 }

@@ -74,7 +74,7 @@ public class DirectBatchUnboundedSourceTest {
 
   @Test(timeout = 20000)
   public void testDirectBatchUnboundedSourceWithMany() {
-    testBatchUnboundedSourceWithCount(50);
+    testBatchUnboundedSourceWithCount(1000);
   }
 
   void testBatchUnboundedSourceWithCount(int count) {
@@ -112,7 +112,7 @@ public class DirectBatchUnboundedSourceTest {
                     .triggering(
                         Repeatedly.forever(
                             AfterProcessingTime.pastFirstElementInPane()
-                                .plusDelayOf(Duration.standardSeconds(1))))
+                                .plusDelayOf(Duration.standardSeconds(100))))
                     .accumulatingFiredPanes())
             .apply(Count.globally());
     PAssert.that(res).containsInAnyOrder((long) count);

@@ -24,6 +24,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Script;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -515,6 +516,8 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + "{ 0 }, {s, v -> v - s}, {s, v -> v}, 10)"
                 // and running aggregate
                 + ".integratePerKey({ \"\" }, { it.second }, { 0 }, {a, b -> a + b}, 10)"
+                + ".map({ it.second })"
+                + ".withTimestamp()"
                 + ".collect()");
 
     // the InMemStorage is not append storage, so we need
@@ -573,7 +576,8 @@ public abstract class GroovyEnvTest extends GroovyTest {
         (List)
             ((List) compiled.run())
                 .stream()
-                .map(e -> ((Pair<Object, Object>) e).getSecond())
+                .sorted(Comparator.comparing(p -> ((Pair<Object, Comparable>) p).getSecond()))
+                .map(e -> ((Pair<Object, Object>) e).getFirst())
                 .collect(Collectors.toList());
     assertEquals(Arrays.asList(1, 0, 1, 2, 2), result);
   }

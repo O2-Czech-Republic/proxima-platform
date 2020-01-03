@@ -145,6 +145,7 @@ class Consumers {
     @Override
     public void onAssign(KafkaConsumer<K, V> consumer, List<TopicOffset> offsets) {
       super.onAssign(consumer, offsets);
+      committer.clear();
       observer.onRepartition(
           asRepartitionContext(
               offsets.stream().map(TopicOffset::getPartition).collect(Collectors.toList())));

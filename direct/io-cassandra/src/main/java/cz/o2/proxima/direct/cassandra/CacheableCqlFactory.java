@@ -95,8 +95,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   public final void setup(EntityDescriptor entity, URI uri, StringConverter<?> converter) {
 
     this.entity = entity;
-    String path = uri.getPath();
-    this.tableName = path;
+    this.tableName = uri.getPath();
     while (this.tableName.endsWith("/")) {
       this.tableName = this.tableName.substring(0, this.tableName.length() - 1);
     }
@@ -116,7 +115,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
     }
     String tmp = parsed.get("ttl");
     if (tmp != null) {
-      ttl = Long.valueOf(tmp);
+      ttl = Long.parseLong(tmp);
     }
     try {
       setup(parsed, converter);
@@ -259,7 +258,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
    *
    * @return string representation of the CQL
    */
-  protected abstract String createListEntititiesStatement();
+  protected abstract String createListEntitiesStatement();
 
   /**
    * Create statement to fetch token for primary key. The statement must return only the token as
@@ -321,7 +320,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   public BoundStatement getListEntitiesStatement(Offsets.Token offset, int limit, Session session) {
 
     if (listEntities == null) {
-      listEntities = prepare(session, createListEntititiesStatement());
+      listEntities = prepare(session, createListEntitiesStatement());
     }
     limit = limit < 0 ? Integer.MAX_VALUE : limit;
     if (offset == null) {

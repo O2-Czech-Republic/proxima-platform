@@ -122,8 +122,8 @@ public class DefaultCqlFactoryTest {
           }
 
           @Override
-          protected String createListEntititiesStatement() {
-            preparedStatement.add(super.createListEntititiesStatement());
+          protected String createListEntitiesStatement() {
+            preparedStatement.add(super.createListEntitiesStatement());
             return preparedStatement.get(preparedStatement.size() - 1);
           }
         };

@@ -153,7 +153,7 @@ public class TransformingCqlFactory<T extends Serializable> extends CacheableCql
   }
 
   @Override
-  protected String createListEntititiesStatement() {
+  protected String createListEntitiesStatement() {
     throw new UnsupportedOperationException("Not supported.");
   }
 

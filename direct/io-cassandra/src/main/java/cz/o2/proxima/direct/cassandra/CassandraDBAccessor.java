@@ -77,7 +77,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
     Object tmp = cfg.get(CQL_PARALLEL_SCANS);
     if (tmp != null) {
-      batchParallelism = Integer.valueOf(tmp.toString());
+      batchParallelism = Integer.parseInt(tmp.toString());
     } else {
       batchParallelism = Runtime.getRuntime().availableProcessors();
     }
@@ -91,13 +91,12 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
     StringConverter c = StringConverter.getDefault();
     if (tmp != null) {
       try {
-        c = (StringConverter) Class.forName(tmp.toString()).newInstance();
+        c = Classpath.newInstance(tmp.toString(), StringConverter.class);
       } catch (Exception ex) {
         log.warn("Failed to instantiate type converter {}", tmp, ex);
       }
     }
     this.converter = c;
-
     try {
       cqlFactory = Classpath.findClass(cqlFactoryName, CqlFactory.class).newInstance();
       cqlFactory.setup(entityDesc, uri, converter);
@@ -140,7 +139,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
                         throw new IllegalArgumentException("Invalid hostport " + p);
                       }
                       return InetSocketAddress.createUnresolved(
-                          parts[0], Integer.valueOf(parts[1]));
+                          parts[0], Integer.parseInt(parts[1]));
                     })
                 .collect(Collectors.toList()))
         .build();

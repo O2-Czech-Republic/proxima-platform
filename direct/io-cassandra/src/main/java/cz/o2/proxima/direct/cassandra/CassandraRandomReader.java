@@ -130,14 +130,14 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
           // by convention
           String name = wildcard.toAttributePrefix() + accessor.getConverter().asString(attribute);
 
-          Optional parsed = wildcard.getValueSerializer().deserialize(rowValue);
+          Optional<T> parsed = wildcard.getValueSerializer().deserialize(rowValue);
 
           if (parsed.isPresent()) {
             consumer.accept(
-                (KeyValue)
+                (KeyValue<T>)
                     KeyValue.of(
                         getEntityDescriptor(),
-                        (AttributeDescriptor) wildcard,
+                        wildcard,
                         key,
                         name,
                         new Offsets.Raw(name),

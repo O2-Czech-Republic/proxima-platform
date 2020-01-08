@@ -16,7 +16,7 @@
 package cz.o2.proxima.direct.cassandra;
 
 import java.io.Serializable;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 
 /** A converter between a specified java type and {@code String}. */
@@ -25,7 +25,7 @@ public interface StringConverter<T> extends Serializable {
   public static class DefaultConverter implements StringConverter<String> {
 
     /** String value that all strings should be less than. */
-    static final String MAX = new String(new byte[] {(byte) 0xFF}, 0, 1, Charset.forName("ascii"));
+    static final String MAX = new String(new byte[] {(byte) 0xFF}, 0, 1, StandardCharsets.US_ASCII);
     /** String value that all strings should be greater or equal to. */
     static final String MIN = "";
 

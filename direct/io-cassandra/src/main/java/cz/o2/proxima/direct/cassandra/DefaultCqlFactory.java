@@ -251,7 +251,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
   }
 
   @Override
-  protected String createListEntititiesStatement() {
+  protected String createListEntitiesStatement() {
     return String.format(
         "SELECT %s, token(%s) FROM %s WHERE token(%s) > ? LIMIT ?",
         primaryField, primaryField, getTableName(), primaryField);

@@ -38,7 +38,7 @@ public class DateToLongConverter implements StringConverter<Date> {
       return null;
     }
     try {
-      return new Date(Long.valueOf(what));
+      return new Date(Long.parseLong(what));
     } catch (Exception ex) {
       log.error("Error converting {} to long", what, ex);
       return null;

@@ -412,6 +412,7 @@ class BeamStream<T> implements Stream<T> {
   private static <T> void print(T what) {
     if (what instanceof StreamElement) {
       StreamElement el = (StreamElement) what;
+      Optional<?> parsed = el.getParsed();
       System.out.println(
           String.format(
               "%s %s %s %d %s",
@@ -419,7 +420,7 @@ class BeamStream<T> implements Stream<T> {
               el.getAttribute(),
               el.getUuid(),
               el.getStamp(),
-              el.getValue() != null ? el.getParsed().get() : "(null)"));
+              parsed.isPresent() ? parsed.get() : "(null)"));
     } else {
       System.out.println(what);
     }

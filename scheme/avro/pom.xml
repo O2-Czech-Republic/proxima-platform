@@ -31,7 +31,6 @@
 
   <properties>
     <avro.version>1.8.2</avro.version>
-    <sonar.jacoco.reportPaths>${project.basedir}/../../target/jacoco.exec</sonar.jacoco.reportPaths>
   </properties>
 
   <name>${project.groupId}:${project.artifactId}</name>

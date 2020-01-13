@@ -34,7 +34,6 @@
 
   <properties>
     <confluent.version>5.1.0</confluent.version>
-    <sonar.jacoco.reportPaths>${project.basedir}/../../target/jacoco.exec</sonar.jacoco.reportPaths>
   </properties>
 
   <repositories>

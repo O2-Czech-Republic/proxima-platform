@@ -88,7 +88,6 @@
     <surefire.forkCount>8</surefire.forkCount>
     <!-- sonar config -->
     <jacoco.version>0.8.4</jacoco.version>
-    <sonar.jacoco.reportPaths>${project.basedir}/../target/jacoco.exec</sonar.jacoco.reportPaths>
     <sonar.organization>datadriven</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <error-prone.version>2.3.3</error-prone.version>
@@ -193,14 +192,16 @@
             <version>${jacoco.version}</version>
             <executions>
               <execution>
-                <id>agent-for-unit-tests</id>
+                <id>prepare-agent</id>
                 <goals>
                   <goal>prepare-agent</goal>
                 </goals>
-                <configuration>
-                  <destFile>${sonar.jacoco.reportPaths}</destFile>
-                  <append>true</append>
-                </configuration>
+              </execution>
+              <execution>
+                <id>report</id>
+                <goals>
+                  <goal>report</goal>
+                </goals>
               </execution>
             </executions>
           </plugin>

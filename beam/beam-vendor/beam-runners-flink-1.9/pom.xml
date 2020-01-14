@@ -23,10 +23,10 @@
   <parent>
     <groupId>cz.o2.proxima.beam</groupId>
     <artifactId>proxima-beam-vendor</artifactId>
-    <version>0.3.0-rc1</version>
+    <version>0.3.0-rc1-ab3f0b</version>
   </parent>
 
-  <artifactId>beam-runners-flink-1.8</artifactId>
+  <artifactId>beam-runners-flink-1.9</artifactId>
   <packaging>jar</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
@@ -62,7 +62,7 @@
 
     <dependency>
       <groupId>org.apache.beam</groupId>
-      <artifactId>beam-runners-flink-1.8</artifactId>
+      <artifactId>beam-runners-flink-1.9</artifactId>
       <version>${apache.beam.version.raw}</version>
     </dependency>
 

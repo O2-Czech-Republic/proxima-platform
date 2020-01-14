@@ -34,12 +34,16 @@ public class Types {
   public static <T> Class<T> returnClass(Closure<T> closure) {
     CachedClass cachedClass = ReflectionCache.getCachedClass(closure.getClass());
     for (CachedMethod m : cachedClass.getMethods()) {
-      if ("doCall".equals(m.getName())
-          && closure.getMaximumNumberOfParameters() == m.getParamsCount()) {
-        return (Class) m.getReturnType();
+      if ("doCall".equals(m.getName())) {
+        return m.getReturnType();
       }
     }
-    throw new IllegalStateException("Cannot find appropriate doCall method of " + closure);
+    for (CachedMethod m : cachedClass.getMethods()) {
+      if ("call".equals(m.getName())) {
+        return m.getReturnType();
+      }
+    }
+    throw new IllegalStateException("Cannot find doCall/call method of " + closure);
   }
 
   private Types() {}

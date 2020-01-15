@@ -25,6 +25,20 @@ import org.apache.beam.sdk.values.PCollection;
 
 interface PCollectionProvider<T> {
 
+  static <T> PCollectionProvider<T> wrap(PCollection<T> collection) {
+    return new PCollectionProvider<T>() {
+      @Override
+      public PCollection<T> materialize(Pipeline pipeline) {
+        return collection;
+      }
+
+      @Override
+      public void asUnbounded() {
+        // nop
+      }
+    };
+  }
+
   class ParentNotifyingProvider<T> implements PCollectionProvider<T> {
 
     final Function<Pipeline, PCollection<T>> factory;

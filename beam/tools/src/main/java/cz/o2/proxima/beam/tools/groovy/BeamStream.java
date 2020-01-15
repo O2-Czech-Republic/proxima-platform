@@ -107,10 +107,12 @@ import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PCollection.IsBounded;
 import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PDone;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.WindowingStrategy;
+import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode;
 import org.codehaus.groovy.runtime.GStringImpl;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
@@ -118,6 +120,17 @@ import org.joda.time.Instant;
 /** A {@link Stream} implementation based on beam. */
 @Slf4j
 class BeamStream<T> implements Stream<T> {
+
+  @SuppressWarnings("unchecked")
+  static <T> BeamStream<T> wrap(PCollection<T> collection) {
+    return new BeamStream<>(
+        StreamConfig.empty(),
+        collection.isBounded() == IsBounded.BOUNDED,
+        PCollectionProvider.wrap(collection),
+        (WindowingStrategy<Object, ?>) collection.getWindowingStrategy(),
+        () -> false,
+        collection::getPipeline);
+  }
 
   static <T, S extends BeamStream<T>> S withRegisteredTypes(Repository repo, S in) {
 
@@ -672,19 +685,22 @@ class BeamStream<T> implements Stream<T> {
       Closure<K> keyExtractor,
       Closure<V> valueExtractor,
       Closure<V> initialValue,
-      Closure<V> combiner,
-      long allowedLateness) {
+      Closure<V> combiner) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<V> valueDehydrated = dehydrate(valueExtractor);
     Closure<V> combinerDehydrated = dehydrate(combiner);
     Closure<V> initialValueDehydrated = dehydrate(initialValue);
-    // always return unwindowed stream
-    return child(
+    return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
           Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
           Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
+          if (!in.getWindowingStrategy().equals(windowingStrategy)) {
+            @SuppressWarnings("unchecked")
+            WindowingStrategy<T, ?> strategy = (WindowingStrategy<T, ?>) windowingStrategy;
+            in = in.apply(withWindowingStrategy(strategy));
+          }
           PCollection<KV<K, V>> kvs =
               MapElements.named(withSuffix(name, ".mapToKv"))
                   .of(in)
@@ -694,16 +710,13 @@ class BeamStream<T> implements Stream<T> {
           KvCoder<K, V> coder = (KvCoder<K, V>) kvs.getCoder();
           PCollection<Pair<K, V>> ret =
               kvs.apply(
-                      ParDo.of(
-                          IntegrateDoFn.of(
-                              combinerDehydrated, initialValueDehydrated, coder, allowedLateness)))
+                      ParDo.of(IntegrateDoFn.of(combinerDehydrated, initialValueDehydrated, coder)))
                   .setCoder(PairCoder.of(keyCoder, valueCoder));
           if (!ret.getWindowingStrategy().equals(WindowingStrategy.globalDefault())) {
             ret = ret.apply(Window.into(new GlobalWindows()));
           }
           return ret;
-        },
-        WindowingStrategy.globalDefault());
+        });
   }
 
   @Override
@@ -734,15 +747,14 @@ class BeamStream<T> implements Stream<T> {
       Closure<V> valueExtractor,
       Closure<S> initialState,
       Closure<O> outputFn,
-      Closure<S> stateUpdate,
-      long allowedLateness) {
+      Closure<S> stateUpdate) {
 
     Closure<K> keyDehydrated = dehydrate(keyExtractor);
     Closure<V> valueDehydrated = dehydrate(valueExtractor);
     Closure<S> stateUpdateDehydrated = dehydrate(stateUpdate);
     Closure<O> outputDehydrated = dehydrate(outputFn);
     Closure<S> initialStateDehydrated = dehydrate(initialState);
-    return child(
+    return descendant(
         pipeline -> {
           PCollection<T> in = collection.materialize(pipeline);
           Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
@@ -750,6 +762,11 @@ class BeamStream<T> implements Stream<T> {
           Coder<O> outputCoder = coderOf(pipeline, outputDehydrated);
           @SuppressWarnings("unchecked")
           Coder<S> stateCoder = coderOf(pipeline, initialStateDehydrated);
+          if (!in.getWindowingStrategy().equals(windowingStrategy)) {
+            @SuppressWarnings("unchecked")
+            WindowingStrategy<T, ?> strategy = (WindowingStrategy<T, ?>) windowingStrategy;
+            in = in.apply(withWindowingStrategy(strategy));
+          }
           PCollection<KV<K, V>> kvs =
               MapElements.named(withSuffix(name, ".mapToKvs"))
                   .of(in)
@@ -766,9 +783,7 @@ class BeamStream<T> implements Stream<T> {
                             initialStateDehydrated,
                             stateUpdateDehydrated,
                             outputDehydrated,
-                            stateCoder,
-                            (KvCoder<K, V>) kvs.getCoder(),
-                            allowedLateness)));
+                            stateCoder)));
           } else {
             ret =
                 kvs.apply(
@@ -777,17 +792,39 @@ class BeamStream<T> implements Stream<T> {
                             initialStateDehydrated,
                             stateUpdateDehydrated,
                             outputDehydrated,
-                            stateCoder,
-                            (KvCoder<K, V>) kvs.getCoder(),
-                            allowedLateness)));
+                            stateCoder)));
           }
           ret = ret.setCoder(PairCoder.of(keyCoder, outputCoder));
           if (!ret.getWindowingStrategy().equals(WindowingStrategy.globalDefault())) {
             ret = ret.apply(Window.into(new GlobalWindows()));
           }
           return ret;
-        },
-        WindowingStrategy.globalDefault());
+        });
+  }
+
+  static <T, W extends BoundedWindow>
+      PTransform<PCollection<T>, PCollection<T>> withWindowingStrategy(
+          WindowingStrategy<T, W> strategy) {
+    return new PTransform<PCollection<T>, PCollection<T>>() {
+      @Override
+      public PCollection<T> expand(PCollection<T> input) {
+        Window<T> window =
+            Window.<T>into(strategy.getWindowFn())
+                .withAllowedLateness(strategy.getAllowedLateness(), strategy.getClosingBehavior())
+                .withTimestampCombiner(strategy.getTimestampCombiner())
+                .withOnTimeBehavior(strategy.getOnTimeBehavior())
+                .triggering(strategy.getTrigger());
+        if (strategy.getMode() == AccumulationMode.ACCUMULATING_FIRED_PANES) {
+          window = window.accumulatingFiredPanes();
+        } else if (strategy.getMode() == AccumulationMode.DISCARDING_FIRED_PANES) {
+          window = window.discardingFiredPanes();
+        } else {
+          throw new UnsupportedOperationException(
+              "Unsupported accumulation mode " + strategy.getMode());
+        }
+        return input.apply(window);
+      }
+    };
   }
 
   <X> BeamStream<X> descendant(Function<Pipeline, PCollection<X>> factory) {
@@ -991,9 +1028,9 @@ class BeamStream<T> implements Stream<T> {
   public static class IntegrateDoFn<K, V> extends DoFn<KV<K, V>, Pair<K, V>> {
 
     static <K, V> DoFn<KV<K, V>, Pair<K, V>> of(
-        Closure<V> combiner, Closure<V> initialValue, KvCoder<K, V> kvCoder, long allowedLateness) {
+        Closure<V> combiner, Closure<V> initialValue, KvCoder<K, V> kvCoder) {
 
-      return new IntegrateDoFn<>(combiner::call, initialValue::call, kvCoder, allowedLateness);
+      return new IntegrateDoFn<>(combiner::call, initialValue::call, kvCoder);
     }
 
     @StateId("combined")
@@ -1001,19 +1038,13 @@ class BeamStream<T> implements Stream<T> {
 
     private final BiFunction<V, V, V> combiner;
     private final UnaryFunction<K, V> initialValue;
-    private final long allowedLateness;
 
     IntegrateDoFn(
-        BiFunction<V, V, V> combiner,
-        UnaryFunction<K, V> initialValue,
-        KvCoder<K, V> kvCoder,
-        long allowedLateness) {
+        BiFunction<V, V, V> combiner, UnaryFunction<K, V> initialValue, KvCoder<K, V> kvCoder) {
 
       this.stateSpec = StateSpecs.value(kvCoder.getValueCoder());
       this.combiner = combiner;
       this.initialValue = initialValue;
-      // this is ignored for now due to not being implemented in @RequiresTimeSortedInput
-      this.allowedLateness = allowedLateness;
     }
 
     @RequiresTimeSortedInput
@@ -1045,15 +1076,9 @@ class BeamStream<T> implements Stream<T> {
   static class ReduceValueStateByKey<K, V, S, O> extends DoFn<KV<K, V>, Pair<K, O>> {
 
     static <K, V, S, O> ReduceValueStateByKey<K, V, S, O> of(
-        Closure<S> initialState,
-        Closure<S> stateUpdate,
-        Closure<O> output,
-        Coder<S> stateCoder,
-        KvCoder<K, V> kvCoder,
-        long allowedLateness) {
+        Closure<S> initialState, Closure<S> stateUpdate, Closure<O> output, Coder<S> stateCoder) {
 
-      return new ReduceValueStateByKey<>(
-          initialState, stateUpdate, output, stateCoder, kvCoder, allowedLateness);
+      return new ReduceValueStateByKey<>(initialState, stateUpdate, output, stateCoder);
     }
 
     private final Closure<S> initialState;
@@ -1064,12 +1089,7 @@ class BeamStream<T> implements Stream<T> {
     private final StateSpec<ValueState<S>> state;
 
     ReduceValueStateByKey(
-        Closure<S> initialState,
-        Closure<S> stateUpdate,
-        Closure<O> output,
-        Coder<S> stateCoder,
-        KvCoder<K, V> kvCoder,
-        long allowedLateness) {
+        Closure<S> initialState, Closure<S> stateUpdate, Closure<O> output, Coder<S> stateCoder) {
 
       this.state = StateSpecs.value(stateCoder);
       this.initialState = initialState;

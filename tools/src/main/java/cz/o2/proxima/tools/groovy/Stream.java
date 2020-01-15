@@ -336,9 +336,9 @@ public interface Stream<T> {
    * @param keyExtractor extractor of key
    * @param valueExtractor extractor of value
    * @param initialState closure providing initial state value for key
-   * @param outputFn function for outputting values (when function returns {@code null}
+   * @param outputFn function for outputting values (when function returns {@code null} the output
+   *     is discarded
    * @param stateUpdate update (accumulation) function for the state the output is discarded
-   * @param allowedLateness allowed lateness in milliseconds
    * @return the statefully reduced stream
    */
   default <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
@@ -346,11 +346,10 @@ public interface Stream<T> {
       @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       @ClosureParams(value = FromString.class, options = "K") Closure<S> initialState,
       @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
-      @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate,
-      long allowedLateness) {
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate) {
 
     return reduceValueStateByKey(
-        null, keyExtractor, valueExtractor, initialState, outputFn, stateUpdate, allowedLateness);
+        null, keyExtractor, valueExtractor, initialState, outputFn, stateUpdate);
   }
 
   /**
@@ -367,7 +366,6 @@ public interface Stream<T> {
    * @param stateUpdate update (accumulation) function for the state
    * @param outputFn function for outputting values (when function returns {@code null} the output
    *     is discarded
-   * @param allowedLateness allowed lateness in milliseconds
    * @return the statefully reduced stream
    */
   <K, S, V, O> Stream<Pair<K, O>> reduceValueStateByKey(
@@ -376,8 +374,7 @@ public interface Stream<T> {
       @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       @ClosureParams(value = FromString.class, options = "K") Closure<S> initialState,
       @ClosureParams(value = FromString.class, options = "S, V") Closure<O> outputFn,
-      @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate,
-      long allowedLateness);
+      @ClosureParams(value = FromString.class, options = "S, V") Closure<S> stateUpdate);
 
   /**
    * Transform this stream to another stream by applying combining transform in global window
@@ -392,18 +389,15 @@ public interface Stream<T> {
    * @param valueExtractor extractor of value
    * @param initialValue closure providing initial value of state for key
    * @param combiner combiner of values to final value
-   * @param allowedLateness allowed lateness in milliseconds
    * @return the integrated stream
    */
   default <K, V> Stream<Pair<K, V>> integratePerKey(
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       @ClosureParams(value = FromString.class, options = "K") Closure<V> initialValue,
-      @ClosureParams(value = FromString.class, options = "V,V") Closure<V> combiner,
-      long allowedLateness) {
+      @ClosureParams(value = FromString.class, options = "V,V") Closure<V> combiner) {
 
-    return integratePerKey(
-        null, keyExtractor, valueExtractor, initialValue, combiner, allowedLateness);
+    return integratePerKey(null, keyExtractor, valueExtractor, initialValue, combiner);
   }
 
   /**
@@ -420,7 +414,6 @@ public interface Stream<T> {
    * @param valueExtractor extractor of value
    * @param initialValue closure providing initial value of state for key
    * @param combiner combiner of values to final value
-   * @param allowedLateness allowed lateness in milliseconds
    * @return the integrated stream
    */
   <K, V> Stream<Pair<K, V>> integratePerKey(
@@ -428,6 +421,5 @@ public interface Stream<T> {
       @ClosureParams(value = FromString.class, options = "T") Closure<K> keyExtractor,
       @ClosureParams(value = FromString.class, options = "T") Closure<V> valueExtractor,
       @ClosureParams(value = FromString.class, options = "K") Closure<V> initialValue,
-      @ClosureParams(value = FromString.class, options = "V,V") Closure<V> combiner,
-      long allowedLateness);
+      @ClosureParams(value = FromString.class, options = "V,V") Closure<V> combiner);
 }

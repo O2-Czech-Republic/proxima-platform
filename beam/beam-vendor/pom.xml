@@ -29,6 +29,7 @@
   <groupId>cz.o2.proxima.beam</groupId>
   <artifactId>proxima-beam-vendor</artifactId>
   <packaging>pom</packaging>
+  <version>0.3.0-rc1-ab3f0b</version>
 
   <name>${project.groupId}:${project.artifactId}</name>
 
@@ -36,7 +37,7 @@
 
   <modules>
     <module>beam-runners-direct-java</module>
-    <module>beam-runners-flink-1.8</module>
+    <module>beam-runners-flink-1.9</module>
     <module>beam-sdks-java-core</module>
     <module>beam-sdks-java-extensions-euphoria</module>
     <module>beam-sdks-java-extensions-kryo</module>

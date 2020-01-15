@@ -405,7 +405,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     final Script compiled =
         compile(
             "env.batch.wildcard.batchUpdates()"
-                + ".integratePerKey({ it.key }, { 1 }, { 0 }, { a, b -> a + b }, 10)"
+                + ".integratePerKey({ it.key }, { 1 }, { 0 }, { a, b -> a + b })"
                 + ".collect()");
 
     write(
@@ -458,7 +458,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + "{ it.key }, { Integer.valueOf(it.attribute.substring("
                 + prefixLen
                 + ")) }"
-                + ", { 0 }, { s, v -> v - s }, { s, v -> v }, 10)"
+                + ", { 0 }, { s, v -> v - s }, { s, v -> v })"
                 + ".collect()");
 
     write(
@@ -513,9 +513,9 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + "{ Integer.valueOf(it.attribute["
                 + prefixLen
                 + "]) }, "
-                + "{ 0 }, {s, v -> v - s}, {s, v -> v}, 10)"
+                + "{ 0 }, {s, v -> v - s}, {s, v -> v})"
                 // and running aggregate
-                + ".integratePerKey({ \"\" }, { it.second }, { 0 }, {a, b -> a + b}, 10)"
+                + ".integratePerKey({ \"\" }, { it.second }, { 0 }, {a, b -> a + b})"
                 + ".map({ it.second })"
                 + ".withTimestamp()"
                 + ".collect()");
@@ -595,7 +595,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + "])) }) })"
                 + ".reduceValueStateByKey("
                 + " { it[0] }, { it[1] }, "
-                + "{ 0 }, {s, v -> v - s}, {s, v -> v}, 10)"
+                + "{ 0 }, {s, v -> v - s}, {s, v -> v})"
                 + ".map({ it.second })"
                 + ".withTimestamp()"
                 + ".collect()");
@@ -663,6 +663,63 @@ public abstract class GroovyEnvTest extends GroovyTest {
   }
 
   @Test
+  public void testReduceValueStateWithLatenessAndSlidingWindow() throws Exception {
+    final Script compiled =
+        compile(
+            "env.batch.wildcard.batchUpdates()"
+                + ".map({ new Tuple(it.key, it.stamp) })"
+                + ".windowAll().withAllowedLateness(100)"
+                + ".reduceValueStateByKey("
+                + " { it[0] }, { it[1] }, "
+                + "{ Long.MIN_VALUE }, {s, v -> 1 }, "
+                + " {s, v -> v})"
+                + ".timeSlidingWindow(10000, 1000)"
+                + ".countByKey({ it.first })"
+                + ".map({ it.second })"
+                + ".collect()");
+
+    long now = System.currentTimeMillis();
+    write(
+        StreamElement.update(
+            batch,
+            wildcard,
+            "uuid1",
+            "key1",
+            wildcard.toAttributePrefix() + "11",
+            now,
+            new byte[] {}));
+
+    write(
+        StreamElement.update(
+            batch,
+            wildcard,
+            "uuid2",
+            "key2",
+            wildcard.toAttributePrefix() + "11",
+            now + 1,
+            new byte[] {}));
+
+    write(
+        StreamElement.update(
+            batch,
+            wildcard,
+            "uuid3",
+            "key1",
+            wildcard.toAttributePrefix() + "12",
+            now + 2,
+            new byte[] {}));
+
+    @SuppressWarnings("unchecked")
+    List<Integer> result =
+        ((List<Long>) compiled.run())
+            .stream()
+            .sorted()
+            .map(e -> (int) (long) e)
+            .collect(Collectors.toList());
+    assertEquals(Arrays.asList(1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2), result);
+  }
+
+  @Test
   public void testUnionOnDifferentWindows() throws Exception {
     Script compiled =
         compile(
@@ -719,7 +776,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     Script compiled =
         compile(
             "env.batch.wildcard.batchUpdates().timeWindow(1000).count()"
-                + ".windowAll().integratePerKey({ \"\" }, { it }, { 0 }, {a, b -> a + b}, 0)"
+                + ".windowAll().integratePerKey({ \"\" }, { it }, { 0 }, {a, b -> a + b})"
                 + ".collect()");
     write(
         StreamElement.update(

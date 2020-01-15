@@ -40,23 +40,7 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     List<Pair<Integer, Integer>> result =
         intoSingleWindow(stream)
             .reduce(
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object argument) {
-                        return 0;
-                      }
-                    },
-                    Integer.class),
-                1,
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object... args) {
-                        return (int) args[0] + (int) args[1];
-                      }
-                    },
-                    Integer.class))
+                wrap(tmp -> 0, Integer.class), 1, wrap((a, b) -> (int) a + (int) b, Integer.class))
             .collect();
     assertUnorderedEquals(result, Pair.of(0, 11));
   }
@@ -67,31 +51,10 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     List<Pair<Integer, Integer>> result =
         intoSingleWindow(stream)
             .reduce(
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object argument) {
-                        return 0;
-                      }
-                    },
-                    Integer.class),
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object argument) {
-                        return (int) argument + 1;
-                      }
-                    },
-                    Integer.class),
+                wrap(tmp -> 0, Integer.class),
+                wrap(arg -> (int) arg + 1, Integer.class),
                 1,
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object... args) {
-                        return (int) args[0] + (int) args[1];
-                      }
-                    },
-                    Integer.class))
+                wrap((a, b) -> (int) a + (int) b, Integer.class))
             .collect();
     assertUnorderedEquals(result, Pair.of(0, 15));
   }
@@ -103,23 +66,8 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     List<Pair<Integer, Object>> result =
         intoSingleWindow(stream)
             .groupReduce(
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object argument) {
-                        return 0;
-                      }
-                    },
-                    Integer.class),
-                (Closure<Iterable<Object>>)
-                    wrap(
-                        new Closure<Iterable<Object>>(this) {
-                          @Override
-                          public List call(Object... arguments) {
-                            return Arrays.stream(arguments).collect(Collectors.toList());
-                          }
-                        },
-                        (Class<List<Object>>) (Class) List.class))
+                wrap(tmp -> 0, Integer.class),
+                wrapArray(arg -> Arrays.asList(arg), (Class<Iterable<Object>>) (Class) List.class))
             .collect();
     assertEquals(2, result.size());
     assertEquals(
@@ -132,23 +80,9 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     List<Pair<Integer, Integer>> result =
         intoSingleWindow(stream)
             .combine(
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object argument) {
-                        return 0;
-                      }
-                    },
-                    Integer.class),
+                wrap(tmp -> 0, Integer.class),
                 0, /* if this is non-zero element, then the result is undefined */
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object... args) {
-                        return (int) args[0] + (int) args[1];
-                      }
-                    },
-                    Integer.class))
+                wrap((a, b) -> (int) a + (int) b, Integer.class))
             .collect();
 
     assertUnorderedEquals(result, Pair.of(0, 10));
@@ -161,31 +95,10 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     List<Pair<Integer, Integer>> result =
         intoSingleWindow(stream)
             .combine(
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object argument) {
-                        return 0;
-                      }
-                    },
-                    Integer.class),
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object argument) {
-                        return (int) argument + 1;
-                      }
-                    },
-                    Integer.class),
+                wrap(tmp -> 0, Integer.class),
+                wrap(arg -> (int) arg + 1, Integer.class),
                 0, /* if this is non-zero element, then the result is undefined */
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object... args) {
-                        return (int) args[0] + (int) args[1];
-                      }
-                    },
-                    Integer.class))
+                wrap((a, b) -> (int) a + (int) b, Integer.class))
             .collect();
     assertEquals(Arrays.asList(Pair.of(0, 14)), result);
   }
@@ -194,17 +107,7 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   public void testWindowAllCountByKey() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Pair<Integer, Long>> result =
-        intoSingleWindow(stream)
-            .countByKey(
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object argument) {
-                        return 0;
-                      }
-                    },
-                    Integer.class))
-            .collect();
+        intoSingleWindow(stream).countByKey(wrap(tmp -> 0, Integer.class)).collect();
     assertEquals(Arrays.asList(Pair.of(0, 4L)), result);
   }
 
@@ -214,15 +117,7 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Double> result =
         intoSingleWindow(stream)
-            .average(
-                wrap(
-                    new Closure<Double>(this) {
-                      @Override
-                      public Double call(Object argument) {
-                        return (double) ((int) argument + 1);
-                      }
-                    },
-                    Double.class))
+            .average(wrap(arg -> (double) (int) arg + 1.0, Double.class))
             .collect();
     assertEquals(Arrays.asList(14 / 4.), result);
   }
@@ -234,22 +129,8 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     Set<Pair<Integer, Double>> result =
         intoSingleWindow(stream)
             .averageByKey(
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object argument) {
-                        return (int) argument % 2;
-                      }
-                    },
-                    Integer.class),
-                wrap(
-                    new Closure<Double>(this) {
-                      @Override
-                      public Double call(Object argument) {
-                        return (double) ((int) argument + 1);
-                      }
-                    },
-                    Double.class))
+                wrap(arg -> (int) arg % 2, Integer.class),
+                wrap(arg -> (double) (int) arg + 1, Double.class))
             .collect()
             .stream()
             .collect(Collectors.toSet());
@@ -262,16 +143,7 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   public void testJoin() {
     Stream<Integer> stream1 = stream(1, 2, 3, 4);
     Stream<Integer> stream2 = stream(3, 4);
-    Closure<Integer> keyExtractor =
-        wrap(
-            new Closure<Integer>(this) {
-              @Override
-              public Integer call(Object argument) {
-                return (int) argument % 2;
-              }
-            },
-            Integer.class);
-
+    Closure<Integer> keyExtractor = wrap(arg -> (int) arg % 2, Integer.class);
     List<Pair<Integer, Integer>> result =
         intoSingleWindow(stream1)
             .join(intoSingleWindow(stream2), keyExtractor, keyExtractor)
@@ -285,16 +157,7 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   public void testLeftJoin() {
     Stream<Integer> stream1 = stream(3);
     Stream<Integer> stream2 = stream(1, 2, 3, 4);
-    Closure<Integer> keyExtractor =
-        wrap(
-            new Closure<Integer>(this) {
-
-              @Override
-              public Integer call(Object argument) {
-                return (int) argument % 2;
-              }
-            },
-            Integer.class);
+    Closure<Integer> keyExtractor = wrap(arg -> (int) arg % 2, Integer.class);
     Set<Object> result =
         intoSingleWindow(stream1)
             .leftJoin(intoSingleWindow(stream2), keyExtractor, keyExtractor)
@@ -318,16 +181,8 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Integer> result =
         intoSingleWindow(stream)
-            .sorted(
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object... args) {
-                        // reversed
-                        return Integer.compare((int) args[1], (int) args[0]);
-                      }
-                    },
-                    Integer.class))
+            // sort in reversed order
+            .sorted(wrap((a, b) -> Integer.compare((int) b, (int) a), Integer.class))
             .collect();
 
     assertEquals(Arrays.asList(4, 3, 2, 1), result);
@@ -345,17 +200,7 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   public void testWindowAllSum() {
     Stream<Integer> stream = stream(4, 3, 2, 1);
     List<Double> result =
-        intoSingleWindow(stream)
-            .sum(
-                wrap(
-                    new Closure<Double>(this) {
-                      @Override
-                      public Double call(Object argument) {
-                        return (double) (int) argument;
-                      }
-                    },
-                    Double.class))
-            .collect();
+        intoSingleWindow(stream).sum(wrap(arg -> (double) (int) arg, Double.class)).collect();
 
     assertUnorderedEquals(result, 10.0);
   }
@@ -367,22 +212,8 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     Set<Pair<Integer, Double>> result =
         intoSingleWindow(stream)
             .sumByKey(
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object argument) {
-                        return (int) argument % 2;
-                      }
-                    },
-                    Integer.class),
-                wrap(
-                    new Closure<Double>(this) {
-                      @Override
-                      public Double call(Object argument) {
-                        return (double) (int) argument;
-                      }
-                    },
-                    Double.class))
+                wrap(arg -> (int) arg % 2, Integer.class),
+                wrap(arg -> (double) (int) arg, Double.class))
             .collect()
             .stream()
             .collect(Collectors.toSet());
@@ -395,17 +226,7 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
   public void testStreamWindowAllDontAffectStatelessOperations() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
     List<Integer> result =
-        intoSingleWindow(stream)
-            .filter(
-                wrap(
-                    new Closure<Boolean>(this) {
-                      @Override
-                      public Boolean call(Object... args) {
-                        return (int) args[0] % 2 == 0;
-                      }
-                    },
-                    Boolean.class))
-            .collect();
+        intoSingleWindow(stream).filter(wrap(arg -> (int) arg % 2 == 0, Boolean.class)).collect();
     assertUnorderedEquals(result, 2, 4);
   }
 
@@ -424,24 +245,8 @@ public abstract class AbstractWindowedStreamTest extends StreamTest {
     Stream<Object> stream = stream("4", "3", "2", "1", "1.", "2.", "3.");
     Set<Object> result =
         intoSingleWindow(stream)
-            .distinct(
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object argument) {
-                        return Integer.valueOf(argument.toString().substring(0, 1));
-                      }
-                    },
-                    Integer.class))
-            .map(
-                wrap(
-                    new Closure<String>(this) {
-                      @Override
-                      public String call(Object argument) {
-                        return argument.toString().substring(0, 1);
-                      }
-                    },
-                    String.class))
+            .distinct(wrap(arg -> Integer.valueOf(arg.toString().substring(0, 1)), Integer.class))
+            .map(wrap(arg -> arg.toString().substring(0, 1), String.class))
             .collect()
             .stream()
             .collect(Collectors.toSet());

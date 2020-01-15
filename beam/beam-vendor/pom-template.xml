@@ -29,6 +29,7 @@
   <groupId>cz.o2.proxima.beam</groupId>
   <artifactId>proxima-beam-vendor</artifactId>
   <packaging>pom</packaging>
+  <version>0.3.0-rc1-ab3f0b</version>
 
   <name>${project.groupId}:${project.artifactId}</name>
 

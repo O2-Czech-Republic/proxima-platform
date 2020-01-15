@@ -32,6 +32,7 @@ import cz.o2.proxima.tools.groovy.JavaTypedClosure;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamTest;
 import cz.o2.proxima.tools.groovy.TestStreamProvider;
+import cz.o2.proxima.tools.groovy.util.Closures;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
 import java.util.Arrays;
@@ -263,10 +264,7 @@ public class BeamStreamTest extends StreamTest {
           kvs.apply(
                   ParDo.of(
                       new IntegrateDoFn<>(
-                          (a, b) -> a + b,
-                          k -> 0,
-                          KvCoder.of(VarIntCoder.of(), VarIntCoder.of()),
-                          10)))
+                          (a, b) -> a + b, k -> 0, KvCoder.of(VarIntCoder.of(), VarIntCoder.of()))))
               .setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
       PAssert.that(result).containsInAnyOrder(Pair.of(0, 3), Pair.of(0, 5), Pair.of(0, 6));
       assertNotNull(pipeline.run());
@@ -298,10 +296,7 @@ public class BeamStreamTest extends StreamTest {
           kvs.apply(
                   ParDo.of(
                       new IntegrateDoFn<>(
-                          (a, b) -> a + b,
-                          k -> k,
-                          KvCoder.of(VarIntCoder.of(), VarIntCoder.of()),
-                          10)))
+                          (a, b) -> a + b, k -> k, KvCoder.of(VarIntCoder.of(), VarIntCoder.of()))))
               .setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
       PAssert.that(result).containsInAnyOrder(Pair.of(0, 2), Pair.of(1, 4), Pair.of(1, 5));
       assertNotNull(pipeline.run());
@@ -317,15 +312,43 @@ public class BeamStreamTest extends StreamTest {
         stream
             .union(other)
             .timeWindow(1000)
-            .sum(
-                new Closure<Double>(this) {
-                  @Override
-                  public Double call(Object arg) {
-                    return Double.valueOf(arg.toString());
-                  }
-                })
+            .sum(Closures.from(this, arg -> Double.parseDouble(arg.toString())))
             .collect();
     assertEquals(1, collect.size());
     assertEquals(24.0, collect.get(0), 0.001);
+  }
+
+  @Test
+  public void testIntegratePerKeyWithAllowedLateness() {
+    Instant now = Instant.ofEpochMilli(1);
+    TestStream<Integer> input =
+        TestStream.create(VarIntCoder.of())
+            .addElements(
+                TimestampedValue.of(100, now.plus(100)),
+                TimestampedValue.of(99, now.plus(99)),
+                TimestampedValue.of(90, now.plus(90)))
+            .advanceWatermarkTo(now.plus(50))
+            // add late elements
+            .addElements(
+                TimestampedValue.of(10, now.plus(10)),
+                TimestampedValue.of(9, now.plus(9)),
+                TimestampedValue.of(1, now.plus(1)))
+            .advanceWatermarkToInfinity();
+    Pipeline p = Pipeline.create();
+    PCollection<Integer> data = p.apply(input);
+    BeamStream<Integer> stream = BeamStream.wrap(data);
+    @SuppressWarnings("unchecked")
+    List<Integer> result =
+        stream
+            .windowAll()
+            .withAllowedLateness(30)
+            .integratePerKey(
+                Closures.from(this, tmp -> 1),
+                Closures.from(this, a -> a),
+                Closures.from(this, tmp -> 0),
+                Closures.from(this, (a, b) -> (int) a + (int) b))
+            .map(Closures.fromArray(this, args -> ((Pair<Integer, Integer>) args[0]).getSecond()))
+            .collect();
+    assertEquals(Arrays.asList(90, 189, 289), result);
   }
 }

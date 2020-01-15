@@ -18,6 +18,10 @@ package cz.o2.proxima.tools.groovy;
 import static org.junit.Assert.*;
 
 import com.google.common.collect.Sets;
+import cz.o2.proxima.functional.BiFunction;
+import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.tools.groovy.util.Closures;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
 import java.util.Arrays;
@@ -38,36 +42,14 @@ public abstract class StreamTest extends AbstractStreamTest {
   @Test
   public void testStreamFilter() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Integer> result =
-        stream
-            .filter(
-                wrap(
-                    new Closure<Boolean>(this) {
-                      @Override
-                      public Boolean call(Object... args) {
-                        return (int) args[0] % 2 == 0;
-                      }
-                    },
-                    Boolean.class))
-            .collect();
+    List<Integer> result = stream.filter(wrap(arg -> (int) arg % 2 == 0, Boolean.class)).collect();
     assertUnorderedEquals(result, 2, 4);
   }
 
   @Test
   public void testStreamMap() {
     Stream<Integer> stream = stream(1, 2, 3, 4);
-    List<Integer> result =
-        stream
-            .map(
-                wrap(
-                    new Closure<Integer>(this) {
-                      @Override
-                      public Integer call(Object... args) {
-                        return (int) args[0] + 1;
-                      }
-                    },
-                    Integer.class))
-            .collect();
+    List<Integer> result = stream.map(wrap(arg -> (int) arg + 1, Integer.class)).collect();
     assertUnorderedEquals(result, 2, 3, 4, 5);
   }
 
@@ -81,13 +63,7 @@ public abstract class StreamTest extends AbstractStreamTest {
             .withWindow()
             .map(
                 wrap(
-                    new Closure<Pair>(this) {
-                      @Override
-                      public Pair<String, Integer> call(Object... argument) {
-                        Pair<Object, Integer> p = (Pair) argument[0];
-                        return Pair.of("window", p.getSecond());
-                      }
-                    },
+                    arg -> Pair.of("window", ((Pair<Object, Integer>) arg).getSecond()),
                     Pair.class))
             .collect();
     assertUnorderedEquals(
@@ -123,7 +99,19 @@ public abstract class StreamTest extends AbstractStreamTest {
     return input.collect(Collectors.groupingBy(Function.identity(), Collectors.summingInt(e -> 1)));
   }
 
-  <T> Closure<T> wrap(Closure<T> c, Class<? extends T> cls) {
-    return JavaTypedClosure.wrap(c, cls);
+  <T> Closure<T> wrap(Factory<T> f, Class<? extends T> cls) {
+    return JavaTypedClosure.wrap(Closures.from(this, f), cls);
+  }
+
+  <T> Closure<T> wrap(UnaryFunction<Object, T> f, Class<? extends T> cls) {
+    return JavaTypedClosure.wrap(Closures.from(this, f), cls);
+  }
+
+  <T> Closure<T> wrapArray(UnaryFunction<Object[], T> f, Class<? extends T> cls) {
+    return JavaTypedClosure.wrap(Closures.fromArray(this, f), cls);
+  }
+
+  <T> Closure<T> wrap(BiFunction<Object, Object, T> f, Class<? extends T> cls) {
+    return JavaTypedClosure.wrap(Closures.from(this, f), cls);
   }
 }

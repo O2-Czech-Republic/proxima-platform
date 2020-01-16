@@ -111,7 +111,9 @@
         </executions>
         <configuration>
           <mainClass>cz.o2.proxima.tools.groovy.Compiler</mainClass>
-          <commandlineArgs>-o ${project.basedir}/target/generated-sources/groovy/cz/o2/proxima/example/Environment.groovy ${project.basedir}/model/src/main/resources/reference.conf</commandlineArgs>
+          <commandlineArgs>-o ${project.basedir}/target/generated-sources/groovy/cz/o2/proxima/example/Environment.groovy
+            ${project.parent.basedir}/model/src/main/resources/reference.conf
+          </commandlineArgs>
         </configuration>
       </plugin>
 
@@ -135,6 +137,12 @@
     <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-tools</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-beam-tools</artifactId>
       <version>${project.version}</version>
     </dependency>
 

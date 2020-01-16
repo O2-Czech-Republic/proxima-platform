@@ -193,7 +193,12 @@ public class Console {
                   return cls1.compareTo(cls2);
                 })
             .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("No StreamProvider found"));
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        String.format(
+                            "Unable to find any StreamProvider in classpath. Please check dependencies. Looking for service implements '%s' interface.",
+                            StreamProvider.class.getName())));
     log.info("Using {} as StreamProvider", streamProvider);
     streamProvider.init(repo, args == null ? new String[] {} : args);
   }

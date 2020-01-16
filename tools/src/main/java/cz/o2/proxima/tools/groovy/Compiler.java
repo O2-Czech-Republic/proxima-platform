@@ -76,7 +76,7 @@ public class Compiler {
             .collect(Collectors.toList());
 
     if (configs.isEmpty()) {
-      throw new IllegalStateException("Missing configuration files. Please check parameters");
+      throw new IllegalStateException("Missing configuration files. Please check parameters.");
     }
 
     conf.setDefaultEncoding(StandardCharsets.UTF_8.name());

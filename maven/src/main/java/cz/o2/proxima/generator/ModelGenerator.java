@@ -51,41 +51,47 @@ import org.apache.commons.io.IOUtils;
 @Slf4j
 public class ModelGenerator {
 
+  /** Java package the model classes are going to be generated in. */
   private final String javaPackage;
+
+  /** Class name of the generated model. */
   private final String className;
-  private final File sourceConfigPath;
+
+  /** Path of the config to generate the model from. */
+  private final File configPath;
+
+  /** Output path for the generated model. */
   private final File outputPath;
 
-  public ModelGenerator(
-      String javaPackage, String className, String sourceConfigPath, String outputPath) {
-
-    this(javaPackage, className, sourceConfigPath, outputPath, true);
+  /**
+   * Construct the {@link ModelGenerator}.
+   *
+   * @param javaPackage Java package the model classes are going to be generated in.
+   * @param className Class name of the generated model.
+   * @param configPath Config to generate the model from.
+   * @param outputPath Output directory for the generated model.
+   */
+  public ModelGenerator(String javaPackage, String className, File configPath, File outputPath) {
+    this(javaPackage, className, configPath, outputPath, true);
   }
 
   ModelGenerator(
-      String javaPackage,
-      String className,
-      String sourceConfigPath,
-      String outputPath,
-      boolean validate) {
-
+      String javaPackage, String className, File configPath, File outputPath, boolean validate) {
     Preconditions.checkArgument(
         !Strings.isNullOrEmpty(javaPackage), "Java package name is missing");
     Preconditions.checkArgument(!Strings.isNullOrEmpty(className), "Class name is missing");
-
     this.javaPackage = javaPackage;
     this.className = className;
-    this.sourceConfigPath = new File(sourceConfigPath);
-    this.outputPath = new File(outputPath);
-
+    this.configPath = configPath;
+    this.outputPath = outputPath;
     if (validate) {
-      if (!this.sourceConfigPath.exists()) {
+      if (!this.configPath.exists()) {
         throw new IllegalArgumentException(
-            "Source config not found at [ " + sourceConfigPath + " ]");
+            String.format("Source config not found at [%s]", configPath));
       }
-
       if (!this.outputPath.isAbsolute()) {
-        throw new IllegalArgumentException("Output path must be absolute [ " + outputPath + " ]");
+        throw new IllegalArgumentException(
+            String.format("Output path must be absolute [%s]", outputPath));
       }
     }
   }
@@ -95,11 +101,11 @@ public class ModelGenerator {
     final File outputFile = new File(output, className + ".java");
     if (!output.exists() && !output.mkdirs()) {
       throw new RuntimeException(
-          "Failed to create directories for [ " + outputPath.getAbsolutePath() + " ]");
+          String.format("Failed to create directories for [%s]", outputPath.getAbsolutePath()));
     }
 
     try (FileOutputStream out = new FileOutputStream(outputFile)) {
-      generate(ConfigFactory.parseFile(sourceConfigPath).resolve(), new OutputStreamWriter(out));
+      generate(ConfigFactory.parseFile(configPath).resolve(), new OutputStreamWriter(out));
     }
   }
 
@@ -131,11 +137,11 @@ public class ModelGenerator {
 
     final List<Map<String, Object>> entities = getEntities(repo);
 
-    root.put("input_path", sourceConfigPath.getAbsoluteFile());
-    root.put("input_config", readFileToString(sourceConfigPath));
+    root.put("input_path", configPath.getAbsoluteFile());
+    root.put("input_config", readFileToString(configPath));
     root.put("java_package", javaPackage);
     root.put("java_classname", className);
-    root.put("java_config_resourcename", sourceConfigPath.getName());
+    root.put("java_config_resourcename", configPath.getName());
     root.put("entities", entities);
     root.put("imports", operatorImports);
     root.put("operators", operators);
@@ -179,9 +185,9 @@ public class ModelGenerator {
                           .orElseThrow(
                               () ->
                                   new IllegalStateException(
-                                      "Unable to retrieve serializer factory for scheme "
-                                          + attr.getSchemeUri().getScheme()
-                                          + ". Looks like missing dependency for maven plugin."));
+                                      String.format(
+                                          "Unable to retrieve serializer factory for scheme %s. Looks like missing dependency for maven plugin.",
+                                          attr.getSchemeUri().getScheme())));
 
                   Map<String, Object> attrMap = new HashMap<>();
                   String nameModified = attr.toAttributePrefix(false);
@@ -230,7 +236,6 @@ public class ModelGenerator {
     ret.put("classdef", generator.classDef());
     ret.put("name", generator.operatorFactory().getOperatorName());
     ret.put("classname", toClassName(generator.operatorFactory().getOperatorName() + " operator"));
-
     return ret;
   }
 }

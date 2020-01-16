@@ -51,7 +51,8 @@ public class CompileMojo extends AbstractMojo {
     }
 
     ModelGenerator generator =
-        new ModelGenerator(javaPackage, className, config, targetOutputDir.getAbsolutePath());
+        new ModelGenerator(
+            javaPackage, className, new File(config), new File(targetOutputDir.getAbsolutePath()));
 
     try {
       generator.generate();

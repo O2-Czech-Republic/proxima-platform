@@ -18,6 +18,7 @@ package cz.o2.proxima.generator;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import java.io.File;
 import java.io.StringWriter;
 import org.junit.Test;
 
@@ -26,7 +27,8 @@ public class ModelGeneratorTest {
 
   @Test
   public void testModelGeneration() throws Exception {
-    ModelGenerator generator = new ModelGenerator("test", "Test", "ignored", "ignored", false);
+    ModelGenerator generator =
+        new ModelGenerator("test", "Test", new File("ignored"), new File("ignored"), false);
     StringWriter writer = new StringWriter();
     generator.generate(ConfigFactory.load("test-reference.conf"), writer);
     assertFalse(writer.toString().isEmpty());

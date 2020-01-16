@@ -26,6 +26,7 @@ import java.io.FileOutputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
@@ -57,8 +58,26 @@ public class Compiler {
     }
 
     packageName = parsed.hasOption("p") ? parsed.getOptionValue("p") : "";
-    output = parsed.getOptionValue("o").replace("/", File.separator);
-    configs = parsed.getArgList();
+    output = parsed.getOptionValue("o").replace("/", File.separator).trim();
+    configs =
+        parsed
+            .getArgList()
+            .stream()
+            .map(
+                c -> {
+                  File file = new File(c.trim());
+                  if (!file.exists()) {
+                    throw new IllegalStateException(
+                        String.format(
+                            "Unable to find config file '%s'. Please check parameters.", c.trim()));
+                  }
+                  return file.getPath();
+                })
+            .collect(Collectors.toList());
+
+    if (configs.isEmpty()) {
+      throw new IllegalStateException("Missing configuration files. Please check parameters");
+    }
 
     conf.setDefaultEncoding(StandardCharsets.UTF_8.name());
     conf.setClassForTemplateLoading(getClass(), "/");
@@ -71,7 +90,7 @@ public class Compiler {
         configs
             .stream()
             .map(f -> ConfigFactory.parseFile(new File(f)))
-            .reduce(ConfigFactory.empty(), (l, r) -> l.withFallback(r))
+            .reduce(ConfigFactory.empty(), Config::withFallback)
             .resolve();
 
     Repository repo =

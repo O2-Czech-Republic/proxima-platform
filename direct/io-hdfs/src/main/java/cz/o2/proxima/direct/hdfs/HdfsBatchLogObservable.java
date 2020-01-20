@@ -164,7 +164,7 @@ public class HdfsBatchLogObservable implements BatchLogObservable {
     String rawKey = split[0];
     String attribute = split[1];
 
-    AttributeDescriptor attributeDesc;
+    AttributeDescriptor<?> attributeDesc;
     attributeDesc =
         entityDesc
             .findAttribute(attribute)

@@ -41,7 +41,8 @@ public class HdfsBulkAttributeWriterTest {
             new URI("file://dummy/dir"),
             Maps.newHashMap(),
             HdfsDataAccessor.HDFS_MIN_ELEMENTS_TO_FLUSH_DEFAULT,
-            HdfsDataAccessor.HDFS_ROLL_INTERVAL_DEFAULT);
+            HdfsDataAccessor.HDFS_ROLL_INTERVAL_DEFAULT,
+            HdfsDataAccessor.HDFS_DEFAULT_SEQUENCE_FILE_COMPRESSION_CODEC);
   }
 
   @After

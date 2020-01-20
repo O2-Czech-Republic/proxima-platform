@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.hdfs;
 
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
@@ -39,10 +40,12 @@ public class HdfsDataAccessor implements DataAccessor {
   public static final String HDFS_MIN_ELEMENTS_TO_FLUSH = "hdfs.min-elements-to-flush";
   public static final String HDFS_ROLL_INTERVAL = "hdfs.log-roll-interval";
   public static final String HDFS_BATCH_PROCESS_SIZE_MIN = "hdfs.process-size.min";
+  public static final String HDFS_SEQUENCE_FILE_COMPRESSION_CODEC_CFG = "hdfs.compression";
 
   static final int HDFS_MIN_ELEMENTS_TO_FLUSH_DEFAULT = 500;
   static final long HDFS_ROLL_INTERVAL_DEFAULT = TimeUnit.HOURS.toMillis(1);
-  static final long HDFS_BATCH_PROCES_SIZE_MIN_DEFAULT = 1024 * 1024 * 100L; /* 100 MiB */
+  static final long HDFS_BATCH_PROCESS_SIZE_MIN_DEFAULT = 1024 * 1024 * 100L; /* 100 MiB */
+  static final String HDFS_DEFAULT_SEQUENCE_FILE_COMPRESSION_CODEC = "gzip";
 
   static final Pattern PART_FILE_PARSER = Pattern.compile("part-([0-9]+)_([0-9]+)-.+");
   static final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern("/yyyy/MM/");
@@ -56,6 +59,7 @@ public class HdfsDataAccessor implements DataAccessor {
   private final int minElementsToFlush;
   private final long rollInterval;
   private final long batchProcessSize;
+  private final String compressionCodec;
 
   public HdfsDataAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
@@ -76,13 +80,25 @@ public class HdfsDataAccessor implements DataAccessor {
             HDFS_BATCH_PROCESS_SIZE_MIN,
             cfg,
             o -> Long.valueOf(o.toString()),
-            HDFS_BATCH_PROCES_SIZE_MIN_DEFAULT);
+            HDFS_BATCH_PROCESS_SIZE_MIN_DEFAULT);
+    this.compressionCodec =
+        getCfg(
+            HDFS_SEQUENCE_FILE_COMPRESSION_CODEC_CFG,
+            cfg,
+            String::valueOf,
+            HDFS_DEFAULT_SEQUENCE_FILE_COMPRESSION_CODEC);
   }
 
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
+    return newWriter();
+  }
+
+  @VisibleForTesting
+  Optional<AttributeWriterBase> newWriter() {
     return Optional.of(
-        new HdfsBulkAttributeWriter(entityDesc, uri, cfg, minElementsToFlush, rollInterval));
+        new HdfsBulkAttributeWriter(
+            entityDesc, uri, cfg, minElementsToFlush, rollInterval, compressionCodec));
   }
 
   @Override

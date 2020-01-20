@@ -15,12 +15,9 @@
  */
 package cz.o2.proxima.direct.hdfs;
 
-import static org.junit.Assert.assertTrue;
-
 import com.google.common.collect.Maps;
 import cz.o2.proxima.repository.EntityDescriptor;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectOutputStream;
+import cz.o2.proxima.util.TestUtils;
 import java.net.URI;
 import org.junit.Test;
 
@@ -34,10 +31,6 @@ public class HdfsDataAccessorTest {
             new URI("file://dummy/dir"),
             Maps.newHashMap());
 
-    ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-    try (ObjectOutputStream oos = new ObjectOutputStream(buffer)) {
-      oos.writeObject(writer);
-    }
-    assertTrue(buffer.toByteArray().length > 0);
+    TestUtils.assertSerializable(writer);
   }
 }

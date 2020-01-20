@@ -41,6 +41,12 @@ public class ClosuresTest {
     assertEquals(Long.valueOf(3L), closure.call(1L, 2L));
   }
 
+  @Test(expected = IllegalArgumentException.class)
+  public void testFromBiFunctionWithSrongArgumentCount() {
+    Closure<Long> closure = Closures.from(this, (a, b) -> (long) a + (long) b);
+    closure.call(1L, 2L, 3L);
+  }
+
   @Test
   public void testFromArray() {
     Closure<Integer> closure = Closures.fromArray(this, arr -> arr.length);

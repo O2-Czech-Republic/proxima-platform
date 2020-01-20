@@ -1496,6 +1496,66 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test(timeout = 10000)
+  public void testBulkObservePartitionsFromOldestSuccess() throws InterruptedException {
+    Accessor accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(context())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+
+    AtomicInteger consumed = new AtomicInteger();
+    StreamElement update =
+        StreamElement.update(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            attr.getName(),
+            System.currentTimeMillis(),
+            new byte[] {1, 2});
+
+    for (int i = 0; i < 1000; i++) {
+      writer.write(
+          update,
+          (succ, e) -> {
+            assertTrue(succ);
+          });
+    }
+    CountDownLatch latch = new CountDownLatch(1);
+    reader.observeBulkPartitions(
+        reader.getPartitions(),
+        Position.OLDEST,
+        true,
+        new LogObserver() {
+
+          @Override
+          public void onRepartition(OnRepartitionContext context) {}
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            consumed.incrementAndGet();
+            context.confirm();
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+            ;
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        });
+
+    latch.await();
+    assertEquals(1000, consumed.get());
+  }
+
+  @Test(timeout = 10000)
   public void testBulkObservePartitionsSuccess() throws InterruptedException {
     Accessor accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaWriter writer = accessor.newWriter();
@@ -2210,7 +2270,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 5000)
   public void testMaxBytesPerSec() throws InterruptedException {
     long maxLatency = testSequentialConsumption(3);
-    assertTrue(maxLatency > 500000000L);
+    assertTrue(
+        "maxLatency should be greater than 500000000L, got " + maxLatency, maxLatency > 500000000L);
   }
 
   @Test(timeout = 5000)

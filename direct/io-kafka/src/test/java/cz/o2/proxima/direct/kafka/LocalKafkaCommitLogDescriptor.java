@@ -47,6 +47,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -241,6 +242,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
       int assignedId =
           assignedPartitions != null ? group.add(assignedPartitions) : group.add(listener);
+      final AtomicBoolean polled = new AtomicBoolean();
+
       ConsumerId consumerId = ConsumerId.of(name, assignedId);
       consumerOffsets.put(
           consumerId,
@@ -257,6 +260,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
       doAnswer(
               invocation -> {
+                polled.set(true);
                 Duration sleep = (Duration) invocation.getArguments()[0];
                 return pollConsumer(group, sleep.toMillis(), consumerId, serializer, listener);
               })
@@ -283,8 +287,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
               })
           .when(mock)
           .beginningOffsets(any());
-
-      when(mock.assignment()).thenReturn(Collections.singleton(new TopicPartition(getTopic(), 0)));
 
       doAnswer(
               invocation -> {
@@ -336,13 +338,14 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           .committed((Set<TopicPartition>) any());
 
       doAnswer(
-              invocation -> {
-                Collection<Partition> partitions = group.getAssignment(consumerId.getId());
-                return partitions
-                    .stream()
-                    .map(p -> new TopicPartition(getTopic(), p.getId()))
-                    .collect(Collectors.toSet());
-              })
+              invocation ->
+                  polled.get()
+                      ? group
+                          .getAssignment(consumerId.getId())
+                          .stream()
+                          .map(p -> new TopicPartition(getTopic(), p.getId()))
+                          .collect(Collectors.toSet())
+                      : Collections.emptySet())
           .when(mock)
           .assignment();
 

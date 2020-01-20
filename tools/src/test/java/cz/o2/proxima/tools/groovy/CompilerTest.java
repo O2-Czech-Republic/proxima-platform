@@ -22,6 +22,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import org.apache.commons.io.IOUtils;
 import org.junit.Rule;
 import org.junit.Test;
@@ -39,9 +40,45 @@ public class CompilerTest {
   }
 
   @Test(expected = IllegalArgumentException.class)
+  public void testArgumentParsingNoOutput() throws Exception {
+    File config = cloneConfig();
+    new Compiler(new String[] {"-p", "cz.o2.proxima.tools", config.getAbsolutePath()});
+  }
+
+  @Test(expected = IllegalArgumentException.class)
   public void testArgumentParsingWithOutputDir() throws Exception {
     File output = folder.newFolder();
     File config = cloneConfig();
+    Compiler compiler =
+        new Compiler(
+            new String[] {
+              "-o", output.getAbsolutePath(), "-p", "cz.o2.proxima.tools", config.getAbsolutePath()
+            });
+    compiler.run();
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testArgumentParsingWithOutpuFileAsDir() throws Exception {
+    File output = folder.newFile();
+    output.mkdirs();
+    File config = cloneConfig();
+    Compiler compiler =
+        new Compiler(
+            new String[] {
+              "-o",
+              new File(output.getAbsolutePath(), File.pathSeparator).getAbsolutePath(),
+              "-p",
+              "cz.o2.proxima.tools",
+              config.getAbsolutePath()
+            });
+    compiler.run();
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testArgumentParsingNonExistingConfig() throws Exception {
+    File output = folder.newFile();
+    File config = new File(folder.newFolder(), UUID.randomUUID().toString());
+    assertFalse(config.exists());
     Compiler compiler =
         new Compiler(
             new String[] {
@@ -60,6 +97,18 @@ public class CompilerTest {
               "-o", output.getAbsolutePath(), "-p", "cz.o2.proxima.tools", config.getAbsolutePath()
             });
     compiler.run();
+    assertFalse(output.isDirectory());
+    try (FileInputStream fin = new FileInputStream(output)) {
+      String contents = IOUtils.toString(fin, StandardCharsets.UTF_8);
+      assertFalse(contents.isEmpty());
+    }
+  }
+
+  @Test
+  public void testMain() throws Exception {
+    File output = folder.newFile();
+    File config = cloneConfig();
+    Compiler.main(new String[] {"-o", output.getAbsolutePath(), config.getAbsolutePath()});
     assertFalse(output.isDirectory());
     try (FileInputStream fin = new FileInputStream(output)) {
       String contents = IOUtils.toString(fin, StandardCharsets.UTF_8);

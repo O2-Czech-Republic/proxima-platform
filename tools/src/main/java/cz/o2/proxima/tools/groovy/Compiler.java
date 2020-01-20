@@ -57,7 +57,7 @@ public class Compiler {
     CommandLine parsed = cli.parse(opts, args);
 
     if (!parsed.hasOption("o")) {
-      throw new IllegalStateException("Missing config option 'o' for output");
+      throw new IllegalArgumentException("Missing config option 'o' for output");
     }
 
     packageName = parsed.hasOption("p") ? parsed.getOptionValue("p") : "";
@@ -72,7 +72,7 @@ public class Compiler {
                 c -> {
                   File file = new File(c.trim());
                   if (!file.exists()) {
-                    throw new IllegalStateException(
+                    throw new IllegalArgumentException(
                         String.format(
                             "Unable to find config file '%s'. Please check parameters.", c.trim()));
                   }

@@ -21,7 +21,7 @@ import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.functional.UnaryFunction;
 import groovy.lang.Closure;
 
-/** Utilities related to creating {@link Closures} from Java. */
+/** Utilities related to creating {@link Closure}s from Java. */
 public class Closures {
 
   /**

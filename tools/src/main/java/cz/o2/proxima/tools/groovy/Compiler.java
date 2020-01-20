@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.ConfigRepository;
@@ -49,7 +51,8 @@ public class Compiler {
     compiler.run();
   }
 
-  private Compiler(String[] args) throws ParseException {
+  @VisibleForTesting
+  Compiler(String[] args) throws ParseException {
     Options opts = getOpts();
     CommandLine parsed = cli.parse(opts, args);
 
@@ -59,6 +62,8 @@ public class Compiler {
 
     packageName = parsed.hasOption("p") ? parsed.getOptionValue("p") : "";
     output = parsed.getOptionValue("o").replace("/", File.separator).trim();
+    File outputFile = new File(output);
+    Preconditions.checkArgument(!outputFile.isDirectory());
     configs =
         parsed
             .getArgList()
@@ -76,7 +81,7 @@ public class Compiler {
             .collect(Collectors.toList());
 
     if (configs.isEmpty()) {
-      throw new IllegalStateException("Missing configuration files. Please check parameters.");
+      throw new IllegalArgumentException("Missing configuration files. Please check parameters.");
     }
 
     conf.setDefaultEncoding(StandardCharsets.UTF_8.name());

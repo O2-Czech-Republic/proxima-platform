@@ -19,11 +19,18 @@ import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.StringWriter;
+import java.util.UUID;
+import org.apache.commons.io.IOUtils;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 /** Briefly test {@link ModelGenerator}. */
 public class ModelGeneratorTest {
+
+  @Rule public TemporaryFolder folder = new TemporaryFolder(new File("./target/"));
 
   @Test
   public void testModelGeneration() throws Exception {
@@ -36,5 +43,46 @@ public class ModelGeneratorTest {
     assertTrue(writer.toString().contains(".direct."));
     // and that we have some code related to CommitLogReader
     assertTrue(writer.toString().contains("CommitLogReader"));
+  }
+
+  @Test
+  public void testModelGenerationWithFilenames() throws Exception {
+    File config = folder.newFile().getAbsoluteFile();
+    File outputFolder = folder.newFolder().getAbsoluteFile();
+    IOUtils.copy(
+        Thread.currentThread().getContextClassLoader().getResourceAsStream("test-reference.conf"),
+        new FileOutputStream(config));
+    ModelGenerator generator = new ModelGenerator("test", "Test", config, outputFolder, true);
+    generator.generate();
+    assertTrue(config.exists());
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testModelGenerationMissingConfig() throws Exception {
+    File config = new File("/tmp/" + UUID.randomUUID().toString());
+    File outputFolder = folder.newFolder().getAbsoluteFile();
+    ModelGenerator generator = new ModelGenerator("test", "Test", config, outputFolder, true);
+    generator.generate();
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testModelGenerationWithFilenamesNotAbsolute() throws Exception {
+    File config = folder.newFile().getAbsoluteFile();
+    File outputFolder = folder.newFolder();
+    IOUtils.copy(
+        Thread.currentThread().getContextClassLoader().getResourceAsStream("test-reference.conf"),
+        new FileOutputStream(config));
+    new ModelGenerator("test", "Test", config, outputFolder, true);
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testModelGenerationWithFilenamesNotFolder() throws Exception {
+    File config = folder.newFile().getAbsoluteFile();
+    File outputFolder = folder.newFile().getAbsoluteFile();
+    IOUtils.copy(
+        Thread.currentThread().getContextClassLoader().getResourceAsStream("test-reference.conf"),
+        new FileOutputStream(config));
+    ModelGenerator generator = new ModelGenerator("test", "Test", config, outputFolder, true);
+    generator.generate();
   }
 }

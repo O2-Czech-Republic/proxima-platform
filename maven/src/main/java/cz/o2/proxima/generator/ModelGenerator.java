@@ -100,7 +100,7 @@ public class ModelGenerator {
     File output = getOutputDirForPackage(outputPath, javaPackage);
     final File outputFile = new File(output, className + ".java");
     if (!output.exists() && !output.mkdirs()) {
-      throw new RuntimeException(
+      throw new IllegalStateException(
           String.format("Failed to create directories for [%s]", outputPath.getAbsolutePath()));
     }
 

@@ -349,11 +349,11 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
             consumerRef.set(kafka);
 
-            Map<TopicPartition, Long> endOffsets =
-                stopAtCurrent ? findNonEmptyEndOffsets(kafka) : null;
-
             // we need to poll first to initialize kafka assignments and rebalance listener
             ConsumerRecords<Object, Object> poll = kafka.poll(pollDuration);
+
+            Map<TopicPartition, Long> endOffsets =
+                stopAtCurrent ? findNonEmptyEndOffsets(kafka) : null;
 
             if (offsets != null) {
               // when manual offsets are assigned, we need to ensure calling
@@ -674,7 +674,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     };
   }
 
-  private OffsetCommitter createOffsetCommitter() {
+  private OffsetCommitter<TopicPartition> createOffsetCommitter() {
     return new OffsetCommitter<>(
         accessor.getLogStaleCommitIntervalNs(), accessor.getAutoCommitIntervalNs());
   }

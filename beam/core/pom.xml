@@ -127,6 +127,21 @@
     </dependency>
 
     <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-io-kafka</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-io-kafka</artifactId>
+      <version>${project.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
       <groupId>${apache.beam.groupId}</groupId>
       <artifactId>beam-runners-direct-java</artifactId>
     </dependency>
@@ -144,6 +159,11 @@
     <dependency>
       <groupId>org.hamcrest</groupId>
       <artifactId>hamcrest-all</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-all</artifactId>
     </dependency>
 
   </dependencies>

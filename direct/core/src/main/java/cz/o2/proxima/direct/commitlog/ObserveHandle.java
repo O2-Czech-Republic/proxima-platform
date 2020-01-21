@@ -21,10 +21,11 @@ import java.util.List;
 
 /** A interface for handling progress and control consumption of running observe process. */
 @Stable
-public interface ObserveHandle extends Serializable {
+public interface ObserveHandle extends Serializable, AutoCloseable {
 
   /** Stop the consumption. */
-  void cancel();
+  @Override
+  void close();
 
   /**
    * Retrieve currently committed offsets.

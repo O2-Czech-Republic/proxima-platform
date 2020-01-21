@@ -30,7 +30,6 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
-import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -151,7 +150,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
     client.connect();
     return new ObserveHandle() {
       @Override
-      public void cancel() {
+      public void close() {
         client.close();
       }
 
@@ -212,11 +211,6 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
 
     return observeBulk(null, Position.NEWEST, observer);
-  }
-
-  @Override
-  public void close() throws IOException {
-    // nop
   }
 
   private OnNextContext nullContext() {

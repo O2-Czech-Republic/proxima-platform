@@ -93,7 +93,7 @@ class BeamCommitLogReader {
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
       reader.close();
     }
 
@@ -245,7 +245,9 @@ class BeamCommitLogReader {
   }
 
   public boolean start() throws IOException {
-    this.observer = BlockingQueueLogObserver.create(name, limit, offsetWatermark);
+    this.observer =
+        BlockingQueueLogObserver.create(
+            name == null ? "Source(" + partition + ")" : name, limit, offsetWatermark);
     if (!finished) {
       if (offset != null) {
         this.handle = reader.observeBulkOffsets(Arrays.asList(offset), observer);
@@ -287,6 +289,7 @@ class BeamCommitLogReader {
       throw new IOException(error);
     }
     finished = true;
+    log.debug("Finished reading observer name {}, partition {}", name, partition);
     return false;
   }
 
@@ -314,7 +317,7 @@ class BeamCommitLogReader {
     return current;
   }
 
-  public void close() throws IOException {
+  public void close() {
     if (observer != null) {
       observer.stop();
       if (observer.getLastWrittenContext() != null) {
@@ -323,10 +326,9 @@ class BeamCommitLogReader {
       observer = null;
     }
     if (handle != null) {
-      handle.cancel();
+      handle.close();
       handle = null;
     }
-    reader.close();
   }
 
   @Nullable

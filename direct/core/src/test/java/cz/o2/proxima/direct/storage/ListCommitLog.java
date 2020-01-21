@@ -29,7 +29,6 @@ import cz.o2.proxima.direct.storage.InMemStorage.IntOffset;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -57,7 +56,7 @@ public class ListCommitLog implements CommitLogReader {
   private static final class NopObserveHandle implements ObserveHandle {
 
     @Override
-    public void cancel() {}
+    public void close() {}
 
     @Override
     public List<Offset> getCommittedOffsets() {
@@ -159,11 +158,6 @@ public class ListCommitLog implements CommitLogReader {
   public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
 
     return observeBulk(null, null, observer);
-  }
-
-  @Override
-  public void close() throws IOException {
-    // nop
   }
 
   private void pushTo(BiConsumer<StreamElement, Integer> consumer, Runnable finish) {

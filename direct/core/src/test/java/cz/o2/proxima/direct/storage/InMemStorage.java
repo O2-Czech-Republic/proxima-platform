@@ -175,9 +175,6 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     @Override
-    public void close() {}
-
-    @Override
     public List<Partition> getPartitions() {
       return Collections.singletonList(PARTITION);
     }
@@ -293,7 +290,7 @@ public class InMemStorage implements DataAccessorFactory {
       return new ObserveHandle() {
 
         @Override
-        public void cancel() {
+        public void close() {
           getObservers(getUri()).remove(consumerId);
           killSwitch.set(true);
           threadInterrupt.get().interrupt();

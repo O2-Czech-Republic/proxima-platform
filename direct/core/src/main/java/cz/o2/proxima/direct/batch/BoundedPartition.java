@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.batch;
 
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.core.Partition;
 
@@ -47,5 +48,10 @@ public class BoundedPartition implements Partition {
   @Override
   public long size() {
     return size;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this).add("id", id).add("size", size).toString();
   }
 }

@@ -24,12 +24,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.io.BoundedSource.BoundedReader;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.joda.time.Instant;
 
 /** A {@link BoundedReader} reading from {@link BatchLogObservable}. */
+@Slf4j
 class BeamBatchLogReader extends BoundedReader<StreamElement> {
 
   private static final Instant LOWEST_INSTANT = BoundedWindow.TIMESTAMP_MIN_VALUE;
@@ -80,7 +82,8 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
 
   @Override
   public boolean start() throws IOException {
-    this.observer = BlockingQueueLogObserver.create(LOWEST_INSTANT.getMillis());
+    this.observer =
+        BlockingQueueLogObserver.create("Source(" + split + ")", LOWEST_INSTANT.getMillis());
     reader.observe(Arrays.asList(split), attrs, observer);
     return advance();
   }
@@ -91,6 +94,7 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
       try {
         current = observer.takeBlocking();
         if (current == null || current.getStamp() >= startStamp && current.getStamp() < endStamp) {
+          // accept the taken element
           break;
         }
       } catch (InterruptedException ex) {
@@ -121,6 +125,7 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
   public void close() throws IOException {
     // missing observe handle in observing batch log
     // @todo
+    log.debug("Closing partition {}", split);
     observer.stop();
   }
 

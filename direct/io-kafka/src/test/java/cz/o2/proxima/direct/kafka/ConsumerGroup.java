@@ -177,7 +177,7 @@ public class ConsumerGroup implements Serializable {
         int last = (int) shared;
         while (partition < last) {
           int partitionId = (int) partition++;
-          partitions.add(() -> partitionId);
+          partitions.add(Partition.of(partitionId));
         }
         next.getValue().assign(partitions);
       }

@@ -221,7 +221,7 @@ public class InMemStorageTest implements Serializable {
     List<Offset> offsets = handle.getCurrentOffsets();
     assertEquals(1, offsets.size());
     assertEquals(Arrays.asList((byte) 1), received);
-    handle.cancel();
+    handle.close();
     writer
         .online()
         .write(
@@ -294,7 +294,7 @@ public class InMemStorageTest implements Serializable {
     assertEquals(1, offsets.size());
     assertTrue(offsets.get(0).getWatermark() > 0);
     assertEquals(Arrays.asList((byte) 1), received);
-    handle.cancel();
+    handle.close();
     handle = reader.observeBulkOffsets(offsets, observer);
     offsets = handle.getCurrentOffsets();
     assertEquals(1, offsets.size());

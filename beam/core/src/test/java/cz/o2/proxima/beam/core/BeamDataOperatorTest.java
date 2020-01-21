@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.core;
 
 import static org.junit.Assert.assertNotNull;
 
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -26,6 +27,9 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.UUID;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
@@ -249,6 +253,51 @@ public class BeamDataOperatorTest {
     PCollection<Long> result = Union.of(events, armedStream).output().apply(Count.globally());
     PAssert.that(result).containsInAnyOrder(2L);
     assertNotNull(pipeline.run());
+  }
+
+  @Test
+  public void testStreamFromOldestWithKafkaTest() {
+    Config config =
+        ConfigFactory.parseMap(
+                Collections.singletonMap(
+                    "attributeFamilies.event-storage-stream.storage", "kafka-test://dummy/events"))
+            .withFallback(ConfigFactory.load("test-reference.conf"));
+    Repository repo = Repository.of(() -> config);
+    EntityDescriptor event =
+        repo.findEntity("event")
+            .orElseThrow(() -> new IllegalStateException("Missing entity event"));
+    AttributeDescriptor<?> data =
+        event
+            .findAttribute("data")
+            .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+    int numElements = 10000;
+    long now = System.currentTimeMillis();
+    try (DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
+        BeamDataOperator operator = repo.getOrCreateOperator(BeamDataOperator.class)) {
+
+      for (int i = 0; i < numElements; i++) {
+        direct
+            .getWriter(data)
+            .orElseThrow(() -> new IllegalStateException("Missing writer for data"))
+            .write(
+                StreamElement.update(
+                    event,
+                    data,
+                    UUID.randomUUID().toString(),
+                    UUID.randomUUID().toString(),
+                    data.getName(),
+                    now + i,
+                    new byte[] {}),
+                (succ, exc) -> {});
+      }
+      Pipeline p = Pipeline.create();
+      PCollection<StreamElement> input = operator.getStream(p, Position.OLDEST, true, true, data);
+      PCollection<Long> count = input.apply(Count.globally());
+      PAssert.that(count).containsInAnyOrder(Arrays.asList((long) numElements));
+      assertNotNull(p.run());
+    } finally {
+      repo.discard();
+    }
   }
 
   @SuppressWarnings("unchecked")

@@ -217,7 +217,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           List<Partition> ret = new ArrayList<>();
           for (int i = 0; i < numPartitions; i++) {
             int id = i;
-            ret.add(() -> id);
+            ret.add(Partition.of(id));
           }
           return ret;
         }

@@ -65,7 +65,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
   @Getter final KafkaAccessor accessor;
   private final Context context;
-  private final AtomicBoolean shutdown = new AtomicBoolean();
   private final long consumerPollInterval;
   private final long maxBytesPerSec;
   private final long timestampSkew;
@@ -79,6 +78,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     this.maxBytesPerSec = accessor.getMaxBytesPerSec();
     this.timestampSkew = accessor.getTimestampSkew();
     this.topic = accessor.getTopic();
+
+    log.debug("Created {} for accessor {}", getClass().getSimpleName(), accessor);
   }
 
   /**
@@ -138,14 +139,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     try (KafkaConsumer<Object, Object> consumer = createConsumer()) {
       partitions = consumer.partitionsFor(topic);
     }
-    return partitions
-        .stream()
-        .map(
-            p -> {
-              final int id = p.partition();
-              return (Partition) (() -> id);
-            })
-        .collect(Collectors.toList());
+    return partitions.stream().map(p -> Partition.of(p.partition())).collect(Collectors.toList());
   }
 
   @VisibleForTesting
@@ -207,7 +201,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
    * @param offsets assigned offsets
    * @param position where to read from
    * @param stopAtCurrent termination flag
-   * @param listener the rebalance listener
    * @param commitToKafka should we commit to kafka
    * @param observer the observer
    * @param executor executor to use for async processing
@@ -327,11 +320,12 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
     final CountDownLatch latch = new CountDownLatch(1);
     AtomicBoolean completed = new AtomicBoolean();
+    AtomicBoolean shutdown = new AtomicBoolean();
     List<TopicOffset> seekOffsets = Collections.synchronizedList(new ArrayList<>());
 
     executor.submit(
         () -> {
-          handle.set(createObserveHandle(completed, seekOffsets, consumer, latch));
+          handle.set(createObserveHandle(shutdown, seekOffsets, consumer, latch));
           final AtomicReference<KafkaConsumer<Object, Object>> consumerRef;
           final AtomicReference<VectorClock> clock = new AtomicReference<>(VectorClock.of(1));
           final Map<Integer, Integer> partitionToClockDimension = new ConcurrentHashMap<>();
@@ -354,6 +348,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
             Map<TopicPartition, Long> endOffsets =
                 stopAtCurrent ? findNonEmptyEndOffsets(kafka) : null;
+
+            if (log.isDebugEnabled()) {
+              log.debug("End offsets of current assignment {}: {}", kafka.assignment(), endOffsets);
+            }
 
             if (offsets != null) {
               // when manual offsets are assigned, we need to ensure calling
@@ -426,6 +424,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 if (stopAtCurrent) {
                   Long end = endOffsets.get(tp);
                   if (end != null && end - 1 <= r.offset()) {
+                    log.debug("Reached end of partition {} at offset {}", tp, r.offset());
                     endOffsets.remove(tp);
                   }
                 }
@@ -433,13 +432,20 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               increaseWatermarkOnEmptyPolls(emptyPollCount, partitionToClockDimension, clock);
               flushCommits(kafka, consumer);
               rethrowErrorIfPresent(error);
-              terminateIfConsumed(stopAtCurrent, endOffsets, completed);
+              terminateIfConsumed(stopAtCurrent, kafka, endOffsets, completed);
               waitToReduceThroughput(bytesPolled, bytesPerPoll);
               poll = kafka.poll(pollDuration);
             } while (!shutdown.get()
                 && !completed.get()
                 && !Thread.currentThread().isInterrupted());
-
+            if (log.isDebugEnabled()) {
+              log.debug(
+                  "Terminating poll loop for assignment {}: shutdown: {}, completed: {}, interrupted: {}",
+                  kafka.assignment(),
+                  shutdown.get(),
+                  completed.get(),
+                  Thread.currentThread().isInterrupted());
+            }
             if (!Thread.currentThread().isInterrupted()) {
               consumer.onCompleted();
             } else {
@@ -474,10 +480,15 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   }
 
   private void terminateIfConsumed(
-      boolean stopAtCurrent, Map<TopicPartition, Long> endOffsets, AtomicBoolean completed) {
+      boolean stopAtCurrent,
+      KafkaConsumer<?, ?> consumer,
+      Map<TopicPartition, Long> endOffsets,
+      AtomicBoolean completed) {
 
     if (stopAtCurrent && endOffsets.isEmpty()) {
-      log.info("Reached end of current data. Terminating consumption.");
+      log.info(
+          "Assignment {} reached end of current data. Terminating consumption.",
+          consumer.assignment());
       completed.set(true);
     }
   }
@@ -518,7 +529,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   }
 
   private ObserveHandle createObserveHandle(
-      AtomicBoolean completed,
+      AtomicBoolean shutdown,
       List<TopicOffset> seekOffsets,
       ElementConsumer consumer,
       CountDownLatch latch) {
@@ -526,8 +537,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     return new ObserveHandle() {
 
       @Override
-      public void cancel() {
-        completed.set(true);
+      public void close() {
+        shutdown.set(true);
       }
 
       @SuppressWarnings("unchecked")
@@ -626,11 +637,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   }
 
   @Override
-  public void close() {
-    this.shutdown.set(true);
-  }
-
-  @Override
   public boolean hasExternalizableOffsets() {
     return true;
   }
@@ -648,8 +654,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   private static ObserveHandle dynamicHandle(AtomicReference<ObserveHandle> proxy) {
     return new ObserveHandle() {
       @Override
-      public void cancel() {
-        proxy.get().cancel();
+      public void close() {
+        proxy.get().close();
       }
 
       @Override

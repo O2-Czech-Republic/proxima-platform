@@ -80,6 +80,7 @@
     <protoc.version>3.11.0</protoc.version>
     <grpc.version>1.25.0</grpc.version>
     <guava.version>28.1-jre</guava.version>
+    <commons-io.version>2.6</commons-io.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <netty.version>4.1.42.Final</netty.version>
@@ -436,6 +437,12 @@
         <groupId>io.grpc</groupId>
         <artifactId>grpc-stub</artifactId>
         <version>${grpc.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>commons-io</groupId>
+        <artifactId>commons-io</artifactId>
+        <version>${commons-io.version}</version>
       </dependency>
 
       <dependency>

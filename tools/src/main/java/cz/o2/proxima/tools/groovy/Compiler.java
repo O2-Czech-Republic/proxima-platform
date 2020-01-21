@@ -25,7 +25,6 @@ import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -34,7 +33,6 @@ import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.io.IOUtils;
 
 /** A compiler of conf files to groovy object. */
 public class Compiler {
@@ -109,8 +107,7 @@ public class Compiler {
     File of = new File(output);
     ensureParentDir(of);
     try (FileOutputStream fos = new FileOutputStream(of)) {
-      StringReader reader = new StringReader(source);
-      IOUtils.copy(reader, fos, StandardCharsets.UTF_8);
+      fos.write(source.getBytes(StandardCharsets.UTF_8));
     }
   }
 

@@ -86,7 +86,7 @@ public class KafkaStreamElement extends StreamElement {
 
   KafkaStreamElement(
       EntityDescriptor entityDesc,
-      AttributeDescriptor attributeDesc,
+      AttributeDescriptor<?> attributeDesc,
       String uuid,
       String key,
       String attribute,

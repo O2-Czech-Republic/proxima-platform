@@ -40,7 +40,9 @@ import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.Table;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 /** Test {@code HBaseWriter} via a local instance of HBase cluster. */
@@ -50,14 +52,23 @@ public class HBaseWriterTest {
   private final EntityDescriptor entity = repo.findEntity("test").get();
   private final AttributeDescriptor<?> attr = entity.findAttribute("dummy").get();
 
-  private HBaseTestingUtility util;
-  private MiniHBaseCluster cluster;
+  private static MiniHBaseCluster cluster;
+  private static HBaseTestingUtility util;
   private HBaseWriter writer;
+
+  @BeforeClass
+  public static void beforeClass() throws Exception {
+    util = new HBaseTestingUtility();
+    cluster = util.startMiniCluster();
+  }
+
+  @AfterClass
+  public static void afterClass() throws IOException {
+    cluster.shutdown();
+  }
 
   @Before
   public void setUp() throws Exception {
-    util = HBaseTestingUtility.createLocalHTU();
-    cluster = util.startMiniCluster();
     util.createTable(TableName.valueOf("users"), bytes("u"));
     writer =
         new HBaseWriter(
@@ -68,7 +79,7 @@ public class HBaseWriterTest {
 
   @After
   public void tearDown() throws Exception {
-    cluster.shutdown();
+    util.deleteTable(TableName.valueOf("users"));
   }
 
   @Test

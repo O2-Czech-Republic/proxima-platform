@@ -18,12 +18,9 @@ package cz.o2.proxima.direct.http;
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeDescriptorImpl;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
+import cz.o2.proxima.util.TestUtils;
 import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,17 +37,14 @@ public class SerializableTest {
           .setSchemeUri(new URI("bytes:///"))
           .build();
   EntityDescriptor entity =
-      EntityDescriptor.newBuilder()
-          .setName("entity")
-          .addAttribute((AttributeDescriptorImpl) attr)
-          .build();
+      EntityDescriptor.newBuilder().setName("entity").addAttribute(attr).build();
 
   public SerializableTest() throws Exception {}
 
   @Test
   public void testHttpWriter() throws Exception {
     HttpWriter writer = new HttpWriter(entity, new URI("http://test/"), Collections.emptyMap());
-    checkSerializable(writer);
+    TestUtils.assertSerializable(writer);
   }
 
   @Test
@@ -65,13 +59,6 @@ public class SerializableTest {
                 put("attributes", Lists.newArrayList("*"));
               }
             });
-    checkSerializable(reader);
-  }
-
-  private void checkSerializable(Object o) throws IOException {
-    try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-      oos.writeObject(o);
-    }
+    TestUtils.assertSerializable(reader);
   }
 }

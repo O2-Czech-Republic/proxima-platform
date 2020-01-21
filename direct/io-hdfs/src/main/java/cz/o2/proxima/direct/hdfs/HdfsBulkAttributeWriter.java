@@ -38,6 +38,9 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.SequenceFile;
+import org.apache.hadoop.io.SequenceFile.CompressionType;
+import org.apache.hadoop.io.SequenceFile.Writer;
+import org.apache.hadoop.io.SequenceFile.Writer.Option;
 import org.apache.hadoop.io.compress.GzipCodec;
 
 /** Bulk attribute writer to HDFS as {@code SequenceFiles}. */
@@ -50,6 +53,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
   private transient FileSystem fs;
   private final int minElementsToFlush;
   private final long rollInterval;
+  private final String compressionCodec;
 
   private transient SequenceFile.Writer writer = null;
   private transient Path writerTmpPath = null;
@@ -65,12 +69,14 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
       URI uri,
       Map<String, Object> cfg,
       int minElementsToFlush,
-      long rollInterval) {
+      long rollInterval,
+      String compressionCodec) {
 
     super(entityDesc, uri);
     this.cfg = cfg;
     this.minElementsToFlush = minElementsToFlush;
     this.rollInterval = rollInterval;
+    this.compressionCodec = compressionCodec;
   }
 
   @Override
@@ -118,6 +124,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
       }
     } catch (Exception ex) {
       try {
+        log.error("Error in writing data {}", ex.getMessage(), ex);
         writer.close();
       } catch (Exception ex1) {
         log.error("Failed to close writer. Skipping.", ex1);
@@ -142,6 +149,22 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
       writerTmpPath = tmp;
       minElementStamp = Long.MAX_VALUE;
       maxElementStamp = Long.MIN_VALUE;
+
+      Option compression;
+      switch (compressionCodec.toLowerCase()) {
+        case "gzip":
+          compression = Writer.compression(CompressionType.BLOCK, new GzipCodec());
+          break;
+        case "none":
+          compression = Writer.compression(CompressionType.NONE);
+          break;
+        default:
+          throw new IllegalArgumentException(
+              String.format(
+                  "Unknown compression codec %s. Please check settings of %s",
+                  compressionCodec.toLowerCase(),
+                  HdfsDataAccessor.HDFS_SEQUENCE_FILE_COMPRESSION_CODEC_CFG));
+      }
       writer =
           SequenceFile.createWriter(
               HdfsDataAccessor.toHadoopConf(cfg),
@@ -149,7 +172,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
               SequenceFile.Writer.appendIfExists(false),
               SequenceFile.Writer.keyClass(BytesWritable.class),
               SequenceFile.Writer.valueClass(TimestampedNullableBytesWritable.class),
-              SequenceFile.Writer.compression(SequenceFile.CompressionType.BLOCK, new GzipCodec()));
+              compression);
     } catch (IOException | URISyntaxException ex) {
       throw new RuntimeException(ex);
     }
@@ -219,10 +242,11 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
       writer.close();
       Path tmpLocation = toTmpLocation(lastRoll);
       Path target = toFinalLocation(lastRoll, minElementStamp, maxElementStamp);
+      log.info("Flushing file to target location: {}", target);
       // move the .tmp file to final location
       FileSystem fileSystem = getFs();
       if (!fileSystem.exists(target.getParent())) {
-        silentMkdirs(target, fileSystem);
+        silentMkDirs(target, fileSystem);
       }
       fileSystem.rename(tmpLocation, target);
       log.info("Completed chunk {}", target);
@@ -233,7 +257,7 @@ public class HdfsBulkAttributeWriter extends AbstractBulkAttributeWriter {
     }
   }
 
-  private void silentMkdirs(Path target, FileSystem fs) {
+  private void silentMkDirs(Path target, FileSystem fs) {
     try {
       fs.mkdirs(target.getParent());
     } catch (IOException ex) {

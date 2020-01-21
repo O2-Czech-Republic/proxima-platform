@@ -161,7 +161,7 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
     String qualifier =
         new String(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
 
-    for (AttributeDescriptor d : attrs) {
+    for (AttributeDescriptor<?> d : attrs) {
       if (qualifier.startsWith(d.toAttributePrefix())) {
         return StreamElement.update(
             entity,
@@ -195,5 +195,19 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
         });
 
     return attrFilter;
+  }
+
+  @Override
+  public int hashCode() {
+    return 73;
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj instanceof HBaseLogObservable) {
+      HBaseLogObservable o = (HBaseLogObservable) obj;
+      return o.entity.equals(entity) && o.uri.equals(uri);
+    }
+    return false;
   }
 }

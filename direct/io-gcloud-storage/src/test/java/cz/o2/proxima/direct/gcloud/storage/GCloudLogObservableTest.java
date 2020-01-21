@@ -100,7 +100,7 @@ public class GCloudLogObservableTest {
             gateway,
             new URI("gs://dummy"),
             Collections.singletonMap("partition.max-blobs", 10),
-            () -> Executors.newCachedThreadPool()) {
+            Executors::newCachedThreadPool) {
 
           @Override
           Storage client() {

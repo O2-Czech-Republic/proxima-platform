@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.Maps;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.util.TestUtils;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -41,11 +42,23 @@ public class HdfsBulkAttributeWriterTest {
             new URI("file://dummy/dir"),
             Maps.newHashMap(),
             HdfsDataAccessor.HDFS_MIN_ELEMENTS_TO_FLUSH_DEFAULT,
-            HdfsDataAccessor.HDFS_ROLL_INTERVAL_DEFAULT);
+            HdfsDataAccessor.HDFS_ROLL_INTERVAL_DEFAULT,
+            HdfsDataAccessor.HDFS_DEFAULT_SEQUENCE_FILE_COMPRESSION_CODEC);
   }
 
   @After
   public void tearDown() {}
+
+  @Test
+  public void testSerializable() throws Exception {
+    HdfsDataAccessor writer =
+        new HdfsDataAccessor(
+            EntityDescriptor.newBuilder().setName("dummy").build(),
+            new URI("file://dummy/dir"),
+            Maps.newHashMap());
+
+    TestUtils.assertSerializable(writer);
+  }
 
   @Test
   public void testTempPathGeneration() throws UnknownHostException, URISyntaxException {

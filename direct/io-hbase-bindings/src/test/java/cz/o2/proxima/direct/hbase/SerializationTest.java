@@ -15,16 +15,15 @@
  */
 package cz.o2.proxima.direct.hbase;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import cz.o2.proxima.util.TestUtils;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.concurrent.Executors;
 import org.apache.hadoop.conf.Configuration;
@@ -38,49 +37,56 @@ public class SerializationTest {
 
   @Test
   public void testRandomReader() throws Exception {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    ObjectOutputStream oos = new ObjectOutputStream(baos);
     RandomHBaseReader reader =
         new RandomHBaseReader(
             new URI("hbase://dummy/dummy?family=x"), new Configuration(), new HashMap<>(), entity);
-    oos.writeObject(reader);
-    oos.flush();
-    ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-    ObjectInputStream ois = new ObjectInputStream(bais);
-    reader = (RandomHBaseReader) ois.readObject();
-    assertNotNull(reader);
+    TestUtils.assertSerializable(reader);
   }
 
   @Test
   public void testWriter() throws Exception {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    ObjectOutputStream oos = new ObjectOutputStream(baos);
     HBaseWriter writer =
         new HBaseWriter(
             new URI("hbase://dummy/dummy?family=x"), new Configuration(), new HashMap<>());
-    oos.writeObject(writer);
-    oos.flush();
-    ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-    ObjectInputStream ois = new ObjectInputStream(bais);
-    writer = (HBaseWriter) ois.readObject();
-    assertNotNull(writer);
+    TestUtils.assertSerializable(writer);
   }
 
   @Test
   public void testLogObservable() throws Exception {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    ObjectOutputStream oos = new ObjectOutputStream(baos);
     HBaseLogObservable observable =
         new HBaseLogObservable(
             new URI("hbase://dummy/dummy?family=x"),
             new Configuration(),
             entity,
-            () -> Executors.newCachedThreadPool());
-    oos.writeObject(observable);
-    oos.flush();
-    ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-    ObjectInputStream ois = new ObjectInputStream(bais);
-    observable = (HBaseLogObservable) ois.readObject();
-    assertNotNull(observable);
+            Executors::newCachedThreadPool);
+
+    TestUtils.assertSerializable(observable);
+  }
+
+  @Test
+  public void testHashCodeAndEquals() throws URISyntaxException {
+    HBaseLogObservable observable =
+        new HBaseLogObservable(
+            new URI("hbase://dummy/dummy?family=x"),
+            new Configuration(),
+            entity,
+            Executors::newCachedThreadPool);
+
+    HBaseLogObservable observable2 =
+        new HBaseLogObservable(
+            new URI("hbase://dummy/dummy?family=x"),
+            new Configuration(),
+            entity,
+            Executors::newCachedThreadPool);
+    TestUtils.assertHashCodeAndEquals(observable, observable2);
+
+    HBaseLogObservable observable3 =
+        new HBaseLogObservable(
+            new URI("hbase://dummy/dummy?family=xxx"),
+            new Configuration(),
+            entity,
+            Executors::newCachedThreadPool);
+    assertEquals(observable.hashCode(), observable3.hashCode());
+    assertNotEquals(observable, observable3);
   }
 }

@@ -40,16 +40,15 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transform.EventDataToDummy;
 import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.DummyFilter;
+import cz.o2.proxima.util.TestUtils;
 import cz.o2.proxima.util.TransformationRunner;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.NotSerializableException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -160,6 +159,7 @@ public class DirectDataOperatorTest {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
+                assertNotNull(ingest.getValue());
                 assertEquals("test", new String(ingest.getValue()));
                 assertEquals("event.abc", ingest.getAttribute());
                 assertEquals(source, ingest.getAttributeDescriptor());
@@ -173,6 +173,7 @@ public class DirectDataOperatorTest {
               }
             });
 
+    assertTrue(direct.getWriter(source).isPresent());
     direct
         .getWriter(source)
         .get()
@@ -184,7 +185,7 @@ public class DirectDataOperatorTest {
                 "key",
                 "event.abc",
                 System.currentTimeMillis(),
-                "test".getBytes("UTF-8")),
+                "test".getBytes(StandardCharsets.UTF_8)),
             (s, exc) -> {
               latch.countDown();
             });
@@ -227,7 +228,7 @@ public class DirectDataOperatorTest {
                 "key",
                 "event.abc",
                 System.currentTimeMillis(),
-                "test".getBytes("UTF-8")),
+                "test".getBytes(StandardCharsets.UTF_8)),
             (s, exc) -> {
               assertTrue(s);
             });
@@ -258,6 +259,7 @@ public class DirectDataOperatorTest {
     AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
     Set<DirectAttributeFamilyDescriptor> proxiedFamilies = direct.getFamiliesForAttribute(source);
 
+    assertTrue(direct.getWriter(source).isPresent());
     direct
         .getWriter(source)
         .get()
@@ -269,7 +271,7 @@ public class DirectDataOperatorTest {
                 "key",
                 "event.abc",
                 System.currentTimeMillis(),
-                "test".getBytes("UTF-8")),
+                "test".getBytes(StandardCharsets.UTF_8)),
             (s, exc) -> {
               assertTrue(s);
             });
@@ -285,7 +287,7 @@ public class DirectDataOperatorTest {
                 "key",
                 "event.def",
                 System.currentTimeMillis(),
-                "test2".getBytes("UTF-8")),
+                "test2".getBytes(StandardCharsets.UTF_8)),
             (s, exc) -> {
               assertTrue(s);
             });
@@ -328,7 +330,7 @@ public class DirectDataOperatorTest {
                 "key",
                 "event.abc",
                 System.currentTimeMillis(),
-                "test".getBytes("UTF-8")),
+                "test".getBytes(StandardCharsets.UTF_8)),
             (s, exc) -> {
               assertTrue(s);
             });
@@ -344,7 +346,7 @@ public class DirectDataOperatorTest {
                 "key",
                 "event.def",
                 System.currentTimeMillis(),
-                "test2".getBytes("UTF-8")),
+                "test2".getBytes(StandardCharsets.UTF_8)),
             (s, exc) -> {
               assertTrue(s);
             });
@@ -376,7 +378,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canCreateCachedView())
             .findAny()
-            .flatMap(af -> af.getCachedView())
+            .flatMap(DirectAttributeFamilyDescriptor::getCachedView)
             .orElseThrow(() -> new IllegalStateException("Missing cached view for " + source));
     RandomAccessReader reader =
         direct
@@ -384,9 +386,9 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
-            .flatMap(af -> af.getRandomAccessReader())
+            .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
             .orElseThrow(() -> new IllegalStateException("Missing random reader for " + target));
-    view.assign(Arrays.asList(() -> 0));
+    view.assign(Collections.singletonList(() -> 0));
     long now = System.currentTimeMillis();
     StreamElement update =
         StreamElement.update(
@@ -396,7 +398,7 @@ public class DirectDataOperatorTest {
             "key",
             "event.def",
             now,
-            "test2".getBytes("UTF-8"));
+            "test2".getBytes(StandardCharsets.UTF_8));
     assertFalse(reader.get("key", target.toAttributePrefix() + "def", target, now).isPresent());
     view.write(update, (succ, exc) -> {});
     assertTrue(reader.get("key", target.toAttributePrefix() + "raw-def", target, now).isPresent());
@@ -428,7 +430,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .findAny()
-            .flatMap(af -> af.getCommitLogReader())
+            .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
             .get();
     List<StreamElement> read = new ArrayList<>();
     reader
@@ -460,11 +462,12 @@ public class DirectDataOperatorTest {
                 "key",
                 name,
                 System.currentTimeMillis(),
-                "test".getBytes("UTF-8")),
+                "test".getBytes(StandardCharsets.UTF_8)),
             (s, exc) -> {
               assertTrue(s);
             });
 
+    assertTrue(direct.getWriter(source).isPresent());
     direct
         .getWriter(source)
         .get()
@@ -476,7 +479,7 @@ public class DirectDataOperatorTest {
                 "key",
                 "event.def",
                 System.currentTimeMillis(),
-                "test2".getBytes("UTF-8")),
+                "test2".getBytes(StandardCharsets.UTF_8)),
             (s, exc) -> {
               assertTrue(s);
             });
@@ -504,7 +507,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .findAny()
-            .flatMap(af -> af.getCommitLogReader())
+            .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
             .get();
     List<StreamElement> read = new ArrayList<>();
     reader
@@ -525,6 +528,7 @@ public class DirectDataOperatorTest {
             })
         .waitUntilReady();
 
+    assertTrue(direct.getWriter(source).isPresent());
     direct
         .getWriter(source)
         .get()
@@ -536,7 +540,7 @@ public class DirectDataOperatorTest {
                 "key",
                 "event.abc",
                 System.currentTimeMillis(),
-                "test".getBytes("UTF-8")),
+                "test".getBytes(StandardCharsets.UTF_8)),
             (s, exc) -> {
               assertTrue(s);
             });
@@ -552,7 +556,7 @@ public class DirectDataOperatorTest {
                 "key",
                 "event.def",
                 System.currentTimeMillis(),
-                "test2".getBytes("UTF-8")),
+                "test2".getBytes(StandardCharsets.UTF_8)),
             (s, exc) -> {
               assertTrue(s);
             });
@@ -571,14 +575,7 @@ public class DirectDataOperatorTest {
 
   @Test(expected = NotSerializableException.class)
   public void testRepositoryNotSerializable() throws Exception {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    ObjectOutputStream oos = new ObjectOutputStream(baos);
-    oos.writeObject(repo);
-    oos.flush();
-    ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-    ObjectInputStream ois = new ObjectInputStream(bais);
-    // must not throw
-    ConfigRepository clone = (ConfigRepository) ois.readObject();
+    ConfigRepository clone = (ConfigRepository) TestUtils.assertSerializable(repo);
     assertNotNull(clone.getConfig());
   }
 
@@ -628,6 +625,7 @@ public class DirectDataOperatorTest {
 
     // start replications
     TransformationRunner.runTransformations(repo, direct);
+    assertTrue(direct.getWriter(armed).isPresent());
     direct
         .getWriter(armed)
         .get()
@@ -651,7 +649,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
-            .flatMap(af -> af.getRandomAccessReader())
+            .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
             .orElseThrow(() -> new IllegalStateException("Missing random access reader for armed"))
             .get("gw", armed);
     assertTrue(kv.isPresent());
@@ -780,7 +778,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .findAny()
-            .flatMap(af -> af.getCommitLogReader())
+            .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
             .orElseThrow(() -> new IllegalStateException("Missing commit log reader for armed"));
 
     List<StreamElement> observed = new ArrayList<>();
@@ -804,6 +802,7 @@ public class DirectDataOperatorTest {
 
     // start replications
     TransformationRunner.runTransformations(repo, direct);
+    assertTrue(direct.getWriter(armedWrite).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(armedWrite).get();
     writer.write(
         StreamElement.update(
@@ -852,7 +851,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .findAny()
-            .flatMap(af -> af.getCommitLogReader())
+            .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
             .orElseThrow(() -> new IllegalStateException("Missing random access reader for armed"));
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
@@ -871,6 +870,7 @@ public class DirectDataOperatorTest {
             throw new RuntimeException(error);
           }
         });
+    assertTrue(direct.getWriter(armed).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(armed).get();
     writer.write(
         StreamElement.update(
@@ -915,7 +915,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .findAny()
-            .flatMap(af -> af.getCommitLogReader())
+            .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
             .orElseThrow(() -> new IllegalStateException("Missing random access reader for armed"));
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
@@ -934,6 +934,7 @@ public class DirectDataOperatorTest {
             throw new RuntimeException(error);
           }
         });
+    assertTrue(direct.getWriter(armed).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(armed).get();
     writer.write(
         StreamElement.update(
@@ -980,7 +981,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .findAny()
-            .flatMap(af -> af.getCommitLogReader())
+            .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
             .orElseThrow(() -> new IllegalStateException("Missing commit log reader for data"));
     reader.observe(
         "dummy",
@@ -1032,6 +1033,7 @@ public class DirectDataOperatorTest {
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
     runAttributeReplicas(tmp -> latch.countDown());
+    assertTrue(direct.getWriter(data).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(data).get();
     writer.write(
         StreamElement.update(
@@ -1054,7 +1056,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
-            .flatMap(af -> af.getRandomAccessReader());
+            .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
     assertTrue(reader.isPresent());
     assertTrue(reader.get().get("gw", data).isPresent());
   }
@@ -1081,6 +1083,7 @@ public class DirectDataOperatorTest {
     CountDownLatch latch = new CountDownLatch(2);
     runAttributeReplicas(tmp -> latch.countDown());
     TransformationRunner.runTransformations(repo, direct);
+    assertTrue(direct.getWriter(event).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
     writer.write(
         StreamElement.update(
@@ -1103,7 +1106,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
-            .flatMap(af -> af.getRandomAccessReader());
+            .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
     assertTrue(reader.isPresent());
     assertTrue(reader.get().get("gw", event.toAttributePrefix() + "1", event).isPresent());
 
@@ -1145,6 +1148,7 @@ public class DirectDataOperatorTest {
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
     runAttributeReplicas(tmp -> latch.countDown());
+    assertTrue(direct.getWriter(eventSource).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(eventSource).get();
     writer.write(
         StreamElement.update(
@@ -1167,7 +1171,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
-            .flatMap(af -> af.getRandomAccessReader());
+            .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
     assertTrue(reader.isPresent());
     assertTrue(reader.get().get("gw", event.toAttributePrefix() + "1", event).isPresent());
 
@@ -1204,6 +1208,7 @@ public class DirectDataOperatorTest {
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
     runAttributeReplicas(tmp -> latch.countDown());
+    assertTrue(direct.getWriter(event).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
     writer.write(
         StreamElement.update(
@@ -1226,7 +1231,7 @@ public class DirectDataOperatorTest {
             .stream()
             .filter(af -> af.getDesc().getAccess().canRandomRead())
             .findAny()
-            .flatMap(af -> af.getRandomAccessReader());
+            .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
     assertTrue(reader.isPresent());
     assertTrue(reader.get().get("gw", event.toAttributePrefix() + "1", event).isPresent());
 
@@ -1270,6 +1275,7 @@ public class DirectDataOperatorTest {
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
     runAttributeReplicas(tmp -> latch.countDown());
+    assertTrue(direct.getWriter(data).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(data).get();
     long now = System.currentTimeMillis();
     writer.write(
@@ -1328,6 +1334,7 @@ public class DirectDataOperatorTest {
     runAttributeReplicas(tmp -> latch.get().countDown());
     TransformationRunner.runTransformations(repo, direct, tmp -> latch.get().countDown());
     long now = System.currentTimeMillis();
+    assertTrue(direct.getWriter(wildcardFirst).isPresent());
     direct
         .getWriter(wildcardFirst)
         .get()
@@ -1358,6 +1365,7 @@ public class DirectDataOperatorTest {
             .get("key", wildcardSecond.toAttributePrefix() + 1, wildcardSecond)
             .isPresent());
 
+    assertTrue(direct.getWriter(wildcardSecond).isPresent());
     direct
         .getWriter(wildcardSecond)
         .get()
@@ -1574,13 +1582,18 @@ public class DirectDataOperatorTest {
     assertEquals(1, proxy.getAttributes().size());
     AttributeProxyDescriptor<?> attr;
     attr = (AttributeProxyDescriptor<?>) _d;
+    assertNotNull(attr.getWriteTransform());
     assertEquals("_d", attr.getWriteTransform().fromProxy("_d"));
     assertEquals("_d", attr.getWriteTransform().toProxy("_d"));
+    assertNotNull(attr.getReadTransform());
     assertEquals("_d", attr.getReadTransform().fromProxy("_d"));
     assertEquals("_d", attr.getReadTransform().toProxy("_d"));
 
     // attribute dummy.data should be proxy to _d
+    assertTrue(dummy.findAttribute("data").isPresent());
     attr = (AttributeProxyDescriptor<?>) dummy.findAttribute("data").get();
+    assertNotNull(attr.getWriteTransform());
+    assertNotNull(attr.getReadTransform());
     assertEquals("data", attr.getWriteTransform().toProxy("_d"));
     assertEquals("data", attr.getReadTransform().toProxy("_d"));
     assertEquals("_d", attr.getWriteTransform().fromProxy("data"));
@@ -1666,6 +1679,7 @@ public class DirectDataOperatorTest {
             throw new RuntimeException(error);
           }
         });
+    assertTrue(direct.getWriter(statusRead).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(statusRead).get();
     writer.write(
         StreamElement.update(
@@ -1711,6 +1725,7 @@ public class DirectDataOperatorTest {
 
     CountDownLatch latch = new CountDownLatch(1);
     TransformationRunner.runTransformations(repo, direct);
+    assertTrue(direct.getWriter(event).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
     writer.write(
         StreamElement.update(
@@ -1746,6 +1761,7 @@ public class DirectDataOperatorTest {
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(1);
     runAttributeReplicas(tmp -> latch.countDown());
+    assertTrue(direct.getWriter(event).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
 
     DirectAttributeFamilyDescriptor outputFamily =

@@ -28,7 +28,7 @@ import java.io.Serializable;
 public interface Factory<T> extends Serializable {
 
   /**
-   * Apply the factory funtion.
+   * Apply the factory function.
    *
    * @return the created object
    */

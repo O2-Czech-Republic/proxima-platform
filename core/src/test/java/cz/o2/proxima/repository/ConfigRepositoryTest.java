@@ -26,12 +26,9 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transform.EventDataToDummy;
 import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.DummyFilter;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.io.NotSerializableException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
@@ -109,15 +106,7 @@ public class ConfigRepositoryTest {
 
   @Test(expected = NotSerializableException.class)
   public void testRepositoryNotSerializable() throws Exception {
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    ObjectOutputStream oos = new ObjectOutputStream(baos);
-    oos.writeObject(repo);
-    oos.flush();
-    byte[] bytes = baos.toByteArray();
-    ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
-    ObjectInputStream ois = new ObjectInputStream(bais);
-    // must not throw
-    ConfigRepository clone = (ConfigRepository) ois.readObject();
+    ConfigRepository clone = (ConfigRepository) TestUtils.assertSerializable(repo);
     assertNotNull(clone.getConfig());
     assertTrue(clone.getConfig().isResolved());
   }

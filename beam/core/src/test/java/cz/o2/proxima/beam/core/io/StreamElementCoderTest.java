@@ -19,11 +19,8 @@ import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.Repository;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import org.junit.Test;
 
 /** Test suite for {@link StreamElementCoder}. */
@@ -31,19 +28,12 @@ public class StreamElementCoderTest {
 
   @Test
   public void testCoderSerializable() throws IOException, ClassNotFoundException {
-    final byte[] serialized;
-    try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-      oos.writeObject(
-          StreamElementCoder.of(Repository.of(() -> ConfigFactory.load("test-reference.conf"))));
-      serialized = baos.toByteArray();
-    }
-    try (ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
-        ObjectInputStream ois = new ObjectInputStream(bais)) {
-      ois.readObject();
-    }
+    StreamElementCoder coder =
+        StreamElementCoder.of(Repository.of(() -> ConfigFactory.load("test-reference.conf")));
+    final byte[] serialized = TestUtils.serializeObject(coder);
     assertTrue(
         "Length of serialized bytes should be less than 2 KiB, got " + serialized.length,
         serialized.length < 2048);
+    TestUtils.assertSerializable(coder);
   }
 }

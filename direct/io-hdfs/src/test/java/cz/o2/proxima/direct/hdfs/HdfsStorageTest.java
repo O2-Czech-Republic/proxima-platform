@@ -48,7 +48,7 @@ public class HdfsStorageTest {
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   @Test
-  public void testSerialize() throws IOException {
+  public void testSerialize() throws IOException, ClassNotFoundException {
     HdfsStorage storage = new HdfsStorage();
     TestUtils.assertSerializable(storage);
   }

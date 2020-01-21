@@ -29,12 +29,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 
 /** {@code DataAccessor} for Hadoop Distributed FileSystem. */
 @Slf4j
+@EqualsAndHashCode
 public class HdfsDataAccessor implements DataAccessor {
 
   public static final String HDFS_MIN_ELEMENTS_TO_FLUSH = "hdfs.min-elements-to-flush";

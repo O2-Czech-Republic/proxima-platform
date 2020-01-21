@@ -25,6 +25,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
+import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
@@ -40,6 +41,7 @@ import org.apache.hadoop.hbase.filter.ColumnPrefixFilter;
 
 /** Writer to HBase. */
 @Slf4j
+@EqualsAndHashCode
 class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
 
   private static final String DEL_BATCH_SIZE_CONF = "del-batch-size";

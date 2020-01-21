@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.Maps;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.util.TestUtils;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -47,6 +48,17 @@ public class HdfsBulkAttributeWriterTest {
 
   @After
   public void tearDown() {}
+
+  @Test
+  public void testSerializable() throws Exception {
+    HdfsDataAccessor writer =
+        new HdfsDataAccessor(
+            EntityDescriptor.newBuilder().setName("dummy").build(),
+            new URI("file://dummy/dir"),
+            Maps.newHashMap());
+
+    TestUtils.assertSerializable(writer);
+  }
 
   @Test
   public void testTempPathGeneration() throws UnknownHostException, URISyntaxException {

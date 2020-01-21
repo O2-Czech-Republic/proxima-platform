@@ -24,10 +24,12 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
+import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
 
 /** Writer to HDFS. */
 @Slf4j
+@EqualsAndHashCode
 public class HdfsStorage implements DataAccessorFactory {
 
   @Override

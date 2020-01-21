@@ -57,6 +57,15 @@
       </exclusions>
     </dependency>
 
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-core</artifactId>
+      <version>${project.version}</version>
+      <classifier>tests</classifier>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
 </project>

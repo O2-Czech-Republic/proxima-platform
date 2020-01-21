@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.core;
 
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.util.Arrays;
@@ -80,5 +81,25 @@ public interface Partition extends Serializable {
    */
   default Collection<Partition> split(int desiredCount) {
     return Arrays.asList(this);
+  }
+
+  /**
+   * Wrap numerical id to {@link Partition} object.
+   *
+   * @param id the ID of partition
+   * @return partition
+   */
+  public static Partition of(int id) {
+    return new Partition() {
+      @Override
+      public int getId() {
+        return id;
+      }
+
+      @Override
+      public String toString() {
+        return MoreObjects.toStringHelper(Partition.class).add("id", id).toString();
+      }
+    };
   }
 }

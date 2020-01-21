@@ -23,6 +23,7 @@ import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -37,15 +38,15 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
-  static BlockingQueueLogObserver create(long startingWatermark) {
-    return create(null, Long.MAX_VALUE, startingWatermark);
+  static BlockingQueueLogObserver create(String name, long startingWatermark) {
+    return create(name, Long.MAX_VALUE, startingWatermark);
   }
 
   static BlockingQueueLogObserver create(String name, long limit, long startingWatermark) {
     return new BlockingQueueLogObserver(name, limit, startingWatermark);
   }
 
-  @Nullable private final String name;
+  private final String name;
   private final AtomicReference<Throwable> error = new AtomicReference<>();
   private final AtomicLong watermark;
   private final BlockingQueue<Pair<StreamElement, OnNextContext>> queue;
@@ -55,8 +56,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   private long limit;
 
   private BlockingQueueLogObserver(String name, long limit, long startingWatermark) {
-
-    this.name = name;
+    this.name = Objects.requireNonNull(name);
     this.watermark = new AtomicLong(startingWatermark);
     this.limit = limit;
     queue = new ArrayBlockingQueue<>(100);
@@ -79,7 +79,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public boolean onNext(StreamElement element, Partition partition) {
-    log.trace("Received next element {}", element);
+    log.trace("Received next element {} on partition {}", element, partition);
     return enqueue(element, null);
   }
 
@@ -103,6 +103,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Override
   public void onCompleted() {
     try {
+      log.debug("Finished reading from observer {}", name);
       putToQueue(null, null);
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
@@ -148,11 +149,13 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
    */
   @Nullable
   StreamElement takeBlocking() throws InterruptedException {
-    Pair<StreamElement, OnNextContext> taken = null;
-    if (!stopped.get()) {
-      taken = queue.take();
+    while (!stopped.get()) {
+      Pair<StreamElement, OnNextContext> taken = queue.poll(50, TimeUnit.MILLISECONDS);
+      if (taken != null) {
+        return consumeTaken(taken);
+      }
     }
-    return consumeTaken(taken);
+    return null;
   }
 
   private StreamElement consumeTaken(@Nullable Pair<StreamElement, OnNextContext> taken) {

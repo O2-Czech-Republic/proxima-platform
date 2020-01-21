@@ -310,7 +310,7 @@ public class LocalCachedPartitionedView implements CachedView {
 
   @Override
   public void close() {
-    Optional.ofNullable(handle.getAndSet(null)).ifPresent(ObserveHandle::cancel);
+    Optional.ofNullable(handle.getAndSet(null)).ifPresent(ObserveHandle::close);
     cache.clear();
   }
 

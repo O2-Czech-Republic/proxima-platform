@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.kafka;
 
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Partition;
 import java.util.List;
@@ -39,19 +40,16 @@ class TopicOffset implements Offset {
 
   @Override
   public String toString() {
-    return "TopicOffset("
-        + "partition="
-        + partition
-        + ", offset="
-        + offset
-        + ", watermark="
-        + watermark
-        + ")";
+    return MoreObjects.toStringHelper(this)
+        .add("partition", partition)
+        .add("offset", offset)
+        .add("watermark", watermark)
+        .toString();
   }
 
   @Override
   public Partition getPartition() {
-    return () -> partition;
+    return Partition.of(partition);
   }
 
   @Override

@@ -1669,23 +1669,23 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             throw new RuntimeException(error);
           }
         };
-    final ObserveHandle handle =
-        reader.observeBulkPartitions(reader.getPartitions(), Position.NEWEST, observer);
+    try (final ObserveHandle handle =
+        reader.observeBulkPartitions(reader.getPartitions(), Position.NEWEST, observer)) {
 
-    // write two elements
-    for (int i = 0; i < 2; i++) {
-      writer.write(
-          update,
-          (succ, e) -> {
-            assertTrue(succ);
-            latch.get().countDown();
-          });
+      // write two elements
+      for (int i = 0; i < 2; i++) {
+        writer.write(
+            update,
+            (succ, e) -> {
+              assertTrue(succ);
+              latch.get().countDown();
+            });
+      }
+      latch.get().await();
+      latch.set(new CountDownLatch(1));
+
+      handle.getCommittedOffsets().forEach(o -> currentOffsets.put(o.getPartition().getId(), o));
     }
-    latch.get().await();
-    latch.set(new CountDownLatch(1));
-
-    handle.getCommittedOffsets().forEach(o -> currentOffsets.put(o.getPartition().getId(), o));
-    handle.cancel();
 
     // each partitions has a record here
     assertEquals(3, currentOffsets.size());

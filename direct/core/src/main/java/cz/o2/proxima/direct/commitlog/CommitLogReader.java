@@ -18,7 +18,6 @@ package cz.o2.proxima.direct.commitlog;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.commitlog.Position;
-import java.io.Closeable;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.Collection;
@@ -31,7 +30,7 @@ import java.util.UUID;
  * is automatically load balanced.
  */
 @Stable
-public interface CommitLogReader extends Closeable, Serializable {
+public interface CommitLogReader extends Serializable {
 
   /**
    * Retrieve URI representing this resource.

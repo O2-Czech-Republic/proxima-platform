@@ -400,11 +400,6 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         asConsumerName(name), Position.NEWEST, false, watermark, observer);
   }
 
-  @Override
-  public void close() throws IOException {
-    // nop
-  }
-
   @VisibleForTesting
   Subscriber newSubscriber(ProjectSubscriptionName subscription, MessageReceiver receiver) {
 
@@ -543,7 +538,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     return new ObserveHandle() {
 
       @Override
-      public void cancel() {
+      public void close() {
         log.debug("Cancelling observer {}", consumerName);
         stopProcessing.set(true);
         Subscriber sub = stopAsync(subscriber);

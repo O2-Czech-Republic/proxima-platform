@@ -165,30 +165,29 @@ public class PubSubReaderTest {
     List<StreamElement> elems = new ArrayList<>();
     AtomicBoolean cancelled = new AtomicBoolean();
     CountDownLatch latch = new CountDownLatch(3);
-    ObserveHandle handle =
-        reader.observe(
-            "dummy",
-            new LogObserver() {
-              @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                elems.add(ingest);
-                context.confirm();
-                latch.countDown();
-                return true;
-              }
+    LogObserver observer =
+        new LogObserver() {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            elems.add(ingest);
+            context.confirm();
+            latch.countDown();
+            return true;
+          }
 
-              @Override
-              public void onCancelled() {
-                cancelled.set(true);
-              }
+          @Override
+          public void onCancelled() {
+            cancelled.set(true);
+          }
 
-              @Override
-              public boolean onError(Throwable error) {
-                throw new RuntimeException(error);
-              }
-            });
-    latch.await();
-    handle.cancel();
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        };
+    try (ObserveHandle handle = reader.observe("dummy", observer)) {
+      latch.await();
+    }
     assertEquals(3, elems.size());
     StreamElement elem = elems.get(0);
     assertEquals("key1", elem.getKey());
@@ -308,28 +307,27 @@ public class PubSubReaderTest {
           return null;
         });
     List<Offset> offsets = Arrays.asList(off);
-    ObserveHandle handle =
-        reader.observeBulkOffsets(
-            offsets,
-            new LogObserver() {
-              @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                context.confirm();
-                return false;
-              }
+    LogObserver observer =
+        new LogObserver() {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            context.confirm();
+            return false;
+          }
 
-              @Override
-              public void onCancelled() {}
+          @Override
+          public void onCancelled() {}
 
-              @Override
-              public boolean onError(Throwable error) {
-                throw new RuntimeException(error);
-              }
-            });
-    handle.waitUntilReady();
-    assertEquals(1, handle.getCommittedOffsets().size());
-    assertEquals(now, ((PubSubOffset) handle.getCommittedOffsets().get(0)).getWatermark());
-    handle.cancel();
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        };
+    try (ObserveHandle handle = reader.observeBulkOffsets(offsets, observer)) {
+      handle.waitUntilReady();
+      assertEquals(1, handle.getCommittedOffsets().size());
+      assertEquals(now, ((PubSubOffset) handle.getCommittedOffsets().get(0)).getWatermark());
+    }
   }
 
   @Test
@@ -344,27 +342,26 @@ public class PubSubReaderTest {
           LockSupport.park();
           return null;
         });
-    ObserveHandle handle =
-        reader.observeBulkPartitions(
-            partitions,
-            Position.NEWEST,
-            new LogObserver() {
-              @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                context.confirm();
-                return false;
-              }
+    LogObserver observer =
+        new LogObserver() {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            context.confirm();
+            return false;
+          }
 
-              @Override
-              public void onCancelled() {}
+          @Override
+          public void onCancelled() {}
 
-              @Override
-              public boolean onError(Throwable error) {
-                throw new RuntimeException(error);
-              }
-            });
-    handle.waitUntilReady();
-    handle.cancel();
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        };
+    try (ObserveHandle handle =
+        reader.observeBulkPartitions(partitions, Position.NEWEST, observer)) {
+      handle.waitUntilReady();
+    }
   }
 
   @Test(timeout = 10000)
@@ -385,32 +382,31 @@ public class PubSubReaderTest {
         });
     final AtomicBoolean cancelled = new AtomicBoolean();
     final CountDownLatch latch = new CountDownLatch(3);
-    final ObserveHandle handle =
-        reader.observe(
-            "dummy",
-            new LogObserver() {
+    LogObserver observer =
+        new LogObserver() {
 
-              @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                throw new RuntimeException("Fail");
-              }
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            throw new RuntimeException("Fail");
+          }
 
-              @Override
-              public void onCancelled() {
-                cancelled.set(true);
-              }
+          @Override
+          public void onCancelled() {
+            cancelled.set(true);
+          }
 
-              @Override
-              public boolean onError(Throwable error) {
-                assertEquals("Fail", error.getCause().getMessage());
-                latch.countDown();
-                return true;
-              }
-            });
-    latch.await();
-    assertTrue(reader.acked.isEmpty());
-    assertFalse(reader.nacked.isEmpty());
-    handle.cancel();
+          @Override
+          public boolean onError(Throwable error) {
+            assertEquals("Fail", error.getCause().getMessage());
+            latch.countDown();
+            return true;
+          }
+        };
+    try (final ObserveHandle handle = reader.observe("dummy", observer)) {
+      latch.await();
+      assertTrue(reader.acked.isEmpty());
+      assertFalse(reader.nacked.isEmpty());
+    }
   }
 
   @Test(timeout = 10000)
@@ -433,31 +429,30 @@ public class PubSubReaderTest {
     AtomicBoolean cancelled = new AtomicBoolean();
     CountDownLatch latch = new CountDownLatch(3);
     AtomicReference<OffsetCommitter> commit = new AtomicReference<>();
-    ObserveHandle handle =
-        reader.observeBulk(
-            "dummy",
-            new LogObserver() {
-              @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                elems.add(ingest);
-                commit.set(context);
-                latch.countDown();
-                return true;
-              }
+    LogObserver observer =
+        new LogObserver() {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            elems.add(ingest);
+            commit.set(context);
+            latch.countDown();
+            return true;
+          }
 
-              @Override
-              public void onCancelled() {
-                cancelled.set(true);
-              }
+          @Override
+          public void onCancelled() {
+            cancelled.set(true);
+          }
 
-              @Override
-              public boolean onError(Throwable error) {
-                throw new RuntimeException(error);
-              }
-            });
-    latch.await();
-    commit.get().confirm();
-    handle.cancel();
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        };
+    try (ObserveHandle handle = reader.observeBulk("dummy", observer)) {
+      latch.await();
+      commit.get().confirm();
+    }
     assertEquals(3, elems.size());
     StreamElement elem = elems.get(0);
     assertEquals("key1", elem.getKey());

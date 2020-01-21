@@ -254,11 +254,6 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
                   }
 
                   @Override
-                  public void close() throws IOException {
-                    reader.close();
-                  }
-
-                  @Override
                   public ObserveHandle observeBulkPartitions(
                       Collection<Partition> partitions,
                       Position position,

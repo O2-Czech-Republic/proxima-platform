@@ -34,6 +34,7 @@ import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -51,6 +52,18 @@ public class HdfsStorageTest {
   public void testSerialize() throws IOException, ClassNotFoundException {
     HdfsStorage storage = new HdfsStorage();
     TestUtils.assertSerializable(storage);
+  }
+
+  @Test
+  public void testHashCodeAndEquals() throws Exception {
+    TestUtils.assertHashCodeAndEquals(new HdfsStorage(), new HdfsStorage());
+
+    EntityDescriptor entity = EntityDescriptor.newBuilder().setName("dummy").build();
+    TestUtils
+        .assertHashCodeAndEquals(new HdfsDataAccessor(entity, URI.create("hdfs://host:9000/path"),
+                Collections.emptyMap()),
+            new HdfsDataAccessor(entity, URI.create("hdfs://host:9000/path"),
+                Collections.emptyMap()));
   }
 
   @Test

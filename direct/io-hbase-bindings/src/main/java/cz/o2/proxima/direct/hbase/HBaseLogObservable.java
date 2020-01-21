@@ -206,7 +206,7 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
   public boolean equals(Object obj) {
     if (obj instanceof HBaseLogObservable) {
       HBaseLogObservable o = (HBaseLogObservable) obj;
-      return o.entity.equals(entity);
+      return o.entity.equals(entity) && o.uri.equals(uri);
     }
     return false;
   }

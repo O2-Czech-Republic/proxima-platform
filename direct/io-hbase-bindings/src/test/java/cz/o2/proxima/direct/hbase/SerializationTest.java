@@ -15,11 +15,15 @@
  */
 package cz.o2.proxima.direct.hbase;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.TestUtils;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.concurrent.Executors;
 import org.apache.hadoop.conf.Configuration;
@@ -57,5 +61,32 @@ public class SerializationTest {
             Executors::newCachedThreadPool);
 
     TestUtils.assertSerializable(observable);
+  }
+
+  @Test
+  public void testHashCodeAndEquals() throws URISyntaxException {
+    HBaseLogObservable observable =
+        new HBaseLogObservable(
+            new URI("hbase://dummy/dummy?family=x"),
+            new Configuration(),
+            entity,
+            Executors::newCachedThreadPool);
+
+    HBaseLogObservable observable2 =
+        new HBaseLogObservable(
+            new URI("hbase://dummy/dummy?family=x"),
+            new Configuration(),
+            entity,
+            Executors::newCachedThreadPool);
+    TestUtils.assertHashCodeAndEquals(observable, observable2);
+
+    HBaseLogObservable observable3 =
+        new HBaseLogObservable(
+            new URI("hbase://dummy/dummy?family=xxx"),
+            new Configuration(),
+            entity,
+            Executors::newCachedThreadPool);
+    assertEquals(observable.hashCode(), observable3.hashCode());
+    assertNotEquals(observable, observable3);
   }
 }

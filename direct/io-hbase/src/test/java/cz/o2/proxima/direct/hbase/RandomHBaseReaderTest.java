@@ -16,7 +16,9 @@
 package cz.o2.proxima.direct.hbase;
 
 import static cz.o2.proxima.direct.hbase.HbaseTestUtil.bytes;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
@@ -41,7 +43,9 @@ import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Table;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 /** Testing suite for {@link RandomHBaseReader}. */
@@ -51,25 +55,33 @@ public class RandomHBaseReaderTest {
   private final EntityDescriptor entity = repo.findEntity("test").get();
 
   @SuppressWarnings("unchecked")
-  private final AttributeDescriptor<byte[]> attr =
-      (AttributeDescriptor) entity.findAttribute("dummy").get();
+  private final AttributeDescriptor<byte[]> attr = entity.<byte[]>findAttribute("dummy").get();
 
   @SuppressWarnings("unchecked")
   private final AttributeDescriptor<byte[]> wildcard =
-      (AttributeDescriptor) entity.findAttribute("wildcard.*").get();
+      entity.<byte[]>findAttribute("wildcard.*").get();
 
   private final TableName tableName = TableName.valueOf("test");
 
-  private HBaseTestingUtility util;
-  private MiniHBaseCluster cluster;
+  private static HBaseTestingUtility util;
+  private static MiniHBaseCluster cluster;
   private RandomHBaseReader reader;
   private Connection conn;
   private Table client;
 
+  @BeforeClass
+  public static void beforeClass() throws Exception {
+    util = new HBaseTestingUtility();
+    cluster = util.startMiniCluster();
+  }
+
+  @AfterClass
+  public static void afterClass() throws IOException {
+    cluster.shutdown();
+  }
+
   @Before
   public void setUp() throws Exception {
-    util = HBaseTestingUtility.createLocalHTU();
-    cluster = util.startMiniCluster();
     util.createTable(tableName, bytes("u"));
     conn = ConnectionFactory.createConnection(util.getConfiguration());
     client = conn.getTable(tableName);
@@ -84,6 +96,7 @@ public class RandomHBaseReaderTest {
 
   @After
   public void tearDown() throws IOException {
+    util.deleteTable(tableName);
     client.close();
     conn.close();
   }

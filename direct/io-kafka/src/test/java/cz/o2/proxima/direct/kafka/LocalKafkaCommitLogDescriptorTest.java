@@ -1157,7 +1157,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             .sum());
   }
 
-  @Test(timeout = 10000)
+  @Test(timeout = 100000)
   public void testOnlineObserveWithRebalanceResetsOffsetCommitter() throws InterruptedException {
     int numWrites = 5;
     Accessor accessor =
@@ -1177,7 +1177,6 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         new LogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
-            latch.countDown();
             switch (consumed.getAndIncrement()) {
               case 0:
                 // we must confirm the first message to create a committed position
@@ -1192,6 +1191,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             if (consumed.get() == numWrites) {
               unconfirmed.forEach(OnNextContext::confirm);
             }
+            latch.countDown();
             return true;
           }
 
@@ -1205,7 +1205,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         };
     testOnlineObserveWithRebalanceResetsOffsetCommitterWithObserver(observer, accessor, numWrites);
     latch.await();
-    assertEquals(3, accessor.committedOffsets.values().stream().mapToInt(e -> e.get()).sum());
+    assertEquals(
+        "Invalid committed offests: " + accessor.committedOffsets,
+        3,
+        accessor.committedOffsets.values().stream().mapToInt(e -> e.get()).sum());
   }
 
   private void testOnlineObserveWithRebalanceResetsOffsetCommitterWithObserver(
@@ -2270,8 +2273,10 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 5000)
   public void testMaxBytesPerSec() throws InterruptedException {
     long maxLatency = testSequentialConsumption(3);
+    long expectedNanos = TimeUnit.MILLISECONDS.toNanos(500);
     assertTrue(
-        "maxLatency should be greater than 500000000L, got " + maxLatency, maxLatency > 500000000L);
+        String.format("maxLatency should be greater than %d, got %d", expectedNanos, maxLatency),
+        maxLatency > expectedNanos);
   }
 
   @Test(timeout = 5000)
@@ -2331,27 +2336,27 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             direct,
             entity,
             storageUri,
-            cfg(Pair.of(KafkaAccessor.MAX_BYTES_PER_SEC, maxBytesPerSec)));
+            cfg(
+                Pair.of(KafkaAccessor.MAX_BYTES_PER_SEC, maxBytesPerSec),
+                Pair.of(KafkaAccessor.MAX_POLL_RECORDS, 1)));
     final LocalKafkaWriter writer = accessor.newWriter();
-    final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
     CommitLogReader reader =
         accessor
             .getCommitLogReader(context())
             .orElseThrow(() -> new IllegalStateException("Missing log reader"));
     final AtomicLong lastOnNext = new AtomicLong(System.nanoTime());
     final AtomicLong maxLatency = new AtomicLong(0);
+    final CountDownLatch latch = new CountDownLatch(2);
 
-    reader.observe(
-        "dummy",
+    LogObserver observer =
         new LogObserver() {
-
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
-            latch.getAndSet(new CountDownLatch(1)).countDown();
             long now = System.nanoTime();
             long last = lastOnNext.getAndSet(now);
             long latency = now - last;
             maxLatency.getAndUpdate(old -> Math.max(old, latency));
+            latch.countDown();
             return true;
           }
 
@@ -2359,38 +2364,24 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           public boolean onError(Throwable error) {
             throw new RuntimeException(error);
           }
-        });
-    CountDownLatch toWait = latch.get();
-    writer.write(
-        StreamElement.update(
-            entity,
-            attr,
-            UUID.randomUUID().toString(),
-            "key1",
-            attr.getName(),
-            System.currentTimeMillis(),
-            emptyValue()),
-        (succ, exc) -> {
-          assertTrue(succ);
-          assertNull(exc);
-        });
-    toWait.await();
-    toWait = latch.get();
-    writer.write(
-        StreamElement.update(
-            entity,
-            attr,
-            UUID.randomUUID().toString(),
-            "key1",
-            attr.getName(),
-            System.currentTimeMillis(),
-            emptyValue()),
-        (succ, exc) -> {
-          assertTrue(succ);
-          assertNull(exc);
-        });
-
-    toWait.await();
+        };
+    reader.observe("dummy", Position.OLDEST, observer);
+    for (int i = 0; i < 2; i++) {
+      writer.write(
+          StreamElement.update(
+              entity,
+              attr,
+              UUID.randomUUID().toString(),
+              "key1",
+              attr.getName(),
+              System.currentTimeMillis(),
+              emptyValue()),
+          (succ, exc) -> {
+            assertTrue(succ);
+            assertNull(exc);
+          });
+    }
+    latch.await();
     return maxLatency.get();
   }
 

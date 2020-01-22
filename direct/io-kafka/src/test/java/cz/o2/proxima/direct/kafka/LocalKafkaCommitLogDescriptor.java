@@ -390,23 +390,26 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     private void commitConsumer(String name, Map<TopicPartition, OffsetAndMetadata> commitMap) {
-      commitMap
-          .entrySet()
-          .forEach(
-              entry -> {
-                int partition = entry.getKey().partition();
-                long offset = entry.getValue().offset();
-                committedOffsets.compute(
-                    Pair.of(name, partition),
-                    (tmp, old) -> {
-                      if (old == null) {
-                        return new AtomicInteger((int) offset);
-                      }
-                      old.set((int) offset);
-                      return old;
-                    });
-              });
-      log.debug("Consumer {} committed offsets {}", name, commitMap);
+      synchronized (committedOffsets) {
+        commitMap
+            .entrySet()
+            .forEach(
+                entry -> {
+                  int partition = entry.getKey().partition();
+                  long offset = entry.getValue().offset();
+                  committedOffsets.compute(
+                      Pair.of(name, partition),
+                      (tmp, old) -> {
+                        if (old == null) {
+                          return new AtomicInteger((int) offset);
+                        }
+                        old.set((int) offset);
+                        return old;
+                      });
+                });
+      }
+      log.debug(
+          "Consumer {} committed offsets {}, offsets now {}", name, commitMap, committedOffsets);
     }
 
     private void seekConsumerTo(ConsumerId consumerId, int partition, long offset) {

@@ -32,6 +32,10 @@ public class ${java_classname} implements Serializable {
 
   /**
    * Create instance of {@code ${java_classname}} for production usage.
+   *
+   * @param cfg configuration to use
+   * @return ${java_classname}
+   * @deprecated use {@link #of(Repository.ConfigFactory)} instead
    **/
   @Deprecated
   public static ${java_classname} of(Config cfg) {
@@ -40,6 +44,9 @@ public class ${java_classname} implements Serializable {
 
   /**
    * Create instance of {@code ${java_classname}} for production usage.
+   *
+   * @param factory configuration to use
+   * @return ${java_classname}
    **/
   public static ${java_classname} of(Repository.ConfigFactory factory) {
     return new ${java_classname}(ConfigRepository.Builder.of(
@@ -48,6 +55,9 @@ public class ${java_classname} implements Serializable {
 
   /**
    * Create instance of {@code ${java_classname}} with specified {@code ConfigRepository.Builder}.
+   *
+   * @param builder configuration to use
+   * @return ${java_classname}
    **/
   public static ${java_classname} of(ConfigRepository.Builder builder) {
     return new ${java_classname}(builder);
@@ -55,9 +65,24 @@ public class ${java_classname} implements Serializable {
 
   /**
    * Create instance of {@code ${java_classname}} for testing purposes.
+   *
+   * @param cfg configuration to use
+   * @return ${java_classname}
+   * @deprecated use {@link #ofTest(Repository.ConfigFactory)} instead
    **/
+  @Deprecated
   public static ${java_classname} ofTest(Config cfg) {
     return new ${java_classname}(ConfigRepository.Builder.ofTest(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+  }
+
+  /**
+   * Create instance of {@code ${java_classname}} for testing purposes.
+   *
+   * @param factory configuration to use
+   * @return ${java_classname}
+   **/
+  public static ${java_classname} ofTest(Repository.ConfigFactory factory) {
+    return new ${java_classname}(ConfigRepository.Builder.ofTest(()-> factory.apply().withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
 
   @FunctionalInterface

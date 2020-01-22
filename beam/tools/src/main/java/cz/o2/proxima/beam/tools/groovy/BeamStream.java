@@ -56,6 +56,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -920,6 +921,8 @@ class BeamStream<T> implements Stream<T> {
 
   private static void registerCommonTypes(Kryo kryo) {
     java.util.stream.Stream.of(
+            StreamElement.class,
+            Date.class,
             ArrayList.class,
             GlobalWindow.class,
             IntervalWindow.class,

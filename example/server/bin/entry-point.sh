@@ -15,11 +15,12 @@
 # limitations under the License.
 #
 
+set -e
 
 BIN_DIR=$(dirname $0)
 LOG_CFG=log4j.properties
 JAVAOPTS=""
-SHADED_JAR_NAME="proxima-example-tools.jar"
+SHADED_JAR_NAME="proxima-example-ingest-server.jar"
 
 if [ -z "${HADOOP_HOME}"]; then
   HADOOP_HOME=$(pwd)
@@ -39,14 +40,13 @@ if [ -f "${BIN_DIR}/${SHADED_JAR_NAME}" ]; then
 else
   JAR="${BIN_DIR}/../target/${SHADED_JAR_NAME}"
 fi
+CLASS=${1:-"cz.o2.proxima.server.IngestServer"}
 
-if [ -z "${CONSOLE_RUNNER}" ]; then
-  CONSOLE_RUNNER=direct
+CONFIG=""
+if [ -n "${2} "]; then
+  CONFIG="${2}"
 fi
+# Enable this for kerberized kafka
+#JAVAOPTS="${JAVAOPTS} -Djava.security.auth.login.config=kafka_jaas.conf"
 
-CLASS=${1:-"cz.o2.proxima.tools.groovy.Console"}
-
-java -cp ${JAR} -Djava.library.path=${BIN_DIR}/hadoop-native/ ${JAVAOPTS} ${CLASS} --runner=${CONSOLE_RUNNER} \
-  $(eval echo ${RUNNER_SPECIFIC_ARGS}) \
-  $(eval echo $*)
-
+java -cp ${JAR} -Djava.library.path=${BIN_DIR}/hadoop-native/ ${JAVAOPTS} ${CLASS} ${CONFIG}

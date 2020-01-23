@@ -15,6 +15,4 @@
 # limitations under the License.
 #
 
-
-docker exec $(docker ps | grep kafka | cut -c1-15) /opt/kafka/bin/kafka-topics.sh --zookeeper zookeeper:2181 $*
-
+kubectl exec kafka-0 -- /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-0.kafka:9093 $*

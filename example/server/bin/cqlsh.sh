@@ -15,4 +15,6 @@
 # limitations under the License.
 #
 
-echo "create 'user_events', {NAME=>'u', VERSIONS=>1}" | kubectl exec -it hbase-0 -- /opt/hbase/bin/hbase shell
+# Run cqlsh
+
+kubectl exec -it cassandra-0 -- cqlsh $*

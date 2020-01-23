@@ -52,12 +52,6 @@
             <transformer
                 implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
           </transformers>
-          <relocations>
-            <relocation>
-              <pattern>com.google.common.</pattern>
-              <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
-            </relocation>
-          </relocations>
         </configuration>
         <executions>
           <execution>
@@ -70,6 +64,86 @@
       </plugin>
 
     </plugins>
+      <plugin>
+        <groupId>io.fabric8</groupId>
+        <artifactId>docker-maven-plugin</artifactId>
+        <version>${maven.docker.version}</version>
+        <configuration>
+          <images>
+            <image>
+              <name>proxima/example-ingest-server:${project.version}</name>
+              <alias>proxima-example-ingest-server</alias>
+              <build>
+                <cleanup>true</cleanup>
+                <from>java:8</from>
+                <entryPoint>
+                  <exec>
+                    <arg>/maven/entry-point.sh</arg>
+                    <arg>cz.o2.proxima.server.IngestServer</arg>
+                  </exec>
+                </entryPoint>
+                <ports>
+                  <port>4001</port>
+                </ports>
+                <assembly>
+                  <mode>dir</mode>
+                  <inline>
+                    <id>proxima-server</id>
+                    <files>
+                      <file>
+                        <source>${project.build.directory}/proxima-example-ingest-server.jar
+                        </source>
+                        <outputDirectory>./</outputDirectory>
+                        <destName>proxima-example-ingest-server.jar</destName>
+                      </file>
+                      <file>
+                        <source>${project.basedir}/bin/entry-point.sh</source>
+                        <outputDirectory>./</outputDirectory>
+                        <destName>entry-point.sh</destName>
+                      </file>
+                    </files>
+                  </inline>
+                </assembly>
+              </build>
+            </image>
+            <!-- @TODO: try to find a way how to reuse image from ingest-server -->
+            <image>
+              <name>proxima/example-replication-controller:${project.version}</name>
+              <alias>proxima-example-replication-controller</alias>
+              <build>
+                <cleanup>true</cleanup>
+                <from>java:8</from>
+                <entryPoint>
+                  <exec>
+                    <arg>/maven/entry-point.sh</arg>
+                    <arg>cz.o2.proxima.server.ReplicationController</arg>
+                  </exec>
+                </entryPoint>
+                <assembly>
+                  <mode>dir</mode>
+                  <inline>
+                    <id>proxima-server</id>
+                    <files>
+                      <file>
+                        <source>${project.build.directory}/proxima-example-ingest-server.jar
+                        </source>
+                        <outputDirectory>./</outputDirectory>
+                        <destName>proxima-example-ingest-server.jar</destName>
+                      </file>
+                      <file>
+                        <source>${project.basedir}/bin/entry-point.sh</source>
+                        <outputDirectory>./</outputDirectory>
+                        <destName>entry-point.sh</destName>
+                      </file>
+                    </files>
+                  </inline>
+                </assembly>
+              </build>
+            </image>
+          </images>
+        </configuration>
+      </plugin>
+    </plugins>    
   </build>
 
   <dependencies>
@@ -100,6 +174,8 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
+      <version>${slf4j.version}</version>
+      <scope>compile</scope>
     </dependency>
 
   </dependencies>

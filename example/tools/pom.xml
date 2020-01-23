@@ -31,6 +31,13 @@
 
   <name>${project.groupId}:${project.artifactId}</name>
 
+  <properties>
+    <apache.beam.groupId>cz.o2.proxima.beam</apache.beam.groupId>
+    <apache.beam.version>${project.version}</apache.beam.version>
+    <apache.beam.version.raw>2.18.0-SNAPSHOT</apache.beam.version.raw>
+    <tool.finaljar.name>proxima-example-tools</tool.finaljar.name>
+  </properties>
+
   <build>
     <plugins>
 
@@ -39,7 +46,7 @@
         <artifactId>maven-jar-plugin</artifactId>
         <version>2.3.2</version>
         <configuration>
-          <finalName>proxima-example-tools</finalName>
+          <finalName>${tool.finaljar.name}</finalName>
         </configuration>
       </plugin>
 
@@ -117,6 +124,52 @@
         </configuration>
       </plugin>
 
+      <plugin>
+        <groupId>io.fabric8</groupId>
+        <artifactId>docker-maven-plugin</artifactId>
+        <version>${maven.docker.version}</version>
+        <configuration>
+          <images>
+            <image>
+              <name>proxima/example-tools:${project.version}</name>
+              <alias>proxima-example-tools</alias>
+              <build>
+                <cleanup>true</cleanup>
+                <from>java:8</from>
+                <entryPoint>
+                  <exec>
+                    <arg>/maven/entry-point.sh</arg>
+                  </exec>
+                </entryPoint>
+                <assembly>
+                  <mode>dir</mode>
+                  <inline>
+                    <id>proxima-console</id>
+                    <files>
+                      <file>
+                        <source>${project.build.directory}/${tool.finaljar.name}.jar
+                        </source>
+                        <outputDirectory>./</outputDirectory>
+                        <destName>${tool.finaljar.name}.jar</destName>
+                      </file>
+                      <file>
+                        <source>${project.basedir}/bin/entry-point.sh</source>
+                        <outputDirectory>./</outputDirectory>
+                        <destName>entry-point.sh</destName>
+                      </file>
+                      <file>
+                        <source>${project.basedir}/bin/run.sh</source>
+                        <outputDirectory>./</outputDirectory>
+                        <destName>run.sh</destName>
+                      </file>
+                    </files>
+                  </inline>
+                </assembly>
+              </build>
+            </image>
+          </images>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 
@@ -144,6 +197,12 @@
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-beam-tools</artifactId>
       <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${apache.beam.groupId}</groupId>
+      <artifactId>beam-runners-direct-java</artifactId>
+      <version>${apache.beam.version}</version>
     </dependency>
 
     <dependency>
@@ -194,6 +253,8 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
+      <version>${slf4j.version}</version>
+      <scope>compile</scope>
     </dependency>
 
   </dependencies>

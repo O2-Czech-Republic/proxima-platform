@@ -15,4 +15,5 @@
 # limitations under the License.
 #
 
-echo "create 'user_events', {NAME=>'u', VERSIONS=>1}" | kubectl exec -it hbase-0 -- /opt/hbase/bin/hbase shell
+
+kubectl exec -it $(kubectl get pod | grep proxima-console | cut -f 1,1 -d " ") -- /maven/run.sh $*

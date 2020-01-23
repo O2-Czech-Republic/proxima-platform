@@ -14,30 +14,29 @@
 # limitations under the License.
 #
 
-version: '2'
-services:
-  hadoop:
-    image: sequenceiq/hadoop-docker:2.7.1
-    ports:
-      - 9000:9000
-      - 50070:50070
-  casandra:
-    image: cassandra:3
-    ports:
-      - 9042:9042
-  zookeeper:
-    image: wurstmeister/zookeeper
-    ports:
-      - 12181:2181
-  hbase:
-    image: dajobe/hbase
-    network_mode: host
-  kafka:
-    image: wurstmeister/kafka
-    depends_on:
-      - zookeeper
-    environment:
-      KAFKA_ADVERTISED_HOST_NAME: localhost
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-    ports:
-      - 9092:9092
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: system:persistent-volume-provisioner-supl
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - list
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: storage-provisioner-supl
+  labels:
+    addonmanager.kubernetes.io/mode: EnsureExists
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:persistent-volume-provisioner-supl
+subjects:
+  - kind: ServiceAccount
+    name: storage-provisioner
+    namespace: kube-system

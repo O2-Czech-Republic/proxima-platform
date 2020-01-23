@@ -35,6 +35,7 @@
   <properties>
     <gpg.skip>true</gpg.skip>
     <skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo>
+    <maven.docker.version>0.33.0</maven.docker.version>
   </properties>
 
   <modules>

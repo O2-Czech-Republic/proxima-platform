@@ -381,6 +381,7 @@
             <proto>JAVADOC_STYLE</proto>
             <avsc>JAVADOC_STYLE</avsc>
             <Makefile>SCRIPT_STYLE</Makefile>
+            <yaml>SCRIPT_STYLE</yaml>
             <conf>JAVADOC_STYLE</conf>
           </mapping>
           <excludes>

@@ -58,24 +58,24 @@ public class ConfigRepositoryTest {
     assertTrue("Entity event should have been parsed", repo.findEntity("event").isPresent());
     assertTrue("Entity gateway should have been parsed", repo.findEntity("gateway").isPresent());
 
-    EntityDescriptor event = repo.findEntity("event").get();
+    EntityDescriptor event = repo.getEntity("event");
     assertEquals("event", event.getName());
-    assertEquals("data", event.findAttribute("data").get().getName());
-    assertEquals("bytes", event.findAttribute("data").get().getSchemeUri().getScheme());
-    assertNotNull(event.findAttribute("data").get().getValueSerializer());
+    assertEquals("data", event.getAttribute("data").getName());
+    assertEquals("bytes", event.getAttribute("data").getSchemeUri().getScheme());
+    assertNotNull(event.getAttribute("data").getValueSerializer());
 
-    EntityDescriptor gateway = repo.findEntity("gateway").get();
+    EntityDescriptor gateway = repo.getEntity("gateway");
     assertEquals("gateway", gateway.getName());
-    assertEquals("bytes:///", gateway.findAttribute("armed").get().getSchemeUri().toString());
-    assertEquals("fail:whenever", gateway.findAttribute("fail").get().getSchemeUri().toString());
-    assertEquals("bytes:///", gateway.findAttribute("bytes").get().getSchemeUri().toString());
+    assertEquals("bytes:///", gateway.getAttribute("armed").getSchemeUri().toString());
+    assertEquals("fail:whenever", gateway.getAttribute("fail").getSchemeUri().toString());
+    assertEquals("bytes:///", gateway.getAttribute("bytes").getSchemeUri().toString());
 
     assertEquals(1, repo.getTransformations().size());
     TransformationDescriptor transform =
         Iterables.getOnlyElement(repo.getTransformations().values());
     assertEquals(PassthroughFilter.class, transform.getFilter().getClass());
     assertEquals(event, transform.getEntity());
-    assertEquals(Arrays.asList(event.findAttribute("data").get()), transform.getAttributes());
+    assertEquals(Arrays.asList(event.getAttribute("data")), transform.getAttributes());
     assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
   }
 
@@ -113,8 +113,7 @@ public class ConfigRepositoryTest {
 
   @Test
   public void testEntityFromOtherEntity() {
-    assertTrue(repo.findEntity("replica").isPresent());
-    assertEquals(8, repo.findEntity("replica").get().getAllAttributes().size());
+    assertEquals(8, repo.getEntity("replica").getAllAttributes().size());
   }
 
   @Test
@@ -125,8 +124,7 @@ public class ConfigRepositoryTest {
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
-    EntityDescriptor gateway =
-        repo.findEntity("gateway").orElseThrow(() -> new AssertionError("Missing entity gateway"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
     // assert that we have created all necessary protected attributes
     assertTrue(gateway.findAttribute("_gatewayReplication_inmemFirst$status", true).isPresent());
     assertTrue(gateway.findAttribute("_gatewayReplication_inmemSecond$armed", true).isPresent());
@@ -185,13 +183,8 @@ public class ConfigRepositoryTest {
     assertEquals(1, repo.getTransformations().size());
     assertNotNull(repo.getTransformations().get("event-data-to-dummy-wildcard"));
 
-    EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<?> armed =
-        gateway
-            .findAttribute("armed")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<?> armed = gateway.getAttribute("armed");
     assertTrue(armed instanceof AttributeProxyDescriptor);
     assertEquals(
         "_gatewayReplication_write$armed",
@@ -221,9 +214,7 @@ public class ConfigRepositoryTest {
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
 
-    final EntityDescriptor dummy =
-        repo.findEntity("dummy")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
+    final EntityDescriptor dummy = repo.getEntity("dummy");
     Map<String, TransformationDescriptor> transformations = repo.getTransformations();
     assertNotNull(transformations.get("_dummyReplicationMasterSlave_slave"));
     assertNotNull(transformations.get("_dummyReplicationMasterSlave_replicated"));
@@ -267,9 +258,7 @@ public class ConfigRepositoryTest {
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
 
-    EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
     Map<String, TransformationDescriptor> transformations = repo.getTransformations();
     assertNotNull(transformations.get("_gatewayReplication_read"));
     assertNotNull(transformations.get("_gatewayReplication_inmemSecond"));
@@ -292,17 +281,12 @@ public class ConfigRepositoryTest {
   public void testReplicationProxies() {
     repo.reloadConfig(true, ConfigFactory.load("test-replication-proxy.conf").resolve());
 
-    EntityDescriptor dummy =
-        repo.findEntity("dummy")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
+    EntityDescriptor dummy = repo.getEntity("dummy");
 
     // attribute _d should be proxy to
     // _dummyReplicationMasterSlave_write$_d
     // and _dummyReplicationMasterSlave_replicated$_d
-    AttributeDescriptor<Object> _d =
-        dummy
-            .findAttribute("_d", true)
-            .orElseThrow(() -> new IllegalStateException("Missing attribute _d"));
+    AttributeDescriptor<Object> _d = dummy.getAttribute("_d", true);
     assertTrue(((AttributeDescriptorBase<?>) _d).isProxy());
     Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(_d);
     assertEquals(1, families.size());
@@ -330,7 +314,7 @@ public class ConfigRepositoryTest {
     assertEquals("_d", attr.getReadTransform().toProxy("_d"));
 
     // attribute dummy.data should be proxy to _d
-    attr = (AttributeProxyDescriptor<?>) dummy.findAttribute("data").get();
+    attr = (AttributeProxyDescriptor<?>) dummy.getAttribute("data");
     assertEquals("data", attr.getWriteTransform().toProxy("_d"));
     assertEquals("data", attr.getReadTransform().toProxy("_d"));
     assertEquals("_d", attr.getWriteTransform().fromProxy("data"));
@@ -390,10 +374,7 @@ public class ConfigRepositoryTest {
     assertEquals(
         toAttr,
         collectSingleAttributeUpdate(
-            transform.getTransformation(),
-            entity,
-            fromAttr,
-            entity.findAttribute(fromAttr, true).get()));
+            transform.getTransformation(), entity, fromAttr, entity.getAttribute(fromAttr, true)));
   }
 
   private static String collectSingleAttributeUpdate(

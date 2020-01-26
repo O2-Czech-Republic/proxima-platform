@@ -108,8 +108,8 @@ public class ${java_classname} implements Serializable {
     <#if !attribute.wildcard>
     private ${attribute.type} ${attribute.nameCamel} = null;
     @SuppressWarnings("unchecked")
-    private final ${attribute.type} ${attribute.nameCamel}Default = (${attribute.type}) factory.apply().findEntity(
-        "${entity.name}").get().findAttribute("${attribute.name}").get().getValueSerializer().getDefault();
+    private final ${attribute.type} ${attribute.nameCamel}Default = (${attribute.type})
+      factory.apply().getEntity("${entity.name}").getAttribute("${attribute.name}").getValueSerializer().getDefault();
     </#if>
   </#list> <#-- entity.attributes as attribute -->
 
@@ -132,7 +132,7 @@ public class ${java_classname} implements Serializable {
    **/
   public class ${entity.classname} implements Serializable, EntityDescriptorProvider {
 
-    private final EntityDescriptor descriptor = factory.apply().findEntity("${entity.name}").get();
+    private final EntityDescriptor descriptor = factory.apply().getEntity("${entity.name}");
 
     @Override
     public EntityDescriptor getDescriptor() {
@@ -143,11 +143,11 @@ public class ${java_classname} implements Serializable {
     <#if attribute.wildcard>
     @SuppressWarnings("unchecked")
     private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor =
-      (AttributeDescriptor) descriptor.findAttribute("${attribute.name}.*").get();
+      (AttributeDescriptor) descriptor.getAttribute("${attribute.name}.*");
     <#else>
     @SuppressWarnings("unchecked")
     private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor =
-      (AttributeDescriptor) descriptor.findAttribute("${attribute.name}").get();
+      (AttributeDescriptor) descriptor.getAttribute("${attribute.name}");
     </#if> <#-- attribute.wildcard -->
 
     public AttributeDescriptor<${attribute.type}> get${attribute.nameCamel}Descriptor() {

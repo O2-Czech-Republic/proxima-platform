@@ -59,11 +59,9 @@ public class HdfsStorageTest {
     TestUtils.assertHashCodeAndEquals(new HdfsStorage(), new HdfsStorage());
 
     EntityDescriptor entity = EntityDescriptor.newBuilder().setName("dummy").build();
-    TestUtils
-        .assertHashCodeAndEquals(new HdfsDataAccessor(entity, URI.create("hdfs://host:9000/path"),
-                Collections.emptyMap()),
-            new HdfsDataAccessor(entity, URI.create("hdfs://host:9000/path"),
-                Collections.emptyMap()));
+    TestUtils.assertHashCodeAndEquals(
+        new HdfsDataAccessor(entity, URI.create("hdfs://host:9000/path"), Collections.emptyMap()),
+        new HdfsDataAccessor(entity, URI.create("hdfs://host:9000/path"), Collections.emptyMap()));
   }
 
   @Test

@@ -649,7 +649,7 @@ public class ConfigRepository extends Repository {
           writeTarget =
               Optional.ofNullable(settings.get(PROXY))
                   .map(Object::toString)
-                  .map(entityBuilder::findAttribute)
+                  .map(entityBuilder::getAttribute)
                   .orElseThrow(
                       () -> new IllegalStateException("Invalid state: `proxy` must not be null"));
 
@@ -679,18 +679,13 @@ public class ConfigRepository extends Repository {
     if (write == null || read == null) {
       // we need to load the original attribute, which must have been
       // loaded (must contain `scheme`)
-      original =
-          Objects.requireNonNull(
-              entityBuilder.findAttribute(attrName),
-              "Proxy attribute have to be either full "
-                  + "(containing both `read` and `write` sides) "
-                  + "or declare `scheme`.");
+      original = entityBuilder.getAttribute(attrName);
     }
     if (read != null) {
       readTarget =
           Optional.ofNullable(read.get("from"))
               .map(Object::toString)
-              .map(entityBuilder::findAttribute)
+              .map(entityBuilder::getAttribute)
               .orElseThrow(
                   () -> new IllegalStateException("Invalid state: `read.from` must not be null"));
     } else {
@@ -700,7 +695,7 @@ public class ConfigRepository extends Repository {
       writeTarget =
           Optional.ofNullable(write.get("into"))
               .map(Object::toString)
-              .map(entityBuilder::findAttribute)
+              .map(entityBuilder::getAttribute)
               .orElseThrow(
                   () -> new IllegalStateException("Invalid state: `write.into` must not be null"));
     } else {

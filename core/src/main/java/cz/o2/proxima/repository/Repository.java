@@ -33,7 +33,7 @@ import java.util.stream.Stream;
 @Evolving
 public abstract class Repository {
 
-  public static interface ConfigFactory extends Serializable {
+  public interface ConfigFactory extends Serializable {
     Config apply();
   }
 
@@ -88,6 +88,18 @@ public abstract class Repository {
    * @return optional {@link EntityDescriptor} found by name
    */
   public abstract Optional<EntityDescriptor> findEntity(String name);
+
+  /**
+   * Get entity descriptor based on entity name.
+   *
+   * @param name name of the entity to search for
+   * @return {@link EntityDescriptor} found by name
+   */
+  public EntityDescriptor getEntity(String name) {
+    return findEntity(name)
+        .orElseThrow(
+            () -> new IllegalArgumentException(String.format("Unable to find entity [%s]", name)));
+  }
 
   /**
    * Retrieve stream of all entities.

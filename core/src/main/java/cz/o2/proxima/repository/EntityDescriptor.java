@@ -46,12 +46,13 @@ public interface EntityDescriptor extends Serializable {
       return new EntityDescriptorImpl(name, attributes.values());
     }
 
-    AttributeDescriptor<?> findAttribute(String attr) {
-      return Optional.ofNullable(attributes.get(attr))
-          .orElseThrow(
-              () ->
-                  new IllegalArgumentException(
-                      "Cannot find attribute " + attr + " of entity " + this.name));
+    AttributeDescriptor<?> getAttribute(String attr) {
+      final AttributeDescriptor<?> attributeDescriptor = attributes.get(attr);
+      if (attributeDescriptor == null) {
+        throw new IllegalArgumentException(
+            String.format("Unable to find attribute [%s] of entity [%s].", attr, name));
+      }
+      return attributeDescriptor;
     }
   }
 
@@ -85,6 +86,33 @@ public interface EntityDescriptor extends Serializable {
    */
   default <T> Optional<AttributeDescriptor<T>> findAttribute(String name) {
     return findAttribute(name, false);
+  }
+
+  /**
+   * Get attribute by name.
+   *
+   * @param <T> value type
+   * @param name name of the attribute to search for
+   * @param includeProtected {@code true} to allow search for protected fields (prefixed by _).
+   * @return attribute descriptor
+   */
+  default <T> AttributeDescriptor<T> getAttribute(String name, boolean includeProtected) {
+    final Optional<AttributeDescriptor<T>> maybeAttribute = findAttribute(name, includeProtected);
+    return maybeAttribute.orElseThrow(
+        () ->
+            new IllegalArgumentException(
+                String.format("Unable to find attribute [%s] of entity [%s].", name, getName())));
+  }
+
+  /**
+   * Get attribute by name.
+   *
+   * @param <T> value type
+   * @param name name of the attribute to search for
+   * @return attribute descriptor
+   */
+  default <T> AttributeDescriptor<T> getAttribute(String name) {
+    return getAttribute(name, false);
   }
 
   /**

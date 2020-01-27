@@ -80,13 +80,8 @@ public class DirectBatchUnboundedSourceTest {
   void testBatchUnboundedSourceWithCount(int count) {
     Pipeline pipeline = Pipeline.create();
     Repository repo = Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
-    EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalArgumentException("Missing entity gateway"));
-    AttributeDescriptor<Object> armed =
-        gateway
-            .findAttribute("armed")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
     DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
     BatchLogObservable observable =
         direct

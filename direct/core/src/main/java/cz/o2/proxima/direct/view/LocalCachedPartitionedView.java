@@ -277,12 +277,7 @@ public class LocalCachedPartitionedView implements CachedView {
         offset,
         stamp,
         attr -> {
-          AttributeDescriptor<?> desc =
-              entity
-                  .findAttribute(attr)
-                  .orElseThrow(
-                      () ->
-                          new IllegalStateException("Missing attribute " + attr + " in " + entity));
+          AttributeDescriptor<?> desc = entity.getAttribute(attr);
           if (desc.isWildcard()) {
             return desc.toAttributePrefix();
           }

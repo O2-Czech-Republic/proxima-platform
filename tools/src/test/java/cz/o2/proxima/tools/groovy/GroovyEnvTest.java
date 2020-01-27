@@ -35,40 +35,17 @@ import org.junit.Test;
 /** Test suite for {@link GroovyEnv}. */
 public abstract class GroovyEnvTest extends GroovyTest {
 
-  final EntityDescriptor gateway =
-      repo.findEntity("gateway")
-          .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-  final EntityDescriptor batch =
-      repo.findEntity("batch").orElseThrow(() -> new IllegalStateException("Missing entity batch"));
+  final EntityDescriptor gateway = repo.getEntity("gateway");
+  final EntityDescriptor batch = repo.getEntity("batch");
   final Console console = Console.create(cfg, repo);
 
-  @SuppressWarnings("unchecked")
-  final AttributeDescriptor<byte[]> armed =
-      (AttributeDescriptor)
-          gateway
-              .findAttribute("armed")
-              .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+  final AttributeDescriptor<byte[]> armed = gateway.getAttribute("armed");
 
-  @SuppressWarnings("unchecked")
-  final AttributeDescriptor<byte[]> device =
-      (AttributeDescriptor)
-          gateway
-              .findAttribute("device.*")
-              .orElseThrow(() -> new IllegalStateException("Missing attribute device"));
+  final AttributeDescriptor<byte[]> device = gateway.getAttribute("device.*");
 
-  @SuppressWarnings("unchecked")
-  final AttributeDescriptor<byte[]> data =
-      (AttributeDescriptor)
-          batch
-              .findAttribute("data")
-              .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+  final AttributeDescriptor<byte[]> data = batch.getAttribute("data");
 
-  @SuppressWarnings("unchecked")
-  final AttributeDescriptor<byte[]> wildcard =
-      (AttributeDescriptor)
-          batch
-              .findAttribute("wildcard.*")
-              .orElseThrow(() -> new IllegalStateException("Missing attribute wildcard"));
+  final AttributeDescriptor<byte[]> wildcard = batch.getAttribute("wildcard.*");
 
   @Override
   Script compile(String script) throws Exception {

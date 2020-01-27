@@ -95,7 +95,8 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
         repository
             .apply()
             .findEntity(entityName)
-            .orElseThrow(() -> new IOException("Unable to find entity " + entityName + "."));
+            .orElseThrow(
+                () -> new IOException(String.format("Unable to find entity [%s].", entityName)));
 
     final String uuid = input.readUTF();
     final String key = input.readUTF();
@@ -113,7 +114,9 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
             .orElseThrow(
                 () ->
                     new IOException(
-                        "Unable to find attribute " + attribute + " of entity " + entityName));
+                        String.format(
+                            "Unable to find attribute [%s] of entity [%s].",
+                            attribute, entityName)));
     final long stamp = input.readLong();
 
     byte[] value = readBytes(input);

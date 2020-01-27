@@ -27,7 +27,6 @@ import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.AttributeProxyDescriptor;
@@ -42,7 +41,6 @@ import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.DummyFilter;
 import cz.o2.proxima.util.TestUtils;
 import cz.o2.proxima.util.TransformationRunner;
-import java.io.IOException;
 import java.io.NotSerializableException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
@@ -79,28 +77,28 @@ public class DirectDataOperatorTest {
   }
 
   @Test
-  public void testConfigParsing() throws IOException {
+  public void testConfigParsing() {
     assertTrue("Entity event should have been parsed", repo.findEntity("event").isPresent());
     assertTrue("Entity gateway should have been parsed", repo.findEntity("gateway").isPresent());
 
-    EntityDescriptor event = repo.findEntity("event").get();
+    EntityDescriptor event = repo.getEntity("event");
     assertEquals("event", event.getName());
-    assertEquals("data", event.findAttribute("data").get().getName());
-    assertEquals("bytes", event.findAttribute("data").get().getSchemeUri().getScheme());
-    assertNotNull(event.findAttribute("data").get().getValueSerializer());
+    assertEquals("data", event.getAttribute("data").getName());
+    assertEquals("bytes", event.getAttribute("data").getSchemeUri().getScheme());
+    assertNotNull(event.getAttribute("data").getValueSerializer());
 
-    EntityDescriptor gateway = repo.findEntity("gateway").get();
+    EntityDescriptor gateway = repo.getEntity("gateway");
     assertEquals("gateway", gateway.getName());
-    assertEquals("bytes:///", gateway.findAttribute("armed").get().getSchemeUri().toString());
-    assertEquals("fail:whenever", gateway.findAttribute("fail").get().getSchemeUri().toString());
-    assertEquals("bytes:///", gateway.findAttribute("bytes").get().getSchemeUri().toString());
+    assertEquals("bytes:///", gateway.getAttribute("armed").getSchemeUri().toString());
+    assertEquals("fail:whenever", gateway.getAttribute("fail").getSchemeUri().toString());
+    assertEquals("bytes:///", gateway.getAttribute("bytes").getSchemeUri().toString());
 
     assertEquals(1, repo.getTransformations().size());
     TransformationDescriptor transform =
         Iterables.getOnlyElement(repo.getTransformations().values());
     assertEquals(PassthroughFilter.class, transform.getFilter().getClass());
     assertEquals(event, transform.getEntity());
-    assertEquals(Arrays.asList(event.findAttribute("data").get()), transform.getAttributes());
+    assertEquals(Arrays.asList(event.getAttribute("data")), transform.getAttributes());
     assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
   }
 
@@ -130,11 +128,11 @@ public class DirectDataOperatorTest {
   }
 
   @Test(timeout = 10000)
-  public void testProxyWrite() throws UnsupportedEncodingException, InterruptedException {
+  public void testProxyWrite() throws InterruptedException {
 
-    EntityDescriptor proxied = repo.findEntity("proxied").get();
-    AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
-    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    EntityDescriptor proxied = repo.getEntity("proxied");
+    AttributeDescriptor<?> target = proxied.getAttribute("_e.*", true);
+    AttributeDescriptor<?> source = proxied.getAttribute("event.*");
     Set<DirectAttributeFamilyDescriptor> families = direct.getFamiliesForAttribute(target);
 
     Set<DirectAttributeFamilyDescriptor> proxiedFamilies = direct.getFamiliesForAttribute(source);
@@ -209,11 +207,11 @@ public class DirectDataOperatorTest {
   }
 
   @Test
-  public void testProxyRandomGet() throws UnsupportedEncodingException, InterruptedException {
+  public void testProxyRandomGet() {
 
-    EntityDescriptor proxied = repo.findEntity("proxied").get();
-    AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
-    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    EntityDescriptor proxied = repo.getEntity("proxied");
+    AttributeDescriptor<?> target = proxied.getAttribute("_e.*", true);
+    AttributeDescriptor<?> source = proxied.getAttribute("event.*");
     Set<DirectAttributeFamilyDescriptor> proxiedFamilies = direct.getFamiliesForAttribute(source);
 
     // verify that writing to attribute event.abc ends up as _e.abc
@@ -253,10 +251,10 @@ public class DirectDataOperatorTest {
   }
 
   @Test
-  public void testProxyScan() throws UnsupportedEncodingException, InterruptedException {
+  public void testProxyScan() {
 
-    EntityDescriptor proxied = repo.findEntity("proxied").get();
-    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    EntityDescriptor proxied = repo.getEntity("proxied");
+    AttributeDescriptor<?> source = proxied.getAttribute("event.*");
     Set<DirectAttributeFamilyDescriptor> proxiedFamilies = direct.getFamiliesForAttribute(source);
 
     assertTrue(direct.getWriter(source).isPresent());
@@ -313,10 +311,10 @@ public class DirectDataOperatorTest {
   }
 
   @Test
-  public void testProxyScanWithOffset() throws UnsupportedEncodingException, InterruptedException {
+  public void testProxyScanWithOffset() {
 
-    EntityDescriptor proxied = repo.findEntity("proxied").get();
-    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    EntityDescriptor proxied = repo.getEntity("proxied");
+    AttributeDescriptor<?> source = proxied.getAttribute("event.*");
     Set<DirectAttributeFamilyDescriptor> proxiedFamilies = direct.getFamiliesForAttribute(source);
 
     direct
@@ -368,10 +366,10 @@ public class DirectDataOperatorTest {
   }
 
   @Test
-  public void testProxyCachedView() throws UnsupportedEncodingException {
-    EntityDescriptor proxied = repo.findEntity("proxied").get();
-    AttributeDescriptor<?> target = proxied.findAttribute("_e.*", true).get();
-    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+  public void testProxyCachedView() {
+    EntityDescriptor proxied = repo.getEntity("proxied");
+    AttributeDescriptor<?> target = proxied.getAttribute("_e.*", true);
+    AttributeDescriptor<?> source = proxied.getAttribute("event.*");
     CachedView view =
         direct
             .getFamiliesForAttribute(source)
@@ -420,10 +418,9 @@ public class DirectDataOperatorTest {
     testProxyObserveWithAttributeName("_ignored_$event.abc");
   }
 
-  private void testProxyObserveWithAttributeName(String name)
-      throws InterruptedException, UnsupportedEncodingException {
-    EntityDescriptor proxied = repo.findEntity("proxied").get();
-    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+  private void testProxyObserveWithAttributeName(String name) throws InterruptedException {
+    EntityDescriptor proxied = repo.getEntity("proxied");
+    AttributeDescriptor<?> source = proxied.getAttribute("event.*");
     CommitLogReader reader =
         direct
             .getFamiliesForAttribute(source)
@@ -497,10 +494,10 @@ public class DirectDataOperatorTest {
   }
 
   @Test
-  public void testProxyObserveBulk() throws InterruptedException, UnsupportedEncodingException {
+  public void testProxyObserveBulk() throws InterruptedException {
 
-    EntityDescriptor proxied = repo.findEntity("proxied").get();
-    AttributeDescriptor<?> source = proxied.findAttribute("event.*").get();
+    EntityDescriptor proxied = repo.getEntity("proxied");
+    AttributeDescriptor<?> source = proxied.getAttribute("event.*");
     CommitLogReader reader =
         direct
             .getFamiliesForAttribute(source)
@@ -581,8 +578,7 @@ public class DirectDataOperatorTest {
 
   @Test
   public void testEntityFromOtherEntity() {
-    assertTrue(repo.findEntity("replica").isPresent());
-    assertEquals(8, repo.findEntity("replica").get().getAllAttributes().size());
+    assertEquals(8, repo.getEntity("replica").getAllAttributes().size());
   }
 
   @Test
@@ -593,8 +589,7 @@ public class DirectDataOperatorTest {
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
-    EntityDescriptor gateway =
-        repo.findEntity("gateway").orElseThrow(() -> new AssertionError("Missing entity gateway"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
     // assert that we have created all necessary protected attributes
     assertTrue(gateway.findAttribute("_gatewayReplication_inmemFirst$status", true).isPresent());
     assertTrue(gateway.findAttribute("_gatewayReplication_inmemSecond$armed", true).isPresent());
@@ -615,13 +610,8 @@ public class DirectDataOperatorTest {
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve();
     repo.reloadConfig(true, config);
-    EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<Object> armed =
-        gateway
-            .findAttribute("armed")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
 
     // start replications
     TransformationRunner.runTransformations(repo, direct);
@@ -697,13 +687,8 @@ public class DirectDataOperatorTest {
     assertEquals(1, repo.getTransformations().size());
     assertNotNull(repo.getTransformations().get("event-data-to-dummy-wildcard"));
 
-    EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<?> armed =
-        gateway
-            .findAttribute("armed")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<?> armed = gateway.getAttribute("armed");
     assertTrue(armed.isProxy());
     assertEquals("_gatewayReplication_write$armed", armed.asProxy().getReadTarget().getName());
   }
@@ -754,22 +739,13 @@ public class DirectDataOperatorTest {
       Config config, boolean localWrite, boolean expectNonEmpty) throws InterruptedException {
 
     repo.reloadConfig(true, config);
-    EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<Object> armed =
-        gateway
-            .findAttribute("armed")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
 
     AttributeDescriptor<Object> armedWrite =
-        gateway
-            .findAttribute(
-                localWrite
-                    ? "_gatewayReplication_write$armed"
-                    : "_gatewayReplication_replicated$armed",
-                true)
-            .orElseThrow(() -> new IllegalStateException("Missing write attribute for armed"));
+        gateway.getAttribute(
+            localWrite ? "_gatewayReplication_write$armed" : "_gatewayReplication_replicated$armed",
+            true);
 
     // observe stream
     CommitLogReader reader =
@@ -836,13 +812,8 @@ public class DirectDataOperatorTest {
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
-    EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<Object> armed =
-        gateway
-            .findAttribute("armed")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
 
     TimeUnit.MILLISECONDS.sleep(300);
     CommitLogReader reader =
@@ -900,13 +871,8 @@ public class DirectDataOperatorTest {
                 ConfigFactory.parseString("replications.gateway-replication.read = local"))
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf")));
-    EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<Object> armed =
-        gateway
-            .findAttribute("armed")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
 
     TimeUnit.MILLISECONDS.sleep(300);
     CommitLogReader reader =
@@ -960,19 +926,11 @@ public class DirectDataOperatorTest {
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
-    EntityDescriptor dummy =
-        repo.findEntity("dummy")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
-    AttributeDescriptor<Object> data =
-        dummy
-            .findAttribute("data", true)
-            .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+    EntityDescriptor dummy = repo.getEntity("dummy");
+    AttributeDescriptor<Object> data = dummy.getAttribute("data", true);
 
     AttributeDescriptor<Object> dataReplicated =
-        dummy
-            .findAttribute("_dummyReplicationProxiedSlave_replicated$_d", true)
-            .orElseThrow(
-                () -> new IllegalStateException("Missing write target for replicated data"));
+        dummy.getAttribute("_dummyReplicationProxiedSlave_replicated$_d", true);
 
     CountDownLatch latch = new CountDownLatch(2);
     CommitLogReader reader =
@@ -1023,13 +981,8 @@ public class DirectDataOperatorTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
             .resolve());
-    EntityDescriptor dummy =
-        repo.findEntity("dummy")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
-    AttributeDescriptor<Object> data =
-        dummy
-            .findAttribute("data", true)
-            .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+    EntityDescriptor dummy = repo.getEntity("dummy");
+    AttributeDescriptor<Object> data = dummy.getAttribute("data", true);
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
     runAttributeReplicas(tmp -> latch.countDown());
@@ -1069,17 +1022,9 @@ public class DirectDataOperatorTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
             .resolve());
-    final EntityDescriptor dummy =
-        repo.findEntity("dummy2")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
-    final AttributeDescriptor<Object> event =
-        dummy
-            .findAttribute("event.*", true)
-            .orElseThrow(() -> new IllegalStateException("Missing attribute event.*"));
-    final AttributeDescriptor<Object> raw =
-        dummy
-            .findAttribute("_e.*", true)
-            .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
+    final EntityDescriptor dummy = repo.getEntity("dummy2");
+    final AttributeDescriptor<Object> event = dummy.getAttribute("event.*", true);
+    final AttributeDescriptor<Object> raw = dummy.getAttribute("_e.*", true);
     CountDownLatch latch = new CountDownLatch(2);
     runAttributeReplicas(tmp -> latch.countDown());
     TransformationRunner.runTransformations(repo, direct);
@@ -1130,21 +1075,11 @@ public class DirectDataOperatorTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
             .resolve());
-    final EntityDescriptor dummy =
-        repo.findEntity("dummy2")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
-    final AttributeDescriptor<Object> event =
-        dummy
-            .findAttribute("event.*")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute event.*"));
+    final EntityDescriptor dummy = repo.getEntity("dummy2");
+    final AttributeDescriptor<Object> event = dummy.getAttribute("event.*");
     final AttributeDescriptor<Object> eventSource =
-        dummy
-            .findAttribute("_dummy2Replication_read$event.*", true)
-            .orElseThrow(() -> new IllegalStateException("Missing source attribute for event.*"));
-    final AttributeDescriptor<Object> raw =
-        dummy
-            .findAttribute("_e.*", true)
-            .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
+        dummy.getAttribute("_dummy2Replication_read$event.*", true);
+    final AttributeDescriptor<Object> raw = dummy.getAttribute("_e.*", true);
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
     runAttributeReplicas(tmp -> latch.countDown());
@@ -1194,17 +1129,9 @@ public class DirectDataOperatorTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
             .resolve());
-    final EntityDescriptor dummy =
-        repo.findEntity("dummy2")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
-    final AttributeDescriptor<Object> event =
-        dummy
-            .findAttribute("event.*")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute event.*"));
-    final AttributeDescriptor<Object> raw =
-        dummy
-            .findAttribute("_e.*", true)
-            .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
+    final EntityDescriptor dummy = repo.getEntity("dummy2");
+    final AttributeDescriptor<Object> event = dummy.getAttribute("event.*");
+    final AttributeDescriptor<Object> raw = dummy.getAttribute("_e.*", true);
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
     runAttributeReplicas(tmp -> latch.countDown());
@@ -1255,22 +1182,12 @@ public class DirectDataOperatorTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
             .resolve());
-    final EntityDescriptor dummy =
-        repo.findEntity("dummy2")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
-    final EntityDescriptor event =
-        repo.findEntity("event")
-            .orElseThrow(() -> new IllegalStateException("Missing entity event"));
+    final EntityDescriptor dummy = repo.getEntity("dummy2");
+    final EntityDescriptor event = repo.getEntity("event");
 
-    final AttributeDescriptor<Object> data =
-        event
-            .findAttribute("data")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+    final AttributeDescriptor<Object> data = event.getAttribute("data");
 
-    final AttributeDescriptor<Object> raw =
-        dummy
-            .findAttribute("_e.*", true)
-            .orElseThrow(() -> new IllegalStateException("Missing attribute _e.*"));
+    final AttributeDescriptor<Object> raw = dummy.getAttribute("_e.*", true);
 
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
@@ -1305,12 +1222,8 @@ public class DirectDataOperatorTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-full.conf"))
             .resolve());
-    EntityDescriptor first =
-        repo.findEntity("first")
-            .orElseThrow(() -> new IllegalStateException("Missing entity first"));
-    EntityDescriptor second =
-        repo.findEntity("second")
-            .orElseThrow(() -> new IllegalStateException("Missing entity second"));
+    EntityDescriptor first = repo.getEntity("first");
+    EntityDescriptor second = repo.getEntity("second");
 
     testFullReplicationWithEntities(first, second);
     testFullReplicationWithEntities(second, first);
@@ -1319,17 +1232,8 @@ public class DirectDataOperatorTest {
   void testFullReplicationWithEntities(EntityDescriptor first, EntityDescriptor second)
       throws InterruptedException {
 
-    final AttributeDescriptor<Object> wildcardFirst =
-        first
-            .findAttribute("wildcard.*")
-            .orElseThrow(
-                () -> new IllegalStateException("Missing attribute wildcard.* in entity " + first));
-    final AttributeDescriptor<Object> wildcardSecond =
-        second
-            .findAttribute("wildcard.*")
-            .orElseThrow(
-                () ->
-                    new IllegalStateException("Missing attribute wildcard.* in entity " + second));
+    final AttributeDescriptor<Object> wildcardFirst = first.getAttribute("wildcard.*");
+    final AttributeDescriptor<Object> wildcardSecond = second.getAttribute("wildcard.*");
     AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
     runAttributeReplicas(tmp -> latch.get().countDown());
     TransformationRunner.runTransformations(repo, direct, tmp -> latch.get().countDown());
@@ -1399,23 +1303,12 @@ public class DirectDataOperatorTest {
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
-    final EntityDescriptor dummy =
-        repo.findEntity("dummy")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
-    final AttributeDescriptor<Object> data =
-        dummy
-            .findAttribute("data")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+    final EntityDescriptor dummy = repo.getEntity("dummy");
+    final AttributeDescriptor<Object> data = dummy.getAttribute("data");
     final AttributeDescriptor<Object> dataRead =
-        dummy
-            .findAttribute("_dummyReplicationProxiedSlave_read$data", true)
-            .orElseThrow(
-                () -> new IllegalStateException("Missing read source for replicated data"));
+        dummy.getAttribute("_dummyReplicationProxiedSlave_read$data", true);
     final AttributeDescriptor<Object> dataWrite =
-        dummy
-            .findAttribute("_dummyReplicationProxiedSlave_write$_d", true)
-            .orElseThrow(
-                () -> new IllegalStateException("Missing read source for replicated data"));
+        dummy.getAttribute("_dummyReplicationProxiedSlave_write$_d", true);
 
     TransformationRunner.runTransformations(repo, direct);
     CommitLogReader reader =
@@ -1479,9 +1372,7 @@ public class DirectDataOperatorTest {
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
 
-    final EntityDescriptor dummy =
-        repo.findEntity("dummy")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
+    final EntityDescriptor dummy = repo.getEntity("dummy");
     Map<String, TransformationDescriptor> transformations = repo.getTransformations();
     assertNotNull(transformations.get("_dummyReplicationMasterSlave_slave"));
     assertNotNull(transformations.get("_dummyReplicationMasterSlave_replicated"));
@@ -1525,9 +1416,7 @@ public class DirectDataOperatorTest {
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
 
-    EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
     Map<String, TransformationDescriptor> transformations = repo.getTransformations();
     assertNotNull(transformations.get("_gatewayReplication_read"));
     assertNotNull(transformations.get("_gatewayReplication_inmemSecond"));
@@ -1550,18 +1439,13 @@ public class DirectDataOperatorTest {
   public void testReplicationProxies() {
     repo.reloadConfig(true, ConfigFactory.load("test-replication-proxy.conf").resolve());
 
-    EntityDescriptor dummy =
-        repo.findEntity("dummy")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
+    EntityDescriptor dummy = repo.getEntity("dummy");
 
     // attribute _d should be proxy to
     // _dummyReplicationMasterSlave_write$_d
     // and _dummyReplicationMasterSlave_replicated$_d
-    AttributeDescriptor<Object> _d =
-        dummy
-            .findAttribute("_d", true)
-            .orElseThrow(() -> new IllegalStateException("Missing attribute _d"));
-    assertTrue(((AttributeDescriptorBase<?>) _d).isProxy());
+    AttributeDescriptor<Object> _d = dummy.getAttribute("_d", true);
+    assertTrue(_d.isProxy());
     Set<AttributeFamilyDescriptor> families = repo.getFamiliesForAttribute(_d);
     assertEquals(1, families.size());
     AttributeFamilyDescriptor primary = Iterables.getOnlyElement(families);
@@ -1590,8 +1474,7 @@ public class DirectDataOperatorTest {
     assertEquals("_d", attr.getReadTransform().toProxy("_d"));
 
     // attribute dummy.data should be proxy to _d
-    assertTrue(dummy.findAttribute("data").isPresent());
-    attr = (AttributeProxyDescriptor<?>) dummy.findAttribute("data").get();
+    attr = (AttributeProxyDescriptor<?>) dummy.getAttribute("data");
     assertNotNull(attr.getWriteTransform());
     assertNotNull(attr.getReadTransform());
     assertEquals("data", attr.getWriteTransform().toProxy("_d"));
@@ -1632,23 +1515,12 @@ public class DirectDataOperatorTest {
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve());
-    final EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-    final AttributeDescriptor<Object> status =
-        gateway
-            .findAttribute("status")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
+    final EntityDescriptor gateway = repo.getEntity("gateway");
+    final AttributeDescriptor<Object> status = gateway.getAttribute("status");
     final AttributeDescriptor<Object> statusRead =
-        gateway
-            .findAttribute("_gatewayReplication_read$status", true)
-            .orElseThrow(
-                () -> new IllegalStateException("Missing read source for replicated status"));
+        gateway.getAttribute("_gatewayReplication_read$status", true);
     final AttributeDescriptor<Object> statusWrite =
-        gateway
-            .findAttribute("_gatewayReplication_write$status", true)
-            .orElseThrow(
-                () -> new IllegalStateException("Missing write target for replicated status"));
+        gateway.getAttribute("_gatewayReplication_write$status", true);
 
     TransformationRunner.runTransformations(repo, direct);
     CommitLogReader reader =
@@ -1715,13 +1587,8 @@ public class DirectDataOperatorTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
             .resolve());
-    EntityDescriptor dummy =
-        repo.findEntity("dummy2")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
-    AttributeDescriptor<Object> event =
-        dummy
-            .findAttribute("event.*", true)
-            .orElseThrow(() -> new IllegalStateException("Missing attribute event.*"));
+    EntityDescriptor dummy = repo.getEntity("dummy2");
+    AttributeDescriptor<Object> event = dummy.getAttribute("event.*", true);
 
     CountDownLatch latch = new CountDownLatch(1);
     TransformationRunner.runTransformations(repo, direct);
@@ -1750,13 +1617,8 @@ public class DirectDataOperatorTest {
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication-proxy.conf"))
             .resolve());
-    EntityDescriptor dummy =
-        repo.findEntity("dummy2")
-            .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));
-    AttributeDescriptor<Object> event =
-        dummy
-            .findAttribute("event.*", true)
-            .orElseThrow(() -> new IllegalStateException("Missing attribute event.*"));
+    EntityDescriptor dummy = repo.getEntity("dummy2");
+    AttributeDescriptor<Object> event = dummy.getAttribute("event.*", true);
 
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(1);
@@ -1809,30 +1671,17 @@ public class DirectDataOperatorTest {
 
   @Test
   public void testGetCommitLog() {
-    EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-    AttributeDescriptor<Object> armed =
-        gateway
-            .findAttribute("armed")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
-    AttributeDescriptor<Object> status =
-        gateway
-            .findAttribute("status")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute status"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
+    AttributeDescriptor<Object> status = gateway.getAttribute("status");
 
     assertTrue(direct.getCommitLogReader(armed, status).isPresent());
   }
 
   @Test
   public void testGetCachedView() {
-    EntityDescriptor gateway =
-        repo.findEntity("gateway")
-            .orElseThrow(() -> new IllegalStateException("Missing entity gateway  "));
-    AttributeDescriptor<Object> armed =
-        gateway
-            .findAttribute("armed")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
 
     assertTrue(direct.getCachedView(armed).isPresent());
   }
@@ -1861,10 +1710,7 @@ public class DirectDataOperatorTest {
     assertEquals(
         toAttr,
         collectSingleAttributeUpdate(
-            transform.getTransformation(),
-            entity,
-            fromAttr,
-            entity.findAttribute(fromAttr, true).get()));
+            transform.getTransformation(), entity, fromAttr, entity.getAttribute(fromAttr, true)));
   }
 
   private static String collectSingleAttributeUpdate(

@@ -51,20 +51,10 @@ import org.junit.Test;
 public class BeamDataOperatorTest {
 
   final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
-  final EntityDescriptor gateway =
-      repo.findEntity("gateway")
-          .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-  final AttributeDescriptor<?> armed =
-      gateway
-          .findAttribute("armed")
-          .orElseThrow(() -> new IllegalStateException("Missing attribute armed"));
-  final EntityDescriptor proxied =
-      repo.findEntity("proxied")
-          .orElseThrow(() -> new IllegalStateException("Missing entity proxied"));
-  final AttributeDescriptor<?> event =
-      proxied
-          .findAttribute("event.*")
-          .orElseThrow(() -> new IllegalStateException("Missing attribute event.*"));
+  final EntityDescriptor gateway = repo.getEntity("gateway");
+  final AttributeDescriptor<?> armed = gateway.getAttribute("armed");
+  final EntityDescriptor proxied = repo.getEntity("proxied");
+  final AttributeDescriptor<?> event = proxied.getAttribute("event.*");
 
   BeamDataOperator beam;
   DirectDataOperator direct;
@@ -290,13 +280,8 @@ public class BeamDataOperatorTest {
                     "attributeFamilies.event-storage-stream.storage", "kafka-test://dummy/events"))
             .withFallback(ConfigFactory.load("test-reference.conf"));
     Repository repo = Repository.of(() -> config);
-    EntityDescriptor event =
-        repo.findEntity("event")
-            .orElseThrow(() -> new IllegalStateException("Missing entity event"));
-    AttributeDescriptor<?> data =
-        event
-            .findAttribute("data")
-            .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+    EntityDescriptor event = repo.getEntity("event");
+    AttributeDescriptor<?> data = event.getAttribute("data");
     int numElements = 10000;
     long now = System.currentTimeMillis();
     try (DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);

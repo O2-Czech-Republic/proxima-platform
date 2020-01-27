@@ -98,7 +98,7 @@ public abstract class Repository {
   public EntityDescriptor getEntity(String name) {
     return findEntity(name)
         .orElseThrow(
-            () -> new IllegalArgumentException(String.format("Unable to find entity [%s]", name)));
+            () -> new IllegalArgumentException(String.format("Unable to find entity [%s].", name)));
   }
 
   /**

@@ -27,7 +27,6 @@ import cz.o2.proxima.transform.EventDataToDummy;
 import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.DummyFilter;
 import cz.o2.proxima.util.TestUtils;
-import java.io.IOException;
 import java.io.NotSerializableException;
 import java.util.Arrays;
 import java.util.Map;
@@ -54,7 +53,7 @@ public class ConfigRepositoryTest {
   }
 
   @Test
-  public void testConfigParsing() throws IOException {
+  public void testConfigParsing() {
     assertTrue("Entity event should have been parsed", repo.findEntity("event").isPresent());
     assertTrue("Entity gateway should have been parsed", repo.findEntity("gateway").isPresent());
 
@@ -348,6 +347,41 @@ public class ConfigRepositoryTest {
     // really proxies
     repo.getAllFamilies()
         .forEach(af -> assertTrue(!af.getStorageUri().getScheme().equals("proxy") || af.isProxy()));
+  }
+
+  @Test
+  public void testGetEntity() {
+    assertNotNull(repo.getEntity("event"));
+  }
+
+  @Test
+  public void testGetNonExistentEntity() {
+    IllegalArgumentException exception = null;
+    try {
+      repo.getEntity("non-existent");
+    } catch (IllegalArgumentException e) {
+      exception = e;
+    }
+    assertNotNull(exception);
+    assertEquals("Unable to find entity [non-existent].", exception.getMessage());
+  }
+
+  @Test
+  public void testGetAttribute() {
+    assertNotNull(repo.getEntity("event").getAttribute("data"));
+  }
+
+  @Test
+  public void testGetNonExistentAttribute() {
+    IllegalArgumentException exception = null;
+    try {
+      repo.getEntity("event").getAttribute("non-existent");
+    } catch (IllegalArgumentException e) {
+      exception = e;
+    }
+    assertNotNull(exception);
+    assertEquals(
+        "Unable to find attribute [non-existent] of entity [event].", exception.getMessage());
   }
 
   // validate that given transformation transforms in the desired way

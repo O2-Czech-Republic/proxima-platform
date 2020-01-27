@@ -62,12 +62,13 @@ public class BeamDataOperator implements DataOperator {
 
   @Value
   private final class StreamDescriptor implements PCollectionDescriptor {
+    private final Pipeline pipeline;
     private final @Nullable String name;
     private final Position position;
     private final boolean stopAtCurrent;
     private final boolean useEventTime;
 
-    PCollection<StreamElement> createStream(Pipeline pipeline, long limit, DataAccessor da) {
+    PCollection<StreamElement> createStream(long limit, DataAccessor da) {
       return da.createStream(name, pipeline, position, stopAtCurrent, useEventTime, limit)
           .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
     }
@@ -75,12 +76,13 @@ public class BeamDataOperator implements DataOperator {
 
   @Value
   private final class BatchUpdatesDescriptor implements PCollectionDescriptor {
+    private final Pipeline pipeline;
     private final long startStamp;
     private final long endStamp;
     private final boolean asStream;
 
     PCollection<StreamElement> createBatchUpdates(
-        Pipeline pipeline, List<AttributeDescriptor<?>> attrList, DataAccessor da) {
+        List<AttributeDescriptor<?>> attrList, DataAccessor da) {
 
       return asStream
           ? da.createStreamFromUpdates(pipeline, attrList, startStamp, endStamp, -1)
@@ -90,11 +92,12 @@ public class BeamDataOperator implements DataOperator {
 
   @Value
   private final class BatchSnapshotDescriptor implements PCollectionDescriptor {
+    private final Pipeline pipeline;
     private final long fromStamp;
     private final long untilStamp;
 
     PCollection<StreamElement> createBatchUpdates(
-        Pipeline pipeline, List<AttributeDescriptor<?>> attrList, DataAccessor da) {
+        List<AttributeDescriptor<?>> attrList, DataAccessor da) {
 
       return da.createBatch(pipeline, attrList, fromStamp, untilStamp);
     }
@@ -199,9 +202,8 @@ public class BeamDataOperator implements DataOperator {
         .map(
             da -> {
               StreamDescriptor desc =
-                  new StreamDescriptor(name, position, stopAtCurrent, useEventTime);
-              return getOrCreatePCollection(
-                  desc, limit < 0, d -> d.createStream(pipeline, limit, da));
+                  new StreamDescriptor(pipeline, name, position, stopAtCurrent, useEventTime);
+              return getOrCreatePCollection(desc, limit < 0, d -> d.createStream(limit, da));
             })
         .reduce((left, right) -> Union.of(left, right).output())
         .orElseThrow(failEmpty())
@@ -272,9 +274,8 @@ public class BeamDataOperator implements DataOperator {
         .map(
             da -> {
               BatchUpdatesDescriptor desc =
-                  new BatchUpdatesDescriptor(startStamp, endStamp, asStream);
-              return getOrCreatePCollection(
-                  desc, true, d -> d.createBatchUpdates(pipeline, attrClosure, da));
+                  new BatchUpdatesDescriptor(pipeline, startStamp, endStamp, asStream);
+              return getOrCreatePCollection(desc, true, d -> d.createBatchUpdates(attrClosure, da));
             })
         .reduce((left, right) -> Union.of(left, right).output())
         .orElseThrow(failEmpty())
@@ -337,9 +338,9 @@ public class BeamDataOperator implements DataOperator {
           .distinct()
           .map(
               da -> {
-                BatchSnapshotDescriptor desc = new BatchSnapshotDescriptor(fromStamp, untilStamp);
-                return getOrCreatePCollection(
-                    desc, true, d -> d.createBatchUpdates(pipeline, attrList, da));
+                BatchSnapshotDescriptor desc =
+                    new BatchSnapshotDescriptor(pipeline, fromStamp, untilStamp);
+                return getOrCreatePCollection(desc, true, d -> d.createBatchUpdates(attrList, da));
               })
           .reduce((left, right) -> Union.of(left, right).output())
           .orElseThrow(failEmpty())

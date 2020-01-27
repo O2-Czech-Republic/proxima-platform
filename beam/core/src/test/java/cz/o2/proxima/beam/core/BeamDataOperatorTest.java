@@ -224,6 +224,33 @@ public class BeamDataOperatorTest {
   }
 
   @Test
+  public void testTwoPipelines() {
+    direct
+        .getWriter(event)
+        .orElseThrow(() -> new IllegalStateException("Missing writer for event"))
+        .write(
+            StreamElement.update(
+                gateway,
+                event,
+                "uuid",
+                "key",
+                event.toAttributePrefix() + "1",
+                now,
+                new byte[] {1, 2, 3}),
+            (succ, exc) -> {});
+
+    PCollection<Long> result =
+        beam.getStream(pipeline, Position.OLDEST, true, true, event).apply(Count.globally());
+    PAssert.that(result).containsInAnyOrder(1L);
+    assertNotNull(pipeline.run());
+
+    pipeline = Pipeline.create();
+    result = beam.getStream(pipeline, Position.OLDEST, true, true, event).apply(Count.globally());
+    PAssert.that(result).containsInAnyOrder(1L);
+    assertNotNull(pipeline.run());
+  }
+
+  @Test
   public void testUnion() {
     direct
         .getWriter(event)

@@ -140,6 +140,26 @@ public abstract class GroovyEnvTest extends GroovyTest {
   }
 
   @Test
+  public void testBatchUpdatesCollectWildcardMultiple() throws Exception {
+    Script compiled =
+        compile(
+            "env.batch.wildcard.batchUpdates().collect()\n"
+                + "env.batch.wildcard.batchUpdates().collect()");
+    write(
+        StreamElement.update(
+            batch,
+            wildcard,
+            "uuid",
+            "key",
+            wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(),
+            new byte[] {}));
+    @SuppressWarnings("unchecked")
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
+  }
+
+  @Test
   public void testUnionBatchUpdatesCollect() throws Exception {
     Script compiled =
         compile("env.unionBatchUpdates(env.batch.data, env.batch.wildcard).collect()");

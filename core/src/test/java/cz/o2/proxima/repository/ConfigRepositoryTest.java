@@ -20,6 +20,7 @@ import static org.junit.Assert.*;
 import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
@@ -382,6 +383,33 @@ public class ConfigRepositoryTest {
     assertNotNull(exception);
     assertEquals(
         "Unable to find attribute [non-existent] of entity [event].", exception.getMessage());
+  }
+
+  @Test
+  public void testDisallowedEntityNames() {
+    try {
+      checkThrows(() -> ConfigRepository.validateEntityName("0test"));
+      checkThrows(() -> ConfigRepository.validateEntityName("test_with_underscores"));
+      checkThrows(() -> ConfigRepository.validateEntityName("test-with-dashes"));
+      // must not throw
+      ConfigRepository.validateEntityName("testOk");
+      Repository.of(
+          () -> ConfigFactory.load("test-reference-with-invalid-entities.conf").resolve());
+      fail("Should have throws exception");
+    } catch (IllegalArgumentException ex) {
+      assertEquals(
+          "Entity [entity-with-dashes] contains invalid characters. Valid are a-zA-Z0-9 and entity cannot start with number.",
+          ex.getCause().getMessage());
+    }
+  }
+
+  private void checkThrows(Factory<?> factory) {
+    try {
+      factory.apply();
+      fail("Expression should have throws exception");
+    } catch (Exception err) {
+      // pass
+    }
   }
 
   // validate that given transformation transforms in the desired way

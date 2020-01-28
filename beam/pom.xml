@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.3.0-rc1</version>
+    <version>0.3-SNAPSHOT</version>
   </parent>
 
   <artifactId>proxima-beam</artifactId>
@@ -43,7 +43,7 @@
       <id>buildVendoredBeam</id>
       <properties>
         <apache.beam.groupId>cz.o2.proxima.beam</apache.beam.groupId>
-        <apache.beam.version>${project.version}-ab3f0b</apache.beam.version>
+        <apache.beam.version>0.3.0-rc1-ab3f0b</apache.beam.version>
         <apache.beam.version.raw>2.19.0-SNAPSHOT</apache.beam.version.raw>
       </properties>
       <build>
@@ -101,7 +101,7 @@
       </activation>
       <properties>
         <apache.beam.groupId>cz.o2.proxima.beam</apache.beam.groupId>
-        <apache.beam.version>${project.version}-ab3f0b</apache.beam.version>
+        <apache.beam.version>0.3.0-rc1-ab3f0b</apache.beam.version>
         <apache.beam.version.raw>2.19.0-SNAPSHOT</apache.beam.version.raw>
       </properties>
       <modules>

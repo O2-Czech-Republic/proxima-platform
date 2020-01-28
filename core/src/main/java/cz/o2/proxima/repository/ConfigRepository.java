@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
@@ -319,7 +320,7 @@ public class ConfigRepository extends Repository {
     Map<String, Object> entitiesCfg = toMap(ENTITIES, entities.unwrapped());
     List<Pair<String, String>> clonedEntities = new ArrayList<>();
     for (Map.Entry<String, Object> e : entitiesCfg.entrySet()) {
-      String entityName = e.getKey();
+      String entityName = validateEntityName(e.getKey());
       Map<String, Object> cfgMap = toMap("entities." + entityName, e.getValue());
       Object attributes = cfgMap.get(ATTRIBUTES);
       final EntityDescriptor entity;
@@ -344,6 +345,19 @@ public class ConfigRepository extends Repository {
       log.info("Adding entity {} as clone of {}", entityName, fromName);
       entitiesByName.put(entityName, entity);
     }
+  }
+
+  @VisibleForTesting
+  static String validateEntityName(String name) {
+    Preconditions.checkArgument(
+        !name.isEmpty()
+            && !Character.isDigit(name.charAt(0))
+            && name.chars()
+                .map(c -> Character.valueOf((char) c))
+                .allMatch(Character::isLetterOrDigit),
+        "Entity [%s] contains invalid characters. Valid are a-zA-Z0-9 and entity cannot start with number.",
+        name);
+    return name;
   }
 
   private Map<String, Replication> parseReplications(Config config) {

@@ -33,6 +33,7 @@ import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.Position;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -42,6 +43,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 
@@ -116,6 +118,66 @@ public class InMemStorageTest implements Serializable {
   }
 
   @Test(timeout = 10000)
+  public void testObservePartionsWithSamePath() throws URISyntaxException, InterruptedException {
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor =
+        storage.createAccessor(direct, entity, new URI("inmem://test1"), Collections.emptyMap());
+    DataAccessor accessor2 =
+        storage.createAccessor(direct, entity, new URI("inmem://test2"), Collections.emptyMap());
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing batch log observable"));
+    AttributeWriterBase writer =
+        accessor
+            .getWriter(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    CountDownLatch latch = new CountDownLatch(1);
+    StreamElement element =
+        StreamElement.update(
+            entity,
+            data,
+            UUID.randomUUID().toString(),
+            "key",
+            data.getName(),
+            System.currentTimeMillis(),
+            new byte[] {1, 2, 3});
+    writer.online().write(element, (succ, exc) -> {});
+    accessor2
+        .getWriter(direct.getContext())
+        .orElseThrow(() -> new IllegalStateException("Missing writer2"))
+        .online()
+        .write(element, (succ, exc) -> {});
+    AtomicInteger count = new AtomicInteger();
+    reader.observePartitions(
+        reader.getPartitions(),
+        Position.OLDEST,
+        true,
+        new LogObserver() {
+
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            assertEquals("key", ingest.getKey());
+            context.confirm();
+            count.incrementAndGet();
+            return true;
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        });
+    latch.await();
+    assertEquals(1, count.get());
+  }
+
+  @Test(timeout = 10000)
   public void testObserveBatch() throws URISyntaxException, InterruptedException {
 
     InMemStorage storage = new InMemStorage();
@@ -162,6 +224,66 @@ public class InMemStorageTest implements Serializable {
           }
         });
     latch.await();
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveBatchWithSamePath() throws URISyntaxException, InterruptedException {
+
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor =
+        storage.createAccessor(direct, entity, new URI("inmem://test1"), Collections.emptyMap());
+    DataAccessor accessor2 =
+        storage.createAccessor(direct, entity, new URI("inmem://test2"), Collections.emptyMap());
+    BatchLogObservable reader =
+        accessor
+            .getBatchLogObservable(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing batch log observable"));
+    AttributeWriterBase writer =
+        accessor
+            .getWriter(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    CountDownLatch latch = new CountDownLatch(1);
+    StreamElement element =
+        StreamElement.update(
+            entity,
+            data,
+            UUID.randomUUID().toString(),
+            "key",
+            data.getName(),
+            System.currentTimeMillis(),
+            new byte[] {1, 2, 3});
+    writer.online().write(element, (succ, exc) -> {});
+    accessor2
+        .getWriter(direct.getContext())
+        .orElseThrow(() -> new IllegalStateException("Missing writer2"))
+        .online()
+        .write(element, (succ, exc) -> {});
+    AtomicInteger count = new AtomicInteger();
+    reader.observe(
+        reader.getPartitions(),
+        Arrays.asList(data),
+        new BatchLogObserver() {
+
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+
+          @Override
+          public boolean onNext(StreamElement ingest, Partition partition) {
+            assertEquals(0, partition.getId());
+            assertEquals("key", ingest.getKey());
+            count.incrementAndGet();
+            return true;
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        });
+    latch.await();
+    assertEquals(1, count.get());
   }
 
   @Test(timeout = 10000)

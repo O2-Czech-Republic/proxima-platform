@@ -405,7 +405,7 @@ public class InMemStorage implements DataAccessorFactory {
       if (position == Position.OLDEST) {
         synchronized (getData()) {
           latch.countDown();
-          String prefix = getUri().getPath() + "/";
+          String prefix = toStoragePrefix(getUri());
           int prefixLength = prefix.length();
           getData()
               .entrySet()
@@ -634,14 +634,18 @@ public class InMemStorage implements DataAccessorFactory {
       Preconditions.checkArgument(
           partitions.size() == 1,
           "This observable works on single partition only, got " + partitions);
-      int prefixLength = getUri().getPath().length() + 1;
+      String prefix = toStoragePrefix(getUri());
+      int prefixLength = prefix.length();
       executor()
           .execute(
               () -> {
                 try {
-                  NavigableMap<String, Pair<Long, byte[]>> data = getData();
+                  Map<String, Pair<Long, byte[]>> data = getData().tailMap(prefix);
                   synchronized (data) {
                     for (Map.Entry<String, Pair<Long, byte[]>> e : data.entrySet()) {
+                      if (!e.getKey().startsWith(prefix)) {
+                        break;
+                      }
                       String k = e.getKey();
                       Pair<Long, byte[]> v = e.getValue();
                       String[] parts = k.substring(prefixLength).split("#");
@@ -926,8 +930,14 @@ public class InMemStorage implements DataAccessorFactory {
         elem.getValue());
   }
 
+  private static String toStoragePrefix(URI uri) {
+    return Optional.ofNullable(uri.getAuthority()).map(a -> a + "/").orElse("")
+        + uri.getPath()
+        + "/";
+  }
+
   private static String toMapKey(URI uri, String key, String attribute) {
-    return uri.getPath() + "/" + key + "#" + attribute;
+    return toStoragePrefix(uri) + key + "#" + attribute;
   }
 
   private static LogObserver.OnNextContext asOnNextContext(

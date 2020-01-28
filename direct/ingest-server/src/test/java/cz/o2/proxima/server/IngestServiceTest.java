@@ -34,6 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -77,6 +78,11 @@ public class IngestServiceTest {
             latch.countDown();
           }
         };
+  }
+
+  @After
+  public void tearDown() {
+    server.repo.discard();
   }
 
   @Test(timeout = 10000)
@@ -467,11 +473,8 @@ public class IngestServiceTest {
 
     InMemStorage storage = getInMemStorage();
     Map<String, Pair<Long, byte[]>> data = storage.getData();
-    assertEquals(2, data.size());
-    byte[] value = data.get("/proxima_events/my-dummy-entity#data").getSecond();
-    assertTrue(value != null);
-    assertEquals((Long) now, data.get("/proxima_events/my-dummy-entity#data").getFirst());
-    value = data.get("/proxima/dummy/my-dummy-entity#wildcard." + now).getSecond();
+    assertEquals(1, data.size());
+    byte[] value = data.get("/proxima/dummy/my-dummy-entity#wildcard." + now).getSecond();
     assertTrue(value != null);
   }
 

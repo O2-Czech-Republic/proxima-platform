@@ -242,11 +242,32 @@
       </build>
     </profile>
 
+    <profile>
+      <id>release-snapshot</id>
+      <properties>
+        <!-- workaround of duplicate key: META-INF/services error -->
+        <maven.shade.version>3.2.2-SNAPSHOT</maven.shade.version>
+      </properties>
+      <pluginRepositories>
+        <pluginRepository>
+          <id>my-repo-bucket-snapshot</id>
+          <url>gs://datadrivencz-maven-artifacts/snapshot</url>
+          <releases><enabled>false</enabled></releases>
+          <snapshots><enabled>true</enabled></snapshots>
+        </pluginRepository>
+      </pluginRepositories>
+    </profile>
+
   </profiles>
 
   <build>
 
     <extensions>
+      <extension>
+        <groupId>com.gkatzioura.maven.cloud</groupId>
+        <artifactId>google-storage-wagon</artifactId>
+        <version>1.7</version>
+      </extension>
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>

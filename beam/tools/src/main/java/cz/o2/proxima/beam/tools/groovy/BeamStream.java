@@ -32,6 +32,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
+import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.tools.groovy.RepositoryProvider;
@@ -78,6 +79,9 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.core.org.apache.commons.compress.utils.IOUtils;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Kryo;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Serializer;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Input;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Output;
 import org.apache.beam.repackaged.kryo.org.objenesis.strategy.StdInstantiatorStrategy;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
@@ -921,11 +925,48 @@ class BeamStream<T> implements Stream<T> {
                 kryo.setInstantiatorStrategy(
                     new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())),
             kryo -> kryo.addDefaultSerializer(Tuple.class, (Class) TupleSerializer.class),
+            kryo -> BeamStream.registerCodersForSchemes(kryo, config),
             kryo -> BeamStream.registerCommonTypes(kryo, config),
             kryo -> kryo.setRegistrationRequired(true));
     registry.registerCoderForClass(Object.class, coder);
     registry.registerCoderForClass(Tuple.class, TupleCoder.of(coder));
     registry.registerCoderForClass(Pair.class, PairCoder.of(coder, coder));
+  }
+
+  private static void registerCodersForSchemes(Kryo kryo, StreamConfig conf) {
+    conf.getRepo()
+        .getAllEntities()
+        .flatMap(d -> d.getAllAttributes().stream())
+        .filter(d -> Objects.nonNull(d.getValueSerializer().getDefault()))
+        .distinct()
+        .map(d -> Pair.of(d.getValueSerializer().getDefault().getClass(), d.getValueSerializer()))
+        .forEach(p -> kryo.register(p.getFirst(), asSerializer(p.getSecond())));
+  }
+
+  private static <T> Serializer<T> asSerializer(ValueSerializer<T> serializer) {
+    return new Serializer<T>() {
+
+      @Override
+      public void write(Kryo kryo, Output output, T t) {
+        byte[] bytes = serializer.serialize(t);
+        output.writeInt(bytes.length);
+        output.write(bytes);
+      }
+
+      @Override
+      public T read(Kryo kryo, Input input, Class<T> cls) {
+        int length = input.readInt();
+        byte[] bytes = input.readBytes(length);
+        return serializer
+            .deserialize(bytes)
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        String.format(
+                            "Cannot deserialize bytes with class [%s] and serializer [%s]",
+                            cls, serializer)));
+      }
+    };
   }
 
   private static void registerCommonTypes(Kryo kryo, StreamConfig conf) {
@@ -979,7 +1020,7 @@ class BeamStream<T> implements Stream<T> {
         .forEach(t -> extractFieldsRecursivelyInto(t, extracted));
     Arrays.stream(cls.getDeclaredFields())
         .filter(f -> !Modifier.isStatic(f.getModifiers()))
-        .map(f -> f.getType())
+        .map(Field::getType)
         .forEach(extracted::add);
     if (cls.getSuperclass() != null
         && cls.getSuperclass() != Object.class

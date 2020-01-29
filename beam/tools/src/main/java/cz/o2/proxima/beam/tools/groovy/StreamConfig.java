@@ -19,47 +19,55 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.repository.ConfigRepository;
+import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import java.io.Serializable;
 import java.net.InetAddress;
+import lombok.Getter;
 
-/** */
+/** Configuration object for {@link BeamStream}. */
 public class StreamConfig implements Serializable {
 
   private static final String COLLECT_PORT_KEY = "console.collect.server-port";
   private static final String COLLECT_HOSTNAME = "console.collect.hostname";
 
   static StreamConfig empty() {
-    return new StreamConfig(ConfigFactory.empty());
+    return new StreamConfig(
+        ConfigFactory.empty(),
+        RepositoryFactory.caching(() -> Repository.of(ConfigFactory::empty)));
   }
 
   static StreamConfig of(BeamDataOperator beam) {
-    return new StreamConfig(((ConfigRepository) beam.getRepository()).getConfig());
+    return new StreamConfig(
+        ((ConfigRepository) beam.getRepository()).getConfig(), beam.getRepository().asFactory());
   }
 
-  private final int collectPort;
-  private final String collectHostname;
+  @Getter private final int collectPort;
+  @Getter private final String collectHostname;
+  private final RepositoryFactory repositoryFactory;
+  private transient Repository repo;
 
-  private StreamConfig(Config config) {
+  private StreamConfig(Config config, RepositoryFactory repoFactory) {
     try {
       this.collectPort = config.hasPath(COLLECT_PORT_KEY) ? config.getInt(COLLECT_PORT_KEY) : -1;
       this.collectHostname =
           isNonEmpty(config, COLLECT_HOSTNAME)
               ? config.getString(COLLECT_HOSTNAME)
               : InetAddress.getLocalHost().getHostName();
+      this.repositoryFactory = repoFactory;
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
   }
 
+  public Repository getRepo() {
+    if (repo == null) {
+      repo = repositoryFactory.apply();
+    }
+    return repo;
+  }
+
   private static boolean isNonEmpty(Config config, String path) {
     return config.hasPath(path) && !config.getString(path).isEmpty();
-  }
-
-  int getPreferredCollectPort() {
-    return collectPort;
-  }
-
-  String getCollectHostname() {
-    return collectHostname;
   }
 }

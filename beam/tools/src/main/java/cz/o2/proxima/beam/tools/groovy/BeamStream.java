@@ -18,6 +18,7 @@ package cz.o2.proxima.beam.tools.groovy;
 import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Streams;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
@@ -31,6 +32,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
+import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.tools.groovy.RepositoryProvider;
@@ -50,16 +52,21 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.net.BindException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
@@ -72,6 +79,9 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.core.org.apache.commons.compress.utils.IOUtils;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Kryo;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Serializer;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Input;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Output;
 import org.apache.beam.repackaged.kryo.org.objenesis.strategy.StdInstantiatorStrategy;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
@@ -101,6 +111,7 @@ import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow;
+import org.apache.beam.sdk.transforms.windowing.IntervalWindow.IntervalWindowCoder;
 import org.apache.beam.sdk.transforms.windowing.Sessions;
 import org.apache.beam.sdk.transforms.windowing.SlidingWindows;
 import org.apache.beam.sdk.transforms.windowing.Trigger;
@@ -857,7 +868,7 @@ class BeamStream<T> implements Stream<T> {
 
   Pipeline createPipeline() {
     Pipeline ret = pipelineFactory.apply();
-    registerCoders(ret.getCoderRegistry());
+    registerCoders(ret.getCoderRegistry(), registrars, config);
     return ret;
   }
 
@@ -902,8 +913,10 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @SuppressWarnings("unchecked")
-  private void registerCoders(CoderRegistry registry) {
+  private static void registerCoders(
+      CoderRegistry registry, List<Consumer<CoderRegistry>> registrars, StreamConfig config) {
     registry.registerCoderForClass(GlobalWindow.class, GlobalWindow.Coder.INSTANCE);
+    registry.registerCoderForClass(IntervalWindow.class, IntervalWindowCoder.of());
     registrars.forEach(r -> r.accept(registry));
     // FIXME: need to get rid of this fallback
     KryoCoder<Object> coder =
@@ -912,15 +925,53 @@ class BeamStream<T> implements Stream<T> {
                 kryo.setInstantiatorStrategy(
                     new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())),
             kryo -> kryo.addDefaultSerializer(Tuple.class, (Class) TupleSerializer.class),
-            BeamStream::registerCommonTypes,
+            kryo -> BeamStream.registerCodersForSchemes(kryo, config),
+            kryo -> BeamStream.registerCommonTypes(kryo, config),
             kryo -> kryo.setRegistrationRequired(true));
     registry.registerCoderForClass(Object.class, coder);
     registry.registerCoderForClass(Tuple.class, TupleCoder.of(coder));
     registry.registerCoderForClass(Pair.class, PairCoder.of(coder, coder));
   }
 
-  private static void registerCommonTypes(Kryo kryo) {
-    java.util.stream.Stream.of(
+  private static void registerCodersForSchemes(Kryo kryo, StreamConfig conf) {
+    conf.getRepo()
+        .getAllEntities()
+        .flatMap(d -> d.getAllAttributes().stream())
+        .filter(d -> Objects.nonNull(d.getValueSerializer().getDefault()))
+        .distinct()
+        .map(d -> Pair.of(d.getValueSerializer().getDefault().getClass(), d.getValueSerializer()))
+        .forEach(p -> kryo.register(p.getFirst(), asSerializer(p.getSecond())));
+  }
+
+  private static <T> Serializer<T> asSerializer(ValueSerializer<T> serializer) {
+    return new Serializer<T>() {
+
+      @Override
+      public void write(Kryo kryo, Output output, T t) {
+        byte[] bytes = serializer.serialize(t);
+        output.writeInt(bytes.length);
+        output.write(bytes);
+      }
+
+      @Override
+      public T read(Kryo kryo, Input input, Class<T> cls) {
+        int length = input.readInt();
+        byte[] bytes = input.readBytes(length);
+        return serializer
+            .deserialize(bytes)
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        String.format(
+                            "Cannot deserialize bytes with class [%s] and serializer [%s]",
+                            cls, serializer)));
+      }
+    };
+  }
+
+  private static void registerCommonTypes(Kryo kryo, StreamConfig conf) {
+    java.util.stream.Stream<Class<?>> basicClasses =
+        java.util.stream.Stream.of(
             StreamElement.class,
             Date.class,
             ArrayList.class,
@@ -938,15 +989,51 @@ class BeamStream<T> implements Stream<T> {
             int[].class,
             long[].class,
             float[].class,
-            Object[].class)
-        .forEach(kryo::register);
+            char[].class,
+            Object[].class);
+
+    // register all types of all serializers that provide default values
+    java.util.stream.Stream<Class<?>> serializerClasses =
+        conf.getRepo()
+            .getAllEntities()
+            .flatMap(d -> d.getAllAttributes().stream())
+            .filter(d -> Objects.nonNull(d.getValueSerializer().getDefault()))
+            .flatMap(d -> fieldsRecursively(d.getValueSerializer().getDefault().getClass()))
+            .distinct();
+
+    Streams.concat(basicClasses, serializerClasses).distinct().forEach(kryo::register);
+  }
+
+  @VisibleForTesting
+  static java.util.stream.Stream<Class<?>> fieldsRecursively(Class<?> cls) {
+    Set<Class<?>> extracted = new HashSet<>();
+    extractFieldsRecursivelyInto(cls, extracted);
+    return extracted.stream();
+  }
+
+  private static void extractFieldsRecursivelyInto(Class<?> cls, Set<Class<?>> extracted) {
+    extracted.add(cls);
+    Arrays.stream(cls.getDeclaredFields())
+        .filter(f -> !Modifier.isStatic(f.getModifiers()))
+        .map(Field::getType)
+        .filter(f -> !extracted.contains(f))
+        .forEach(t -> extractFieldsRecursivelyInto(t, extracted));
+    Arrays.stream(cls.getDeclaredFields())
+        .filter(f -> !Modifier.isStatic(f.getModifiers()))
+        .map(Field::getType)
+        .forEach(extracted::add);
+    if (cls.getSuperclass() != null
+        && cls.getSuperclass() != Object.class
+        && !extracted.contains(cls.getSuperclass())) {
+      extractFieldsRecursivelyInto(cls.getSuperclass(), extracted);
+    }
   }
 
   private <T> RemoteConsumer<T> createRemoteConsumer(Coder<T> coder, Consumer<T> consumer) {
 
     RemoteConsumer<T> ret =
         RemoteConsumer.create(
-            this, config.getCollectHostname(), config.getPreferredCollectPort(), consumer, coder);
+            this, config.getCollectHostname(), config.getCollectPort(), consumer, coder);
     remoteConsumers.add(ret);
     return ret;
   }

@@ -65,6 +65,7 @@ import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.sdk.values.WindowingStrategy;
+import org.apache.beam.vendor.grpc.v1p21p0.com.google.common.collect.Sets;
 import org.joda.time.Instant;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -350,5 +351,49 @@ public class BeamStreamTest extends StreamTest {
             .map(Closures.fromArray(this, args -> ((Pair<Integer, Integer>) args[0]).getSecond()))
             .collect();
     assertEquals(Arrays.asList(90, 189, 289), result);
+  }
+
+  private static class ParentClass {
+    private Long longField;
+  }
+
+  private static class MyTestedExtractedClass extends ParentClass {
+    private static Double staticField;
+
+    private static class NestedStaticClass {
+      public String stringVal;
+    }
+
+    private class NestedNonStaticClass {
+      protected Float floatVal;
+    }
+
+    private MyTestedExtractedClass recursive;
+    private Integer intVal;
+    private NestedNonStaticClass nonStaticInner;
+    private NestedStaticClass staticInner;
+    private int primitiveInt;
+  }
+
+  @Test
+  public void testFieldClassExtraction() {
+    Set<Class<?>> classes =
+        BeamStream.fieldsRecursively(MyTestedExtractedClass.class).collect(Collectors.toSet());
+    assertEquals(
+        Sets.newHashSet(
+            ParentClass.class,
+            MyTestedExtractedClass.class,
+            MyTestedExtractedClass.NestedStaticClass.class,
+            MyTestedExtractedClass.NestedNonStaticClass.class,
+            Long.class,
+            String.class,
+            Float.class,
+            Integer.class,
+            Number.class,
+            int.class,
+            float.class,
+            long.class,
+            char[].class),
+        classes);
   }
 }

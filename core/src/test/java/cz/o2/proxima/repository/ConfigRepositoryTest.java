@@ -389,16 +389,17 @@ public class ConfigRepositoryTest {
   public void testDisallowedEntityNames() {
     try {
       checkThrows(() -> ConfigRepository.validateEntityName("0test"));
-      checkThrows(() -> ConfigRepository.validateEntityName("test_with_underscores"));
       checkThrows(() -> ConfigRepository.validateEntityName("test-with-dashes"));
       // must not throw
       ConfigRepository.validateEntityName("testOk");
+      ConfigRepository.validateEntityName("_testOk");
+      ConfigRepository.validateEntityName("test_with_underscores");
       Repository.of(
           () -> ConfigFactory.load("test-reference-with-invalid-entities.conf").resolve());
-      fail("Should have throws exception");
+      fail("Should have thrown exception");
     } catch (IllegalArgumentException ex) {
       assertEquals(
-          "Entity [entity-with-dashes] contains invalid characters. Valid are a-zA-Z0-9 and entity cannot start with number.",
+          "Entity [entity-with-dashes] contains invalid characters. Valid are a-zA-Z0-9_ and entity cannot start with number.",
           ex.getCause().getMessage());
     }
   }
@@ -406,7 +407,7 @@ public class ConfigRepositoryTest {
   private void checkThrows(Factory<?> factory) {
     try {
       factory.apply();
-      fail("Expression should have throws exception");
+      fail("Expression should have thrown exception");
     } catch (Exception err) {
       // pass
     }

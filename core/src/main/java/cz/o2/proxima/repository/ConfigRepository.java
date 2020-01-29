@@ -47,6 +47,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.Getter;
@@ -80,6 +81,7 @@ public class ConfigRepository extends Repository {
   private static final String TYPE = "type";
   private static final String FILTER = "filter";
 
+  private static final Pattern ENTITY_NAME_PATTERN = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
   /**
    * Construct default repository from the config.
    *
@@ -349,13 +351,10 @@ public class ConfigRepository extends Repository {
 
   @VisibleForTesting
   static String validateEntityName(String name) {
+
     Preconditions.checkArgument(
-        !name.isEmpty()
-            && !Character.isDigit(name.charAt(0))
-            && name.chars()
-                .map(c -> Character.valueOf((char) c))
-                .allMatch(Character::isLetterOrDigit),
-        "Entity [%s] contains invalid characters. Valid are a-zA-Z0-9 and entity cannot start with number.",
+        ENTITY_NAME_PATTERN.matcher(name).matches(),
+        "Entity [%s] contains invalid characters. Valid are a-zA-Z0-9_ and entity cannot start with number.",
         name);
     return name;
   }

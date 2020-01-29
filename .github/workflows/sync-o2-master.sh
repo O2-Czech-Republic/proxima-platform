@@ -21,7 +21,7 @@ set -e
 if echo $GITHUB_REPOSITORY | grep datadrivencz >/dev/null; then
 
   mkdir -p ~/.ssh
-  echo ${O2_DEPLOY_KEY} > ~/.ssh/id_rsa
+  echo ${O2_DEPLOY_KEY} | base64 -d > ~/.ssh/id_rsa
   chmod 600 ~/.ssh/id_rsa
   ssh-keygen -f ~/.ssh/id_rsa -y > ~/.ssh/id_rsa.pub
 
@@ -30,6 +30,6 @@ if echo $GITHUB_REPOSITORY | grep datadrivencz >/dev/null; then
   git fetch --all
   git checkout -B o2-master o2/master
   git pull --ff-only origin master
-  git push o2-master
+  git push o2 master
 
 fi

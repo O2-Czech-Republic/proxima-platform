@@ -22,8 +22,8 @@ if echo $GITHUB_REPOSITORY | grep datadrivencz >/dev/null; then
 
   mkdir -p ~/.ssh
   echo ${O2_DEPLOY_KEY} > ~/.ssh/id_rsa
-  echo ${O2_DEPLOY_PUBLIC_KEY} > ~/.ssh/id_rsa.pub
   chmod 600 ~/.ssh/id_rsa
+  ssh-keygen -f ~/.ssh/id_rsa -y > ~/.ssh/id_rsa.pub
 
   git remote add o2 git@github.com:O2-Czech-Republic/proxima-platform.git
 

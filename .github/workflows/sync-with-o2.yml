@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-name: Java CI
+name: Push to O2
 
 on:
   push:
@@ -26,10 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
-    - name: Set up JDK 1.8
-      uses: actions/setup-java@v1
-      with:
-        java-version: 1.8
     - name: Push to O2 master
       env:
         O2_DEPLOY_KEY: ${{ secrets.O2_DEPLOY_KEY }}

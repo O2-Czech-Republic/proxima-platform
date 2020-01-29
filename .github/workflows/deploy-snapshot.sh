@@ -25,7 +25,7 @@ echo ${GOOGLE_CREDENTIALS} > /tmp/google-credentials.json
 
 export GOOGLE_APPLICATION_CREDENTIALS=/tmp/google-credentials.json
 
-if echo ${VERSION} | grep SNAPSHOT >/dev/null; then
+if echo ${VERSION} | grep SNAPSHOT >/dev/null && echo ${GITHUB_REPOSITORY} | grep O2-Czech-Republic >/dev/null; then
   mvn deploy -Prelease-snapshot
 fi
 

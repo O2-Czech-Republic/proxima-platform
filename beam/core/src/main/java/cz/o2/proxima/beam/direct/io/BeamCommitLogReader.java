@@ -353,7 +353,9 @@ class BeamCommitLogReader {
   }
 
   void clearIncomingQueue() {
-    observer.clearIncomingQueue();
+    if (observer != null) {
+      observer.clearIncomingQueue();
+    }
   }
 
   private Instant getWatermark() {

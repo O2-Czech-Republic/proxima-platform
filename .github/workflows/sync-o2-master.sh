@@ -30,6 +30,6 @@ if echo $GITHUB_REPOSITORY | grep datadrivencz >/dev/null; then
   git fetch --all
   git checkout -B o2-master o2/master
   git pull --ff-only origin master
-  git push o2 master
+  git push o2 HEAD:master
 
 fi

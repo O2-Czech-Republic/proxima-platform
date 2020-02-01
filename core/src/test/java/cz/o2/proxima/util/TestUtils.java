@@ -31,13 +31,14 @@ public class TestUtils {
   /**
    * Check if object is serializable and return deserialized.
    *
+   * @param <T> type parameter
    * @param object Object to check
    * @return object Deserialized object
-   * @throws IOException
+   * @throws IOException on IO errors
+   * @throws ClassNotFoundException on class path errors
    */
-  public static Object assertSerializable(Object object)
-      throws IOException, ClassNotFoundException {
-    Object deserialized = deserializeObject(serializeObject(object));
+  public static <T> T assertSerializable(T object) throws IOException, ClassNotFoundException {
+    T deserialized = deserializeObject(serializeObject(object));
     assertEquals(
         String.format(
             "Deserialized object of class '%s' should be equals to input.",
@@ -52,7 +53,7 @@ public class TestUtils {
    *
    * @param object object to serialize
    * @return byte[]
-   * @throws IOException
+   * @throws IOException on IO errors
    */
   public static byte[] serializeObject(Object object) throws IOException {
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -68,23 +69,25 @@ public class TestUtils {
   /**
    * Deserialize object from bytes
    *
-   * @param bytes
-   * @return Object
-   * @throws IOException
-   * @throws ClassNotFoundException
+   * @param <T> type parameter
+   * @param bytes bytes to deserialize
+   * @return the deserialized object
+   * @throws IOException on IO errors
+   * @throws ClassNotFoundException on class path errors
    */
-  public static Object deserializeObject(byte[] bytes) throws IOException, ClassNotFoundException {
+  @SuppressWarnings("unchecked")
+  public static <T> T deserializeObject(byte[] bytes) throws IOException, ClassNotFoundException {
     try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
         ObjectInputStream ois = new ObjectInputStream(bais)) {
-      return ois.readObject();
+      return (T) ois.readObject();
     }
   }
 
   /**
    * Assert hashCode and equals of 2 objects.
    *
-   * @param first
-   * @param second
+   * @param first first object to compare
+   * @param second second object to compare
    */
   public static void assertHashCodeAndEquals(Object first, Object second) {
     assertEquals(first, second);

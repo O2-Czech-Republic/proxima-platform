@@ -117,7 +117,11 @@ public class ConsumerGroup implements Serializable {
     }
   }
 
-  /** Add a new consumer with no listener. */
+  /**
+   * Add a new consumer with no listener.
+   *
+   * @return the ID of the newly created consumer.
+   */
   public int add() {
     return add((ConsumerRebalanceListener) null);
   }
@@ -125,7 +129,8 @@ public class ConsumerGroup implements Serializable {
   /**
    * Add new consumer to the group.
    *
-   * @returns the ID of the newly created consumer.
+   * @param listener rebalance listener for the added consumer
+   * @return the ID of the newly created consumer.
    */
   public synchronized int add(@Nullable ConsumerRebalanceListener listener) {
 
@@ -142,7 +147,12 @@ public class ConsumerGroup implements Serializable {
     return id;
   }
 
-  /** Add new consumer to the group with unreassignable partitions. */
+  /**
+   * Add new consumer to the group with unreassignable partitions.
+   *
+   * @param partitions partitions assigned to the added consumer
+   * @return the ID of the newly created consumer.
+   */
   public synchronized int add(Collection<Partition> partitions) {
 
     int id = assignments.isEmpty() ? 0 : assignments.lastKey() + 1;
@@ -152,7 +162,11 @@ public class ConsumerGroup implements Serializable {
     return id;
   }
 
-  /** Remove consumer from group by id. */
+  /**
+   * Remove consumer from group by id.
+   *
+   * @param id the ID of the consumer to remove
+   */
   public synchronized void remove(int id) {
     Assignment removed = assignments.remove(id);
     if (removed != null) {

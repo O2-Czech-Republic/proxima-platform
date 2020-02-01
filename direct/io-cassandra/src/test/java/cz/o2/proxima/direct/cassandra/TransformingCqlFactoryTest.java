@@ -31,6 +31,7 @@ import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -104,7 +105,7 @@ public class TransformingCqlFactoryTest {
 
   /** Test of getWriteStatement method, of class TransformingCqlFactory. */
   @Test
-  public void testApplyWithTtl() throws URISyntaxException {
+  public void testApplyWithTtl() {
     final long now = System.currentTimeMillis();
     final StreamElement ingest =
         StreamElement.update(entity, attr, "", "123", "first", now, "value".getBytes());
@@ -114,7 +115,9 @@ public class TransformingCqlFactoryTest {
     when(session.prepare((String) any())).thenReturn(statement);
     when(statement.bind(any(), any())).thenReturn(mock(BoundStatement.class));
     factory.setup(
-        entity, new URI("cassandra://wherever/my_table/?ttl=86400"), StringConverter.getDefault());
+        entity,
+        ExceptionUtils.uncheckedFactory(() -> new URI("cassandra://wherever/my_table/?ttl=86400")),
+        StringConverter.getDefault());
 
     factory.getWriteStatement(ingest, session);
     assertEquals(1, statements.size());

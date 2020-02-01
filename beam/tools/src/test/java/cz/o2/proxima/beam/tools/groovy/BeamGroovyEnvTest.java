@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.tools.groovy;
 
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.tools.groovy.GroovyEnv;
 import cz.o2.proxima.tools.groovy.GroovyEnvTest;
 import java.util.Arrays;
 import java.util.Collection;

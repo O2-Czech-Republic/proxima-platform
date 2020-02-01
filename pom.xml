@@ -68,6 +68,10 @@
       <id>ossrh</id>
       <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
     </repository>
+    <site>
+      <url>scp://www.datadriven.cz/proxima</url>
+      <id>datadriven</id>
+    </site>
   </distributionManagement>
 
   <properties>
@@ -256,6 +260,31 @@
           <snapshots><enabled>true</enabled></snapshots>
         </pluginRepository>
       </pluginRepositories>
+    </profile>
+
+    <profile>
+      <id>site</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-site-plugin</artifactId>
+            <version>3.7.1</version>
+          </plugin>
+        </plugins>
+      </build>
+      <reporting>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>3.1.1</version>
+            <configuration>
+              <source>8</source>
+            </configuration>
+          </plugin>
+        </plugins>
+      </reporting>
     </profile>
 
   </profiles>

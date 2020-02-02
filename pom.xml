@@ -285,6 +285,22 @@
                 <sourceFileExclude>cz/o2/proxima/scheme/avro/test/Event.java</sourceFileExclude>
               </sourceFileExcludes>
             </configuration>
+            <reportSets>
+              <reportSet>
+                <reports>
+                  <report>javadoc</report>
+                  <report>test-javadoc</report>
+                </reports>
+              </reportSet>
+              <reportSet>
+                <id>aggregate</id>
+                <!--inherited>false</inherited-->
+                <inherited>true</inherited>
+                <reports>
+                  <report>aggregate</report>
+                </reports>
+              </reportSet>
+            </reportSets>
           </plugin>
         </plugins>
       </reporting>

@@ -582,6 +582,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
     return (m, c) -> {
       try {
+        log.trace("Received message {}", m);
         if (stopProcessing.get()) {
           log.debug("Returning rejected message {}", m);
           c.nack();

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.AbstractRetryableLogObserver;
@@ -111,6 +112,7 @@ public class ReplicationController {
             allowed ? "applied filter" : "invalid attribute",
             allowedAttributes,
             filter.getClass());
+        context.confirm();
       }
       return true;
     }
@@ -148,7 +150,7 @@ public class ReplicationController {
 
   private final List<CompletableFuture<Void>> replications = new CopyOnWriteArrayList<>();
 
-  private ReplicationController(Repository repository) {
+  ReplicationController(Repository repository) {
     this.repository = repository;
     this.dataOperator = repository.getOrCreateOperator(DirectDataOperator.class);
   }
@@ -427,7 +429,8 @@ public class ReplicationController {
    * @param writer Writer for replica.
    * @return Log observer.
    */
-  private AbstractRetryableLogObserver createOnlineObserver(
+  @VisibleForTesting
+  AbstractRetryableLogObserver createOnlineObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,

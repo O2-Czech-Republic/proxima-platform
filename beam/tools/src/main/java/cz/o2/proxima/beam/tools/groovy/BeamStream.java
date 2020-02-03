@@ -1005,9 +1005,16 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @VisibleForTesting
-  static java.util.stream.Stream<Class<?>> fieldsRecursively(Class<?> cls) {
+  static <T> java.util.stream.Stream<Class<?>> fieldsRecursively(T obj) {
     Set<Class<?>> extracted = new HashSet<>();
-    extractFieldsRecursivelyInto(cls, extracted);
+    extractFieldsRecursivelyInto(obj.getClass(), extracted);
+    for (Field f : obj.getClass().getDeclaredFields()) {
+      f.setAccessible(true);
+      Object fieldVal = ExceptionUtils.uncheckedFactory(() -> f.get(obj));
+      if (fieldVal != null && !extracted.contains(fieldVal)) {
+        extractFieldsRecursivelyInto(fieldVal.getClass(), extracted);
+      }
+    }
     return extracted.stream();
   }
 

@@ -110,7 +110,7 @@ public class PubSubDataAccessor implements DataAccessor {
             .setCoder(StreamElementCoder.of(repoFactory));
     if (eventTime) {
       return AssignEventTime.of(parsed)
-          .using(StreamElement::getStamp, Duration.millis(5000))
+          .using(StreamElement::getStamp, Duration.millis(Long.MAX_VALUE))
           .output()
           .setCoder(parsed.getCoder());
     }

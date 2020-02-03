@@ -35,6 +35,7 @@ import cz.o2.proxima.tools.groovy.TestStreamProvider;
 import cz.o2.proxima.tools.groovy.util.Closures;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -373,27 +374,26 @@ public class BeamStreamTest extends StreamTest {
     private NestedNonStaticClass nonStaticInner;
     private NestedStaticClass staticInner;
     private int primitiveInt;
+    private List<Object> list = new ArrayList<>();
   }
 
   @Test
   public void testFieldClassExtraction() {
     Set<Class<?>> classes =
-        BeamStream.fieldsRecursively(MyTestedExtractedClass.class).collect(Collectors.toSet());
-    assertEquals(
-        Sets.newHashSet(
-            ParentClass.class,
-            MyTestedExtractedClass.class,
-            MyTestedExtractedClass.NestedStaticClass.class,
-            MyTestedExtractedClass.NestedNonStaticClass.class,
-            Long.class,
-            String.class,
-            Float.class,
-            Integer.class,
-            Number.class,
-            int.class,
-            float.class,
-            long.class,
-            char[].class),
-        classes);
+        BeamStream.fieldsRecursively(new MyTestedExtractedClass()).collect(Collectors.toSet());
+    assertTrue(
+        classes.containsAll(
+            Arrays.asList(
+                ParentClass.class,
+                MyTestedExtractedClass.class,
+                MyTestedExtractedClass.NestedStaticClass.class,
+                MyTestedExtractedClass.NestedNonStaticClass.class,
+                Long.class,
+                String.class,
+                Float.class,
+                Integer.class,
+                Number.class,
+                List.class,
+                ArrayList.class)));
   }
 }

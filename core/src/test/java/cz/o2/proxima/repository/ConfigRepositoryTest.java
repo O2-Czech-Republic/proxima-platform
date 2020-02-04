@@ -399,7 +399,7 @@ public class ConfigRepositoryTest {
       fail("Should have thrown exception");
     } catch (IllegalArgumentException ex) {
       assertEquals(
-          "Entity [entity-with-dashes] contains invalid characters. Valid are a-zA-Z0-9_ and entity cannot start with number.",
+          "Entity [entity-with-dashes] contains invalid characters. Valid are patterns [a-zA-Z_][a-zA-Z0-9_]*.",
           ex.getCause().getMessage());
     }
   }

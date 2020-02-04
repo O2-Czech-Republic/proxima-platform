@@ -115,7 +115,7 @@ public class ModelGenerator {
     final Configuration conf = getConf();
 
     final Repository repo =
-        ConfigRepository.Builder.of(config)
+        ConfigRepository.Builder.of(() -> config)
             .withReadOnly(true)
             .withValidate(false)
             .withLoadFamilies(false)
@@ -194,7 +194,9 @@ public class ModelGenerator {
                   attrMap.put("wildcard", attr.isWildcard());
                   attrMap.put("nameRaw", attr.getName());
                   attrMap.put("name", nameModified);
-                  attrMap.put("nameCamel", CamelCase.apply(nameModified));
+                  attrMap.put(
+                      "nameCamel",
+                      CamelCase.apply(nameModified, CamelCase.Characters.SPACE_DASH_AND_UNDERSCORE));
                   attrMap.put("nameUpper", nameModified.toUpperCase());
                   attrMap.put("type", serializerFactory.getClassName(attr.getSchemeUri()));
                   return attrMap;

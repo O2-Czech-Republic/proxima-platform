@@ -82,6 +82,9 @@ public class ConfigRepository extends Repository {
   private static final String FILTER = "filter";
 
   private static final Pattern ENTITY_NAME_PATTERN = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
+  private static final Pattern ATTRIBUTE_NAME_PATTERN =
+      Pattern.compile("[a-zA-Z_][a-zA-Z0-9_\\-$]*(\\.\\*)?");
+
   /**
    * Construct default repository from the config.
    *
@@ -351,11 +354,21 @@ public class ConfigRepository extends Repository {
 
   @VisibleForTesting
   static String validateEntityName(String name) {
+    return validateName(ENTITY_NAME_PATTERN, "Entity", name);
+  }
 
+  private static String validateAttributeName(String entity, String attr) {
+    return validateName(
+        ATTRIBUTE_NAME_PATTERN, String.format("Entity %s's attribute", entity), attr);
+  }
+
+  private static String validateName(Pattern pattern, String what, String name) {
     Preconditions.checkArgument(
-        ENTITY_NAME_PATTERN.matcher(name).matches(),
-        "Entity [%s] contains invalid characters. Valid are a-zA-Z0-9_ and entity cannot start with number.",
-        name);
+        pattern.matcher(name).matches(),
+        "%s [%s] contains invalid characters. Valid are patterns %s.",
+        what,
+        name,
+        pattern.pattern());
     return name;
   }
 
@@ -619,6 +632,7 @@ public class ConfigRepository extends Repository {
     // first regular attributes
     entityAttrs.forEach(
         (key, value) -> {
+          key = validateAttributeName(entityName, key);
           Map<String, Object> settings =
               toMap(ENTITIES + "." + entityName + "." + ATTRIBUTES + "." + key, value);
           if (settings.get(SCHEME) != null) {
@@ -629,6 +643,7 @@ public class ConfigRepository extends Repository {
     // next proxies
     entityAttrs.forEach(
         (key, value) -> {
+          key = validateAttributeName(entityName, key);
           Map<String, Object> settings =
               toMap(ENTITIES + "." + entityName + "." + ATTRIBUTES + "." + key, value);
           if (settings.get(PROXY) != null) {

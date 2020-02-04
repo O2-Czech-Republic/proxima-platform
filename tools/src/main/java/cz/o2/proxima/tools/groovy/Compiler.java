@@ -97,7 +97,7 @@ public class Compiler {
             .resolve();
 
     Repository repo =
-        ConfigRepository.Builder.of(config)
+        ConfigRepository.Builder.of(() -> config)
             .withReadOnly(true)
             .withValidate(false)
             .withLoadFamilies(true)

@@ -26,11 +26,17 @@ public class CamelCaseTest {
   public void testCamelCaseWithFirstLower() {
     String input = "gateway-replication_test-123";
     assertEquals("gatewayReplication_test123", CamelCase.apply(input, false));
+    assertEquals(
+        "gatewayReplicationTest123",
+        CamelCase.apply(input, false, CamelCase.Characters.SPACE_DASH_AND_UNDERSCORE));
   }
 
   @Test
   public void testCamelCaseWithFirstUpper() {
     String input = "gateway-replication_test-123";
     assertEquals("GatewayReplication_test123", CamelCase.apply(input));
+    assertEquals(
+        "GatewayReplicationTest123",
+        CamelCase.apply(input, true, CamelCase.Characters.SPACE_DASH_AND_UNDERSCORE));
   }
 }

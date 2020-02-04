@@ -220,7 +220,7 @@ public class CassandraDBAccessorTest {
 
   /** Test successful write. */
   @Test
-  public void testWriteSuccess() throws Exception {
+  public void testWriteSuccess() {
     entity = EntityDescriptor.newBuilder().setName("dummy").build();
 
     CassandraDBAccessor accessor =
@@ -238,7 +238,7 @@ public class CassandraDBAccessorTest {
 
   /** Test failed write. */
   @Test
-  public void testWriteFailed() throws Exception {
+  public void testWriteFailed() {
     CassandraDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(ThrowingTestCqlFactory.class));
@@ -254,7 +254,7 @@ public class CassandraDBAccessorTest {
 
   /** Test successful delete. */
   @Test
-  public void testDeleteSuccess() throws Exception {
+  public void testDeleteSuccess() {
     entity = EntityDescriptor.newBuilder().setName("dummy").build();
 
     CassandraDBAccessor accessor =
@@ -271,7 +271,7 @@ public class CassandraDBAccessorTest {
 
   /** Test failed delete. */
   @Test
-  public void testDeleteFailed() throws Exception {
+  public void testDeleteFailed() {
     CassandraDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(ThrowingTestCqlFactory.class));

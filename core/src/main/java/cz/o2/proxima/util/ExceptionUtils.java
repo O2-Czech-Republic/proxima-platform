@@ -28,13 +28,13 @@ public class ExceptionUtils {
    * @param <T> type parameter
    */
   @FunctionalInterface
-  public static interface ThrowingConsumer<T> extends Serializable {
+  public interface ThrowingConsumer<T> extends Serializable {
     void apply(T what) throws Exception;
   }
 
   /** Runnable throwing exception. */
   @FunctionalInterface
-  public static interface ThrowingRunnable extends Serializable {
+  public interface ThrowingRunnable extends Serializable {
     void run() throws Exception;
   }
 
@@ -44,7 +44,7 @@ public class ExceptionUtils {
    * @param <T> type parameter
    */
   @FunctionalInterface
-  public static interface ThrowingFactory<T> extends Serializable {
+  public interface ThrowingFactory<T> extends Serializable {
     T get() throws Exception;
   }
 
@@ -55,7 +55,7 @@ public class ExceptionUtils {
    * @param <OUT> output type parameter
    */
   @FunctionalInterface
-  public static interface ThrowingUnaryFunction<IN, OUT> extends Serializable {
+  public interface ThrowingUnaryFunction<IN, OUT> extends Serializable {
     OUT apply(IN what) throws Exception;
   }
 

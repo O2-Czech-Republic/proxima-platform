@@ -17,7 +17,7 @@ package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.tools.groovy.util.Closures;
 
-/** Test suite for {@link TimeWindowedStream}. */
+/** Test suite for {@link WindowedStream} with time window. */
 public abstract class TimeWindowedStreamTest extends AbstractWindowedStreamTest {
 
   protected TimeWindowedStreamTest(TestStreamProvider provider) {

@@ -177,7 +177,7 @@ public class HdfsBatchLogObservable implements BatchLogObservable {
                             + entityDesc.getName()));
     String uuid = file + ":" + number;
     if (value.hasValue()) {
-      return StreamElement.update(
+      return StreamElement.upsert(
           entityDesc, attributeDesc, uuid, rawKey, attribute, value.getStamp(), value.getValue());
     }
     return StreamElement.delete(

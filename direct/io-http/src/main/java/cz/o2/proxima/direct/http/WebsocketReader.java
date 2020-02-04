@@ -124,7 +124,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
           @Override
           public void onMessage(String m) {
             StreamElement elem =
-                StreamElement.update(
+                StreamElement.upsert(
                     getEntityDescriptor(),
                     attr,
                     UUID.randomUUID().toString(),

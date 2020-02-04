@@ -163,7 +163,7 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
 
     for (AttributeDescriptor<?> d : attrs) {
       if (qualifier.startsWith(d.toAttributePrefix())) {
-        return StreamElement.update(
+        return StreamElement.upsert(
             entity,
             d,
             new String(hp.getStartKey()) + "#" + cell.getSequenceId(),

@@ -38,7 +38,6 @@ import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
-import cz.o2.proxima.direct.randomaccess.RandomAccessReader.Listing;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.randomaccess.RawOffset;
 import cz.o2.proxima.direct.view.CachedView;
@@ -428,7 +427,7 @@ public class InMemStorage implements DataAccessorFactory {
                                     new IllegalArgumentException("Missing attribute " + attribute));
                     byte[] value = e.getValue().getSecond();
                     StreamElement element =
-                        StreamElement.update(
+                        StreamElement.upsert(
                             getEntityDescriptor(),
                             desc,
                             UUID.randomUUID().toString(),
@@ -662,7 +661,7 @@ public class InMemStorage implements DataAccessorFactory {
                               .map(
                                   desc ->
                                       observer.onNext(
-                                          StreamElement.update(
+                                          StreamElement.upsert(
                                               getEntityDescriptor(),
                                               desc,
                                               UUID.randomUUID().toString(),
@@ -920,7 +919,7 @@ public class InMemStorage implements DataAccessorFactory {
   private static StreamElement cloneAndUpdateAttribute(
       EntityDescriptor entity, StreamElement elem) {
 
-    return StreamElement.update(
+    return StreamElement.upsert(
         entity,
         getAttributeOfEntity(entity, elem),
         elem.getUuid(),

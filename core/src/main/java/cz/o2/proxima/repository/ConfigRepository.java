@@ -1454,7 +1454,7 @@ public class ConfigRepository extends Repository {
                         input.getStamp()));
           } else {
             collector.collect(
-                StreamElement.update(
+                StreamElement.upsert(
                     input.getEntityDescriptor(),
                     desc,
                     input.getUuid(),

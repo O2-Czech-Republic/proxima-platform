@@ -73,7 +73,7 @@ public class OpenTsdbConnectionFactoryTest {
   public void testOpenConnection() throws IOException, URISyntaxException {
     factory.openConnection(
         new URI("opentsdb://test"),
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             metric,
             UUID.randomUUID().toString(),
@@ -94,7 +94,7 @@ public class OpenTsdbConnectionFactoryTest {
   public void testOpenConnection2() throws IOException, URISyntaxException {
     factory.openConnection(
         new URI("opentsdb://test"),
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             metric,
             UUID.randomUUID().toString(),
@@ -110,7 +110,7 @@ public class OpenTsdbConnectionFactoryTest {
     payload.reset();
     factory.openConnection(
         new URI("opentsdb://test"),
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             metric,
             UUID.randomUUID().toString(),
@@ -131,7 +131,7 @@ public class OpenTsdbConnectionFactoryTest {
   public void testOpenConnectionDifferentBases() throws IOException, URISyntaxException {
     factory.openConnection(
         new URI("opentsdb://test"),
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             metric,
             UUID.randomUUID().toString(),
@@ -147,7 +147,7 @@ public class OpenTsdbConnectionFactoryTest {
     payload.reset();
     factory.openConnection(
         new URI("opentsdb://test2"),
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             metric,
             UUID.randomUUID().toString(),

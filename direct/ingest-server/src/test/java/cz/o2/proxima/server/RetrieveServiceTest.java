@@ -124,7 +124,7 @@ public class RetrieveServiceTest {
         .getWriter(attribute)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attribute,
                 UUID.randomUUID().toString(),
@@ -221,7 +221,7 @@ public class RetrieveServiceTest {
         .getWriter(attribute)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attribute,
                 UUID.randomUUID().toString(),
@@ -235,7 +235,7 @@ public class RetrieveServiceTest {
         .getWriter(attribute)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attribute,
                 UUID.randomUUID().toString(),
@@ -297,7 +297,7 @@ public class RetrieveServiceTest {
         .getWriter(attribute)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attribute,
                 UUID.randomUUID().toString(),
@@ -311,7 +311,7 @@ public class RetrieveServiceTest {
         .getWriter(attribute)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attribute,
                 UUID.randomUUID().toString(),
@@ -372,7 +372,7 @@ public class RetrieveServiceTest {
         .getWriter(attribute)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attribute,
                 UUID.randomUUID().toString(),
@@ -386,7 +386,7 @@ public class RetrieveServiceTest {
         .getWriter(attribute)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attribute,
                 UUID.randomUUID().toString(),
@@ -450,7 +450,7 @@ public class RetrieveServiceTest {
         .getWriter(attribute)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attribute,
                 UUID.randomUUID().toString(),

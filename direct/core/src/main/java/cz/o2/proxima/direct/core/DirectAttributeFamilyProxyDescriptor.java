@@ -596,7 +596,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
             data.getStamp());
       }
     }
-    return StreamElement.update(
+    return StreamElement.upsert(
         data.getEntityDescriptor(),
         target,
         data.getUuid(),

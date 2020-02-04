@@ -154,7 +154,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     KafkaConsumer<Object, Object> consumer = accessor.createConsumerFactory().create();
     CountDownLatch latch = new CountDownLatch(1);
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -195,7 +195,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     consumer = accessor.createConsumerFactory().create();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -209,7 +209,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -260,7 +260,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     long now = 1234567890000L;
     KafkaConsumer<Object, Object> consumer = accessor.createConsumerFactory().create();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity, attr, UUID.randomUUID().toString(), "key", attr.getName(), now, new byte[] {1}),
         (succ, exc) -> {});
     writer.write(
@@ -290,7 +290,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<Object, Object> consumer = accessor.createConsumerFactory().create();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -303,7 +303,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           assertNull(exc);
         });
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -346,7 +346,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     consumer = accessor.createConsumerFactory().create();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -364,7 +364,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(1, polled.partitions().size());
 
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -394,7 +394,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         };
     final CountDownLatch latch = new CountDownLatch(1);
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -435,7 +435,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final CountDownLatch latch = new CountDownLatch(2);
 
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -449,7 +449,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -488,7 +488,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final LocalKafkaWriter writer = accessor.newWriter();
     final CountDownLatch latch = new CountDownLatch(2);
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -502,7 +502,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -529,7 +529,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final LocalKafkaWriter writer = accessor.newWriter();
     final CountDownLatch latch = new CountDownLatch(2);
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -543,7 +543,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           latch.countDown();
         });
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -573,7 +573,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final KafkaConsumer<Object, Object> c1 = accessor.createConsumerFactory().create(name);
 
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -588,7 +588,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(1, poll.count());
 
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -614,7 +614,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     KafkaConsumer<Object, Object> c2 = accessor.createConsumerFactory().create(name);
 
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -641,7 +641,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<Object, Object> c1 = accessor.createConsumerFactory().create(name);
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -656,7 +656,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(1, poll.count());
 
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -681,7 +681,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     KafkaConsumer<Object, Object> c2 = accessor.createConsumerFactory().create(name);
 
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -712,7 +712,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     final CountDownLatch latch = new CountDownLatch(2);
     final StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -781,7 +781,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     long now = System.currentTimeMillis();
     final UnaryFunction<Integer, StreamElement> update =
         pos ->
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -843,7 +843,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     long now = System.currentTimeMillis();
     final StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1091,7 +1091,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     long now = System.currentTimeMillis();
     for (int i = 0; i < 100; i++) {
       StreamElement update =
-          StreamElement.update(
+          StreamElement.upsert(
               entity,
               attr,
               UUID.randomUUID().toString(),
@@ -1221,7 +1221,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
 
     final StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1257,7 +1257,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final AtomicReference<Throwable> exc = new AtomicReference<>();
     final CountDownLatch latch = new CountDownLatch(2);
     final StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1317,7 +1317,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final AtomicReference<Throwable> exc = new AtomicReference<>();
     final CountDownLatch latch = new CountDownLatch(2);
     final StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1375,7 +1375,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     CountDownLatch latch = new CountDownLatch(1);
     AtomicInteger restarts = new AtomicInteger();
     StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1438,7 +1438,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final AtomicReference<StreamElement> input = new AtomicReference<>();
     final CountDownLatch latch = new CountDownLatch(2);
     final StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1509,7 +1509,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     AtomicInteger consumed = new AtomicInteger();
     StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1572,7 +1572,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     AtomicReference<StreamElement> input = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(2);
     StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1644,7 +1644,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final List<KafkaStreamElement> input = new ArrayList<>();
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(3));
     final StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1727,7 +1727,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             .orElseThrow(() -> new IllegalStateException("Missing cached view"));
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
     StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1748,7 +1748,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         IntStream.range(0, 3).mapToObj(i -> (Partition) () -> i).collect(Collectors.toList()));
     assertArrayEquals(new byte[] {1, 2}, view.get("key", attr).get().getValue());
     update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1780,7 +1780,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(2));
     final List<StreamElement> updates =
         Arrays.asList(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -1788,7 +1788,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 attr.getName(),
                 System.currentTimeMillis(),
                 new byte[] {1, 2}),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -1811,7 +1811,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertFalse(view.get("key2", attr).isPresent());
     assertTrue(view.get("key1", attr).isPresent());
     StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -1844,7 +1844,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             .orElseThrow(() -> new IllegalStateException("Missing cached view"));
     List<StreamElement> updates =
         Arrays.asList(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -1852,7 +1852,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 attr.getName(),
                 System.currentTimeMillis(),
                 new byte[] {1, 2}),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -1890,7 +1890,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     long now = System.currentTimeMillis();
     List<StreamElement> updates =
         Arrays.asList(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -1928,7 +1928,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
     Stream.of(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -1936,7 +1936,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 "wildcard.1",
                 now - 1000,
                 new byte[] {1, 2}),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -1946,7 +1946,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 new byte[] {1, 2}),
             StreamElement.deleteWildcard(
                 entity, attrWildcard, UUID.randomUUID().toString(), "key1", now),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -1954,7 +1954,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 "wildcard.1",
                 now + 500,
                 new byte[] {2, 3}),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -1999,7 +1999,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
     Stream.of(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -2007,7 +2007,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 attr.getName(),
                 now - 1000,
                 new byte[] {1, 2}),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -2017,7 +2017,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 new byte[] {1, 2}),
             StreamElement.deleteWildcard(
                 entity, attrWildcard, UUID.randomUUID().toString(), "key1", now - 500),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -2025,7 +2025,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 "wildcard.2",
                 now,
                 new byte[] {1, 2}),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -2064,7 +2064,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
     Stream.of(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -2072,7 +2072,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 attr.getName(),
                 now - 2000,
                 new byte[] {0}),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -2082,7 +2082,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 new byte[] {1, 2}),
             StreamElement.deleteWildcard(
                 entity, attrWildcard, UUID.randomUUID().toString(), "key1", now - 500),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -2090,7 +2090,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 "wildcard.2",
                 now,
                 new byte[] {1, 2}),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -2128,7 +2128,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             .orElseThrow(() -> new IllegalStateException("Missing cached view"));
     List<StreamElement> updates =
         Arrays.asList(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -2136,7 +2136,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 attr.getName(),
                 System.currentTimeMillis(),
                 new byte[] {1, 2}),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -2173,7 +2173,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     long now = System.currentTimeMillis();
     List<StreamElement> updates =
         Arrays.asList(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -2183,7 +2183,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 new byte[] {1, 2}),
             StreamElement.deleteWildcard(
                 entity, attrWildcard, UUID.randomUUID().toString(), "key1", now + 1000L),
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attrWildcard,
                 UUID.randomUUID().toString(),
@@ -2220,7 +2220,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     List<StreamElement> updates =
         Arrays.asList(
             // store first value
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -2229,7 +2229,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 now,
                 new byte[] {1, 2}),
             // update the value at the same stamp
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -2251,7 +2251,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         IntStream.range(0, 3).mapToObj(i -> (Partition) () -> i).collect(Collectors.toList()));
     assertArrayEquals(new byte[] {2, 3}, view.get("key1", attr).get().getValue());
     view.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),
@@ -2299,7 +2299,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     KafkaConsumer<Object, Object> consumer = accessor.createConsumerFactory().create();
     CountDownLatch latch = new CountDownLatch(1);
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             strAttr,
             UUID.randomUUID().toString(),
@@ -2368,7 +2368,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     reader.observe("dummy", Position.OLDEST, observer);
     for (int i = 0; i < 2; i++) {
       writer.write(
-          StreamElement.update(
+          StreamElement.upsert(
               entity,
               attr,
               UUID.randomUUID().toString(),
@@ -2446,7 +2446,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     @Nullable
     @Override
     public StreamElement read(ConsumerRecord<String, String> record, EntityDescriptor entityDesc) {
-      return StreamElement.update(
+      return StreamElement.upsert(
           entityDesc,
           attrDesc,
           attrDesc.getName(),

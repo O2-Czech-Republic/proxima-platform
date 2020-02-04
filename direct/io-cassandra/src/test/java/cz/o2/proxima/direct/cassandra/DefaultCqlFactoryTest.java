@@ -153,7 +153,7 @@ public class DefaultCqlFactoryTest {
   public void testIngest() {
     long now = System.currentTimeMillis();
     StreamElement ingest =
-        StreamElement.update(entity, attr, "", "key", "myAttribute", now, "value".getBytes());
+        StreamElement.upsert(entity, attr, "", "key", "myAttribute", now, "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
@@ -175,7 +175,7 @@ public class DefaultCqlFactoryTest {
         new URI("cassandra://wherever/my_table?data=my_col&primary=hgw&ttl=86400"),
         StringConverter.getDefault());
     StreamElement ingest =
-        StreamElement.update(entity, attr, "", "key", "myAttribute", now, "value".getBytes());
+        StreamElement.upsert(entity, attr, "", "key", "myAttribute", now, "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", ByteBuffer.wrap("value".getBytes()), now * 1000L)).thenReturn(bound);
     when(session.prepare((String) any())).thenReturn(statement);
@@ -195,7 +195,7 @@ public class DefaultCqlFactoryTest {
   public void testIngestWildcard() {
     long now = System.currentTimeMillis();
     StreamElement ingest =
-        StreamElement.update(entity, attrWildcard, "", "key", "device.1", now, "value".getBytes());
+        StreamElement.upsert(entity, attrWildcard, "", "key", "device.1", now, "value".getBytes());
     BoundStatement bound = mock(BoundStatement.class);
     when(statement.bind("key", "1", ByteBuffer.wrap("value".getBytes()), now * 1000L))
         .thenReturn(bound);

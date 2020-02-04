@@ -200,7 +200,7 @@ public class ${java_classname} implements Serializable {
     Repository repo = this.factory.apply();
     this.cfg = ((ConfigRepository) repo).getConfig();
 <#list operators as operator>
-  ${operator.name} = new ${operator.classname}();
+    ${operator.name} = new ${operator.classname}();
 </#list>
 <#list entities as entity>
     ${entity.name} = new ${entity.classname}();

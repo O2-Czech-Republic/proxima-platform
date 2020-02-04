@@ -40,7 +40,7 @@ public class EventToDummy2 implements Transformation {
   @Override
   public int apply(StreamElement input, Collector<StreamElement> collector) {
     collector.collect(
-        StreamElement.update(
+        StreamElement.upsert(
             dummy2,
             event,
             input.getUuid(),

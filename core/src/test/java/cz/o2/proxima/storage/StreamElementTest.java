@@ -21,6 +21,7 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.TestUtils;
 import java.util.UUID;
 import org.junit.Test;
 
@@ -47,7 +48,7 @@ public class StreamElementTest {
   public void testUpdateCreation() {
     long now = System.currentTimeMillis();
     StreamElement element =
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             armed,
             UUID.randomUUID().toString(),
@@ -64,13 +65,14 @@ public class StreamElementTest {
     assertNotNull(element.dump());
     assertFalse(element.isDelete());
     assertFalse(element.isDeleteWildcard());
+    assertTrue(element.toString().length() > 0);
   }
 
   @Test
   public void testWildcardUpdateCreation() {
     long now = System.currentTimeMillis();
     StreamElement element =
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             device,
             UUID.randomUUID().toString(),
@@ -142,5 +144,19 @@ public class StreamElementTest {
     assertNotNull(element.dump());
     assertTrue(element.isDelete());
     assertTrue(element.isDeleteWildcard());
+  }
+
+  @Test
+  public void testHashCodeAndEquals() {
+    long now = System.currentTimeMillis();
+    String uuid = UUID.randomUUID().toString();
+    StreamElement element1 =
+        StreamElement.upsert(gateway, armed, uuid, "key", armed.getName(), now, new byte[] {1, 2});
+    StreamElement element2 =
+        StreamElement.upsert(gateway, armed, uuid, "key", armed.getName(), now, new byte[] {1, 2});
+    StreamElement element3 =
+        StreamElement.update(gateway, armed, uuid, "key", armed.getName(), now, new byte[] {1, 2});
+    TestUtils.assertHashCodeAndEquals(element1, element2);
+    TestUtils.assertHashCodeAndEquals(element1, element3);
   }
 }

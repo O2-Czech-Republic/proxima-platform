@@ -52,7 +52,7 @@ public class EventDataToUserHistory implements Transformation {
       Optional<Event.BaseEvent> data = input.getParsed();
       if (data.isPresent()) {
         collector.collect(
-            StreamElement.update(
+            StreamElement.upsert(
                 user,
                 event,
                 input.getUuid(),

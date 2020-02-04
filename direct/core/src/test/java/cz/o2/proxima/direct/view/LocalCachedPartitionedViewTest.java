@@ -224,7 +224,7 @@ public class LocalCachedPartitionedViewTest {
   private StreamElement update(
       String key, String attribute, AttributeDescriptor<?> desc, long stamp) {
 
-    return StreamElement.update(
+    return StreamElement.upsert(
         gateway, desc, UUID.randomUUID().toString(), key, attribute, stamp, new byte[] {1, 2, 3});
   }
 

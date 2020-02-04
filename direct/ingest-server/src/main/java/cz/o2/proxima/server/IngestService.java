@@ -348,7 +348,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
           : StreamElement.delete(
               entity, attr, request.getUuid(), request.getKey(), request.getAttribute(), stamp);
     }
-    return StreamElement.update(
+    return StreamElement.upsert(
         entity,
         attr,
         request.getUuid(),

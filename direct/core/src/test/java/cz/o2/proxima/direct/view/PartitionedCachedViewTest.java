@@ -98,7 +98,7 @@ public class PartitionedCachedViewTest {
         });
     latch.set(new CountDownLatch(2));
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             status,
             "uuid",
@@ -150,7 +150,7 @@ public class PartitionedCachedViewTest {
         });
     latch.set(new CountDownLatch(4));
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             status,
             "uuid",
@@ -164,7 +164,7 @@ public class PartitionedCachedViewTest {
           latch.get().countDown();
         });
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             device,
             "uuid2",

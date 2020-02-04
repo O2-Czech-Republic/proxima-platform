@@ -177,7 +177,7 @@ public class ReplicationControllerTest {
   }
 
   private StreamElement getUpdate(EntityDescriptor entity, AttributeDescriptor<?> attr) {
-    return StreamElement.update(
+    return StreamElement.upsert(
         entity,
         attr,
         UUID.randomUUID().toString(),

@@ -101,7 +101,7 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
     if (attr != null) {
       ProxyTransform transform = attr.getReadTransform();
       String attribute = transform.toProxy(input.getAttribute());
-      return StreamElement.update(
+      return StreamElement.upsert(
           input.getEntityDescriptor(),
           attr,
           input.getUuid(),

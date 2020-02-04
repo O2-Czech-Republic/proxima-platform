@@ -74,7 +74,7 @@ public class PubSubDataAccessor implements DataAccessor {
                   entity, attribute.get(), uuid, parsed.getKey(), parsed.getAttribute(), stamp));
         }
         return Optional.of(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attribute.get(),
                 uuid,

@@ -347,7 +347,7 @@ public class Console {
       CountDownLatch latch = new CountDownLatch(1);
       AtomicReference<Throwable> exc = new AtomicReference<>();
       writer.write(
-          StreamElement.update(
+          StreamElement.upsert(
               entityDesc, attrDesc, UUID.randomUUID().toString(), key, attribute, stamp, payload),
           (success, ex) -> {
             if (!success) {
@@ -392,7 +392,7 @@ public class Console {
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Throwable> exc = new AtomicReference<>();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entityDesc, attrDesc, UUID.randomUUID().toString(), key, attribute, stamp, null),
         (success, ex) -> {
           if (!success) {

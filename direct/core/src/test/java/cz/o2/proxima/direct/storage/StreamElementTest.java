@@ -67,7 +67,7 @@ public class StreamElementTest {
   public void testUpdate() {
     long now = System.currentTimeMillis();
     StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),

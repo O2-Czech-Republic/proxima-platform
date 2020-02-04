@@ -142,10 +142,10 @@ public class BulkGCloudStorageWriterTest {
     latch.set(new CountDownLatch(2));
     long now = 1500000000000L;
     StreamElement first =
-        StreamElement.update(
+        StreamElement.upsert(
             entity, attr, UUID.randomUUID().toString(), "key", "attr", now, new byte[] {1, 2});
     StreamElement second =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             wildcard,
             UUID.randomUUID().toString(),
@@ -179,10 +179,10 @@ public class BulkGCloudStorageWriterTest {
     latch.set(new CountDownLatch(2));
     long now = 1500000000000L;
     StreamElement first =
-        StreamElement.update(
+        StreamElement.upsert(
             entity, attr, UUID.randomUUID().toString(), "key", "attr", now, new byte[] {1, 2});
     StreamElement second =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             wildcard,
             UUID.randomUUID().toString(),
@@ -216,9 +216,9 @@ public class BulkGCloudStorageWriterTest {
     latch.set(new CountDownLatch(2));
     long now = 1500000000000L;
     StreamElement[] elements = {
-      StreamElement.update(
+      StreamElement.upsert(
           entity, attr, UUID.randomUUID().toString(), "key", "attr", now + 200, new byte[] {1}),
-      StreamElement.update(
+      StreamElement.upsert(
           entity,
           wildcard,
           UUID.randomUUID().toString(),
@@ -226,7 +226,7 @@ public class BulkGCloudStorageWriterTest {
           "wildcard.1",
           now,
           new byte[] {1, 2}),
-      StreamElement.update(
+      StreamElement.upsert(
           entity,
           wildcard,
           UUID.randomUUID().toString(),
@@ -234,7 +234,7 @@ public class BulkGCloudStorageWriterTest {
           "wildcard.1",
           now + 999,
           new byte[] {1, 2, 3}),
-      StreamElement.update(
+      StreamElement.upsert(
           entity,
           wildcard,
           UUID.randomUUID().toString(),
@@ -242,7 +242,7 @@ public class BulkGCloudStorageWriterTest {
           "wildcard.1",
           now + 500,
           new byte[] {1, 2, 3, 4}),
-      StreamElement.update(
+      StreamElement.upsert(
           entity,
           wildcard,
           UUID.randomUUID().toString(),
@@ -275,9 +275,9 @@ public class BulkGCloudStorageWriterTest {
     latch.set(new CountDownLatch(3));
     long now = 1500000000000L;
     StreamElement[] elements = {
-      StreamElement.update(
+      StreamElement.upsert(
           entity, attr, UUID.randomUUID().toString(), "key", "attr", now + 200, new byte[] {1}),
-      StreamElement.update(
+      StreamElement.upsert(
           entity,
           wildcard,
           UUID.randomUUID().toString(),
@@ -285,7 +285,7 @@ public class BulkGCloudStorageWriterTest {
           "wildcard.1",
           now,
           new byte[] {1, 2}),
-      StreamElement.update(
+      StreamElement.upsert(
           entity,
           wildcard,
           UUID.randomUUID().toString(),
@@ -293,7 +293,7 @@ public class BulkGCloudStorageWriterTest {
           "wildcard.1",
           now + 1000,
           new byte[] {1, 2, 3}),
-      StreamElement.update(
+      StreamElement.upsert(
           entity,
           wildcard,
           UUID.randomUUID().toString(),
@@ -301,7 +301,7 @@ public class BulkGCloudStorageWriterTest {
           "wildcard.1",
           now + 500,
           new byte[] {1, 2, 3, 4}),
-      StreamElement.update(
+      StreamElement.upsert(
           entity,
           wildcard,
           UUID.randomUUID().toString(),
@@ -341,9 +341,9 @@ public class BulkGCloudStorageWriterTest {
     latch.set(new CountDownLatch(2));
     long now = 1500000000000L;
     StreamElement[] elements = {
-      StreamElement.update(
+      StreamElement.upsert(
           entity, attr, UUID.randomUUID().toString(), "key", "attr", now + 200, new byte[] {1}),
-      StreamElement.update(
+      StreamElement.upsert(
           entity,
           wildcard,
           UUID.randomUUID().toString(),

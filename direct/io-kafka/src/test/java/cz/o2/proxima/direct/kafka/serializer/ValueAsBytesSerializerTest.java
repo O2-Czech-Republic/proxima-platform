@@ -62,7 +62,7 @@ public class ValueAsBytesSerializerTest {
   public void testWriteFails() {
     ValueAsBytesSerializer serializer = new ValueAsBytesSerializer("data");
     serializer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             event,
             event.getAttribute("data"),
             UUID.randomUUID().toString(),

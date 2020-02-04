@@ -136,11 +136,6 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
   }
 
   @Override
-  public void verifyDeterministic() throws NonDeterministicException {
-    // deterministic
-  }
-
-  @Override
   public TypeDescriptor<StreamElement> getEncodedTypeDescriptor() {
     return TypeDescriptor.of(StreamElement.class);
   }

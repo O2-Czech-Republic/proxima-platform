@@ -20,6 +20,8 @@ import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Streams;
 import cz.o2.proxima.beam.core.BeamDataOperator;
+import cz.o2.proxima.beam.core.io.AttributeDescriptorCoder;
+import cz.o2.proxima.beam.core.io.EntityDescriptorCoder;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -147,7 +149,13 @@ class BeamStream<T> implements Stream<T> {
   static <T, S extends BeamStream<T>> S withRegisteredTypes(Repository repo, S in) {
 
     return in.addRegistrar(
-        r -> r.registerCoderForClass(StreamElement.class, StreamElementCoder.of(repo)));
+            r -> r.registerCoderForClass(StreamElement.class, StreamElementCoder.of(repo)))
+        .addRegistrar(
+            r -> r.registerCoderForClass(EntityDescriptor.class, EntityDescriptorCoder.of(repo)))
+        .addRegistrar(
+            r ->
+                r.registerCoderForClass(
+                    AttributeDescriptor.class, AttributeDescriptorCoder.of(repo)));
   }
 
   @SafeVarargs

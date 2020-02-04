@@ -66,7 +66,6 @@ import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.sdk.values.WindowingStrategy;
-import org.apache.beam.vendor.grpc.v1p21p0.com.google.common.collect.Sets;
 import org.joda.time.Instant;
 import org.junit.Test;
 import org.junit.runner.RunWith;

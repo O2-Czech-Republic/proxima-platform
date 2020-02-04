@@ -196,7 +196,8 @@ public class ModelGenerator {
                   attrMap.put("name", nameModified);
                   attrMap.put(
                       "nameCamel",
-                      CamelCase.apply(nameModified, CamelCase.Characters.SPACE_DASH_AND_UNDERSCORE));
+                      CamelCase.apply(
+                          nameModified, CamelCase.Characters.SPACE_DASH_AND_UNDERSCORE));
                   attrMap.put("nameUpper", nameModified.toUpperCase());
                   attrMap.put("type", serializerFactory.getClassName(attr.getSchemeUri()));
                   return attrMap;

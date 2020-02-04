@@ -21,8 +21,9 @@ import java.io.Serializable;
 @FunctionalInterface
 public interface RepositoryFactory extends Serializable {
 
-  public static class Caching implements RepositoryFactory {
+  class Caching implements RepositoryFactory {
 
+    private static byte initialized = 0;
     private static Repository repo;
 
     private final RepositoryFactory underlying;
@@ -33,18 +34,26 @@ public interface RepositoryFactory extends Serializable {
 
     @Override
     public Repository apply() {
-      if (repo == null) {
-        repo = underlying.apply();
+      if (initialized == 0) {
+        synchronized (Repository.class) {
+          if (initialized == 0) {
+            repo = underlying.apply();
+            initialized = 1;
+          }
+        }
       }
       return repo;
     }
 
     void drop() {
-      repo = null;
+      synchronized (Repository.class) {
+        repo = null;
+        initialized = 0;
+      }
     }
   }
 
-  public static RepositoryFactory caching(RepositoryFactory factory) {
+  static RepositoryFactory caching(RepositoryFactory factory) {
     return new Caching(factory);
   }
 

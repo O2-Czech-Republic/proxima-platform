@@ -15,8 +15,22 @@
  */
 package cz.o2.proxima.util;
 
+import com.google.common.collect.Sets;
+import java.util.Set;
+
 /** Transform string to camel case. */
 public class CamelCase {
+
+  public enum Characters {
+    SPACE_AND_DASH(Sets.newHashSet(' ', '-')),
+    SPACE_DASH_AND_UNDERSCORE(Sets.newHashSet(' ', '-', '_'));
+
+    private final Set<Character> set;
+
+    Characters(Set<Character> set) {
+      this.set = set;
+    }
+  }
 
   /**
    * Convert given string to camelCase with first letter upper case.
@@ -25,7 +39,18 @@ public class CamelCase {
    * @return the converted string
    */
   public static String apply(String what) {
-    return CamelCase.apply(what, true);
+    return CamelCase.apply(what, true, Characters.SPACE_AND_DASH);
+  }
+
+  /**
+   * Convert given string to camelCase with first letter upper case.
+   *
+   * @param what the string to convert
+   * @param camelSeparators chars that separate words in camel
+   * @return the converted string
+   */
+  public static String apply(String what, Characters camelSeparators) {
+    return CamelCase.apply(what, true, camelSeparators);
   }
 
   /**
@@ -37,13 +62,26 @@ public class CamelCase {
    * @return the converted string
    */
   public static String apply(String what, boolean startWithCapital) {
+    return apply(what, startWithCapital, Characters.SPACE_AND_DASH);
+  }
+
+  /**
+   * Convert given string to camelCase.
+   *
+   * @param what the string to convert
+   * @param startWithCapital should the returned string start with upper (true) or lower case
+   *     (false)
+   * @param camelSeparators chars that separate words in camel
+   * @return the converted string
+   */
+  public static String apply(String what, boolean startWithCapital, Characters camelSeparators) {
     if (what.isEmpty()) {
       return what;
     }
     StringBuilder sb = new StringBuilder();
     boolean nextUpper = startWithCapital;
     for (char c : what.toCharArray()) {
-      if (c == '-' || c == ' ') {
+      if (camelSeparators.set.contains(c)) {
         nextUpper = true;
       } else if (nextUpper) {
         sb.append(Character.toUpperCase(c));

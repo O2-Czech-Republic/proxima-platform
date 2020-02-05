@@ -114,7 +114,13 @@ public class ConfigRepository extends Repository {
       return new Builder(config, false);
     }
 
-    /** @deprecated use {@link #of(ConfigFactory)} instead. */
+    /**
+     * Create new {@link Repository} from {@link Config}.
+     *
+     * @param config config to create {@link Repository from}
+     * @return new builder of Repository
+     * @deprecated use {@link #of(ConfigFactory)} instead.
+     */
     @Deprecated
     public static Builder of(Config config) {
       return new Builder(() -> config, false);
@@ -124,10 +130,16 @@ public class ConfigRepository extends Repository {
       return new Builder(factory, true);
     }
 
-    /** @deprecated use {@link #ofTest(ConfigFactory)} instead. */
+    /**
+     * Create new test instance of {@link Repository} from {@link Config}.
+     *
+     * @param config config to create {@link Repository} from
+     * @return new Builder of test Repository
+     * @deprecated use {@link #ofTest(ConfigFactory)} instead.
+     */
     @Deprecated
-    public static Builder ofTest(Config factory) {
-      return new Builder(() -> factory, true);
+    public static Builder ofTest(Config config) {
+      return new Builder(() -> config, true);
     }
 
     private final ConfigFactory factory;

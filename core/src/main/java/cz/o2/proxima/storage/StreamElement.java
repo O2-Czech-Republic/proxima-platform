@@ -44,8 +44,7 @@ public class StreamElement implements Serializable {
    * @param stamp timestamp of the event
    * @param value serialized value
    * @return {@link StreamElement} to be written to the system
-   * @deprecated use {@link ##upsert(EntityDescriptor, AttributeDescriptor, String, String, String,
-   *     long, byte[])}
+   * @deprecated use {@link StreamElement#upsert}
    */
   @Deprecated
   public static StreamElement update(

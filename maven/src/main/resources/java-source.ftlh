@@ -11,6 +11,9 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.DataOperator;
+import cz.o2.proxima.repository.EntityAwareAttributeDescriptor;
+import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
+import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
@@ -166,18 +169,18 @@ public class ${java_classname} implements Serializable {
 
   <#list entity.attributes as attribute>
     <#if attribute.wildcard>
-    @SuppressWarnings("unchecked")
-    private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor =
-      (AttributeDescriptor) descriptor.getAttribute("${attribute.name}.*");
-    <#else>
-    @SuppressWarnings("unchecked")
-    private final AttributeDescriptor<${attribute.type}> ${attribute.name}Descriptor =
-      (AttributeDescriptor) descriptor.getAttribute("${attribute.name}");
-    </#if> <#-- attribute.wildcard -->
-
-    public AttributeDescriptor<${attribute.type}> get${attribute.nameCamel}Descriptor() {
+    private final Wildcard<${attribute.type}> ${attribute.name}Descriptor =
+      EntityAwareAttributeDescriptor.wildcard(descriptor, descriptor.getAttribute("${attribute.name}.*"));
+    public Wildcard<${attribute.type}> get${attribute.nameCamel}Descriptor() {
       return ${attribute.name}Descriptor;
     }
+    <#else>
+    private final Regular<${attribute.type}> ${attribute.name}Descriptor =
+      EntityAwareAttributeDescriptor.regular(descriptor, descriptor.getAttribute("${attribute.name}"));
+    public Regular<${attribute.type}> get${attribute.nameCamel}Descriptor() {
+      return ${attribute.name}Descriptor;
+    }
+    </#if> <#-- attribute.wildcard -->
   </#list> <#-- entity.attributes as attribute -->
 
     private ${entity.classname}() { }

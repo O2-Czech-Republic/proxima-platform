@@ -91,7 +91,7 @@ public class HBaseWriterTest {
             cluster.getConfiguration(),
             Collections.emptyMap());
     failWriter.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity, attr, UUID.randomUUID().toString(), "entity", "dummy", now, new byte[] {1, 2}),
         ((success, error) -> {
           assertFalse(success);
@@ -103,7 +103,7 @@ public class HBaseWriterTest {
     CountDownLatch latch = new CountDownLatch(1);
     long now = 1500000000000L;
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity, attr, UUID.randomUUID().toString(), "entity", "dummy", now, new byte[] {1, 2}),
         (succ, exc) -> {
           assertTrue("Error on write: " + exc, succ);

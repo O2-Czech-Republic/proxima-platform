@@ -58,7 +58,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   public void testStreamFromOldestCollect() throws Exception {
     Script compiled = compile("env.gateway.armed.streamFromOldest().collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             armed,
             "uuid",
@@ -75,7 +75,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   public void testUnionFromOldestCollect() throws Exception {
     Script compiled = compile("env.unionStreamFromOldest(env.gateway.armed).collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             armed,
             "uuid",
@@ -92,7 +92,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   public void testBatchUpdatesCollect() throws Exception {
     Script compiled = compile("env.batch.data.batchUpdates().collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
     @SuppressWarnings("unchecked")
     List<StreamElement> result = (List) compiled.run();
@@ -103,7 +103,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   public void testBatchUpdatesCollectWildcard() throws Exception {
     Script compiled = compile("env.batch.wildcard.batchUpdates().collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid",
@@ -123,7 +123,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             "env.batch.wildcard.batchUpdates().collect()\n"
                 + "env.batch.wildcard.batchUpdates().collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid",
@@ -141,10 +141,10 @@ public abstract class GroovyEnvTest extends GroovyTest {
     Script compiled =
         compile("env.unionBatchUpdates(env.batch.data, env.batch.wildcard).collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid",
@@ -162,7 +162,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     Script compiled =
         compile("env.gateway.armed.streamFromOldest()" + ".reduceToLatest().collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             armed,
             "uuid",
@@ -184,7 +184,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + "env.gateway.armed.streamFromOldest().collect()");
 
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
 
     @SuppressWarnings("unchecked")
@@ -219,7 +219,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             "env.gateway.device.deleteAll(\"gw\", 1234567890000)\n"
                 + "env.gateway.device.streamFromOldest().reduceToLatest().collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             device,
             "uuid",
@@ -228,7 +228,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now - 1,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             device,
             "uuid",
@@ -249,7 +249,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             /* "env.gateway.device.deleteAll(\"gw\", 1234567890000)\n" */ ""
                 + "env.gateway.device.list(\"gw\")");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             device,
             "uuid",
@@ -258,7 +258,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now - 1,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             device,
             "uuid",
@@ -276,7 +276,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     Script compiled = compile("env.batch.data.batchUpdates().map({ \"\" }).collect()");
 
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
 
     @SuppressWarnings("unchecked")
@@ -290,7 +290,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
         compile("env.batch.data.batchUpdates().flatMap({ [it.key, it.attribute] }).collect()");
 
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
 
     @SuppressWarnings("unchecked")
@@ -302,7 +302,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
   public void testPrintln() throws Exception {
     Script compiled = compile("env.batch.data.batchUpdates().print()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
     compiled.run();
     // make sonar happy
@@ -317,7 +317,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + "{ it.key }, { w, el -> [[w.toString(), el.size()]] }).collect()");
 
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid1",
@@ -326,7 +326,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid2",
@@ -335,7 +335,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             data,
             "uuid3",
@@ -362,7 +362,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + ".collect()");
 
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid1",
@@ -371,7 +371,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid2",
@@ -380,7 +380,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             data,
             "uuid3",
@@ -406,7 +406,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + ".collect()");
 
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid1",
@@ -415,7 +415,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid2",
@@ -424,7 +424,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             data,
             "uuid3",
@@ -459,7 +459,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + ".collect()");
 
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid1",
@@ -468,7 +468,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid2",
@@ -477,7 +477,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             data,
             "uuid3",
@@ -523,7 +523,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     // reduceValueStateByKey
     long now = System.currentTimeMillis();
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid1",
@@ -532,7 +532,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid2",
@@ -541,7 +541,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now + 1,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid3",
@@ -550,7 +550,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now + 2,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             data,
             "uuid4",
@@ -559,7 +559,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now + 3,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             data,
             "uuid5",
@@ -603,7 +603,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     // reduceValueStateByKey
     long now = System.currentTimeMillis();
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid1",
@@ -612,7 +612,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid2",
@@ -621,7 +621,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now + 1,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid3",
@@ -630,7 +630,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now + 2,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             data,
             "uuid4",
@@ -639,7 +639,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now + 3,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             data,
             "uuid5",
@@ -677,7 +677,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
 
     long now = System.currentTimeMillis();
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid1",
@@ -687,7 +687,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             new byte[] {}));
 
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid2",
@@ -697,7 +697,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             new byte[] {}));
 
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid3",
@@ -723,7 +723,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             "env.batch.data.batchUpdates().count().union(env.batch.wildcard"
                 + ".batchUpdates().timeWindow(5000).count()).collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             data,
             "uuid1",
@@ -732,7 +732,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid2",
@@ -752,10 +752,10 @@ public abstract class GroovyEnvTest extends GroovyTest {
             "env.batch.data.batchUpdates().count().union(env.batch.wildcard"
                 + ".batchUpdates().count()).collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid",
@@ -776,7 +776,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + ".windowAll().integratePerKey({ \"\" }, { it }, { 0 }, {a, b -> a + b})"
                 + ".collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid",
@@ -785,7 +785,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid",
@@ -809,7 +809,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + ".map({ it.key })"
                 + ".distinct().count().collect()");
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid",
@@ -818,7 +818,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now + 1,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid",
@@ -827,7 +827,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now + 50,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid",
@@ -836,7 +836,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now + 700,
             new byte[] {}));
     write(
-        StreamElement.update(
+        StreamElement.upsert(
             batch,
             wildcard,
             "uuid",

@@ -500,7 +500,7 @@ class BeamStream<T> implements Stream<T> {
                             long stamp = in.getStamp();
                             byte[] value = in.getValue();
                             ctx.collect(
-                                StreamElement.update(
+                                StreamElement.upsert(
                                     entity,
                                     attr.get(),
                                     UUID.randomUUID().toString(),
@@ -550,7 +550,7 @@ class BeamStream<T> implements Stream<T> {
                       long timestamp = timeDehydrated.call(data);
                       byte[] value =
                           attrDesc.getValueSerializer().serialize(valueDehydrated.call(data));
-                      return StreamElement.update(
+                      return StreamElement.upsert(
                           entity,
                           attrDesc,
                           UUID.randomUUID().toString(),

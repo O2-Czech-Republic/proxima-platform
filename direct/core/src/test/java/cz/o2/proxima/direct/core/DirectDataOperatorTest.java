@@ -176,7 +176,7 @@ public class DirectDataOperatorTest {
         .getWriter(source)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 proxied,
                 source,
                 UUID.randomUUID().toString(),
@@ -219,7 +219,7 @@ public class DirectDataOperatorTest {
         .getWriter(source)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 proxied,
                 source,
                 UUID.randomUUID().toString(),
@@ -262,7 +262,7 @@ public class DirectDataOperatorTest {
         .getWriter(source)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 proxied,
                 source,
                 UUID.randomUUID().toString(),
@@ -278,7 +278,7 @@ public class DirectDataOperatorTest {
         .getWriter(source)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 proxied,
                 source,
                 UUID.randomUUID().toString(),
@@ -321,7 +321,7 @@ public class DirectDataOperatorTest {
         .getWriter(source)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 proxied,
                 source,
                 UUID.randomUUID().toString(),
@@ -337,7 +337,7 @@ public class DirectDataOperatorTest {
         .getWriter(source)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 proxied,
                 source,
                 UUID.randomUUID().toString(),
@@ -389,7 +389,7 @@ public class DirectDataOperatorTest {
     view.assign(Collections.singletonList(() -> 0));
     long now = System.currentTimeMillis();
     StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             proxied,
             source,
             UUID.randomUUID().toString(),
@@ -452,7 +452,7 @@ public class DirectDataOperatorTest {
         .getWriter(source)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 proxied,
                 source,
                 UUID.randomUUID().toString(),
@@ -469,7 +469,7 @@ public class DirectDataOperatorTest {
         .getWriter(source)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 proxied,
                 source,
                 UUID.randomUUID().toString(),
@@ -530,7 +530,7 @@ public class DirectDataOperatorTest {
         .getWriter(source)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 proxied,
                 source,
                 UUID.randomUUID().toString(),
@@ -546,7 +546,7 @@ public class DirectDataOperatorTest {
         .getWriter(source)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 proxied,
                 source,
                 UUID.randomUUID().toString(),
@@ -620,7 +620,7 @@ public class DirectDataOperatorTest {
         .getWriter(armed)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 armed,
                 "uuid",
@@ -781,7 +781,7 @@ public class DirectDataOperatorTest {
     assertTrue(direct.getWriter(armedWrite).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(armedWrite).get();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             armedWrite,
             "uuid",
@@ -844,7 +844,7 @@ public class DirectDataOperatorTest {
     assertTrue(direct.getWriter(armed).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(armed).get();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             armed,
             "uuid",
@@ -903,7 +903,7 @@ public class DirectDataOperatorTest {
     assertTrue(direct.getWriter(armed).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(armed).get();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             armed,
             "uuid",
@@ -958,7 +958,7 @@ public class DirectDataOperatorTest {
         });
     OnlineAttributeWriter writer = direct.getWriter(dataReplicated).get();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             dummy,
             dataReplicated,
             "uuid",
@@ -989,7 +989,7 @@ public class DirectDataOperatorTest {
     assertTrue(direct.getWriter(data).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(data).get();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             dummy,
             data,
             "uuid",
@@ -1031,7 +1031,7 @@ public class DirectDataOperatorTest {
     assertTrue(direct.getWriter(event).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             dummy,
             event,
             "uuid",
@@ -1086,7 +1086,7 @@ public class DirectDataOperatorTest {
     assertTrue(direct.getWriter(eventSource).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(eventSource).get();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             dummy,
             eventSource,
             "uuid",
@@ -1138,7 +1138,7 @@ public class DirectDataOperatorTest {
     assertTrue(direct.getWriter(event).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             dummy,
             event,
             "uuid",
@@ -1196,7 +1196,7 @@ public class DirectDataOperatorTest {
     OnlineAttributeWriter writer = direct.getWriter(data).get();
     long now = System.currentTimeMillis();
     writer.write(
-        StreamElement.update(dummy, data, "uuid", "gw", data.getName(), now, new byte[] {1, 2}),
+        StreamElement.upsert(dummy, data, "uuid", "gw", data.getName(), now, new byte[] {1, 2}),
         (succ, exc) -> {
           assertTrue(succ);
           latch.countDown();
@@ -1243,7 +1243,7 @@ public class DirectDataOperatorTest {
         .getWriter(wildcardFirst)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 first,
                 wildcardFirst,
                 "uuid",
@@ -1339,7 +1339,7 @@ public class DirectDataOperatorTest {
         });
     OnlineAttributeWriter writer = direct.getWriter(dataRead).get();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             dummy,
             data,
             "uuid",
@@ -1554,7 +1554,7 @@ public class DirectDataOperatorTest {
     assertTrue(direct.getWriter(statusRead).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(statusRead).get();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway,
             status,
             "uuid",
@@ -1595,7 +1595,7 @@ public class DirectDataOperatorTest {
     assertTrue(direct.getWriter(event).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             dummy,
             event,
             "uuid",
@@ -1640,7 +1640,7 @@ public class DirectDataOperatorTest {
         .get()
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 dummy,
                 event,
                 "uuid",
@@ -1723,7 +1723,7 @@ public class DirectDataOperatorTest {
     assertEquals(
         1,
         transform.apply(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 inputDesc,
                 UUID.randomUUID().toString(),

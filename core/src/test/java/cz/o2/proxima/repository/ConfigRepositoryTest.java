@@ -450,7 +450,7 @@ public class ConfigRepositoryTest {
     assertEquals(
         1,
         transform.apply(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 inputDesc,
                 UUID.randomUUID().toString(),

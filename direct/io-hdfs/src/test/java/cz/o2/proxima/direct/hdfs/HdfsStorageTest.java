@@ -146,7 +146,7 @@ public class HdfsStorageTest {
     URI uri = URI.create(String.format("file://%s/dummy", tempFolder.getRoot().getAbsolutePath()));
 
     StreamElement element =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attribute,
             UUID.randomUUID().toString(),

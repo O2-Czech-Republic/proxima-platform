@@ -94,7 +94,7 @@ public class CommitLogReaderTest {
     writer
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -133,7 +133,7 @@ public class CommitLogReaderTest {
     writer
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -180,7 +180,7 @@ public class CommitLogReaderTest {
     writer
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -223,7 +223,7 @@ public class CommitLogReaderTest {
       writer
           .online()
           .write(
-              StreamElement.update(
+              StreamElement.upsert(
                   entity,
                   attr,
                   UUID.randomUUID().toString(),
@@ -268,7 +268,7 @@ public class CommitLogReaderTest {
       writer
           .online()
           .write(
-              StreamElement.update(
+              StreamElement.upsert(
                   entity,
                   attr,
                   UUID.randomUUID().toString(),
@@ -283,7 +283,7 @@ public class CommitLogReaderTest {
     writer
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -330,7 +330,7 @@ public class CommitLogReaderTest {
       writer
           .online()
           .write(
-              StreamElement.update(
+              StreamElement.upsert(
                   entity,
                   attr,
                   UUID.randomUUID().toString(),
@@ -345,7 +345,7 @@ public class CommitLogReaderTest {
     writer
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 attr,
                 UUID.randomUUID().toString(),
@@ -366,7 +366,7 @@ public class CommitLogReaderTest {
   @Test
   public void testOrderedObserverLifycycle() {
     StreamElement update =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),

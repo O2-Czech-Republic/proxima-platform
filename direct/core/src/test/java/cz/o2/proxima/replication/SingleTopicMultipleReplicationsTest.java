@@ -96,7 +96,7 @@ public class SingleTopicMultipleReplicationsTest {
         wildcardInputTransform
             .getTransformation()
             .apply(
-                StreamElement.update(entity, wildcard, uuid(), "key", "wildcard.1", now, value()),
+                StreamElement.upsert(entity, wildcard, uuid(), "key", "wildcard.1", now, value()),
                 transformed::add);
 
     assertEquals(1, transformedCount);
@@ -119,7 +119,7 @@ public class SingleTopicMultipleReplicationsTest {
         wildcardReplicatedTransform
             .getTransformation()
             .apply(
-                StreamElement.update(entity, raw, uuid(), "key", "_raw.2", now, value()),
+                StreamElement.upsert(entity, raw, uuid(), "key", "_raw.2", now, value()),
                 transformed::add);
 
     assertEquals(1, transformedCount);
@@ -176,7 +176,7 @@ public class SingleTopicMultipleReplicationsTest {
             .getWriter(wildcardInput)
             .orElseThrow(() -> new IllegalStateException("Missing writer for " + wildcardInput));
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity, wildcard, uuid(), "key", wildcard.toAttributePrefix() + "1", now, value()),
         (succ, exc) -> {});
     assertTrue(latch.await(1, TimeUnit.SECONDS));
@@ -223,7 +223,7 @@ public class SingleTopicMultipleReplicationsTest {
             .getWriter(wildcardInput)
             .orElseThrow(() -> new IllegalStateException("Missing writer for " + wildcardInput));
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity, wildcard, uuid(), "key", wildcard.toAttributePrefix() + "1", now, value()),
         (succ, exc) -> {});
     assertTrue(latch.await(1, TimeUnit.SECONDS));

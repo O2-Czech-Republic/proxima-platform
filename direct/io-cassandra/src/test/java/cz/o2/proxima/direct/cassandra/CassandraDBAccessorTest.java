@@ -230,7 +230,7 @@ public class CassandraDBAccessorTest {
 
     AtomicBoolean success = new AtomicBoolean(false);
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity, attr, "", "key", "attr", System.currentTimeMillis(), new byte[0]),
         (status, exc) -> success.set(status));
     assertTrue(success.get());
@@ -246,7 +246,7 @@ public class CassandraDBAccessorTest {
 
     AtomicBoolean success = new AtomicBoolean(true);
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             entity, attr, "", "key", "attr", System.currentTimeMillis(), new byte[0]),
         (status, exc) -> success.set(status));
     assertFalse(success.get());
@@ -264,7 +264,7 @@ public class CassandraDBAccessorTest {
 
     AtomicBoolean success = new AtomicBoolean(false);
     writer.write(
-        StreamElement.update(entity, attr, "", "key", "attr", System.currentTimeMillis(), null),
+        StreamElement.upsert(entity, attr, "", "key", "attr", System.currentTimeMillis(), null),
         (status, exc) -> success.set(status));
     assertTrue(success.get());
   }
@@ -279,7 +279,7 @@ public class CassandraDBAccessorTest {
 
     AtomicBoolean success = new AtomicBoolean(true);
     writer.write(
-        StreamElement.update(entity, attr, "", "key", "attr", System.currentTimeMillis(), null),
+        StreamElement.upsert(entity, attr, "", "key", "attr", System.currentTimeMillis(), null),
         (status, exc) -> success.set(status));
     assertFalse(success.get());
   }

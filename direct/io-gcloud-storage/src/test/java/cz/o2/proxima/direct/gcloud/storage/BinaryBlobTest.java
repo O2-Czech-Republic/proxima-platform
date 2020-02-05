@@ -90,7 +90,7 @@ public class BinaryBlobTest {
   @Test
   public void testWriteAndRead() throws IOException {
     StreamElement el =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             attr,
             UUID.randomUUID().toString(),

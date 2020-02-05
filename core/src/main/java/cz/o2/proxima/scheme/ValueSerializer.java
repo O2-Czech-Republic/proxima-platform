@@ -89,7 +89,12 @@ public interface ValueSerializer<T> extends Serializable {
         getClass() + " is not ported to support JSON (de)serialization. " + "Please fill issue.");
   }
 
-  /** Convert value to {@link String} suitable for logging. */
+  /**
+   * Create a (preferably single line) String representation of the value suitable for logging.
+   *
+   * @param value the value to log Convert value to {@link String} suitable for logging.
+   * @return a String representation suitable for logging
+   */
   default String getLogString(T value) {
     // by default use toString
     return value.toString();

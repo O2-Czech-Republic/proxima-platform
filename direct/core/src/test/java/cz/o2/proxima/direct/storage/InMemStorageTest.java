@@ -105,7 +105,7 @@ public class InMemStorageTest implements Serializable {
     writer
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 data,
                 UUID.randomUUID().toString(),
@@ -134,7 +134,7 @@ public class InMemStorageTest implements Serializable {
             .orElseThrow(() -> new IllegalStateException("Missing writer"));
     CountDownLatch latch = new CountDownLatch(1);
     StreamElement element =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             data,
             UUID.randomUUID().toString(),
@@ -196,7 +196,7 @@ public class InMemStorageTest implements Serializable {
     writer
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 data,
                 UUID.randomUUID().toString(),
@@ -244,7 +244,7 @@ public class InMemStorageTest implements Serializable {
             .orElseThrow(() -> new IllegalStateException("Missing writer"));
     CountDownLatch latch = new CountDownLatch(1);
     StreamElement element =
-        StreamElement.update(
+        StreamElement.upsert(
             entity,
             data,
             UUID.randomUUID().toString(),
@@ -331,7 +331,7 @@ public class InMemStorageTest implements Serializable {
     writer
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 data,
                 UUID.randomUUID().toString(),
@@ -347,7 +347,7 @@ public class InMemStorageTest implements Serializable {
     writer
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 data,
                 UUID.randomUUID().toString(),
@@ -403,7 +403,7 @@ public class InMemStorageTest implements Serializable {
     writer
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 data,
                 UUID.randomUUID().toString(),
@@ -424,7 +424,7 @@ public class InMemStorageTest implements Serializable {
     writer
         .online()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 entity,
                 data,
                 UUID.randomUUID().toString(),

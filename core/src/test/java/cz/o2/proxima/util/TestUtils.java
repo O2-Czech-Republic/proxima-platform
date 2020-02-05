@@ -16,6 +16,7 @@
 package cz.o2.proxima.util;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -92,5 +93,6 @@ public class TestUtils {
   public static void assertHashCodeAndEquals(Object first, Object second) {
     assertEquals(first, second);
     assertEquals("Hashcode should be same.", first.hashCode(), second.hashCode());
+    assertNotEquals(first, new Object());
   }
 }

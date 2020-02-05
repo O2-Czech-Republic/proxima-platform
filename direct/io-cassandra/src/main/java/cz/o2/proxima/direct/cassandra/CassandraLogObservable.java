@@ -103,7 +103,7 @@ class CassandraLogObservable implements BatchLogObservable {
                       if (bytes != null) {
                         byte[] array = bytes.slice().array();
                         if (!observer.onNext(
-                            StreamElement.update(
+                            StreamElement.upsert(
                                 accessor.getEntityDescriptor(),
                                 attribute,
                                 "cql-"

@@ -76,7 +76,7 @@ public class BeamDataOperatorTest {
         .getWriter(armed)
         .orElseThrow(() -> new IllegalStateException("Missing writer for armed"))
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway, armed, "uuid", "key", armed.getName(), now, new byte[] {1, 2, 3}),
             (succ, exc) -> {});
     PCollection<StreamElement> stream =
@@ -96,11 +96,11 @@ public class BeamDataOperatorTest {
             .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
 
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway, armed, "uuid", "key1", armed.getName(), now - 5000, new byte[] {1, 2, 3}),
         (succ, exc) -> {});
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway, armed, "uuid", "key2", armed.getName(), now, new byte[] {1, 2, 3}),
         (succ, exc) -> {});
 
@@ -130,11 +130,11 @@ public class BeamDataOperatorTest {
             .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
 
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway, armed, "uuid", "key1", armed.getName(), now - 5000, new byte[] {1, 2, 3}),
         (succ, exc) -> {});
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway, armed, "uuid", "key2", armed.getName(), now, new byte[] {1, 2, 3}),
         (succ, exc) -> {});
 
@@ -192,7 +192,7 @@ public class BeamDataOperatorTest {
         .getWriter(event)
         .orElseThrow(() -> new IllegalStateException("Missing writer for event"))
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 event,
                 "uuid",
@@ -219,7 +219,7 @@ public class BeamDataOperatorTest {
         .getWriter(event)
         .orElseThrow(() -> new IllegalStateException("Missing writer for event"))
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 event,
                 "uuid",
@@ -246,7 +246,7 @@ public class BeamDataOperatorTest {
         .getWriter(event)
         .orElseThrow(() -> new IllegalStateException("Missing writer for event"))
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 event,
                 "uuid",
@@ -259,7 +259,7 @@ public class BeamDataOperatorTest {
         .getWriter(armed)
         .orElseThrow(() -> new IllegalStateException("Missing writer for event"))
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway, armed, "uuid", "key2", armed.getName(), now + 1, new byte[] {1, 2, 3, 4}),
             (succ, exc) -> {});
 
@@ -292,7 +292,7 @@ public class BeamDataOperatorTest {
             .getWriter(data)
             .orElseThrow(() -> new IllegalStateException("Missing writer for data"))
             .write(
-                StreamElement.update(
+                StreamElement.upsert(
                     event,
                     data,
                     UUID.randomUUID().toString(),
@@ -323,7 +323,7 @@ public class BeamDataOperatorTest {
 
     for (int i = 0; i < elements; i++) {
       writer.write(
-          StreamElement.update(
+          StreamElement.upsert(
               gateway,
               armed,
               "uuid",
@@ -335,7 +335,7 @@ public class BeamDataOperatorTest {
     }
 
     writer.write(
-        StreamElement.update(
+        StreamElement.upsert(
             gateway, armed, "uuid", "key-last", armed.getName(), now, new byte[] {1, 2, 3}),
         (succ, exc) -> {});
 

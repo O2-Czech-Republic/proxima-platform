@@ -69,7 +69,7 @@ public class ValueAsBytesSerializer implements ElementSerializer<byte[], byte[]>
   StreamElement parseValue(
       EntityDescriptor entityDescriptor, byte[] value, int partition, long offset, long timestamp) {
     String uuid = partition + ":" + offset;
-    return StreamElement.update(
+    return StreamElement.upsert(
         entityDescriptor, attr, uuid, uuid, attr.toAttributePrefix() + uuid, timestamp, value);
   }
 

@@ -128,7 +128,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
         return StreamElement.delete(
             entityDescriptor, attributeDescriptor, uuid, key, attribute, stamp);
       case UPDATE:
-        return StreamElement.update(
+        return StreamElement.upsert(
             entityDescriptor, attributeDescriptor, uuid, key, attribute, stamp, value);
       default:
         throw new IllegalStateException("Unknown type " + type);

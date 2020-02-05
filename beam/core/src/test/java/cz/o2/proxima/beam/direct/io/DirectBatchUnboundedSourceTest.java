@@ -118,7 +118,7 @@ public class DirectBatchUnboundedSourceTest {
     long now = System.currentTimeMillis();
     for (int i = 0; i < count; i++) {
       writer.write(
-          StreamElement.update(
+          StreamElement.upsert(
               gateway,
               armed,
               UUID.randomUUID().toString(),

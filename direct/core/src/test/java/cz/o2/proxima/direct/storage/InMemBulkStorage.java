@@ -125,7 +125,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
                             .ifPresent(
                                 desc -> {
                                   observer.onNext(
-                                      StreamElement.update(
+                                      StreamElement.upsert(
                                           getEntityDescriptor(),
                                           desc,
                                           UUID.randomUUID().toString(),

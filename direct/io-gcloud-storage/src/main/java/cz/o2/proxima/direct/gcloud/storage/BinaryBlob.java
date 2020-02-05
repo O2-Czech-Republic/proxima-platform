@@ -219,7 +219,7 @@ public class BinaryBlob {
             parsed.getAttribute(),
             parsed.getStamp());
       }
-      return StreamElement.update(
+      return StreamElement.upsert(
           entity,
           getAttr(parsed),
           parsed.getUuid(),

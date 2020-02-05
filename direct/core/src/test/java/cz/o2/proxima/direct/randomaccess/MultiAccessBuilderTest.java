@@ -93,7 +93,7 @@ public class MultiAccessBuilderTest {
         .getWriter(armed)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 armed,
                 UUID.randomUUID().toString(),
@@ -106,7 +106,7 @@ public class MultiAccessBuilderTest {
         .getWriter(device)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 device,
                 UUID.randomUUID().toString(),
@@ -150,7 +150,7 @@ public class MultiAccessBuilderTest {
         .getWriter(armed)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 armed,
                 UUID.randomUUID().toString(),
@@ -163,7 +163,7 @@ public class MultiAccessBuilderTest {
         .getWriter(device)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 device,
                 UUID.randomUUID().toString(),
@@ -219,7 +219,7 @@ public class MultiAccessBuilderTest {
         .getWriter(armed)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 armed,
                 UUID.randomUUID().toString(),
@@ -232,7 +232,7 @@ public class MultiAccessBuilderTest {
         .getWriter(device)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 device,
                 UUID.randomUUID().toString(),
@@ -245,7 +245,7 @@ public class MultiAccessBuilderTest {
         .getWriter(data)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 dummy,
                 data,
                 UUID.randomUUID().toString(),
@@ -288,7 +288,7 @@ public class MultiAccessBuilderTest {
         .getWriter(device)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 device,
                 UUID.randomUUID().toString(),
@@ -301,7 +301,7 @@ public class MultiAccessBuilderTest {
         .getWriter(device)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 device,
                 UUID.randomUUID().toString(),
@@ -344,7 +344,7 @@ public class MultiAccessBuilderTest {
         .getWriter(armed)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 armed,
                 UUID.randomUUID().toString(),
@@ -357,7 +357,7 @@ public class MultiAccessBuilderTest {
         .getWriter(device)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 device,
                 UUID.randomUUID().toString(),
@@ -402,7 +402,7 @@ public class MultiAccessBuilderTest {
         .getWriter(armed)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 armed,
                 UUID.randomUUID().toString(),
@@ -415,7 +415,7 @@ public class MultiAccessBuilderTest {
         .getWriter(device)
         .get()
         .write(
-            StreamElement.update(
+            StreamElement.upsert(
                 gateway,
                 device,
                 UUID.randomUUID().toString(),

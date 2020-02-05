@@ -44,7 +44,7 @@ public class EventDataToDummy implements Transformation {
   public int apply(StreamElement input, Collector<StreamElement> collector) {
 
     collector.collect(
-        StreamElement.update(
+        StreamElement.upsert(
             target,
             targetAttr,
             input.getUuid(),

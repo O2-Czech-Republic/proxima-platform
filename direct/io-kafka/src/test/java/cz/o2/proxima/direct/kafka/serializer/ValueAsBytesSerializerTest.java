@@ -33,6 +33,7 @@ public class ValueAsBytesSerializerTest {
 
   Repository repo = Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
   EntityDescriptor event = repo.getEntity("event");
+  EntityDescriptor gateway = repo.getEntity("gateway");
   long now = System.currentTimeMillis();
 
   @Test
@@ -99,5 +100,29 @@ public class ValueAsBytesSerializerTest {
     assertNotNull(parsed);
     assertTrue(parsed.getParsed().isPresent());
     assertEquals(now, parsed.getStamp());
+    assertEquals("data", parsed.getAttribute());
+  }
+
+  @Test
+  public void tsetParseValueWildcard() {
+    ValueAsBytesSerializer serializer = new ValueAsBytesSerializer("device.*");
+    serializer.setup(gateway);
+    ConsumerRecord<byte[], byte[]> record =
+        new ConsumerRecord<byte[], byte[]>(
+            "topic",
+            1,
+            2,
+            now,
+            TimestampType.CREATE_TIME,
+            -1L,
+            -1,
+            -1,
+            null,
+            ("my-input-string").getBytes(StandardCharsets.UTF_8));
+    StreamElement parsed = serializer.read(record, event);
+    assertNotNull(parsed);
+    assertTrue(parsed.getParsed().isPresent());
+    assertEquals(now, parsed.getStamp());
+    assertEquals("device.1:2", parsed.getAttribute());
   }
 }

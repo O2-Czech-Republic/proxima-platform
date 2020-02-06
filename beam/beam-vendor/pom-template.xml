@@ -23,13 +23,13 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>proxima-beam</artifactId>
-    <version>0.3.0-rc1</version>
+    <version>0.3-SNAPSHOT</version>
   </parent>
 
   <groupId>cz.o2.proxima.beam</groupId>
   <artifactId>proxima-beam-vendor</artifactId>
   <packaging>pom</packaging>
-  <version>0.3.0-rc1-ab3f0b</version>
+  <version>0.3-b91560</version>
 
   <name>${project.groupId}:${project.artifactId}</name>
 

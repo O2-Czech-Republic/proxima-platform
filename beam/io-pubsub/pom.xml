@@ -34,6 +34,7 @@
   <properties>
     <grpc.version>1.17.1</grpc.version>
     <shadePattern>cz.o2.proxima.beam.io.pubsub</shadePattern>
+    <apache.beam.version.raw>2.19.0</apache.beam.version.raw>
   </properties>
 
   <build>

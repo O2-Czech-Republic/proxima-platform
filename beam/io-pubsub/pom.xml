@@ -49,6 +49,7 @@
               <exclude>${project.groupId}:proxima-core</exclude>
               <exclude>${project.groupId}:proxima-beam-core</exclude>
               <exclude>${apache.beam.groupId}:*</exclude>
+              <exclude>${apache.beam.groupId.raw}:*</exclude>
             </excludes>
           </artifactSet>
           <transformers>
@@ -138,9 +139,9 @@
     </dependency>
 
     <dependency>
-      <groupId>${apache.beam.groupId}</groupId>
+      <groupId>${apache.beam.groupId.raw}</groupId>
       <artifactId>beam-sdks-java-io-google-cloud-platform</artifactId>
-      <version>${apache.beam.version}</version>
+      <version>${apache.beam.version.raw}</version>
     </dependency>
 
     <dependency>

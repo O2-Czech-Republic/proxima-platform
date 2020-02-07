@@ -219,6 +219,9 @@ public class EntityAwareAttributeDescriptorTest {
     assertEquals("device.*", element.getAttributeDescriptor().getName());
     assertEquals("key", element.getKey());
     assertEquals(now.toEpochMilli(), element.getStamp());
+
+    assertEquals("1", wildcard.extractSuffix("device.1"));
+    assertEquals("", wildcard.extractSuffix("device."));
   }
 
   @Test(expected = IllegalArgumentException.class)

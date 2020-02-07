@@ -196,7 +196,6 @@ public class IngestServer {
                   server.shutdown();
                 }));
 
-    Metrics.register();
     try {
       server.start();
       log.info("Successfully started server 0.0.0.0:{}", server.getPort());

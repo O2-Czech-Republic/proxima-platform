@@ -100,6 +100,11 @@ public class ReplicationController {
       final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
       log.debug("Consumer {}: received new ingest element {}", consumerName, ingest);
       if (allowed && filter.apply(ingest)) {
+        Metrics.ingestsForAttribute(ingest.getAttributeDescriptor()).increment();
+        if (!ingest.isDelete()) {
+          Metrics.sizeForAttribute(ingest.getAttributeDescriptor())
+              .increment(ingest.getValue().length);
+        }
         Failsafe.with(retryPolicy).run(() -> ingestElement(ingest, context));
       } else {
         Metrics.COMMIT_UPDATE_DISCARDED.increment();

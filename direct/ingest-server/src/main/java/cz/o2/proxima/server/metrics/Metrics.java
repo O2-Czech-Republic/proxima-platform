@@ -15,102 +15,133 @@
  */
 package cz.o2.proxima.server.metrics;
 
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.metrics.ApproxPercentileMetric;
 import cz.o2.proxima.metrics.Metric;
 import cz.o2.proxima.metrics.TimeAveragingMetric;
+import cz.o2.proxima.repository.AttributeDescriptor;
 import java.lang.management.ManagementFactory;
 import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import javax.management.InstanceAlreadyExistsException;
+import javax.management.MBeanRegistrationException;
 import javax.management.MBeanServer;
+import javax.management.MalformedObjectNameException;
+import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
+import lombok.extern.slf4j.Slf4j;
 
 /** Metrics related to the ingest server. */
+@Slf4j
 public class Metrics {
 
-  private static final String GROUP = "cz.o2.proxima.server";
+  private static final MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+  private static final Map<String, Metric<?>> METRICS = new ConcurrentHashMap<>();
+  public static final String GROUP = "cz.o2.proxima.server";
 
   public static final Metric<Double> INGEST_SINGLE =
-      TimeAveragingMetric.of(GROUP, "ingest-single", 1_000);
+      getOrCreate("ingest-single", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> INGEST_BULK =
-      TimeAveragingMetric.of(GROUP, "ingest-bulk", 1_000);
+      getOrCreate("ingest-bulk", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final ApproxPercentileMetric BULK_SIZE =
-      ApproxPercentileMetric.of(
-          GROUP, "bulk-size", Duration.ofHours(1).toMillis(), Duration.ofMinutes(5).toMillis());
+      getOrCreate(
+          "bulk-size",
+          name ->
+              ApproxPercentileMetric.of(
+                  GROUP, name, Duration.ofHours(1).toMillis(), Duration.ofMinutes(5).toMillis()));
 
-  public static final Metric<Double> INGESTS = TimeAveragingMetric.of(GROUP, "ingests", 1_000);
+  public static final Metric<Double> INGESTS =
+      getOrCreate("ingests", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> COMMIT_LOG_APPEND =
-      TimeAveragingMetric.of(GROUP, "commit-log-append", 1_000);
+      getOrCreate("commit-log-append", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> GET_REQUESTS =
-      TimeAveragingMetric.of(GROUP, "get-requests", 1_000);
+      getOrCreate("get-requests", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> LIST_REQUESTS =
-      TimeAveragingMetric.of(GROUP, "list-requests", 1_000);
+      getOrCreate("list-requests", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> UPDATE_REQUESTS =
-      TimeAveragingMetric.of(GROUP, "update-requests", 1_000);
+      getOrCreate("update-requests", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> DELETE_REQUESTS =
-      TimeAveragingMetric.of(GROUP, "delete-requests", 1_000);
+      getOrCreate("delete-requests", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> DELETE_WILDCARD_REQUESTS =
-      TimeAveragingMetric.of(GROUP, "delete-wildcard-requests", 1_000);
+      getOrCreate("delete-wildcard-requests", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> NON_COMMIT_LOG_UPDATES =
-      TimeAveragingMetric.of(GROUP, "non-commit-updates", 1_000);
+      getOrCreate("non-commit-updates", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> NON_COMMIT_LOG_DELETES =
-      TimeAveragingMetric.of(GROUP, "non-commit-deletes", 1_000);
+      getOrCreate("non-commit-deletes", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> COMMIT_UPDATE_DISCARDED =
-      TimeAveragingMetric.of(GROUP, "commits-discarded", 1_000);
+      getOrCreate("commits-discarded", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> NON_COMMIT_WRITES_RETRIES =
-      TimeAveragingMetric.of(GROUP, "non-commit-retries", 1_000);
+      getOrCreate("non-commit-retries", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> INVALID_REQUEST =
-      TimeAveragingMetric.of(GROUP, "invalid-request", 1_000);
+      getOrCreate("invalid-request", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> INVALID_ENTITY =
-      TimeAveragingMetric.of(GROUP, "invalid-entity", 1_000);
+      getOrCreate("invalid-entity", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
   public static final Metric<Double> INVALID_ATTRIBUTE =
-      TimeAveragingMetric.of(GROUP, "invalid-attribute", 1_000);
+      getOrCreate("invalid-attribute", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
-  private static final Metric[] ALL = {
-    INGEST_SINGLE,
-    INGEST_BULK,
-    BULK_SIZE,
-    INGESTS,
-    COMMIT_LOG_APPEND,
-    GET_REQUESTS,
-    LIST_REQUESTS,
-    UPDATE_REQUESTS,
-    DELETE_REQUESTS,
-    DELETE_WILDCARD_REQUESTS,
-    NON_COMMIT_LOG_UPDATES,
-    NON_COMMIT_LOG_DELETES,
-    COMMIT_UPDATE_DISCARDED,
-    NON_COMMIT_WRITES_RETRIES,
-    INVALID_REQUEST,
-    INVALID_ENTITY,
-    INVALID_ATTRIBUTE
-  };
+  public static Metric<Double> ingestsForAttribute(AttributeDescriptor<?> attr) {
+    return getOrCreate(
+        String.format("%s_%s_ingests", attr.getEntity(), getAttrNameForJMX(attr)),
+        name -> TimeAveragingMetric.of(GROUP, name, 1_000));
+  }
 
-  public static void register() {
+  static String getAttrNameForJMX(AttributeDescriptor<?> attr) {
+    return attr.isWildcard() ? attr.toAttributePrefix(false) : attr.getName();
+  }
 
-    MBeanServer mbs = ManagementFactory.getPlatformMBeanServer();
+  public static ApproxPercentileMetric sizeForAttribute(AttributeDescriptor<?> attr) {
+    return getOrCreate(
+        String.format("%s_%s_size", attr.getEntity(), getAttrNameForJMX(attr)),
+        name ->
+            ApproxPercentileMetric.of(
+                GROUP, name, Duration.ofHours(1).toMillis(), Duration.ofMinutes(5).toMillis()));
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T, M extends Metric<T>> M getOrCreate(
+      String name, UnaryFunction<String, M> factory) {
+    return (M)
+        METRICS.computeIfAbsent(
+            name,
+            tmp -> {
+              M metric = factory.apply(name);
+              registerWithMBeanServer(metric, mbs);
+              return metric;
+            });
+  }
+
+  /**
+   * Register this metric with {@link MBeanServer}.
+   *
+   * @param mbs the MBeanServer
+   */
+  private static void registerWithMBeanServer(Metric m, MBeanServer mbs) {
     try {
-      for (Metric m : ALL) {
-        ObjectName mxbeanName =
-            new ObjectName(
-                m.getGroup() + "." + m.getName() + ":type=" + m.getClass().getSimpleName());
-        mbs.registerMBean(m, mxbeanName);
-      }
-    } catch (Exception ex) {
-      throw new RuntimeException(ex);
+      ObjectName mxbeanName =
+          new ObjectName(
+              m.getGroup() + "." + m.getName() + ":type=" + m.getClass().getSimpleName());
+      mbs.registerMBean(m, mxbeanName);
+    } catch (InstanceAlreadyExistsException
+        | MBeanRegistrationException
+        | NotCompliantMBeanException
+        | MalformedObjectNameException ex) {
+      log.warn("Failed to register metric {} with MBeanServer", m, ex);
     }
   }
 

@@ -15,7 +15,11 @@
  */
 package cz.o2.proxima.repository;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
@@ -47,9 +51,10 @@ public class ConfigRepositoryTest {
   public ConfigRepositoryTest() {
     this.repo =
         ConfigRepository.Builder.of(
-                ConfigFactory.load()
-                    .withFallback(ConfigFactory.load("test-reference.conf"))
-                    .resolve())
+                () ->
+                    ConfigFactory.load()
+                        .withFallback(ConfigFactory.load("test-reference.conf"))
+                        .resolve())
             .build();
   }
 
@@ -82,23 +87,26 @@ public class ConfigRepositoryTest {
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidFamily() {
     ConfigRepository.Builder.of(
-            ConfigFactory.load()
-                .withFallback(ConfigFactory.load("test-reference.conf"))
-                .withFallback(ConfigFactory.parseString("attributeFamilies.invalid.invalid = true"))
-                .resolve())
+            () ->
+                ConfigFactory.load()
+                    .withFallback(ConfigFactory.load("test-reference.conf"))
+                    .withFallback(
+                        ConfigFactory.parseString("attributeFamilies.invalid.invalid = true"))
+                    .resolve())
         .build();
   }
 
   @Test
   public void testInvalidDisabledFamily() {
     ConfigRepository.Builder.of(
-            ConfigFactory.load()
-                .withFallback(ConfigFactory.load("test-reference.conf"))
-                .withFallback(
-                    ConfigFactory.parseString(
-                        "attributeFamilies.invalid.invalid = true\n"
-                            + "attributeFamilies.invalid.disabled = true"))
-                .resolve())
+            () ->
+                ConfigFactory.load()
+                    .withFallback(ConfigFactory.load("test-reference.conf"))
+                    .withFallback(
+                        ConfigFactory.parseString(
+                            "attributeFamilies.invalid.invalid = true\n"
+                                + "attributeFamilies.invalid.disabled = true"))
+                    .resolve())
         .build();
     // make sonar happy :-)
     assertTrue(true);

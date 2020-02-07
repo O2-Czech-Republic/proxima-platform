@@ -212,7 +212,9 @@ public class ReplicationController {
     final Set<AttributeDescriptor<?>> allowedAttributes =
         new HashSet<>(replicaFamily.getAttributes());
 
-    final String name = "consumer-" + replicaFamily.getDesc().getName();
+    final String name = replicaFamily.getDesc().getReplicationConsumerNameFactory().apply();
+    log.info(
+        "Using consumer name {} for replicate family {}", name, replicaFamily.getDesc().getName());
 
     registerWriterTo(name, commitLog, allowedAttributes, filter, writer);
 
@@ -311,7 +313,7 @@ public class ReplicationController {
 
     final Transformation transformation = transform.getTransformation();
     final StorageFilter filter = transform.getFilter();
-    final String consumer = "transformer-" + name;
+    final String consumer = family.getDesc().getTransformationConsumerNameFactory().apply();
 
     final CommitLogReader reader =
         family

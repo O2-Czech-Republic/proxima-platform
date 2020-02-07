@@ -21,6 +21,7 @@ import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
+import cz.o2.proxima.util.Classpath;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -36,10 +37,69 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 
 /** A family of attributes with the same storage. */
 @Evolving("Affected by #66")
+@Slf4j
 public class AttributeFamilyDescriptor implements Serializable {
+
+  public static final String CFG_CONSUMER_NAME_SUFFIX = "cfg.consumer.name.suffix";
+  public static final String CFG_CONSUMER_NAME_GENERATOR = "cfg.consumer.name.generator";
+  @Getter private final StorageType type;
+
+  public static Builder newBuilder() {
+    return new Builder();
+  }
+
+  @Getter private final String name;
+
+  @Getter private final EntityDescriptor entity;
+
+  @Getter private final URI storageUri;
+  /** Access type allowed to this family. */
+  @Getter private final AccessType access;
+
+  private final List<AttributeDescriptor<?>> attributes;
+  @Getter private final StorageFilter filter;
+  @Nullable private final String source;
+  @Getter private final AttributeFamilyConsumerNameGenerator consumerNameGenerator;
+  @Getter private final Map<String, Object> cfg;
+
+  AttributeFamilyDescriptor(
+      String name,
+      EntityDescriptor entity,
+      StorageType type,
+      URI storageUri,
+      Map<String, Object> cfg,
+      Collection<AttributeDescriptor<?>> attributes,
+      AccessType access,
+      @Nullable StorageFilter filter,
+      @Nullable String source) {
+
+    this.name = Objects.requireNonNull(name);
+    this.entity = Objects.requireNonNull(entity);
+    this.type = Objects.requireNonNull(type);
+    this.storageUri = Objects.requireNonNull(storageUri);
+    this.cfg = Collections.unmodifiableMap(Objects.requireNonNull(cfg));
+    this.attributes = Lists.newArrayList(Objects.requireNonNull(attributes));
+    this.access = Objects.requireNonNull(access);
+    this.filter = filter;
+    this.source = source;
+
+    if (this.cfg.containsKey(CFG_CONSUMER_NAME_GENERATOR)) {
+      this.consumerNameGenerator =
+          Classpath.newInstance(
+              this.cfg.get(CFG_CONSUMER_NAME_GENERATOR).toString(),
+              AttributeFamilyConsumerNameGenerator.class);
+    } else {
+      this.consumerNameGenerator = AttributeFamilyConsumerNameGeneratorImpl.of(this);
+    }
+    log.debug(
+        "Using {} class as consumer name generator for attribute family {}.",
+        consumerNameGenerator.getClass().getName(),
+        this.name);
+  }
 
   @Accessors(chain = true)
   public static final class Builder {
@@ -68,6 +128,8 @@ public class AttributeFamilyDescriptor implements Serializable {
 
     @Setter private AttributeFamilyDescriptor writeFamily = null;
 
+    @Setter private AttributeFamilyConsumerNameGenerator consumerNameGenerator = null;
+
     private Builder() {}
 
     public Builder clearAttributes() {
@@ -90,51 +152,6 @@ public class AttributeFamilyDescriptor implements Serializable {
       return new AttributeFamilyDescriptor(
           name, entity, type, storageUri, cfg, attributes, access, filter, source);
     }
-  }
-
-  public static Builder newBuilder() {
-    return new Builder();
-  }
-
-  @Getter private final String name;
-
-  @Getter private final EntityDescriptor entity;
-
-  @Getter private final URI storageUri;
-
-  @Getter private final StorageType type;
-
-  private final List<AttributeDescriptor<?>> attributes;
-
-  /** Access type allowed to this family. */
-  @Getter private final AccessType access;
-
-  @Getter private final StorageFilter filter;
-
-  @Nullable private final String source;
-
-  @Getter private final Map<String, Object> cfg;
-
-  AttributeFamilyDescriptor(
-      String name,
-      EntityDescriptor entity,
-      StorageType type,
-      URI storageUri,
-      Map<String, Object> cfg,
-      Collection<AttributeDescriptor<?>> attributes,
-      AccessType access,
-      @Nullable StorageFilter filter,
-      @Nullable String source) {
-
-    this.name = Objects.requireNonNull(name);
-    this.entity = Objects.requireNonNull(entity);
-    this.type = Objects.requireNonNull(type);
-    this.storageUri = Objects.requireNonNull(storageUri);
-    this.cfg = Collections.unmodifiableMap(Objects.requireNonNull(cfg));
-    this.attributes = Lists.newArrayList(Objects.requireNonNull(attributes));
-    this.access = Objects.requireNonNull(access);
-    this.filter = filter;
-    this.source = source;
   }
 
   public List<AttributeDescriptor<?>> getAttributes() {

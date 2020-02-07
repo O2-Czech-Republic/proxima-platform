@@ -212,7 +212,7 @@ public class ReplicationController {
     final Set<AttributeDescriptor<?>> allowedAttributes =
         new HashSet<>(replicaFamily.getAttributes());
 
-    final String name = "consumer-" + replicaFamily.getDesc().getName();
+    final String name = "consumer-" + replicaFamily.getDesc().getConsumerNameGenerator().getName();
 
     registerWriterTo(name, commitLog, allowedAttributes, filter, writer);
 

@@ -25,11 +25,14 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.randomaccess.RandomAccessReader.Listing;
+import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.Pair;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -37,6 +40,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.junit.Test;
 
 /** Test suite for {@link LocalCachedPartitionedView}. */
@@ -200,6 +204,27 @@ public class LocalCachedPartitionedViewTest {
     List<KeyValue<?>> elements = new ArrayList<>();
     view.scanWildcard("key", device, now + 1000, elements::add);
     assertEquals(1, elements.size());
+  }
+
+  @Test
+  public void testListEntities() {
+    writer.write(update("key1", "device.1", device, now - 1000), (succ, exc) -> {});
+    writer.write(update("key2", "device.2", device, now - 500), (succ, exc) -> {});
+    writer.write(deleteWildcard("key1", device, now), (succ, exc) -> {});
+    writer.write(update("key3", "device.1", device, now + 500), (succ, exc) -> {});
+    writer.write(update("key4", "device.3", device, now - 500), (succ, exc) -> {});
+    view.assign(singlePartition());
+    List<Pair<RandomOffset, String>> elements = new ArrayList<>();
+    view.listEntities(view.fetchOffset(Listing.ENTITY, ""), 1, elements::add);
+    assertEquals(1, elements.size());
+    view.listEntities(
+        view.fetchOffset(Listing.ENTITY, elements.get(0).getSecond()), 1, elements::add);
+    assertEquals(2, elements.size());
+    view.listEntities(
+        view.fetchOffset(Listing.ENTITY, elements.get(1).getSecond()), -1, elements::add);
+    assertEquals(
+        Sets.newHashSet("key1", "key2", "key3", "key4"),
+        elements.stream().map(Pair::getSecond).collect(Collectors.toSet()));
   }
 
   private StreamElement deleteWildcard(String key, AttributeDescriptor<?> desc, long stamp) {

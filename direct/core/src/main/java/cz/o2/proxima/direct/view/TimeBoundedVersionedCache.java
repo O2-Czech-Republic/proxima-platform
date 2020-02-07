@@ -17,12 +17,13 @@ package cz.o2.proxima.direct.view;
 
 import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.functional.BiFunction;
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
@@ -51,7 +52,7 @@ class TimeBoundedVersionedCache implements Serializable {
   TimeBoundedVersionedCache(EntityDescriptor entity, long keepDuration) {
     this.entity = entity;
     this.keepDuration = keepDuration;
-    this.cache = new HashMap<>();
+    this.cache = new LinkedHashMap<>();
   }
 
   @Nullable
@@ -122,6 +123,35 @@ class TimeBoundedVersionedCache implements Serializable {
         }
       } else {
         return;
+      }
+    }
+  }
+
+  synchronized int findPosition(String key) {
+    if (key.isEmpty()) {
+      return 0;
+    }
+    int ret = 0;
+    for (String k : cache.keySet()) {
+      if (k.equals(key)) {
+        break;
+      }
+      ret++;
+    }
+    return ret;
+  }
+
+  synchronized void keys(int offset, int limit, Consumer<String> keyConsumer) {
+    int toTake = limit;
+    int toSkip = offset;
+    for (String key : cache.keySet()) {
+      if (toSkip-- <= 0) {
+        if (toTake != 0) {
+          keyConsumer.accept(key);
+          toTake--;
+        } else {
+          break;
+        }
       }
     }
   }

@@ -45,11 +45,18 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /** A transformation view from {@link CommitLogReader} to {@link CachedView}. */
 @Slf4j
 public class LocalCachedPartitionedView implements CachedView {
+
+  @AllArgsConstructor
+  private static class IntOffset implements RandomOffset {
+    @Getter final int offset;
+  }
 
   private final CommitLogReader reader;
   private final EntityDescriptor entity;
@@ -214,7 +221,14 @@ public class LocalCachedPartitionedView implements CachedView {
 
   @Override
   public RandomOffset fetchOffset(Listing type, String key) {
-    return new RawOffset(key);
+    switch (type) {
+      case ATTRIBUTE:
+        return new RawOffset(key);
+      case ENTITY:
+        return new IntOffset(cache.findPosition(key));
+      default:
+        throw new IllegalArgumentException("Unknown listing type " + type);
+    }
   }
 
   @Override
@@ -300,7 +314,12 @@ public class LocalCachedPartitionedView implements CachedView {
   public void listEntities(
       RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
 
-    throw new UnsupportedOperationException("Don't use this view for listing entities");
+    IntOffset off = (IntOffset) offset;
+    AtomicInteger newOff = new AtomicInteger(off.getOffset());
+    cache.keys(
+        off.getOffset(),
+        limit,
+        key -> consumer.accept(Pair.of(new IntOffset(newOff.incrementAndGet()), key)));
   }
 
   @Override

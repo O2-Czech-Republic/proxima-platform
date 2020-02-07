@@ -303,6 +303,17 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
     public StreamElement deleteWildcard(String key, Instant stamp) {
       return deleteWildcard(key, stamp.toEpochMilli());
     }
+
+    /**
+     * Parse given attribute name (prefix.suffix) to suffix only.
+     *
+     * @param attribute complete name of attribute
+     * @return the suffix part
+     */
+    public String extractSuffix(String attribute) {
+      Preconditions.checkArgument(attribute.length() >= toAttributePrefix().length());
+      return attribute.substring(toAttributePrefix().length());
+    }
   }
 
   public static <T> Regular<T> regular(EntityDescriptor entity, AttributeDescriptor<T> wrapped) {

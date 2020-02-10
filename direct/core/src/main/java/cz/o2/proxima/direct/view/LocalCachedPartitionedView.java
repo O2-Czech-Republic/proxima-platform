@@ -318,7 +318,7 @@ public class LocalCachedPartitionedView implements CachedView {
     cache.keys(
         off.getOffset(),
         limit,
-        key -> consumer.accept(Pair.of(new IntOffset(newOff.getAndIncrement()), key)));
+        key -> consumer.accept(Pair.of(new IntOffset(newOff.incrementAndGet()), key)));
   }
 
   @Override

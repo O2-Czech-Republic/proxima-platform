@@ -116,8 +116,8 @@ public class RetrieveServiceTest {
   @Test
   public void testGetValid() throws InterruptedException {
 
-    EntityDescriptor entity = server.repo.findEntity("dummy").get();
-    AttributeDescriptor attribute = entity.findAttribute("data").get();
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("data");
     String key = "my-fancy-entity-key";
     server
         .direct
@@ -212,8 +212,8 @@ public class RetrieveServiceTest {
 
   @Test
   public void testListValid() throws Exception {
-    EntityDescriptor entity = server.repo.findEntity("dummy").get();
-    AttributeDescriptor attribute = entity.findAttribute("wildcard.*").get();
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
     String key = "my-fancy-entity-key";
 
     server
@@ -288,8 +288,8 @@ public class RetrieveServiceTest {
 
   @Test
   public void testListValidWithOffset() throws Exception {
-    EntityDescriptor entity = server.repo.findEntity("dummy").get();
-    AttributeDescriptor attribute = entity.findAttribute("wildcard.*").get();
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
     String key = "my-fancy-entity-key";
 
     server
@@ -363,8 +363,8 @@ public class RetrieveServiceTest {
 
   @Test
   public void testListValidWithLimit() throws Exception {
-    EntityDescriptor entity = server.repo.findEntity("dummy").get();
-    AttributeDescriptor attribute = entity.findAttribute("wildcard.*").get();
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
     String key = "my-fancy-entity-key";
 
     server
@@ -440,8 +440,8 @@ public class RetrieveServiceTest {
   public void testGetValidExtendedScheme()
       throws InterruptedException, InvalidProtocolBufferException {
 
-    EntityDescriptor entity = server.repo.findEntity("test").get();
-    AttributeDescriptor attribute = entity.findAttribute("data").get();
+    EntityDescriptor entity = server.repo.getEntity("test");
+    AttributeDescriptor<?> attribute = entity.getAttribute("data");
     String key = "my-fancy-entity-key";
     ExtendedMessage payload = ExtendedMessage.newBuilder().setFirst(1).setSecond(2).build();
 
@@ -501,8 +501,8 @@ public class RetrieveServiceTest {
 
   @Test
   public void testListNotFound() throws Exception {
-    EntityDescriptor entity = server.repo.findEntity("dummy").get();
-    AttributeDescriptor attribute = entity.findAttribute("wildcard.*").get();
+    EntityDescriptor entity = server.repo.getEntity("dummy");
+    AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
     String key = "my-fancy-entity-key";
 
     Rpc.ListRequest request =

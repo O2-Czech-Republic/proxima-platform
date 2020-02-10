@@ -17,10 +17,13 @@ package cz.o2.proxima.repository;
 
 import com.google.common.collect.Lists;
 import cz.o2.proxima.annotations.Evolving;
+import cz.o2.proxima.repository.DefaultConsumerNameFactory.DefaultReplicationConsumerNameFactory;
+import cz.o2.proxima.repository.DefaultConsumerNameFactory.DefaultTransformationConsumerNameFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
+import cz.o2.proxima.util.Classpath;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -36,61 +39,18 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 
 /** A family of attributes with the same storage. */
 @Evolving("Affected by #66")
+@Slf4j
 public class AttributeFamilyDescriptor implements Serializable {
 
-  @Accessors(chain = true)
-  public static final class Builder {
-
-    private final List<AttributeDescriptor<?>> attributes = new ArrayList<>();
-
-    @Setter private String name;
-
-    @Setter private EntityDescriptor entity;
-
-    @Setter private URI storageUri;
-
-    @Setter private StorageType type;
-
-    @Setter private AccessType access;
-
-    @Setter private StorageFilter filter = PassthroughFilter.INSTANCE;
-
-    @Setter private String source;
-
-    @Setter private Map<String, Object> cfg = new HashMap<>();
-
-    @Setter private boolean proxy = false;
-
-    @Setter private AttributeFamilyDescriptor readFamily = null;
-
-    @Setter private AttributeFamilyDescriptor writeFamily = null;
-
-    private Builder() {}
-
-    public Builder clearAttributes() {
-      attributes.clear();
-      return this;
-    }
-
-    public Builder addAttribute(AttributeDescriptor<?> desc) {
-      attributes.add(desc);
-      return this;
-    }
-
-    public AttributeFamilyDescriptor build() {
-      if (proxy) {
-        List<AttributeProxyDescriptor<?>> attrs =
-            attributes.stream().map(AttributeDescriptor::asProxy).collect(Collectors.toList());
-
-        return AttributeFamilyProxyDescriptor.of(attrs, readFamily, writeFamily);
-      }
-      return new AttributeFamilyDescriptor(
-          name, entity, type, storageUri, cfg, attributes, access, filter, source);
-    }
-  }
+  public static final String CFG_REPLICATION_CONSUMER_NAME_GENERATOR =
+      "replication.consumer.name.factory";
+  public static final String CFG_TRANSFORMATION_CONSUMER_NAME_GENERATOR =
+      "transformation.consumer.name.factory";
+  @Getter private final StorageType type;
 
   public static Builder newBuilder() {
     return new Builder();
@@ -101,18 +61,14 @@ public class AttributeFamilyDescriptor implements Serializable {
   @Getter private final EntityDescriptor entity;
 
   @Getter private final URI storageUri;
-
-  @Getter private final StorageType type;
-
-  private final List<AttributeDescriptor<?>> attributes;
-
   /** Access type allowed to this family. */
   @Getter private final AccessType access;
 
+  private final List<AttributeDescriptor<?>> attributes;
   @Getter private final StorageFilter filter;
-
   @Nullable private final String source;
-
+  @Getter private final ConsumerNameFactory replicationConsumerNameFactory;
+  @Getter private final ConsumerNameFactory transformationConsumerNameFactory;
   @Getter private final Map<String, Object> cfg;
 
   AttributeFamilyDescriptor(
@@ -135,6 +91,30 @@ public class AttributeFamilyDescriptor implements Serializable {
     this.access = Objects.requireNonNull(access);
     this.filter = filter;
     this.source = source;
+
+    this.replicationConsumerNameFactory =
+        constructConsumerNameFactory(
+            CFG_REPLICATION_CONSUMER_NAME_GENERATOR, DefaultReplicationConsumerNameFactory.class);
+
+    this.transformationConsumerNameFactory =
+        constructConsumerNameFactory(
+            CFG_TRANSFORMATION_CONSUMER_NAME_GENERATOR,
+            DefaultTransformationConsumerNameFactory.class);
+  }
+
+  private ConsumerNameFactory constructConsumerNameFactory(
+      String configKey, Class<? extends ConsumerNameFactory> defaultClass) {
+    String consumerNameFactoryClass =
+        this.getCfg().getOrDefault(configKey, defaultClass.getName()).toString();
+
+    ConsumerNameFactory factory =
+        Classpath.newInstance(consumerNameFactoryClass, ConsumerNameFactory.class);
+    log.debug(
+        "Using {} class as consumer name generator for attribute family {}.",
+        factory.getClass().getName(),
+        this.name);
+    factory.setup(this);
+    return factory;
   }
 
   public List<AttributeDescriptor<?>> getAttributes() {
@@ -209,5 +189,56 @@ public class AttributeFamilyDescriptor implements Serializable {
 
     attributes.forEach(ret::addAttribute);
     return ret;
+  }
+
+  @Accessors(chain = true)
+  public static final class Builder {
+
+    private final List<AttributeDescriptor<?>> attributes = new ArrayList<>();
+
+    @Setter private String name;
+
+    @Setter private EntityDescriptor entity;
+
+    @Setter private URI storageUri;
+
+    @Setter private StorageType type;
+
+    @Setter private AccessType access;
+
+    @Setter private StorageFilter filter = PassthroughFilter.INSTANCE;
+
+    @Setter private String source;
+
+    @Setter private Map<String, Object> cfg = new HashMap<>();
+
+    @Setter private boolean proxy = false;
+
+    @Setter private AttributeFamilyDescriptor readFamily = null;
+
+    @Setter private AttributeFamilyDescriptor writeFamily = null;
+
+    private Builder() {}
+
+    public Builder clearAttributes() {
+      attributes.clear();
+      return this;
+    }
+
+    public Builder addAttribute(AttributeDescriptor<?> desc) {
+      attributes.add(desc);
+      return this;
+    }
+
+    public AttributeFamilyDescriptor build() {
+      if (proxy) {
+        List<AttributeProxyDescriptor<?>> attrs =
+            attributes.stream().map(AttributeDescriptor::asProxy).collect(Collectors.toList());
+
+        return AttributeFamilyProxyDescriptor.of(attrs, readFamily, writeFamily);
+      }
+      return new AttributeFamilyDescriptor(
+          name, entity, type, storageUri, cfg, attributes, access, filter, source);
+    }
   }
 }

@@ -80,15 +80,12 @@ public class IngestServer {
 
   protected IngestServer(Config cfg) {
     this.cfg = cfg;
-    repo = Repository.of(cfg);
+    repo = Repository.of(() -> cfg);
     direct = repo.getOrCreateOperator(DirectDataOperator.class);
     if (log.isDebugEnabled()) {
       repo.getAllEntities()
           .forEach(
-              e ->
-                  e.getAllAttributes(true)
-                      .stream()
-                      .forEach(a -> log.debug("Configured attribute {}", a)));
+              e -> e.getAllAttributes(true).forEach(a -> log.debug("Configured attribute {}", a)));
     }
     if (repo.isEmpty()) {
       throw new IllegalArgumentException("No valid entities found in provided config!");

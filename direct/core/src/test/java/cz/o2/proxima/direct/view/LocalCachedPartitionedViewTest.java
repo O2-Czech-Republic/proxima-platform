@@ -215,13 +215,24 @@ public class LocalCachedPartitionedViewTest {
     writer.write(update("key4", "device.3", device, now - 500), (succ, exc) -> {});
     view.assign(singlePartition());
     List<Pair<RandomOffset, String>> elements = new ArrayList<>();
+    // List the first entity.
     view.listEntities(view.fetchOffset(Listing.ENTITY, ""), 1, elements::add);
     assertEquals(1, elements.size());
+    // We should start indexing from zero.
+    assertEquals(new LocalCachedPartitionedView.IntOffset(0), elements.get(0).getFirst());
+    // List the second entity.
     view.listEntities(
         view.fetchOffset(Listing.ENTITY, elements.get(0).getSecond()), 1, elements::add);
     assertEquals(2, elements.size());
+    // List remaining entities.
     view.listEntities(
         view.fetchOffset(Listing.ENTITY, elements.get(1).getSecond()), -1, elements::add);
+    assertEquals(
+        Sets.newHashSet("key1", "key2", "key3", "key4"),
+        elements.stream().map(Pair::getSecond).collect(Collectors.toSet()));
+    // List all entities.
+    elements.clear();
+    view.listEntities(elements::add);
     assertEquals(
         Sets.newHashSet("key1", "key2", "key3", "key4"),
         elements.stream().map(Pair::getSecond).collect(Collectors.toSet()));

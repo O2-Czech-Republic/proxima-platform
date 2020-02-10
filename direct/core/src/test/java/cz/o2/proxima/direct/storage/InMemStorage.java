@@ -34,13 +34,13 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.randomaccess.RawOffset;
 import cz.o2.proxima.direct.view.CachedView;
+import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
@@ -691,126 +691,6 @@ public class InMemStorage implements DataAccessorFactory {
     }
   }
 
-  private static class InMemCachedView implements CachedView {
-
-    private final RandomAccessReader reader;
-    private final CommitLogReader commitLogReader;
-    private final OnlineAttributeWriter writer;
-    private BiConsumer<StreamElement, Pair<Long, Object>> updateCallback;
-
-    InMemCachedView(
-        RandomAccessReader reader, CommitLogReader commitLogReader, OnlineAttributeWriter writer) {
-
-      this.reader = reader;
-      this.commitLogReader = commitLogReader;
-      this.writer = writer;
-    }
-
-    @Override
-    public void assign(
-        Collection<Partition> partitions,
-        BiConsumer<StreamElement, Pair<Long, Object>> updateCallback) {
-
-      this.updateCallback = updateCallback;
-      if (updateCallback != null) {
-        this.commitLogReader.observe(
-            UUID.randomUUID().toString(),
-            new LogObserver() {
-              @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-
-                cache(ingest);
-                context.confirm();
-                return true;
-              }
-
-              @Override
-              public boolean onError(Throwable error) {
-                throw new RuntimeException(error);
-              }
-            });
-      }
-    }
-
-    @Override
-    public Collection<Partition> getAssigned() {
-      return Arrays.asList(PARTITION);
-    }
-
-    @Override
-    public RandomOffset fetchOffset(Listing type, String key) {
-      return reader.fetchOffset(type, key);
-    }
-
-    @Override
-    public <T> Optional<KeyValue<T>> get(
-        String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
-
-      return reader.get(key, attribute, desc, stamp);
-    }
-
-    @Override
-    public <T> void scanWildcard(
-        String key,
-        AttributeDescriptor<T> wildcard,
-        RandomOffset offset,
-        long stamp,
-        int limit,
-        Consumer<KeyValue<T>> consumer) {
-
-      reader.scanWildcard(key, wildcard, offset, stamp, limit, consumer);
-    }
-
-    @Override
-    public void listEntities(
-        RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
-
-      reader.listEntities(offset, limit, consumer);
-    }
-
-    @Override
-    public EntityDescriptor getEntityDescriptor() {
-      return reader.getEntityDescriptor();
-    }
-
-    @Override
-    public void close() {}
-
-    @Override
-    public void write(StreamElement data, CommitCallback statusCallback) {
-      cache(data);
-      writer.write(data, statusCallback);
-      getAttributeOfEntity(getEntityDescriptor(), data);
-    }
-
-    @Override
-    public URI getUri() {
-      return writer.getUri();
-    }
-
-    @Override
-    public void scanWildcardAll(
-        String key, RandomOffset offset, long stamp, int limit, Consumer<KeyValue<?>> consumer) {
-
-      reader.scanWildcardAll(key, offset, stamp, limit, consumer);
-    }
-
-    @Override
-    public void cache(StreamElement element) {
-      updateCallback.accept(
-          element,
-          Pair.of(
-              -1L,
-              get(element.getKey(), element.getAttribute(), element.getAttributeDescriptor())
-                  .orElse(null)));
-    }
-
-    @Override
-    public Collection<Partition> getPartitions() {
-      return Arrays.asList(PARTITION);
-    }
-  }
-
   private static class DataHolder {
     final NavigableMap<String, Pair<Long, byte[]>> data;
     final Map<URI, NavigableMap<Integer, InMemIngestWriter>> observers;
@@ -860,10 +740,10 @@ public class InMemStorage implements DataAccessorFactory {
 
     holder.observers.computeIfAbsent(
         uri, k -> Collections.synchronizedNavigableMap(new TreeMap<>()));
-    Writer writer = new Writer(entity, uri);
-    InMemCommitLogReader commitLogReader = new InMemCommitLogReader(entity, uri);
-    Reader reader = new Reader(entity, uri);
-    CachedView cachedView = new InMemCachedView(reader, commitLogReader, writer);
+    final Writer writer = new Writer(entity, uri);
+    final InMemCommitLogReader commitLogReader = new InMemCommitLogReader(entity, uri);
+    final Reader reader = new Reader(entity, uri);
+    final CachedView cachedView = new LocalCachedPartitionedView(entity, commitLogReader, writer);
 
     return new DataAccessor() {
       @Override

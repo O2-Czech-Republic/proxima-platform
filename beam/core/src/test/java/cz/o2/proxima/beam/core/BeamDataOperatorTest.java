@@ -16,6 +16,7 @@
 package cz.o2.proxima.beam.core;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -29,19 +30,27 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.Pipeline.PipelineVisitor;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
+import org.apache.beam.sdk.runners.TransformHierarchy.Node;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.transforms.Count;
+import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Sessions;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.PDone;
+import org.apache.beam.sdk.values.PValue;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.joda.time.Duration;
 import org.junit.Before;
@@ -310,6 +319,87 @@ public class BeamDataOperatorTest {
     } finally {
       repo.discard();
     }
+  }
+
+  @Test
+  public void testMultipleConsumptionsFromSingleAttribute() {
+    Pipeline p = Pipeline.create();
+    PCollection<StreamElement> first = beam.getStream(p, Position.OLDEST, true, true, armed);
+    PCollection<StreamElement> second = beam.getStream(p, Position.OLDEST, true, true, armed);
+    // validate that we have used cached PCollection
+    terminatePipeline(first, second);
+    checkHasSingleInput(p);
+
+    p = Pipeline.create();
+    first = beam.getBatchUpdates(p, armed);
+    second = beam.getBatchUpdates(p, armed);
+    terminatePipeline(first, second);
+    checkHasSingleInput(p);
+
+    p = Pipeline.create();
+    first = beam.getBatchSnapshot(p, armed);
+    second = beam.getBatchSnapshot(p, armed);
+    terminatePipeline(first, second);
+    checkHasSingleInput(p);
+  }
+
+  private void terminatePipeline(
+      PCollection<StreamElement> first, PCollection<StreamElement> second) {
+    PCollection<StreamElement> union = Union.of(first, second).output();
+    union.apply(done());
+  }
+
+  private static <T> PTransform<PCollection<T>, PDone> done() {
+    return new PTransform<PCollection<T>, PDone>() {
+      @Override
+      public PDone expand(PCollection<T> input) {
+        return PDone.in(input.getPipeline());
+      }
+    };
+  }
+
+  private void checkHasSingleInput(Pipeline p) {
+    AtomicBoolean terminated = new AtomicBoolean();
+    p.traverseTopologically(checkHasSingleInputVisitor(terminated));
+    assertTrue(terminated.get());
+  }
+
+  private PipelineVisitor checkHasSingleInputVisitor(AtomicBoolean terminated) {
+    Set<Node> roots = new HashSet<>();
+    return new PipelineVisitor() {
+
+      @Override
+      public void enterPipeline(Pipeline p) {}
+
+      @Override
+      public CompositeBehavior enterCompositeTransform(Node node) {
+        visitNode(node);
+        return CompositeBehavior.ENTER_TRANSFORM;
+      }
+
+      @Override
+      public void leaveCompositeTransform(Node node) {}
+
+      @Override
+      public void visitPrimitiveTransform(Node node) {
+        visitNode(node);
+      }
+
+      @Override
+      public void visitValue(PValue value, Node producer) {}
+
+      @Override
+      public void leavePipeline(Pipeline pipeline) {
+        assertTrue(roots.size() == 1);
+        terminated.set(true);
+      }
+
+      void visitNode(Node node) {
+        if (node.getTransform() != null && node.getInputs().isEmpty()) {
+          roots.add(node);
+        }
+      }
+    };
   }
 
   @SuppressWarnings("unchecked")

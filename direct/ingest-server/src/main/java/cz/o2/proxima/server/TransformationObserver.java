@@ -20,6 +20,7 @@ import static cz.o2.proxima.server.IngestServer.ingestRequest;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.RepositoryFactory;
+import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transform.Transformation;
@@ -54,6 +55,10 @@ public class TransformationObserver implements LogObserver {
 
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
+
+    Metrics.consumerWatermark(name).increment(context.getWatermark());
+    Metrics.consumerWatermarkLag(name)
+        .increment(System.currentTimeMillis() - context.getWatermark());
 
     if (!filter.apply(ingest)) {
       log.debug("Transformation {}: skipping transformation of {} by filter", name, ingest);

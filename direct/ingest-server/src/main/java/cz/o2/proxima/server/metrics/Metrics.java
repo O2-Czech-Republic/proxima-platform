@@ -113,6 +113,20 @@ public class Metrics {
                 GROUP, name, Duration.ofHours(1).toMillis(), Duration.ofMinutes(5).toMillis()));
   }
 
+  public static Metric<Double> consumerWatermark(String consumer) {
+    return getOrCreate(
+        String.format("%s_watermark", consumer.replaceAll("-", "_")),
+        name -> TimeAveragingMetric.of(GROUP, name, 1_000));
+  }
+
+  public static ApproxPercentileMetric consumerWatermarkLag(String consumer) {
+    return getOrCreate(
+        String.format("%s_watermark_lag", consumer.replaceAll("-", "_")),
+        name ->
+            ApproxPercentileMetric.of(
+                GROUP, name, Duration.ofHours(1).toMillis(), Duration.ofMinutes(5).toMillis()));
+  }
+
   @SuppressWarnings("unchecked")
   public static <T, M extends Metric<T>> M getOrCreate(
       String name, UnaryFunction<String, M> factory) {

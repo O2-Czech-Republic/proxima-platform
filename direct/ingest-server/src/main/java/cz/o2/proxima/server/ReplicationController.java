@@ -401,6 +401,9 @@ public class ReplicationController {
           @Override
           void ingestElement(StreamElement ingest, OnNextContext context) {
             final long watermark = context.getWatermark();
+            Metrics.consumerWatermark(consumerName).increment(watermark);
+            Metrics.consumerWatermarkLag(consumerName)
+                .increment(System.currentTimeMillis() - watermark);
             log.debug(
                 "Consumer {}: writing element {} into {} at watermark {}",
                 consumerName,
@@ -446,6 +449,9 @@ public class ReplicationController {
 
           @Override
           void ingestElement(StreamElement ingest, OnNextContext context) {
+            Metrics.consumerWatermark(consumerName).increment(context.getWatermark());
+            Metrics.consumerWatermarkLag(consumerName)
+                .increment(System.currentTimeMillis() - context.getWatermark());
             log.debug("Consumer {}: writing element {} into {}", consumerName, ingest, writer);
             writer.write(
                 ingest,

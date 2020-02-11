@@ -71,7 +71,7 @@ public class Closures {
       @Override
       public T call(Object... args) {
         Preconditions.checkArgument(
-            args.length == 2, "Need exactly two arguments, got %d", args.length);
+            args.length == 2, "Need exactly two arguments, got ", args.length);
         return lambda.apply(args[0], args[1]);
       }
     };

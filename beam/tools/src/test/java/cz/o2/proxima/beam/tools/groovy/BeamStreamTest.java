@@ -19,6 +19,7 @@ import static org.junit.Assert.*;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
@@ -38,6 +39,7 @@ import groovy.lang.Closure;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -50,6 +52,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.coders.VarIntCoder;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
@@ -59,6 +62,8 @@ import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.testing.TestStream;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
+import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
@@ -66,6 +71,7 @@ import org.apache.beam.sdk.values.TimestampedValue;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.sdk.values.WindowingStrategy;
+import org.joda.time.Duration;
 import org.joda.time.Instant;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -351,6 +357,110 @@ public class BeamStreamTest extends StreamTest {
             .map(Closures.fromArray(this, args -> ((Pair<Integer, Integer>) args[0]).getSecond()))
             .collect();
     assertEquals(Arrays.asList(90, 189, 289), result);
+  }
+
+  @Test
+  public void testExtractEarlyEmitting() {
+    Duration extracted =
+        BeamStream.extractEarlyEmitting(
+            AfterProcessingTime.pastFirstElementInPane().plusDelayOf(Duration.standardSeconds(1)));
+    assertEquals(1, extracted.getStandardSeconds());
+    extracted =
+        BeamStream.extractEarlyEmitting(
+            AfterWatermark.pastEndOfWindow()
+                .withEarlyFirings(
+                    AfterProcessingTime.pastFirstElementInPane()
+                        .plusDelayOf(Duration.standardSeconds(1))));
+    assertEquals(1, extracted.getStandardSeconds());
+  }
+
+  @Test
+  public void testReduceValueStateByKeyWithEarlyEmitting() {
+    Instant now = Instant.ofEpochMilli(1);
+    TestStream<Integer> input =
+        TestStream.create(VarIntCoder.of())
+            .addElements(
+                TimestampedValue.of(100, now.plus(100)),
+                TimestampedValue.of(99, now.plus(99)),
+                TimestampedValue.of(90, now.plus(90)))
+            .advanceWatermarkTo(now.plus(85))
+            .advanceWatermarkTo(now.plus(90))
+            .advanceWatermarkTo(now.plus(95))
+            .advanceWatermarkTo(now.plus(100))
+            .advanceWatermarkTo(now.plus(105))
+            .addElements(TimestampedValue.of(110, now.plus(110)))
+            .advanceWatermarkToInfinity();
+    Pipeline p = Pipeline.create();
+    PCollection<Integer> data = p.apply(input);
+    BeamStream<Integer> stream = BeamStream.wrap(data);
+
+    @SuppressWarnings("unchecked")
+    List<Integer> result =
+        stream
+            .windowAll()
+            .withEarlyEmitting(1)
+            .reduceValueStateByKey(
+                Closures.from(this, tmp -> 1),
+                Closures.from(this, a -> a),
+                Closures.from(this, tmp -> 0),
+                Closures.from(this, (s, v) -> s),
+                Closures.from(this, (s, v) -> v))
+            .map(Closures.fromArray(this, args -> ((Pair<Integer, Integer>) args[0]).getSecond()))
+            .collect();
+    assertEquals(
+        Arrays.asList(0, 90, 90, 90, 99, 100, 100, 100, 110, 110),
+        result.stream().sorted().collect(Collectors.toList()));
+  }
+
+  @Test
+  public void testPeriodicStateFlushing() {
+    Instant now = Instant.ofEpochMilli(1);
+    TestStream<KV<String, Integer>> input =
+        TestStream.create(KvCoder.of(StringUtf8Coder.of(), VarIntCoder.of()))
+            .addElements(
+                TimestampedValue.of(KV.of("a", 0), now.plus(1)),
+                TimestampedValue.of(KV.of("b", 1), now.plus(2)),
+                TimestampedValue.of(KV.of("a", 1), now.plus(10)),
+                TimestampedValue.of(KV.of("b", 0), now.plus(15)))
+            .advanceWatermarkTo(now.plus(1))
+            .advanceWatermarkTo(now.plus(2))
+            .advanceWatermarkTo(now.plus(5))
+            .advanceWatermarkTo(now.plus(7))
+            .advanceWatermarkTo(now.plus(10))
+            .advanceWatermarkTo(now.plus(12))
+            .advanceWatermarkTo(now.plus(15))
+            .advanceWatermarkToInfinity();
+
+    Pipeline p = Pipeline.create();
+    PCollection<KV<String, Integer>> data = p.apply(input);
+    BeamStream<KV<String, Integer>> stream = BeamStream.wrap(data);
+
+    @SuppressWarnings("unchecked")
+    List<Pair<Long, Long>> result =
+        stream
+            .windowAll()
+            .withEarlyEmitting(1)
+            .reduceValueStateByKey(
+                Closures.from(this, kv -> ((KV) kv).getKey()),
+                Closures.from(this, kv -> ((KV) kv).getValue()),
+                Closures.from(this, tmp -> 0),
+                Closures.from(this, (s, v) -> v == null ? s : v),
+                Closures.from(this, (s, v) -> v))
+            .timeWindow(1)
+            .filter(Closures.from(this, pair -> ((Pair<String, Integer>) pair).getSecond() > 0))
+            .map(Closures.from(this, pair -> ((Pair<String, Integer>) pair).getFirst()))
+            .timeWindow(1)
+            .distinct()
+            .count()
+            .withTimestamp()
+            .collect();
+    assertEquals(
+        Lists.newArrayList(1L, 1L, 1L, 1L, 1L, 2L, 2L, 1L, 1L),
+        result
+            .stream()
+            .sorted(Comparator.comparing(Pair::getSecond))
+            .map(Pair::getFirst)
+            .collect(Collectors.toList()));
   }
 
   private static class ParentClass {

@@ -40,6 +40,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.Test;
 
@@ -219,7 +220,7 @@ public class LocalCachedPartitionedViewTest {
     view.listEntities(view.fetchOffset(Listing.ENTITY, ""), 1, elements::add);
     assertEquals(1, elements.size());
     // We should start indexing from zero.
-    assertEquals(new LocalCachedPartitionedView.IntOffset(0), elements.get(0).getFirst());
+    assertEquals(new LocalCachedPartitionedView.IntOffset(1), elements.get(0).getFirst());
     // List the second entity.
     view.listEntities(
         view.fetchOffset(Listing.ENTITY, elements.get(0).getSecond()), 1, elements::add);
@@ -236,6 +237,16 @@ public class LocalCachedPartitionedViewTest {
     assertEquals(
         Sets.newHashSet("key1", "key2", "key3", "key4"),
         elements.stream().map(Pair::getSecond).collect(Collectors.toSet()));
+  }
+
+  @Test
+  public void testOffsetInvariants() {
+    writer.write(update("key1", "device.1", device, now - 1000), (succ, exc) -> {});
+    view.assign(singlePartition());
+    RandomOffset firstOffset = view.fetchOffset(Listing.ENTITY, "");
+    AtomicReference<RandomOffset> next = new AtomicReference<>();
+    view.listEntities(firstOffset, 1, p -> next.set(p.getFirst()));
+    assertNotEquals(firstOffset, next.get());
   }
 
   private StreamElement deleteWildcard(String key, AttributeDescriptor<?> desc, long stamp) {

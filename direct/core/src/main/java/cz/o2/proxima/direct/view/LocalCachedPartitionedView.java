@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.view;
 
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -23,7 +24,6 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
-import cz.o2.proxima.direct.randomaccess.RandomAccessReader.Listing;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.randomaccess.RawOffset;
 import cz.o2.proxima.functional.BiConsumer;
@@ -45,17 +45,17 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 /** A transformation view from {@link CommitLogReader} to {@link CachedView}. */
 @Slf4j
 public class LocalCachedPartitionedView implements CachedView {
 
-  @AllArgsConstructor
-  private static class IntOffset implements RandomOffset {
-    @Getter final int offset;
+  @Value
+  @VisibleForTesting
+  static class IntOffset implements RandomOffset {
+    private final int offset;
   }
 
   private final CommitLogReader reader;
@@ -313,9 +313,8 @@ public class LocalCachedPartitionedView implements CachedView {
   @Override
   public void listEntities(
       RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
-
-    IntOffset off = (IntOffset) offset;
-    AtomicInteger newOff = new AtomicInteger(off.getOffset());
+    final IntOffset off = offset == null ? new IntOffset(0) : (IntOffset) offset;
+    final AtomicInteger newOff = new AtomicInteger(off.getOffset());
     cache.keys(
         off.getOffset(),
         limit,
@@ -328,7 +327,6 @@ public class LocalCachedPartitionedView implements CachedView {
     cache.clear();
   }
 
-  @SuppressWarnings("unchecked")
   private @Nullable <T> KeyValue<T> toKv(
       String key, String attribute, @Nullable Pair<Long, Object> p) {
 

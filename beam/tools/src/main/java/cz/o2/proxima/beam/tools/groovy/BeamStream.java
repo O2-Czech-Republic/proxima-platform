@@ -18,6 +18,8 @@ package cz.o2.proxima.beam.tools.groovy;
 import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.AttributeDescriptorCoder;
@@ -102,11 +104,16 @@ import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.state.StateSpec;
 import org.apache.beam.sdk.state.StateSpecs;
+import org.apache.beam.sdk.state.TimeDomain;
+import org.apache.beam.sdk.state.Timer;
+import org.apache.beam.sdk.state.TimerSpec;
+import org.apache.beam.sdk.state.TimerSpecs;
 import org.apache.beam.sdk.state.ValueState;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Flatten;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.transforms.windowing.DefaultTrigger;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
@@ -116,6 +123,7 @@ import org.apache.beam.sdk.transforms.windowing.IntervalWindow;
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow.IntervalWindowCoder;
 import org.apache.beam.sdk.transforms.windowing.Sessions;
 import org.apache.beam.sdk.transforms.windowing.SlidingWindows;
+import org.apache.beam.sdk.transforms.windowing.TimestampTransform;
 import org.apache.beam.sdk.transforms.windowing.Trigger;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
@@ -787,6 +795,7 @@ class BeamStream<T> implements Stream<T> {
             WindowingStrategy<T, ?> strategy = (WindowingStrategy<T, ?>) windowingStrategy;
             in = in.apply(withWindowingStrategy(strategy));
           }
+          Duration earlyEmitting = extractEarlyEmitting(windowingStrategy.getTrigger());
           PCollection<KV<K, V>> kvs =
               MapElements.named(withSuffix(name, ".mapToKvs"))
                   .of(in)
@@ -803,7 +812,9 @@ class BeamStream<T> implements Stream<T> {
                             initialStateDehydrated,
                             stateUpdateDehydrated,
                             outputDehydrated,
-                            stateCoder)));
+                            keyCoder,
+                            stateCoder,
+                            earlyEmitting)));
           } else {
             ret =
                 kvs.apply(
@@ -812,7 +823,9 @@ class BeamStream<T> implements Stream<T> {
                             initialStateDehydrated,
                             stateUpdateDehydrated,
                             outputDehydrated,
-                            stateCoder)));
+                            keyCoder,
+                            stateCoder,
+                            earlyEmitting)));
           }
           ret = ret.setCoder(PairCoder.of(keyCoder, outputCoder));
           if (!ret.getWindowingStrategy().equals(WindowingStrategy.globalDefault())) {
@@ -820,6 +833,37 @@ class BeamStream<T> implements Stream<T> {
           }
           return ret;
         });
+  }
+
+  @VisibleForTesting
+  static Duration extractEarlyEmitting(Trigger trigger) {
+    Duration extracted = null;
+    if (trigger.subTriggers() != null) {
+      for (Trigger t : trigger.subTriggers()) {
+        extracted = tryExtractFromTrigger(t);
+        if (extracted != null) {
+          break;
+        }
+      }
+    } else {
+      extracted = tryExtractFromTrigger(trigger);
+    }
+    return MoreObjects.firstNonNull(extracted, Duration.ZERO);
+  }
+
+  @Nullable
+  private static Duration tryExtractFromTrigger(Trigger t) {
+    if (t instanceof AfterProcessingTime) {
+      AfterProcessingTime processing = (AfterProcessingTime) t;
+      List<TimestampTransform> transforms = processing.getTimestampTransforms();
+      if (transforms.size() == 1) {
+        TimestampTransform transform = Iterables.getOnlyElement(transforms);
+        if (transform instanceof TimestampTransform.Delay) {
+          return ((TimestampTransform.Delay) transform).getDelay();
+        }
+      }
+    }
+    return null;
   }
 
   static <T, W extends BoundedWindow>
@@ -1181,42 +1225,90 @@ class BeamStream<T> implements Stream<T> {
   static class ReduceValueStateByKey<K, V, S, O> extends DoFn<KV<K, V>, Pair<K, O>> {
 
     static <K, V, S, O> ReduceValueStateByKey<K, V, S, O> of(
-        Closure<S> initialState, Closure<S> stateUpdate, Closure<O> output, Coder<S> stateCoder) {
+        Closure<S> initialState,
+        Closure<S> stateUpdate,
+        Closure<O> output,
+        Coder<K> keyCoder,
+        Coder<S> stateCoder,
+        Duration earlyEmitting) {
 
-      return new ReduceValueStateByKey<>(initialState, stateUpdate, output, stateCoder);
+      return new ReduceValueStateByKey<>(
+          initialState, stateUpdate, output, keyCoder, stateCoder, earlyEmitting);
     }
 
     private final Closure<S> initialState;
     private final Closure<S> stateUpdate;
     private final Closure<O> output;
+    private final Duration earlyEmitting;
 
     @StateId("value")
-    private final StateSpec<ValueState<S>> state;
+    private final StateSpec<ValueState<Pair<K, S>>> state;
+
+    @TimerId("earlyTimer")
+    private final TimerSpec earlyTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
+
+    @VisibleForTesting
+    ReduceValueStateByKey(
+        Closure<S> initialState,
+        Closure<S> stateUpdate,
+        Closure<O> output,
+        Coder<K> keyCoder,
+        Coder<S> stateCoder) {
+      this(initialState, stateUpdate, output, keyCoder, stateCoder, Duration.ZERO);
+    }
 
     ReduceValueStateByKey(
-        Closure<S> initialState, Closure<S> stateUpdate, Closure<O> output, Coder<S> stateCoder) {
+        Closure<S> initialState,
+        Closure<S> stateUpdate,
+        Closure<O> output,
+        Coder<K> keyCoder,
+        Coder<S> stateCoder,
+        Duration earlyEmitting) {
 
-      this.state = StateSpecs.value(stateCoder);
+      this.state = StateSpecs.value(PairCoder.of(keyCoder, stateCoder));
       this.initialState = initialState;
       this.stateUpdate = stateUpdate;
       this.output = output;
+      this.earlyEmitting = earlyEmitting;
     }
 
     @RequiresTimeSortedInput
     @ProcessElement
-    public void processElement(ProcessContext context, @StateId("value") ValueState<S> valueState) {
+    public void processElement(
+        ProcessContext context,
+        @StateId("value") ValueState<Pair<K, S>> valueState,
+        @TimerId("earlyTimer") Timer earlyTimer) {
 
       KV<K, V> element = context.element();
       K key = element.getKey();
       V value = element.getValue();
-      S current = valueState.read();
+      Pair<K, S> current = valueState.read();
       if (current == null) {
-        current = Objects.requireNonNull(initialState.call(key));
+        current = Pair.of(key, Objects.requireNonNull(initialState.call(key)));
       }
-      O o = output.call(current, value);
-      S updated = stateUpdate.call(current, value);
-      valueState.write(updated);
-      context.outputWithTimestamp(Pair.of(key, o), context.timestamp());
+      O outputElem = output.call(current.getSecond(), value);
+      S updated = stateUpdate.call(current.getSecond(), value);
+      valueState.write(Pair.of(key, updated));
+      if (outputElem != null) {
+        context.outputWithTimestamp(Pair.of(key, outputElem), context.timestamp());
+      }
+      if (!earlyEmitting.equals(Duration.ZERO)) {
+        earlyTimer.set(context.timestamp().plus(earlyEmitting));
+      }
+    }
+
+    @OnTimer("earlyTimer")
+    public void onTimer(
+        OnTimerContext context,
+        @StateId("value") ValueState<Pair<K, S>> valueState,
+        @TimerId("earlyTimer") Timer earlyTimer) {
+
+      Pair<K, S> current = valueState.read();
+      O outputElem = output.call(current.getSecond(), null);
+      if (outputElem != null) {
+        context.output(Pair.of(current.getFirst(), outputElem));
+      }
+      earlyTimer.offset(earlyEmitting).setRelative();
     }
 
     @SuppressWarnings("unchecked")

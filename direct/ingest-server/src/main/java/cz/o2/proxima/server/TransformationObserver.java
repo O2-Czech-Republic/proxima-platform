@@ -55,11 +55,7 @@ public class TransformationObserver implements LogObserver {
 
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
-
-    Metrics.consumerWatermark(name).increment(context.getWatermark());
-    Metrics.consumerWatermarkLag(name)
-        .increment(System.currentTimeMillis() - context.getWatermark());
-
+    Metrics.reportConsumerWatermark(name, context.getWatermark());
     if (!filter.apply(ingest)) {
       log.debug("Transformation {}: skipping transformation of {} by filter", name, ingest);
       context.confirm();
@@ -67,6 +63,11 @@ public class TransformationObserver implements LogObserver {
       doTransform(context, ingest);
     }
     return true;
+  }
+
+  @Override
+  public void onIdle(OnIdleContext context) {
+    Metrics.reportConsumerWatermark(name, context.getWatermark());
   }
 
   private void doTransform(OffsetCommitter committer, StreamElement ingest) {

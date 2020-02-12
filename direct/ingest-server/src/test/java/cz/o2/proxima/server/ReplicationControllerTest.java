@@ -31,6 +31,7 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Before;
@@ -52,12 +54,23 @@ public class ReplicationControllerTest {
   DirectDataOperator direct;
   ReplicationController controller;
   CompletableFuture<Void> future;
+  CountDownLatch livenessLatch = new CountDownLatch(1);
   long now;
 
   @Before
   public void setUp() {
     direct = repo.getOrCreateOperator(DirectDataOperator.class);
-    controller = ReplicationController.of(repo);
+    controller =
+        new ReplicationController(repo) {
+          @Override
+          boolean checkLiveness() {
+            if (super.checkLiveness()) {
+              livenessLatch.countDown();
+              return true;
+            }
+            return false;
+          }
+        };
     future = controller.runReplicationThreads();
     now = System.currentTimeMillis();
   }
@@ -69,8 +82,8 @@ public class ReplicationControllerTest {
     repo.discard();
   }
 
-  @Test
-  public void testSimpleEventReplication() {
+  @Test(timeout = 5000)
+  public void testSimpleEventReplication() throws InterruptedException {
     List<StreamElement> written = new ArrayList<>();
     AbstractRetryableLogObserver observer =
         controller.createOnlineObserver(
@@ -86,6 +99,8 @@ public class ReplicationControllerTest {
       writeEvent();
       assertEquals(1, written.size());
     }
+    livenessLatch.await();
+    assertEquals(1.0, Metrics.LIVENESS.getValue(), 0.0001);
   }
 
   @Test

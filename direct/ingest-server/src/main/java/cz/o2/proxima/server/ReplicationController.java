@@ -38,6 +38,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.Pair;
 import java.io.File;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +48,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -100,6 +103,11 @@ public class ReplicationController {
       final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
       log.debug("Consumer {}: received new ingest element {}", consumerName, ingest);
       if (allowed && filter.apply(ingest)) {
+        Metrics.ingestsForAttribute(ingest.getAttributeDescriptor()).increment();
+        if (!ingest.isDelete()) {
+          Metrics.sizeForAttribute(ingest.getAttributeDescriptor())
+              .increment(ingest.getValue().length);
+        }
         Failsafe.with(retryPolicy).run(() -> ingestElement(ingest, context));
       } else {
         Metrics.COMMIT_UPDATE_DISCARDED.increment();
@@ -137,6 +145,11 @@ public class ReplicationController {
       writer.rollback();
     }
 
+    @Override
+    public void onIdle(OnIdleContext context) {
+      Metrics.reportConsumerWatermark(consumerName, context.getWatermark());
+    }
+
     abstract void ingestElement(StreamElement ingest, OnNextContext context);
   }
 
@@ -146,6 +159,14 @@ public class ReplicationController {
 
   private final Repository repository;
   private final DirectDataOperator dataOperator;
+  private final ScheduledExecutorService scheduler =
+      new ScheduledThreadPoolExecutor(
+          1,
+          runnable -> {
+            Thread ret = new Thread(runnable);
+            ret.setName("replication-scheduler");
+            return ret;
+          });
   private static final boolean ignoreErrors = false;
 
   private final List<CompletableFuture<Void>> replications = new CopyOnWriteArrayList<>();
@@ -181,7 +202,20 @@ public class ReplicationController {
     // execute transformer threads
     repository.getTransformations().forEach(this::runTransformer);
 
+    scheduler.scheduleAtFixedRate(this::checkLiveness, 0, 1, TimeUnit.SECONDS);
+
     return completed;
+  }
+
+  @VisibleForTesting
+  boolean checkLiveness() {
+    long minWatermark = Metrics.minWatermarkOfConsumers();
+    boolean isLive = minWatermark > System.currentTimeMillis() - 10_000;
+    if (log.isDebugEnabled()) {
+      log.debug("Min watermark of consumers calculated as {}", Instant.ofEpochMilli(minWatermark));
+    }
+    Metrics.LIVENESS.increment(isLive ? 1 : 0);
+    return isLive;
   }
 
   private void consumeLog(
@@ -398,6 +432,7 @@ public class ReplicationController {
           @Override
           void ingestElement(StreamElement ingest, OnNextContext context) {
             final long watermark = context.getWatermark();
+            Metrics.reportConsumerWatermark(consumerName, watermark);
             log.debug(
                 "Consumer {}: writing element {} into {} at watermark {}",
                 consumerName,
@@ -443,6 +478,7 @@ public class ReplicationController {
 
           @Override
           void ingestElement(StreamElement ingest, OnNextContext context) {
+            Metrics.reportConsumerWatermark(consumerName, context.getWatermark());
             log.debug("Consumer {}: writing element {} into {}", consumerName, ingest, writer);
             writer.write(
                 ingest,

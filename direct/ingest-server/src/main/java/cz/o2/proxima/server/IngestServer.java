@@ -193,15 +193,16 @@ public class IngestServer {
                   server.shutdown();
                 }));
 
-    Metrics.register();
     try {
       server.start();
       log.info("Successfully started server 0.0.0.0:{}", server.getPort());
+      Metrics.LIVENESS.increment(1.0);
       server.awaitTermination();
       log.info("Server shutdown.");
     } catch (Exception ex) {
       Utils.die("Failed to start the server", ex);
     }
+    Metrics.LIVENESS.reset();
   }
 
   @VisibleForTesting

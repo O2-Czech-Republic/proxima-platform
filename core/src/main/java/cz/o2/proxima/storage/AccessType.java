@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.storage;
 
+import com.google.common.collect.Streams;
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.util.Arrays;
@@ -31,10 +32,19 @@ public interface AccessType extends Serializable {
    * @param spec the specification in `access` field of attribute family
    * @return the {@code AccessType}
    */
-  static AccessType from(String spec) {
+  static AccessType from(Object spec) {
 
-    Set<String> specifiers =
-        Arrays.stream(spec.split(",")).map(String::trim).collect(Collectors.toSet());
+    final Set<String> specifiers;
+    if (spec instanceof String) {
+      specifiers =
+          Arrays.stream(spec.toString().split(",")).map(String::trim).collect(Collectors.toSet());
+    } else if (spec instanceof Iterable) {
+      @SuppressWarnings("unchecked")
+      Iterable<Object> iterable = (Iterable<Object>) spec;
+      specifiers = Streams.stream(iterable).map(Object::toString).collect(Collectors.toSet());
+    } else {
+      throw new IllegalArgumentException("Unknown specifier type " + spec.getClass());
+    }
 
     boolean isReadOnly = specifiers.remove("read-only");
     boolean isWriteOnly = specifiers.remove("write-only");

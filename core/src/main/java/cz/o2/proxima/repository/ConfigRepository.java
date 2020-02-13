@@ -907,8 +907,7 @@ public class ConfigRepository extends Repository {
     // * random-access (random-access read-write)
     final StorageType type = StorageType.of((String) cfg.get(TYPE));
     final AccessType access =
-        AccessType.from(
-            Optional.ofNullable(cfg.get(ACCESS)).map(Object::toString).orElse(READ_ONLY));
+        AccessType.from(Optional.ofNullable(cfg.get(ACCESS)).orElse(READ_ONLY));
     final List<String> attributes =
         toList(
             Objects.requireNonNull(

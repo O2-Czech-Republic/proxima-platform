@@ -13,7 +13,7 @@ attributeFamilies {
         attributes: ["attribute1", "attribute2"]
         storage: "gps://"${gcloud.projectId}"/my-commitlog"
         type: "primary"
-        access: "commit-log"
+        access: commit-log
     }
 }
 ```
@@ -31,7 +31,7 @@ attributeFamilies {
         attributes: ["attribute1", "attribute2"]
         storage: "gps://"${gcloud.projectId}"/my-commitlog"
         type: "primary"
-        access: "commit-log"
+        access: commit-log
         pubsub {
             subscription {
                 auto-create = true

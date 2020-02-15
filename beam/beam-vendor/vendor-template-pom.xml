@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima.beam</groupId>
     <artifactId>proxima-beam-vendor</artifactId>
-    <version>0.3-b91560</version>
+    <version>0.3-1d562f</version>
   </parent>
 
   <artifactId>${artifactId}</artifactId>

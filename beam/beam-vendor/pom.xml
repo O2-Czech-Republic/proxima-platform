@@ -29,7 +29,7 @@
   <groupId>cz.o2.proxima.beam</groupId>
   <artifactId>proxima-beam-vendor</artifactId>
   <packaging>pom</packaging>
-  <version>0.3-b91560</version>
+  <version>0.3-1d562f</version>
 
   <name>${project.groupId}:${project.artifactId}</name>
 
@@ -41,7 +41,6 @@
     <module>beam-sdks-java-core</module>
     <module>beam-sdks-java-extensions-euphoria</module>
     <module>beam-sdks-java-extensions-kryo</module>
-    <module>beam-sdks-java-io-google-cloud-platform</module>
     
   </modules>
 

@@ -35,7 +35,7 @@
 
   <properties>
     <apache.beam.groupId>org.apache.beam</apache.beam.groupId>
-    <apache.beam.version>2.20.0-SNAPSHOT</apache.beam.version>
+    <apache.beam.version>2.19.0-SNAPSHOT</apache.beam.version>
     <apache.beam.groupId.raw>org.apache.beam</apache.beam.groupId.raw>
     <apache.beam.version.raw>${apache.beam.version}</apache.beam.version.raw>
   </properties>
@@ -45,8 +45,8 @@
       <id>buildVendoredBeam</id>
       <properties>
         <apache.beam.groupId>cz.o2.proxima.beam</apache.beam.groupId>
-        <apache.beam.version>0.3-b91560</apache.beam.version>
-        <apache.beam.version.raw>2.20.0-SNAPSHOT</apache.beam.version.raw>
+        <apache.beam.version>0.3-1d562f</apache.beam.version>
+        <apache.beam.version.raw>2.19.0-SNAPSHOT</apache.beam.version.raw>
       </properties>
       <build>
         <plugins>
@@ -103,8 +103,8 @@
       </activation>
       <properties>
         <apache.beam.groupId>cz.o2.proxima.beam</apache.beam.groupId>
-        <apache.beam.version>0.3-b91560</apache.beam.version>
-        <apache.beam.version.raw>2.20.0-SNAPSHOT</apache.beam.version.raw>
+        <apache.beam.version>0.3-1d562f</apache.beam.version>
+        <apache.beam.version.raw>2.19.0-SNAPSHOT</apache.beam.version.raw>
       </properties>
       <modules>
         <module>core</module>

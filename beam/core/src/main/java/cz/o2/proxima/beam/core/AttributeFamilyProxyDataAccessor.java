@@ -23,6 +23,7 @@ import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.transform.ProxyTransform;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +44,8 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
   private final AttributeFamilyProxyDescriptor proxy;
   private final DataAccessor readAccessor;
   private final DataAccessor writeAccessor;
-  private final Map<AttributeDescriptor<?>, AttributeProxyDescriptor<?>> lookupRead;
+  private final Map<AttributeDescriptor<?>, AttributeProxyDescriptor<?>> lookupTarget;
+  private final Map<AttributeProxyDescriptor<?>, AttributeDescriptor<?>> lookupProxy;
 
   private AttributeFamilyProxyDataAccessor(
       AttributeFamilyProxyDescriptor proxy, DataAccessor readAccessor, DataAccessor writeAccessor) {
@@ -51,13 +53,20 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
     this.proxy = proxy;
     this.readAccessor = readAccessor;
     this.writeAccessor = writeAccessor;
-    this.lookupRead =
+    this.lookupTarget =
         proxy
             .getAttributes()
             .stream()
             .map(AttributeDescriptor::asProxy)
             .collect(
                 Collectors.toMap(AttributeProxyDescriptor::getReadTarget, Function.identity()));
+    this.lookupProxy =
+        proxy
+            .getAttributes()
+            .stream()
+            .map(AttributeDescriptor::asProxy)
+            .collect(
+                Collectors.toMap(Function.identity(), AttributeProxyDescriptor::getReadTarget));
   }
 
   @Override
@@ -77,7 +86,8 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
   public PCollection<StreamElement> createBatch(
       Pipeline pipeline, List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp) {
 
-    return applyTransform(readAccessor.createBatch(pipeline, attrs, startStamp, endStamp));
+    return applyTransform(
+        readAccessor.createBatch(pipeline, transformAttrs(attrs), startStamp, endStamp));
   }
 
   @Override
@@ -89,7 +99,19 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
       long limit) {
 
     return applyTransform(
-        readAccessor.createStreamFromUpdates(pipeline, attrs, startStamp, endStamp, limit));
+        readAccessor.createStreamFromUpdates(
+            pipeline, transformAttrs(attrs), startStamp, endStamp, limit));
+  }
+
+  List<AttributeDescriptor<?>> transformAttrs(List<AttributeDescriptor<?>> attrs) {
+    return attrs
+        .stream()
+        .map(
+            attr ->
+                Objects.requireNonNull(
+                    lookupProxy.get(attr.asProxy()),
+                    () -> "Attribute " + attr.getName() + " is not present in proxy " + proxy))
+        .collect(Collectors.toList());
   }
 
   private PCollection<StreamElement> applyTransform(PCollection<StreamElement> in) {
@@ -97,7 +119,7 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
   }
 
   private StreamElement transformSingleRead(StreamElement input) {
-    AttributeProxyDescriptor<?> attr = lookupRead.get(input.getAttributeDescriptor());
+    AttributeProxyDescriptor<?> attr = lookupTarget.get(input.getAttributeDescriptor());
     if (attr != null) {
       ProxyTransform transform = attr.getReadTransform();
       String attribute = transform.toProxy(input.getAttribute());

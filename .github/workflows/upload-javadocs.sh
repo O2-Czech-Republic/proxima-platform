@@ -16,13 +16,13 @@
 #
 
 
-set -e
+set -eu
 
 source $(dirname $0)/functions.sh
 
 if [ "$(is_datadriven_repo ${GITHUB_REPOSITORY})" == "1" ]; then
    VERSION=$(proxima_version)
-   
+
    mvn site -Psite
 
    echo ${GOOGLE_CREDENTIALS} > /tmp/google-credentials.json
@@ -30,4 +30,4 @@ if [ "$(is_datadriven_repo ${GITHUB_REPOSITORY})" == "1" ]; then
 
    gsutil -m cp -r target/site/apidocs gs://${PROXIMA_DOC_GC_STORAGE}/${VERSION}/
 
-fi   
+fi

@@ -22,7 +22,7 @@
 
   <groupId>cz.o2.proxima</groupId>
   <artifactId>platform-parent</artifactId>
-  <version>0.3.0-rc2</version>
+  <version>0.3-SNAPSHOT</version>
   <packaging>pom</packaging>
   <inceptionYear>2017</inceptionYear>
 

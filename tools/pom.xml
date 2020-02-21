@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <version>0.3.0-rc2</version>
   </parent>
      
   <artifactId>proxima-tools</artifactId>
@@ -61,8 +61,6 @@
         </executions>
         <configuration>
           <source>8</source>
-          <!-- Not working, excluding now, but should be resolved in future -->
-          <excludePackageNames>cz.o2.proxima.tools.*</excludePackageNames>
         </configuration>
       </plugin>
       <plugin>

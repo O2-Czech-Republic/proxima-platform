@@ -18,7 +18,6 @@ package cz.o2.proxima.repository;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.repository.DefaultConsumerNameFactory.DefaultReplicationConsumerNameFactory;
-import cz.o2.proxima.repository.DefaultConsumerNameFactory.DefaultTransformationConsumerNameFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageFilter;
@@ -48,8 +47,7 @@ public class AttributeFamilyDescriptor implements Serializable {
 
   public static final String CFG_REPLICATION_CONSUMER_NAME_GENERATOR =
       "replication.consumer.name.factory";
-  public static final String CFG_TRANSFORMATION_CONSUMER_NAME_GENERATOR =
-      "transformation.consumer.name.factory";
+
   @Getter private final StorageType type;
 
   public static Builder newBuilder() {
@@ -67,8 +65,10 @@ public class AttributeFamilyDescriptor implements Serializable {
   private final List<AttributeDescriptor<?>> attributes;
   @Getter private final StorageFilter filter;
   @Nullable private final String source;
-  @Getter private final ConsumerNameFactory replicationConsumerNameFactory;
-  @Getter private final ConsumerNameFactory transformationConsumerNameFactory;
+
+  @Getter
+  private final ConsumerNameFactory<AttributeFamilyDescriptor> replicationConsumerNameFactory;
+
   @Getter private final Map<String, Object> cfg;
 
   AttributeFamilyDescriptor(
@@ -95,19 +95,16 @@ public class AttributeFamilyDescriptor implements Serializable {
     this.replicationConsumerNameFactory =
         constructConsumerNameFactory(
             CFG_REPLICATION_CONSUMER_NAME_GENERATOR, DefaultReplicationConsumerNameFactory.class);
-
-    this.transformationConsumerNameFactory =
-        constructConsumerNameFactory(
-            CFG_TRANSFORMATION_CONSUMER_NAME_GENERATOR,
-            DefaultTransformationConsumerNameFactory.class);
   }
 
-  private ConsumerNameFactory constructConsumerNameFactory(
-      String configKey, Class<? extends ConsumerNameFactory> defaultClass) {
+  private ConsumerNameFactory<AttributeFamilyDescriptor> constructConsumerNameFactory(
+      String configKey,
+      Class<? extends ConsumerNameFactory<AttributeFamilyDescriptor>> defaultClass) {
     String consumerNameFactoryClass =
         this.getCfg().getOrDefault(configKey, defaultClass.getName()).toString();
 
-    ConsumerNameFactory factory =
+    @SuppressWarnings("unchecked")
+    ConsumerNameFactory<AttributeFamilyDescriptor> factory =
         Classpath.newInstance(consumerNameFactoryClass, ConsumerNameFactory.class);
     log.debug(
         "Using {} class as consumer name generator for attribute family {}.",

@@ -347,7 +347,7 @@ public class ReplicationController {
 
     final Transformation transformation = transform.getTransformation();
     final StorageFilter filter = transform.getFilter();
-    final String consumer = family.getDesc().getTransformationConsumerNameFactory().apply();
+    final String consumer = transform.getConsumerNameFactory().apply();
 
     final CommitLogReader reader =
         family

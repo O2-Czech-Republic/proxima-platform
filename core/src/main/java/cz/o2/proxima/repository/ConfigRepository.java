@@ -1251,6 +1251,7 @@ public class ConfigRepository extends Repository {
     this.transformations.put(
         transform,
         TransformationDescriptor.newBuilder()
+            .setName(transform)
             .addAttributes(source.getAttributes())
             .setEntity(entity)
             .setFilter(replicated.getFilter())
@@ -1300,6 +1301,7 @@ public class ConfigRepository extends Repository {
     this.transformations.put(
         transform,
         TransformationDescriptor.newBuilder()
+            .setName(transform)
             .addAttributes(write.getAttributes())
             .setEntity(entity)
             .setFilter(targetFamily.getFilter())
@@ -1333,6 +1335,7 @@ public class ConfigRepository extends Repository {
     this.transformations.put(
         transform,
         TransformationDescriptor.newBuilder()
+            .setName(transform)
             .addAttributes(write.getAttributes())
             .setEntity(entity)
             .setFilter(replicated.getFilter())
@@ -1779,6 +1782,7 @@ public class ConfigRepository extends Repository {
 
           TransformationDescriptor.Builder desc =
               TransformationDescriptor.newBuilder()
+                  .setName(name)
                   .addAttributes(attrs)
                   .setEntity(entity)
                   .setTransformation(t);

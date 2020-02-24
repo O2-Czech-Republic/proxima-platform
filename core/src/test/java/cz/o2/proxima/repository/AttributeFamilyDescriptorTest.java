@@ -110,12 +110,6 @@ public class AttributeFamilyDescriptorTest {
     assertEquals(
         String.format("consumer-%s", descriptorWithoutSuffix.getName()),
         descriptorWithoutSuffix.getReplicationConsumerNameFactory().apply());
-    assertEquals(
-        String.format("transformer-%s", descriptorWithoutSuffix.getName()),
-        descriptorWithoutSuffix.getTransformationConsumerNameFactory().apply());
-    assertEquals(
-        String.format("transformer-%s-my-suffix", descriptorWithSuffix.getName()),
-        descriptorWithSuffix.getTransformationConsumerNameFactory().apply());
   }
 
   @Test(expected = RuntimeException.class)

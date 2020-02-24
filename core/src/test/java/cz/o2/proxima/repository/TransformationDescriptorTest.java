@@ -15,22 +15,20 @@
  */
 package cz.o2.proxima.repository;
 
-import java.io.Serializable;
+import static org.junit.Assert.*;
 
-/** Consumer name generator. */
-public interface ConsumerNameFactory<T> extends Serializable {
+import com.typesafe.config.ConfigFactory;
+import java.util.Map;
+import org.junit.Test;
 
-  /**
-   * Initialize for given context.
-   *
-   * @param context the context of this generator context
-   */
-  void setup(T context);
+public class TransformationDescriptorTest {
 
-  /**
-   * Get consumer name
-   *
-   * @return String consumer name
-   */
-  String apply();
+  @Test
+  public void testDefaultNamingOfTransfomationConsumers() {
+    Repository repo = Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
+    Map<String, TransformationDescriptor> transformations = repo.getTransformations();
+    assertFalse(transformations.isEmpty());
+    transformations.forEach(
+        (name, t) -> assertEquals("transformer-" + name, t.getConsumerNameFactory().apply()));
+  }
 }

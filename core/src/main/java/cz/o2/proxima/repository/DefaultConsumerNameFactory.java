@@ -16,9 +16,11 @@
 package cz.o2.proxima.repository;
 
 import java.util.Objects;
+import lombok.AccessLevel;
+import lombok.Getter;
 
 /** Default consumer name generator */
-abstract class DefaultConsumerNameFactory implements ConsumerNameFactory {
+abstract class DefaultConsumerNameFactory<T> implements ConsumerNameFactory<T> {
 
   public static final String CFG_REPLICATION_CONSUMER_NAME_SUFFIX =
       "replication.consumer.name.suffix";
@@ -29,24 +31,23 @@ abstract class DefaultConsumerNameFactory implements ConsumerNameFactory {
   public static final String CFG_TRANSFORMER_CONSUMER_NAME_SUFFIX =
       "transformer.consumer.name.suffix";
 
-  private String prefix;
-  private String namePrefix;
-  private String name;
-  private String suffix;
-  private String prefixCfgKey;
-  private String suffixCfgKey;
+  @Getter(AccessLevel.PACKAGE)
+  private final String namePrefix;
+
+  @Getter(AccessLevel.PACKAGE)
+  private final String prefixCfgKey;
+
+  @Getter(AccessLevel.PACKAGE)
+  private final String suffixCfgKey;
+
+  String name;
+  String prefix;
+  String suffix;
 
   public DefaultConsumerNameFactory(String namePrefix, String prefixCfgKey, String suffixCfgKey) {
     this.namePrefix = namePrefix;
     this.prefixCfgKey = prefixCfgKey;
     this.suffixCfgKey = suffixCfgKey;
-  }
-
-  @Override
-  public void setup(AttributeFamilyDescriptor descriptor) {
-    this.name = descriptor.getName();
-    this.prefix = descriptor.getCfg().getOrDefault(prefixCfgKey, "").toString();
-    this.suffix = descriptor.getCfg().getOrDefault(suffixCfgKey, "").toString();
   }
 
   @Override
@@ -72,22 +73,19 @@ abstract class DefaultConsumerNameFactory implements ConsumerNameFactory {
   }
 
   /** Default implementation for replication */
-  public static class DefaultReplicationConsumerNameFactory extends DefaultConsumerNameFactory {
+  public static class DefaultReplicationConsumerNameFactory
+      extends DefaultConsumerNameFactory<AttributeFamilyDescriptor> {
 
     public DefaultReplicationConsumerNameFactory() {
       super(
           "consumer-", CFG_REPLICATION_CONSUMER_NAME_PREFIX, CFG_REPLICATION_CONSUMER_NAME_SUFFIX);
     }
-  }
 
-  /** Default implementation for transformation */
-  public static class DefaultTransformationConsumerNameFactory extends DefaultConsumerNameFactory {
-
-    public DefaultTransformationConsumerNameFactory() {
-      super(
-          "transformer-",
-          CFG_TRANSFORMER_CONSUMER_NAME_PREFIX,
-          CFG_TRANSFORMER_CONSUMER_NAME_SUFFIX);
+    @Override
+    public void setup(AttributeFamilyDescriptor descriptor) {
+      this.name = descriptor.getName();
+      this.prefix = descriptor.getCfg().getOrDefault(getPrefixCfgKey(), "").toString();
+      this.suffix = descriptor.getCfg().getOrDefault(getSuffixCfgKey(), "").toString();
     }
   }
 }

@@ -20,7 +20,6 @@ import static org.junit.Assert.assertNotEquals;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.DefaultConsumerNameFactory.DefaultReplicationConsumerNameFactory;
-import cz.o2.proxima.repository.DefaultConsumerNameFactory.DefaultTransformationConsumerNameFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.util.TestUtils;
@@ -37,8 +36,7 @@ public class DefaultConsumerNameFactoryTest {
   private static final String ATTR_FAM_NAME = "family-name";
   private final AttributeFamilyDescriptor attrFamilyDesc;
   private final AttributeFamilyDescriptor attrFamilyDescWithPrefixAndSuffix;
-  private ConsumerNameFactory replicationFactory;
-  private ConsumerNameFactory transformationFactory;
+  private ConsumerNameFactory<AttributeFamilyDescriptor> replicationFactory;
 
   public DefaultConsumerNameFactoryTest() {
 
@@ -85,14 +83,14 @@ public class DefaultConsumerNameFactoryTest {
   @Before
   public void setup() {
     this.replicationFactory = new DefaultReplicationConsumerNameFactory();
-    this.transformationFactory = new DefaultTransformationConsumerNameFactory();
   }
 
   @Test
   public void testSerializableAndEquals() throws IOException, ClassNotFoundException {
     replicationFactory.setup(attrFamilyDesc);
     TestUtils.assertSerializable(replicationFactory);
-    ConsumerNameFactory factory1 = new DefaultReplicationConsumerNameFactory();
+    ConsumerNameFactory<AttributeFamilyDescriptor> factory1 =
+        new DefaultReplicationConsumerNameFactory();
     factory1.setup(attrFamilyDesc);
     TestUtils.assertHashCodeAndEquals(replicationFactory, factory1);
 
@@ -105,12 +103,6 @@ public class DefaultConsumerNameFactoryTest {
     replicationFactory.setup(attrFamilyDesc);
     assertEquals(
         String.format("consumer-%s", attrFamilyDesc.getName()), replicationFactory.apply());
-    transformationFactory.setup(attrFamilyDescWithPrefixAndSuffix);
-    assertEquals(
-        String.format(
-            "trans-prefix-transformer-%s-trans-suffix",
-            attrFamilyDescWithPrefixAndSuffix.getName()),
-        transformationFactory.apply());
   }
 
   @Test

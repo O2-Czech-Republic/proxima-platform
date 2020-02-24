@@ -39,6 +39,7 @@ public class TransformationDescriptor implements Serializable {
 
   static class Builder {
 
+    String name;
     EntityDescriptor entity;
     final List<AttributeDescriptor<?>> attrs = new ArrayList<>();
     Transformation transformation;
@@ -46,6 +47,11 @@ public class TransformationDescriptor implements Serializable {
 
     Builder setEntity(EntityDescriptor entity) {
       this.entity = entity;
+      return this;
+    }
+
+    Builder setName(String name) {
+      this.name = name;
       return this;
     }
 
@@ -75,9 +81,11 @@ public class TransformationDescriptor implements Serializable {
       Preconditions.checkArgument(transformation != null, "Please specify transformation function");
       Preconditions.checkArgument(entity != null, "Please specify source entity");
 
-      return new TransformationDescriptor(entity, attrs, transformation, filter);
+      return new TransformationDescriptor(name, entity, attrs, transformation, filter);
     }
   }
+
+  @Getter private final String name;
 
   @Getter private final EntityDescriptor entity;
 
@@ -88,11 +96,13 @@ public class TransformationDescriptor implements Serializable {
   @Getter private final StorageFilter filter;
 
   private TransformationDescriptor(
+      String name,
       EntityDescriptor entity,
       List<AttributeDescriptor<?>> attributes,
       Transformation transformation,
       @Nullable StorageFilter filter) {
 
+    this.name = Objects.requireNonNull(name);
     this.entity = Objects.requireNonNull(entity);
     this.attributes = Objects.requireNonNull(attributes);
     this.transformation = Objects.requireNonNull(transformation);
@@ -106,6 +116,21 @@ public class TransformationDescriptor implements Serializable {
   void replaceAttribute(AttributeDescriptor<?> attr) {
     attributes.remove(attr);
     attributes.add(attr);
+  }
+
+  public ConsumerNameFactory<TransformationDescriptor> getConsumerNameFactory() {
+    return new ConsumerNameFactory<TransformationDescriptor>() {
+
+      @Override
+      public void setup(TransformationDescriptor descriptor) {
+        // nop
+      }
+
+      @Override
+      public String apply() {
+        return "transformer-" + getName();
+      }
+    };
   }
 
   @Override

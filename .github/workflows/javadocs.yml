@@ -34,6 +34,7 @@ jobs:
     - uses: actions-hub/gcloud@master
       env:
         APPLICATION_CREDENTIALS: ${{ secrets.JAVADOC_GOOGLE_CREDENTIALS }}
+        PROJECT_ID: datadriven-cz
     - name: Generate and upload javadocs
       env:
         PROXIMA_DOC_GC_STORAGE: ${{ secrets.JAVADOC_GOOGLE_STORAGE }}

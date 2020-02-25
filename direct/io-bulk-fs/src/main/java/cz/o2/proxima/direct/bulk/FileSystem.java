@@ -18,15 +18,20 @@ package cz.o2.proxima.direct.bulk;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.io.File;
+import java.io.Serializable;
 import java.net.URI;
-import java.util.Arrays;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Stream;
 
 /** A proxima's abstraction of bulk FS. */
 @Internal
-public interface FileSystem {
+public interface FileSystem extends Serializable {
 
   static FileSystem local(File parent) {
+    NamingConvention convention =
+        NamingConvention.defaultConvention(Duration.ofHours(1), parent.getAbsolutePath(), "local");
     return new FileSystem() {
 
       @Override
@@ -36,14 +41,26 @@ public interface FileSystem {
 
       @Override
       public Stream<Path> list(long minTs, long maxTs) {
-        // FIXME filtering on name and recursive traversing
-        return Arrays.stream(parent.list()).map(p -> Path.local(new File(p)));
+        return listRecursive(parent)
+            .filter(f -> convention.isInRange(f.getAbsolutePath(), minTs, maxTs))
+            .map(Path::local);
+      }
+
+      private Stream<File> listRecursive(File file) {
+        List<Stream<File>> parts = new ArrayList<>();
+        if (file.isDirectory()) {
+          for (File f : file.listFiles()) {
+            parts.add(listRecursive(f));
+          }
+          return parts.stream().reduce(Stream.empty(), Stream::concat);
+        }
+        return Stream.of(file);
       }
 
       @Override
-      public Path newPath() {
-        return ExceptionUtils.uncheckedFactory(
-            () -> Path.local(File.createTempFile("", ".tmp", parent)));
+      public Path newPath(long ts) {
+        String name = convention.nameOf(ts);
+        return ExceptionUtils.uncheckedFactory(() -> Path.local(new File(name)));
       }
     };
   }
@@ -65,11 +82,12 @@ public interface FileSystem {
   Stream<Path> list(long minTs, long maxTs);
 
   /**
-   * Create new {@link Path} (without yet assigned time range).
+   * Create new {@link Path}.
    *
+   * @param ts timestamp to create the path for
    * @return new abstract {@link Path} object
    */
-  Path newPath();
+  Path newPath(long ts);
 
   /**
    * Get all {@link Path Paths} on this FileSystem

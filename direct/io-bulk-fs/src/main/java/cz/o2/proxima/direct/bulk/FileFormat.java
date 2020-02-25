@@ -22,8 +22,14 @@ import java.io.Serializable;
 /** A specific format of data stored in bulk storage. */
 public interface FileFormat extends Serializable {
 
-  static FileFormat blob() {
-    return new BinaryBlob();
+  /**
+   * Create blob file format with specified {@link FileSystem} as root.
+   *
+   * @param writeGzip whether produced files should be compressed using gzip
+   * @return {@link BinaryBlob} as {@link FileFormat}.
+   */
+  static FileFormat blob(boolean writeGzip) {
+    return new BinaryBlob(writeGzip);
   }
 
   /**

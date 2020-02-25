@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.bulk;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Parser;
@@ -258,50 +257,15 @@ class BinaryBlob implements FileFormat {
     }
   }
 
-  private boolean writeGzip;
-
-  BinaryBlob() {
-    this(false);
-  }
+  private final boolean writeGzip;
 
   BinaryBlob(boolean writeGzip) {
     this.writeGzip = writeGzip;
   }
 
-  /**
-   * Create writer from given {@link OutputStream}.
-   *
-   * @param path path on target FileSystem
-   * @param gzip {@code true} if the output be gzipped
-   * @param out the {@link OutputStream}
-   * @return writer
-   * @throws IOException on IO errors
-   */
-  @VisibleForTesting
-  static BinaryBlobWriter writer(Path path, boolean gzip, OutputStream out) throws IOException {
-
-    return new BinaryBlobWriter(path, gzip, out);
-  }
-
   @Override
   public BinaryBlobWriter openWriter(Path path, EntityDescriptor entity) throws IOException {
     return new BinaryBlobWriter(path, writeGzip, path.writer());
-  }
-
-  /**
-   * Create reader from given entity and {@link InputStream}.
-   *
-   * @param path Path on target FileSystem
-   * @param entity the entity to read attributes for
-   * @param in the {@link InputStream}
-   * @return reader
-   * @throws IOException on IO errors
-   */
-  @VisibleForTesting
-  static BinaryBlobReader reader(Path path, EntityDescriptor entity, InputStream in)
-      throws IOException {
-
-    return new BinaryBlobReader(path, entity, in);
   }
 
   @Override
@@ -322,11 +286,11 @@ class BinaryBlob implements FileFormat {
       if (args.length != 1) {
         usage();
       }
-      Repository repo = ConfigRepository.of(ConfigFactory.load().resolve());
+      Repository repo = ConfigRepository.of(() -> ConfigFactory.load().resolve());
       EntityDescriptor entity =
           repo.findEntity(args[0])
               .orElseThrow(() -> new IllegalArgumentException("Cannot find entity " + args[0]));
-      BinaryBlob format = new BinaryBlob();
+      BinaryBlob format = new BinaryBlob(true);
       Path stdin = Path.stdin();
       try (Reader reader = format.openReader(stdin, entity)) {
         reader.forEach(e -> System.out.println(e.dump()));

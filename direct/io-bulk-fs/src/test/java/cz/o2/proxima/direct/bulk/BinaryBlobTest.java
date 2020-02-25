@@ -25,12 +25,14 @@ import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.UUID;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -83,7 +85,12 @@ public class BinaryBlobTest {
   @Before
   public void setUp() throws IOException {
     file = Path.local(folder.newFile());
-    blob = new BinaryBlob();
+    blob = new BinaryBlob(gzip);
+  }
+
+  @After
+  public void tearDown() {
+    ExceptionUtils.unchecked(file::delete);
   }
 
   @Test

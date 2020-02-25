@@ -44,12 +44,22 @@ public interface Path extends Serializable {
 
       @Override
       public OutputStream writer() throws IOException {
+        if (!path.getParentFile().exists() && !path.getParentFile().mkdirs()) {
+          throw new IOException("Failed to create dir " + path.getParentFile());
+        }
         return new FileOutputStream(path);
       }
 
       @Override
       public FileSystem getFileSystem() {
         return FileSystem.local(new File("/"));
+      }
+
+      @Override
+      public void delete() throws IOException {
+        if (!path.delete()) {
+          throw new IOException("Failed to delete " + path);
+        }
       }
     };
   }
@@ -64,12 +74,17 @@ public interface Path extends Serializable {
 
       @Override
       public OutputStream writer() throws IOException {
-        throw new UnsupportedOperationException("Can only read from stdin");
+        throw new UnsupportedOperationException("Can only read from stdin.");
       }
 
       @Override
       public FileSystem getFileSystem() {
         return FileSystem.local(new File("/dev/stdin"));
+      }
+
+      @Override
+      public void delete() throws IOException {
+        throw new UnsupportedOperationException("Cannot delete stdin.");
       }
     };
   }
@@ -96,4 +111,11 @@ public interface Path extends Serializable {
    * @return {@link FileSystem} associated with the {@link Path}.
    */
   FileSystem getFileSystem();
+
+  /**
+   * Delete this {@link Path}.
+   *
+   * @throws IOException on errors
+   */
+  void delete() throws IOException;
 }

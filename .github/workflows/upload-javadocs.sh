@@ -23,7 +23,7 @@ source $(dirname $0)/functions.sh
 if [ "$(is_datadriven_repo ${GITHUB_REPOSITORY})" == "1" ]; then
    VERSION=$(proxima_version)
 
-   mvn install site -Psite -Pallow-snapshots
+   mvn install -Pallow-snapshots && mvn site -Psite
 
    echo ${GOOGLE_CREDENTIALS} > /tmp/google-credentials.json
    gcloud auth activate-service-account --key-file /tmp/google-credentials.json

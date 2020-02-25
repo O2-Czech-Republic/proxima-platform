@@ -309,7 +309,7 @@ public class BinaryBlob {
 
     private static void usage() {
       System.err.println("Usage: DumpTool <entity name>");
-      System.err.println("Reads binary blob from stdin and dups to stdout");
+      System.err.println("Reads binary blob from stdin and dumps to stdout");
       System.exit(1);
     }
 

@@ -50,6 +50,11 @@ public interface Path extends Serializable {
       public File toFile() {
         return path;
       }
+
+      @Override
+      public FileSystem getFileSystem() {
+        return FileSystem.local(new File("/"));
+      }
     };
   }
 
@@ -69,6 +74,11 @@ public interface Path extends Serializable {
       @Override
       public File toFile() {
         return new File("/dev/stdin");
+      }
+
+      @Override
+      public FileSystem getFileSystem() {
+        return FileSystem.local(new File("/"));
       }
     };
   }
@@ -95,4 +105,6 @@ public interface Path extends Serializable {
   File toFile();
 
   /** Retrieve {@link FileSystem} of this Path. */
+  FileSystem getFileSystem();
+
 }

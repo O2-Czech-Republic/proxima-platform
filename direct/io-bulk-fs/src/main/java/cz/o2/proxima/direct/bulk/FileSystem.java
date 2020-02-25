@@ -16,12 +16,37 @@
 package cz.o2.proxima.direct.bulk;
 
 import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.util.ExceptionUtils;
+import java.io.File;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.stream.Stream;
 
 /** A proxima's abstraction of bulk FS. */
 @Internal
 public interface FileSystem {
+
+  static FileSystem local(File parent) {
+    return new FileSystem() {
+
+      @Override
+      public URI getUri() {
+        return URI.create("file://" + parent.getAbsolutePath());
+      }
+
+      @Override
+      public Stream<Path> list(long minTs, long maxTs) {
+        // FIXME filtering on name and recursive traversing
+        return Arrays.stream(parent.list()).map(p -> Path.local(new File(p)));
+      }
+
+      @Override
+      public Path newPath() {
+        return ExceptionUtils.uncheckedFactory(
+            () -> Path.local(File.createTempFile("", ".tmp", parent)));
+      }
+    };
+  }
 
   /**
    * Ger {@link URI} representation of this FileSystem

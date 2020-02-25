@@ -25,7 +25,6 @@ import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -39,9 +38,7 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-/**
- * Test suite for {@link cz.o2.proxima.direct.gcloud.storage.BinaryBlob} for reading and writing.
- */
+/** Test suite for {@link BinaryBlob} for reading and writing. */
 @RunWith(Parameterized.class)
 public class BinaryBlobTest {
 
@@ -59,7 +56,7 @@ public class BinaryBlobTest {
     return Arrays.asList(true, false);
   }
 
-  File file;
+  Path file;
   BinaryBlob blob;
 
   public BinaryBlobTest() throws URISyntaxException {
@@ -85,8 +82,8 @@ public class BinaryBlobTest {
 
   @Before
   public void setUp() throws IOException {
-    file = folder.newFile();
-    blob = new BinaryBlob(Path.local(file));
+    file = Path.local(folder.newFile());
+    blob = new BinaryBlob();
   }
 
   @Test
@@ -101,11 +98,11 @@ public class BinaryBlobTest {
             System.currentTimeMillis(),
             new byte[] {1, 2});
 
-    try (BinaryBlobWriter writer = blob.writer(gzip)) {
+    try (BinaryBlobWriter writer = blob.openWriter(file, entity)) {
       writer.write(el);
     }
 
-    try (BinaryBlobReader reader = blob.reader(entity)) {
+    try (BinaryBlobReader reader = blob.openReader(file, entity)) {
       int matched = 0;
       for (StreamElement e : reader) {
         assertEquals(e.toString(), el.toString());

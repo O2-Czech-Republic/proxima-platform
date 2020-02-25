@@ -16,11 +16,12 @@
 package cz.o2.proxima.direct.bulk;
 
 import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.repository.EntityDescriptor;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.Serializable;
 
 /** Proxima's abstraction of path in {@link FileSystem}. */
@@ -37,18 +38,13 @@ public interface Path extends Serializable {
     return new Path() {
 
       @Override
-      public Reader openReader(EntityDescriptor entity) throws IOException {
-        return BinaryBlob.reader(this, entity, new FileInputStream(path));
+      public InputStream reader() throws IOException {
+        return new FileInputStream(path);
       }
 
       @Override
-      public Writer newWriter(EntityDescriptor entity) throws IOException {
-        return BinaryBlob.writer(this, false, new FileOutputStream(path));
-      }
-
-      @Override
-      public File toFile() {
-        return path;
+      public OutputStream writer() throws IOException {
+        return new FileOutputStream(path);
       }
 
       @Override
@@ -62,49 +58,42 @@ public interface Path extends Serializable {
     return new Path() {
 
       @Override
-      public Reader openReader(EntityDescriptor entity) throws IOException {
-        return BinaryBlob.reader(this, entity, System.in);
+      public InputStream reader() throws IOException {
+        return System.in;
       }
 
       @Override
-      public Writer newWriter(EntityDescriptor entity) throws IOException {
+      public OutputStream writer() throws IOException {
         throw new UnsupportedOperationException("Can only read from stdin");
       }
 
       @Override
-      public File toFile() {
-        return new File("/dev/stdin");
-      }
-
-      @Override
       public FileSystem getFileSystem() {
-        return FileSystem.local(new File("/"));
+        return FileSystem.local(new File("/dev/stdin"));
       }
     };
   }
 
   /**
-   * Open reader for given abstract Path.
+   * Open input stream from given Path.
    *
-   * @param entity descriptor of entity whose data we are going to read
-   * @return reader opened for reading
+   * @return {@link InputStream} of the {@link Path}.
    * @throws IOException on errors
    */
-  Reader openReader(EntityDescriptor entity) throws IOException;
+  InputStream reader() throws IOException;
 
   /**
-   * Open abstract {@link Writer} for bulk data.
+   * Open output stream to the Path.
    *
-   * @param entity descriptor of entity whose data we are going to write
-   * @return new writer
+   * @return {@link OutputStream} of the {@link Path}
    * @throws IOException on errors *
    */
-  Writer newWriter(EntityDescriptor entity) throws IOException;
+  OutputStream writer() throws IOException;
 
-  /** Return local representation of this (possibly remote) path. */
-  File toFile();
-
-  /** Retrieve {@link FileSystem} of this Path. */
+  /**
+   * Retrieve {@link FileSystem} of this Path.
+   *
+   * @return {@link FileSystem} associated with the {@link Path}.
+   */
   FileSystem getFileSystem();
-
 }

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.bulk;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Parser;
@@ -30,21 +31,18 @@ import cz.o2.proxima.util.ExceptionUtils;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.EOFException;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /** Class wrapping serialized elements to a single file with read/write capabilities. */
 @Slf4j
 @Internal
-public class BinaryBlob {
+class BinaryBlob implements FileFormat {
 
   private static final String MAGIC = "gs::proxima";
 
@@ -139,7 +137,7 @@ public class BinaryBlob {
         throws IOException {
       this.path = path;
       this.entity = entity;
-      this.blobName = path.toFile().getAbsolutePath();
+      this.blobName = path.toString();
       header = readHeader(blobName, in);
       blobStream = toInputStream(in);
     }
@@ -260,6 +258,16 @@ public class BinaryBlob {
     }
   }
 
+  private boolean writeGzip;
+
+  BinaryBlob() {
+    this(false);
+  }
+
+  BinaryBlob(boolean writeGzip) {
+    this.writeGzip = writeGzip;
+  }
+
   /**
    * Create writer from given {@link OutputStream}.
    *
@@ -269,14 +277,15 @@ public class BinaryBlob {
    * @return writer
    * @throws IOException on IO errors
    */
-  public static BinaryBlobWriter writer(Path path, boolean gzip, OutputStream out)
-      throws IOException {
+  @VisibleForTesting
+  static BinaryBlobWriter writer(Path path, boolean gzip, OutputStream out) throws IOException {
 
     return new BinaryBlobWriter(path, gzip, out);
   }
 
-  public BinaryBlobWriter writer(boolean gzip) throws IOException {
-    return new BinaryBlobWriter(path, gzip, new FileOutputStream(path.toFile()));
+  @Override
+  public BinaryBlobWriter openWriter(Path path, EntityDescriptor entity) throws IOException {
+    return new BinaryBlobWriter(path, writeGzip, path.writer());
   }
 
   /**
@@ -288,20 +297,16 @@ public class BinaryBlob {
    * @return reader
    * @throws IOException on IO errors
    */
-  public static BinaryBlobReader reader(Path path, EntityDescriptor entity, InputStream in)
+  @VisibleForTesting
+  static BinaryBlobReader reader(Path path, EntityDescriptor entity, InputStream in)
       throws IOException {
 
     return new BinaryBlobReader(path, entity, in);
   }
 
-  public BinaryBlobReader reader(EntityDescriptor entity) throws IOException {
-    return new BinaryBlobReader(path, entity, new FileInputStream(path.toFile()));
-  }
-
-  @Getter private final Path path;
-
-  public BinaryBlob(Path path) {
-    this.path = path;
+  @Override
+  public BinaryBlobReader openReader(Path path, EntityDescriptor entity) throws IOException {
+    return new BinaryBlobReader(path, entity, path.reader());
   }
 
   /** Tool for dumping binary blobs read from stdin to stdout. */
@@ -321,8 +326,9 @@ public class BinaryBlob {
       EntityDescriptor entity =
           repo.findEntity(args[0])
               .orElseThrow(() -> new IllegalArgumentException("Cannot find entity " + args[0]));
+      BinaryBlob format = new BinaryBlob();
       Path stdin = Path.stdin();
-      try (Reader reader = stdin.openReader(entity)) {
+      try (Reader reader = format.openReader(stdin, entity)) {
         reader.forEach(e -> System.out.println(e.dump()));
       }
     }

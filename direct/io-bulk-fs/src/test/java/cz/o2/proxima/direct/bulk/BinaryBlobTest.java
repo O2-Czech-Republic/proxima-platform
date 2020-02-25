@@ -95,7 +95,7 @@ public class BinaryBlobTest {
 
   @Test
   public void testWriteAndRead() throws IOException {
-    StreamElement el =
+    testWriteAndReadWithElement(
         StreamElement.upsert(
             entity,
             attr,
@@ -103,8 +103,24 @@ public class BinaryBlobTest {
             "key",
             "attr",
             System.currentTimeMillis(),
-            new byte[] {1, 2});
+            new byte[] {1, 2}));
+  }
 
+  @Test
+  public void testWriteAndReadDelete() throws IOException {
+    testWriteAndReadWithElement(
+        StreamElement.delete(
+            entity, attr, UUID.randomUUID().toString(), "key", "attr", System.currentTimeMillis()));
+  }
+
+  @Test
+  public void testWriteAndReadDeleteWildcard() throws IOException {
+    testWriteAndReadWithElement(
+        StreamElement.deleteWildcard(
+            entity, wildcard, UUID.randomUUID().toString(), "key", System.currentTimeMillis()));
+  }
+
+  void testWriteAndReadWithElement(StreamElement el) throws IOException {
     try (BinaryBlobWriter writer = blob.openWriter(file, entity)) {
       writer.write(el);
     }

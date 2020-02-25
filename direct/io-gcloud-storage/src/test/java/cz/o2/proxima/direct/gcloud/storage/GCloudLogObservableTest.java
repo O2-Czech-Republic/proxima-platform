@@ -21,18 +21,18 @@ import static org.mockito.Mockito.*;
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
-import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.Context;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.junit.Before;
 import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -40,68 +40,24 @@ import org.mockito.stubbing.Answer;
 /** Test suite for {@link GCloudLogObservableTest}. */
 public class GCloudLogObservableTest {
 
-  private final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
+  private final Repository repo = Repository.of(() -> ConfigFactory.load("test-reference.conf"));
   private final EntityDescriptor gateway =
       repo.findEntity("gateway")
           .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
+  private final Context context = repo.getOrCreateOperator(DirectDataOperator.class).getContext();
 
-  /** Test filtering of partitions. */
-  @Test
-  public void testPartitionsRange() {
-    assertTrue(
-        isInRange(
-            "prefix-1234567890000_9876543210000.blob.whatever", 1234567890000L, 12345678901000L));
-    assertTrue(
-        isInRange("prefix-1234567890000_9876543210000.blob", 1234567891000L, 12345678902000L));
-    assertTrue(
-        isInRange(
-            "/my/dummy/path/prefix-1234567890000_9876543210000.blob",
-            1234567891000L,
-            12345678902000L));
-    assertTrue(
-        isInRange(
-            "/my/dummy/path/prefix-1234567890000_9876543210000_suffix.blob",
-            1234567891000L,
-            12345678902000L));
-    assertTrue(
-        isInRange(
-            "prefix-1234567890000_9876543210000.blob.whatever", 1234567891000L, 12345678902000L));
-    assertTrue(
-        isInRange(
-            "prefix-1234567890000_9876543210000.blob.whatever", 1234567880000L, 12345678902000L));
-    assertTrue(
-        isInRange(
-            "prefix-1234567890000_9876543210000.blob.whatever", 9876543200000L, 9999999999999L));
+  private GCloudStorageAccessor accessor;
 
-    assertFalse(
-        isInRange(
-            "prefix-1234567890000_9876543210000.blob.whatever", 1234567880000L, 1234567881000L));
-    assertFalse(
-        isInRange(
-            "prefix-1234567890000_9876543210000.blob.whatever", 9999999999000L, 9999999999999L));
-  }
-
-  private boolean isInRange(String name, long start, long end) {
-    return GCloudLogObservable.isInRange(GCloudLogObservable.parseMinMaxStamp(name), start, end);
-  }
-
-  @Test
-  public void testConvertStampsToPrefixes() {
-    Set<String> prefixes =
-        GCloudLogObservable.convertStampsToPrefixes("/dummy/", 1541022824110L, 1541109235381L);
-    assertEquals(Sets.newHashSet("/dummy/2018/10", "/dummy/2018/11"), prefixes);
+  @Before
+  public void setUp() {
+    accessor = new GCloudStorageAccessor(gateway, URI.create("gs://dummy"), Collections.emptyMap());
   }
 
   @Test
   public void testListPartitions() throws URISyntaxException {
 
     GCloudLogObservable observable =
-        new GCloudLogObservable(
-            gateway,
-            new URI("gs://dummy"),
-            Collections.singletonMap("partition.max-blobs", 10),
-            Executors::newCachedThreadPool) {
-
+        new GCloudLogObservable(gateway, accessor, context) {
           @Override
           Storage client() {
             Storage client = mock(Storage.class);
@@ -125,13 +81,16 @@ public class GCloudLogObservableTest {
                       private List<Blob> createMockBlobs(int count) {
                         return IntStream.range(0, count)
                             .mapToObj(
-                                i -> createMockBlob("prefix-1234567890000_9876543210000.blob." + i))
+                                i ->
+                                    createMockBlob(
+                                        "prefix-1234567890000_9876543210000.blob." + i, i))
                             .collect(Collectors.toList());
                       }
 
-                      private Blob createMockBlob(String name) {
+                      private Blob createMockBlob(String name, int num) {
                         Blob ret = mock(Blob.class);
                         when(ret.getName()).thenReturn(name);
+                        when(ret.getSize()).thenReturn(2L << (num + 6));
                         return ret;
                       }
                     });

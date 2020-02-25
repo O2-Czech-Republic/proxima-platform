@@ -18,14 +18,15 @@
 
 set -eu
 
-VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version)
+source $(dirname $0)/functions.sh
 
-echo ${MAVEN_SETTINGS} > ~/.m2/settings.xml
-echo ${GOOGLE_CREDENTIALS} > /tmp/google-credentials.json
+if [ "$(is_datadriven_repo ${GITHUB_REPOSITORY})" == "1" ]; then
+   VERSION=$(proxima_version)
 
-export GOOGLE_APPLICATION_CREDENTIALS=/tmp/google-credentials.json
+   mvn install site -Psite
 
-if echo ${VERSION} | grep SNAPSHOT >/dev/null && echo ${GITHUB_REPOSITORY} | grep O2-Czech-Republic >/dev/null; then
-  mvn deploy -Prelease-snapshot
+   echo ${GOOGLE_CREDENTIALS} > /tmp/google-credentials.json
+   gcloud auth activate-service-account --key-file /tmp/google-credentials.json
+
+   gsutil -m cp -r target/site/apidocs gs://${PROXIMA_DOC_GC_STORAGE}/${VERSION}/
 fi
-

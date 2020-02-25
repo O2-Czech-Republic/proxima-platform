@@ -291,8 +291,8 @@
               </reportSet>
               <reportSet>
                 <id>aggregate</id>
-                <!--inherited>false</inherited-->
-                <inherited>true</inherited>
+                <inherited>false</inherited>
+                <!--inherited>true</inherited-->
                 <reports>
                   <report>aggregate</report>
                 </reports>

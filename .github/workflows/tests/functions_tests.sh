@@ -16,16 +16,23 @@
 #
 
 
-set -eu
 
-VERSION=$(mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version)
+echo "Running tests for functions.sh"
 
-echo ${MAVEN_SETTINGS} > ~/.m2/settings.xml
-echo ${GOOGLE_CREDENTIALS} > /tmp/google-credentials.json
+RET=0
 
-export GOOGLE_APPLICATION_CREDENTIALS=/tmp/google-credentials.json
+source $(dirname $0)/../functions.sh
 
-if echo ${VERSION} | grep SNAPSHOT >/dev/null && echo ${GITHUB_REPOSITORY} | grep O2-Czech-Republic >/dev/null; then
-  mvn deploy -Prelease-snapshot
-fi
+assertNotEmpty $(proxima_version)
+assertNotEmpty $(is_snapshot_version "0.3-SNAPSHOT")
 
+assertEquals $(is_snapshot_version "0.3-SNAPSHOT") 1
+assertEquals $(is_snapshot_version "0.3.0") 0
+assertEquals $(is_snapshot_version "0.3.0-rc1") 0
+
+
+assertEquals $(is_datadriven_repo "datadrivencz/proxima-platform/") 1
+assertEquals $(is_datadriven_repo "O2-Czech-Republic/proxima-platform") 0
+
+echo "TEST result: $RET"
+exit $RET

@@ -16,15 +16,19 @@
 #
 
 
-set -e
+set -eu
 
-if echo $GITHUB_REPOSITORY | grep datadrivencz >/dev/null; then
+source $(dirname $0)/functions.sh
 
-  mkdir -p ~/.ssh
-  echo ${O2_DEPLOY_KEY} | base64 -d > ~/.ssh/id_rsa
-  chmod 600 ~/.ssh/id_rsa
-  ssh-keygen -f ~/.ssh/id_rsa -y > ~/.ssh/id_rsa.pub
+if [ "$(is_datadriven_repo ${GITHUB_REPOSITORY})" == "1" ]; then
 
+  SSH_HOME_DIR="/tmp/.ssh"
+  mkdir -p "${SSH_HOME_DIR}"
+  echo "${O2_DEPLOY_KEY}" | base64 -d > "${SSH_HOME_DIR}/id_rsa_datadriven"
+  chmod 600 "${SSH_HOME_DIR}/id_rsa_datadriven"
+  ssh-keygen -f "${SSH_HOME_DIR}/id_rsa_datadriven" -y > "${SSH_HOME_DIR}/id_rsa_datadriven.pub"
+
+  export GIT_SSH_COMMAND="ssh -i ${SSH_HOME_DIR}/id_rsa_datadriven"
   git remote add o2 git@github.com:O2-Czech-Republic/proxima-platform.git
 
   git fetch --all

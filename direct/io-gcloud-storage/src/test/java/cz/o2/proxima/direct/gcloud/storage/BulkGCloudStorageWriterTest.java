@@ -50,6 +50,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -108,9 +109,12 @@ public class BulkGCloudStorageWriterTest {
     blobs = Collections.synchronizedNavigableSet(new TreeSet<>());
     onFlushToBlob.set(null);
     written = Collections.synchronizedMap(new HashMap<>());
-    FileFormat fileFormat = FileFormat.blob(gzip);
+    initWriter(cfg());
+  }
+
+  void initWriter(Map<String, Object> cfg) throws IOException {
     GCloudStorageAccessor accessor =
-        new GCloudStorageAccessor(entity, URI.create("gs://bucket/path"), cfg()) {
+        new GCloudStorageAccessor(entity, URI.create("gs://bucket/path"), cfg) {
           @Override
           NamingConvention getNamingConvention() {
             return new DefaultNamingConvention(
@@ -121,6 +125,8 @@ public class BulkGCloudStorageWriterTest {
                 () -> "uuid");
           }
         };
+
+    FileFormat fileFormat = accessor.getFileFormat();
     writer =
         new BulkGCloudStorageWriter(entity, accessor, direct.getContext()) {
 
@@ -152,6 +158,16 @@ public class BulkGCloudStorageWriterTest {
 
   @Test(timeout = 10000)
   public synchronized void testWrite() throws Exception {
+    testWriteWithWriter();
+  }
+
+  @Test(timeout = 10000)
+  public synchronized void testWriteToJson() throws Exception {
+    initWriter(cfg("json"));
+    testWriteWithWriter();
+  }
+
+  void testWriteWithWriter() throws InterruptedException, IOException {
     latch.set(new CountDownLatch(2));
     long now = 1500000000000L;
     StreamElement first =
@@ -394,6 +410,10 @@ public class BulkGCloudStorageWriterTest {
   }
 
   private Map<String, Object> cfg() throws IOException {
+    return cfg(null);
+  }
+
+  private Map<String, Object> cfg(@Nullable String format) throws IOException {
     Map<String, Object> ret = new HashMap<>();
     ret.put("log-roll-interval", "1000");
     ret.put("allowed-lateness-ms", 500);
@@ -401,6 +421,9 @@ public class BulkGCloudStorageWriterTest {
     ret.put("tmp.dir", tempFolder.newFolder().getAbsolutePath());
     if (gzip) {
       ret.put("gzip", "true");
+    }
+    if (format != null) {
+      ret.put("format", format);
     }
     return ret;
   }

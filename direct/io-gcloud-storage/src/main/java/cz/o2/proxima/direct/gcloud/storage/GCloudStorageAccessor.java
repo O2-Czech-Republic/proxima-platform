@@ -59,13 +59,19 @@ class GCloudStorageAccessor extends AbstractStorage implements DataAccessor {
   }
 
   FileFormat getFileFormat() {
+    String format = Optional.ofNullable(cfg.get("format")).map(Object::toString).orElse("binary");
     boolean gzip =
         Optional.ofNullable(cfg.get("gzip"))
             .map(Object::toString)
             .map(Boolean::valueOf)
             .orElse(false);
-
-    return FileFormat.blob(gzip);
+    if ("binary".equals(format)) {
+      return FileFormat.blob(gzip);
+    }
+    if ("json".equals(format)) {
+      return FileFormat.json(gzip);
+    }
+    throw new IllegalArgumentException("Unknown format " + format);
   }
 
   NamingConvention getNamingConvention() {

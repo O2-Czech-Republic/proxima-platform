@@ -18,6 +18,7 @@ package cz.o2.proxima.scheme.proto;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.google.protobuf.ByteString;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
@@ -60,5 +61,19 @@ public class ProtoSerializerFactoryTest {
   @Test
   public void testIsUsable() {
     assertTrue(serializer.isUsable());
+  }
+
+  @Test
+  public void testJsonValue() {
+    Event message =
+        Event.newBuilder()
+            .setGatewayId("gateway")
+            .setPayload(ByteString.copyFrom(new byte[] {0}))
+            .build();
+    assertEquals(
+        "{\n  \"gatewayId\": \"gateway\",\n  \"payload\": \"AA==\"\n}",
+        serializer.asJsonValue(message));
+    assertEquals(
+        "gateway", serializer.fromJsonValue(serializer.asJsonValue(message)).getGatewayId());
   }
 }

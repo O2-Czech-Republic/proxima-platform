@@ -16,11 +16,14 @@
 package cz.o2.proxima.scheme.proto;
 
 import com.google.protobuf.AbstractMessage;
+import com.google.protobuf.Message.Builder;
 import com.google.protobuf.Parser;
 import com.google.protobuf.TextFormat;
+import com.google.protobuf.util.JsonFormat;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
@@ -97,6 +100,19 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
       @Override
       public String getLogString(M value) {
         return TextFormat.shortDebugString(value);
+      }
+
+      @Override
+      public String asJsonValue(M value) {
+        return ExceptionUtils.uncheckedFactory(() -> JsonFormat.printer().print(value));
+      }
+
+      @SuppressWarnings("unchecked")
+      @Override
+      public M fromJsonValue(String json) {
+        Builder builder = getDefault().toBuilder();
+        ExceptionUtils.unchecked(() -> JsonFormat.parser().merge(json, builder));
+        return (M) builder.build();
       }
     };
   }

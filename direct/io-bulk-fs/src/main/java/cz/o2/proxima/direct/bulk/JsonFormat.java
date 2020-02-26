@@ -130,6 +130,7 @@ public class JsonFormat implements FileFormat {
       }
       writer.write(printer.print(toJsonElement(elem)).replace('\n', ' '));
       writer.write('\n');
+      log.debug("Written element {} into json at {}", elem, path);
     }
 
     @Override

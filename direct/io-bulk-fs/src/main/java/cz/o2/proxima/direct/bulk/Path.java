@@ -61,6 +61,11 @@ public interface Path extends Serializable {
           throw new IOException("Failed to delete " + path);
         }
       }
+
+      @Override
+      public String toString() {
+        return path.getAbsolutePath();
+      }
     };
   }
 

@@ -124,6 +124,12 @@
     </dependency>
 
     <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-core</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
       <version>${proto.version}</version>
@@ -169,7 +175,7 @@
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
     </dependency>
-
+  
   </dependencies>
 
 </project>

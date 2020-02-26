@@ -26,10 +26,20 @@ public interface FileFormat extends Serializable {
    * Create blob file format with specified {@link FileSystem} as root.
    *
    * @param writeGzip whether produced files should be compressed using gzip
-   * @return {@link BinaryBlob} as {@link FileFormat}.
+   * @return {@link BinaryBlobFormat} as {@link FileFormat}.
    */
   static FileFormat blob(boolean writeGzip) {
-    return new BinaryBlob(writeGzip);
+    return new BinaryBlobFormat(writeGzip);
+  }
+
+  /**
+   * Create json file format.
+   *
+   * @param gzip read/write gzipped data
+   * @return {@link }JsonFormat}
+   */
+  static FileFormat json(boolean gzip) {
+    return new JsonFormat(gzip);
   }
 
   /**

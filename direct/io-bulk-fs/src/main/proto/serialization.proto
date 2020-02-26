@@ -43,3 +43,14 @@ message Element {
 
 }
 
+message JsonElement {
+
+  string key = 1;
+  string attribute = 2;
+  uint64 stamp = 3;
+  string value = 4;
+  bool delete = 5;
+  bool deleteWildcard = 6;
+  string uuid = 7;
+
+}

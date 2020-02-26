@@ -18,8 +18,8 @@ package cz.o2.proxima.direct.bulk;
 import static org.junit.Assert.assertEquals;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.bulk.BinaryBlob.BinaryBlobReader;
-import cz.o2.proxima.direct.bulk.BinaryBlob.BinaryBlobWriter;
+import cz.o2.proxima.direct.bulk.BinaryBlobFormat.BinaryBlobReader;
+import cz.o2.proxima.direct.bulk.BinaryBlobFormat.BinaryBlobWriter;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -40,9 +40,9 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-/** Test suite for {@link BinaryBlob} for reading and writing. */
+/** Test suite for {@link BinaryBlobFormat} for reading and writing. */
 @RunWith(Parameterized.class)
-public class BinaryBlobTest {
+public class BinaryBlobFormatTest {
 
   final Repository repo = Repository.of(ConfigFactory.load().resolve());
   final AttributeDescriptor<?> attr;
@@ -59,9 +59,9 @@ public class BinaryBlobTest {
   }
 
   Path file;
-  BinaryBlob blob;
+  BinaryBlobFormat blob;
 
-  public BinaryBlobTest() throws URISyntaxException {
+  public BinaryBlobFormatTest() throws URISyntaxException {
     this.wildcard =
         AttributeDescriptor.newBuilder(repo)
             .setEntity("dummy")
@@ -85,7 +85,7 @@ public class BinaryBlobTest {
   @Before
   public void setUp() throws IOException {
     file = Path.local(folder.newFile());
-    blob = new BinaryBlob(gzip);
+    blob = new BinaryBlobFormat(gzip);
   }
 
   @After

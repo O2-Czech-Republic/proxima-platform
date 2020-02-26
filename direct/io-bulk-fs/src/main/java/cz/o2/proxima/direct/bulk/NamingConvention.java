@@ -26,7 +26,7 @@ import java.util.Collection;
 public interface NamingConvention extends Serializable {
 
   /**
-   * Return default {@link NamingConvention} that is used with {@link BinaryBlob} {@link
+   * Return default {@link NamingConvention} that is used with {@link BinaryBlobFormat} {@link
    * FileFormat}.
    *
    * @param rollTimePeriod time rolling interval in milliseconds.
@@ -37,7 +37,7 @@ public interface NamingConvention extends Serializable {
   }
 
   /**
-   * Return default {@link NamingConvention} that is used with {@link BinaryBlob} {@link
+   * Return default {@link NamingConvention} that is used with {@link BinaryBlobFormat} {@link
    * FileFormat}.
    *
    * @param rollTimePeriod time rolling interval in milliseconds.

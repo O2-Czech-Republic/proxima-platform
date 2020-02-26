@@ -41,7 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 /** Class wrapping serialized elements to a single file with read/write capabilities. */
 @Slf4j
 @Internal
-class BinaryBlob implements FileFormat {
+class BinaryBlobFormat implements FileFormat {
 
   private static final String MAGIC = "gs::proxima";
 
@@ -259,7 +259,7 @@ class BinaryBlob implements FileFormat {
 
   private final boolean writeGzip;
 
-  BinaryBlob(boolean writeGzip) {
+  BinaryBlobFormat(boolean writeGzip) {
     this.writeGzip = writeGzip;
   }
 
@@ -290,7 +290,7 @@ class BinaryBlob implements FileFormat {
       EntityDescriptor entity =
           repo.findEntity(args[0])
               .orElseThrow(() -> new IllegalArgumentException("Cannot find entity " + args[0]));
-      BinaryBlob format = new BinaryBlob(true);
+      BinaryBlobFormat format = new BinaryBlobFormat(true);
       Path stdin = Path.stdin();
       try (Reader reader = format.openReader(stdin, entity)) {
         reader.forEach(e -> System.out.println(e.dump()));

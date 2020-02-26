@@ -25,6 +25,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -32,7 +33,7 @@ import lombok.Getter;
 
 class GCloudClient extends AbstractStorage {
 
-  @Getter final Map<String, Object> cfg;
+  final Map<String, Object> cfg;
 
   @Getter final String bucket;
 
@@ -54,16 +55,29 @@ class GCloudClient extends AbstractStorage {
             .orElse(StorageClass.STANDARD);
   }
 
+  public Map<String, Object> getCfg() {
+    return Collections.unmodifiableMap(cfg);
+  }
+
   // normalize path to not start and to end with slash
   private static String toPath(URI uri) {
     return UriUtil.getPathNormalized(uri) + "/";
   }
 
   Blob createBlob(String name) {
+    final String nameNoSlash = dropSlashes(name);
     return client()
         .create(
-            BlobInfo.newBuilder(bucket, path + name).setStorageClass(storageClass).build(),
+            BlobInfo.newBuilder(bucket, path + nameNoSlash).setStorageClass(storageClass).build(),
             Storage.BlobTargetOption.doesNotExist());
+  }
+
+  private String dropSlashes(String name) {
+    String ret = name;
+    while (ret.startsWith("/")) {
+      ret = ret.substring(1);
+    }
+    return ret;
   }
 
   @VisibleForTesting

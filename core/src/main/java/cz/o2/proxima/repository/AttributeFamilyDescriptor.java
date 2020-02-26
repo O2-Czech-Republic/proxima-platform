@@ -69,7 +69,7 @@ public class AttributeFamilyDescriptor implements Serializable {
   @Getter
   private final ConsumerNameFactory<AttributeFamilyDescriptor> replicationConsumerNameFactory;
 
-  @Getter private final Map<String, Object> cfg;
+  private final Map<String, Object> cfg;
 
   AttributeFamilyDescriptor(
       String name,
@@ -112,6 +112,10 @@ public class AttributeFamilyDescriptor implements Serializable {
         this.name);
     factory.setup(this);
     return factory;
+  }
+
+  public Map<String, Object> getCfg() {
+    return Collections.unmodifiableMap(cfg);
   }
 
   public List<AttributeDescriptor<?>> getAttributes() {

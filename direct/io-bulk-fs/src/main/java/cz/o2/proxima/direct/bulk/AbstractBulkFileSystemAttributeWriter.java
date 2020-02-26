@@ -16,8 +16,11 @@
 package cz.o2.proxima.direct.bulk;
 
 import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.direct.core.AbstractBulkAttributeWriter;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
+import cz.o2.proxima.direct.core.Context;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
@@ -26,6 +29,8 @@ import java.net.URI;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -34,7 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /** An abstract parent class for {@link BulkAttributeWriter}. */
 @Slf4j
-public abstract class AbstractBulkAttributeWriter implements BulkAttributeWriter {
+public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulkAttributeWriter {
 
   @ToString
   protected class Bulk {
@@ -49,7 +54,7 @@ public abstract class AbstractBulkAttributeWriter implements BulkAttributeWriter
 
     Bulk(Path path, long maxTs) throws IOException {
       this.path = path;
-      this.writer = format.openWriter(path, entity);
+      this.writer = format.openWriter(path, getEntityDescriptor());
       this.maxTs = maxTs;
     }
 
@@ -65,35 +70,47 @@ public abstract class AbstractBulkAttributeWriter implements BulkAttributeWriter
     }
   }
 
-  @Getter private final EntityDescriptor entity;
-  @Getter private final URI uri;
   @Getter private final FileSystem fs;
   @Getter private final NamingConvention namingConvention;
   @Getter private final FileFormat format;
   @Getter private final long rollPeriodMs;
   @Getter private final long allowedLatenessMs;
+  private final Factory<Executor> executorFactory;
 
   private long seqNo = 0;
   private transient Map<Long, Bulk> writers = null;
+  private transient @Nullable Executor executor = null;
 
-  protected AbstractBulkAttributeWriter(
+  protected AbstractBulkFileSystemAttributeWriter(
       EntityDescriptor entity,
       URI uri,
       FileSystem fs,
       NamingConvention namingConvention,
       FileFormat format,
+      Context context,
       long rollPeriodMs,
       long allowedLatenessMs) {
 
-    this.entity = entity;
-    this.uri = uri;
+    super(entity, uri);
     this.fs = fs;
     this.namingConvention = namingConvention;
     this.format = format;
     this.rollPeriodMs = rollPeriodMs;
     this.allowedLatenessMs = allowedLatenessMs;
+    this.executorFactory = context::getExecutorService;
   }
 
+  /*
+   * Data might (and will) arrive out-of-order here, so we
+   * must make sure the flushing mechanism is robust enough to
+   * incorporate this.
+   * It works as follows:
+   * - no element can be present in a blob with other element
+   *   that belongs to different month
+   * - flushing is done in event time, but multiple writers
+   *   can be opened in single time frame, each writer is flushed
+   *   when allowed lateness passes
+   */
   @Override
   public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
     if (writers == null) {
@@ -116,11 +133,6 @@ public abstract class AbstractBulkAttributeWriter implements BulkAttributeWriter
   @Override
   public void updateWatermark(long watermark) {
     flushOnWatermark(watermark);
-  }
-
-  @Override
-  public URI getUri() {
-    return uri;
   }
 
   @Override
@@ -163,27 +175,46 @@ public abstract class AbstractBulkAttributeWriter implements BulkAttributeWriter
   private void flushOnWatermark(long watermark) {
     Map<Long, Bulk> flushable = collectFlushable(watermark - allowedLatenessMs);
     if (!flushable.isEmpty()) {
-      log.debug("Flushable blobs at watermark {}: {}", watermark, flushable);
       CommitCallback commit =
           flushable
               .values()
               .stream()
-              .min(Comparator.comparing(Bulk::getLastWriteSeqNo))
+              .max(Comparator.comparing(Bulk::getLastWriteSeqNo))
               .get()
               .getCommit();
       try {
+        AtomicInteger toFlush = new AtomicInteger(flushable.size());
         flushable.forEach(
             (k, v) -> {
               ExceptionUtils.unchecked(() -> v.getWriter().close());
-              flush(v);
+              executor()
+                  .execute(
+                      () -> {
+                        try {
+                          flush(v);
+                          if (toFlush.decrementAndGet() == 0) {
+                            commit.commit(true, null);
+                          }
+                        } catch (Exception ex) {
+                          toFlush.set(-1);
+                          commit.commit(false, ex);
+                        }
+                      });
               writers.remove(k);
             });
-        commit.commit(true, null);
+
       } catch (Exception ex) {
         log.error("Failed to flush {}", flushable, ex);
         commit.commit(false, ex);
       }
     }
+  }
+
+  private Executor executor() {
+    if (executor == null) {
+      executor = executorFactory.apply();
+    }
+    return executor;
   }
 
   private Map<Long, Bulk> collectFlushable(long watermark) {

@@ -16,11 +16,11 @@
 package cz.o2.proxima.direct.gcloud.storage;
 
 import com.google.cloud.storage.Blob;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.Path;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
@@ -29,37 +29,44 @@ import java.nio.channels.Channels;
 @Internal
 public class BlobPath implements Path {
 
-  public static Path of(Blob blob) {
-    return new BlobPath(blob);
+  public static Path of(FileSystem fs, Blob blob) {
+    return new BlobPath(fs, blob);
   }
 
+  private final FileSystem fs;
   private final Blob blob;
 
-  private BlobPath(Blob blob) {
+  @VisibleForTesting
+  BlobPath(FileSystem fs, Blob blob) {
+    this.fs = fs;
     this.blob = blob;
   }
 
   @Override
-  public InputStream reader() throws IOException {
+  public InputStream reader() {
     return Channels.newInputStream(blob.reader());
   }
 
   @Override
-  public OutputStream writer() throws IOException {
+  public OutputStream writer() {
     return Channels.newOutputStream(blob.writer());
   }
 
   @Override
   public FileSystem getFileSystem() {
-    return null;
+    return fs;
   }
 
   @Override
-  public void delete() throws IOException {
+  public void delete() {
     Preconditions.checkState(blob.delete());
   }
 
   public Blob getBlob() {
     return blob;
+  }
+
+  public String getBlobName() {
+    return blob.getName();
   }
 }

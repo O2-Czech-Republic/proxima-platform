@@ -17,7 +17,6 @@ package cz.o2.proxima.direct.bulk;
 
 import cz.o2.proxima.util.Classpath;
 import java.net.InetAddress;
-import java.net.URI;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.time.Duration;
@@ -30,7 +29,7 @@ public class Utils {
 
   /** Retrieve {@link NamingConvention} from configuration. */
   public static NamingConvention getNamingConvention(
-      String cfgPrefix, Map<String, Object> cfg, long rollPeriodMs, URI uri) {
+      String cfgPrefix, Map<String, Object> cfg, long rollPeriodMs) {
 
     try {
       MessageDigest digest = MessageDigest.getInstance("MD5");
@@ -40,9 +39,7 @@ public class Utils {
       return Optional.ofNullable(cfg.get(cfgPrefix + "naming-convention"))
           .map(Object::toString)
           .map(cls -> Classpath.newInstance(cls, NamingConvention.class))
-          .orElse(
-              NamingConvention.defaultConvention(
-                  Duration.ofMillis(rollPeriodMs), uri.getPath(), prefix));
+          .orElse(NamingConvention.defaultConvention(Duration.ofMillis(rollPeriodMs), prefix));
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
@@ -56,14 +53,24 @@ public class Utils {
             .map(Object::toString)
             .map(Boolean::valueOf)
             .orElse(false);
+    return getFileFormatFromName(format, gzip);
+  }
+
+  static FileFormat getFileFormatFromName(String format, boolean gzip) {
     if ("binary".equals(format)) {
       return FileFormat.blob(gzip);
     }
     if ("json".equals(format)) {
       return FileFormat.json(gzip);
     }
-    throw new IllegalArgumentException("Unknown format " + format);
+    try {
+      return Classpath.newInstance(format, FileFormat.class);
+    } catch (Exception ex) {
+      throw new IllegalArgumentException("Unknown format " + format, ex);
+    }
   }
 
-  private Utils() {}
+  private Utils() {
+    // nop
+  }
 }

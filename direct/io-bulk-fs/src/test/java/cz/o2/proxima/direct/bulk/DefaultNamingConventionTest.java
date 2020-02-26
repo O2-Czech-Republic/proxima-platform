@@ -26,7 +26,7 @@ import org.junit.Test;
 public class DefaultNamingConventionTest {
 
   private final NamingConvention naming =
-      new DefaultNamingConvention(Duration.ofHours(2), "/dummy", "prefix", "tmp", () -> "uuid");
+      new DefaultNamingConvention(Duration.ofHours(2), "prefix", "tmp", () -> "uuid");
 
   @Test
   public void testPartitionsRange() {
@@ -67,15 +67,15 @@ public class DefaultNamingConventionTest {
   @Test
   public void testConvertStampsToPrefixes() {
     Collection<String> prefixes = naming.prefixesOf(1541022824110L, 1541109235381L);
-    assertEquals(Sets.newHashSet("/dummy/2018/10", "/dummy/2018/11"), prefixes);
+    assertEquals(Sets.newHashSet("/2018/10", "/2018/11"), prefixes);
   }
 
   @Test
   public void testNameGenerate() {
     long now = 1500000000000L;
-    assertEquals("/dummy/2017/07/prefix-1499997600000_1500004800000_uuid.tmp", naming.nameOf(now));
+    assertEquals("/2017/07/prefix-1499997600000_1500004800000_uuid.tmp", naming.nameOf(now));
     assertEquals(
-        "/dummy/2017/07/prefix-1499997600000_1500004800000_uuid.tmp", naming.nameOf(now + 3600000));
+        "/2017/07/prefix-1499997600000_1500004800000_uuid.tmp", naming.nameOf(now + 3600000));
     assertTrue(naming.isInRange(naming.nameOf(now), now, now + 1));
     assertTrue(naming.isInRange(naming.nameOf(now), now - 2400000, now - 2400000 + 1));
     assertFalse(naming.isInRange(naming.nameOf(now), now - 2400000 - 1, now - 2400000));

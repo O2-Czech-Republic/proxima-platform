@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Value;
@@ -58,7 +59,14 @@ import org.junit.runners.Parameterized;
 /** Test {@link java.util.AbstractCollection}. */
 @RunWith(Parameterized.class)
 @Slf4j
-public class AbstractBulkAttributeWriterTest {
+public class AbstractBulkFileSystemAttributeWriterTest {
+
+  public static class InstantiableJsonFormat extends JsonFormat {
+
+    public InstantiableJsonFormat() {
+      super(false);
+    }
+  }
 
   @Value
   private static class Params {
@@ -73,13 +81,7 @@ public class AbstractBulkAttributeWriterTest {
     }
 
     FileFormat getFileFormat() {
-      switch (format) {
-        case "json":
-          return FileFormat.json(gzip);
-        case "binary":
-          return FileFormat.blob(gzip);
-      }
-      throw new IllegalArgumentException("Unknown format " + format);
+      return Utils.getFileFormatFromName(format, gzip);
     }
 
     NamingConvention getNamingConvention() {
@@ -91,7 +93,7 @@ public class AbstractBulkAttributeWriterTest {
 
   final URI uri = URI.create("abstract-bulk:///");
   final Repository repo = Repository.of(() -> ConfigFactory.load().resolve());
-  final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
+  final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final AttributeDescriptor<?> attr;
   final AttributeDescriptor<?> wildcard;
   final EntityDescriptor entity;
@@ -114,17 +116,21 @@ public class AbstractBulkAttributeWriterTest {
         new Params(2000, "json", false, 0),
         new Params(2000, "json", false, 500),
         new Params(2000, "json", true, 0),
-        new Params(2000, "json", true, 500));
+        new Params(2000, "json", true, 500),
+        new Params(1000, InstantiableJsonFormat.class.getCanonicalName(), false, 0),
+        new Params(1000, InstantiableJsonFormat.class.getCanonicalName(), false, 500),
+        new Params(1000, InstantiableJsonFormat.class.getCanonicalName(), true, 0),
+        new Params(1000, InstantiableJsonFormat.class.getCanonicalName(), true, 500));
   }
 
   @Parameterized.Parameter public Params params;
 
-  AbstractBulkAttributeWriter writer;
+  AbstractBulkFileSystemAttributeWriter writer;
   Set<Path> flushedPaths;
   Map<Long, List<StreamElement>> written;
   AtomicReference<Throwable> onFlush = new AtomicReference<>();
 
-  public AbstractBulkAttributeWriterTest() throws URISyntaxException {
+  public AbstractBulkFileSystemAttributeWriterTest() throws URISyntaxException {
     this.wildcard =
         AttributeDescriptor.newBuilder(repo)
             .setEntity("dummy")
@@ -153,14 +159,15 @@ public class AbstractBulkAttributeWriterTest {
     writer = initWriter();
   }
 
-  AbstractBulkAttributeWriter initWriter() throws IOException {
+  AbstractBulkFileSystemAttributeWriter initWriter() throws IOException {
 
-    return new AbstractBulkAttributeWriter(
+    return new AbstractBulkFileSystemAttributeWriter(
         entity,
         uri,
         params.getFs(tempFolder, "/path/"),
         params.getNamingConvention(),
         params.getFileFormat(),
+        direct.getContext(),
         params.getRollPeriod(),
         params.getAllowedLateness()) {
 
@@ -183,9 +190,10 @@ public class AbstractBulkAttributeWriterTest {
     };
   }
 
-  @Test
+  @Test(timeout = 10000)
   public synchronized void testWrite() throws Exception {
     AtomicInteger commits = new AtomicInteger();
+    CountDownLatch latch = new CountDownLatch(1);
     long now = 1500000000000L;
     StreamElement first =
         StreamElement.upsert(
@@ -210,8 +218,10 @@ public class AbstractBulkAttributeWriterTest {
           assertTrue("Exception " + exc, succ);
           assertNull(exc);
           commits.incrementAndGet();
+          latch.countDown();
         });
     writer.flush(Long.MAX_VALUE);
+    latch.await();
     assertEquals(1, commits.get());
     assertEquals(1, written.size());
     validate(written.get(1500000000000L + params.getRollPeriod()), first, second);
@@ -223,9 +233,10 @@ public class AbstractBulkAttributeWriterTest {
     assertTrue(Iterables.getOnlyElement(flushedPaths).toString().contains("/path/2017/07/"));
   }
 
-  @Test
+  @Test(timeout = 10000)
   public synchronized void testWriteAutoFlush() throws Exception {
     long now = 1500000000000L;
+    CountDownLatch latch = new CountDownLatch(1);
     StreamElement first =
         StreamElement.upsert(
             entity, attr, UUID.randomUUID().toString(), "key", "attr", now, new byte[] {1, 2});
@@ -243,13 +254,15 @@ public class AbstractBulkAttributeWriterTest {
         (succ, exc) -> {
           assertTrue("Exception " + exc, succ);
           assertNull(exc);
+          latch.countDown();
         });
     write(
         second,
         (succ, exc) -> {
-          assertTrue("Exception " + exc, succ);
-          assertNull(exc);
+          // not going to be committed
+          fail("Should not be committed");
         });
+    latch.await();
     assertEquals(1, written.size());
     validate(written.get(1500000000000L + params.getRollPeriod()), first);
     assertEquals(1, flushedPaths.size());
@@ -260,8 +273,9 @@ public class AbstractBulkAttributeWriterTest {
     assertTrue(Iterables.getOnlyElement(flushedPaths).toString().contains("/path/2017/07/"));
   }
 
-  @Test
+  @Test(timeout = 10000)
   public synchronized void testWriteOutOfOrder() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
     long now = 1500000000000L;
     StreamElement[] elements = {
       StreamElement.upsert(
@@ -308,7 +322,9 @@ public class AbstractBulkAttributeWriterTest {
                       assertTrue("Exception " + exc, succ);
                       assertNull(exc);
                       assertEquals(now + params.getRollPeriod() / 2, e.getStamp());
+                      latch.countDown();
                     }));
+    latch.await();
     assertEquals(1, written.size());
     validate(
         written.get(1500000000000L + params.getRollPeriod()),
@@ -326,6 +342,7 @@ public class AbstractBulkAttributeWriterTest {
 
   @Test(timeout = 10000)
   public synchronized void testFlushingOnOutOfOrder() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
     long now = 1500000000000L;
     StreamElement[] elements = {
       StreamElement.upsert(
@@ -381,8 +398,10 @@ public class AbstractBulkAttributeWriterTest {
                     (succ, exc) -> {
                       assertTrue("Exception " + exc, succ);
                       assertNull(exc);
-                      assertEquals(now + params.getRollPeriod(), e.getStamp());
+                      assertEquals(now + params.getRollPeriod() / 2, e.getStamp());
+                      latch.countDown();
                     }));
+    latch.await();
     assertEquals(2, written.size());
     validate(
         written.get(1500000000000L + params.getRollPeriod()),
@@ -406,9 +425,10 @@ public class AbstractBulkAttributeWriterTest {
     assertTrue(Iterables.get(flushedPaths, 1).toString().contains("/path/2017/07/"));
   }
 
-  @Test
-  public synchronized void testFailWrite() {
+  @Test(timeout = 10000)
+  public synchronized void testFailWrite() throws InterruptedException {
     onFlush.set(new RuntimeException("Fail"));
+    CountDownLatch latch = new CountDownLatch(1);
     long now = 1500000000000L;
     StreamElement[] elements = {
       StreamElement.upsert(
@@ -430,8 +450,10 @@ public class AbstractBulkAttributeWriterTest {
                     (succ, exc) -> {
                       assertFalse(succ);
                       assertNotNull(exc);
+                      latch.countDown();
                     }));
     writer.flush(Long.MAX_VALUE);
+    latch.await();
     assertTrue(written.isEmpty());
   }
 

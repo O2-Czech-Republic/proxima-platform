@@ -30,8 +30,7 @@ import java.util.stream.Stream;
 public interface FileSystem extends Serializable {
 
   static FileSystem local(File parent) {
-    NamingConvention convention =
-        NamingConvention.defaultConvention(Duration.ofHours(1), parent.getAbsolutePath(), "local");
+    NamingConvention convention = NamingConvention.defaultConvention(Duration.ofHours(1), "local");
     return new FileSystem() {
 
       @Override
@@ -60,7 +59,7 @@ public interface FileSystem extends Serializable {
       @Override
       public Path newPath(long ts) {
         String name = convention.nameOf(ts);
-        return ExceptionUtils.uncheckedFactory(() -> Path.local(new File(name)));
+        return ExceptionUtils.uncheckedFactory(() -> Path.local(new File(parent, name)));
       }
     };
   }

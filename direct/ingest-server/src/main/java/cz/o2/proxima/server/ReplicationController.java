@@ -452,6 +452,11 @@ public class ReplicationController {
                         context::confirm,
                         context::fail));
           }
+
+          @Override
+          public void onIdle(OnIdleContext context) {
+            writer.updateWatermark(context.getWatermark());
+          }
         };
     return RetryableLogObserver.bulk(3, consumerName, commitLog, logObserver);
   }

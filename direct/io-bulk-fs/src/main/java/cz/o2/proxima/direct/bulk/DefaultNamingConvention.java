@@ -25,7 +25,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
@@ -37,44 +36,31 @@ import lombok.extern.slf4j.Slf4j;
 @Internal
 public class DefaultNamingConvention implements NamingConvention {
 
+  private static final char SEPARATOR = '/';
   private static final Pattern NAME_PATTERN =
       Pattern.compile(".*/?[^/]+-([0-9]+)_([0-9]+)[^/]*\\.+[^/]*$");
   private static final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/");
 
   private final long rollPeriodMs;
-  private final String basePath;
   private final String prefix;
   private final String suffix;
   private final Factory<String> uuidGenerator;
 
   DefaultNamingConvention(Duration rollPeriod) {
-    this(rollPeriod, "", "");
+    this(rollPeriod, "");
   }
 
-  DefaultNamingConvention(Duration rollPeriod, String basePath, String prefix) {
-    this(rollPeriod, basePath, prefix, "blob", () -> UUID.randomUUID().toString());
+  DefaultNamingConvention(Duration rollPeriod, String prefix) {
+    this(rollPeriod, prefix, "blob", () -> UUID.randomUUID().toString());
   }
 
   @VisibleForTesting
   public DefaultNamingConvention(
-      Duration rollPeriod,
-      String basePath,
-      String prefix,
-      String suffix,
-      Factory<String> uuidGenerator) {
+      Duration rollPeriod, String prefix, String suffix, Factory<String> uuidGenerator) {
     this.rollPeriodMs = rollPeriod.toMillis();
-    this.basePath = noLastSlash(Objects.requireNonNull(basePath));
     this.prefix = prefix;
     this.suffix = suffix;
     this.uuidGenerator = uuidGenerator;
-  }
-
-  private String noLastSlash(String in) {
-    String ret = in;
-    while (ret.endsWith("/")) {
-      ret = ret.substring(0, ret.length() - 1);
-    }
-    return ret;
   }
 
   @Override
@@ -85,13 +71,12 @@ public class DefaultNamingConvention implements NamingConvention {
             LocalDateTime.ofInstant(
                 Instant.ofEpochMilli(boundary), ZoneId.ofOffset("UTC", ZoneOffset.UTC)));
     return String.format(
-        "%s/%s%s-%d_%d_%s.%s",
-        basePath, date, prefix, boundary, boundary + rollPeriodMs, uuidGenerator.apply(), suffix);
+        "/%s%s-%d_%d_%s.%s",
+        date, prefix, boundary, boundary + rollPeriodMs, uuidGenerator.apply(), suffix);
   }
 
   @Override
   public Set<String> prefixesOf(long startStamp, long endStamp) {
-    final String rootPath = basePath + "/";
     DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy/MM");
     // use TreeSet, so that prefixes are sorted, which will yield
     // partitions roughly sorted by timestamp
@@ -104,16 +89,16 @@ public class DefaultNamingConvention implements NamingConvention {
           LocalDateTime.ofInstant(
               Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
       while (time.isBefore(end)) {
-        prefixes.add(rootPath + format.format(time));
+        prefixes.add(SEPARATOR + format.format(time));
         time = time.plusMonths(1);
       }
       prefixes.add(
-          rootPath
+          SEPARATOR
               + format.format(
                   LocalDateTime.ofInstant(
                       Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC))));
     } else {
-      prefixes.add(rootPath);
+      prefixes.add(String.valueOf(SEPARATOR));
     }
     return prefixes;
   }

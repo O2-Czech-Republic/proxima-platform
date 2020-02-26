@@ -36,7 +36,7 @@ public class GCloudStorageAccessorTest {
     GCloudStorageAccessor accessor =
         new GCloudStorageAccessor(entity, URI.create("gs://bucket/path"), Collections.emptyMap());
     NamingConvention convention = accessor.getNamingConvention();
-    assertTrue(convention.nameOf(1500000000000L).startsWith("/path/2017/07/"));
+    assertTrue(convention.nameOf(1500000000000L).startsWith("/2017/07/"));
   }
 
   @Test

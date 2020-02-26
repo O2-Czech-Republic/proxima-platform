@@ -18,24 +18,19 @@ package cz.o2.proxima.direct.gcloud.storage;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.bulk.FileFormat;
 import cz.o2.proxima.direct.bulk.NamingConvention;
+import cz.o2.proxima.direct.bulk.Utils;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
-import cz.o2.proxima.util.Classpath;
 import java.io.File;
-import java.net.InetAddress;
 import java.net.URI;
-import java.nio.charset.Charset;
-import java.security.MessageDigest;
-import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
-import org.apache.commons.codec.binary.Hex;
 
 /** A {@link DataAccessor} for gcloud storage. */
 class GCloudStorageAccessor extends AbstractStorage implements DataAccessor {
@@ -59,36 +54,11 @@ class GCloudStorageAccessor extends AbstractStorage implements DataAccessor {
   }
 
   FileFormat getFileFormat() {
-    String format = Optional.ofNullable(cfg.get("format")).map(Object::toString).orElse("binary");
-    boolean gzip =
-        Optional.ofNullable(cfg.get("gzip"))
-            .map(Object::toString)
-            .map(Boolean::valueOf)
-            .orElse(false);
-    if ("binary".equals(format)) {
-      return FileFormat.blob(gzip);
-    }
-    if ("json".equals(format)) {
-      return FileFormat.json(gzip);
-    }
-    throw new IllegalArgumentException("Unknown format " + format);
+    return Utils.getFileFormat("", getCfg());
   }
 
   NamingConvention getNamingConvention() {
-    try {
-      MessageDigest digest = MessageDigest.getInstance("MD5");
-      digest.update(InetAddress.getLocalHost().getHostName().getBytes(Charset.defaultCharset()));
-      String prefix = new String(Hex.encodeHex(digest.digest())).substring(0, 6);
-
-      return Optional.ofNullable(cfg.get("naming-convention"))
-          .map(Object::toString)
-          .map(cls -> Classpath.newInstance(cls, NamingConvention.class))
-          .orElse(
-              NamingConvention.defaultConvention(
-                  Duration.ofMillis(getRollPeriod()), getUri().getPath(), prefix));
-    } catch (Exception ex) {
-      throw new RuntimeException(ex);
-    }
+    return Utils.getNamingConvention("", getCfg(), getRollPeriod());
   }
 
   public File getTmpDir() {

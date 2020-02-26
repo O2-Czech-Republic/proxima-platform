@@ -41,13 +41,11 @@ public interface NamingConvention extends Serializable {
    * FileFormat}.
    *
    * @param rollTimePeriod time rolling interval in milliseconds.
-   * @param basePath base path (e.g. a name of root directory)
    * @param prefix prefix of all names generated
    * @return default naming convention with given settings
    */
-  static NamingConvention defaultConvention(
-      Duration rollTimePeriod, String basePath, String prefix) {
-    return new DefaultNamingConvention(rollTimePeriod, basePath, prefix);
+  static NamingConvention defaultConvention(Duration rollTimePeriod, String prefix) {
+    return new DefaultNamingConvention(rollTimePeriod, prefix);
   }
 
   /**

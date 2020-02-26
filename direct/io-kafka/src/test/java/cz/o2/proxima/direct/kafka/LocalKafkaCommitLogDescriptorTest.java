@@ -31,6 +31,7 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.kafka.LocalKafkaCommitLogDescriptor.Accessor;
+import cz.o2.proxima.direct.kafka.LocalKafkaCommitLogDescriptor.LocalKafkaLogReader;
 import cz.o2.proxima.direct.kafka.LocalKafkaCommitLogDescriptor.LocalKafkaWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.view.CachedView;
@@ -1630,6 +1631,25 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 .getCommittedOffsets()
                 .stream()
                 .collect(Collectors.summingLong(o -> ((TopicOffset) o).getOffset())));
+  }
+
+  @Test
+  public void testObserveOnNonExistingTopic() throws InterruptedException {
+    Accessor accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(3));
+    LocalKafkaLogReader reader = accessor.newReader(context());
+    try {
+      // need this to initialize the consumer
+      assertNotNull(reader.getPartitions());
+      reader.validateTopic(reader.getConsumer(), "non-existing-topic");
+      fail("Should throw exception");
+    } catch (IllegalArgumentException ex) {
+      assertEquals(
+          "Received null or empty partitions for topic [non-existing-topic]. "
+              + "Please check that the topic exists and has at least one partition.",
+          ex.getMessage());
+      return;
+    }
+    fail("Should throw IllegalArgumentException");
   }
 
   @Test(timeout = 10000)

@@ -15,93 +15,63 @@
  */
 package cz.o2.proxima.direct.hdfs;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Maps;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.bulk.Reader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executor;
-import java.util.regex.Matcher;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hadoop.fs.LocatedFileStatus;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.io.BytesWritable;
-import org.apache.hadoop.io.SequenceFile;
 
 /** Observable of data stored in {@code SequenceFiles} in HDFS. */
 @Slf4j
 public class HdfsBatchLogObservable implements BatchLogObservable {
 
-  private final EntityDescriptor entityDesc;
-  private final URI uri;
-
-  @SuppressWarnings("squid:S1948")
-  private final Map<String, Object> cfg;
-
-  private final long batchProcessSize;
-
+  private final HdfsDataAccessor accessor;
   private final Context context;
   private transient Executor executor;
 
-  public HdfsBatchLogObservable(
-      EntityDescriptor entityDesc,
-      URI uri,
-      Map<String, Object> cfg,
-      Context context,
-      long batchProcessSize) {
-
-    this.entityDesc = entityDesc;
-    this.cfg = cfg;
-    this.uri = uri;
+  public HdfsBatchLogObservable(HdfsDataAccessor accessor, Context context) {
+    this.accessor = accessor;
     this.context = context;
-    this.batchProcessSize = batchProcessSize;
   }
 
   @Override
-  @SuppressWarnings("squid:S00112")
   public List<Partition> getPartitions(long startStamp, long endStamp) {
     List<Partition> partitions = new ArrayList<>();
-    try {
-      RemoteIterator<LocatedFileStatus> it;
-      it = HdfsDataAccessor.getFs(uri, cfg).listFiles(new Path(uri.toString()), true);
-      HdfsPartition current = new HdfsPartition(partitions.size());
-      while (it.hasNext()) {
-        LocatedFileStatus file = it.next();
-        if (file.isFile()) {
-          Map.Entry<Long, Long> minMaxStamp = getMinMaxStamp(file.getPath().getName());
-          long min = minMaxStamp.getKey();
-          long max = minMaxStamp.getValue();
-          if (max >= startStamp && min <= endStamp) {
-            current.add(file);
+    HadoopFileSystem fs = accessor.getHadoopFs();
+    long batchProcessSize = accessor.getBatchProcessSize();
+    @SuppressWarnings("unchecked")
+    Stream<HadoopPath> paths = (Stream) fs.list(startStamp, endStamp);
+    AtomicReference<HdfsPartition> current = new AtomicReference<>();
+    paths.forEach(
+        p -> {
+          FileStatus status = p.getFileStatus();
+          if (current.get() == null) {
+            current.set(new HdfsPartition((partitions.size())));
+            partitions.add(current.get());
           }
-          if (current.size() > batchProcessSize) {
-            partitions.add(current);
-            current = new HdfsPartition(partitions.size());
+          final HdfsPartition part = current.get();
+          part.add(status);
+          if (part.size() > batchProcessSize) {
+            current.set(null);
           }
-        }
-      }
-      if (current.size() > 0) {
-        partitions.add(current);
-      }
-    } catch (IOException ex) {
-      throw new RuntimeException("Failed to retrieve partitions", ex);
-    }
+        });
     return partitions;
   }
 
   @Override
-  @SuppressWarnings({"unchecked", "squid:S1181"})
   public void observe(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
@@ -118,7 +88,10 @@ public class HdfsBatchLogObservable implements BatchLogObservable {
             for (Iterator<Partition> it = partitions.iterator(); run && it.hasNext(); ) {
               HdfsPartition p = (HdfsPartition) it.next();
               for (URI f : p.getFiles()) {
-                processFile(observer, p, new Path(f));
+                if (!processFile(observer, p, new Path(f))) {
+                  run = false;
+                  break;
+                }
               }
             }
             observer.onCompleted();
@@ -132,64 +105,19 @@ public class HdfsBatchLogObservable implements BatchLogObservable {
         });
   }
 
-  @SuppressWarnings("squid:S00112")
-  private void processFile(BatchLogObserver observer, HdfsPartition p, Path f) {
+  private boolean processFile(BatchLogObserver observer, HdfsPartition p, Path f) {
     try {
-      if (!f.getParent().getName().equals(".tmp")) {
-        long element = 0L;
-        BytesWritable key = new BytesWritable();
-        TimestampedNullableBytesWritable value = new TimestampedNullableBytesWritable();
-        try (SequenceFile.Reader reader =
-            new SequenceFile.Reader(
-                HdfsDataAccessor.toHadoopConf(cfg), SequenceFile.Reader.file(f))) {
-
-          while (reader.next(key, value)) {
-            observer.onNext(toStreamElement(f, element++, key, value), p);
+      HadoopPath path = HadoopPath.of(accessor.getHadoopFs(), f.toUri().toString(), accessor);
+      try (Reader reader = accessor.getFormat().openReader(path, accessor.getEntityDesc())) {
+        for (StreamElement elem : reader) {
+          if (!observer.onNext(elem, p)) {
+            return false;
           }
         }
       }
     } catch (IOException ex) {
       throw new RuntimeException("Failed to read file " + f, ex);
     }
-  }
-
-  private StreamElement toStreamElement(
-      Path file, long number, BytesWritable key, TimestampedNullableBytesWritable value) {
-
-    String strKey = new String(key.copyBytes());
-    String[] split = strKey.split("#", 2);
-    if (split.length != 2) {
-      throw new IllegalArgumentException("Invalid input in key bytes " + strKey);
-    }
-    String rawKey = split[0];
-    String attribute = split[1];
-
-    AttributeDescriptor<?> attributeDesc;
-    attributeDesc =
-        entityDesc
-            .findAttribute(attribute)
-            .orElseThrow(
-                () ->
-                    new IllegalArgumentException(
-                        "Attribute "
-                            + attribute
-                            + " does not exist in entity "
-                            + entityDesc.getName()));
-    String uuid = file + ":" + number;
-    if (value.hasValue()) {
-      return StreamElement.upsert(
-          entityDesc, attributeDesc, uuid, rawKey, attribute, value.getStamp(), value.getValue());
-    }
-    return StreamElement.delete(
-        entityDesc, attributeDesc, uuid, rawKey, attribute, value.getStamp());
-  }
-
-  @VisibleForTesting
-  static Map.Entry<Long, Long> getMinMaxStamp(String name) {
-    Matcher matched = HdfsDataAccessor.PART_FILE_PARSER.matcher(name);
-    if (matched.find()) {
-      return Maps.immutableEntry(Long.valueOf(matched.group(1)), Long.valueOf(matched.group(2)));
-    }
-    return Maps.immutableEntry(-1L, -1L);
+    return true;
   }
 }

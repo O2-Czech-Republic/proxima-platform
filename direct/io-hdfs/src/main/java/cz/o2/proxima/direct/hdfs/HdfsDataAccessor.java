@@ -17,6 +17,9 @@ package cz.o2.proxima.direct.hdfs;
 
 import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.bulk.FileFormat;
+import cz.o2.proxima.direct.bulk.NamingConvention;
+import cz.o2.proxima.direct.bulk.Utils;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
@@ -25,24 +28,26 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import java.io.IOException;
 import java.net.URI;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
-import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 
 /** {@code DataAccessor} for Hadoop Distributed FileSystem. */
 @Slf4j
-@EqualsAndHashCode
+@ToString
 public class HdfsDataAccessor implements DataAccessor {
 
   public static final String HDFS_MIN_ELEMENTS_TO_FLUSH = "hdfs.min-elements-to-flush";
   public static final String HDFS_ROLL_INTERVAL = "hdfs.log-roll-interval";
   public static final String HDFS_BATCH_PROCESS_SIZE_MIN = "hdfs.process-size.min";
-  public static final String HDFS_SEQUENCE_FILE_COMPRESSION_CODEC_CFG = "hdfs.compression";
+  public static final String HDFS_ALLOWED_LATENESS = "hdfs.allowed-lateness";
 
   static final int HDFS_MIN_ELEMENTS_TO_FLUSH_DEFAULT = 500;
   static final long HDFS_ROLL_INTERVAL_DEFAULT = TimeUnit.HOURS.toMillis(1);
@@ -52,19 +57,23 @@ public class HdfsDataAccessor implements DataAccessor {
   static final Pattern PART_FILE_PARSER = Pattern.compile("part-([0-9]+)_([0-9]+)-.+");
   static final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern("/yyyy/MM/");
 
-  private final EntityDescriptor entityDesc;
-  private final URI uri;
+  @Getter private final EntityDescriptor entityDesc;
+  @Getter private final URI uri;
 
   @SuppressWarnings("squid:S1948")
   private final Map<String, Object> cfg;
 
-  private final int minElementsToFlush;
-  private final long rollInterval;
-  private final long batchProcessSize;
-  private final String compressionCodec;
+  @Getter private final int minElementsToFlush;
+  @Getter private final long rollInterval;
+  @Getter private final long batchProcessSize;
+  @Getter private final FileFormat format;
+  @Getter private final NamingConvention namingConvention;
+  @Getter private final NamingConvention temporaryNamingConvention;
+  @Getter private final HadoopFileSystem hadoopFs;
+  @Getter private final HadoopFileSystem temporaryHadoopFs;
+  @Getter private final long allowedLateness;
 
   public HdfsDataAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-
     this.entityDesc = entityDesc;
     this.uri = uri;
     this.cfg = cfg;
@@ -83,29 +92,31 @@ public class HdfsDataAccessor implements DataAccessor {
             cfg,
             o -> Long.valueOf(o.toString()),
             HDFS_BATCH_PROCESS_SIZE_MIN_DEFAULT);
-    this.compressionCodec =
-        getCfg(
-            HDFS_SEQUENCE_FILE_COMPRESSION_CODEC_CFG,
-            cfg,
-            String::valueOf,
-            HDFS_DEFAULT_SEQUENCE_FILE_COMPRESSION_CODEC);
+    this.format = Utils.getFileFormat("hdfs.", cfg);
+    this.namingConvention = Utils.getNamingConvention("hdfs.", cfg, rollInterval);
+    this.temporaryNamingConvention = NamingConvention.prefixed("/_tmp", namingConvention);
+    this.hadoopFs = new HadoopFileSystem(this);
+    this.temporaryHadoopFs = new HadoopFileSystem(this, temporaryNamingConvention);
+    this.allowedLateness = getCfg(HDFS_ALLOWED_LATENESS, cfg, o -> Long.valueOf(o.toString()), 0L);
+  }
+
+  public Map<String, Object> getCfg() {
+    return Collections.unmodifiableMap(cfg);
   }
 
   @Override
   public Optional<AttributeWriterBase> getWriter(Context context) {
-    return newWriter();
+    return newWriter(context);
   }
 
   @VisibleForTesting
-  Optional<AttributeWriterBase> newWriter() {
-    return Optional.of(
-        new HdfsBulkAttributeWriter(
-            entityDesc, uri, cfg, minElementsToFlush, rollInterval, compressionCodec));
+  Optional<AttributeWriterBase> newWriter(Context context) {
+    return Optional.of(new HdfsBulkAttributeWriter(this, context));
   }
 
   @Override
   public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-    return Optional.of(new HdfsBatchLogObservable(entityDesc, uri, cfg, context, batchProcessSize));
+    return Optional.of(new HdfsBatchLogObservable(this, context));
   }
 
   private <T> T getCfg(
@@ -114,18 +125,31 @@ public class HdfsDataAccessor implements DataAccessor {
     return Optional.ofNullable(cfg.get(name)).map(convert::apply).orElse(defVal);
   }
 
-  @SuppressWarnings("squid:S00112")
-  static FileSystem getFs(URI uri, Map<String, Object> cfg) {
+  FileSystem getFs() {
     try {
-      return FileSystem.get(uri, toHadoopConf(cfg));
+      return FileSystem.get(uri, getHadoopConf());
     } catch (IOException ex) {
       throw new RuntimeException("Failed to get filesystem for URI: " + uri, ex);
     }
   }
 
-  static Configuration toHadoopConf(Map<String, Object> cfg) {
+  Configuration getHadoopConf() {
     Configuration conf = new Configuration();
     cfg.forEach((key, value) -> conf.set(key, value.toString()));
     return conf;
+  }
+
+  @Override
+  public int hashCode() {
+    return getUri().hashCode();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj instanceof HdfsDataAccessor) {
+      HdfsDataAccessor other = (HdfsDataAccessor) obj;
+      return other.getUri().equals(getUri());
+    }
+    return false;
   }
 }

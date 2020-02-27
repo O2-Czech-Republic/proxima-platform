@@ -16,7 +16,6 @@
 package cz.o2.proxima.direct.hdfs;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -24,6 +23,7 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -33,7 +33,6 @@ import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -55,7 +54,7 @@ public class HdfsStorageTest {
   }
 
   @Test
-  public void testHashCodeAndEquals() throws Exception {
+  public void testHashCodeAndEquals() {
     TestUtils.assertHashCodeAndEquals(new HdfsStorage(), new HdfsStorage());
 
     EntityDescriptor entity = EntityDescriptor.newBuilder().setName("dummy").build();
@@ -73,13 +72,11 @@ public class HdfsStorageTest {
   }
 
   @Test(timeout = 5000L)
-  public void writeElementSuccessWithoutCompressionTest()
-      throws URISyntaxException, InterruptedException {
+  public void testWriteElement() throws InterruptedException {
 
     Map<String, Object> cfg = new HashMap<>();
     cfg.put(HdfsDataAccessor.HDFS_MIN_ELEMENTS_TO_FLUSH, 1);
-    cfg.put(HdfsDataAccessor.HDFS_ROLL_INTERVAL, -1); // Hack for immediate flush
-    cfg.put(HdfsDataAccessor.HDFS_SEQUENCE_FILE_COMPRESSION_CODEC_CFG, "none");
+    cfg.put(HdfsDataAccessor.HDFS_ROLL_INTERVAL, -1);
 
     CountDownLatch latch = new CountDownLatch(1);
     writeOneElementWithConfig(
@@ -92,55 +89,17 @@ public class HdfsStorageTest {
     latch.await();
   }
 
-  @Test(timeout = 5000L)
-  public void writeElementFailedWithoutNativeLibsTest()
-      throws URISyntaxException, InterruptedException {
-
-    Map<String, Object> cfg = new HashMap<>();
-    cfg.put(HdfsDataAccessor.HDFS_MIN_ELEMENTS_TO_FLUSH, 1);
-    cfg.put(HdfsDataAccessor.HDFS_ROLL_INTERVAL, -1); // Hack for immediate flush
-    cfg.put(HdfsDataAccessor.HDFS_SEQUENCE_FILE_COMPRESSION_CODEC_CFG, "whatever");
-
-    CountDownLatch latch = new CountDownLatch(1);
-    writeOneElementWithConfig(
-        cfg,
-        ((success, error) -> {
-          assertFalse(success);
-          latch.countDown();
-        }));
-    latch.await();
-  }
-
-  @Test(timeout = 5000L)
-  public void writeElementFailedWithUnknownCompressionTest()
-      throws URISyntaxException, InterruptedException {
-
-    Map<String, Object> cfg = new HashMap<>();
-    cfg.put(HdfsDataAccessor.HDFS_MIN_ELEMENTS_TO_FLUSH, 1);
-    cfg.put(HdfsDataAccessor.HDFS_ROLL_INTERVAL, -1); // Hack for immediate flush
-
-    CountDownLatch latch = new CountDownLatch(1);
-    writeOneElementWithConfig(
-        cfg,
-        ((success, error) -> {
-          assertFalse(success);
-          latch.countDown();
-        }));
-    latch.await();
-  }
-
-  private void writeOneElementWithConfig(Map<String, Object> cfg, CommitCallback callback)
-      throws URISyntaxException {
+  private void writeOneElementWithConfig(Map<String, Object> cfg, CommitCallback callback) {
 
     final Repository repository =
-        ConfigRepository.Builder.ofTest(ConfigFactory.defaultApplication()).build();
+        ConfigRepository.Builder.ofTest(() -> ConfigFactory.defaultApplication()).build();
 
     EntityDescriptor entity = EntityDescriptor.newBuilder().setName("dummy").build();
     AttributeDescriptor<byte[]> attribute =
         AttributeDescriptor.newBuilder(repository)
             .setEntity("dummy")
             .setName("attribute")
-            .setSchemeUri(new URI("bytes:///"))
+            .setSchemeUri(URI.create("bytes:///"))
             .build();
 
     URI uri = URI.create(String.format("file://%s/dummy", tempFolder.getRoot().getAbsolutePath()));
@@ -156,11 +115,17 @@ public class HdfsStorageTest {
             "test value".getBytes());
 
     HdfsDataAccessor accessor = new HdfsDataAccessor(entity, uri, cfg);
-    Optional<AttributeWriterBase> writer = accessor.newWriter();
+    Optional<AttributeWriterBase> writer =
+        accessor.newWriter(repository.getOrCreateOperator(DirectDataOperator.class).getContext());
     assertTrue(writer.isPresent());
 
     BulkAttributeWriter bulk = writer.get().bulk();
 
-    bulk.write(element, element.getStamp(), callback);
+    try {
+      bulk.write(element, element.getStamp(), callback);
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
+    }
   }
 }

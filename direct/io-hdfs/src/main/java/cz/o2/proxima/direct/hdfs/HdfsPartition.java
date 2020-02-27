@@ -20,7 +20,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Getter;
-import org.apache.hadoop.fs.LocatedFileStatus;
+import org.apache.hadoop.fs.FileStatus;
 
 /** {@code Partition} of files in HDFS. */
 public class HdfsPartition extends BoundedPartition {
@@ -33,7 +33,7 @@ public class HdfsPartition extends BoundedPartition {
     super(id);
   }
 
-  public void add(LocatedFileStatus file) {
+  public void add(FileStatus file) {
     files.add(file.getPath().toUri());
     size += file.getLen();
   }

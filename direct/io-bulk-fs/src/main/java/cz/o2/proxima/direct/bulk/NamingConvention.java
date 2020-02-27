@@ -15,11 +15,13 @@
  */
 package cz.o2.proxima.direct.bulk;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.stream.Collectors;
 
 /** Interface wrapping generic convention for naming files. */
 @Internal
@@ -46,6 +48,44 @@ public interface NamingConvention extends Serializable {
    */
   static NamingConvention defaultConvention(Duration rollTimePeriod, String prefix) {
     return new DefaultNamingConvention(rollTimePeriod, prefix);
+  }
+
+  /**
+   * Create a {@link NamingConvention} that adds prefix to each generated name of parent convention.
+   *
+   * @param prefix prefix to be added to generated names
+   * @param parent the parent convention that generates names
+   * @return prefixed {@link NamingConvention}
+   */
+  static NamingConvention prefixed(String prefix, NamingConvention parent) {
+    return new NamingConvention() {
+
+      @Override
+      public String nameOf(long ts) {
+        return prefix + parent.nameOf(ts);
+      }
+
+      @Override
+      public Collection<String> prefixesOf(long minTs, long maxTs) {
+        return parent
+            .prefixesOf(minTs, maxTs)
+            .stream()
+            .map(p -> prefix + p)
+            .collect(Collectors.toList());
+      }
+
+      @Override
+      public boolean isInRange(String name, long minTs, long maxTs) {
+        Preconditions.checkArgument(name.startsWith(prefix));
+        return parent.isInRange(name.substring(prefix.length()), minTs, maxTs);
+      }
+
+      @Override
+      public Pair<Long, Long> parseMinMaxTimestamp(String name) {
+        Preconditions.checkArgument(name.startsWith(prefix));
+        return parent.parseMinMaxTimestamp(name.substring(prefix.length()));
+      }
+    };
   }
 
   /**

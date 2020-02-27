@@ -55,7 +55,7 @@ public class BulkGCloudStorageWriter extends GCloudClient implements BulkAttribu
     super(entityDesc, accessor.getUri(), accessor.getCfg());
 
     tmpDir = accessor.getTmpDir();
-    localFs = FileSystem.local(tmpDir);
+    localFs = FileSystem.local(tmpDir, accessor.getNamingConvention());
     namingConvention = accessor.getNamingConvention();
 
     wrap =

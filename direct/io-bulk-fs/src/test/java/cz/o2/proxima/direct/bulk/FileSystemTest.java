@@ -20,6 +20,7 @@ import static org.junit.Assert.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.time.Duration;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -30,12 +31,16 @@ import org.junit.rules.TemporaryFolder;
 public class FileSystemTest {
 
   @Rule public final TemporaryFolder folder = new TemporaryFolder();
+  private final FileFormat format = FileFormat.blob(true);
   FileSystem fs;
 
   @Before
   public void setUp() throws IOException {
     folder.create();
-    fs = FileSystem.local(folder.newFolder());
+    fs =
+        FileSystem.local(
+            folder.newFolder(),
+            NamingConvention.defaultConvention(Duration.ofHours(1), "prefix", format.fileSuffix()));
   }
 
   @After

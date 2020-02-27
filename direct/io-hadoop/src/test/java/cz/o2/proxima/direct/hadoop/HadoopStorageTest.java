@@ -101,6 +101,33 @@ public class HadoopStorageTest {
     assertEquals(Accept.REJECT, storage.accepts(URI.create("file:///path")));
   }
 
+  @Test
+  public void testSchemeRemap() {
+    URI remap = HadoopStorage.remap(URI.create("hdfs://authority/path"));
+    assertEquals("hdfs", remap.getScheme());
+    assertEquals("authority", remap.getAuthority());
+    assertEquals("/path", remap.getPath());
+    remap = HadoopStorage.remap(URI.create("hdfs://authority/"));
+    assertEquals("hdfs", remap.getScheme());
+    assertEquals("authority", remap.getAuthority());
+    assertEquals("/", remap.getPath());
+    remap = HadoopStorage.remap(URI.create("hadoop:file:///"));
+    assertEquals("file", remap.getScheme());
+    assertEquals(null, remap.getAuthority());
+    assertEquals("/", remap.getPath());
+    remap = HadoopStorage.remap(URI.create("hadoop:file:///tmp/?query=a"));
+    assertEquals("file", remap.getScheme());
+    assertEquals(null, remap.getAuthority());
+    assertEquals("/tmp/", remap.getPath());
+    assertEquals("query=a", remap.getQuery());
+    try {
+      remap = HadoopStorage.remap(URI.create("hadoop:///tmp/"));
+      fail("Should have thrown exception");
+    } catch (IllegalArgumentException ex) {
+      // pass
+    }
+  }
+
   @Test(timeout = 5000L)
   public void testWriteElement() throws InterruptedException {
     Map<String, Object> cfg = new HashMap<>();

@@ -110,11 +110,9 @@ public class GCloudLogObservable implements BatchLogObservable {
   @Nullable private transient Executor executor = null;
   private long backoff = 100;
 
-  public GCloudLogObservable(
-      EntityDescriptor entityDesc, GCloudStorageAccessor accessor, Context context) {
-
+  public GCloudLogObservable(GCloudStorageAccessor accessor, Context context) {
     this.entity = accessor.getEntityDescriptor();
-    this.fs = createFileSystem(entityDesc, accessor);
+    this.fs = createFileSystem(accessor);
     this.fileFormat = accessor.getFileFormat();
     this.namingConvetion = accessor.getNamingConvention();
     this.partitionMinSize = accessor.getPartitionMinSize();
@@ -123,8 +121,8 @@ public class GCloudLogObservable implements BatchLogObservable {
   }
 
   @VisibleForTesting
-  FileSystem createFileSystem(EntityDescriptor entityDesc, GCloudStorageAccessor accessor) {
-    return new GCloudFileSystem(entityDesc, accessor);
+  FileSystem createFileSystem(GCloudStorageAccessor accessor) {
+    return new GCloudFileSystem(accessor);
   }
 
   @Override
@@ -180,7 +178,8 @@ public class GCloudLogObservable implements BatchLogObservable {
                       part.getBlobs()
                           .forEach(
                               blob -> {
-                                while (true) {
+                                boolean finished = false;
+                                while (!finished) {
                                   log.debug("Starting to observe partition {}", p);
                                   try (Reader reader =
                                       fileFormat.openReader(BlobPath.of(fs, blob), entity)) {
@@ -191,14 +190,13 @@ public class GCloudLogObservable implements BatchLogObservable {
                                           }
                                         });
                                     backoff = 100;
+                                    finished = true;
                                   } catch (GoogleJsonResponseException ex) {
-                                    if (handleResponseException(ex, blob)) {
-                                      continue;
-                                    }
+                                    finished = !handleResponseException(ex, blob);
                                   } catch (IOException ex) {
                                     handleGeneralException(ex, blob);
+                                    finished = true;
                                   }
-                                  break;
                                 }
                               });
                     });

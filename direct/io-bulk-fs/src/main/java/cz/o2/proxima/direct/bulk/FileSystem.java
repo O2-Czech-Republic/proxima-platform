@@ -20,7 +20,6 @@ import cz.o2.proxima.util.ExceptionUtils;
 import java.io.File;
 import java.io.Serializable;
 import java.net.URI;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -29,8 +28,7 @@ import java.util.stream.Stream;
 @Internal
 public interface FileSystem extends Serializable {
 
-  static FileSystem local(File parent) {
-    NamingConvention convention = NamingConvention.defaultConvention(Duration.ofHours(1), "local");
+  static FileSystem local(File parent, NamingConvention convention) {
     return new FileSystem() {
 
       @Override
@@ -42,7 +40,7 @@ public interface FileSystem extends Serializable {
       public Stream<Path> list(long minTs, long maxTs) {
         return listRecursive(parent)
             .filter(f -> convention.isInRange(f.getAbsolutePath(), minTs, maxTs))
-            .map(Path::local);
+            .map(p -> Path.local(this, p));
       }
 
       private Stream<File> listRecursive(File file) {
@@ -59,7 +57,7 @@ public interface FileSystem extends Serializable {
       @Override
       public Path newPath(long ts) {
         String name = convention.nameOf(ts);
-        return ExceptionUtils.uncheckedFactory(() -> Path.local(new File(parent, name)));
+        return ExceptionUtils.uncheckedFactory(() -> Path.local(this, new File(parent, name)));
       }
     };
   }

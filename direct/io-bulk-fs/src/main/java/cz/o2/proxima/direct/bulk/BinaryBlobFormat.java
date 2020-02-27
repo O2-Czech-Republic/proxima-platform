@@ -269,6 +269,11 @@ class BinaryBlobFormat implements FileFormat {
   }
 
   @Override
+  public String fileSuffix() {
+    return writeGzip ? "blob.gz" : "blob";
+  }
+
+  @Override
   public BinaryBlobReader openReader(Path path, EntityDescriptor entity) throws IOException {
     return new BinaryBlobReader(path, entity, path.reader());
   }
@@ -291,7 +296,7 @@ class BinaryBlobFormat implements FileFormat {
           repo.findEntity(args[0])
               .orElseThrow(() -> new IllegalArgumentException("Cannot find entity " + args[0]));
       BinaryBlobFormat format = new BinaryBlobFormat(true);
-      Path stdin = Path.stdin();
+      Path stdin = Path.stdin(format);
       try (Reader reader = format.openReader(stdin, entity)) {
         reader.forEach(e -> System.out.println(e.dump()));
       }

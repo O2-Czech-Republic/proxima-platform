@@ -64,7 +64,7 @@ public class BulkGCloudStorageWriterTest {
 
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
-  final Repository repo = Repository.of(ConfigFactory.load().resolve());
+  final Repository repo = Repository.of(() -> ConfigFactory.load().resolve());
   final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final AttributeDescriptor<?> attr;
   final AttributeDescriptor<?> wildcard;
@@ -105,7 +105,7 @@ public class BulkGCloudStorageWriterTest {
   }
 
   @Before
-  public void setUp() throws URISyntaxException, IOException {
+  public void setUp() throws IOException {
     blobs = Collections.synchronizedNavigableSet(new TreeSet<>());
     onFlushToBlob.set(null);
     written = Collections.synchronizedMap(new HashMap<>());
@@ -355,7 +355,6 @@ public class BulkGCloudStorageWriterTest {
     validate(written.get(1500000002000L), elements[2]);
     assertEquals(2, blobs.size());
     assertEquals(writer.toBlobName(now), Iterables.get(blobs, 0));
-    System.err.println(" *** " + Iterables.get(blobs, 0));
     assertTrue(Iterables.get(blobs, 0).startsWith("/2017/07/"));
     assertEquals(writer.toBlobName(now + 1000), Iterables.get(blobs, 1));
     assertTrue(Iterables.get(blobs, 1).startsWith("/2017/07/"));

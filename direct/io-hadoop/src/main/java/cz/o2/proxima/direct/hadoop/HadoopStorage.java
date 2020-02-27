@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.hadoop;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import cz.o2.proxima.direct.core.DataAccessor;
@@ -22,7 +23,6 @@ import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Map;
 import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
@@ -39,20 +39,15 @@ public class HadoopStorage implements DataAccessorFactory {
     return new HadoopDataAccessor(entityDesc, remap(uri), cfg);
   }
 
-  private static URI remap(URI input) {
+  @VisibleForTesting
+  static URI remap(URI input) {
     if (input.getScheme().equals("hadoop")) {
       Preconditions.checkArgument(
-          !Strings.isNullOrEmpty(input.getSchemeSpecificPart()),
+          !Strings.isNullOrEmpty(input.getSchemeSpecificPart())
+              && !("//" + input.getPath()).equals(input.getSchemeSpecificPart()),
           "When using generic `hadoop` scheme, please use scheme-specific part "
-              + "for actual filesystem scheme");
-      try {
-        return new URI(
-            input
-                .toString()
-                .replace("hadoop:" + input.getSchemeSpecificPart(), input.getSchemeSpecificPart()));
-      } catch (URISyntaxException ex) {
-        throw new RuntimeException(ex);
-      }
+              + "for actual filesystem scheme (e.g. hadoop:file:///)");
+      return URI.create(input.getSchemeSpecificPart());
     }
     return input;
   }

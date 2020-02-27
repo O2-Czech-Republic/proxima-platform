@@ -26,9 +26,11 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.UUID;
@@ -84,8 +86,13 @@ public class BinaryBlobFormatTest {
 
   @Before
   public void setUp() throws IOException {
-    file = Path.local(folder.newFile());
     blob = new BinaryBlobFormat(gzip);
+    File file = folder.newFile();
+    FileSystem fs =
+        FileSystem.local(
+            file.getParentFile(),
+            NamingConvention.defaultConvention(Duration.ofHours(1), "prefix", blob.fileSuffix()));
+    this.file = Path.local(fs, file);
   }
 
   @After

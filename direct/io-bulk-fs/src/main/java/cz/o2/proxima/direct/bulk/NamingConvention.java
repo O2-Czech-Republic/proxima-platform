@@ -32,22 +32,12 @@ public interface NamingConvention extends Serializable {
    * FileFormat}.
    *
    * @param rollTimePeriod time rolling interval in milliseconds.
-   * @return default naming convention with specified time roll period
-   */
-  static NamingConvention defaultConvention(Duration rollTimePeriod) {
-    return new DefaultNamingConvention(rollTimePeriod);
-  }
-
-  /**
-   * Return default {@link NamingConvention} that is used with {@link BinaryBlobFormat} {@link
-   * FileFormat}.
-   *
-   * @param rollTimePeriod time rolling interval in milliseconds.
    * @param prefix prefix of all names generated
+   * @param suffix suffix of filenames
    * @return default naming convention with given settings
    */
-  static NamingConvention defaultConvention(Duration rollTimePeriod, String prefix) {
-    return new DefaultNamingConvention(rollTimePeriod, prefix);
+  static NamingConvention defaultConvention(Duration rollTimePeriod, String prefix, String suffix) {
+    return new DefaultNamingConvention(rollTimePeriod, prefix, suffix);
   }
 
   /**

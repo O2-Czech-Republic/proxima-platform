@@ -78,11 +78,11 @@ public class JsonFormat implements FileFormat {
     protected StreamElement computeNext() {
       if (input == null) {
         InputStream raw = ExceptionUtils.uncheckedFactory(path::reader);
-        InputStream input = raw;
+        InputStream inputStream = raw;
         if (gzip) {
-          input = ExceptionUtils.uncheckedFactory(() -> new GZIPInputStream(raw));
+          inputStream = ExceptionUtils.uncheckedFactory(() -> new GZIPInputStream(raw));
         }
-        this.input = new BufferedReader(new InputStreamReader(input));
+        this.input = new BufferedReader(new InputStreamReader(inputStream));
       }
       try {
         String line = input.readLine();
@@ -91,10 +91,10 @@ public class JsonFormat implements FileFormat {
           parser.merge(line, builder);
           return toStreamElement(builder.build(), entity);
         }
+      } catch (EOFException ex) {
+        // pass through
       } catch (IOException ex) {
-        if (!(ex instanceof EOFException)) {
-          throw new RuntimeException(ex);
-        }
+        throw new RuntimeException(ex);
       }
       return endOfData();
     }
@@ -108,13 +108,11 @@ public class JsonFormat implements FileFormat {
 
   private static class JsonWriter implements Writer {
 
-    private final EntityDescriptor entity;
     private final Path path;
     private final boolean gzip;
     private BufferedWriter writer;
 
-    JsonWriter(EntityDescriptor entity, Path path, boolean gzip) {
-      this.entity = entity;
+    JsonWriter(Path path, boolean gzip) {
       this.path = path;
       this.gzip = gzip;
     }
@@ -160,7 +158,12 @@ public class JsonFormat implements FileFormat {
 
   @Override
   public Writer openWriter(Path path, EntityDescriptor entity) throws IOException {
-    return new JsonWriter(entity, path, gzip);
+    return new JsonWriter(path, gzip);
+  }
+
+  @Override
+  public String fileSuffix() {
+    return gzip ? "json.gz" : "json";
   }
 
   @VisibleForTesting

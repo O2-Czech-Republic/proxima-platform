@@ -25,6 +25,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -66,16 +67,20 @@ public class JsonFormatTest {
   public void testReadWrite() throws IOException {
     folder.create();
     File file = folder.newFile();
+    FileSystem fs =
+        FileSystem.local(
+            file.getParentFile(),
+            NamingConvention.defaultConvention(Duration.ofHours(1), "prefix", format.fileSuffix()));
     AttributeDescriptor<Object> wildcard = entity.getAttribute("device.*");
     StreamElement deleteWildcard = deleteWildcard();
     StreamElement delete = delete();
     StreamElement upsert = upsert();
-    try (Writer writer = format.openWriter(Path.local(file), entity)) {
+    try (Writer writer = format.openWriter(Path.local(fs, file), entity)) {
       writer.write(deleteWildcard);
       writer.write(delete);
       writer.write(upsert);
     }
-    try (Reader reader = format.openReader(Path.local(file), entity)) {
+    try (Reader reader = format.openReader(Path.local(fs, file), entity)) {
       List<StreamElement> elements = Streams.stream(reader).collect(Collectors.toList());
       assertEquals(Arrays.asList(deleteWildcard, delete, upsert), elements);
     }

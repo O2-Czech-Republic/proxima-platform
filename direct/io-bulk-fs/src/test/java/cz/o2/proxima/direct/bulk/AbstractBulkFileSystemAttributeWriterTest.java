@@ -38,11 +38,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -77,7 +77,7 @@ public class AbstractBulkFileSystemAttributeWriterTest {
     long allowedLateness;
 
     FileSystem getFs(TemporaryFolder tempFolder, String dir) throws IOException {
-      return FileSystem.local(new File(tempFolder.newFolder(), dir));
+      return FileSystem.local(new File(tempFolder.newFolder(), dir), getNamingConvention());
     }
 
     FileFormat getFileFormat() {
@@ -85,7 +85,8 @@ public class AbstractBulkFileSystemAttributeWriterTest {
     }
 
     NamingConvention getNamingConvention() {
-      return NamingConvention.defaultConvention(Duration.ofMillis(rollPeriod));
+      return NamingConvention.defaultConvention(
+          Duration.ofMillis(rollPeriod), "prefix", getFileFormat().fileSuffix());
     }
   }
 
@@ -119,14 +120,14 @@ public class AbstractBulkFileSystemAttributeWriterTest {
         new Params(2000, "json", true, 500),
         new Params(1000, InstantiableJsonFormat.class.getCanonicalName(), false, 0),
         new Params(1000, InstantiableJsonFormat.class.getCanonicalName(), false, 500),
-        new Params(1000, InstantiableJsonFormat.class.getCanonicalName(), true, 0),
-        new Params(1000, InstantiableJsonFormat.class.getCanonicalName(), true, 500));
+        new Params(2000, InstantiableJsonFormat.class.getCanonicalName(), true, 0),
+        new Params(2000, InstantiableJsonFormat.class.getCanonicalName(), true, 500));
   }
 
   @Parameterized.Parameter public Params params;
 
   AbstractBulkFileSystemAttributeWriter writer;
-  Set<Path> flushedPaths;
+  Set<String> flushedPaths;
   Map<Long, List<StreamElement>> written;
   AtomicReference<Throwable> onFlush = new AtomicReference<>();
 
@@ -153,7 +154,7 @@ public class AbstractBulkFileSystemAttributeWriterTest {
 
   @Before
   public void setUp() throws IOException {
-    flushedPaths = new HashSet<>();
+    flushedPaths = Collections.synchronizedSet(new TreeSet<>());
     onFlush.set(null);
     written = Collections.synchronizedMap(new HashMap<>());
     writer = initWriter();
@@ -177,7 +178,7 @@ public class AbstractBulkFileSystemAttributeWriterTest {
         if (exc != null) {
           throw new RuntimeException(exc);
         }
-        flushedPaths.add(v.getPath());
+        flushedPaths.add(v.getPath().toString());
         try {
           List<StreamElement> elements =
               Lists.newArrayList(params.getFileFormat().openReader(v.getPath(), entity));
@@ -229,8 +230,8 @@ public class AbstractBulkFileSystemAttributeWriterTest {
     assertTrue(
         params
             .getNamingConvention()
-            .isInRange(Iterables.getOnlyElement(flushedPaths).toString(), now, now + 1));
-    assertTrue(Iterables.getOnlyElement(flushedPaths).toString().contains("/path/2017/07/"));
+            .isInRange(Iterables.getOnlyElement(flushedPaths), now, now + 1));
+    assertTrue(Iterables.getOnlyElement(flushedPaths).contains("/path/2017/07/"));
   }
 
   @Test(timeout = 10000)
@@ -403,18 +404,15 @@ public class AbstractBulkFileSystemAttributeWriterTest {
                     }));
     latch.await();
     assertEquals(2, written.size());
-    validate(
-        written.get(1500000000000L + params.getRollPeriod()),
-        elements[0],
-        elements[1],
-        elements[3]);
-    validate(written.get(1500000000000L + 2 * params.getRollPeriod()), elements[2]);
-    assertEquals(2, flushedPaths.size());
+    validate(written.get(now + params.getRollPeriod()), elements[0], elements[1], elements[3]);
+    validate(written.get(now + 2 * params.getRollPeriod()), elements[2]);
+    assertEquals("Expected two paths, got " + flushedPaths, 2, flushedPaths.size());
     assertTrue(
+        "Invalid range for " + Iterables.get(flushedPaths, 0).toString(),
         params
             .getNamingConvention()
             .isInRange(Iterables.get(flushedPaths, 0).toString(), now, now + 1));
-    assertTrue(Iterables.get(flushedPaths, 0).toString().contains("/path/2017/07/"));
+    assertTrue(Iterables.get(flushedPaths, 0).contains("/path/2017/07/"));
     assertTrue(
         params
             .getNamingConvention()
@@ -422,7 +420,7 @@ public class AbstractBulkFileSystemAttributeWriterTest {
                 Iterables.get(flushedPaths, 1).toString(),
                 now + params.getRollPeriod(),
                 now + params.getRollPeriod() + 1));
-    assertTrue(Iterables.get(flushedPaths, 1).toString().contains("/path/2017/07/"));
+    assertTrue(Iterables.get(flushedPaths, 1).contains("/path/2017/07/"));
   }
 
   @Test(timeout = 10000)

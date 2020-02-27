@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
+import java.time.Duration;
 
 /** Proxima's abstraction of path in {@link FileSystem}. */
 @Internal
@@ -31,10 +32,11 @@ public interface Path extends Serializable {
   /**
    * Create a Path representation of the given {@link File local file}.
    *
+   * @param fs local filesystem
    * @param path the local file
    * @return Path representation of this local file
    */
-  static Path local(File path) {
+  static Path local(FileSystem fs, File path) {
     return new Path() {
 
       @Override
@@ -52,7 +54,7 @@ public interface Path extends Serializable {
 
       @Override
       public FileSystem getFileSystem() {
-        return FileSystem.local(new File("/"));
+        return fs;
       }
 
       @Override
@@ -69,7 +71,7 @@ public interface Path extends Serializable {
     };
   }
 
-  static Path stdin() {
+  static Path stdin(FileFormat format) {
     return new Path() {
 
       @Override
@@ -78,13 +80,15 @@ public interface Path extends Serializable {
       }
 
       @Override
-      public OutputStream writer() throws IOException {
+      public OutputStream writer() {
         throw new UnsupportedOperationException("Can only read from stdin.");
       }
 
       @Override
       public FileSystem getFileSystem() {
-        return FileSystem.local(new File("/dev/stdin"));
+        return FileSystem.local(
+            new File("/dev/stdin"),
+            NamingConvention.defaultConvention(Duration.ofHours(1), "prefix", format.fileSuffix()));
       }
 
       @Override

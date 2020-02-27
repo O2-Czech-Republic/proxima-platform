@@ -56,7 +56,7 @@ class HadoopFileSystem implements FileSystem {
             () -> fs().listFiles(new org.apache.hadoop.fs.Path(getUri()), true));
     Spliterator<LocatedFileStatus> spliterator = asSpliterator(iterator);
     return StreamSupport.stream(spliterator, false)
-        .filter(f -> f.isFile())
+        .filter(LocatedFileStatus::isFile)
         .map(f -> f.getPath().toUri().toString().substring(getUri().toString().length()))
         .filter(name -> namingConvention.isInRange(name, minTs, maxTs))
         .map(name -> HadoopPath.of(this, accessor.getUri() + name, accessor));
@@ -67,7 +67,7 @@ class HadoopFileSystem implements FileSystem {
 
       @Override
       public boolean tryAdvance(Consumer<? super LocatedFileStatus> consumer) {
-        if (ExceptionUtils.uncheckedFactory(() -> iterator.hasNext())) {
+        if (ExceptionUtils.uncheckedFactory(iterator::hasNext).booleanValue()) {
           consumer.accept(ExceptionUtils.uncheckedFactory(iterator::next));
           return true;
         }

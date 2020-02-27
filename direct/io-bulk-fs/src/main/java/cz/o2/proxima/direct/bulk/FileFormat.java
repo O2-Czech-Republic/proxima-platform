@@ -61,4 +61,7 @@ public interface FileFormat extends Serializable {
    * @throws IOException on errors
    */
   Writer openWriter(Path path, EntityDescriptor entity) throws IOException;
+
+  /** Retrieve suffix of file names. */
+  String fileSuffix();
 }

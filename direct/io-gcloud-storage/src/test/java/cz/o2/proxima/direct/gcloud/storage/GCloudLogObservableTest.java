@@ -29,14 +29,10 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
 /** Test suite for {@link GCloudLogObservableTest}. */
 public class GCloudLogObservableTest {
-
-  @Rule public final TemporaryFolder folder = new TemporaryFolder();
 
   private final Repository repo = Repository.of(() -> ConfigFactory.load("test-reference.conf"));
   private final EntityDescriptor gateway =
@@ -55,9 +51,9 @@ public class GCloudLogObservableTest {
   public void testListPartitions() {
 
     GCloudLogObservable observable =
-        new GCloudLogObservable(gateway, accessor, context) {
+        new GCloudLogObservable(accessor, context) {
           @Override
-          FileSystem createFileSystem(EntityDescriptor entityDesc, GCloudStorageAccessor accessor) {
+          FileSystem createFileSystem(GCloudStorageAccessor accessor) {
             return new MockGCloudFileSystem(
                 accessor.getNamingConvention(), accessor.getRollPeriod()) {
               {

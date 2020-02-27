@@ -46,12 +46,8 @@ public class DefaultNamingConvention implements NamingConvention {
   private final String suffix;
   private final Factory<String> uuidGenerator;
 
-  DefaultNamingConvention(Duration rollPeriod) {
-    this(rollPeriod, "");
-  }
-
-  DefaultNamingConvention(Duration rollPeriod, String prefix) {
-    this(rollPeriod, prefix, "blob", () -> UUID.randomUUID().toString());
+  DefaultNamingConvention(Duration rollPeriod, String prefix, String suffix) {
+    this(rollPeriod, prefix, suffix, () -> UUID.randomUUID().toString());
   }
 
   @VisibleForTesting

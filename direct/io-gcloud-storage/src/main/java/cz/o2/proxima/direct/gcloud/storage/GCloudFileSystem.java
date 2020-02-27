@@ -23,7 +23,6 @@ import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.bulk.Path;
-import cz.o2.proxima.repository.EntityDescriptor;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -40,8 +39,8 @@ public class GCloudFileSystem extends GCloudClient implements FileSystem {
   private final URI uri;
   private final NamingConvention namingConvention;
 
-  GCloudFileSystem(EntityDescriptor entity, GCloudStorageAccessor accessor) {
-    super(entity, accessor.getUri(), accessor.getCfg());
+  GCloudFileSystem(GCloudStorageAccessor accessor) {
+    super(accessor.getEntityDescriptor(), accessor.getUri(), accessor.getCfg());
     this.uri = accessor.getUri();
     this.namingConvention = accessor.getNamingConvention();
   }

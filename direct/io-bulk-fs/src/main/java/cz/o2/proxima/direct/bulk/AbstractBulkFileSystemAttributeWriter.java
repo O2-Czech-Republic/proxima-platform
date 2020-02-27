@@ -204,7 +204,6 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
             });
 
       } catch (Exception ex) {
-        log.error("Failed to flush {}", flushable, ex);
         commit.commit(false, ex);
       }
     }

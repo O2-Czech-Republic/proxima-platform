@@ -83,7 +83,7 @@ public class HadoopDataAccessor implements DataAccessor {
             o -> Long.valueOf(o.toString()),
             HDFS_BATCH_PROCESS_SIZE_MIN_DEFAULT);
     this.format = Utils.getFileFormat("hdfs.", cfg);
-    this.namingConvention = Utils.getNamingConvention("hdfs.", cfg, rollInterval);
+    this.namingConvention = Utils.getNamingConvention("hdfs.", cfg, rollInterval, format);
     this.temporaryNamingConvention = NamingConvention.prefixed("/_tmp", namingConvention);
     this.hadoopFs = new HadoopFileSystem(this);
     this.temporaryHadoopFs = new HadoopFileSystem(this, temporaryNamingConvention);

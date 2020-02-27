@@ -50,7 +50,7 @@ class GCloudStorageAccessor extends AbstractStorage implements DataAccessor {
 
   @Override
   public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-    return Optional.of(new GCloudLogObservable(getEntityDescriptor(), this, context));
+    return Optional.of(new GCloudLogObservable(this, context));
   }
 
   FileFormat getFileFormat() {
@@ -58,7 +58,7 @@ class GCloudStorageAccessor extends AbstractStorage implements DataAccessor {
   }
 
   NamingConvention getNamingConvention() {
-    return Utils.getNamingConvention("", getCfg(), getRollPeriod());
+    return Utils.getNamingConvention("", getCfg(), getRollPeriod(), getFileFormat());
   }
 
   public File getTmpDir() {

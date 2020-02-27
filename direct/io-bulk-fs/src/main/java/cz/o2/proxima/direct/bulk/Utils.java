@@ -29,7 +29,7 @@ public class Utils {
 
   /** Retrieve {@link NamingConvention} from configuration. */
   public static NamingConvention getNamingConvention(
-      String cfgPrefix, Map<String, Object> cfg, long rollPeriodMs) {
+      String cfgPrefix, Map<String, Object> cfg, long rollPeriodMs, FileFormat format) {
 
     try {
       MessageDigest digest = MessageDigest.getInstance("MD5");
@@ -39,11 +39,13 @@ public class Utils {
       return Optional.ofNullable(cfg.get(cfgPrefix + "naming-convention"))
           .map(Object::toString)
           .map(cls -> Classpath.newInstance(cls, NamingConvention.class))
-          .orElse(NamingConvention.defaultConvention(Duration.ofMillis(rollPeriodMs), prefix));
+          .orElse(
+              NamingConvention.defaultConvention(
+                  Duration.ofMillis(rollPeriodMs), prefix, format.fileSuffix()));
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
-  };
+  }
 
   public static FileFormat getFileFormat(String cfgPrefix, Map<String, Object> cfg) {
     String format =

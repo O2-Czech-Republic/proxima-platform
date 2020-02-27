@@ -18,8 +18,15 @@ package cz.o2.proxima.direct.hadoop;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.bulk.Path;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.net.URI;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+import org.apache.hadoop.fs.LocatedFileStatus;
+import org.apache.hadoop.fs.RemoteIterator;
 
 /** A {@link FileSystem} implementation for hadoop. */
 class HadoopFileSystem implements FileSystem {
@@ -44,7 +51,29 @@ class HadoopFileSystem implements FileSystem {
 
   @Override
   public Stream<Path> list(long minTs, long maxTs) {
-    return null;
+    RemoteIterator<LocatedFileStatus> iterator =
+        ExceptionUtils.uncheckedFactory(
+            () -> fs().listFiles(new org.apache.hadoop.fs.Path(getUri()), true));
+    Spliterator<LocatedFileStatus> spliterator = asSpliterator(iterator);
+    return StreamSupport.stream(spliterator, false)
+        .filter(f -> f.isFile())
+        .map(f -> f.getPath().toUri().toString().substring(getUri().toString().length()))
+        .filter(name -> namingConvention.isInRange(name, minTs, maxTs))
+        .map(name -> HadoopPath.of(this, accessor.getUri() + name, accessor));
+  }
+
+  private Spliterator<LocatedFileStatus> asSpliterator(RemoteIterator<LocatedFileStatus> iterator) {
+    return new Spliterators.AbstractSpliterator<LocatedFileStatus>(-1, 0) {
+
+      @Override
+      public boolean tryAdvance(Consumer<? super LocatedFileStatus> consumer) {
+        if (ExceptionUtils.uncheckedFactory(() -> iterator.hasNext())) {
+          consumer.accept(ExceptionUtils.uncheckedFactory(iterator::next));
+          return true;
+        }
+        return false;
+      }
+    };
   }
 
   @Override

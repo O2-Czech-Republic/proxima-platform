@@ -15,37 +15,66 @@
  */
 package cz.o2.proxima.direct.hadoop;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
+import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.TestUtils;
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.SynchronousQueue;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+@Slf4j
 public class HadoopStorageTest {
 
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
+
+  private final Repository repository =
+      ConfigRepository.Builder.ofTest(() -> ConfigFactory.load("test-reference.conf").resolve())
+          .build();
+  private final DirectDataOperator direct =
+      repository.getOrCreateOperator(DirectDataOperator.class);;
+  private final EntityDescriptor entity = repository.getEntity("gateway");
+  private final AttributeDescriptor<byte[]> attribute = entity.getAttribute("armed");
+
+  File root;
+  URI uri;
+
+  @Before
+  public void setUp() throws IOException {
+    root = tempFolder.newFolder();
+    uri = URI.create(String.format("file://%s", root.getAbsolutePath()));
+  }
 
   @Test
   public void testSerialize() throws IOException, ClassNotFoundException {
@@ -60,7 +89,8 @@ public class HadoopStorageTest {
     EntityDescriptor entity = EntityDescriptor.newBuilder().setName("dummy").build();
     TestUtils.assertHashCodeAndEquals(
         new HadoopDataAccessor(entity, URI.create("hdfs://host:9000/path"), Collections.emptyMap()),
-        new HadoopDataAccessor(entity, URI.create("hdfs://host:9000/path"), Collections.emptyMap()));
+        new HadoopDataAccessor(
+            entity, URI.create("hdfs://host:9000/path"), Collections.emptyMap()));
   }
 
   @Test
@@ -73,54 +103,175 @@ public class HadoopStorageTest {
 
   @Test(timeout = 5000L)
   public void testWriteElement() throws InterruptedException {
-
     Map<String, Object> cfg = new HashMap<>();
-    cfg.put(HadoopDataAccessor.HDFS_MIN_ELEMENTS_TO_FLUSH, 1);
     cfg.put(HadoopDataAccessor.HDFS_ROLL_INTERVAL, -1);
+    HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
 
     CountDownLatch latch = new CountDownLatch(1);
-    writeOneElementWithConfig(
-        cfg,
+    writeOneElement(
+        accessor,
         ((success, error) -> {
           assertTrue(success);
           assertNull(error);
           latch.countDown();
         }));
     latch.await();
+    assertTrue(root.exists());
+    List<File> files = listRecursively(root);
+    assertEquals("Expected single file in " + files, 1, files.size());
+    assertFalse(Iterables.getOnlyElement(files).getAbsolutePath().contains("_tmp"));
+
+    BatchLogObservable reader = accessor.getBatchLogObservable(direct.getContext()).orElse(null);
+    assertNotNull(reader);
+    List<Partition> partitions = reader.getPartitions();
+    assertEquals(1, partitions.size());
+    BlockingQueue<StreamElement> queue = new SynchronousQueue<>();
+    reader.observe(
+        partitions,
+        Collections.singletonList(attribute),
+        new BatchLogObserver() {
+          @Override
+          public boolean onNext(StreamElement element) {
+            ExceptionUtils.unchecked(() -> queue.put(element));
+            return true;
+          }
+        });
+    StreamElement element = queue.take();
+    assertNotNull(element);
   }
 
-  private void writeOneElementWithConfig(Map<String, Object> cfg, CommitCallback callback) {
-
-    final Repository repository =
-        ConfigRepository.Builder.ofTest(() -> ConfigFactory.defaultApplication()).build();
-
-    EntityDescriptor entity = EntityDescriptor.newBuilder().setName("dummy").build();
-    AttributeDescriptor<byte[]> attribute =
-        AttributeDescriptor.newBuilder(repository)
-            .setEntity("dummy")
-            .setName("attribute")
-            .setSchemeUri(URI.create("bytes:///"))
-            .build();
-
-    URI uri = URI.create(String.format("file://%s/dummy", tempFolder.getRoot().getAbsolutePath()));
-
-    StreamElement element =
-        StreamElement.upsert(
-            entity,
-            attribute,
-            UUID.randomUUID().toString(),
-            "test",
-            attribute.getName(),
-            System.currentTimeMillis(),
-            "test value".getBytes());
-
+  @Test(timeout = 5000L)
+  public void testWriteElementJson() throws InterruptedException {
+    Map<String, Object> cfg = new HashMap<>();
+    cfg.put(HadoopDataAccessor.HDFS_ROLL_INTERVAL, -1);
+    cfg.put("hdfs.format", "json");
     HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
-    Optional<AttributeWriterBase> writer =
-        accessor.newWriter(repository.getOrCreateOperator(DirectDataOperator.class).getContext());
+
+    CountDownLatch latch = new CountDownLatch(1);
+    writeOneElement(
+        accessor,
+        ((success, error) -> {
+          assertTrue(success);
+          assertNull(error);
+          latch.countDown();
+        }));
+    latch.await();
+    assertTrue(root.exists());
+    List<File> files = listRecursively(root);
+    assertEquals("Expected single file in " + files, 1, files.size());
+    assertFalse(Iterables.getOnlyElement(files).getAbsolutePath().contains("_tmp"));
+
+    BatchLogObservable reader = accessor.getBatchLogObservable(direct.getContext()).orElse(null);
+    assertNotNull(reader);
+    List<Partition> partitions = reader.getPartitions();
+    assertEquals(1, partitions.size());
+    BlockingQueue<StreamElement> queue = new SynchronousQueue<>();
+    reader.observe(
+        partitions,
+        Collections.singletonList(attribute),
+        new BatchLogObserver() {
+          @Override
+          public boolean onNext(StreamElement element) {
+            ExceptionUtils.unchecked(() -> queue.put(element));
+            return true;
+          }
+        });
+    StreamElement element = queue.take();
+    assertNotNull(element);
+  }
+
+  @Test(timeout = 5000L)
+  public void testWriteElementNotYetFlushed() throws InterruptedException {
+    Map<String, Object> cfg = new HashMap<>();
+    cfg.put(HadoopDataAccessor.HDFS_ROLL_INTERVAL, 1000);
+    HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
+
+    CountDownLatch latch = new CountDownLatch(1);
+    BulkAttributeWriter writer =
+        writeOneElement(
+            accessor,
+            ((success, error) -> {
+              if (error != null) {
+                log.error("Failed to flush write", error);
+              }
+              assertTrue("Error in flush " + error, success);
+              assertNull(error);
+              latch.countDown();
+            }));
+    assertTrue(root.exists());
+    List<File> files = listRecursively(root);
+    assertEquals("Expected single file in " + files, 1, files.size());
+    assertTrue(Iterables.getOnlyElement(files).getAbsolutePath().contains("_tmp"));
+
+    BatchLogObservable reader = accessor.getBatchLogObservable(direct.getContext()).orElse(null);
+    assertNotNull(reader);
+    List<Partition> partitions = reader.getPartitions();
+    assertTrue("Expected empty partitions, got " + partitions, partitions.isEmpty());
+
+    // advance watermark to flush
+    writer.updateWatermark(Long.MAX_VALUE);
+
+    latch.await();
+
+    partitions = reader.getPartitions();
+    assertEquals(1, partitions.size());
+    BlockingQueue<StreamElement> queue = new SynchronousQueue<>();
+    reader.observe(
+        partitions,
+        Collections.singletonList(attribute),
+        new BatchLogObserver() {
+          @Override
+          public boolean onNext(StreamElement element) {
+            ExceptionUtils.unchecked(() -> queue.put(element));
+            return true;
+          }
+        });
+    StreamElement element = queue.take();
+    assertNotNull(element);
+  }
+
+  private BulkAttributeWriter writeOneElement(
+      HadoopDataAccessor accessor, CommitCallback callback) {
+    StreamElement element = element(System.currentTimeMillis());
+    return write(accessor, callback, element);
+  }
+
+  private BulkAttributeWriter write(
+      HadoopDataAccessor accessor, CommitCallback callback, StreamElement... elements) {
+    Optional<AttributeWriterBase> writer = accessor.newWriter(direct.getContext());
     assertTrue(writer.isPresent());
 
     BulkAttributeWriter bulk = writer.get().bulk();
 
-    bulk.write(element, element.getStamp(), callback);
+    for (StreamElement el : elements) {
+      bulk.write(el, el.getStamp(), callback);
+    }
+    return bulk;
+  }
+
+  private StreamElement element(long stamp) {
+    return StreamElement.upsert(
+        entity,
+        attribute,
+        UUID.randomUUID().toString(),
+        "test",
+        attribute.getName(),
+        stamp,
+        "test value".getBytes());
+  }
+
+  private List<File> listRecursively(File dir) {
+    if (dir.isFile()) {
+      if (!dir.getName().endsWith(".crc")) {
+        return Arrays.asList(dir);
+      } else {
+        return Collections.emptyList();
+      }
+    }
+    List<File> ret = new ArrayList<>();
+    for (File f : dir.listFiles()) {
+      ret.addAll(listRecursively(f));
+    }
+    return ret;
   }
 }

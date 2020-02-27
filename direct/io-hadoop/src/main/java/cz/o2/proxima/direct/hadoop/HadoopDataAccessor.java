@@ -44,12 +44,10 @@ import org.apache.hadoop.fs.FileSystem;
 @ToString
 public class HadoopDataAccessor implements DataAccessor {
 
-  public static final String HDFS_MIN_ELEMENTS_TO_FLUSH = "hdfs.min-elements-to-flush";
   public static final String HDFS_ROLL_INTERVAL = "hdfs.log-roll-interval";
   public static final String HDFS_BATCH_PROCESS_SIZE_MIN = "hdfs.process-size.min";
   public static final String HDFS_ALLOWED_LATENESS = "hdfs.allowed-lateness";
 
-  static final int HDFS_MIN_ELEMENTS_TO_FLUSH_DEFAULT = 500;
   static final long HDFS_ROLL_INTERVAL_DEFAULT = TimeUnit.HOURS.toMillis(1);
   static final long HDFS_BATCH_PROCESS_SIZE_MIN_DEFAULT = 1024 * 1024 * 100L; /* 100 MiB */
   static final String HDFS_DEFAULT_SEQUENCE_FILE_COMPRESSION_CODEC = "gzip";
@@ -60,10 +58,8 @@ public class HadoopDataAccessor implements DataAccessor {
   @Getter private final EntityDescriptor entityDesc;
   @Getter private final URI uri;
 
-  @SuppressWarnings("squid:S1948")
   private final Map<String, Object> cfg;
 
-  @Getter private final int minElementsToFlush;
   @Getter private final long rollInterval;
   @Getter private final long batchProcessSize;
   @Getter private final FileFormat format;
@@ -77,12 +73,6 @@ public class HadoopDataAccessor implements DataAccessor {
     this.entityDesc = entityDesc;
     this.uri = uri;
     this.cfg = cfg;
-    this.minElementsToFlush =
-        getCfg(
-            HDFS_MIN_ELEMENTS_TO_FLUSH,
-            cfg,
-            o -> Integer.valueOf(o.toString()),
-            HDFS_MIN_ELEMENTS_TO_FLUSH_DEFAULT);
     this.rollInterval =
         getCfg(
             HDFS_ROLL_INTERVAL, cfg, o -> Long.valueOf(o.toString()), HDFS_ROLL_INTERVAL_DEFAULT);

@@ -23,7 +23,6 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -31,8 +30,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.Path;
 
 /** Observable of data stored in {@code SequenceFiles} in HDFS. */
 @Slf4j
@@ -55,19 +52,20 @@ public class HadoopBatchLogObservable implements BatchLogObservable {
     @SuppressWarnings("unchecked")
     Stream<HadoopPath> paths = (Stream) fs.list(startStamp, endStamp);
     AtomicReference<HadoopPartition> current = new AtomicReference<>();
-    paths.forEach(
-        p -> {
-          FileStatus status = p.getFileStatus();
-          if (current.get() == null) {
-            current.set(new HadoopPartition((partitions.size())));
-            partitions.add(current.get());
-          }
-          final HadoopPartition part = current.get();
-          part.add(status);
-          if (part.size() > batchProcessSize) {
-            current.set(null);
-          }
-        });
+    paths
+        .filter(p -> !p.isTmpPath())
+        .forEach(
+            p -> {
+              if (current.get() == null) {
+                current.set(new HadoopPartition((partitions.size())));
+                partitions.add(current.get());
+              }
+              final HadoopPartition part = current.get();
+              part.add(p);
+              if (part.size() > batchProcessSize) {
+                current.set(null);
+              }
+            });
     return partitions;
   }
 
@@ -87,8 +85,8 @@ public class HadoopBatchLogObservable implements BatchLogObservable {
           try {
             for (Iterator<Partition> it = partitions.iterator(); run && it.hasNext(); ) {
               HadoopPartition p = (HadoopPartition) it.next();
-              for (URI f : p.getFiles()) {
-                if (!processFile(observer, p, new Path(f))) {
+              for (HadoopPath path : p.getPaths()) {
+                if (!processPath(observer, p, path)) {
                   run = false;
                   break;
                 }
@@ -105,9 +103,8 @@ public class HadoopBatchLogObservable implements BatchLogObservable {
         });
   }
 
-  private boolean processFile(BatchLogObserver observer, HadoopPartition p, Path f) {
+  private boolean processPath(BatchLogObserver observer, HadoopPartition p, HadoopPath path) {
     try {
-      HadoopPath path = HadoopPath.of(accessor.getHadoopFs(), f.toUri().toString(), accessor);
       try (Reader reader = accessor.getFormat().openReader(path, accessor.getEntityDesc())) {
         for (StreamElement elem : reader) {
           if (!observer.onNext(elem, p)) {
@@ -116,7 +113,7 @@ public class HadoopBatchLogObservable implements BatchLogObservable {
         }
       }
     } catch (IOException ex) {
-      throw new RuntimeException("Failed to read file " + f, ex);
+      throw new RuntimeException("Failed to read file " + p, ex);
     }
     return true;
   }

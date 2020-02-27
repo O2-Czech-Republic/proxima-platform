@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.hdfs;
+package cz.o2.proxima.direct.hadoop;
 
 import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
@@ -42,7 +42,7 @@ import org.apache.hadoop.fs.FileSystem;
 /** {@code DataAccessor} for Hadoop Distributed FileSystem. */
 @Slf4j
 @ToString
-public class HdfsDataAccessor implements DataAccessor {
+public class HadoopDataAccessor implements DataAccessor {
 
   public static final String HDFS_MIN_ELEMENTS_TO_FLUSH = "hdfs.min-elements-to-flush";
   public static final String HDFS_ROLL_INTERVAL = "hdfs.log-roll-interval";
@@ -73,7 +73,7 @@ public class HdfsDataAccessor implements DataAccessor {
   @Getter private final HadoopFileSystem temporaryHadoopFs;
   @Getter private final long allowedLateness;
 
-  public HdfsDataAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public HadoopDataAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
     this.entityDesc = entityDesc;
     this.uri = uri;
     this.cfg = cfg;
@@ -111,12 +111,12 @@ public class HdfsDataAccessor implements DataAccessor {
 
   @VisibleForTesting
   Optional<AttributeWriterBase> newWriter(Context context) {
-    return Optional.of(new HdfsBulkAttributeWriter(this, context));
+    return Optional.of(new HadoopBulkAttributeWriter(this, context));
   }
 
   @Override
   public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-    return Optional.of(new HdfsBatchLogObservable(this, context));
+    return Optional.of(new HadoopBatchLogObservable(this, context));
   }
 
   private <T> T getCfg(
@@ -146,8 +146,8 @@ public class HdfsDataAccessor implements DataAccessor {
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof HdfsDataAccessor) {
-      HdfsDataAccessor other = (HdfsDataAccessor) obj;
+    if (obj instanceof HadoopDataAccessor) {
+      HadoopDataAccessor other = (HadoopDataAccessor) obj;
       return other.getUri().equals(getUri());
     }
     return false;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.hdfs;
+package cz.o2.proxima.direct.hadoop;
 
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
@@ -24,15 +24,15 @@ import java.util.stream.Stream;
 /** A {@link FileSystem} implementation for hadoop. */
 class HadoopFileSystem implements FileSystem {
 
-  private final HdfsDataAccessor accessor;
+  private final HadoopDataAccessor accessor;
   private final NamingConvention namingConvention;
   private transient org.apache.hadoop.fs.FileSystem fs = null;
 
-  HadoopFileSystem(HdfsDataAccessor accessor) {
+  HadoopFileSystem(HadoopDataAccessor accessor) {
     this(accessor, accessor.getNamingConvention());
   }
 
-  HadoopFileSystem(HdfsDataAccessor accessor, NamingConvention namingConvention) {
+  HadoopFileSystem(HadoopDataAccessor accessor, NamingConvention namingConvention) {
     this.accessor = accessor;
     this.namingConvention = namingConvention;
   }

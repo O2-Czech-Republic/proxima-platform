@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.hdfs;
+package cz.o2.proxima.direct.hadoop;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -24,19 +24,19 @@ import java.net.URI;
 import java.util.Collections;
 import org.junit.Test;
 
-/** Simple tests for {@code HdfsBulkAttributeWriter}. */
-public class HdfsBulkAttributeWriterTest {
+/** Simple tests for {@code HadoopBulkAttributeWriter}. */
+public class HadoopBulkAttributeWriterTest {
 
   private final Repository repo =
       Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor entity = repo.getEntity("gateway");
-  private final HdfsDataAccessor accessor =
-      new HdfsDataAccessor(entity, URI.create("hadoop-file://dummy/dir"), Collections.emptyMap());
+  private final HadoopDataAccessor accessor =
+      new HadoopDataAccessor(entity, URI.create("hadoop-file://dummy/dir"), Collections.emptyMap());
 
   @Test
   public void testSerializable() throws Exception {
-    HdfsBulkAttributeWriter writer = new HdfsBulkAttributeWriter(accessor, direct.getContext());
+    HadoopBulkAttributeWriter writer = new HadoopBulkAttributeWriter(accessor, direct.getContext());
     TestUtils.assertSerializable(writer);
   }
 }

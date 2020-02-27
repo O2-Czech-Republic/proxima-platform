@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.hdfs;
+package cz.o2.proxima.direct.hadoop;
 
 import cz.o2.proxima.direct.bulk.AbstractBulkFileSystemAttributeWriter;
 import cz.o2.proxima.direct.core.Context;
@@ -22,11 +22,11 @@ import lombok.extern.slf4j.Slf4j;
 
 /** Bulk attribute writer to HDFS. */
 @Slf4j
-public class HdfsBulkAttributeWriter extends AbstractBulkFileSystemAttributeWriter {
+public class HadoopBulkAttributeWriter extends AbstractBulkFileSystemAttributeWriter {
 
   private final HadoopFileSystem targetFs;
 
-  public HdfsBulkAttributeWriter(HdfsDataAccessor accessor, Context context) {
+  public HadoopBulkAttributeWriter(HadoopDataAccessor accessor, Context context) {
 
     super(
         accessor.getEntityDesc(),

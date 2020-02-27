@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.hdfs;
+package cz.o2.proxima.direct.hadoop;
 
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.bulk.FileSystem;
@@ -30,15 +30,15 @@ import org.apache.hadoop.fs.FileStatus;
 class HadoopPath implements Path {
 
   /** Create new {@link HadoopPath} from given path and configuration. */
-  static HadoopPath of(HadoopFileSystem fs, String path, HdfsDataAccessor accessor) {
+  static HadoopPath of(HadoopFileSystem fs, String path, HadoopDataAccessor accessor) {
     return new HadoopPath(fs, path, accessor);
   }
 
   private final HadoopFileSystem fs;
   @Getter private final String path;
-  private final HdfsDataAccessor accessor;
+  private final HadoopDataAccessor accessor;
 
-  private HadoopPath(HadoopFileSystem fs, String path, HdfsDataAccessor accessor) {
+  private HadoopPath(HadoopFileSystem fs, String path, HadoopDataAccessor accessor) {
     this.fs = fs;
     this.path = path;
     this.accessor = accessor;

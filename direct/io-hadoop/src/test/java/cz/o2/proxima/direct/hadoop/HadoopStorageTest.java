@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.hdfs;
+package cz.o2.proxima.direct.hadoop;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -43,29 +43,29 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-public class HdfsStorageTest {
+public class HadoopStorageTest {
 
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   @Test
   public void testSerialize() throws IOException, ClassNotFoundException {
-    HdfsStorage storage = new HdfsStorage();
+    HadoopStorage storage = new HadoopStorage();
     TestUtils.assertSerializable(storage);
   }
 
   @Test
   public void testHashCodeAndEquals() {
-    TestUtils.assertHashCodeAndEquals(new HdfsStorage(), new HdfsStorage());
+    TestUtils.assertHashCodeAndEquals(new HadoopStorage(), new HadoopStorage());
 
     EntityDescriptor entity = EntityDescriptor.newBuilder().setName("dummy").build();
     TestUtils.assertHashCodeAndEquals(
-        new HdfsDataAccessor(entity, URI.create("hdfs://host:9000/path"), Collections.emptyMap()),
-        new HdfsDataAccessor(entity, URI.create("hdfs://host:9000/path"), Collections.emptyMap()));
+        new HadoopDataAccessor(entity, URI.create("hdfs://host:9000/path"), Collections.emptyMap()),
+        new HadoopDataAccessor(entity, URI.create("hdfs://host:9000/path"), Collections.emptyMap()));
   }
 
   @Test
   public void testAcceptScheme() {
-    HdfsStorage storage = new HdfsStorage();
+    HadoopStorage storage = new HadoopStorage();
     assertEquals(Accept.ACCEPT, storage.accepts(URI.create("hdfs://host:9000/path")));
     assertEquals(Accept.ACCEPT, storage.accepts(URI.create("hadoop:file:///path")));
     assertEquals(Accept.REJECT, storage.accepts(URI.create("file:///path")));
@@ -75,8 +75,8 @@ public class HdfsStorageTest {
   public void testWriteElement() throws InterruptedException {
 
     Map<String, Object> cfg = new HashMap<>();
-    cfg.put(HdfsDataAccessor.HDFS_MIN_ELEMENTS_TO_FLUSH, 1);
-    cfg.put(HdfsDataAccessor.HDFS_ROLL_INTERVAL, -1);
+    cfg.put(HadoopDataAccessor.HDFS_MIN_ELEMENTS_TO_FLUSH, 1);
+    cfg.put(HadoopDataAccessor.HDFS_ROLL_INTERVAL, -1);
 
     CountDownLatch latch = new CountDownLatch(1);
     writeOneElementWithConfig(
@@ -114,18 +114,13 @@ public class HdfsStorageTest {
             System.currentTimeMillis(),
             "test value".getBytes());
 
-    HdfsDataAccessor accessor = new HdfsDataAccessor(entity, uri, cfg);
+    HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
     Optional<AttributeWriterBase> writer =
         accessor.newWriter(repository.getOrCreateOperator(DirectDataOperator.class).getContext());
     assertTrue(writer.isPresent());
 
     BulkAttributeWriter bulk = writer.get().bulk();
 
-    try {
-      bulk.write(element, element.getStamp(), callback);
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
-    }
+    bulk.write(element, element.getStamp(), callback);
   }
 }

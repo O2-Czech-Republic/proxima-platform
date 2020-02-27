@@ -26,7 +26,7 @@
     <version>0.3-SNAPSHOT</version>
   </parent>
      
-  <artifactId>proxima-direct-io-hdfs</artifactId>
+  <artifactId>proxima-direct-io-hadoop</artifactId>
   <packaging>jar</packaging>
      
   <name>${project.groupId}:${project.artifactId}</name>

@@ -90,9 +90,9 @@
     <module>io-bulk-fs</module>
     <module>io-cassandra</module>
     <module>io-gcloud-storage</module>
+    <module>io-hadoop</module>
     <module>io-hbase</module>
     <module>io-hbase-bindings</module>
-    <module>io-hdfs</module>
     <module>io-http</module>
     <module>io-kafka</module>
     <module>io-pubsub</module>

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.hdfs;
+package cz.o2.proxima.direct.hadoop;
 
 import cz.o2.proxima.direct.batch.BoundedPartition;
 import java.net.URI;
@@ -23,13 +23,13 @@ import lombok.Getter;
 import org.apache.hadoop.fs.FileStatus;
 
 /** {@code Partition} of files in HDFS. */
-public class HdfsPartition extends BoundedPartition {
+public class HadoopPartition extends BoundedPartition {
 
   @Getter private final List<URI> files = new ArrayList<>();
 
   private long size = 0L;
 
-  public HdfsPartition(int id) {
+  public HadoopPartition(int id) {
     super(id);
   }
 

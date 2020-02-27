@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.hdfs;
+package cz.o2.proxima.direct.hadoop;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -30,13 +30,13 @@ import lombok.extern.slf4j.Slf4j;
 /** Writer to HDFS. */
 @Slf4j
 @EqualsAndHashCode
-public class HdfsStorage implements DataAccessorFactory {
+public class HadoopStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
       DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
-    return new HdfsDataAccessor(entityDesc, remap(uri), cfg);
+    return new HadoopDataAccessor(entityDesc, remap(uri), cfg);
   }
 
   private static URI remap(URI input) {

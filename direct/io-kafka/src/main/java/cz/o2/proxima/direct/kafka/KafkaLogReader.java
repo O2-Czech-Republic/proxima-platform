@@ -612,6 +612,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     } else {
       throw new IllegalArgumentException("Need either name or offsets to observe");
     }
+    validateTopic(consumer, topic);
     if (position == Position.OLDEST) {
       // seek all partitions to oldest data
       if (offsets == null) {
@@ -634,6 +635,16 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       log.info("Starting to process kafka partitions from newest data");
     }
     return consumer;
+  }
+
+  @VisibleForTesting
+  void validateTopic(KafkaConsumer<?, ?> consumer, String topicToValidate) {
+    List<PartitionInfo> partitions = consumer.partitionsFor(topicToValidate);
+    Preconditions.checkArgument(
+        partitions != null && !partitions.isEmpty(),
+        "Received null or empty partitions for topic [%s]. "
+            + "Please check that the topic exists and has at least one partition.",
+        topicToValidate);
   }
 
   @Override

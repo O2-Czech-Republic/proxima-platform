@@ -26,6 +26,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.io.IOException;
 import java.net.URI;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
@@ -217,24 +218,27 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
   }
 
   private Map<Long, Bulk> collectFlushable(long watermark) {
-    Map<Long, Bulk> ret =
-        writers
-            .entrySet()
-            .stream()
-            .filter(e -> e.getValue().getMaxTs() < watermark)
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    if (writers != null) {
+      Map<Long, Bulk> ret =
+          writers
+              .entrySet()
+              .stream()
+              .filter(e -> e.getValue().getMaxTs() < watermark)
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    // search for commit callback to use for committing
-    long maxWriteSeqNo =
-        ret.values().stream().mapToLong(Bulk::getLastWriteSeqNo).max().orElse(Long.MIN_VALUE);
+      // search for commit callback to use for committing
+      long maxWriteSeqNo =
+          ret.values().stream().mapToLong(Bulk::getLastWriteSeqNo).max().orElse(Long.MIN_VALUE);
 
-    // add all paths that were written *before* the committed seq no
-    writers
-        .entrySet()
-        .stream()
-        .filter(e -> e.getValue().getFirstWriteSeqNo() < maxWriteSeqNo)
-        .forEach(e -> ret.put(e.getKey(), e.getValue()));
+      // add all paths that were written *before* the committed seq no
+      writers
+          .entrySet()
+          .stream()
+          .filter(e -> e.getValue().getFirstWriteSeqNo() < maxWriteSeqNo)
+          .forEach(e -> ret.put(e.getKey(), e.getValue()));
 
-    return ret;
+      return ret;
+    }
+    return Collections.emptyMap();
   }
 }

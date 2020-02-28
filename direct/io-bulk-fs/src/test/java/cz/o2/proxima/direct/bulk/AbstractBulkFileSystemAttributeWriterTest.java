@@ -455,6 +455,14 @@ public class AbstractBulkFileSystemAttributeWriterTest {
     assertTrue(written.isEmpty());
   }
 
+  @Test
+  public void testUpdateWatermarkPrioToWrite() {
+    // this must not throw exception
+    writer.updateWatermark(System.currentTimeMillis());
+    // sonar :-)
+    assertTrue(true);
+  }
+
   private void validate(List<StreamElement> written, StreamElement... elements) throws IOException {
     assertNotNull(written);
     Iterator<StreamElement> iterator = written.iterator();

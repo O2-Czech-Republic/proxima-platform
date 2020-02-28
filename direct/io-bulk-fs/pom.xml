@@ -76,7 +76,8 @@
           <artifactSet>
             <excludes>
               <exclude>org.slf4j:slf4j-api:jar:</exclude>
-              <exclude>cz.o2.proxima:*</exclude>
+              <exclude>cz.o2.proxima:proxima-core</exclude>
+              <exclude>cz.o2.proxima:proxima-direct-core</exclude>
             </excludes>
           </artifactSet>
           <relocations>

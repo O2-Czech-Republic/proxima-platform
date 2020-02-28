@@ -45,7 +45,7 @@ class HadoopPath implements Path {
 
   private HadoopPath(HadoopFileSystem fs, String path, HadoopDataAccessor accessor) {
     this.fs = fs;
-    this.path = URI.create(path);
+    this.path = HadoopStorage.remap(URI.create(path));
     this.accessor = accessor;
 
     Preconditions.checkArgument(
@@ -94,6 +94,6 @@ class HadoopPath implements Path {
   }
 
   public boolean isTmpPath() {
-    return path.toString().startsWith(accessor.getUri() + "/_tmp");
+    return path.toString().startsWith(accessor.getUriRemapped() + "/_tmp");
   }
 }

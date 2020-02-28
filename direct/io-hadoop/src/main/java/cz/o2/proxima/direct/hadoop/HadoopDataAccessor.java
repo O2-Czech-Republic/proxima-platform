@@ -117,7 +117,7 @@ public class HadoopDataAccessor implements DataAccessor {
 
   FileSystem getFs() {
     try {
-      return FileSystem.get(uri, getHadoopConf());
+      return FileSystem.get(getUriRemapped(), getHadoopConf());
     } catch (IOException ex) {
       throw new RuntimeException("Failed to get filesystem for URI: " + uri, ex);
     }
@@ -141,5 +141,9 @@ public class HadoopDataAccessor implements DataAccessor {
       return other.getUri().equals(getUri());
     }
     return false;
+  }
+
+  public URI getUriRemapped() {
+    return HadoopStorage.remap(getUri());
   }
 }

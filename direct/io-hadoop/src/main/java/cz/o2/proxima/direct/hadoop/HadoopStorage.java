@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.direct.hadoop;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import cz.o2.proxima.direct.core.DataAccessor;
@@ -36,10 +35,9 @@ public class HadoopStorage implements DataAccessorFactory {
   public DataAccessor createAccessor(
       DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
-    return new HadoopDataAccessor(entityDesc, remap(uri), cfg);
+    return new HadoopDataAccessor(entityDesc, uri, cfg);
   }
 
-  @VisibleForTesting
   static URI remap(URI input) {
     if (input.getScheme().equals("hadoop")) {
       Preconditions.checkArgument(

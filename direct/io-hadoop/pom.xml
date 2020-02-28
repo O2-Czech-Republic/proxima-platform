@@ -46,7 +46,9 @@
           <artifactSet>
             <excludes>
               <!-- exclude proxima and core dependencies -->
-              <exclude>cz.o2.proxima:*</exclude>
+              <exclude>cz.o2.proxima:proxima-core</exclude>
+              <exclude>cz.o2.proxima:proxima-direct-core</exclude>
+              <exclude>cz.o2.proxima:proxima-direct-io-bulk-fs</exclude>
             </excludes>
           </artifactSet>
           <relocations>
@@ -59,12 +61,8 @@
               <shadedPattern>cz.o2.proxima.hadoop.shaded.org.mortbay.jetty.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.o2.proxima.hadoop.shaded.com.google.common.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>com.google.protobuf.</pattern>
-              <shadedPattern>cz.o2.proxima.hadoop.shaded.com.google.protobuf.</shadedPattern>
+              <pattern>com.google.</pattern>
+              <shadedPattern>cz.o2.proxima.hadoop.shaded.com.google.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>org.codehaus.jackson.</pattern>

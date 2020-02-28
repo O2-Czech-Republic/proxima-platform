@@ -51,15 +51,16 @@ class HadoopFileSystem implements FileSystem {
 
   @Override
   public Stream<Path> list(long minTs, long maxTs) {
+    URI remappedUri = accessor.getUriRemapped();
     RemoteIterator<LocatedFileStatus> iterator =
         ExceptionUtils.uncheckedFactory(
-            () -> fs().listFiles(new org.apache.hadoop.fs.Path(getUri()), true));
+            () -> fs().listFiles(new org.apache.hadoop.fs.Path(remappedUri), true));
     Spliterator<LocatedFileStatus> spliterator = asSpliterator(iterator);
     return StreamSupport.stream(spliterator, false)
         .filter(LocatedFileStatus::isFile)
-        .map(f -> f.getPath().toUri().toString().substring(getUri().toString().length()))
+        .map(f -> f.getPath().toUri().toString().substring(remappedUri.toString().length()))
         .filter(name -> namingConvention.isInRange(name, minTs, maxTs))
-        .map(name -> HadoopPath.of(this, accessor.getUri() + name, accessor));
+        .map(name -> HadoopPath.of(this, remappedUri + name, accessor));
   }
 
   private Spliterator<LocatedFileStatus> asSpliterator(RemoteIterator<LocatedFileStatus> iterator) {
@@ -78,7 +79,7 @@ class HadoopFileSystem implements FileSystem {
 
   @Override
   public Path newPath(long ts) {
-    String path = getUri() + namingConvention.nameOf(ts);
+    String path = accessor.getUriRemapped() + namingConvention.nameOf(ts);
     return HadoopPath.of(this, path, accessor);
   }
 

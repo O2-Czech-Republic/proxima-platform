@@ -30,7 +30,7 @@ public class HadoopBulkAttributeWriter extends AbstractBulkFileSystemAttributeWr
 
     super(
         accessor.getEntityDesc(),
-        accessor.getUri(),
+        accessor.getUriRemapped(),
         accessor.getTemporaryHadoopFs(),
         accessor.getTemporaryNamingConvention(),
         accessor.getFormat(),

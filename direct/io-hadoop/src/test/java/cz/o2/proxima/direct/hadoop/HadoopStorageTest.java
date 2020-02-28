@@ -73,7 +73,7 @@ public class HadoopStorageTest {
   @Before
   public void setUp() throws IOException {
     root = tempFolder.newFolder();
-    uri = URI.create(String.format("file://%s", root.getAbsolutePath()));
+    uri = URI.create(String.format("hadoop:file://%s", root.getAbsolutePath()));
   }
 
   @Test
@@ -270,8 +270,13 @@ public class HadoopStorageTest {
 
     BulkAttributeWriter bulk = writer.get().bulk();
 
-    for (StreamElement el : elements) {
-      bulk.write(el, el.getStamp(), callback);
+    try {
+      for (StreamElement el : elements) {
+        bulk.write(el, el.getStamp(), callback);
+      }
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
     }
     return bulk;
   }

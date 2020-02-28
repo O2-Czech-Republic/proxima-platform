@@ -41,15 +41,40 @@ public class StringUtf8Serializer implements ValueSerializerFactory {
 
     @Override
     public String asJsonValue(String value) {
-      return "\"" + value + "\"";
+      return "\"" + escape(value) + "\"";
     }
 
     @Override
     public String fromJsonValue(String json) {
       if (json.startsWith("\"") && json.endsWith("\"")) {
-        return json.substring(1, json.length() - 1);
+        return unescape(json.substring(1, json.length() - 1));
       }
       throw new IllegalArgumentException(json + "is not json string");
+    }
+
+    private String escape(String value) {
+      StringBuilder sb = new StringBuilder();
+      for (char ch : value.toCharArray()) {
+        if (ch == '"' || ch == '\'') {
+          sb.append("\\");
+        }
+        sb.append(ch);
+      }
+      return sb.toString();
+    }
+
+    private String unescape(String value) {
+      int state = 0;
+      StringBuilder sb = new StringBuilder();
+      for (char ch : value.toCharArray()) {
+        if (state == 0 && ch == '\\') {
+          state = 1;
+        } else {
+          state = 0;
+          sb.append(ch);
+        }
+      }
+      return sb.toString();
     }
   }
 

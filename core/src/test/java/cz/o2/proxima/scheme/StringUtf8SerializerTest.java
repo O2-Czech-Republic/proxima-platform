@@ -38,12 +38,16 @@ public class StringUtf8SerializerTest {
   public void testSerializeDeserialize() {
     ValueSerializer<String> s = serializer.getValueSerializer(null);
     assertEquals("blah", s.deserialize(s.serialize("blah")).get());
+    String quote = "{\"key\": \"\\\"value\\\"\"}";
+    assertEquals(quote, s.deserialize(s.serialize(quote)).get());
   }
 
   @Test
   public void testJsonSerializeDeserialize() {
     ValueSerializer<String> s = serializer.getValueSerializer(null);
     assertEquals("blah", s.fromJsonValue(s.asJsonValue("blah")));
+    String quote = "{\"key\": \"\\\"value\\\"\"}";
+    assertEquals(quote, s.fromJsonValue(s.asJsonValue(quote)));
   }
 
   @Test(expected = IllegalArgumentException.class)

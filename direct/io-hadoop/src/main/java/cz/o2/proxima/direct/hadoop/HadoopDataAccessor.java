@@ -18,8 +18,8 @@ package cz.o2.proxima.direct.hadoop;
 import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.bulk.FileFormat;
+import cz.o2.proxima.direct.bulk.FileFormatUtils;
 import cz.o2.proxima.direct.bulk.NamingConvention;
-import cz.o2.proxima.direct.bulk.Utils;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
@@ -27,12 +27,10 @@ import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.io.IOException;
 import java.net.URI;
-import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
@@ -44,16 +42,14 @@ import org.apache.hadoop.fs.FileSystem;
 @ToString
 public class HadoopDataAccessor implements DataAccessor {
 
-  public static final String HDFS_ROLL_INTERVAL = "hdfs.log-roll-interval";
-  public static final String HDFS_BATCH_PROCESS_SIZE_MIN = "hdfs.process-size.min";
-  public static final String HDFS_ALLOWED_LATENESS = "hdfs.allowed-lateness";
+  private static final String CFG_PREFIX = "hadoop";
+  public static final String HADOOP_ROLL_INTERVAL = CFG_PREFIX + ".log-roll-interval";
+  public static final String HADOOP_BATCH_PROCESS_SIZE_MIN = CFG_PREFIX + ".process-size.min";
+  public static final String HADOOP_ALLOWED_LATENESS = CFG_PREFIX + ".allowed-lateness";
+  public static final String TMP_FS = CFG_PREFIX + ".tmp.fs";
 
-  static final long HDFS_ROLL_INTERVAL_DEFAULT = TimeUnit.HOURS.toMillis(1);
-  static final long HDFS_BATCH_PROCESS_SIZE_MIN_DEFAULT = 1024 * 1024 * 100L; /* 100 MiB */
-  static final String HDFS_DEFAULT_SEQUENCE_FILE_COMPRESSION_CODEC = "gzip";
-
-  static final Pattern PART_FILE_PARSER = Pattern.compile("part-([0-9]+)_([0-9]+)-.+");
-  static final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern("/yyyy/MM/");
+  static final long HADOOP_ROLL_INTERVAL_DEFAULT = TimeUnit.HOURS.toMillis(1);
+  static final long HADOOP_BATCH_PROCESS_SIZE_MIN_DEFAULT = 1024 * 1024 * 100L; /* 100 MiB */
 
   @Getter private final EntityDescriptor entityDesc;
   @Getter private final URI uri;
@@ -75,19 +71,29 @@ public class HadoopDataAccessor implements DataAccessor {
     this.cfg = cfg;
     this.rollInterval =
         getCfg(
-            HDFS_ROLL_INTERVAL, cfg, o -> Long.valueOf(o.toString()), HDFS_ROLL_INTERVAL_DEFAULT);
-    this.batchProcessSize =
-        getCfg(
-            HDFS_BATCH_PROCESS_SIZE_MIN,
+            HADOOP_ROLL_INTERVAL,
             cfg,
             o -> Long.valueOf(o.toString()),
-            HDFS_BATCH_PROCESS_SIZE_MIN_DEFAULT);
-    this.format = Utils.getFileFormat("hdfs.", cfg);
-    this.namingConvention = Utils.getNamingConvention("hdfs.", cfg, rollInterval, format);
+            HADOOP_ROLL_INTERVAL_DEFAULT);
+    this.batchProcessSize =
+        getCfg(
+            HADOOP_BATCH_PROCESS_SIZE_MIN,
+            cfg,
+            o -> Long.valueOf(o.toString()),
+            HADOOP_BATCH_PROCESS_SIZE_MIN_DEFAULT);
+    this.format = FileFormatUtils.getFileFormat(CFG_PREFIX + ".", cfg);
+    this.namingConvention =
+        FileFormatUtils.getNamingConvention(CFG_PREFIX + ".", cfg, rollInterval, format);
     this.temporaryNamingConvention = NamingConvention.prefixed("/_tmp", namingConvention);
     this.hadoopFs = new HadoopFileSystem(this);
-    this.temporaryHadoopFs = new HadoopFileSystem(this, temporaryNamingConvention);
-    this.allowedLateness = getCfg(HDFS_ALLOWED_LATENESS, cfg, o -> Long.valueOf(o.toString()), 0L);
+    URI tmpFs =
+        Optional.ofNullable(cfg.get(TMP_FS))
+            .map(Object::toString)
+            .map(URI::create)
+            .orElse(hadoopFs.getUri());
+    this.temporaryHadoopFs = new HadoopFileSystem(tmpFs, this, temporaryNamingConvention);
+    this.allowedLateness =
+        getCfg(HADOOP_ALLOWED_LATENESS, cfg, o -> Long.valueOf(o.toString()), 0L);
   }
 
   public Map<String, Object> getCfg() {
@@ -115,9 +121,9 @@ public class HadoopDataAccessor implements DataAccessor {
     return Optional.ofNullable(cfg.get(name)).map(convert::apply).orElse(defVal);
   }
 
-  FileSystem getFs() {
+  FileSystem getFsFor(URI uri) {
     try {
-      return FileSystem.get(getUriRemapped(), getHadoopConf());
+      return FileSystem.get(uri, getHadoopConf());
     } catch (IOException ex) {
       throw new RuntimeException("Failed to get filesystem for URI: " + uri, ex);
     }

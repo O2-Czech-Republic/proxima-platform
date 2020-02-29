@@ -15,23 +15,24 @@
  */
 package cz.o2.proxima.direct.hadoop;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.Path;
-import cz.o2.proxima.util.ExceptionUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import lombok.Getter;
-import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.fs.FileStatus;
 
 /** A {@link Path} implementation for hadoop. */
 @Internal
-@ToString
+@Slf4j
 class HadoopPath implements Path {
 
   /** Create new {@link HadoopPath} from given path and configuration. */
@@ -77,16 +78,44 @@ class HadoopPath implements Path {
     p.getFileSystem(accessor.getHadoopConf()).delete(p, true);
   }
 
-  public void move(HadoopPath target) throws IOException {
-    org.apache.hadoop.fs.Path sourcePath = toPath();
-    org.apache.hadoop.fs.Path targetPath = target.toPath();
-    targetPath.getFileSystem(accessor.getHadoopConf()).rename(sourcePath, targetPath);
+  @Override
+  public String toString() {
+    return "HadoopPath(" + path.toASCIIString() + ")";
   }
 
-  public FileStatus getFileStatus() {
+  public void move(HadoopPath target) throws IOException {
+    if (this.getFileSystem().getUri().equals(target.getFileSystem().getUri())) {
+      renameOnFs(target);
+    } else {
+      moveToRemote(target);
+    }
+  }
+
+  @VisibleForTesting
+  void renameOnFs(HadoopPath target) throws IOException {
+    org.apache.hadoop.fs.Path sourcePath = toPath();
+    org.apache.hadoop.fs.Path targetPath = target.toPath();
+    org.apache.hadoop.fs.Path parentPath = targetPath.getParent();
+    org.apache.hadoop.fs.FileSystem hadoopFs = targetPath.getFileSystem(accessor.getHadoopConf());
+    if (!hadoopFs.exists(parentPath)) {
+      Preconditions.checkState(hadoopFs.mkdirs(parentPath), "Failed to mkdirs on %s", parentPath);
+    }
+    hadoopFs.rename(sourcePath, targetPath);
+    log.debug("Renamed {} to {}", sourcePath, target);
+  }
+
+  @VisibleForTesting
+  void moveToRemote(HadoopPath target) throws IOException {
+    try (InputStream in = reader();
+        OutputStream output = target.writer()) {
+      IOUtils.copy(in, output);
+    }
+    this.delete();
+  }
+
+  public FileStatus getFileStatus() throws IOException {
     org.apache.hadoop.fs.Path p = toPath();
-    return ExceptionUtils.uncheckedFactory(
-        () -> p.getFileSystem(accessor.getHadoopConf()).getFileStatus(p));
+    return p.getFileSystem(accessor.getHadoopConf()).getFileStatus(p);
   }
 
   private org.apache.hadoop.fs.Path toPath() {

@@ -45,6 +45,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.Value;
@@ -81,7 +82,7 @@ public class AbstractBulkFileSystemAttributeWriterTest {
     }
 
     FileFormat getFileFormat() {
-      return Utils.getFileFormatFromName(format, gzip);
+      return FileFormatUtils.getFileFormatFromName(format, gzip);
     }
 
     NamingConvention getNamingConvention() {
@@ -453,6 +454,22 @@ public class AbstractBulkFileSystemAttributeWriterTest {
     writer.flush(Long.MAX_VALUE);
     latch.await();
     assertTrue(written.isEmpty());
+  }
+
+  @Test(timeout = 10000)
+  public synchronized void testWriteNoWatermark() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    long now = 1500000000000L;
+    StreamElement el =
+        StreamElement.upsert(
+            entity, attr, UUID.randomUUID().toString(), "key", "attr", now, new byte[] {1, 2});
+    write(
+        el,
+        (succ, exc) -> {
+          latch.countDown();
+        });
+    writer.flush(Long.MIN_VALUE);
+    assertFalse(latch.await(500, TimeUnit.MILLISECONDS));
   }
 
   @Test

@@ -18,13 +18,15 @@ package cz.o2.proxima.direct.hadoop;
 import cz.o2.proxima.direct.bulk.AbstractBulkFileSystemAttributeWriter;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.util.ExceptionUtils;
+import java.net.URI;
 import lombok.extern.slf4j.Slf4j;
 
-/** Bulk attribute writer to HDFS. */
+/** Bulk attribute writer to Hadoop FileSystem. */
 @Slf4j
 public class HadoopBulkAttributeWriter extends AbstractBulkFileSystemAttributeWriter {
 
   private final HadoopFileSystem targetFs;
+  private final HadoopDataAccessor accessor;
 
   public HadoopBulkAttributeWriter(HadoopDataAccessor accessor, Context context) {
 
@@ -39,6 +41,12 @@ public class HadoopBulkAttributeWriter extends AbstractBulkFileSystemAttributeWr
         accessor.getAllowedLateness());
 
     this.targetFs = accessor.getHadoopFs();
+    this.accessor = accessor;
+  }
+
+  @Override
+  public URI getUri() {
+    return accessor.getUri();
   }
 
   @Override
@@ -46,5 +54,6 @@ public class HadoopBulkAttributeWriter extends AbstractBulkFileSystemAttributeWr
     HadoopPath path = (HadoopPath) bulk.getPath();
     ExceptionUtils.unchecked(
         () -> path.move((HadoopPath) targetFs.newPath(bulk.getMaxTs() - getRollPeriodMs())));
+    log.info("Flushed bulk {}", bulk);
   }
 }

@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /** Utility class to be shared between various bulk storages. */
-public class Utils {
+public class FileFormatUtils {
 
   /** Retrieve {@link NamingConvention} from configuration. */
   public static NamingConvention getNamingConvention(
@@ -35,7 +35,9 @@ public class Utils {
       MessageDigest digest = MessageDigest.getInstance("MD5");
       digest.update(InetAddress.getLocalHost().getHostName().getBytes(Charset.defaultCharset()));
       String prefix =
-          new String(Base64.getEncoder().withoutPadding().encode(digest.digest())).substring(0, 10);
+          new String(Base64.getEncoder().withoutPadding().encode(digest.digest()))
+              .substring(0, 10)
+              .replace('/', '-');
       return Optional.ofNullable(cfg.get(cfgPrefix + "naming-convention"))
           .map(Object::toString)
           .map(cls -> Classpath.newInstance(cls, NamingConvention.class))
@@ -47,6 +49,13 @@ public class Utils {
     }
   }
 
+  /**
+   * Get {@link FileFormat} from configuration.
+   *
+   * @param cfgPrefix prefix to add to default config settings
+   * @param cfg the configuration
+   * @return {@link FileFormat}
+   */
   public static FileFormat getFileFormat(String cfgPrefix, Map<String, Object> cfg) {
     String format =
         Optional.ofNullable(cfg.get(cfgPrefix + "format")).map(Object::toString).orElse("binary");
@@ -72,7 +81,7 @@ public class Utils {
     }
   }
 
-  private Utils() {
+  private FileFormatUtils() {
     // nop
   }
 }

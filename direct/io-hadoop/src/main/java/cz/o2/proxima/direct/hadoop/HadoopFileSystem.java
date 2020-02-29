@@ -31,6 +31,7 @@ import org.apache.hadoop.fs.RemoteIterator;
 /** A {@link FileSystem} implementation for hadoop. */
 class HadoopFileSystem implements FileSystem {
 
+  private final URI uri;
   private final HadoopDataAccessor accessor;
   private final NamingConvention namingConvention;
   private transient org.apache.hadoop.fs.FileSystem fs = null;
@@ -40,18 +41,23 @@ class HadoopFileSystem implements FileSystem {
   }
 
   HadoopFileSystem(HadoopDataAccessor accessor, NamingConvention namingConvention) {
+    this(accessor.getUri(), accessor, namingConvention);
+  }
+
+  HadoopFileSystem(URI uri, HadoopDataAccessor accessor, NamingConvention namingConvention) {
+    this.uri = uri;
     this.accessor = accessor;
     this.namingConvention = namingConvention;
   }
 
   @Override
   public URI getUri() {
-    return accessor.getUri();
+    return uri;
   }
 
   @Override
   public Stream<Path> list(long minTs, long maxTs) {
-    URI remappedUri = accessor.getUriRemapped();
+    URI remappedUri = HadoopStorage.remap(getUri());
     RemoteIterator<LocatedFileStatus> iterator =
         ExceptionUtils.uncheckedFactory(
             () -> fs().listFiles(new org.apache.hadoop.fs.Path(remappedUri), true));
@@ -79,13 +85,13 @@ class HadoopFileSystem implements FileSystem {
 
   @Override
   public Path newPath(long ts) {
-    String path = accessor.getUriRemapped() + namingConvention.nameOf(ts);
+    String path = HadoopStorage.remap(getUri()) + namingConvention.nameOf(ts);
     return HadoopPath.of(this, path, accessor);
   }
 
   private org.apache.hadoop.fs.FileSystem fs() {
     if (fs == null) {
-      fs = accessor.getFs();
+      fs = accessor.getFsFor(HadoopStorage.remap(getUri()));
     }
     return fs;
   }

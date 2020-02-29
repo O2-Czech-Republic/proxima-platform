@@ -44,6 +44,7 @@ import lombok.extern.slf4j.Slf4j;
 class BinaryBlobFormat implements FileFormat {
 
   private static final String MAGIC = "gs::proxima";
+  private static final String MAGIC_V1 = "proxima:bulk:v1";
 
   public static class BinaryBlobWriter implements Writer {
 
@@ -74,7 +75,7 @@ class BinaryBlobFormat implements FileFormat {
       DataOutputStream dos = new DataOutputStream(out);
       byte[] header =
           Serialization.Header.newBuilder()
-              .setMagic(MAGIC)
+              .setMagic(MAGIC_V1)
               .setVersion(1)
               .setGzip(gzip)
               .build()
@@ -178,9 +179,12 @@ class BinaryBlobFormat implements FileFormat {
       try {
         DataInputStream dos = new DataInputStream(in);
         Serialization.Header parsed = Serialization.Header.parseFrom(readBytes(dos));
-        if (!parsed.getMagic().equals(MAGIC)) {
+        String magic = parsed.getMagic();
+        if (!MAGIC.equals(magic) && !MAGIC_V1.equals(magic)) {
           throw new IllegalArgumentException(
-              "Magic not matching, expected " + MAGIC + " got " + parsed.getMagic());
+              String.format(
+                  "Magic not matching, exptected [%s] or [%s], got [%s]",
+                  MAGIC, MAGIC_V1, parsed.getMagic()));
         }
         return parsed;
       } catch (EOFException eof) {

@@ -174,7 +174,14 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
   }
 
   private void flushOnWatermark(long watermark) {
-    Map<Long, Bulk> flushable = collectFlushable(watermark - allowedLatenessMs);
+    Map<Long, Bulk> flushable = collectFlushable(watermark);
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Collected {} flushable bulks at watermark {} with allowedLatenessMs {}.",
+          flushable.values(),
+          watermark,
+          allowedLatenessMs);
+    }
     if (!flushable.isEmpty()) {
       CommitCallback commit =
           flushable
@@ -193,11 +200,14 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
                       () -> {
                         try {
                           flush(v);
+                          log.info("Flushed path {}", v.getPath());
                           if (toFlush.decrementAndGet() == 0) {
                             commit.commit(true, null);
                           }
                         } catch (Exception ex) {
+                          log.error("Failed to flush path {}", v.getPath(), ex);
                           toFlush.set(-1);
+                          ExceptionUtils.unchecked(v.getPath()::delete);
                           commit.commit(false, ex);
                         }
                       });
@@ -205,6 +215,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
             });
 
       } catch (Exception ex) {
+        log.error("Failed to flush paths {}", flushable, ex);
         commit.commit(false, ex);
       }
     }
@@ -223,7 +234,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
           writers
               .entrySet()
               .stream()
-              .filter(e -> e.getValue().getMaxTs() < watermark)
+              .filter(e -> e.getValue().getMaxTs() + allowedLatenessMs < watermark)
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
       // search for commit callback to use for committing

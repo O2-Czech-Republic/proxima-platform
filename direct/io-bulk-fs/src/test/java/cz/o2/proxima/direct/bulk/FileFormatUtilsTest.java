@@ -20,14 +20,14 @@ import static org.junit.Assert.*;
 import java.util.Collections;
 import org.junit.Test;
 
-/** Test {@link Utils}. */
-public class UtilsTest {
+/** Test {@link FileFormatUtils}. */
+public class FileFormatUtilsTest {
 
   @Test
   public void testNamingConvention() {
     FileFormat format = FileFormat.blob(true);
     NamingConvention namingConvention =
-        Utils.getNamingConvention("prefix", Collections.emptyMap(), 3600000, format);
+        FileFormatUtils.getNamingConvention("prefix", Collections.emptyMap(), 3600000, format);
     assertTrue(namingConvention.nameOf(1500000000000L).startsWith("/2017/"));
   }
 }

@@ -17,8 +17,8 @@ package cz.o2.proxima.direct.gcloud.storage;
 
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.bulk.FileFormat;
+import cz.o2.proxima.direct.bulk.FileFormatUtils;
 import cz.o2.proxima.direct.bulk.NamingConvention;
-import cz.o2.proxima.direct.bulk.Utils;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
@@ -54,11 +54,11 @@ class GCloudStorageAccessor extends AbstractStorage implements DataAccessor {
   }
 
   FileFormat getFileFormat() {
-    return Utils.getFileFormat("", getCfg());
+    return FileFormatUtils.getFileFormat("", getCfg());
   }
 
   NamingConvention getNamingConvention() {
-    return Utils.getNamingConvention("", getCfg(), getRollPeriod(), getFileFormat());
+    return FileFormatUtils.getNamingConvention("", getCfg(), getRollPeriod(), getFileFormat());
   }
 
   public File getTmpDir() {

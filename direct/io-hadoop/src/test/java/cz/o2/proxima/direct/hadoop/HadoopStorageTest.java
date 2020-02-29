@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.hadoop;
 
 import static org.junit.Assert.*;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
@@ -130,8 +131,7 @@ public class HadoopStorageTest {
 
   @Test(timeout = 5000L)
   public void testWriteElement() throws InterruptedException {
-    Map<String, Object> cfg = new HashMap<>();
-    cfg.put(HadoopDataAccessor.HDFS_ROLL_INTERVAL, -1);
+    Map<String, Object> cfg = cfg(HadoopDataAccessor.HADOOP_ROLL_INTERVAL, -1);
     HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
 
     CountDownLatch latch = new CountDownLatch(1);
@@ -169,9 +169,8 @@ public class HadoopStorageTest {
 
   @Test(timeout = 5000L)
   public void testWriteElementJson() throws InterruptedException {
-    Map<String, Object> cfg = new HashMap<>();
-    cfg.put(HadoopDataAccessor.HDFS_ROLL_INTERVAL, -1);
-    cfg.put("hdfs.format", "json");
+    Map<String, Object> cfg =
+        cfg(HadoopDataAccessor.HADOOP_ROLL_INTERVAL, -1, "hadoop.format", "json");
     HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
 
     CountDownLatch latch = new CountDownLatch(1);
@@ -209,8 +208,7 @@ public class HadoopStorageTest {
 
   @Test(timeout = 5000L)
   public void testWriteElementNotYetFlushed() throws InterruptedException {
-    Map<String, Object> cfg = new HashMap<>();
-    cfg.put(HadoopDataAccessor.HDFS_ROLL_INTERVAL, 1000);
+    Map<String, Object> cfg = cfg(HadoopDataAccessor.HADOOP_ROLL_INTERVAL, 1000);
     HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
 
     CountDownLatch latch = new CountDownLatch(1);
@@ -255,6 +253,21 @@ public class HadoopStorageTest {
         });
     StreamElement element = queue.take();
     assertNotNull(element);
+  }
+
+  Map<String, Object> cfg(Object... kvs) {
+    Preconditions.checkArgument(kvs.length % 2 == 0);
+    Map<String, Object> ret = new HashMap<>();
+    String key = null;
+    for (Object kv : kvs) {
+      if (key == null) {
+        key = kv.toString();
+      } else {
+        ret.put(key, kv);
+        key = null;
+      }
+    }
+    return ret;
   }
 
   private BulkAttributeWriter writeOneElement(

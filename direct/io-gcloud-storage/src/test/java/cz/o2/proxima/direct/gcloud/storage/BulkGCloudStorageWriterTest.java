@@ -21,6 +21,11 @@ import static org.mockito.Mockito.*;
 import com.google.cloud.storage.Blob;
 import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.bulk.DefaultNamingConvention;
+import cz.o2.proxima.direct.bulk.FileFormat;
+import cz.o2.proxima.direct.bulk.NamingConvention;
+import cz.o2.proxima.direct.bulk.Path;
+import cz.o2.proxima.direct.bulk.Reader;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -28,10 +33,10 @@ import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,6 +50,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -55,10 +61,11 @@ import org.junit.runners.Parameterized;
 /** Test suite for {@link BulkGCloudStorageWriter}. */
 @RunWith(Parameterized.class)
 public class BulkGCloudStorageWriterTest {
+
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
-  final Repository repo = Repository.of(ConfigFactory.load().resolve());
-  final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
+  final Repository repo = Repository.of(() -> ConfigFactory.load().resolve());
+  final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final AttributeDescriptor<?> attr;
   final AttributeDescriptor<?> wildcard;
   final EntityDescriptor entity;
@@ -98,13 +105,26 @@ public class BulkGCloudStorageWriterTest {
   }
 
   @Before
-  public void setUp() throws URISyntaxException, IOException {
+  public void setUp() throws IOException {
     blobs = Collections.synchronizedNavigableSet(new TreeSet<>());
     onFlushToBlob.set(null);
     written = Collections.synchronizedMap(new HashMap<>());
+    initWriter(cfg());
+  }
+
+  void initWriter(Map<String, Object> cfg) throws IOException {
+    GCloudStorageAccessor accessor =
+        new GCloudStorageAccessor(entity, URI.create("gs://bucket/path"), cfg) {
+          @Override
+          NamingConvention getNamingConvention() {
+            return new DefaultNamingConvention(
+                Duration.ofMillis(getRollPeriod()), "prefix", "suffix", () -> "uuid");
+          }
+        };
+
+    FileFormat fileFormat = accessor.getFileFormat();
     writer =
-        new BulkGCloudStorageWriter(
-            entity, new URI("gcloud-storage://project:bucket/path"), cfg(), direct.getContext()) {
+        new BulkGCloudStorageWriter(entity, accessor, direct.getContext()) {
 
           @Override
           Blob createBlob(String name) {
@@ -113,19 +133,14 @@ public class BulkGCloudStorageWriterTest {
           }
 
           @Override
-          String uuid() {
-            return "uuid";
-          }
-
-          @Override
-          void flushToBlob(long bucketEndStamp, File file, Blob blob) throws IOException {
+          void flushToBlob(long bucketEndStamp, Path file, Blob blob) throws IOException {
             try {
               if (onFlushToBlob.get() != null) {
                 throw new RuntimeException(onFlushToBlob.get());
               }
               List<StreamElement> blobWritten = new ArrayList<>();
               written.put(bucketEndStamp, blobWritten);
-              try (BinaryBlob.Reader reader = new BinaryBlob(file).reader(entity)) {
+              try (Reader reader = fileFormat.openReader(file, entity)) {
                 reader.iterator().forEachRemaining(blobWritten::add);
               }
             } finally {
@@ -139,6 +154,16 @@ public class BulkGCloudStorageWriterTest {
 
   @Test(timeout = 10000)
   public synchronized void testWrite() throws Exception {
+    testWriteWithWriter();
+  }
+
+  @Test(timeout = 10000)
+  public synchronized void testWriteToJson() throws Exception {
+    initWriter(cfg("json"));
+    testWriteWithWriter();
+  }
+
+  void testWriteWithWriter() throws InterruptedException, IOException {
     latch.set(new CountDownLatch(2));
     long now = 1500000000000L;
     StreamElement first =
@@ -170,8 +195,8 @@ public class BulkGCloudStorageWriterTest {
     assertEquals(1, written.size());
     validate(written.get(1500000001000L), first, second);
     assertEquals(1, blobs.size());
-    assertEquals(writer.toBlobName(now, now + 1000), Iterables.getOnlyElement(blobs));
-    assertTrue(Iterables.getOnlyElement(blobs).startsWith("2017/07/"));
+    assertEquals(writer.toBlobName(now), Iterables.getOnlyElement(blobs));
+    assertTrue(Iterables.getOnlyElement(blobs).startsWith("/2017/07/"));
   }
 
   @Test(timeout = 10000)
@@ -207,8 +232,8 @@ public class BulkGCloudStorageWriterTest {
     assertEquals(1, written.size());
     validate(written.get(1500000001000L), first);
     assertEquals(1, blobs.size());
-    assertEquals(writer.toBlobName(now, now + 1000), Iterables.getOnlyElement(blobs));
-    assertTrue(Iterables.getOnlyElement(blobs).startsWith("2017/07/"));
+    assertEquals(writer.toBlobName(now), Iterables.getOnlyElement(blobs));
+    assertTrue(Iterables.getOnlyElement(blobs).startsWith("/2017/07/"));
   }
 
   @Test(timeout = 10000)
@@ -266,8 +291,8 @@ public class BulkGCloudStorageWriterTest {
     assertEquals(1, written.size());
     validate(written.get(1500000001000L), elements[0], elements[1], elements[2], elements[3]);
     assertEquals(1, blobs.size());
-    assertEquals(writer.toBlobName(now, now + 1000), Iterables.getOnlyElement(blobs));
-    assertTrue(Iterables.getOnlyElement(blobs).startsWith("2017/07/"));
+    assertEquals(writer.toBlobName(now), Iterables.getOnlyElement(blobs));
+    assertTrue(Iterables.getOnlyElement(blobs).startsWith("/2017/07/"));
   }
 
   @Test(timeout = 10000)
@@ -329,10 +354,10 @@ public class BulkGCloudStorageWriterTest {
     validate(written.get(1500000001000L), elements[0], elements[1], elements[3]);
     validate(written.get(1500000002000L), elements[2]);
     assertEquals(2, blobs.size());
-    assertEquals(writer.toBlobName(now, now + 1000), Iterables.get(blobs, 0));
-    assertTrue(Iterables.get(blobs, 0).startsWith("2017/07/"));
-    assertEquals(writer.toBlobName(now + 1000, now + 2000), Iterables.get(blobs, 1));
-    assertTrue(Iterables.get(blobs, 1).startsWith("2017/07/"));
+    assertEquals(writer.toBlobName(now), Iterables.get(blobs, 0));
+    assertTrue(Iterables.get(blobs, 0).startsWith("/2017/07/"));
+    assertEquals(writer.toBlobName(now + 1000), Iterables.get(blobs, 1));
+    assertTrue(Iterables.get(blobs, 1).startsWith("/2017/07/"));
   }
 
   @Test(timeout = 10000)
@@ -381,6 +406,10 @@ public class BulkGCloudStorageWriterTest {
   }
 
   private Map<String, Object> cfg() throws IOException {
+    return cfg(null);
+  }
+
+  private Map<String, Object> cfg(@Nullable String format) throws IOException {
     Map<String, Object> ret = new HashMap<>();
     ret.put("log-roll-interval", "1000");
     ret.put("allowed-lateness-ms", 500);
@@ -388,6 +417,9 @@ public class BulkGCloudStorageWriterTest {
     ret.put("tmp.dir", tempFolder.newFolder().getAbsolutePath());
     if (gzip) {
       ret.put("gzip", "true");
+    }
+    if (format != null) {
+      ret.put("format", format);
     }
     return ret;
   }

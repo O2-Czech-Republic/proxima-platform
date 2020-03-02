@@ -52,4 +52,11 @@ public interface BulkAttributeWriter extends AttributeWriterBase {
    * @param statusCallback callback to commit the data
    */
   void write(StreamElement data, long watermark, CommitCallback statusCallback);
+
+  /**
+   * Update watermark when no input data arrives.
+   *
+   * @param watermark timestamp of the new watermark
+   */
+  default void updateWatermark(long watermark) {}
 }

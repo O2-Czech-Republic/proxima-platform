@@ -15,8 +15,10 @@
  */
 package cz.o2.proxima.scheme;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Stable;
 import java.net.URI;
+import java.util.Base64;
 import java.util.Optional;
 
 /** Validator of bytes scheme. */
@@ -49,6 +51,22 @@ public class BytesSerializer implements ValueSerializerFactory {
           @Override
           public byte[] serialize(byte[] value) {
             return value;
+          }
+
+          @Override
+          public String asJsonValue(byte[] value) {
+            return '"' + Base64.getEncoder().encodeToString(value) + '"';
+          }
+
+          @Override
+          public byte[] fromJsonValue(String json) {
+            Preconditions.checkArgument(
+                json.length() >= 2
+                    && json.charAt(0) == json.charAt(json.length() - 1)
+                    && json.charAt(0) == '"',
+                "[%s] is not valid json string",
+                json);
+            return Base64.getDecoder().decode(json.substring(1, json.length() - 1));
           }
         };
   }

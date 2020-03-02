@@ -16,13 +16,16 @@
 package cz.o2.proxima.direct.gcloud.storage;
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
-import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Lists;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.bulk.FileFormat;
+import cz.o2.proxima.direct.bulk.FileSystem;
+import cz.o2.proxima.direct.bulk.NamingConvention;
+import cz.o2.proxima.direct.bulk.Path;
+import cz.o2.proxima.direct.bulk.Reader;
+import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -30,37 +33,21 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.nio.channels.Channels;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /** {@link BatchLogObservable} for gcloud storage. */
 @Slf4j
-public class GCloudLogObservable extends GCloudClient implements BatchLogObservable {
-
-  private static final Pattern BLOB_NAME_PATTERN =
-      Pattern.compile(".*/?[^-/]+-([0-9]+)_([0-9]+)[^/]*\\.blob[^/]*$");
+public class GCloudLogObservable implements BatchLogObservable {
 
   private static class GCloudStoragePartition implements Partition {
 
@@ -68,6 +55,7 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
     private final int id;
     private long minStamp;
     private long maxStamp;
+    private long size;
 
     GCloudStoragePartition(int id, long minStamp, long maxStamp) {
       this.id = id;
@@ -77,6 +65,7 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
 
     void add(Blob b, long minStamp, long maxStamp) {
       blobs.add(b);
+      size += b.getSize();
       this.minStamp = Math.min(this.minStamp, minStamp);
       this.maxStamp = Math.max(this.maxStamp, maxStamp);
     }
@@ -93,7 +82,7 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
 
     @Override
     public long size() {
-      return blobs.stream().map(Blob::getSize).reduce((a, b) -> a + b).orElse(0L);
+      return size;
     }
 
     public int getNumBlobs() {
@@ -111,133 +100,64 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
     }
   }
 
+  private final EntityDescriptor entity;
+  private final FileSystem fs;
+  private final FileFormat fileFormat;
+  private final NamingConvention namingConvetion;
   private final long partitionMinSize;
   private final int partitionMaxNumBlobs;
   private final Factory<Executor> executorFactory;
   @Nullable private transient Executor executor = null;
   private long backoff = 100;
 
-  public GCloudLogObservable(
-      EntityDescriptor entityDesc,
-      URI uri,
-      Map<String, Object> cfg,
-      Factory<Executor> executorFactory) {
+  public GCloudLogObservable(GCloudStorageAccessor accessor, Context context) {
+    this.entity = accessor.getEntityDescriptor();
+    this.fs = createFileSystem(accessor);
+    this.fileFormat = accessor.getFileFormat();
+    this.namingConvetion = accessor.getNamingConvention();
+    this.partitionMinSize = accessor.getPartitionMinSize();
+    this.partitionMaxNumBlobs = accessor.getPartitionMaxNumBlobs();
+    this.executorFactory = context::getExecutorService;
+  }
 
-    super(entityDesc, uri, cfg);
-    this.partitionMinSize =
-        Optional.ofNullable(cfg.get("partition.size"))
-            .map(Object::toString)
-            .map(Long::valueOf)
-            .orElse(100 * 1024 * 1024L);
-    this.partitionMaxNumBlobs =
-        Optional.ofNullable(cfg.get("partition.max-blobs"))
-            .map(Object::toString)
-            .map(Integer::valueOf)
-            .orElse(1000);
-    this.executorFactory = executorFactory;
+  @VisibleForTesting
+  FileSystem createFileSystem(GCloudStorageAccessor accessor) {
+    return new GCloudFileSystem(accessor);
   }
 
   @Override
   public List<Partition> getPartitions(long startStamp, long endStamp) {
     List<Partition> ret = new ArrayList<>();
-    Set<String> prefixes = convertStampsToPrefixes(this.path, startStamp, endStamp);
     AtomicInteger id = new AtomicInteger();
     AtomicReference<GCloudStoragePartition> current = new AtomicReference<>();
-    prefixes.forEach(
-        prefix -> {
-          Page<Blob> p = client().list(this.bucket, BlobListOption.prefix(prefix));
-          List<Blob> sorted = Lists.newArrayList(p.iterateAll());
-          sorted.sort(Comparator.comparing(Blob::getName));
-          for (Blob blob : sorted) {
-            considerBlobForPartitionInclusion(startStamp, endStamp, blob, id, current, ret);
-          }
-        });
+    Stream<Path> paths = fs.list(startStamp, endStamp);
+    paths.forEach(
+        blob -> considerBlobForPartitionInclusion(((BlobPath) blob).getBlob(), id, current, ret));
     if (current.get() != null) {
       ret.add(current.get());
     }
-    log.debug("Parsed partitions {} for startStamp {}, endStamp {}", ret, startStamp, endStamp);
     return ret;
   }
 
   private void considerBlobForPartitionInclusion(
-      long startStamp,
-      long endStamp,
       Blob b,
       AtomicInteger partitionId,
       AtomicReference<GCloudStoragePartition> currentPartition,
       List<Partition> resultingPartitions) {
 
     log.trace("Considering blob {} for partition inclusion", b.getName());
-    Pair<Long, Long> minMaxStamp = parseMinMaxStamp(b.getName());
-    if (isInRange(minMaxStamp, startStamp, endStamp)) {
-      if (currentPartition.get() == null) {
-        currentPartition.set(
-            new GCloudStoragePartition(
-                partitionId.getAndIncrement(), minMaxStamp.getFirst(), minMaxStamp.getSecond()));
-      }
-      currentPartition.get().add(b, minMaxStamp.getFirst(), minMaxStamp.getSecond());
-      log.trace("Blob {} added to partition {}", b.getName(), currentPartition.get());
-      if (currentPartition.get().size() >= partitionMinSize
-          || currentPartition.get().getNumBlobs() >= partitionMaxNumBlobs) {
-        resultingPartitions.add(currentPartition.getAndSet(null));
-      }
-    } else {
-      log.trace("Blob {} is not in range {} - {}", b.getName(), startStamp, endStamp);
+    Pair<Long, Long> minMaxStamp = namingConvetion.parseMinMaxTimestamp(b.getName());
+    if (currentPartition.get() == null) {
+      currentPartition.set(
+          new GCloudStoragePartition(
+              partitionId.getAndIncrement(), minMaxStamp.getFirst(), minMaxStamp.getSecond()));
     }
-  }
-
-  @VisibleForTesting
-  static Set<String> convertStampsToPrefixes(String basePath, long startStamp, long endStamp) {
-
-    DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy/MM");
-    // use TreeSet, so that prefixes are sorted, which will yield
-    // partitions roughly sorted by timestamp
-    Set<String> prefixes = new TreeSet<>();
-    // remove trailing slashes
-    while (basePath.endsWith("/")) {
-      basePath = basePath.substring(0, basePath.length() - 1);
+    currentPartition.get().add(b, minMaxStamp.getFirst(), minMaxStamp.getSecond());
+    log.trace("Blob {} added to partition {}", b.getName(), currentPartition.get());
+    if (currentPartition.get().size() >= partitionMinSize
+        || currentPartition.get().getNumBlobs() >= partitionMaxNumBlobs) {
+      resultingPartitions.add(currentPartition.getAndSet(null));
     }
-    // and add exactly one
-    basePath += "/";
-    long t = startStamp;
-    if (startStamp > Long.MIN_VALUE && endStamp < Long.MAX_VALUE) {
-      LocalDateTime time =
-          LocalDateTime.ofInstant(Instant.ofEpochMilli(t), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
-      LocalDateTime end =
-          LocalDateTime.ofInstant(
-              Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC));
-      while (time.isBefore(end)) {
-        prefixes.add(basePath + format.format(time));
-        time = time.plusMonths(1);
-      }
-      prefixes.add(
-          basePath
-              + format.format(
-                  LocalDateTime.ofInstant(
-                      Instant.ofEpochMilli(endStamp), ZoneId.ofOffset("UTC", ZoneOffset.UTC))));
-    } else {
-      prefixes.add(basePath);
-    }
-    return prefixes;
-  }
-
-  @VisibleForTesting
-  static @Nullable Pair<Long, Long> parseMinMaxStamp(String name) {
-    Matcher matcher = BLOB_NAME_PATTERN.matcher(name);
-    if (matcher.matches()) {
-      long min = Long.parseLong(matcher.group(1));
-      long max = Long.parseLong(matcher.group(2));
-      return Pair.of(min, max);
-    }
-    log.warn("Skipping unparseable name {}", name);
-    return null;
-  }
-
-  @VisibleForTesting
-  static boolean isInRange(Pair<Long, Long> minMaxStamp, long startStamp, long endStamp) {
-    return minMaxStamp != null
-        && minMaxStamp.getFirst() <= endStamp
-        && minMaxStamp.getSecond() >= startStamp;
   }
 
   @Override
@@ -258,13 +178,11 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
                       part.getBlobs()
                           .forEach(
                               blob -> {
-                                for (; ; ) {
-                                  final String name = blob.getName();
+                                boolean finished = false;
+                                while (!finished) {
                                   log.debug("Starting to observe partition {}", p);
-                                  try (InputStream s = Channels.newInputStream(blob.reader());
-                                      BinaryBlob.Reader reader =
-                                          BinaryBlob.reader(getEntityDescriptor(), name, s)) {
-
+                                  try (Reader reader =
+                                      fileFormat.openReader(BlobPath.of(fs, blob), entity)) {
                                     reader.forEach(
                                         e -> {
                                           if (attrs.contains(e.getAttributeDescriptor())) {
@@ -272,14 +190,13 @@ public class GCloudLogObservable extends GCloudClient implements BatchLogObserva
                                           }
                                         });
                                     backoff = 100;
+                                    finished = true;
                                   } catch (GoogleJsonResponseException ex) {
-                                    if (handleResponseException(ex, blob)) {
-                                      continue;
-                                    }
+                                    finished = !handleResponseException(ex, blob);
                                   } catch (IOException ex) {
                                     handleGeneralException(ex, blob);
+                                    finished = true;
                                   }
-                                  break;
                                 }
                               });
                     });

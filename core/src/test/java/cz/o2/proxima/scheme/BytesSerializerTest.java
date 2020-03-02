@@ -60,4 +60,10 @@ public class BytesSerializerTest {
   public void testDefaultValue() {
     assertArrayEquals(new byte[] {}, serializer.getDefault());
   }
+
+  @Test
+  public void testJsonValue() {
+    byte[] value = new byte[] {1, 2};
+    assertArrayEquals(value, serializer.fromJsonValue(serializer.asJsonValue(value)));
+  }
 }

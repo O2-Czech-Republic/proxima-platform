@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.kafka;
 
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
@@ -53,7 +54,7 @@ public class KafkaStreamElement extends StreamElement {
           return new KafkaStreamElement(
               entityDesc,
               attr.get(),
-              String.valueOf(record.topic() + "#" + record.partition() + "#" + record.offset()),
+              record.topic() + "#" + record.partition() + "#" + record.offset(),
               entityKey,
               attribute,
               record.timestamp(),
@@ -111,24 +112,16 @@ public class KafkaStreamElement extends StreamElement {
 
   @Override
   public String toString() {
-    return "KafkaStreamElement(entityDesc="
-        + getEntityDescriptor()
-        + ", attributeDesc="
-        + getAttributeDescriptor()
-        + ", uuid="
-        + getUuid()
-        + ", key="
-        + getKey()
-        + ", attribute="
-        + getAttribute()
-        + ", stamp="
-        + getStamp()
-        + ", value.length="
-        + (getValue() == null ? 0 : getValue().length)
-        + ", partition="
-        + partition
-        + ", offset="
-        + offset
-        + ")";
+    return MoreObjects.toStringHelper(this)
+        .add("entityDesc", getEntityDescriptor())
+        .add("attributeDesc", getAttributeDescriptor())
+        .add("uuid", getUuid())
+        .add("key", getKey())
+        .add("attribute", getAttribute())
+        .add("stamp", getStamp())
+        .add("value.length", getValue() == null ? -1 : getValue().length)
+        .add("partition", partition)
+        .add("offset", offset)
+        .toString();
   }
 }

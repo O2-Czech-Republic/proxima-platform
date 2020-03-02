@@ -215,6 +215,7 @@ public class StreamElement implements Serializable {
    */
   public boolean isDeleteWildcard() {
     return isDelete()
+        && attributeDescriptor.isWildcard()
         && (attribute.equals(attributeDescriptor.toAttributePrefix() + "*") || deleteWildcard);
   }
 

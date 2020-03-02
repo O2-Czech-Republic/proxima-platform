@@ -145,6 +145,14 @@
     </dependency>
 
     <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-io-hbase-bindings</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
       <groupId>org.apache.hbase</groupId>
       <artifactId>hbase-testing-util</artifactId>
       <version>${hbase.version}</version>

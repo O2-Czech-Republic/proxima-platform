@@ -117,17 +117,22 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
     if (writers == null) {
       writers = new HashMap<>();
     }
-    Path path = fs.newPath(data.getStamp());
-    long bulkStartStamp = data.getStamp() - data.getStamp() % rollPeriodMs;
-    Bulk bulk =
-        writers.computeIfAbsent(
-            bulkStartStamp,
-            p -> {
-              long maxStamp = data.getStamp() - data.getStamp() % rollPeriodMs + rollPeriodMs;
-              return ExceptionUtils.uncheckedFactory(() -> new Bulk(path, maxStamp));
-            });
-    ExceptionUtils.unchecked(() -> bulk.write(data, statusCallback, watermark, seqNo++));
-    log.debug("Written element {} to {} on watermark {}", data, bulk.getWriter(), watermark);
+    if (data.getStamp() + allowedLatenessMs >= watermark) {
+      Path path = fs.newPath(data.getStamp());
+      long bulkStartStamp = data.getStamp() - data.getStamp() % rollPeriodMs;
+      Bulk bulk =
+          writers.computeIfAbsent(
+              bulkStartStamp,
+              p -> {
+                long maxStamp = data.getStamp() - data.getStamp() % rollPeriodMs + rollPeriodMs;
+                return ExceptionUtils.uncheckedFactory(() -> new Bulk(path, maxStamp));
+              });
+      ExceptionUtils.unchecked(() -> bulk.write(data, statusCallback, watermark, seqNo++));
+      log.debug("Written element {} to {} on watermark {}", data, bulk.getWriter(), watermark);
+    } else {
+      // FIXME: this MUST block 0.3.0 release
+      log.warn("Dropped late element {}. This MUST be fixed before 0.3.0 release!", data);
+    }
     flushOnWatermark(watermark);
   }
 

@@ -36,6 +36,7 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.RawLocalFileSystem;
 
 /** {@code DataAccessor} for Hadoop Distributed FileSystem. */
 @Slf4j
@@ -131,6 +132,7 @@ public class HadoopDataAccessor implements DataAccessor {
 
   Configuration getHadoopConf() {
     Configuration conf = new Configuration();
+    conf.set("fs.file.impl", RawLocalFileSystem.class.getName());
     cfg.forEach((key, value) -> conf.set(key, value.toString()));
     return conf;
   }

@@ -27,10 +27,12 @@ import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.NavigableMap;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.stream.Collectors;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.MiniHBaseCluster;
 import org.apache.hadoop.hbase.TableName;
@@ -48,9 +50,11 @@ import org.junit.Test;
 /** Test {@code HBaseWriter} via a local instance of HBase cluster. */
 public class HBaseWriterTest {
 
-  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.load()).build();
-  private final EntityDescriptor entity = repo.findEntity("test").get();
-  private final AttributeDescriptor<?> attr = entity.findAttribute("dummy").get();
+  private final Repository repo =
+      ConfigRepository.Builder.ofTest(() -> ConfigFactory.load()).build();
+  private final EntityDescriptor entity = repo.getEntity("test");
+  private final AttributeDescriptor<?> attr = entity.getAttribute("dummy");
+  private final AttributeDescriptor<?> wildcard = entity.getAttribute("wildcard.*");
 
   private static MiniHBaseCluster cluster;
   private static HBaseTestingUtility util;
@@ -119,5 +123,136 @@ public class HBaseWriterTest {
     assertArrayEquals(new byte[] {1, 2}, familyMap.get(bytes("dummy")));
     assertEquals(
         now, (long) res.getMap().get(bytes("u")).get(bytes("dummy")).firstEntry().getKey());
+  }
+
+  @Test(timeout = 10000)
+  public void testWriteDelete() throws InterruptedException, IOException {
+    CountDownLatch latch = new CountDownLatch(2);
+    long now = 1500000000000L;
+    writer.write(
+        StreamElement.upsert(
+            entity, attr, UUID.randomUUID().toString(), "entity", "dummy", now, new byte[] {1, 2}),
+        (succ, exc) -> {
+          assertTrue("Error on write: " + exc, succ);
+          latch.countDown();
+        });
+    writer.write(
+        StreamElement.delete(
+            entity, attr, UUID.randomUUID().toString(), "entity", "dummy", now + 1),
+        (succ, exc) -> {
+          assertTrue(succ);
+          latch.countDown();
+          ;
+        });
+    latch.await();
+    Connection conn = ConnectionFactory.createConnection(cluster.getConfiguration());
+    Table table = conn.getTable(TableName.valueOf("users"));
+    Get get = new Get(bytes("entity"));
+    Result res = table.get(get);
+    assertTrue(res.isEmpty());
+  }
+
+  @Test(timeout = 10000)
+  public void testWriteDeleteWithLessTs() throws InterruptedException, IOException {
+    CountDownLatch latch = new CountDownLatch(2);
+    long now = 1500000000000L;
+    writer.write(
+        StreamElement.upsert(
+            entity, attr, UUID.randomUUID().toString(), "entity", "dummy", now, new byte[] {1, 2}),
+        (succ, exc) -> {
+          assertTrue("Error on write: " + exc, succ);
+          latch.countDown();
+        });
+    writer.write(
+        StreamElement.delete(
+            entity, attr, UUID.randomUUID().toString(), "entity", "dummy", now - 1),
+        (succ, exc) -> {
+          assertTrue(succ);
+          latch.countDown();
+          ;
+        });
+    latch.await();
+    Connection conn = ConnectionFactory.createConnection(cluster.getConfiguration());
+    Table table = conn.getTable(TableName.valueOf("users"));
+    Get get = new Get(bytes("entity"));
+    Result res = table.get(get);
+    assertFalse(res.isEmpty());
+  }
+
+  @Test(timeout = 10000)
+  public void testWriteDeleteWildcard() throws InterruptedException, IOException {
+    CountDownLatch latch = new CountDownLatch(4);
+    long now = 1500000000000L;
+    writer.write(
+        StreamElement.upsert(
+            entity,
+            wildcard,
+            UUID.randomUUID().toString(),
+            "entity",
+            wildcard.toAttributePrefix() + 1,
+            now,
+            new byte[] {1, 2}),
+        (succ, exc) -> {
+          assertTrue("Error on write: " + exc, succ);
+          latch.countDown();
+        });
+    writer.write(
+        StreamElement.upsert(
+            entity,
+            wildcard,
+            UUID.randomUUID().toString(),
+            "entity",
+            wildcard.toAttributePrefix() + 2,
+            now + 1,
+            new byte[] {1, 2}),
+        (succ, exc) -> {
+          assertTrue("Error on write: " + exc, succ);
+          latch.countDown();
+        });
+    writer.write(
+        StreamElement.deleteWildcard(
+            entity, wildcard, UUID.randomUUID().toString(), "entity", now + 2),
+        (succ, exc) -> {
+          assertTrue(succ);
+          latch.countDown();
+          ;
+        });
+    writer.write(
+        StreamElement.upsert(
+            entity,
+            wildcard,
+            UUID.randomUUID().toString(),
+            "entity",
+            wildcard.toAttributePrefix() + 3,
+            now + 3,
+            new byte[] {1, 2}),
+        (succ, exc) -> {
+          assertTrue("Error on write: " + exc, succ);
+          latch.countDown();
+        });
+    latch.await();
+    Connection conn = ConnectionFactory.createConnection(cluster.getConfiguration());
+    Table table = conn.getTable(TableName.valueOf("users"));
+    Get get = new Get(bytes("entity"));
+    Result res = table.get(get);
+    NavigableMap<byte[], byte[]> familyMap = res.getFamilyMap(bytes("u"));
+    assertEquals(
+        "Expected single key in "
+            + familyMap
+                .keySet()
+                .stream()
+                .map(b -> new String(b, StandardCharsets.UTF_8))
+                .collect(Collectors.toList()),
+        1,
+        familyMap.size());
+    assertArrayEquals(new byte[] {1, 2}, familyMap.get(bytes(wildcard.toAttributePrefix() + 3)));
+    assertEquals(
+        now + 3,
+        (long)
+            res.getMap()
+                .get(bytes("u"))
+                .get(bytes(wildcard.toAttributePrefix() + 3))
+                .firstEntry()
+                .getKey());
   }
 }

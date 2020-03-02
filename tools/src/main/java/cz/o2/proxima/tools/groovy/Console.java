@@ -382,7 +382,7 @@ public class Console {
 
     if (!direct.isPresent()) {
       throw new IllegalStateException(
-          "Can write with direct operator only. Add runtime dependecncy");
+          "Can write with direct operator only. Add runtime dependency");
     }
     OnlineAttributeWriter writer =
         direct
@@ -391,9 +391,18 @@ public class Console {
             .orElseThrow(() -> new IllegalArgumentException("Missing writer for " + attrDesc));
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Throwable> exc = new AtomicReference<>();
+    final StreamElement delete;
+    if (attrDesc.isWildcard() && attribute.equals(attrDesc.getName())) {
+      delete =
+          StreamElement.deleteWildcard(
+              entityDesc, attrDesc, UUID.randomUUID().toString(), key, stamp);
+    } else {
+      delete =
+          StreamElement.delete(
+              entityDesc, attrDesc, UUID.randomUUID().toString(), key, attribute, stamp);
+    }
     writer.write(
-        StreamElement.upsert(
-            entityDesc, attrDesc, UUID.randomUUID().toString(), key, attribute, stamp, null),
+        delete,
         (success, ex) -> {
           if (!success) {
             exc.set(ex);

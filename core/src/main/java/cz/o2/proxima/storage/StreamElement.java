@@ -188,21 +188,15 @@ public class StreamElement implements Serializable {
 
   @Override
   public String toString() {
-    return "StreamElement(uuid="
-        + uuid
-        + ", entityDesc="
-        + entityDescriptor
-        + ", attributeDesc="
-        + attributeDescriptor
-        + ", key="
-        + key
-        + ", attribute="
-        + attribute
-        + ", stamp="
-        + stamp
-        + ", value.length="
-        + (value == null ? -1 : value.length)
-        + ")";
+    return MoreObjects.toStringHelper(this)
+        .add("uuid", uuid)
+        .add("entityDesc", entityDescriptor)
+        .add("attributeDesc", attributeDescriptor)
+        .add("key", key)
+        .add("attribute", attribute)
+        .add("stamp", stamp)
+        .add("value.length", value == null ? -1 : value.length)
+        .toString();
   }
 
   /**
@@ -221,6 +215,7 @@ public class StreamElement implements Serializable {
    */
   public boolean isDeleteWildcard() {
     return isDelete()
+        && attributeDescriptor.isWildcard()
         && (attribute.equals(attributeDescriptor.toAttributePrefix() + "*") || deleteWildcard);
   }
 

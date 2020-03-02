@@ -84,8 +84,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
       } else {
         String column = data.getAttribute();
         Put put = new Put(key, stamp);
-        put.addColumn(
-            family, column.getBytes(StandardCharsets.UTF_8), data.getStamp(), data.getValue());
+        put.addColumn(family, column.getBytes(StandardCharsets.UTF_8), stamp, data.getValue());
         this.client.put(put);
       }
       if (flushCommits) {
@@ -114,10 +113,12 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
         CellScanner cellScanner = res.cellScanner();
         while (cellScanner.advance()) {
           Cell c = cellScanner.current();
-          del.addColumns(
-              family,
-              cloneArray(c.getQualifierArray(), c.getQualifierOffset(), c.getQualifierLength()),
-              stamp);
+          if (c.getTimestamp() <= stamp) {
+            del.addColumns(
+                family,
+                cloneArray(c.getQualifierArray(), c.getQualifierOffset(), c.getQualifierLength()),
+                stamp);
+          }
           if (del.size() >= batchSize) {
             client.delete(del);
             del = new Delete(key);
@@ -125,8 +126,16 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
         }
       }
     }
-    if (del.size() > 0) {
+    if (!del.isEmpty()) {
       client.delete(del);
+    }
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Deleted prefix {} of key {} in family {} at {}",
+          prefix,
+          new String(key, StandardCharsets.UTF_8),
+          new String(family, StandardCharsets.UTF_8),
+          stamp);
     }
   }
 

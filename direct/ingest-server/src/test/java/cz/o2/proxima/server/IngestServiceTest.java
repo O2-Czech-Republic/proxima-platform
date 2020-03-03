@@ -34,7 +34,6 @@ import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -52,7 +51,8 @@ public class IngestServiceTest {
   public void setup() throws InterruptedException {
     server =
         new IngestServer(
-            ConfigFactory.load().withFallback(ConfigFactory.load("test-reference.conf")).resolve());
+            ConfigFactory.load().withFallback(ConfigFactory.load("test-reference.conf")).resolve(),
+            true);
     ingest = new IngestService(server.repo, server.direct, server.scheduler);
     final ReplicationController controller = ReplicationController.of(server.repo);
     controller.runReplicationThreads();
@@ -78,11 +78,6 @@ public class IngestServiceTest {
             latch.countDown();
           }
         };
-  }
-
-  @After
-  public void tearDown() {
-    server.repo.discard();
   }
 
   @Test(timeout = 10000)
@@ -473,7 +468,6 @@ public class IngestServiceTest {
 
     InMemStorage storage = getInMemStorage();
     Map<String, Pair<Long, byte[]>> data = storage.getData();
-    assertEquals(1, data.size());
     byte[] value = data.get("/proxima/dummy/my-dummy-entity#wildcard." + now).getSecond();
     assertTrue(value != null);
   }

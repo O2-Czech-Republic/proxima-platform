@@ -69,9 +69,10 @@ public class DirectDataOperatorTest {
   public DirectDataOperatorTest() {
     this.repo =
         ConfigRepository.Builder.of(
-                ConfigFactory.load()
-                    .withFallback(ConfigFactory.load("test-reference.conf"))
-                    .resolve())
+                () ->
+                    ConfigFactory.load()
+                        .withFallback(ConfigFactory.load("test-reference.conf"))
+                        .resolve())
             .build();
     this.direct = repo.asDataOperator(DirectDataOperator.class);
   }
@@ -105,23 +106,26 @@ public class DirectDataOperatorTest {
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidFamily() {
     ConfigRepository.Builder.of(
-            ConfigFactory.load()
-                .withFallback(ConfigFactory.load("test-reference.conf"))
-                .withFallback(ConfigFactory.parseString("attributeFamilies.invalid.invalid = true"))
-                .resolve())
+            () ->
+                ConfigFactory.load()
+                    .withFallback(ConfigFactory.load("test-reference.conf"))
+                    .withFallback(
+                        ConfigFactory.parseString("attributeFamilies.invalid.invalid = true"))
+                    .resolve())
         .build();
   }
 
   @Test
   public void testInvalidDisabledFamily() {
     ConfigRepository.Builder.of(
-            ConfigFactory.load()
-                .withFallback(ConfigFactory.load("test-reference.conf"))
-                .withFallback(
-                    ConfigFactory.parseString(
-                        "attributeFamilies.invalid.invalid = true\n"
-                            + "attributeFamilies.invalid.disabled = true"))
-                .resolve())
+            () ->
+                ConfigFactory.load()
+                    .withFallback(ConfigFactory.load("test-reference.conf"))
+                    .withFallback(
+                        ConfigFactory.parseString(
+                            "attributeFamilies.invalid.invalid = true\n"
+                                + "attributeFamilies.invalid.disabled = true"))
+                    .resolve())
         .build();
     // make sonar happy :-)
     assertTrue(true);
@@ -571,9 +575,8 @@ public class DirectDataOperatorTest {
   }
 
   @Test(expected = NotSerializableException.class)
-  public void testRepositoryNotSerializable() throws Exception {
-    ConfigRepository clone = (ConfigRepository) TestUtils.assertSerializable(repo);
-    assertNotNull(clone.getConfig());
+  public void testOperatorNotSerializable() throws Exception {
+    TestUtils.assertSerializable(direct);
   }
 
   @Test

@@ -53,7 +53,7 @@ public class HBaseLogObservableTest {
 
   private static MiniHBaseCluster cluster;
 
-  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.load()).build();
+  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory::load).build();
   private final EntityDescriptor entity = repo.findEntity("test").get();
   private final AttributeDescriptor<?> attr = entity.findAttribute("dummy").get();
   private final AttributeDescriptor<?> wildcard = entity.findAttribute("wildcard.*").get();

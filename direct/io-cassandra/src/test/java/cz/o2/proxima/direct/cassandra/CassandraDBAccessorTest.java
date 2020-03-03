@@ -192,7 +192,7 @@ public class CassandraDBAccessorTest {
   }
 
   final Repository repo =
-      ConfigRepository.Builder.ofTest(ConfigFactory.defaultApplication()).build();
+      ConfigRepository.Builder.ofTest(ConfigFactory::defaultApplication).build();
   AttributeDescriptorBase<byte[]> attr;
   AttributeDescriptorBase<byte[]> attrWildcard;
   EntityDescriptor entity;

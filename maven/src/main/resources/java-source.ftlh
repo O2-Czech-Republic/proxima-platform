@@ -42,7 +42,8 @@ public class ${java_classname} implements Serializable {
    **/
   @Deprecated
   public static ${java_classname} of(Config cfg) {
-    return new ${java_classname}(ConfigRepository.Builder.of(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+    return new ${java_classname}(ConfigRepository.Builder.of(
+        () -> cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
 
   /**
@@ -64,18 +65,6 @@ public class ${java_classname} implements Serializable {
    **/
   public static ${java_classname} of(ConfigRepository.Builder builder) {
     return new ${java_classname}(builder);
-  }
-
-  /**
-   * Create instance of {@code ${java_classname}} for testing purposes.
-   *
-   * @param cfg configuration to use
-   * @return ${java_classname}
-   * @deprecated use {@link #ofTest(Repository.ConfigFactory)} instead
-   **/
-  @Deprecated
-  public static ${java_classname} ofTest(Config cfg) {
-    return new ${java_classname}(ConfigRepository.Builder.ofTest(cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
 
   /**

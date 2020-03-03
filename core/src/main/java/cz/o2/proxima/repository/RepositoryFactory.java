@@ -15,7 +15,10 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.base.Preconditions;
 import java.io.Serializable;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Factory for {@link cz.o2.proxima.repository.Repository}. */
 @FunctionalInterface
@@ -28,8 +31,12 @@ public interface RepositoryFactory extends Serializable {
 
     private final RepositoryFactory underlying;
 
-    private Caching(RepositoryFactory underlying) {
+    private Caching(RepositoryFactory underlying, Repository created) {
       this.underlying = underlying;
+      synchronized (Repository.class) {
+        initialized = 1;
+        repo = created;
+      }
     }
 
     @Override
@@ -44,17 +51,35 @@ public interface RepositoryFactory extends Serializable {
       }
       return repo;
     }
+  }
 
-    void drop() {
-      synchronized (Repository.class) {
-        repo = null;
-        initialized = 0;
-      }
+  class LocalInstance implements RepositoryFactory {
+
+    private static final Map<Integer, Repository> localMap = new ConcurrentHashMap<>();
+
+    private final int hashCode;
+
+    private LocalInstance(Repository repo) {
+      this.hashCode = System.identityHashCode(repo);
+      Preconditions.checkState(localMap.put(System.identityHashCode(repo), repo) == null);
+    }
+
+    @Override
+    public Repository apply() {
+      return localMap.get(hashCode);
     }
   }
 
   static RepositoryFactory caching(RepositoryFactory factory) {
-    return new Caching(factory);
+    return new Caching(factory, factory.apply());
+  }
+
+  static RepositoryFactory caching(RepositoryFactory factory, Repository current) {
+    return new Caching(factory, current);
+  }
+
+  static RepositoryFactory local(Repository repository) {
+    return new LocalInstance(repository);
   }
 
   /**

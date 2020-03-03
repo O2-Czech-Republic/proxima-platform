@@ -33,6 +33,11 @@ import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.CamelCase;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.Pair;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.ObjectStreamException;
+import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -58,7 +63,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 // BUG in error prone
 @SuppressWarnings("InconsistentCapitalization")
-public class ConfigRepository extends Repository {
+public final class ConfigRepository extends Repository implements Serializable {
 
   // config parsing constants
   private static final String ALL = "all";
@@ -96,6 +101,16 @@ public class ConfigRepository extends Repository {
   }
 
   /**
+   * Construct default repository from the config.
+   *
+   * @param factory configuration to use
+   * @return constructed repository
+   */
+  public static Repository ofTest(ConfigFactory factory) {
+    return Builder.of(factory).withTest(true).build();
+  }
+
+  /**
    * Create config from /{@link Config}.
    *
    * @param config the config to create {@link Repository} from
@@ -110,52 +125,41 @@ public class ConfigRepository extends Repository {
   /** Builder for the repository. */
   public static class Builder {
 
-    public static Builder of(ConfigFactory config) {
-      return new Builder(config, false);
-    }
-
     /**
-     * Create new {@link Repository} from {@link Config}.
+     * Create new {@link Repository} from {@link ConfigFactory}.
      *
      * @param config config to create {@link Repository from}
      * @return new builder of Repository
      * @deprecated use {@link #of(ConfigFactory)} instead.
      */
-    @Deprecated
-    public static Builder of(Config config) {
-      return new Builder(() -> config, false);
-    }
-
-    public static Builder ofTest(ConfigFactory factory) {
-      return new Builder(factory, true);
+    public static Builder of(ConfigFactory config) {
+      return new Builder(config);
     }
 
     /**
-     * Create new test instance of {@link Repository} from {@link Config}.
+     * Create a test version of repository.
      *
-     * @param config config to create {@link Repository} from
+     * @param factory factory to use
      * @return new Builder of test Repository
-     * @deprecated use {@link #ofTest(ConfigFactory)} instead.
      */
-    @Deprecated
-    public static Builder ofTest(Config config) {
-      return new Builder(() -> config, true);
+    public static Builder ofTest(ConfigFactory factory) {
+      return new Builder(factory).withTest(true);
     }
 
     private final ConfigFactory factory;
+    private boolean test = false;
     private boolean readOnly = false;
     private boolean validate = true;
     private boolean loadFamilies = true;
     private boolean loadClasses = true;
 
-    private Builder(ConfigFactory factory, boolean test) {
+    private Builder(ConfigFactory factory) {
       this.factory = Objects.requireNonNull(factory);
+    }
 
-      if (test) {
-        this.readOnly = true;
-        this.validate = false;
-        this.loadFamilies = false;
-      }
+    public Builder withTest(boolean flag) {
+      this.test = flag;
+      return this;
     }
 
     public Builder withReadOnly(boolean flag) {
@@ -179,7 +183,7 @@ public class ConfigRepository extends Repository {
     }
 
     public ConfigRepository build() {
-      return new ConfigRepository(factory, readOnly, validate, loadFamilies, loadClasses);
+      return new ConfigRepository(factory, test, readOnly, validate, loadFamilies, loadClasses);
     }
   }
 
@@ -198,6 +202,9 @@ public class ConfigRepository extends Repository {
 
   /** Application configuration. */
   @Getter private Config config;
+
+  /** Test repository disables any caching. */
+  @Getter private final boolean test;
 
   /**
    * When read-only flag is specified, some checks are not performed in construction. This enables
@@ -246,6 +253,9 @@ public class ConfigRepository extends Repository {
   /** Set of operators created by this repository. */
   private final Set<DataOperator> operators = Collections.synchronizedSet(new HashSet<>());
 
+  /** Cache for deserialization purposes. */
+  private RepositoryFactory factory = null;
+
   /**
    * Construct the repository from the config with the specified read-only and validation flag.
    *
@@ -257,16 +267,21 @@ public class ConfigRepository extends Repository {
    */
   private ConfigRepository(
       ConfigFactory factory,
+      boolean test,
       boolean isReadonly,
       boolean shouldValidate,
       boolean loadFamilies,
       boolean loadClasses) {
 
     super(factory);
+    this.test = test;
     this.config = factory.apply();
     this.readonly = isReadonly;
     this.shouldValidate = shouldValidate;
     this.loadClasses = loadClasses;
+    if (test) {
+      this.factory = RepositoryFactory.local(this);
+    }
 
     try {
 
@@ -1956,5 +1971,44 @@ public class ConfigRepository extends Repository {
   @Override
   protected void addedDataOperator(DataOperator op) {
     operators.add(op);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    ConfigRepository that = (ConfigRepository) o;
+    return test == that.test
+        && readonly == that.readonly
+        && shouldValidate == that.shouldValidate
+        && loadClasses == that.loadClasses
+        && Objects.equals(config, that.config);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(config, test, readonly, shouldValidate, loadClasses);
+  }
+
+  @Override
+  public RepositoryFactory asFactory() {
+    if (isTest()) {
+      return factory;
+    }
+    return super.asFactory();
+  }
+
+  private void writeObject(ObjectOutputStream oos) throws IOException {
+    oos.writeObject(asFactory());
+  }
+
+  private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+    RepositoryFactory readFactory = (RepositoryFactory) ois.readObject();
+    this.factory = readFactory;
+  }
+
+  private Object readResolve() throws ObjectStreamException {
+    Preconditions.checkState(this.factory != null);
+    return this.factory.apply();
   }
 }

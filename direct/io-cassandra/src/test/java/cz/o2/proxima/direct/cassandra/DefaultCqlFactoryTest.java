@@ -46,7 +46,7 @@ import org.junit.Test;
 public class DefaultCqlFactoryTest {
 
   final Config cfg = ConfigFactory.defaultApplication();
-  final Repository repo = ConfigRepository.Builder.ofTest(cfg).build();
+  final Repository repo = ConfigRepository.Builder.ofTest(() -> cfg).build();
   final AttributeDescriptorBase<?> attr;
   final AttributeDescriptorBase<?> attrWildcard;
   final EntityDescriptor entity;

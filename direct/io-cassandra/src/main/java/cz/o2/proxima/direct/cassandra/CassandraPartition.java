@@ -21,6 +21,8 @@ import lombok.Getter;
 /** A {@code Partition} in Cassandra. */
 public class CassandraPartition extends BoundedPartition {
 
+  private static final long serialVersionUID = 1L;
+
   @Getter final long minStamp;
 
   @Getter final long maxStamp;

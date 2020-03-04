@@ -37,6 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ProtoSerializerFactory implements ValueSerializerFactory {
 
+  private static final long serialVersionUID = 1L;
+
   private final Map<URI, ValueSerializer<?>> parsers = new ConcurrentHashMap<>();
 
   @Override
@@ -47,6 +49,8 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   private static <M extends AbstractMessage> ValueSerializer<M> createSerializer(URI uri) {
     return new ValueSerializer<M>() {
+
+      private static final long serialVersionUID = 1L;
 
       final String protoClass = uri.getSchemeSpecificPart();
       @Nullable transient M defVal = null;

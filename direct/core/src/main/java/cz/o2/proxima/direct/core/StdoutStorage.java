@@ -26,6 +26,8 @@ import java.util.Optional;
 @Stable
 public class StdoutStorage implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public Accept accepts(URI uri) {
     return uri.getScheme().equals("stdout") ? Accept.ACCEPT : Accept.REJECT;
@@ -36,6 +38,8 @@ public class StdoutStorage implements DataAccessorFactory {
       DirectDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     return new DataAccessor() {
+
+      private static final long serialVersionUID = 1L;
 
       @Override
       public Optional<AttributeWriterBase> getWriter(Context context) {

@@ -21,6 +21,8 @@ import cz.o2.proxima.annotations.Stable;
 @Stable
 public abstract class ScalarMetric extends Metric<Double> implements ScalarMetricMBean<Double> {
 
+  private static final long serialVersionUID = 1L;
+
   public ScalarMetric(String group, String name) {
     super(group, name);
   }

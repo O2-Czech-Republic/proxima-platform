@@ -29,6 +29,8 @@ import org.apache.hadoop.hbase.client.Connection;
 /** Storage descriptor for bigtable:// URIs. */
 public class BigTableStorage implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public DataAccessor createAccessor(
       DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {

@@ -26,6 +26,8 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class AbstractOnlineAttributeWriter extends AbstractAttributeWriter
     implements OnlineAttributeWriter {
 
+  private static final long serialVersionUID = 1L;
+
   protected AbstractOnlineAttributeWriter(EntityDescriptor entityDesc, URI uri) {
     super(entityDesc, uri);
   }

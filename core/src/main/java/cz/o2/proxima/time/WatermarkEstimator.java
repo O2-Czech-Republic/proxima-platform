@@ -33,6 +33,8 @@ import lombok.extern.slf4j.Slf4j;
 @Internal
 public class WatermarkEstimator implements WatermarkSupplier {
 
+  private static final long serialVersionUID = 1L;
+
   @VisibleForTesting static final long MIN_WATERMARK = Long.MIN_VALUE + 365 * 86400000L;
 
   @Internal

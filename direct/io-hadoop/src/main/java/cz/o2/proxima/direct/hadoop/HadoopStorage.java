@@ -31,6 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 @EqualsAndHashCode
 public class HadoopStorage implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public DataAccessor createAccessor(
       DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {

@@ -48,6 +48,8 @@ public interface VectorClock extends WatermarkSupplier {
 
   final class VectorClockImpl implements VectorClock {
 
+    private static final long serialVersionUID = 1L;
+
     final long[] dimensions;
 
     private VectorClockImpl(int dimensions, long initialStamp) {
@@ -80,6 +82,8 @@ public interface VectorClock extends WatermarkSupplier {
   // a fallback implementation that is used when supplied dimensions
   // is empty
   final class ProcessingTimeClock implements VectorClock {
+
+    private static final long serialVersionUID = 1L;
 
     @Override
     public void update(int dimension, long stamp) {

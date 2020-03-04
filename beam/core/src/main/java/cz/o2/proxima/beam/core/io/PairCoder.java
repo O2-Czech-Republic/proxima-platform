@@ -31,6 +31,8 @@ import org.apache.beam.sdk.values.TypeParameter;
 @Internal
 public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
 
+  private static final long serialVersionUID = 1L;
+
   public static <K, V> PairCoder<K, V> of(Coder<K> keyCoder, Coder<V> valueCoder) {
     return new PairCoder<>(keyCoder, valueCoder);
   }

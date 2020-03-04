@@ -64,6 +64,8 @@ public class AbstractBulkFileSystemAttributeWriterTest {
 
   public static class InstantiableJsonFormat extends JsonFormat {
 
+    private static final long serialVersionUID = 1L;
+
     public InstantiableJsonFormat() {
       super(false);
     }

@@ -41,6 +41,8 @@ import org.apache.beam.sdk.options.PipelineOptions;
 class DirectUnboundedSource
     extends UnboundedSource<StreamElement, DirectUnboundedSource.Checkpoint> {
 
+  private static final long serialVersionUID = 1L;
+
   static DirectUnboundedSource of(
       RepositoryFactory factory,
       String name,
@@ -53,6 +55,8 @@ class DirectUnboundedSource
   }
 
   static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Getter @Nullable private final Offset offset;
     @Getter private final long limit;

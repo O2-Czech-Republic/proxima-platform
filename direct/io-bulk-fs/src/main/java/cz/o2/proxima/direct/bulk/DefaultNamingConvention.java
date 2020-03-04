@@ -36,6 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 @Internal
 public class DefaultNamingConvention implements NamingConvention {
 
+  private static final long serialVersionUID = 1L;
+
   private static final char SEPARATOR = '/';
   private static final Pattern NAME_PATTERN =
       Pattern.compile(".*/?[^/]+-([0-9]+)_([0-9]+)[^/]*\\.+[^/]*$");

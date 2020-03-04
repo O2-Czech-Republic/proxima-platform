@@ -26,7 +26,11 @@ import java.util.UUID;
 /** {@link AttributeDescriptor} */
 public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T> {
 
+  private static final long serialVersionUID = 1L;
+
   public static class Regular<T> extends EntityAwareAttributeDescriptor<T> {
+
+    private static final long serialVersionUID = 1L;
 
     private Regular(EntityDescriptor entity, AttributeDescriptor<T> attr) {
       super(entity, attr);
@@ -138,6 +142,8 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
   }
 
   public static class Wildcard<T> extends EntityAwareAttributeDescriptor<T> {
+
+    private static final long serialVersionUID = 1L;
 
     private Wildcard(EntityDescriptor entity, AttributeDescriptor<T> attr) {
       super(entity, attr);

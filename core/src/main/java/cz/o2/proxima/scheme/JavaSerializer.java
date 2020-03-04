@@ -40,6 +40,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Stable
 public class JavaSerializer implements ValueSerializerFactory {
+
+  private static final long serialVersionUID = 1L;
+
   private final Map<URI, ValueSerializer<?>> cache = new ConcurrentHashMap<>();
   private static final List<String> javaPackages = Arrays.asList("java.lang");
 
@@ -64,6 +67,9 @@ public class JavaSerializer implements ValueSerializerFactory {
 
   /** Serializer implementation */
   private static final class JavaValueSerializer<T> implements ValueSerializer<T> {
+
+    private static final long serialVersionUID = 1L;
+
     private final URI scheme;
     private final String className;
     transient T defaultValue = null;

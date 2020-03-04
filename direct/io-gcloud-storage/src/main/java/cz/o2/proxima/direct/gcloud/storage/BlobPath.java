@@ -29,6 +29,8 @@ import java.nio.channels.Channels;
 @Internal
 public class BlobPath implements Path {
 
+  private static final long serialVersionUID = 1L;
+
   public static Path of(FileSystem fs, Blob blob) {
     return new BlobPath(fs, blob);
   }

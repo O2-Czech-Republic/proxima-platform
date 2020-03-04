@@ -27,6 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FloatSerializer implements ValueSerializerFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public String getAcceptableScheme() {
     return "float";
@@ -37,6 +39,8 @@ public class FloatSerializer implements ValueSerializerFactory {
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
     return (ValueSerializer)
         new ValueSerializer<Float>() {
+
+          private static final long serialVersionUID = 1L;
 
           @Override
           public Optional<Float> deserialize(byte[] input) {

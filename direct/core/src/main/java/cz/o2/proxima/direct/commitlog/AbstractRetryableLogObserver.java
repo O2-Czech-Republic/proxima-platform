@@ -25,6 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class AbstractRetryableLogObserver implements LogObserver {
 
+  private static final long serialVersionUID = 1L;
+
   /** Maximal number of retries. */
   @Getter private final int maxRetries;
   /** Name of the consumer. */

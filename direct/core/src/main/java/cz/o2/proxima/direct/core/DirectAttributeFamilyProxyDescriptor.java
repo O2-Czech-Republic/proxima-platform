@@ -56,6 +56,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyDescriptor {
 
+  private static final long serialVersionUID = 1L;
+
   static DirectAttributeFamilyProxyDescriptor of(
       Context context, AttributeFamilyProxyDescriptor proxy) {
 
@@ -63,6 +65,8 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
   }
 
   static class AttrLookup implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Getter private final List<AttributeProxyDescriptor<?>> attrs;
     private final Map<String, AttributeProxyDescriptor<?>> proxyNameToDesc;

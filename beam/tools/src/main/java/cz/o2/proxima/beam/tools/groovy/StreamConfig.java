@@ -28,6 +28,8 @@ import lombok.Getter;
 /** Configuration object for {@link BeamStream}. */
 public class StreamConfig implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   private static final String COLLECT_PORT_KEY = "console.collect.server-port";
   private static final String COLLECT_HOSTNAME = "console.collect.hostname";
 

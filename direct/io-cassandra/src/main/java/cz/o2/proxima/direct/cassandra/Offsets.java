@@ -23,6 +23,8 @@ public class Offsets {
   /** Offset represented by a token (hash) of the key. */
   public static class Token implements RandomOffset {
 
+    private static final long serialVersionUID = 1L;
+
     final long tkn;
 
     Token(long token) {
@@ -36,6 +38,8 @@ public class Offsets {
 
   /** Offset represented by the raw string value. */
   public static class Raw implements RandomOffset {
+
+    private static final long serialVersionUID = 1L;
 
     final String str;
 

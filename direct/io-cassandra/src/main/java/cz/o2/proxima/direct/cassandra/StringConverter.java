@@ -22,7 +22,9 @@ import javax.annotation.Nullable;
 /** A converter between a specified java type and {@code String}. */
 public interface StringConverter<T> extends Serializable {
 
-  public static class DefaultConverter implements StringConverter<String> {
+  class DefaultConverter implements StringConverter<String> {
+
+    private static final long serialVersionUID = 1L;
 
     /** String value that all strings should be less than. */
     static final String MAX = new String(new byte[] {(byte) 0xFF}, 0, 1, StandardCharsets.US_ASCII);

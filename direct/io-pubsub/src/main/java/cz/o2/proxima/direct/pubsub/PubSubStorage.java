@@ -32,6 +32,8 @@ import lombok.Getter;
 @Stable
 public class PubSubStorage implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   public static final String CFG_DEFAULT_MAX_ACK_DEADLINE = "pubsub.default.deadline-max-ms";
   public static final String CFG_DEFAULT_SUBSCRIPTION_AUTOCREATE =
       "pubsub.default.subscription.auto-create";

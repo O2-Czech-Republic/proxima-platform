@@ -22,6 +22,8 @@ import java.util.stream.Collectors;
 /** Base class for tests of all stream classes. */
 abstract class AbstractStreamTest implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   final transient TestStreamProvider provider;
 
   protected AbstractStreamTest(TestStreamProvider provider) {

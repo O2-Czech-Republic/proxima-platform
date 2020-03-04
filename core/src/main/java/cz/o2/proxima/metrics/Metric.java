@@ -27,6 +27,8 @@ import lombok.Getter;
 @Stable
 public abstract class Metric<T> implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   @Getter final String group;
 
   @Getter final String name;

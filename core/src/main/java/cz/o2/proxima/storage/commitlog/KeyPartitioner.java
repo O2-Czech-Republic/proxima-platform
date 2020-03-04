@@ -20,6 +20,8 @@ import cz.o2.proxima.storage.StreamElement;
 /** A partitioner based on key of entity. This is the default partitioner. */
 public class KeyPartitioner implements Partitioner {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public int getPartitionId(StreamElement element) {
     return element.getKey().hashCode();

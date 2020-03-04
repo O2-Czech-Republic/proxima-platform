@@ -32,7 +32,11 @@ import org.apache.kafka.common.serialization.Serdes;
 @Slf4j
 public class KafkaStreamElement extends StreamElement {
 
+  private static final long serialVersionUID = 1L;
+
   public static class KafkaStreamElementSerializer implements ElementSerializer<String, byte[]> {
+
+    private static final long serialVersionUID = 1L;
 
     @Nullable
     @Override

@@ -33,6 +33,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DirectDataAccessorFactory implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Nullable private transient DirectDataOperator direct;
 
   @Override

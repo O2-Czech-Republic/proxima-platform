@@ -37,6 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class TimeBoundedVersionedCache implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   @Value
   private static class Payload {
     @Nullable Object data;

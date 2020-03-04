@@ -40,6 +40,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
+  private static final long serialVersionUID = 1L;
+
   /** A poll interval in milliseconds. */
   public static final String POLL_INTERVAL_CFG = "poll.interval";
   /** Partitioner class for entity key-attribute pair. */

@@ -72,6 +72,8 @@ import org.apache.kafka.common.record.TimestampType;
 @Slf4j
 public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   public static final String CFG_NUM_PARTITIONS = "local-kafka-num-partitions";
 
   // we need this to be able to survive serialization
@@ -114,6 +116,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   }
 
   public static class Accessor extends KafkaAccessor {
+
+    private static final long serialVersionUID = 1L;
 
     int descriptorId;
     int numPartitions = 1;

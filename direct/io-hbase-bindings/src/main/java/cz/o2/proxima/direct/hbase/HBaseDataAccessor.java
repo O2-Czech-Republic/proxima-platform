@@ -32,6 +32,8 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 /** {@code DataAccessor} for HBase. */
 public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
 
+  private static final long serialVersionUID = 1L;
+
   /**
    * Optional function to be used when creating configuration from URI. This can be used to update
    * the configuration with data stored at the specified map.

@@ -24,6 +24,8 @@ import lombok.Getter;
 @Internal
 public class Pair<A, B> implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   public static <A, B> Pair<A, B> of(A first, B second) {
     return new Pair<>(first, second);
   }

@@ -21,6 +21,8 @@ import org.apache.beam.sdk.coders.CustomCoder;
 
 abstract class AbstractRepositoryCoder<T> extends CustomCoder<T> {
 
+  private static final long serialVersionUID = 1L;
+
   private final RepositoryFactory repoFactory;
   private transient Repository repo;
 

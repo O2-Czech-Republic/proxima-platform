@@ -33,6 +33,8 @@ import org.apache.beam.sdk.values.TypeDescriptor;
 
 public class StreamElementCoder extends CustomCoder<StreamElement> {
 
+  private static final long serialVersionUID = 1L;
+
   private enum Type {
     UPDATE,
     DELETE,

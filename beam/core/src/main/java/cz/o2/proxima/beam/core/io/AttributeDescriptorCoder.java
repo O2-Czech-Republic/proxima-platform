@@ -29,6 +29,8 @@ import org.apache.beam.sdk.values.TypeDescriptor;
 
 public class AttributeDescriptorCoder extends AbstractRepositoryCoder<AttributeDescriptor<?>> {
 
+  private static final long serialVersionUID = 1L;
+
   /**
    * Create {@link AttributeDescriptorCoder} from {@link Repository}.
    *

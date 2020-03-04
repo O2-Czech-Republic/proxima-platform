@@ -35,6 +35,8 @@ import org.apache.hadoop.fs.FileStatus;
 @Slf4j
 class HadoopPath implements Path {
 
+  private static final long serialVersionUID = 1L;
+
   /** Create new {@link HadoopPath} from given path and configuration. */
   static HadoopPath of(HadoopFileSystem fs, String path, HadoopDataAccessor accessor) {
     return new HadoopPath(fs, path, accessor);

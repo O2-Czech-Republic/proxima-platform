@@ -42,6 +42,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulkAttributeWriter {
 
+  private static final long serialVersionUID = 1L;
+
   @ToString
   protected class Bulk {
     @Getter private final Path path;

@@ -29,6 +29,8 @@ import org.junit.Test;
 /** Abstract base class for windowed streams test. */
 public abstract class AbstractWindowedStreamTest extends StreamTest {
 
+  private static final long serialVersionUID = 1L;
+
   protected AbstractWindowedStreamTest(TestStreamProvider provider) {
     super(provider);
   }

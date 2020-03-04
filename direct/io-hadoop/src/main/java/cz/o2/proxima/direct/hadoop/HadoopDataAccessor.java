@@ -42,6 +42,8 @@ import org.apache.hadoop.fs.FileSystem;
 @ToString
 public class HadoopDataAccessor implements DataAccessor {
 
+  private static final long serialVersionUID = 1L;
+
   private static final String CFG_PREFIX = "hadoop";
   public static final String HADOOP_ROLL_INTERVAL = CFG_PREFIX + ".log-roll-interval";
   public static final String HADOOP_BATCH_PROCESS_SIZE_MIN = CFG_PREFIX + ".process-size.min";

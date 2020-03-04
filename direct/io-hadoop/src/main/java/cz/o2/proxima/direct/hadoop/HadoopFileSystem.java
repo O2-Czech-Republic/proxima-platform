@@ -31,6 +31,8 @@ import org.apache.hadoop.fs.RemoteIterator;
 /** A {@link FileSystem} implementation for hadoop. */
 class HadoopFileSystem implements FileSystem {
 
+  private static final long serialVersionUID = 1L;
+
   private final URI uri;
   private final HadoopDataAccessor accessor;
   private final NamingConvention namingConvention;

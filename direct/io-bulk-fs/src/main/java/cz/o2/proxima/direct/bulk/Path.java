@@ -39,6 +39,8 @@ public interface Path extends Serializable {
   static Path local(FileSystem fs, File path) {
     return new Path() {
 
+      private static final long serialVersionUID = 1L;
+
       @Override
       public InputStream reader() throws IOException {
         return new FileInputStream(path);
@@ -73,6 +75,8 @@ public interface Path extends Serializable {
 
   static Path stdin(FileFormat format) {
     return new Path() {
+
+      private static final long serialVersionUID = 1L;
 
       @Override
       public InputStream reader() throws IOException {

@@ -36,6 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class GCloudFileSystem extends GCloudClient implements FileSystem {
 
+  private static final long serialVersionUID = 1L;
+
   private final URI uri;
   private final NamingConvention namingConvention;
 

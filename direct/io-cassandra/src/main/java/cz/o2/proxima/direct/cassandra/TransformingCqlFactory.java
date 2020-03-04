@@ -38,6 +38,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class TransformingCqlFactory<T extends Serializable> extends CacheableCqlFactory {
 
+  private static final long serialVersionUID = 1L;
+
   /** Parser of ingest to any intermediate type. */
   private final UnaryFunction<StreamElement, T> parser;
   /** Name of the the primary key column . */

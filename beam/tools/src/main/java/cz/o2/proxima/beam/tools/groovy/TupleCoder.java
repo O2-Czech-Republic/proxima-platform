@@ -29,6 +29,8 @@ import org.apache.beam.sdk.util.VarInt;
 /** Coder for {@link Tuple}s. */
 public class TupleCoder extends Coder<Tuple<Object>> {
 
+  private static final long serialVersionUID = 1L;
+
   public static TupleCoder of() {
     return new TupleCoder(KryoCoder.of());
   }

@@ -26,6 +26,8 @@ import org.apache.beam.sdk.options.PipelineOptions;
 /** Abstract super class for bounded sources. */
 abstract class AbstractDirectBoundedSource extends BoundedSource<StreamElement> {
 
+  private static final long serialVersionUID = 1L;
+
   final RepositoryFactory factory;
 
   AbstractDirectBoundedSource(Repository repo) {

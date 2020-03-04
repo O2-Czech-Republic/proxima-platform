@@ -42,6 +42,8 @@ import org.apache.avro.specific.SpecificRecord;
 @Slf4j
 class SchemaRegistryValueSerializer<M extends GenericContainer> implements ValueSerializer<M> {
 
+  private static final long serialVersionUID = 1L;
+
   static final byte MAGIC_BYTE = 0x0;
   static final int SCHEMA_ID_SIZE = 4;
   private final URI schemaRegistryUri;

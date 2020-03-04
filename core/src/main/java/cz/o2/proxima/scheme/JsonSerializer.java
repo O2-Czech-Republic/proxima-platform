@@ -25,6 +25,8 @@ import java.net.URI;
  */
 public class JsonSerializer implements ValueSerializerFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public String getAcceptableScheme() {
     return "json";
@@ -35,6 +37,8 @@ public class JsonSerializer implements ValueSerializerFactory {
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
     return (ValueSerializer<T>)
         new StringUtf8Serializer.StringValueSerializer() {
+
+          private static final long serialVersionUID = 1L;
 
           @Override
           public String getDefault() {

@@ -34,7 +34,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -44,6 +43,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
@@ -62,7 +62,7 @@ import org.apache.beam.sdk.options.PipelineOptionsFactory;
 public abstract class BeamStreamProvider implements StreamProvider {
 
   @FunctionalInterface
-  public static interface RunnerRegistrar extends Serializable {
+  public interface RunnerRegistrar {
     void apply(PipelineOptions opts);
   }
 
@@ -89,7 +89,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
 
     @SuppressWarnings("unchecked")
     @Override
-    protected Factory<PipelineOptions> getPipelineOptionsFactory() {
+    protected Supplier<PipelineOptions> getPipelineOptionsFactory() {
       return () -> {
         PipelineOptions opts = PipelineOptionsFactory.fromArgs(args).create();
         if (runner != null) {
@@ -178,7 +178,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
    *
    * @return the factory
    */
-  protected Factory<PipelineOptions> getPipelineOptionsFactory() {
+  protected Supplier<PipelineOptions> getPipelineOptionsFactory() {
     return PipelineOptionsFactory::create;
   }
 
@@ -194,10 +194,10 @@ public abstract class BeamStreamProvider implements StreamProvider {
   }
 
   Factory<Pipeline> getJarRegisteringPipelineFactory() {
-    Factory<PipelineOptions> factory = getPipelineOptionsFactory();
+    Supplier<PipelineOptions> factory = getPipelineOptionsFactory();
     UnaryFunction<PipelineOptions, Pipeline> createPipeline = getCreatePipelineFromOpts();
     return () -> {
-      PipelineOptions opts = factory.apply();
+      PipelineOptions opts = factory.get();
       createUdfJarAndRegisterToPipeline(opts);
       return createPipeline.apply(opts);
     };

@@ -27,6 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class LongSerializer implements ValueSerializerFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public String getAcceptableScheme() {
     return "long";
@@ -37,6 +39,8 @@ public class LongSerializer implements ValueSerializerFactory {
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
     return (ValueSerializer)
         new ValueSerializer<Long>() {
+
+          private static final long serialVersionUID = 1L;
 
           @Override
           public Optional<Long> deserialize(byte[] input) {

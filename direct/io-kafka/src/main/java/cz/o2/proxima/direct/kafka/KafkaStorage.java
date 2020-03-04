@@ -24,6 +24,8 @@ import java.util.Map;
 /** Storage using {@code KafkaProducer}. */
 public class KafkaStorage implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public KafkaAccessor createAccessor(
       DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {

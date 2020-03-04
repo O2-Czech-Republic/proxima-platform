@@ -25,6 +25,8 @@ import java.util.Arrays;
 @Stable
 public class ApproxPercentileMetric extends Metric<Stats> implements ApproxPercentileMetricMXBean {
 
+  private static final long serialVersionUID = 1L;
+
   /**
    * Construct the metric.
    *

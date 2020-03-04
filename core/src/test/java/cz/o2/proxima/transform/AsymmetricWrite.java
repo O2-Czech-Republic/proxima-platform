@@ -19,6 +19,8 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 
 public class AsymmetricWrite implements ProxyTransform {
 
+  private static final long serialVersionUID = 1L;
+
   private String target;
 
   @Override

@@ -26,6 +26,8 @@ import java.util.Map;
 /** {@link DataAccessorFactory} for PubSub URLs. */
 public class PubSubDataAccessorFactory implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public Accept accepts(URI uri) {
     return uri.getScheme().equals("gps") ? Accept.ACCEPT : Accept.REJECT;

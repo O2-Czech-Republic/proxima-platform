@@ -36,6 +36,8 @@ import org.apache.beam.sdk.values.TypeDescriptor;
 /** Wrapper of direct data accessor to beam one. */
 public class DirectDataAccessorWrapper implements DataAccessor {
 
+  private static final long serialVersionUID = 1L;
+
   private final RepositoryFactory factory;
   private final cz.o2.proxima.direct.core.DataAccessor direct;
   private final URI uri;

@@ -35,6 +35,8 @@ import org.apache.beam.sdk.values.PCollection;
 @Slf4j
 public class AttributeFamilyProxyDataAccessor implements DataAccessor {
 
+  private static final long serialVersionUID = 1L;
+
   public static AttributeFamilyProxyDataAccessor of(
       AttributeFamilyProxyDescriptor proxy, DataAccessor readAccessor, DataAccessor writeAccessor) {
 

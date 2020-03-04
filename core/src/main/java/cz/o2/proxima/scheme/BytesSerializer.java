@@ -25,6 +25,8 @@ import java.util.Optional;
 @Stable
 public class BytesSerializer implements ValueSerializerFactory {
 
+  private static final long serialVersionUID = 1L;
+
   private static final byte[] DEFAULT = new byte[] {};
 
   @Override
@@ -37,6 +39,8 @@ public class BytesSerializer implements ValueSerializerFactory {
   public <T> ValueSerializer<T> getValueSerializer(URI scheme) {
     return (ValueSerializer)
         new ValueSerializer<byte[]>() {
+
+          private static final long serialVersionUID = 1L;
 
           @Override
           public Optional<byte[]> deserialize(byte[] input) {

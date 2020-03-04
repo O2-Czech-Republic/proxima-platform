@@ -25,6 +25,8 @@ import java.util.Map;
 /** Storage via HTTP(S) requests. */
 public class HttpStorage implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public HttpAccessor createAccessor(
       DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {

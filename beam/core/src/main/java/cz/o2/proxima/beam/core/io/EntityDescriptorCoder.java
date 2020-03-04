@@ -28,6 +28,8 @@ import org.apache.beam.sdk.values.TypeDescriptor;
 
 public class EntityDescriptorCoder extends AbstractRepositoryCoder<EntityDescriptor> {
 
+  private static final long serialVersionUID = 1L;
+
   /**
    * Construct the coder from repository
    *

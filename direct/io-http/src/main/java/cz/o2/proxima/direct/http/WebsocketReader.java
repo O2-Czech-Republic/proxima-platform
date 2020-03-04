@@ -48,6 +48,9 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   private static final Partition PARTITION = () -> 0;
   private static final Offset OFFSET =
       new Offset() {
+
+        private static final long serialVersionUID = 1L;
+
         @Override
         public Partition getPartition() {
           return PARTITION;

@@ -43,6 +43,8 @@ import lombok.extern.slf4j.Slf4j;
 @Internal
 class BinaryBlobFormat implements FileFormat {
 
+  private static final long serialVersionUID = 1L;
+
   private static final String MAGIC = "gs::proxima";
   private static final String MAGIC_V1 = "proxima:bulk:v1";
 

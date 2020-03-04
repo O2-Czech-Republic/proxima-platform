@@ -34,6 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 @Internal
 public class EntityDescriptorImpl implements EntityDescriptor {
 
+  private static final long serialVersionUID = 1L;
+
   /** Name of the entity. */
   @Getter private final String name;
 

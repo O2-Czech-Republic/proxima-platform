@@ -22,6 +22,8 @@ import lombok.Getter;
 /** Proxy to another attribute. */
 public class AttributeProxyDescriptor<T> extends AttributeDescriptorBase<T> {
 
+  private static final long serialVersionUID = 1L;
+
   @Getter private final AttributeDescriptor<T> readTarget;
 
   @Nullable @Getter private final ProxyTransform readTransform;

@@ -23,6 +23,8 @@ import cz.o2.proxima.direct.core.Partition;
 @Internal
 public class BoundedPartition implements Partition {
 
+  private static final long serialVersionUID = 1L;
+
   private final int id;
   private final long size;
 

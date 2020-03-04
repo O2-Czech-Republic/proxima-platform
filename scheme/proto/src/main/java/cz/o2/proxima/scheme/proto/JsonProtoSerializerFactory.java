@@ -43,6 +43,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JsonProtoSerializerFactory implements ValueSerializerFactory {
 
+  private static final long serialVersionUID = 1L;
+
   private static final Charset CHARSET = StandardCharsets.UTF_8;
   private final Map<URI, ValueSerializer<?>> serializers = new ConcurrentHashMap<>();
 
@@ -62,6 +64,8 @@ public class JsonProtoSerializerFactory implements ValueSerializerFactory {
   private static ValueSerializer createSerializer(URI uri) {
 
     return new ValueSerializer() {
+
+      private static final long serialVersionUID = 1L;
 
       final String protoClass = uri.getSchemeSpecificPart();
       final boolean strictScheme =

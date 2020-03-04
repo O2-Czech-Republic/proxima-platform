@@ -29,6 +29,8 @@ public class ObserverUtils {
 
     return new LogObserver.OnNextContext() {
 
+      private static final long serialVersionUID = 1L;
+
       @Override
       public LogObserver.OffsetCommitter committer() {
         return committer;

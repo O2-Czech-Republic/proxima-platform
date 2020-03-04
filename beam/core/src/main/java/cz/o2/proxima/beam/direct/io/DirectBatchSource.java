@@ -34,6 +34,8 @@ import org.apache.beam.sdk.options.PipelineOptions;
 @Slf4j
 public class DirectBatchSource extends AbstractDirectBoundedSource {
 
+  private static final long serialVersionUID = 1L;
+
   static DirectBatchSource of(
       RepositoryFactory factory,
       BatchLogObservable reader,

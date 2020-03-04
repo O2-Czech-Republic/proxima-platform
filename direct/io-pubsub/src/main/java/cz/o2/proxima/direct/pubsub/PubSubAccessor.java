@@ -32,6 +32,8 @@ import lombok.Getter;
 /** A {@link DataAccessor} for Google PubSub. */
 class PubSubAccessor extends AbstractStorage implements DataAccessor {
 
+  private static final long serialVersionUID = 1L;
+
   public static final String CFG_MAX_ACK_DEADLINE = "pubsub.deadline-max-ms";
   public static final String CFG_SUBSCRIPTION_AUTOCREATE = "pubsub.subscription.auto-create";
   public static final String CFG_SUBSCRIPTION_ACK_DEADLINE = "pubsub.subscription.ack-deadline";

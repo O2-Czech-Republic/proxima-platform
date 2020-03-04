@@ -28,6 +28,8 @@ import java.util.concurrent.ExecutorService;
 @Stable
 public class Context implements Serializable, ContextProvider {
 
+  private static final long serialVersionUID = 1L;
+
   /** Resolver of proxima core's attribute family to direct representation. */
   private final UnaryFunction<AttributeFamilyDescriptor, DirectAttributeFamilyDescriptor> resolver;
 

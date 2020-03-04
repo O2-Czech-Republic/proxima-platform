@@ -64,6 +64,8 @@ import org.joda.time.Instant;
 public class DirectBatchUnboundedSource
     extends UnboundedSource<StreamElement, DirectBatchUnboundedSource.Checkpoint> {
 
+  private static final long serialVersionUID = 1L;
+
   public static DirectBatchUnboundedSource of(
       RepositoryFactory factory,
       BatchLogObservable reader,
@@ -76,6 +78,8 @@ public class DirectBatchUnboundedSource
 
   @ToString
   public static class Checkpoint implements UnboundedSource.CheckpointMark, Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Getter private final List<Partition> partitions;
     @Getter private final long skipFromFirst;
@@ -96,6 +100,8 @@ public class DirectBatchUnboundedSource
    * partitions might contain many files).
    */
   public static class CheckpointCoder extends Coder<Checkpoint> {
+
+    private static final long serialVersionUID = 1L;
 
     @Override
     public void encode(Checkpoint value, OutputStream outStream) throws IOException {

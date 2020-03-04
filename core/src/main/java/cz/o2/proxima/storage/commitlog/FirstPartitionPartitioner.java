@@ -20,6 +20,8 @@ import cz.o2.proxima.storage.StreamElement;
 /** Partitioner that always send the ingest into first partition. */
 public class FirstPartitionPartitioner implements Partitioner {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public int getPartitionId(StreamElement element) {
     return 0;

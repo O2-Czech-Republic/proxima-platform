@@ -27,6 +27,8 @@ import lombok.Getter;
 @Internal
 public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<T> {
 
+  private static final long serialVersionUID = 1L;
+
   @Getter protected final String entity;
 
   @Getter protected final String name;

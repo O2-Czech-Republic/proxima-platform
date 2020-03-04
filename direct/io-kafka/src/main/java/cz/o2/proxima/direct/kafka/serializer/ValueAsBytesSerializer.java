@@ -35,6 +35,8 @@ import org.apache.kafka.common.serialization.Serdes;
  */
 public class ValueAsBytesSerializer implements ElementSerializer<byte[], byte[]> {
 
+  private static final long serialVersionUID = 1L;
+
   private final UnaryFunction<EntityDescriptor, AttributeDescriptor<byte[]>> readAttributeFn;
   private AttributeDescriptor<byte[]> attr;
 

@@ -18,6 +18,8 @@ package cz.o2.proxima.metrics;
 /** A metric that holds value that is set to it. */
 public class GaugeMetric extends ScalarMetric {
 
+  private static final long serialVersionUID = 1L;
+
   /**
    * Construct the metric.
    *

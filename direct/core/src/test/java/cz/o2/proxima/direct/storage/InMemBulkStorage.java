@@ -47,6 +47,8 @@ import lombok.Getter;
 /** Storage acting as a bulk in memory storage. */
 public class InMemBulkStorage implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   private class Writer extends AbstractBulkAttributeWriter {
 
     int writtenSinceLastCommit = 0;
@@ -151,6 +153,8 @@ public class InMemBulkStorage implements DataAccessorFactory {
   }
 
   private class InMemBulkAccessor implements DataAccessor {
+
+    private static final long serialVersionUID = 1L;
 
     private final EntityDescriptor entityDesc;
     private final URI uri;

@@ -34,6 +34,8 @@ import org.apache.beam.sdk.options.PipelineOptions;
 @Slf4j
 class DirectBoundedSource extends AbstractDirectBoundedSource {
 
+  private static final long serialVersionUID = 1L;
+
   static DirectBoundedSource of(
       RepositoryFactory factory,
       String name,

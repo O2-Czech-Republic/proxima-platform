@@ -31,6 +31,8 @@ import lombok.Getter;
 /** Attribute descriptor with associated accessors. */
 public class DirectAttributeFamilyDescriptor implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   @Getter private final AttributeFamilyDescriptor desc;
 
   /** Writer associated with this attribute family. */

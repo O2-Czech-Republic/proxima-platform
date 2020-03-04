@@ -45,6 +45,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AttributeFamilyDescriptor implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   public static final String CFG_REPLICATION_CONSUMER_NAME_GENERATOR =
       "replication.consumer.name.factory";
 

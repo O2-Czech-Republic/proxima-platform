@@ -32,6 +32,8 @@ import lombok.extern.slf4j.Slf4j;
 @Experimental("Missing production use-case")
 public class OpenTsdbConnectionFactory extends TestableConnFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public HttpURLConnection openConnection(URI base, StreamElement elem) throws IOException {
 

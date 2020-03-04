@@ -22,6 +22,8 @@ import lombok.Getter;
 @Stable
 public class RawOffset implements RandomOffset {
 
+  private static final long serialVersionUID = 1L;
+
   @Getter private final String offset;
 
   public RawOffset(String offset) {

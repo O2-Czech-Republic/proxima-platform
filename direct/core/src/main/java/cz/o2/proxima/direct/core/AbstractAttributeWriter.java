@@ -25,6 +25,8 @@ import java.net.URI;
 public abstract class AbstractAttributeWriter extends AbstractStorage
     implements AttributeWriterBase {
 
+  private static final long serialVersionUID = 1L;
+
   protected AbstractAttributeWriter(EntityDescriptor entityDesc, URI uri) {
     super(entityDesc, uri);
   }

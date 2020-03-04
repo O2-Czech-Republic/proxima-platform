@@ -24,6 +24,8 @@ import java.net.URI;
 public abstract class AbstractBulkAttributeWriter extends AbstractAttributeWriter
     implements BulkAttributeWriter {
 
+  private static final long serialVersionUID = 1L;
+
   public AbstractBulkAttributeWriter(EntityDescriptor entityDesc, URI uri) {
     super(entityDesc, uri);
   }

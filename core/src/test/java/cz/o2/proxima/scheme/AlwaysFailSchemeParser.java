@@ -22,6 +22,8 @@ import java.util.Optional;
 @SuppressWarnings("unchecked")
 public class AlwaysFailSchemeParser implements ValueSerializerFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public String getAcceptableScheme() {
     return "fail";
@@ -30,6 +32,8 @@ public class AlwaysFailSchemeParser implements ValueSerializerFactory {
   @Override
   public ValueSerializer<byte[]> getValueSerializer(URI scheme) {
     return new ValueSerializer<byte[]>() {
+
+      private static final long serialVersionUID = 1L;
 
       @Override
       public Optional<byte[]> deserialize(byte[] input) {

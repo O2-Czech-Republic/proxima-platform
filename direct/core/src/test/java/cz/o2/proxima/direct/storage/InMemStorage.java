@@ -83,11 +83,15 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class InMemStorage implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   private static final Partition PARTITION = () -> 0;
 
   private static long BOUNDED_OUT_OF_ORDERNESS = 5000;
 
   static class IntOffset implements Offset {
+
+    private static final long serialVersionUID = 1L;
 
     @Getter final long offset;
     @Getter final long watermark;
@@ -746,6 +750,9 @@ public class InMemStorage implements DataAccessorFactory {
     final CachedView cachedView = new LocalCachedPartitionedView(entity, commitLogReader, writer);
 
     return new DataAccessor() {
+
+      private static final long serialVersionUID = 1L;
+
       @Override
       public Optional<AttributeWriterBase> getWriter(Context context) {
         Objects.requireNonNull(context);

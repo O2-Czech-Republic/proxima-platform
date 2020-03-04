@@ -31,6 +31,8 @@ public interface FileSystem extends Serializable {
   static FileSystem local(File parent, NamingConvention convention) {
     return new FileSystem() {
 
+      private static final long serialVersionUID = 1L;
+
       @Override
       public URI getUri() {
         return URI.create("file://" + parent.getAbsolutePath());

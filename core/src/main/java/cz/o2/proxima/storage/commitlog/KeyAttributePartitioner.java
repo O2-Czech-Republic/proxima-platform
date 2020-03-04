@@ -21,6 +21,8 @@ import java.util.Objects;
 /** Partitioner based on key-value pairs. */
 public class KeyAttributePartitioner implements Partitioner {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public int getPartitionId(StreamElement element) {
     return Objects.hash(element.getKey(), element.getAttribute());

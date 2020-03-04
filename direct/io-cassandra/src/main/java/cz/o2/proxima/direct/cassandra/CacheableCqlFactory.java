@@ -36,6 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class CacheableCqlFactory implements CqlFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Getter private EntityDescriptor entity;
 
   @Getter private String tableName;

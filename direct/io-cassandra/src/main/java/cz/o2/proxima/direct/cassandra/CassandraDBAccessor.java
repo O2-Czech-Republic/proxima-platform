@@ -48,6 +48,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class CassandraDBAccessor extends AbstractStorage implements DataAccessor {
 
+  private static final long serialVersionUID = 1L;
+
   static final String CQL_FACTORY_CFG = "cqlFactory";
   static final String CQL_STRING_CONVERTER = "converter";
   static final String CQL_PARALLEL_SCANS = "scanParallelism";

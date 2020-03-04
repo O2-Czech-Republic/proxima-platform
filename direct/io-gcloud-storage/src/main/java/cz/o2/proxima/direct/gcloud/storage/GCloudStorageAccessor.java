@@ -35,6 +35,8 @@ import lombok.Getter;
 /** A {@link DataAccessor} for gcloud storage. */
 class GCloudStorageAccessor extends AbstractStorage implements DataAccessor {
 
+  private static final long serialVersionUID = 1L;
+
   @Getter(AccessLevel.PACKAGE)
   final Map<String, Object> cfg;
 

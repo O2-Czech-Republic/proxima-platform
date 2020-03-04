@@ -24,6 +24,8 @@ import javax.annotation.Nullable;
 @Internal
 public class AttributeDescriptorImpl<T> extends AttributeDescriptorBase<T> {
 
+  private static final long serialVersionUID = 1L;
+
   AttributeDescriptorImpl(
       String name,
       String entity,

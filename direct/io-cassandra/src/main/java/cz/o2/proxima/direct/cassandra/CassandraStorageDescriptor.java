@@ -24,6 +24,8 @@ import java.util.Map;
 /** Storage descriptor for Apache Cassandra. */
 public class CassandraStorageDescriptor implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public CassandraDBAccessor createAccessor(
       DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {

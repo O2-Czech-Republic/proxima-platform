@@ -25,6 +25,8 @@ import java.util.Map;
 /** A {@code StorageDescriptor} for HBase. */
 public class HBaseStorageDescriptor implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public Accept accepts(URI uri) {
     return uri.getScheme().equals("hbase") ? Accept.ACCEPT : Accept.REJECT;

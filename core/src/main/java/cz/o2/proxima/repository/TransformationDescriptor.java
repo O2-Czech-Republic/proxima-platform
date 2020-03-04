@@ -33,6 +33,8 @@ import lombok.Getter;
 @Evolving("Affected by #66")
 public class TransformationDescriptor implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   static Builder newBuilder() {
     return new Builder();
   }
@@ -120,6 +122,8 @@ public class TransformationDescriptor implements Serializable {
 
   public ConsumerNameFactory<TransformationDescriptor> getConsumerNameFactory() {
     return new ConsumerNameFactory<TransformationDescriptor>() {
+
+      private static final long serialVersionUID = 1L;
 
       @Override
       public void setup(TransformationDescriptor descriptor) {

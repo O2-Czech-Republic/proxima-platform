@@ -24,6 +24,8 @@ import lombok.Getter;
 /** {@code Partition} of files in HDFS. */
 public class HadoopPartition extends BoundedPartition {
 
+  private static final long serialVersionUID = 1L;
+
   @Getter private final List<HadoopPath> paths = new ArrayList<>();
 
   private long size = 0L;

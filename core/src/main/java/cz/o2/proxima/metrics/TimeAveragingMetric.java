@@ -25,6 +25,8 @@ import java.util.stream.Collectors;
 @Stable
 public class TimeAveragingMetric extends ScalarMetric {
 
+  private static final long serialVersionUID = 1L;
+
   public static TimeAveragingMetric of(
       String group, String name, long windowLengthMs, long checkpointMs, long purgeMs) {
     return new TimeAveragingMetric(group, name, windowLengthMs, checkpointMs, purgeMs);

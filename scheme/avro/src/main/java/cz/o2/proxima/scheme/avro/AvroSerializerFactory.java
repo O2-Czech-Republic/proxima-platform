@@ -33,6 +33,9 @@ import org.apache.avro.specific.SpecificRecord;
 /** Avro serializer factory for manipulate with SpecificRecords */
 @Slf4j
 public class AvroSerializerFactory implements ValueSerializerFactory {
+
+  private static final long serialVersionUID = 1L;
+
   private final Map<URI, ValueSerializer<?>> serializersCache = new ConcurrentHashMap<>();
 
   @Override
@@ -49,6 +52,9 @@ public class AvroSerializerFactory implements ValueSerializerFactory {
 
   private static <M extends SpecificRecord> ValueSerializer<M> createSerializer(URI uri) {
     return new ValueSerializer<M>() {
+
+      private static final long serialVersionUID = 1L;
+
       final String avroClassName = uri.getSchemeSpecificPart();
 
       transient M defaultInstance = null;

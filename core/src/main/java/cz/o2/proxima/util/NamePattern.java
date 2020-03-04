@@ -26,6 +26,8 @@ import java.util.Objects;
 @Internal
 public class NamePattern implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   private final String pattern;
   private final boolean prefixOnly;
 

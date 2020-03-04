@@ -29,6 +29,8 @@ import java.util.Optional;
 /** Accessor for HTTP(s) and websocket URLs. */
 public class HttpAccessor extends AbstractStorage implements DataAccessor {
 
+  private static final long serialVersionUID = 1L;
+
   final Map<String, Object> cfg;
 
   public HttpAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {

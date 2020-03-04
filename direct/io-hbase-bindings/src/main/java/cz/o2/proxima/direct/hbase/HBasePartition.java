@@ -21,6 +21,8 @@ import lombok.Getter;
 /** A {@code Partition} of data in HBase. */
 class HBasePartition implements Partition {
 
+  private static final long serialVersionUID = 1L;
+
   final int id;
   @Getter final byte[] startKey;
   @Getter final byte[] endKey;

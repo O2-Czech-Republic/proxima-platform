@@ -22,7 +22,11 @@ import java.util.Optional;
 /** A {@link ValueSerializer} for Strings. */
 public class StringUtf8Serializer implements ValueSerializerFactory {
 
+  private static final long serialVersionUID = 1L;
+
   static class StringValueSerializer implements ValueSerializer<String> {
+
+    private static final long serialVersionUID = 1L;
 
     @Override
     public Optional<String> deserialize(byte[] input) {

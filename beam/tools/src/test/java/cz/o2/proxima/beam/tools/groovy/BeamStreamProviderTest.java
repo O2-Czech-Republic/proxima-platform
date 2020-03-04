@@ -49,7 +49,7 @@ public class BeamStreamProviderTest {
             "--checkpointingInterval=10000"
           });
       assertNotNull(provider.getPipelineOptionsFactory());
-      PipelineOptions options = provider.getPipelineOptionsFactory().apply();
+      PipelineOptions options = provider.getPipelineOptionsFactory().get();
       assertNotNull(options);
       assertEquals(
           10000L, (long) options.as(FlinkPipelineOptions.class).getCheckpointingInterval());

@@ -24,6 +24,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DateToLongConverter implements StringConverter<Date> {
 
+  private static final long serialVersionUID = 1L;
+
   private static final Date MAX = new Date(Long.MAX_VALUE);
   private static final Date MIN = new Date(Long.MIN_VALUE);
 

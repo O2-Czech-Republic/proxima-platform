@@ -45,6 +45,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JsonFormat implements FileFormat {
 
+  private static final long serialVersionUID = 1L;
+
   private static Parser parser = com.google.protobuf.util.JsonFormat.parser();
   private static Printer printer = com.google.protobuf.util.JsonFormat.printer();
 

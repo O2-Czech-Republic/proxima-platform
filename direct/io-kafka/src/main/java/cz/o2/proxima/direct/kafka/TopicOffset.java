@@ -27,6 +27,8 @@ import lombok.Getter;
 /** Offset used in bulk consumption. */
 class TopicOffset implements Offset {
 
+  private static final long serialVersionUID = 1L;
+
   // map of partitionId -> committed offset
   private final int partition;
   @Getter private final long offset;

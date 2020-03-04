@@ -44,6 +44,8 @@ import org.joda.time.Duration;
 @Slf4j
 public class PubSubDataAccessor implements DataAccessor {
 
+  private static final long serialVersionUID = 1L;
+
   private final RepositoryFactory repoFactory;
   private final EntityDescriptor entity;
   private final String topic;

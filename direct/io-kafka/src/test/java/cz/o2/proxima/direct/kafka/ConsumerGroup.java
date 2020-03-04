@@ -38,8 +38,12 @@ import org.apache.kafka.common.TopicPartition;
 @Slf4j
 public class ConsumerGroup implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   /** Assignment of partitions of single consumer. */
   class Assignment implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     @Getter final int id;
 

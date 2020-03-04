@@ -17,6 +17,8 @@ package cz.o2.proxima.transform;
 
 public class AsymmetricRead implements ProxyTransform {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public String fromProxy(String proxy) {
     int pos = proxy.indexOf('.');

@@ -33,6 +33,8 @@ import lombok.Getter;
 @Evolving("Should change to interface with implementations")
 public class StreamElement implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   /**
    * Update given entity attribute with given value.
    *

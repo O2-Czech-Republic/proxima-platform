@@ -27,6 +27,8 @@ import org.apache.avro.generic.GenericContainer;
 @Slf4j
 public class SchemaRegistrySerializerFactory implements ValueSerializerFactory {
 
+  private static final long serialVersionUID = 1L;
+
   private Map<URI, ValueSerializer<?>> cache = new ConcurrentHashMap<>();
 
   @Override

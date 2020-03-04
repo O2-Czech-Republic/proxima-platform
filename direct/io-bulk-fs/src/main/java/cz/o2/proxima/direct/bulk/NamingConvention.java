@@ -50,6 +50,8 @@ public interface NamingConvention extends Serializable {
   static NamingConvention prefixed(String prefix, NamingConvention parent) {
     return new NamingConvention() {
 
+      private static final long serialVersionUID = 1L;
+
       @Override
       public String nameOf(long ts) {
         return prefix + parent.nameOf(ts);

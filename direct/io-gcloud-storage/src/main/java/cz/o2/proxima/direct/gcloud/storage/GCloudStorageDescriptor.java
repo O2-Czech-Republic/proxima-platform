@@ -25,6 +25,8 @@ import java.util.Map;
 /** A {@link DataAccessorFactory} for gcloud storage. */
 public class GCloudStorageDescriptor implements DataAccessorFactory {
 
+  private static final long serialVersionUID = 1L;
+
   @Override
   public DataAccessor createAccessor(
       DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {

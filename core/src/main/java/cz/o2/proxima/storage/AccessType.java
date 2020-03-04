@@ -61,6 +61,9 @@ public interface AccessType extends Serializable {
     }
 
     return new AccessType() {
+
+      private static final long serialVersionUID = 1L;
+
       @Override
       public boolean canReadBatchUpdates() {
         return isReadBatchUpdates;
@@ -134,6 +137,9 @@ public interface AccessType extends Serializable {
 
   static AccessType or(AccessType left, AccessType right) {
     return new AccessType() {
+
+      private static final long serialVersionUID = 1L;
+
       @Override
       public boolean canReadBatchUpdates() {
         return left.canReadBatchUpdates() || right.canReadBatchUpdates();

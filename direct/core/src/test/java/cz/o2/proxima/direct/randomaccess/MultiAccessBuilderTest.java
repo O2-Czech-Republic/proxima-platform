@@ -48,10 +48,11 @@ public class MultiAccessBuilderTest {
 
   public MultiAccessBuilderTest() {
     this.repo =
-        ConfigRepository.Builder.of(
-                ConfigFactory.load()
-                    .withFallback(ConfigFactory.load("test-reference.conf"))
-                    .resolve())
+        ConfigRepository.Builder.ofTest(
+                () ->
+                    ConfigFactory.load()
+                        .withFallback(ConfigFactory.load("test-reference.conf"))
+                        .resolve())
             .build();
     this.direct = repo.asDataOperator(DirectDataOperator.class);
   }

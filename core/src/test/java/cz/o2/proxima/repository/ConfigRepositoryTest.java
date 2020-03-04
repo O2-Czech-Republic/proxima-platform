@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.repository.ConfigRepository.Builder;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
@@ -32,8 +33,9 @@ import cz.o2.proxima.transform.EventDataToDummy;
 import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.DummyFilter;
 import cz.o2.proxima.util.TestUtils;
-import java.io.NotSerializableException;
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -46,17 +48,13 @@ import org.junit.Test;
 @Slf4j
 public class ConfigRepositoryTest {
 
-  private final ConfigRepository repo;
-
-  public ConfigRepositoryTest() {
-    this.repo =
-        ConfigRepository.Builder.of(
-                () ->
-                    ConfigFactory.load()
-                        .withFallback(ConfigFactory.load("test-reference.conf"))
-                        .resolve())
-            .build();
-  }
+  private final ConfigRepository repo =
+      ConfigRepository.Builder.of(
+              () ->
+                  ConfigFactory.load()
+                      .withFallback(ConfigFactory.load("test-reference.conf"))
+                      .resolve())
+          .build();
 
   @Test
   public void testConfigParsing() {
@@ -86,7 +84,7 @@ public class ConfigRepositoryTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidFamily() {
-    ConfigRepository.Builder.of(
+    ConfigRepository.Builder.ofTest(
             () ->
                 ConfigFactory.load()
                     .withFallback(ConfigFactory.load("test-reference.conf"))
@@ -98,7 +96,7 @@ public class ConfigRepositoryTest {
 
   @Test
   public void testInvalidDisabledFamily() {
-    ConfigRepository.Builder.of(
+    ConfigRepository.Builder.ofTest(
             () ->
                 ConfigFactory.load()
                     .withFallback(ConfigFactory.load("test-reference.conf"))
@@ -112,11 +110,18 @@ public class ConfigRepositoryTest {
     assertTrue(true);
   }
 
-  @Test(expected = NotSerializableException.class)
-  public void testRepositoryNotSerializable() throws Exception {
-    ConfigRepository clone = (ConfigRepository) TestUtils.assertSerializable(repo);
-    assertNotNull(clone.getConfig());
-    assertTrue(clone.getConfig().isResolved());
+  @Test
+  public void testTestRepositorySerializable() throws Exception {
+    Repository testRepo =
+        ConfigRepository.ofTest(() -> ConfigFactory.load("test-reference.conf").resolve());
+    Repository clone = TestUtils.assertSerializable(testRepo);
+    assertTrue(clone == testRepo);
+  }
+
+  @Test
+  public void testRepositorySerializable() throws Exception {
+    ConfigRepository clone = TestUtils.assertSerializable(repo);
+    assertTrue(clone == repo);
   }
 
   @Test
@@ -410,6 +415,35 @@ public class ConfigRepositoryTest {
           "Entity [entity-with-dashes] contains invalid characters. Valid are patterns [a-zA-Z_][a-zA-Z0-9_]*.",
           ex.getCause().getMessage());
     }
+  }
+
+  @Test
+  public void testDeprecatedConstructionSerializable() throws IOException, ClassNotFoundException {
+    Repository repo = ConfigRepository.of(ConfigFactory.load("test-reference.conf").resolve());
+    TestUtils.assertSerializable(repo);
+  }
+
+  @Test
+  public void testBuilderSerializable() throws IOException, ClassNotFoundException {
+    ConfigRepository repo =
+        Builder.of(() -> ConfigFactory.load("test-reference.conf").resolve()).build();
+    TestUtils.assertSerializable(repo);
+    repo = Builder.ofTest(() -> ConfigFactory.load("test-reference.conf").resolve()).build();
+    TestUtils.assertSerializable(repo);
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testMultipleInstancesThrowException() {
+    ConfigRepository repo =
+        Builder.of(() -> ConfigFactory.load("test-reference.conf").resolve()).build();
+    ConfigRepository repo2 =
+        Builder.of(
+                () ->
+                    ConfigFactory.load("test-reference.conf")
+                        .withFallback(
+                            ConfigFactory.parseMap(Collections.singletonMap("key", "value")))
+                        .resolve())
+            .build();
   }
 
   private void checkThrows(Factory<?> factory) {

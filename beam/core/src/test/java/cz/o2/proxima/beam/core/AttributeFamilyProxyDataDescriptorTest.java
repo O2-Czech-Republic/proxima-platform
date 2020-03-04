@@ -35,7 +35,7 @@ import org.junit.Test;
 public class AttributeFamilyProxyDataDescriptorTest {
 
   private final Repository repo =
-      Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
+      Repository.ofTest(() -> ConfigFactory.load("test-reference.conf").resolve());
   private DirectDataOperator direct;
   private BeamDataOperator beam;
 
@@ -49,7 +49,6 @@ public class AttributeFamilyProxyDataDescriptorTest {
   public void tearDown() {
     direct.close();
     beam.close();
-    repo.discard();
   }
 
   @Test

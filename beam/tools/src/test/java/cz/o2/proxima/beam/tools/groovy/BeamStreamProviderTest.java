@@ -36,7 +36,7 @@ public class BeamStreamProviderTest {
     }
   }
 
-  private final Repository repo = Repository.of(() -> ConfigFactory.defaultApplication());
+  private final Repository repo = Repository.ofTest(ConfigFactory::defaultApplication);
 
   @Test
   public void testRunnerRegistrarParsing() {

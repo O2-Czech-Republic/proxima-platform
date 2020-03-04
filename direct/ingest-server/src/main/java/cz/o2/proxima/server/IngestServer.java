@@ -79,8 +79,13 @@ public class IngestServer {
       new RetryPolicy().withMaxRetries(3).withBackoff(3000, 20000, TimeUnit.MILLISECONDS, 2.0);
 
   protected IngestServer(Config cfg) {
+    this(cfg, false);
+  }
+
+  @VisibleForTesting
+  IngestServer(Config cfg, boolean test) {
     this.cfg = cfg;
-    repo = Repository.of(() -> cfg);
+    repo = test ? Repository.ofTest(() -> cfg) : Repository.of(() -> cfg);
     direct = repo.getOrCreateOperator(DirectDataOperator.class);
     if (log.isDebugEnabled()) {
       repo.getAllEntities()

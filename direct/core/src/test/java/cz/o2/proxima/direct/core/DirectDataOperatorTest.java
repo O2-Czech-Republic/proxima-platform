@@ -105,7 +105,7 @@ public class DirectDataOperatorTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidFamily() {
-    ConfigRepository.Builder.of(
+    ConfigRepository.Builder.ofTest(
             () ->
                 ConfigFactory.load()
                     .withFallback(ConfigFactory.load("test-reference.conf"))
@@ -117,7 +117,7 @@ public class DirectDataOperatorTest {
 
   @Test
   public void testInvalidDisabledFamily() {
-    ConfigRepository.Builder.of(
+    ConfigRepository.Builder.ofTest(
             () ->
                 ConfigFactory.load()
                     .withFallback(ConfigFactory.load("test-reference.conf"))

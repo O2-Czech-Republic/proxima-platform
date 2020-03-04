@@ -26,6 +26,8 @@ public interface RepositoryFactory extends Serializable {
 
   class Caching implements RepositoryFactory {
 
+    private static final long serialVersionUID = 1L;
+
     private static byte initialized = 0;
     private static Repository repo;
 
@@ -54,6 +56,8 @@ public interface RepositoryFactory extends Serializable {
   }
 
   class LocalInstance implements RepositoryFactory {
+
+    private static final long serialVersionUID = 1L;
 
     private static final Map<Integer, Repository> localMap = new ConcurrentHashMap<>();
 

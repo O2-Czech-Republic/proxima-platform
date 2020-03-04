@@ -212,7 +212,7 @@ public class BeamStreamTest extends StreamTest {
 
   @Test(timeout = 10000)
   public void testInterruptible() throws InterruptedException {
-    Repository repo = Repository.of(() -> ConfigFactory.load("test-reference.conf"));
+    Repository repo = Repository.ofTest(() -> ConfigFactory.load("test-reference.conf"));
     BeamDataOperator op = repo.asDataOperator(BeamDataOperator.class);
     EntityDescriptor gateway =
         repo.findEntity("gateway").orElseThrow(() -> new IllegalStateException("Missing gateway"));

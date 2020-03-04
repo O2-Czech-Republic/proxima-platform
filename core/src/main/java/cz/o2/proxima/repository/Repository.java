@@ -33,6 +33,8 @@ import java.util.stream.Stream;
 @Evolving
 public abstract class Repository implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   /**
    * Create {@link Repository} from given {@link Config}.
    *
@@ -65,6 +67,7 @@ public abstract class Repository implements Serializable {
     return ConfigRepository.of(config);
   }
 
+  /** Serializable factory for {@link Config}. */
   public interface ConfigFactory extends Serializable {
     Config apply();
   }
@@ -231,11 +234,4 @@ public abstract class Repository implements Serializable {
    * @param op the operator that was created
    */
   protected void addedDataOperator(DataOperator op) {}
-
-  /**
-   * Check if this is test verion of repository
-   *
-   * @return {@code true} if this is test repository
-   */
-  protected abstract boolean isTest();
 }

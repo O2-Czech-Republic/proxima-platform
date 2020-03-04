@@ -35,6 +35,7 @@ import cz.o2.proxima.util.DummyFilter;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -47,17 +48,13 @@ import org.junit.Test;
 @Slf4j
 public class ConfigRepositoryTest {
 
-  private final ConfigRepository repo;
-
-  public ConfigRepositoryTest() {
-    this.repo =
-        ConfigRepository.Builder.of(
-                () ->
-                    ConfigFactory.load()
-                        .withFallback(ConfigFactory.load("test-reference.conf"))
-                        .resolve())
-            .build();
-  }
+  private final ConfigRepository repo =
+      ConfigRepository.Builder.of(
+              () ->
+                  ConfigFactory.load()
+                      .withFallback(ConfigFactory.load("test-reference.conf"))
+                      .resolve())
+          .build();
 
   @Test
   public void testConfigParsing() {
@@ -87,7 +84,7 @@ public class ConfigRepositoryTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidFamily() {
-    ConfigRepository.Builder.of(
+    ConfigRepository.Builder.ofTest(
             () ->
                 ConfigFactory.load()
                     .withFallback(ConfigFactory.load("test-reference.conf"))
@@ -99,7 +96,7 @@ public class ConfigRepositoryTest {
 
   @Test
   public void testInvalidDisabledFamily() {
-    ConfigRepository.Builder.of(
+    ConfigRepository.Builder.ofTest(
             () ->
                 ConfigFactory.load()
                     .withFallback(ConfigFactory.load("test-reference.conf"))
@@ -433,6 +430,20 @@ public class ConfigRepositoryTest {
     TestUtils.assertSerializable(repo);
     repo = Builder.ofTest(() -> ConfigFactory.load("test-reference.conf").resolve()).build();
     TestUtils.assertSerializable(repo);
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testMultipleInstancesThrowException() {
+    ConfigRepository repo =
+        Builder.of(() -> ConfigFactory.load("test-reference.conf").resolve()).build();
+    ConfigRepository repo2 =
+        Builder.of(
+                () ->
+                    ConfigFactory.load("test-reference.conf")
+                        .withFallback(
+                            ConfigFactory.parseMap(Collections.singletonMap("key", "value")))
+                        .resolve())
+            .build();
   }
 
   private void checkThrows(Factory<?> factory) {

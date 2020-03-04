@@ -37,7 +37,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
-import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -63,7 +62,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 // BUG in error prone
 @SuppressWarnings("InconsistentCapitalization")
-public final class ConfigRepository extends Repository implements Serializable {
+public final class ConfigRepository extends Repository {
+
+  private static final long serialVersionUID = 1L;
 
   // config parsing constants
   private static final String ALL = "all";
@@ -90,6 +91,8 @@ public final class ConfigRepository extends Repository implements Serializable {
   private static final Pattern ATTRIBUTE_NAME_PATTERN =
       Pattern.compile("[a-zA-Z_][a-zA-Z0-9_\\-$]*(\\.\\*)?");
 
+  private static Config cachedConfigConstructed;
+
   /**
    * Construct default repository from the config.
    *
@@ -107,7 +110,7 @@ public final class ConfigRepository extends Repository implements Serializable {
    * @return constructed repository
    */
   public static Repository ofTest(ConfigFactory factory) {
-    return Builder.of(factory).withTest(true).build();
+    return Builder.of(factory).withCachingEnabled(false).build();
   }
 
   /**
@@ -143,11 +146,11 @@ public final class ConfigRepository extends Repository implements Serializable {
      * @return new Builder of test Repository
      */
     public static Builder ofTest(ConfigFactory factory) {
-      return new Builder(factory).withTest(true);
+      return new Builder(factory).withCachingEnabled(false);
     }
 
     private final ConfigFactory factory;
-    private boolean test = false;
+    private boolean cachingEnabled = true;
     private boolean readOnly = false;
     private boolean validate = true;
     private boolean loadFamilies = true;
@@ -157,8 +160,8 @@ public final class ConfigRepository extends Repository implements Serializable {
       this.factory = Objects.requireNonNull(factory);
     }
 
-    public Builder withTest(boolean flag) {
-      this.test = flag;
+    public Builder withCachingEnabled(boolean flag) {
+      this.cachingEnabled = flag;
       return this;
     }
 
@@ -183,7 +186,8 @@ public final class ConfigRepository extends Repository implements Serializable {
     }
 
     public ConfigRepository build() {
-      return new ConfigRepository(factory, test, readOnly, validate, loadFamilies, loadClasses);
+      return new ConfigRepository(
+          factory, cachingEnabled, readOnly, validate, loadFamilies, loadClasses);
     }
   }
 
@@ -204,7 +208,7 @@ public final class ConfigRepository extends Repository implements Serializable {
   @Getter private Config config;
 
   /** Test repository disables any caching. */
-  @Getter private final boolean test;
+  @Getter private final boolean enableCaching;
 
   /**
    * When read-only flag is specified, some checks are not performed in construction. This enables
@@ -259,6 +263,7 @@ public final class ConfigRepository extends Repository implements Serializable {
   /**
    * Construct the repository from the config with the specified read-only and validation flag.
    *
+   * @param cachingEnabled can we cache the Repository per JVM
    * @param isReadonly true in client applications where you want to use repository specifications
    *     to read from the datalake.
    * @param shouldValidate set to false to skip some sanity checks (not recommended)
@@ -267,19 +272,19 @@ public final class ConfigRepository extends Repository implements Serializable {
    */
   private ConfigRepository(
       ConfigFactory factory,
-      boolean test,
+      boolean cachingEnabled,
       boolean isReadonly,
       boolean shouldValidate,
       boolean loadFamilies,
       boolean loadClasses) {
 
     super(factory);
-    this.test = test;
+    this.enableCaching = cachingEnabled;
     this.config = factory.apply();
     this.readonly = isReadonly;
     this.shouldValidate = shouldValidate;
     this.loadClasses = loadClasses;
-    if (test) {
+    if (!cachingEnabled) {
       this.factory = RepositoryFactory.local(this);
     }
 
@@ -292,6 +297,23 @@ public final class ConfigRepository extends Repository implements Serializable {
 
     } catch (Exception ex) {
       throw new IllegalArgumentException("Cannot read config settings", ex);
+    }
+
+    if (cachingEnabled) {
+      if (cachedConfigConstructed != null) {
+        log.warn(
+            "Multiple constructors of production {} detected. This is generally not supported "
+                + "and might result in non-expected behavior. Please consider constructing "
+                + "the {} only once.",
+            getClass().getSimpleName(),
+            Repository.class.getSimpleName());
+        if (!cachedConfigConstructed.equals(this.config)) {
+          throw new IllegalStateException(
+              String.format(
+                  "Multiple different instances of %s created!", getClass().getSimpleName()));
+        }
+      }
+      cachedConfigConstructed = this.config;
     }
   }
 
@@ -1978,7 +2000,7 @@ public final class ConfigRepository extends Repository implements Serializable {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     ConfigRepository that = (ConfigRepository) o;
-    return test == that.test
+    return enableCaching == that.enableCaching
         && readonly == that.readonly
         && shouldValidate == that.shouldValidate
         && loadClasses == that.loadClasses
@@ -1987,12 +2009,12 @@ public final class ConfigRepository extends Repository implements Serializable {
 
   @Override
   public int hashCode() {
-    return Objects.hash(config, test, readonly, shouldValidate, loadClasses);
+    return Objects.hash(config, enableCaching, readonly, shouldValidate, loadClasses);
   }
 
   @Override
   public RepositoryFactory asFactory() {
-    if (isTest()) {
+    if (!enableCaching) {
       return factory;
     }
     return super.asFactory();

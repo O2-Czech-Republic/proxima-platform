@@ -74,7 +74,8 @@ public class ${java_classname} implements Serializable {
    * @return ${java_classname}
    **/
   public static ${java_classname} ofTest(Repository.ConfigFactory factory) {
-    return new ${java_classname}(ConfigRepository.Builder.ofTest(()-> factory.apply().withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+    return new ${java_classname}(ConfigRepository.Builder.ofTest(
+      () -> factory.apply().withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
 
   @FunctionalInterface

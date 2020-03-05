@@ -17,7 +17,6 @@ package cz.o2.proxima.tools.groovy;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.Classpath;
 import freemarker.template.Configuration;
@@ -29,7 +28,7 @@ import org.junit.Before;
 public class GroovyTest {
 
   final Config cfg = ConfigFactory.load("test-reference.conf").resolve();
-  final Repository repo = ConfigRepository.of(cfg);
+  final Repository repo = Repository.of(cfg);
   Configuration conf;
   ToolsClassLoader loader;
 

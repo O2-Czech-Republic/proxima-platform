@@ -35,7 +35,7 @@ import org.junit.Test;
 public class GCloudClientTest {
 
   private final Repository repo =
-      Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
+      Repository.of(ConfigFactory.load("test-reference.conf").resolve());
   private final EntityDescriptor entity = repo.getEntity("gateway");
   private final URI uri = URI.create("gs://bucket/path");
 

@@ -24,7 +24,6 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.TransformationDescriptor;
@@ -62,7 +61,7 @@ public class SingleTopicMultipleReplicationsTest {
   }
 
   final Repository repo =
-      ConfigRepository.of(ConfigFactory.parseResources("test-replication-sing-topic.conf"));
+      Repository.of(ConfigFactory.parseResources("test-replication-sing-topic.conf"));
   final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
   final EntityDescriptor entity =
       repo.findEntity("entity")

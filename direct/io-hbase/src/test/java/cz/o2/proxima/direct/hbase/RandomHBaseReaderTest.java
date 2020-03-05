@@ -51,7 +51,7 @@ import org.junit.Test;
 /** Testing suite for {@link RandomHBaseReader}. */
 public class RandomHBaseReaderTest {
 
-  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory::load).build();
+  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.load()).build();
   private final EntityDescriptor entity = repo.findEntity("test").get();
 
   @SuppressWarnings("unchecked")

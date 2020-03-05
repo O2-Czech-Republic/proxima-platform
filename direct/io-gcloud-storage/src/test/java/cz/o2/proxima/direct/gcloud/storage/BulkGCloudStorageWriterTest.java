@@ -64,7 +64,7 @@ public class BulkGCloudStorageWriterTest {
 
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
-  final Repository repo = Repository.of(() -> ConfigFactory.load().resolve());
+  final Repository repo = Repository.of(ConfigFactory.load().resolve());
   final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final AttributeDescriptor<?> attr;
   final AttributeDescriptor<?> wildcard;

@@ -38,12 +38,10 @@ public class ${java_classname} implements Serializable {
    *
    * @param cfg configuration to use
    * @return ${java_classname}
-   * @deprecated use {@link #of(Repository.ConfigFactory)} instead
    **/
-  @Deprecated
   public static ${java_classname} of(Config cfg) {
     return new ${java_classname}(ConfigRepository.Builder.of(
-        () -> cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+        cfg.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
 
   /**
@@ -52,9 +50,9 @@ public class ${java_classname} implements Serializable {
    * @param factory configuration to use
    * @return ${java_classname}
    **/
+  @Deprecated
   public static ${java_classname} of(Repository.ConfigFactory factory) {
-    return new ${java_classname}(ConfigRepository.Builder.of(
-        () -> factory.apply().withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+    return of(factory.apply());
   }
 
   /**
@@ -73,9 +71,20 @@ public class ${java_classname} implements Serializable {
    * @param factory configuration to use
    * @return ${java_classname}
    **/
+  @Deprecated
   public static ${java_classname} ofTest(Repository.ConfigFactory factory) {
+    return ofTest(factory.apply());
+  }
+
+  /**
+   * Create instance of {@code ${java_classname}} for testing purposes.
+   *
+   * @param config the configuration to use
+   * @return ${java_classname}
+   **/
+  public static ${java_classname} ofTest(Config config) {
     return new ${java_classname}(ConfigRepository.Builder.ofTest(
-      () -> factory.apply().withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+      config.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
   }
 
   @FunctionalInterface

@@ -51,7 +51,7 @@ public class JsonFormatTest {
 
   @Rule public final TemporaryFolder folder = new TemporaryFolder();
   private final Repository repo =
-      Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
+      Repository.of(ConfigFactory.load("test-reference.conf").resolve());
   private final EntityDescriptor entity = repo.getEntity("gateway");
   private final AttributeDescriptor<Object> wildcard = entity.getAttribute("device.*");
   private final long stamp = System.currentTimeMillis();

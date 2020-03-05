@@ -94,70 +94,57 @@ public final class ConfigRepository extends Repository {
   private static Config cachedConfigConstructed;
 
   /**
-   * Construct default repository from the config.
-   *
-   * @param factory configuration to use
-   * @return constructed repository
-   */
-  public static Repository of(ConfigFactory factory) {
-    return Builder.of(factory).build();
-  }
-
-  /**
-   * Construct default repository from the config.
-   *
-   * @param factory configuration to use
-   * @return constructed repository
-   */
-  public static Repository ofTest(ConfigFactory factory) {
-    return Builder.of(factory).withCachingEnabled(false).build();
-  }
-
-  /**
    * Create config from /{@link Config}.
    *
    * @param config the config to create {@link Repository} from
    * @return new {@link Repository}
-   * @deprecated use {@link #of(ConfigFactory)} instead
    */
-  @Deprecated
   public static Repository of(Config config) {
-    return of(() -> config);
+    return Builder.of(config).build();
+  }
+
+  /**
+   * Construct default repository from the config.
+   *
+   * @param config configuration to use
+   * @return constructed repository
+   */
+  public static Repository ofTest(Config config) {
+    return Builder.of(config).withCachingEnabled(false).build();
   }
 
   /** Builder for the repository. */
   public static class Builder {
 
     /**
-     * Create new {@link Repository} from {@link ConfigFactory}.
+     * Create new {@link Repository} from {@link Config}.
      *
      * @param config config to create {@link Repository from}
      * @return new builder of Repository
-     * @deprecated use {@link #of(ConfigFactory)} instead.
      */
-    public static Builder of(ConfigFactory config) {
+    public static Builder of(Config config) {
       return new Builder(config);
     }
 
     /**
      * Create a test version of repository.
      *
-     * @param factory factory to use
+     * @param config config to use
      * @return new Builder of test Repository
      */
-    public static Builder ofTest(ConfigFactory factory) {
-      return new Builder(factory).withCachingEnabled(false);
+    public static Builder ofTest(Config config) {
+      return new Builder(config).withCachingEnabled(false);
     }
 
-    private final ConfigFactory factory;
+    private final Config config;
     private boolean cachingEnabled = true;
     private boolean readOnly = false;
     private boolean validate = true;
     private boolean loadFamilies = true;
     private boolean loadClasses = true;
 
-    private Builder(ConfigFactory factory) {
-      this.factory = Objects.requireNonNull(factory);
+    private Builder(Config config) {
+      this.config = Objects.requireNonNull(config);
     }
 
     public Builder withCachingEnabled(boolean flag) {
@@ -187,7 +174,7 @@ public final class ConfigRepository extends Repository {
 
     public ConfigRepository build() {
       return new ConfigRepository(
-          factory, cachingEnabled, readOnly, validate, loadFamilies, loadClasses);
+          config, cachingEnabled, readOnly, validate, loadFamilies, loadClasses);
     }
   }
 
@@ -257,12 +244,10 @@ public final class ConfigRepository extends Repository {
   /** Set of operators created by this repository. */
   private final Set<DataOperator> operators = Collections.synchronizedSet(new HashSet<>());
 
-  /** Cache for deserialization purposes. */
-  private RepositoryFactory factory = null;
-
   /**
    * Construct the repository from the config with the specified read-only and validation flag.
    *
+   * @param config the config to use
    * @param cachingEnabled can we cache the Repository per JVM
    * @param isReadonly true in client applications where you want to use repository specifications
    *     to read from the datalake.
@@ -271,29 +256,25 @@ public final class ConfigRepository extends Repository {
    *     maven plugin it is set to false
    */
   private ConfigRepository(
-      ConfigFactory factory,
+      Config config,
       boolean cachingEnabled,
       boolean isReadonly,
       boolean shouldValidate,
       boolean loadFamilies,
       boolean loadClasses) {
 
-    super(factory);
+    super(config, cachingEnabled);
     this.enableCaching = cachingEnabled;
-    this.config = factory.apply();
+    this.config = config;
     this.readonly = isReadonly;
     this.shouldValidate = shouldValidate;
     this.loadClasses = loadClasses;
-    if (!cachingEnabled) {
-      this.factory = RepositoryFactory.local(this);
-    }
-
     try {
 
       // read all scheme serializers.
       readSchemeSerializers(ServiceLoader.load(ValueSerializerFactory.class));
 
-      reloadConfig(loadFamilies, config);
+      reloadConfig(loadFamilies, this.config);
 
     } catch (Exception ex) {
       throw new IllegalArgumentException("Cannot read config settings", ex);
@@ -2010,14 +1991,6 @@ public final class ConfigRepository extends Repository {
   @Override
   public int hashCode() {
     return Objects.hash(config, enableCaching, readonly, shouldValidate, loadClasses);
-  }
-
-  @Override
-  public RepositoryFactory asFactory() {
-    if (!enableCaching) {
-      return factory;
-    }
-    return super.asFactory();
   }
 
   private void writeObject(ObjectOutputStream oos) throws IOException {

@@ -79,7 +79,7 @@ public class DirectBatchUnboundedSourceTest {
 
   void testBatchUnboundedSourceWithCount(int count) {
     Pipeline pipeline = Pipeline.create();
-    Repository repo = Repository.ofTest(() -> ConfigFactory.load("test-reference.conf").resolve());
+    Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
     EntityDescriptor gateway = repo.getEntity("gateway");
     AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
     DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);

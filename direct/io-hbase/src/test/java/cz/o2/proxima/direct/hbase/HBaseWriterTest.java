@@ -50,7 +50,7 @@ import org.junit.Test;
 /** Test {@code HBaseWriter} via a local instance of HBase cluster. */
 public class HBaseWriterTest {
 
-  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory::load).build();
+  private final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.load()).build();
   private final EntityDescriptor entity = repo.getEntity("test");
   private final AttributeDescriptor<?> attr = entity.getAttribute("dummy");
   private final AttributeDescriptor<?> wildcard = entity.getAttribute("wildcard.*");

@@ -42,10 +42,9 @@ public class DefaultConsumerNameFactoryTest {
 
     ConfigRepository repo =
         ConfigRepository.Builder.of(
-                () ->
-                    ConfigFactory.load()
-                        .withFallback(ConfigFactory.load("test-reference.conf"))
-                        .resolve())
+                ConfigFactory.load()
+                    .withFallback(ConfigFactory.load("test-reference.conf"))
+                    .resolve())
             .build();
     AttributeDescriptor<byte[]> attributeDescriptor =
         AttributeDescriptor.newBuilder(repo)

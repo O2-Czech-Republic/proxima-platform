@@ -48,8 +48,7 @@ import org.junit.Test;
 /** Test suite for {@link ReplicationController}. */
 public class ReplicationControllerTest {
 
-  final Repository repo =
-      Repository.ofTest(() -> ConfigFactory.load("test-reference.conf").resolve());
+  final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   final EntityDescriptor event = repo.getEntity("event");
   final AttributeDescriptor<byte[]> data = event.getAttribute("data");
   DirectDataOperator direct;

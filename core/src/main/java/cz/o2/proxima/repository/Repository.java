@@ -35,44 +35,46 @@ public abstract class Repository implements Serializable {
 
   private static final long serialVersionUID = 1L;
 
+  /** This is deprecated and will be removed in 0.4.0. */
+  @Deprecated
+  @FunctionalInterface
+  public interface ConfigFactory {
+    Config apply();
+  }
+
+  /** @deprecated Use {@link Repository#of(Config)} */
+  @Deprecated
+  public static Repository of(ConfigFactory factory) {
+    return of(factory.apply());
+  }
+
+  /** @deprecated Use {@link Repository#ofTest(Config)}. */
+  @Deprecated
+  public static Repository ofTest(ConfigFactory factory) {
+    return ofTest(factory.apply());
+  }
+
   /**
    * Create {@link Repository} from given {@link Config}.
    *
-   * @param factory the config factory
+   * @param config the config
    * @return repository
    */
-  public static Repository of(ConfigFactory factory) {
-    return ConfigRepository.of(factory);
+  public static Repository of(Config config) {
+    return ConfigRepository.of(config);
   }
 
   /**
    * Create {@link Repository} from given {@link Config} for testing purposes.
    *
-   * @param factory the config factory
+   * @param config the config
    * @return repository
    */
-  public static Repository ofTest(ConfigFactory factory) {
-    return ConfigRepository.ofTest(factory);
+  public static Repository ofTest(Config config) {
+    return ConfigRepository.ofTest(config);
   }
 
-  /**
-   * Create new {@link Repository} from {@link Config}.
-   *
-   * @param config the config to use
-   * @return new {@link Repository}
-   * @deprecated use {@link #of(ConfigFactory)} instead.
-   */
-  @Deprecated
-  public static Repository of(Config config) {
-    return ConfigRepository.of(config);
-  }
-
-  /** Serializable factory for {@link Config}. */
-  public interface ConfigFactory extends Serializable {
-    Config apply();
-  }
-
-  private final ConfigFactory factory;
+  RepositoryFactory factory;
 
   private final transient Map<Class<? extends DataOperator>, DataOperator> operatorCache =
       new ConcurrentHashMap<>();
@@ -80,10 +82,16 @@ public abstract class Repository implements Serializable {
   /**
    * Construct the repository.
    *
-   * @param factory the factory to create instance of this {@link Config}
+   * @param config the config to create instance of this {@link Config}
+   * @param cachingEnabled enable caching of Repository pre JVM
    */
-  Repository(ConfigFactory factory) {
-    this.factory = factory;
+  Repository(Config config, boolean cachingEnabled) {
+    final RepositoryFactory repoFactory =
+        cachingEnabled ? () -> Repository.of(config) : () -> Repository.ofTest(config);
+    this.factory =
+        cachingEnabled
+            ? RepositoryFactory.caching(repoFactory, this)
+            : RepositoryFactory.local(this);
   }
 
   /**
@@ -92,11 +100,7 @@ public abstract class Repository implements Serializable {
    * @return this repository as factory
    */
   public RepositoryFactory asFactory() {
-    return RepositoryFactory.caching(staticFactory(factory), this);
-  }
-
-  private static RepositoryFactory staticFactory(ConfigFactory factory) {
-    return () -> Repository.of(factory.apply());
+    return factory;
   }
 
   /**

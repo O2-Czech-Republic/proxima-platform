@@ -31,7 +31,7 @@ import org.junit.Test;
 /** Test suite for {@link StreamElement}. */
 public class StreamElementTest {
 
-  final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory::empty).build();
+  final Repository repo = ConfigRepository.Builder.ofTest(ConfigFactory.empty()).build();
   final AttributeDescriptorBase<byte[]> attr;
   final AttributeDescriptorBase<byte[]> attrWildcard;
   final EntityDescriptor entity;

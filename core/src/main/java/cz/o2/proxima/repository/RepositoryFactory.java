@@ -24,31 +24,30 @@ import java.util.concurrent.ConcurrentHashMap;
 @FunctionalInterface
 public interface RepositoryFactory extends Serializable {
 
-  class Caching implements RepositoryFactory {
+  class VersionedCaching implements RepositoryFactory {
 
     private static final long serialVersionUID = 1L;
 
-    private static byte initialized = 0;
+    private static long initializedFrom = Long.MIN_VALUE;
     private static Repository repo;
 
+    private final long version = System.currentTimeMillis();
     private final RepositoryFactory underlying;
 
-    private Caching(RepositoryFactory underlying, Repository created) {
+    private VersionedCaching(RepositoryFactory underlying, Repository created) {
       this.underlying = underlying;
       synchronized (Repository.class) {
-        initialized = 1;
+        initializedFrom = version;
         repo = created;
       }
     }
 
     @Override
     public Repository apply() {
-      if (initialized == 0) {
-        synchronized (Repository.class) {
-          if (initialized == 0) {
-            repo = underlying.apply();
-            initialized = 1;
-          }
+      synchronized (Repository.class) {
+        if (initializedFrom < version) {
+          repo = underlying.apply();
+          initializedFrom = version;
         }
       }
       return repo;
@@ -75,11 +74,11 @@ public interface RepositoryFactory extends Serializable {
   }
 
   static RepositoryFactory caching(RepositoryFactory factory) {
-    return new Caching(factory, factory.apply());
+    return new VersionedCaching(factory, factory.apply());
   }
 
   static RepositoryFactory caching(RepositoryFactory factory, Repository current) {
-    return new Caching(factory, current);
+    return new VersionedCaching(factory, current);
   }
 
   static RepositoryFactory local(Repository repository) {

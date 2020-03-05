@@ -34,14 +34,11 @@ public class StreamConfig implements Serializable {
   private static final String COLLECT_HOSTNAME = "console.collect.hostname";
 
   static StreamConfig empty() {
-    return new StreamConfig(
-        ConfigFactory.empty(),
-        RepositoryFactory.caching(() -> Repository.of(ConfigFactory::empty)));
+    return new StreamConfig((ConfigRepository) Repository.of(ConfigFactory.empty()));
   }
 
   static StreamConfig of(BeamDataOperator beam) {
-    return new StreamConfig(
-        ((ConfigRepository) beam.getRepository()).getConfig(), beam.getRepository().asFactory());
+    return new StreamConfig(((ConfigRepository) beam.getRepository()));
   }
 
   @Getter private final int collectPort;
@@ -49,14 +46,16 @@ public class StreamConfig implements Serializable {
   private final RepositoryFactory repositoryFactory;
   private transient Repository repo;
 
-  private StreamConfig(Config config, RepositoryFactory repoFactory) {
+  private StreamConfig(ConfigRepository repository) {
     try {
+      Config config = repository.getConfig();
       this.collectPort = config.hasPath(COLLECT_PORT_KEY) ? config.getInt(COLLECT_PORT_KEY) : -1;
       this.collectHostname =
           isNonEmpty(config, COLLECT_HOSTNAME)
               ? config.getString(COLLECT_HOSTNAME)
               : InetAddress.getLocalHost().getHostName();
-      this.repositoryFactory = repoFactory;
+      this.repositoryFactory = repository.asFactory();
+      this.repo = repository;
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }

@@ -45,7 +45,7 @@ import org.junit.Test;
 public class TransformingCqlFactoryTest {
 
   final Repository repo =
-      ConfigRepository.Builder.ofTest(ConfigFactory::defaultApplication).build();
+      ConfigRepository.Builder.ofTest(ConfigFactory.defaultApplication()).build();
   AttributeDescriptorBase<?> attr;
   EntityDescriptor entity;
 

@@ -39,10 +39,9 @@ public class AttributeFamilyDescriptorTest {
   public AttributeFamilyDescriptorTest() {
     this.repo =
         ConfigRepository.Builder.of(
-                () ->
-                    ConfigFactory.load()
-                        .withFallback(ConfigFactory.load("test-reference.conf"))
-                        .resolve())
+                ConfigFactory.load()
+                    .withFallback(ConfigFactory.load("test-reference.conf"))
+                    .resolve())
             .build();
     this.entity = repo.getEntity("event");
     this.attribute = entity.getAttribute("data");

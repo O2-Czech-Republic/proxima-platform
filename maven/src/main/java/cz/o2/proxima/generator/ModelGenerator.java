@@ -115,7 +115,7 @@ public class ModelGenerator {
     final Configuration conf = getConf();
 
     final Repository repo =
-        ConfigRepository.Builder.of(() -> config)
+        ConfigRepository.Builder.of(config)
             .withCachingEnabled(false)
             .withReadOnly(true)
             .withValidate(false)

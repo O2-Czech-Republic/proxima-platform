@@ -18,8 +18,9 @@
 
 proxima_version() {
   oldPwd=$(pwd)
-  cd "${oldPwd}/$(dirname $BASH_SOURCE)/../../"
-  local version=$(mvn org.apache.maven.plugins:maven-help-plugin:2.1.1:evaluate -Dexpression=project.version | grep -x "^[^\[]*")
+  cd "${oldPwd}/$(dirname $BASH_SOURCE)/../../"  
+  mvn help:evaluate -Dexpression=project.version -q -Doutput=/tmp/VERSION
+  local version=$(cat /tmp/VERSION)
   cd $oldPwd
   if [ -z "${version}" ]; then
     messageFail "Unable to get version"

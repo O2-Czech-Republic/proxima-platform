@@ -50,10 +50,9 @@ public class ConfigRepositoryTest {
 
   private final ConfigRepository repo =
       ConfigRepository.Builder.of(
-              () ->
-                  ConfigFactory.load()
-                      .withFallback(ConfigFactory.load("test-reference.conf"))
-                      .resolve())
+              ConfigFactory.load()
+                  .withFallback(ConfigFactory.load("test-reference.conf"))
+                  .resolve())
           .build();
 
   @Test
@@ -85,26 +84,23 @@ public class ConfigRepositoryTest {
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidFamily() {
     ConfigRepository.Builder.ofTest(
-            () ->
-                ConfigFactory.load()
-                    .withFallback(ConfigFactory.load("test-reference.conf"))
-                    .withFallback(
-                        ConfigFactory.parseString("attributeFamilies.invalid.invalid = true"))
-                    .resolve())
+            ConfigFactory.load()
+                .withFallback(ConfigFactory.load("test-reference.conf"))
+                .withFallback(ConfigFactory.parseString("attributeFamilies.invalid.invalid = true"))
+                .resolve())
         .build();
   }
 
   @Test
   public void testInvalidDisabledFamily() {
     ConfigRepository.Builder.ofTest(
-            () ->
-                ConfigFactory.load()
-                    .withFallback(ConfigFactory.load("test-reference.conf"))
-                    .withFallback(
-                        ConfigFactory.parseString(
-                            "attributeFamilies.invalid.invalid = true\n"
-                                + "attributeFamilies.invalid.disabled = true"))
-                    .resolve())
+            ConfigFactory.load()
+                .withFallback(ConfigFactory.load("test-reference.conf"))
+                .withFallback(
+                    ConfigFactory.parseString(
+                        "attributeFamilies.invalid.invalid = true\n"
+                            + "attributeFamilies.invalid.disabled = true"))
+                .resolve())
         .build();
     // make sonar happy :-)
     assertTrue(true);
@@ -112,8 +108,7 @@ public class ConfigRepositoryTest {
 
   @Test
   public void testTestRepositorySerializable() throws Exception {
-    Repository testRepo =
-        ConfigRepository.ofTest(() -> ConfigFactory.load("test-reference.conf").resolve());
+    Repository testRepo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
     Repository clone = TestUtils.assertSerializable(testRepo);
     assertTrue(clone == testRepo);
   }
@@ -419,31 +414,39 @@ public class ConfigRepositoryTest {
 
   @Test
   public void testDeprecatedConstructionSerializable() throws IOException, ClassNotFoundException {
-    Repository repo = ConfigRepository.of(ConfigFactory.load("test-reference.conf").resolve());
+    Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
     TestUtils.assertSerializable(repo);
   }
 
   @Test
   public void testBuilderSerializable() throws IOException, ClassNotFoundException {
-    ConfigRepository repo =
-        Builder.of(() -> ConfigFactory.load("test-reference.conf").resolve()).build();
+    ConfigRepository repo = Builder.of(ConfigFactory.load("test-reference.conf").resolve()).build();
     TestUtils.assertSerializable(repo);
-    repo = Builder.ofTest(() -> ConfigFactory.load("test-reference.conf").resolve()).build();
+    repo = Builder.ofTest(ConfigFactory.load("test-reference.conf").resolve()).build();
     TestUtils.assertSerializable(repo);
   }
 
   @Test(expected = IllegalStateException.class)
   public void testMultipleInstancesThrowException() {
-    ConfigRepository repo =
-        Builder.of(() -> ConfigFactory.load("test-reference.conf").resolve()).build();
-    ConfigRepository repo2 =
-        Builder.of(
-                () ->
-                    ConfigFactory.load("test-reference.conf")
-                        .withFallback(
-                            ConfigFactory.parseMap(Collections.singletonMap("key", "value")))
-                        .resolve())
-            .build();
+    Builder.of(ConfigFactory.load("test-reference.conf").resolve()).build();
+    Builder.of(
+            ConfigFactory.load("test-reference.conf")
+                .withFallback(ConfigFactory.parseMap(Collections.singletonMap("key", "value")))
+                .resolve())
+        .build();
+  }
+
+  @Test
+  public void testConfigUpdateAfterSerialization() throws IOException, ClassNotFoundException {
+    Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+    byte[] serialized = TestUtils.serializeObject(repo);
+    // when we deserialize without another repository being created, we get the same instance
+    assertTrue(TestUtils.deserializeObject(serialized) == repo);
+    // update repo
+    Repository repo2 = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+    assertTrue(repo != repo2);
+    assertTrue(TestUtils.deserializeObject(serialized) == repo2);
+    assertTrue(TestUtils.deserializeObject(serialized) == repo2);
   }
 
   private void checkThrows(Factory<?> factory) {

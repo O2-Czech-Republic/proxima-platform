@@ -47,7 +47,7 @@ public class PartitionedCachedViewTest {
           .withFallback(ConfigFactory.load("test-reference.conf"))
           .resolve();
 
-  final ConfigRepository repo = (ConfigRepository) ConfigRepository.of(nonReplicated);
+  final ConfigRepository repo = (ConfigRepository) Repository.of(nonReplicated);
   final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
   EntityDescriptor gateway;
 

@@ -31,7 +31,7 @@ import org.junit.Test;
 /** Test {@link ValueAsBytesSerializer}. */
 public class ValueAsBytesSerializerTest {
 
-  Repository repo = Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
+  Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
   EntityDescriptor event = repo.getEntity("event");
   EntityDescriptor gateway = repo.getEntity("gateway");
   long now = System.currentTimeMillis();

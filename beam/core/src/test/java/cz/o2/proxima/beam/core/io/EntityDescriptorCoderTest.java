@@ -28,7 +28,7 @@ import org.junit.Test;
 public class EntityDescriptorCoderTest {
 
   private final Repository repo =
-      Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
+      Repository.of(ConfigFactory.load("test-reference.conf").resolve());
 
   @Test
   public void testSerializeDeserialize() throws IOException {

@@ -96,7 +96,7 @@ public class AbstractBulkFileSystemAttributeWriterTest {
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
   final URI uri = URI.create("abstract-bulk:///");
-  final Repository repo = Repository.of(() -> ConfigFactory.load().resolve());
+  final Repository repo = Repository.of(ConfigFactory.load().resolve());
   final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final AttributeDescriptor<?> attr;
   final AttributeDescriptor<?> wildcard;

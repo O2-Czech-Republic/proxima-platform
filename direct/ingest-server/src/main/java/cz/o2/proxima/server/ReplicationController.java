@@ -28,7 +28,6 @@ import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.server.metrics.Metrics;
@@ -72,9 +71,9 @@ public class ReplicationController {
   public static void main(String[] args) throws Throwable {
     final Repository repo;
     if (args.length == 0) {
-      repo = ConfigRepository.of(() -> ConfigFactory.load().resolve());
+      repo = Repository.of(ConfigFactory.load().resolve());
     } else {
-      repo = ConfigRepository.of(() -> ConfigFactory.parseFile(new File(args[0])).resolve());
+      repo = Repository.of(ConfigFactory.parseFile(new File(args[0])).resolve());
     }
     ReplicationController.of(repo).runReplicationThreads().get();
   }

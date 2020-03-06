@@ -22,7 +22,6 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.gcloud.storage.proto.Serialization;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -297,7 +296,7 @@ class BinaryBlobFormat implements FileFormat {
       if (args.length != 1) {
         usage();
       }
-      Repository repo = ConfigRepository.of(() -> ConfigFactory.load().resolve());
+      Repository repo = Repository.of(ConfigFactory.load().resolve());
       EntityDescriptor entity =
           repo.findEntity(args[0])
               .orElseThrow(() -> new IllegalArgumentException("Cannot find entity " + args[0]));

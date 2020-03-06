@@ -69,10 +69,9 @@ public class DirectDataOperatorTest {
   public DirectDataOperatorTest() {
     this.repo =
         ConfigRepository.Builder.of(
-                () ->
-                    ConfigFactory.load()
-                        .withFallback(ConfigFactory.load("test-reference.conf"))
-                        .resolve())
+                ConfigFactory.load()
+                    .withFallback(ConfigFactory.load("test-reference.conf"))
+                    .resolve())
             .build();
     this.direct = repo.asDataOperator(DirectDataOperator.class);
   }
@@ -106,26 +105,23 @@ public class DirectDataOperatorTest {
   @Test(expected = IllegalArgumentException.class)
   public void testInvalidFamily() {
     ConfigRepository.Builder.ofTest(
-            () ->
-                ConfigFactory.load()
-                    .withFallback(ConfigFactory.load("test-reference.conf"))
-                    .withFallback(
-                        ConfigFactory.parseString("attributeFamilies.invalid.invalid = true"))
-                    .resolve())
+            ConfigFactory.load()
+                .withFallback(ConfigFactory.load("test-reference.conf"))
+                .withFallback(ConfigFactory.parseString("attributeFamilies.invalid.invalid = true"))
+                .resolve())
         .build();
   }
 
   @Test
   public void testInvalidDisabledFamily() {
     ConfigRepository.Builder.ofTest(
-            () ->
-                ConfigFactory.load()
-                    .withFallback(ConfigFactory.load("test-reference.conf"))
-                    .withFallback(
-                        ConfigFactory.parseString(
-                            "attributeFamilies.invalid.invalid = true\n"
-                                + "attributeFamilies.invalid.disabled = true"))
-                    .resolve())
+            ConfigFactory.load()
+                .withFallback(ConfigFactory.load("test-reference.conf"))
+                .withFallback(
+                    ConfigFactory.parseString(
+                        "attributeFamilies.invalid.invalid = true\n"
+                            + "attributeFamilies.invalid.disabled = true"))
+                .resolve())
         .build();
     // make sonar happy :-)
     assertTrue(true);

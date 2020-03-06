@@ -38,8 +38,7 @@ public class HadoopPathTest {
   @Rule public final TemporaryFolder folder = new TemporaryFolder();
 
   private final Repository repository =
-      ConfigRepository.Builder.ofTest(() -> ConfigFactory.load("test-reference.conf").resolve())
-          .build();
+      ConfigRepository.Builder.ofTest(ConfigFactory.load("test-reference.conf").resolve()).build();
   private final DirectDataOperator direct =
       repository.getOrCreateOperator(DirectDataOperator.class);;
   private final EntityDescriptor entity = repository.getEntity("gateway");

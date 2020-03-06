@@ -29,7 +29,7 @@ import org.junit.Test;
 public class EntityAwareAttributeDescriptorTest {
 
   private final Repository repo =
-      Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
+      Repository.of(ConfigFactory.load("test-reference.conf").resolve());
   private final Instant now = Instant.now();
 
   @Test

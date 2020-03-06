@@ -43,7 +43,7 @@ import org.junit.Test;
 public class GCloudFileSystemTest {
 
   private final Repository repo =
-      Repository.of(() -> ConfigFactory.load("test-reference.conf").resolve());
+      Repository.of(ConfigFactory.load("test-reference.conf").resolve());
   private final EntityDescriptor entity = repo.getEntity("gateway");
   private final GCloudStorageAccessor accessor =
       new GCloudStorageAccessor(entity, URI.create("gs://bucket/path"), Collections.emptyMap());

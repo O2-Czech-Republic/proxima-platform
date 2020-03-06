@@ -29,7 +29,6 @@ import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -50,7 +49,7 @@ import org.junit.Test;
 /** Test suite for {@link InMemStorage}. */
 public class InMemStorageTest implements Serializable {
 
-  final Repository repo = ConfigRepository.of(ConfigFactory.load("test-reference.conf").resolve());
+  final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
   final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
   final EntityDescriptor entity =
       repo.findEntity("dummy").orElseThrow(() -> new IllegalStateException("Missing entity dummy"));

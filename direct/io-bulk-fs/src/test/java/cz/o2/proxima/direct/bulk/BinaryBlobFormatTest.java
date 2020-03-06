@@ -46,7 +46,7 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class BinaryBlobFormatTest {
 
-  final Repository repo = Repository.of(() -> ConfigFactory.load().resolve());
+  final Repository repo = Repository.of(ConfigFactory.load().resolve());
   final AttributeDescriptor<?> attr;
   final AttributeDescriptor<?> wildcard;
   final EntityDescriptor entity;

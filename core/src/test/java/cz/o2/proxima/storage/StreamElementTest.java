@@ -29,7 +29,7 @@ import org.junit.Test;
 public class StreamElementTest {
 
   private final Repository repo =
-      Repository.ofTest(() -> ConfigFactory.load("test-reference.conf").resolve());
+      Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   private final EntityDescriptor gateway =
       repo.findEntity("gateway")
           .orElseThrow(() -> new IllegalArgumentException("Missing entity gateway"));

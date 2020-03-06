@@ -288,7 +288,7 @@ public class BeamDataOperatorTest {
                 Collections.singletonMap(
                     "attributeFamilies.event-storage-stream.storage", "kafka-test://dummy/events"))
             .withFallback(ConfigFactory.load("test-reference.conf"));
-    Repository repo = Repository.ofTest(() -> config);
+    Repository repo = Repository.ofTest(config);
     EntityDescriptor event = repo.getEntity("event");
     AttributeDescriptor<?> data = event.getAttribute("data");
     int numElements = 10000;

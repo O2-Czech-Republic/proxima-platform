@@ -89,7 +89,7 @@ public interface Partition extends Serializable {
    * @param id the ID of partition
    * @return partition
    */
-  public static Partition of(int id) {
+  static Partition of(int id) {
     return new Partition() {
       @Override
       public int getId() {

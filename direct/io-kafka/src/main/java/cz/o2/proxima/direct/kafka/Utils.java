@@ -47,9 +47,7 @@ class Utils {
         o -> {
           TopicOffset to = (TopicOffset) o;
           TopicPartition tp = new TopicPartition(topic, o.getPartition().getId());
-          if (to.getOffset() >= 0L) {
-            consumer.seek(tp, to.getOffset());
-          }
+          consumer.seek(tp, to.getOffset());
         });
   }
 

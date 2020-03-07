@@ -656,7 +656,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     if (partitions != null) {
       return partitions
           .stream()
-          .map(p -> new TopicOffset(p.getId(), -1, Long.MIN_VALUE))
+          .map(p -> new TopicOffset(p.getId(), 0, Long.MIN_VALUE))
           .collect(Collectors.toList());
     }
     return null;

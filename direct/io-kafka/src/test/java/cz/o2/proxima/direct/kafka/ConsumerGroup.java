@@ -126,7 +126,7 @@ public class ConsumerGroup implements Serializable {
    *
    * @return the ID of the newly created consumer.
    */
-  public int add() {
+  public synchronized int add() {
     return add((ConsumerRebalanceListener) null);
   }
 
@@ -137,17 +137,11 @@ public class ConsumerGroup implements Serializable {
    * @return the ID of the newly created consumer.
    */
   public synchronized int add(@Nullable ConsumerRebalanceListener listener) {
-
     int id = assignments.isEmpty() ? 0 : assignments.lastKey() + 1;
     Assignment assignment = new Assignment(id, listener);
     assignments.put(id, assignment);
     assign(assignments);
-    if (log.isDebugEnabled()) {
-      log.debug(
-          "Added new consumer to group {} with assignments {}",
-          name,
-          assignment.getPartitions().stream().map(Partition::getId).collect(Collectors.toList()));
-    }
+    log.debug("Added new consumer to group {} with assignments {}", name, assignments);
     return id;
   }
 
@@ -158,7 +152,6 @@ public class ConsumerGroup implements Serializable {
    * @return the ID of the newly created consumer.
    */
   public synchronized int add(Collection<Partition> partitions) {
-
     int id = assignments.isEmpty() ? 0 : assignments.lastKey() + 1;
     Assignment assignment = new Assignment(id, null);
     assignments.put(id, assignment);

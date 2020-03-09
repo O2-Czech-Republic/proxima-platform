@@ -46,6 +46,7 @@ public interface RepositoryFactory extends Serializable {
     public Repository apply() {
       synchronized (Repository.class) {
         if (initializedFrom < version) {
+          ConfigRepository.drop();
           repo = underlying.apply();
           initializedFrom = version;
         }

@@ -31,6 +31,7 @@ public class GroovyTest {
   final Repository repo = Repository.of(cfg);
   Configuration conf;
   ToolsClassLoader loader;
+  Console console;
 
   @Before
   public void setUp() throws Exception {
@@ -39,6 +40,7 @@ public class GroovyTest {
     conf.setClassForTemplateLoading(getClass(), "/");
     conf.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
     conf.setLogTemplateExceptions(false);
+    console = Console.create(cfg, repo);
 
     loader = (ToolsClassLoader) Thread.currentThread().getContextClassLoader();
   }

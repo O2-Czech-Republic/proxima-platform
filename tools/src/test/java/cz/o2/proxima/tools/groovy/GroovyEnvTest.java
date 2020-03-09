@@ -37,7 +37,6 @@ public abstract class GroovyEnvTest extends GroovyTest {
 
   final EntityDescriptor gateway = repo.getEntity("gateway");
   final EntityDescriptor batch = repo.getEntity("batch");
-  final Console console = Console.create(cfg, repo);
 
   final AttributeDescriptor<byte[]> armed = gateway.getAttribute("armed");
 
@@ -675,7 +674,8 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 + ".map({ it.second })"
                 + ".collect()");
 
-    long now = System.currentTimeMillis();
+    // make sure that the generated elements fit into the same 1s windows
+    long now = System.currentTimeMillis() / 1000 * 1000 + 500;
     write(
         StreamElement.upsert(
             batch,

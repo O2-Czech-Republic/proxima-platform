@@ -191,6 +191,10 @@ public final class ConfigRepository extends Repository {
     boolean readNonReplicated;
   }
 
+  static void drop() {
+    cachedConfigConstructed = null;
+  }
+
   /** Application configuration. */
   @Getter private Config config;
 

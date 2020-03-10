@@ -408,4 +408,9 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
   public boolean equals(Object obj) {
     return wrapped.equals(obj);
   }
+
+  @Override
+  public String toString() {
+    return wrapped.toString();
+  }
 }

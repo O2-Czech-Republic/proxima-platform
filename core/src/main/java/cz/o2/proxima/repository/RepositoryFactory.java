@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import java.io.Serializable;
 import java.util.Map;
@@ -46,12 +47,19 @@ public interface RepositoryFactory extends Serializable {
     public Repository apply() {
       synchronized (Repository.class) {
         if (initializedFrom < version) {
-          ConfigRepository.drop();
+          ConfigRepository.dropCached();
           repo = underlying.apply();
           initializedFrom = version;
         }
       }
       return repo;
+    }
+
+    @VisibleForTesting
+    static void drop() {
+      ConfigRepository.dropCached();
+      initializedFrom = Long.MIN_VALUE;
+      repo = null;
     }
   }
 

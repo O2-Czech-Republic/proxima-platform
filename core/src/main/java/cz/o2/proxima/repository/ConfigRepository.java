@@ -191,7 +191,7 @@ public final class ConfigRepository extends Repository {
     boolean readNonReplicated;
   }
 
-  static void drop() {
+  static void dropCached() {
     cachedConfigConstructed = null;
   }
 

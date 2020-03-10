@@ -440,13 +440,19 @@ public class ConfigRepositoryTest {
   public void testConfigUpdateAfterSerialization() throws IOException, ClassNotFoundException {
     Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
     byte[] serialized = TestUtils.serializeObject(repo);
-    // when we deserialize without another repository being created, we get the same instance
-    assertTrue(TestUtils.deserializeObject(serialized) == repo);
-    // update repo
-    Repository repo2 = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+    assertTrue(TestUtils.deserializeObject(serialized).equals(repo));
+    RepositoryFactory.VersionedCaching.drop();
+    Repository repo2 = Repository.of(ConfigFactory.empty());
+    byte[] serialized2 = TestUtils.serializeObject(repo2);
+    RepositoryFactory.VersionedCaching.drop();
+
+    repo = TestUtils.deserializeObject(serialized);
+    assertTrue(repo.findEntity("gateway").isPresent());
+    repo2 = TestUtils.deserializeObject(serialized2);
+    assertFalse(repo2.findEntity("gateway").isPresent());
     assertTrue(repo != repo2);
     assertTrue(TestUtils.deserializeObject(serialized) == repo2);
-    assertTrue(TestUtils.deserializeObject(serialized) == repo2);
+    RepositoryFactory.VersionedCaching.drop();
   }
 
   private void checkThrows(Factory<?> factory) {

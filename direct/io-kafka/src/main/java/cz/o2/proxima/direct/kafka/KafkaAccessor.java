@@ -15,7 +15,9 @@
  */
 package cz.o2.proxima.direct.kafka;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
@@ -23,18 +25,28 @@ import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.kafka.KafkaStreamElement.KafkaStreamElementSerializer;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.commitlog.KeyPartitioner;
 import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.net.URI;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.Config;
+import org.apache.kafka.clients.admin.ConfigEntry;
+import org.apache.kafka.clients.admin.DescribeConfigsResult;
+import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.config.TopicConfig;
 
 /** Kafka writer and commit log using {@code KafkaProducer}. */
 @Slf4j
@@ -204,6 +216,13 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
     return props;
   }
 
+  @VisibleForTesting
+  AdminClient createAdmin() {
+    Properties props = createProps();
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, this.getUri().getAuthority());
+    return AdminClient.create(props);
+  }
+
   /**
    * Create kafka consumer with specific rebalance listener.
    *
@@ -213,6 +232,42 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
     ElementSerializer<K, V> serializer = getSerializer();
     return new KafkaConsumerFactory<>(
         getUri(), createProps(), serializer.keySerde(), serializer.valueSerde());
+  }
+
+  /**
+   * Checker for kafka topics configuration
+   *
+   * @param familyDescriptor Attribute family descriptor.
+   * @return true if check succeeded, otherwise false
+   */
+  @Override
+  public boolean isAcceptable(AttributeFamilyDescriptor familyDescriptor) {
+    // Force checks for data compacting on state-commit-log topics
+    if (familyDescriptor.getAccess().isStateCommitLog()) {
+      try (AdminClient adminClient = createAdmin()) {
+        final DescribeConfigsResult configsResult =
+            adminClient.describeConfigs(
+                Collections.singleton(new ConfigResource(ConfigResource.Type.TOPIC, this.topic)));
+        final Config config =
+            ExceptionUtils.uncheckedFactory(
+                () -> Iterables.getOnlyElement(configsResult.all().get().values()));
+        final ConfigEntry cleanupPolicy = config.get(TopicConfig.CLEANUP_POLICY_CONFIG);
+        return verifyCleanupPolicy(cleanupPolicy);
+      }
+    }
+    return true;
+  }
+
+  @VisibleForTesting
+  public boolean verifyCleanupPolicy(ConfigEntry cleanupPolicy) {
+    if (cleanupPolicy != null
+        && cleanupPolicy.value().contains(TopicConfig.CLEANUP_POLICY_COMPACT)) {
+      return true;
+    }
+    log.warn(
+        "Missing option [cleanup.policy=compact] of kafka topic [{}] with access type [state-commit-log].",
+        topic);
+    return false;
   }
 
   @Override

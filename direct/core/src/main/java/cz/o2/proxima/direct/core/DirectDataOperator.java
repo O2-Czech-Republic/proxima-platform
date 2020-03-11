@@ -182,6 +182,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return loader
         .findForUri(desc.getStorageUri())
         .map(f -> f.createAccessor(this, desc.getEntity(), desc.getStorageUri(), desc.getCfg()))
+        .filter(f -> f.isAcceptable(desc))
         .orElseThrow(
             () ->
                 new IllegalStateException(

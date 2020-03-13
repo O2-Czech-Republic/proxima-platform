@@ -20,13 +20,14 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transform.Transformation;
+import cz.o2.proxima.transform.ElementWiseTransformation;
+import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
 /** Transformation function from {@code event.data} to {@code user.event.<stamp>}. */
 @Slf4j
-public class EventDataToUserHistory implements Transformation {
+public class EventDataToUserHistory implements ElementWiseTransformation {
 
   EntityDescriptor user;
   AttributeDescriptor<Event.BaseEvent> event;
@@ -34,7 +35,7 @@ public class EventDataToUserHistory implements Transformation {
 
   @SuppressWarnings("unchecked")
   @Override
-  public void setup(Repository repo) {
+  public void setup(Repository repo, Map<String, Object> cfg) {
     user =
         repo.findEntity("user")
             .orElseThrow(() -> new IllegalArgumentException("No entity named `user` found"));

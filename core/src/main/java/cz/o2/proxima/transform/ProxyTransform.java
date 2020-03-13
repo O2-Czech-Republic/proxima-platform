@@ -15,137 +15,31 @@
  */
 package cz.o2.proxima.transform;
 
-import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import java.io.Serializable;
+import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.repository.DataOperator;
 
 /** A transformation of attribute name applied both on reading and writing attribute. */
-@Stable
-public interface ProxyTransform extends Serializable {
+@Internal
+public interface ProxyTransform extends DataOperatorAware {
 
-  static ProxyTransform identity() {
-    return new ProxyTransform() {
-      @Override
-      public String fromProxy(String proxy) {
-        return proxy;
-      }
-
-      @Override
-      public String toProxy(String raw) {
-        return raw;
-      }
-    };
-  }
-
-  static ProxyTransform composite(ProxyTransform... transforms) {
-
-    return new ProxyTransform() {
-      @Override
-      public String fromProxy(String proxy) {
-        String tmp = proxy;
-        for (int i = transforms.length - 1; i >= 0; i--) {
-          tmp = transforms[i].fromProxy(tmp);
-        }
-        return tmp;
-      }
-
-      @Override
-      public String toProxy(String raw) {
-        String tmp = raw;
-        for (ProxyTransform t : transforms) {
-          tmp = t.toProxy(tmp);
-        }
-        return tmp;
-      }
-    };
+  /**
+   * Convert this proxy to contextual transform.
+   *
+   * @return this transform converted to operator specific
+   * @throws IllegalArgumentException on errors
+   */
+  @SuppressWarnings("unchecked")
+  default <OP extends DataOperator> ContextualProxyTransform<OP> asContextual() {
+    return as(ContextualProxyTransform.class);
   }
 
   /**
-   * Proxy renaming attribute.
+   * Convert this proxy to element wise transform.
    *
-   * @param proxy name of proxy attribute
-   * @param raw name of raw attribute
-   * @return the transform performing the rename operation
+   * @return this transform converted to element wise
+   * @throws IllegalArgumentException on errors
    */
-  static ProxyTransform renaming(String proxy, String raw) {
-    return new ProxyTransform() {
-
-      @Override
-      public String fromProxy(String s) {
-        if (s.startsWith(proxy)) {
-          return raw + s.substring(proxy.length());
-        }
-        return s;
-      }
-
-      @Override
-      public String toProxy(String s) {
-        if (s.startsWith(raw)) {
-          return proxy + s.substring(raw.length());
-        }
-        return s;
-      }
-    };
-  }
-
-  static ProxyTransform droppingUntilCharacter(char character, String rawPrefix) {
-    return new ProxyTransform() {
-
-      @Override
-      public String fromProxy(String proxy) {
-        return rawPrefix + proxy;
-      }
-
-      @Override
-      public String toProxy(String raw) {
-        int pos = raw.indexOf(character);
-        if (pos > 0) {
-          return raw.substring(pos + 1);
-        }
-        return raw;
-      }
-    };
-  }
-
-  static ProxyTransform from(
-      UnaryFunction<String, String> fromProxy, UnaryFunction<String, String> toProxy) {
-
-    return new ProxyTransform() {
-      @Override
-      public String fromProxy(String proxy) {
-        return fromProxy.apply(proxy);
-      }
-
-      @Override
-      public String toProxy(String raw) {
-        return toProxy.apply(raw);
-      }
-    };
-  }
-
-  /**
-   * Apply transformation to attribute name from proxy naming.
-   *
-   * @param proxy name of the attribute in proxy namespace
-   * @return the raw attribute
-   */
-  String fromProxy(String proxy);
-
-  /**
-   * Apply transformation to attribute name to proxy naming.
-   *
-   * @param raw the raw attribute name
-   * @return the proxy attribute name
-   */
-  String toProxy(String raw);
-
-  /**
-   * Setup this transform for given target attribute.
-   *
-   * @param target the target attribute descriptor
-   */
-  default void setup(AttributeDescriptor<?> target) {
-    // nop
+  default ElementWiseProxyTransform asElementWise() {
+    return as(ElementWiseProxyTransform.class);
   }
 }

@@ -34,7 +34,7 @@ import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transform.Transformation;
+import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.util.Pair;
 import java.io.File;
 import java.time.Instant;
@@ -344,7 +344,8 @@ public class ReplicationController {
                     new IllegalArgumentException(
                         "Cannot obtain attribute family for " + transform.getAttributes()));
 
-    final Transformation transformation = transform.getTransformation();
+    final ElementWiseTransformation transformation =
+        transform.getTransformation().asElementWiseTransform();
     final StorageFilter filter = transform.getFilter();
     final String consumer = transform.getConsumerNameFactory().apply();
 
@@ -367,7 +368,7 @@ public class ReplicationController {
   private void startTransformationObserver(
       String consumer,
       CommitLogReader reader,
-      Transformation transformation,
+      ElementWiseTransformation transformation,
       StorageFilter filter,
       String name) {
     RetryableLogObserver.online(

@@ -36,8 +36,8 @@ import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.transform.EventDataToDummy;
-import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.DummyFilter;
 import cz.o2.proxima.util.TestUtils;
 import cz.o2.proxima.util.TransformationRunner;
@@ -1466,20 +1466,20 @@ public class DirectDataOperatorTest {
     AttributeProxyDescriptor<?> attr;
     attr = (AttributeProxyDescriptor<?>) _d;
     assertNotNull(attr.getWriteTransform());
-    assertEquals("_d", attr.getWriteTransform().fromProxy("_d"));
-    assertEquals("_d", attr.getWriteTransform().toProxy("_d"));
+    assertEquals("_d", attr.getWriteTransform().asElementWise().fromProxy("_d"));
+    assertEquals("_d", attr.getWriteTransform().asElementWise().toProxy("_d"));
     assertNotNull(attr.getReadTransform());
-    assertEquals("_d", attr.getReadTransform().fromProxy("_d"));
-    assertEquals("_d", attr.getReadTransform().toProxy("_d"));
+    assertEquals("_d", attr.getReadTransform().asElementWise().fromProxy("_d"));
+    assertEquals("_d", attr.getReadTransform().asElementWise().toProxy("_d"));
 
     // attribute dummy.data should be proxy to _d
     attr = (AttributeProxyDescriptor<?>) dummy.getAttribute("data");
     assertNotNull(attr.getWriteTransform());
     assertNotNull(attr.getReadTransform());
-    assertEquals("data", attr.getWriteTransform().toProxy("_d"));
-    assertEquals("data", attr.getReadTransform().toProxy("_d"));
-    assertEquals("_d", attr.getWriteTransform().fromProxy("data"));
-    assertEquals("_d", attr.getReadTransform().fromProxy("data"));
+    assertEquals("data", attr.getWriteTransform().asElementWise().toProxy("_d"));
+    assertEquals("data", attr.getReadTransform().asElementWise().toProxy("_d"));
+    assertEquals("_d", attr.getWriteTransform().asElementWise().fromProxy("data"));
+    assertEquals("_d", attr.getReadTransform().asElementWise().fromProxy("data"));
     families = repo.getFamiliesForAttribute(attr);
     assertEquals(2, families.size());
     primary =
@@ -1709,11 +1709,14 @@ public class DirectDataOperatorTest {
     assertEquals(
         toAttr,
         collectSingleAttributeUpdate(
-            transform.getTransformation(), entity, fromAttr, entity.getAttribute(fromAttr, true)));
+            transform.getTransformation().asElementWiseTransform(),
+            entity,
+            fromAttr,
+            entity.getAttribute(fromAttr, true)));
   }
 
   private static String collectSingleAttributeUpdate(
-      Transformation transform,
+      ElementWiseTransformation transform,
       EntityDescriptor entity,
       String inputAttribute,
       AttributeDescriptor<?> inputDesc) {

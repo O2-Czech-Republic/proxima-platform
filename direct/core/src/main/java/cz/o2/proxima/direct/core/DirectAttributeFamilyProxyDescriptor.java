@@ -342,7 +342,11 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
                     if (type == RandomAccessReader.Listing.ATTRIBUTE && !key.isEmpty()) {
                       return reader.fetchOffset(
                           type,
-                          lookup.lookupProxy(toAttrName(key)).getReadTransform().fromProxy(key));
+                          lookup
+                              .lookupProxy(toAttrName(key))
+                              .getReadTransform()
+                              .asElementWise()
+                              .fromProxy(key));
                     }
                     return reader.fetchOffset(type, key);
                   }
@@ -359,7 +363,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
                     return reader
                         .get(
                             key,
-                            transform.fromProxy(attribute),
+                            transform.asElementWise().fromProxy(attribute),
                             targetAttribute.getReadTarget(),
                             stamp)
                         .map(kv -> transformToProxy(kv, targetAttribute));
@@ -539,7 +543,10 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
   private static StreamElement transformToRaw(
       StreamElement data, AttributeProxyDescriptor targetDesc) {
 
-    return transform(data, targetDesc.getWriteTarget(), targetDesc.getWriteTransform()::fromProxy);
+    return transform(
+        data,
+        targetDesc.getWriteTarget(),
+        targetDesc.getWriteTransform().asElementWise()::fromProxy);
   }
 
   @SuppressWarnings("unchecked")
@@ -547,14 +554,16 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
       StreamElement data, AttributeProxyDescriptor targetReadDesc) {
 
     return transform(
-        data, targetReadDesc.getReadTarget(), targetReadDesc.getReadTransform()::fromProxy);
+        data,
+        targetReadDesc.getReadTarget(),
+        targetReadDesc.getReadTransform().asElementWise()::fromProxy);
   }
 
   @SuppressWarnings("unchecked")
   private static StreamElement transformToProxy(
       StreamElement data, AttributeProxyDescriptor targetDesc) {
 
-    return transform(data, targetDesc, targetDesc.getReadTransform()::toProxy);
+    return transform(data, targetDesc, targetDesc.getReadTransform().asElementWise()::toProxy);
   }
 
   @SuppressWarnings("unchecked")
@@ -565,7 +574,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
         kv.getEntityDescriptor(),
         targetDesc,
         kv.getKey(),
-        targetDesc.getReadTransform().toProxy(kv.getAttribute()),
+        targetDesc.getReadTransform().asElementWise().toProxy(kv.getAttribute()),
         kv.getOffset(),
         kv.getValue(),
         kv.getValueBytes(),
@@ -576,24 +585,22 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
   private static StreamElement transform(
       StreamElement data, AttributeDescriptor target, UnaryFunction<String, String> transform) {
 
-    if (data.isDelete()) {
-      if (data.isDeleteWildcard()) {
-        return StreamElement.deleteWildcard(
-            data.getEntityDescriptor(),
-            target,
-            data.getUuid(),
-            data.getKey(),
-            transform.apply(data.getAttribute()),
-            data.getStamp());
-      } else {
-        return StreamElement.delete(
-            data.getEntityDescriptor(),
-            target,
-            data.getUuid(),
-            data.getKey(),
-            transform.apply(data.getAttribute()),
-            data.getStamp());
-      }
+    if (data.isDeleteWildcard()) {
+      return StreamElement.deleteWildcard(
+          data.getEntityDescriptor(),
+          target,
+          data.getUuid(),
+          data.getKey(),
+          transform.apply(data.getAttribute()),
+          data.getStamp());
+    } else if (data.isDelete()) {
+      return StreamElement.delete(
+          data.getEntityDescriptor(),
+          target,
+          data.getUuid(),
+          data.getKey(),
+          transform.apply(data.getAttribute()),
+          data.getStamp());
     }
     return StreamElement.upsert(
         data.getEntityDescriptor(),

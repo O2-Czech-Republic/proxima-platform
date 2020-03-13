@@ -91,6 +91,7 @@ public class TransformationRunner {
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
                 desc.getTransformation()
+                    .asElementWiseTransform()
                     .apply(
                         ingest,
                         transformed -> {

@@ -75,9 +75,11 @@ public interface AttributeDescriptor<T> extends Serializable {
       AttributeDescriptor<T> targetRead,
       ProxyTransform transformRead,
       AttributeDescriptor<T> targetWrite,
-      ProxyTransform transformWrite) {
+      ProxyTransform transformWrite,
+      ValueSerializer<T> valueSerializer) {
 
-    return newProxy(name, targetRead, transformRead, targetWrite, transformWrite, false);
+    return newProxy(
+        name, targetRead, transformRead, targetWrite, transformWrite, false, valueSerializer);
   }
 
   static <T> AttributeDescriptorBase<T> newProxy(
@@ -86,10 +88,11 @@ public interface AttributeDescriptor<T> extends Serializable {
       ProxyTransform transformRead,
       AttributeDescriptor<T> targetWrite,
       ProxyTransform transformWrite,
-      boolean replica) {
+      boolean replica,
+      ValueSerializer<T> valueSerializer) {
 
     return new AttributeProxyDescriptor<>(
-        name, targetRead, transformRead, targetWrite, transformWrite, replica);
+        name, targetRead, transformRead, targetWrite, transformWrite, replica, valueSerializer);
   }
 
   /**

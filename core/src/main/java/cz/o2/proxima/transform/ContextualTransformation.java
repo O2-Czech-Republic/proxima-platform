@@ -15,30 +15,26 @@
  */
 package cz.o2.proxima.transform;
 
+import cz.o2.proxima.annotations.Evolving;
+import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
+import java.util.Map;
 
-/** Transform perfoming identity mapping. */
-public class IdentityTransform implements Transformation, ProxyTransform {
-
-  @Override
-  public void setup(Repository repo) {
-    // nop
-  }
+@Evolving
+public interface ContextualTransformation<OP extends DataOperator>
+    extends Transformation, DataOperatorAware {
 
   @Override
-  public int apply(StreamElement input, Collector<StreamElement> collector) {
-    collector.collect(input);
-    return 1;
+  default boolean isContextual() {
+    return true;
   }
 
-  @Override
-  public String fromProxy(String proxy) {
-    return proxy;
-  }
-
-  @Override
-  public String toProxy(String raw) {
-    return raw;
-  }
+  /**
+   * Read the repository and setup descriptors of target entity and attributes.
+   *
+   * @param repo the repository
+   * @param op {@link DataOperator} that delegated this Transformation
+   * @param cfg transformation config map
+   */
+  void setup(Repository repo, OP op, Map<String, Object> cfg);
 }

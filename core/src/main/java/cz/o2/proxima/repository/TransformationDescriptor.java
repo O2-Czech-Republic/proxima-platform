@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.storage.PassthroughFilter;
@@ -30,7 +31,7 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 
 /** Descriptor of single transformation specified in {@code transformations}. */
-@Evolving("Affected by #66")
+@Evolving
 public class TransformationDescriptor implements Serializable {
 
   private static final long serialVersionUID = 1L;
@@ -68,7 +69,7 @@ public class TransformationDescriptor implements Serializable {
     }
 
     Builder addAttributes(AttributeDescriptor<?>... attrs) {
-      this.attrs.addAll(Arrays.asList(attrs));
+      this.addAttributes(Arrays.asList(attrs));
       return this;
     }
 
@@ -139,6 +140,9 @@ public class TransformationDescriptor implements Serializable {
 
   @Override
   public String toString() {
-    return "TransformationDescriptor(" + "entity=" + entity + ", attributes=" + attributes + ")";
+    return MoreObjects.toStringHelper(this)
+        .add("entity", entity)
+        .add("attributes", attributes)
+        .toString();
   }
 }

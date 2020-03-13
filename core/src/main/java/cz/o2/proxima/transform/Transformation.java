@@ -15,44 +15,30 @@
  */
 package cz.o2.proxima.transform;
 
-import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.StreamElement;
-import java.io.Serializable;
+import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.repository.DataOperator;
 
-/**
- * A stateless element-wise transformation applied on incoming data converting single {@code
- * StreamElement} to another {@code StreamElement}(s).
- */
-@Stable
-public interface Transformation extends Serializable {
+@Internal
+public interface Transformation extends DataOperatorAware {
 
-  /** Collector for outputs. */
-  @FunctionalInterface
-  interface Collector<T> extends Serializable {
-
-    /**
-     * Collect transformed value.
-     *
-     * @param value the value to collect
-     */
-    void collect(T value);
+  /**
+   * Convert this transformation to (operator specific) contextual transform.
+   *
+   * @return this transform converted to contextual transform.
+   * @throws IllegalArgumentException on errors
+   */
+  @SuppressWarnings("unchecked")
+  default <OP extends DataOperator> ContextualTransformation<OP> asContextualTransform() {
+    return as(ContextualTransformation.class);
   }
 
   /**
-   * Read the repository and setup descriptors of target entity and attributes.
+   * Convert this transformation to element wise (stateless).
    *
-   * @param repo the repository
+   * @return this transform converted to stateless transform
+   * @throws IllegalArgumentException on errors
    */
-  void setup(Repository repo);
-
-  /**
-   * Apply the transformation function.
-   *
-   * @param input the input stream element to transform
-   * @param collector collector for outputs
-   * @return how many invocations of collector to expect before the elements should be considered
-   *     processed
-   */
-  int apply(StreamElement input, Collector<StreamElement> collector);
+  default ElementWiseTransformation asElementWiseTransform() {
+    return as(ElementWiseTransformation.class);
+  }
 }

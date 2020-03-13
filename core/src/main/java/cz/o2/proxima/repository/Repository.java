@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Streams;
 import com.typesafe.config.Config;
 import cz.o2.proxima.annotations.Evolving;
@@ -28,6 +29,8 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
+import lombok.AccessLevel;
+import lombok.Getter;
 
 /** Repository of all entities configured in the system. */
 @Evolving
@@ -75,6 +78,11 @@ public abstract class Repository implements Serializable {
   }
 
   RepositoryFactory factory;
+
+  @SuppressWarnings("unchecked")
+  @Getter(AccessLevel.PACKAGE)
+  private final transient Iterable<DataOperatorFactory<?>> dataOperatorFactories =
+      (Iterable) ServiceLoader.load(DataOperatorFactory.class);
 
   private final transient Map<Class<? extends DataOperator>, DataOperator> operatorCache =
       new ConcurrentHashMap<>();
@@ -188,29 +196,31 @@ public abstract class Repository implements Serializable {
    * @param modifiers functions to be applied to the operator before it is returned
    * @return the data operator of given type
    */
+  @VisibleForTesting
   @SuppressWarnings("unchecked")
   @SafeVarargs
   public final synchronized <T extends DataOperator> T asDataOperator(
       Class<T> type, Consumer<T>... modifiers) {
 
-    ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(DataOperatorFactory.class);
+    Iterable<DataOperatorFactory<?>> loaders = getDataOperatorFactories();
 
-    T ret =
-        Streams.stream(loaders)
-            .filter(f -> f.isOfType(type))
-            .findAny()
-            .map(o -> (DataOperatorFactory<T>) o)
-            .map(
-                f -> {
-                  T op = f.create(this);
-                  Arrays.stream(modifiers).forEach(m -> m.accept(op));
-                  addedDataOperator(op);
-                  return op;
-                })
-            .orElseThrow(() -> new IllegalStateException("Operator " + type + " not found."));
+    return Streams.stream(loaders)
+        .filter(f -> f.isOfType(type))
+        .findAny()
+        .map(o -> (DataOperatorFactory<T>) o)
+        .map(
+            f -> {
+              T op = f.create(this);
+              Arrays.stream(modifiers).forEach(m -> m.accept(op));
+              return cacheDataOperator(op);
+            })
+        .orElseThrow(() -> new IllegalStateException("Operator " + type + " not found."));
+  }
 
-    operatorCache.put(type, ret);
-    return ret;
+  <T extends DataOperator> T cacheDataOperator(T op) {
+    addedDataOperator(op);
+    operatorCache.put(op.getClass(), op);
+    return op;
   }
 
   /**
@@ -240,7 +250,7 @@ public abstract class Repository implements Serializable {
    * @return {@code true} if the operator is available, {@code false} otherwise
    */
   public boolean hasOperator(String name) {
-    ServiceLoader<DataOperatorFactory> loaders = ServiceLoader.load(DataOperatorFactory.class);
+    Iterable<DataOperatorFactory<?>> loaders = getDataOperatorFactories();
     return Streams.stream(loaders).anyMatch(f -> f.getOperatorName().equals(name));
   }
 

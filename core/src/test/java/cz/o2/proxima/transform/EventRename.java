@@ -18,7 +18,7 @@ package cz.o2.proxima.transform;
 import com.google.common.base.Preconditions;
 
 /** Rename {@code _e.*} to {@code event.*} back and forth. */
-public class EventRename implements ProxyTransform {
+public class EventRename implements ElementWiseProxyTransform {
 
   @Override
   public String fromProxy(String proxy) {

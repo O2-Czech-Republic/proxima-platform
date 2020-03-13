@@ -30,7 +30,7 @@ import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.transform.ProxyTransform;
+import cz.o2.proxima.transform.ElementWiseProxyTransform;
 import cz.o2.proxima.util.TransformationRunner;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +47,7 @@ import org.junit.Test;
  */
 public class SingleTopicMultipleReplicationsTest {
 
-  public static class WildcardToRawTransform implements ProxyTransform {
+  public static class WildcardToRawTransform implements ElementWiseProxyTransform {
 
     @Override
     public String fromProxy(String proxy) {
@@ -94,6 +94,7 @@ public class SingleTopicMultipleReplicationsTest {
     int transformedCount =
         wildcardInputTransform
             .getTransformation()
+            .asElementWiseTransform()
             .apply(
                 StreamElement.upsert(entity, wildcard, uuid(), "key", "wildcard.1", now, value()),
                 transformed::add);
@@ -117,6 +118,7 @@ public class SingleTopicMultipleReplicationsTest {
     int transformedCount =
         wildcardReplicatedTransform
             .getTransformation()
+            .asElementWiseTransform()
             .apply(
                 StreamElement.upsert(entity, raw, uuid(), "key", "_raw.2", now, value()),
                 transformed::add);

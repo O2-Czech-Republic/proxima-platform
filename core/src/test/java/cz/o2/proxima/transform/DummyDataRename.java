@@ -18,7 +18,7 @@ package cz.o2.proxima.transform;
 import com.google.common.base.Preconditions;
 
 /** Rename dummy.data to dummy._d. */
-public class DummyDataRename implements ProxyTransform {
+public class DummyDataRename implements ElementWiseProxyTransform {
 
   @Override
   public String fromProxy(String proxy) {

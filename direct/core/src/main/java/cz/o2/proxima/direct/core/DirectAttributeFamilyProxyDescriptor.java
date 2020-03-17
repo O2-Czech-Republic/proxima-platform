@@ -438,22 +438,17 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
       AttrLookup lookup, Context context, AttributeFamilyProxyDescriptor desc) {
 
     if (desc.getTargetFamilyRead().getAccess().canReadCommitLog()
-        && !desc.getTargetFamilyWrite().getAccess().isReadonly()) {
+        && !desc.getTargetFamilyWrite().getAccess().isReadonly()
+        && desc.getTargetFamilyRead().getAccess().canCreateCachedView()) {
 
-      return Optional.of(
-          new LocalCachedPartitionedView(
-              desc.getTargetFamilyRead().getEntity(),
-              getCommitLogReader(lookup, context, desc)
-                  .orElseThrow(
-                      () ->
-                          new IllegalArgumentException(
-                              "Missing commit log reader for " + desc.getTargetFamilyRead())),
-              (OnlineAttributeWriter)
-                  getWriter(lookup, context, desc)
-                      .orElseThrow(
-                          () ->
-                              new IllegalArgumentException(
-                                  "Missing writer for " + desc.getTargetFamilyWrite()))));
+      Optional<CommitLogReader> maybeReader = getCommitLogReader(lookup, context, desc);
+      Optional<OnlineAttributeWriter> maybeWriter =
+          getWriter(lookup, context, desc).map(AttributeWriterBase::online);
+      if (maybeReader.isPresent() && maybeWriter.isPresent()) {
+        return Optional.of(
+            new LocalCachedPartitionedView(
+                desc.getTargetFamilyRead().getEntity(), maybeReader.get(), maybeWriter.get()));
+      }
     }
     return Optional.empty();
   }

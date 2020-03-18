@@ -194,6 +194,23 @@ public class BeamDataOperatorTest {
     validatePCollectionWindowedRead(() -> beam.getBatchSnapshot(pipeline, armed), 99L);
   }
 
+  @Test(timeout = 5000)
+  public void testReadingFromSpecificFamily() {
+    validatePCollectionWindowedRead(
+        () ->
+            beam.getAccessorFor(
+                    beam.getRepository()
+                        .getFamiliesForAttribute(armed)
+                        .stream()
+                        .filter(af -> af.getAccess().canReadBatchSnapshot())
+                        .findFirst()
+                        .orElseThrow(
+                            () -> new IllegalStateException("Missing batch snapshot for " + armed)))
+                .createBatch(
+                    pipeline, Collections.singletonList(armed), Long.MIN_VALUE, Long.MAX_VALUE),
+        99L);
+  }
+
   @SuppressWarnings("unchecked")
   @Test(timeout = 60000)
   public synchronized void testBoundedCommitLogConsumptionFromProxy() {

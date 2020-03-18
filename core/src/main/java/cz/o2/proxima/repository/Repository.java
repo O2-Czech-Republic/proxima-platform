@@ -152,6 +152,18 @@ public abstract class Repository implements Serializable {
   public abstract Stream<AttributeFamilyDescriptor> getAllFamilies();
 
   /**
+   * Retrieve attribute family by name.
+   *
+   * <p>Note that this returns all families that were specified in configuration. It might include
+   * families not listed in {@link #getAllFamilies()}, because some families might be removed for
+   * various reasons (e.g. when proxying attributes).
+   *
+   * @param name name of the family
+   * @return {@link Optional} {@link AttributeFamilyDescriptor} if family exists
+   */
+  public abstract Optional<AttributeFamilyDescriptor> getFamilyByName(String name);
+
+  /**
    * Retrieve list of attribute families for attribute.
    *
    * @param attr attribute descriptor

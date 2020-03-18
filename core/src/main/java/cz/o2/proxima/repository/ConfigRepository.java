@@ -242,6 +242,9 @@ public final class ConfigRepository extends Repository {
   private final Map<AttributeDescriptor<?>, Set<AttributeFamilyDescriptor>> attributeToFamily =
       new HashMap<>();
 
+  /** All families that have been loaded in configuration. */
+  private final Map<String, AttributeFamilyDescriptor> allCreatedFamilies = new HashMap<>();
+
   /** Map of transformation name to transformation descriptor. */
   private final Map<String, TransformationDescriptor> transformations = new HashMap<>();
 
@@ -1029,6 +1032,7 @@ public final class ConfigRepository extends Repository {
                     "Attribute family named " + family.getName() + " already exists");
               }
             });
+    allCreatedFamilies.putIfAbsent(family.getName(), family);
     log.debug(
         "Added family {} of type {} and access {}", family, family.getType(), family.getAccess());
   }
@@ -1648,9 +1652,9 @@ public final class ConfigRepository extends Repository {
     List<AttributeProxyDescriptor<?>> attributes =
         getAllEntities()
             .flatMap(e -> e.getAllAttributes(true).stream())
-            .filter(a -> ((AttributeDescriptorBase<?>) a).isProxy())
-            .filter(a -> all || !((AttributeDescriptorBase<?>) a).isReplica())
-            .map(a -> ((AttributeDescriptorBase<?>) a).toProxy())
+            .filter(AttributeDescriptor::isProxy)
+            .map(AttributeDescriptor::asProxy)
+            .filter(a -> all || !a.isReplica())
             .collect(Collectors.toList());
 
     // build dependency ordering, because we might have dependency
@@ -1911,6 +1915,11 @@ public final class ConfigRepository extends Repository {
   @Override
   public Stream<AttributeFamilyDescriptor> getAllFamilies() {
     return attributeToFamily.values().stream().flatMap(Collection::stream).distinct();
+  }
+
+  @Override
+  public Optional<AttributeFamilyDescriptor> getFamilyByName(String name) {
+    return Optional.ofNullable(allCreatedFamilies.get(name));
   }
 
   private Set<AttributeFamilyDescriptor> getFamiliesForAttribute(

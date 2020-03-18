@@ -79,6 +79,16 @@ public class ConfigRepositoryTest {
     assertEquals(event, transform.getEntity());
     assertEquals(Arrays.asList(event.getAttribute("data")), transform.getAttributes());
     assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
+
+    // check that we can query all families
+    repo.getAllFamilies()
+        .forEach(family -> assertTrue(repo.getFamilyByName(family.getName()).isPresent()));
+    assertFalse(
+        repo.getAllFamilies()
+            .filter(af -> af.getName().equals("proxy-event-storage"))
+            .findAny()
+            .isPresent());
+    assertTrue(repo.getFamilyByName("proxy-event-storage").isPresent());
   }
 
   @Test(expected = IllegalArgumentException.class)

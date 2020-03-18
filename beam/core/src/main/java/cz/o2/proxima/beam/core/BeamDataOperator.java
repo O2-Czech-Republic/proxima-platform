@@ -353,7 +353,7 @@ public class BeamDataOperator implements DataOperator {
   }
 
   /**
-   * Get {@link DataAccessor} for given {@likn AttributeFamilyDescriptor}.
+   * Get {@link DataAccessor} for given {@link AttributeFamilyDescriptor}.
    *
    * <p>Needed for low-level access handling.
    *

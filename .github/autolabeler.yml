@@ -22,9 +22,12 @@ example: ["example/*"]
 documentaion: ["docs/*"]
 maven: ["maven/*"]
 
+core: ["core/*"]
+direct-core: ["direct/core/*"]
 direct: ["direct/*"]
 direct-io: ["direct/io-*"]
 
 beam: ["beam/*"]
+beam-core: ["beam/core/*"]
 beam-io: ["beam/io-*"]
 

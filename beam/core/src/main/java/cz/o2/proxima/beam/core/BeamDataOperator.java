@@ -352,6 +352,18 @@ public class BeamDataOperator implements DataOperator {
         getBatchUpdates(pipeline, fromStamp, untilStamp, attrs));
   }
 
+  /**
+   * Get {@link DataAccessor} for given {@likn AttributeFamilyDescriptor}.
+   *
+   * <p>Needed for low-level access handling.
+   *
+   * @param family descriptor of family to retrieve accessor for
+   * @return {@link DataAccessor} for given family
+   */
+  public DataAccessor getAccessorFor(AttributeFamilyDescriptor family) {
+    return accessorFor(family);
+  }
+
   @SuppressWarnings("unchecked")
   private Stream<DataAccessor> findSuitableAccessors(
       Predicate<AttributeFamilyDescriptor> predicate,

@@ -15,15 +15,19 @@
  */
 package cz.o2.proxima.beam.core;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.AttributeProxyDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.transform.ProxyTransform;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -80,16 +84,28 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
       boolean eventTime,
       long limit) {
 
-    return applyTransform(
-        readAccessor.createStream(name, pipeline, position, stopAtCurrent, eventTime, limit));
+    return asBeamTransform(lookupTarget.values())
+        .map(
+            transform ->
+                transform.createStream(name, pipeline, position, stopAtCurrent, eventTime, limit))
+        .orElseGet(
+            () ->
+                applyTransform(
+                    readAccessor.createStream(
+                        name, pipeline, position, stopAtCurrent, eventTime, limit)));
   }
 
   @Override
   public PCollection<StreamElement> createBatch(
       Pipeline pipeline, List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp) {
 
-    return applyTransform(
-        readAccessor.createBatch(pipeline, transformAttrs(attrs), startStamp, endStamp));
+    return asBeamTransform(attrs)
+        .map(transform -> transform.createBatch(pipeline, startStamp, endStamp))
+        .orElseGet(
+            () ->
+                applyTransform(
+                    readAccessor.createBatch(
+                        pipeline, transformAttrs(attrs), startStamp, endStamp)));
   }
 
   @Override
@@ -100,9 +116,13 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
       long endStamp,
       long limit) {
 
-    return applyTransform(
-        readAccessor.createStreamFromUpdates(
-            pipeline, transformAttrs(attrs), startStamp, endStamp, limit));
+    return asBeamTransform(attrs)
+        .map(transform -> transform.createStreamFromUpdates(pipeline, startStamp, endStamp, limit))
+        .orElseGet(
+            () ->
+                applyTransform(
+                    readAccessor.createStreamFromUpdates(
+                        pipeline, transformAttrs(attrs), startStamp, endStamp, limit)));
   }
 
   List<AttributeDescriptor<?>> transformAttrs(List<AttributeDescriptor<?>> attrs) {
@@ -124,7 +144,7 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
     AttributeProxyDescriptor<?> attr = lookupTarget.get(input.getAttributeDescriptor());
     if (attr != null) {
       ProxyTransform transform = attr.getReadTransform();
-      String attribute = transform.toProxy(input.getAttribute());
+      String attribute = transform.asElementWise().toProxy(input.getAttribute());
       return StreamElement.upsert(
           input.getEntityDescriptor(),
           attr,
@@ -138,5 +158,35 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
         "Received unknown attribute {}. Letting though, but this " + "might cause other issues.",
         input.getAttributeDescriptor());
     return input;
+  }
+
+  private final Optional<BeamProxyTransform> asBeamTransform(
+      Collection<? extends AttributeDescriptor<?>> attrs) {
+    Set<? extends AttributeProxyDescriptor<?>> proxies =
+        attrs.stream().map(AttributeDescriptor::asProxy).collect(Collectors.toSet());
+    if (proxies.stream().allMatch(p -> p.getReadTransform().isContextual())) {
+      List<ProxyTransform> transforms =
+          proxies
+              .stream()
+              .map(AttributeProxyDescriptor::getReadTransform)
+              .distinct()
+              .collect(Collectors.toList());
+      Preconditions.checkArgument(
+          transforms.size() == 1,
+          "When using {} only single attribute on input is allowed, got [%s] in [%s]",
+          BeamProxyTransform.class.getName(),
+          proxies,
+          attrs);
+
+      Preconditions.checkArgument(
+          transforms.get(0) instanceof BeamProxyTransform,
+          "Do not mix multiple contextual proxies in single config, expected class [%s] got [%s]",
+          BeamProxyTransform.class.getName(),
+          transforms.get(0).getClass().getName());
+
+      BeamProxyTransform beamProxy = (BeamProxyTransform) transforms.get(0);
+      return Optional.of(beamProxy);
+    }
+    return Optional.empty();
   }
 }

@@ -19,15 +19,16 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import java.util.Map;
 
 /** Transform {@code event.data} to {@code dummy2.event}. */
-public class EventToDummy2 implements Transformation {
+public class EventToDummy2 implements ElementWiseTransformation {
 
   EntityDescriptor dummy2;
   AttributeDescriptor<?> event;
 
   @Override
-  public void setup(Repository repo) {
+  public void setup(Repository repo, Map<String, Object> cfg) {
     dummy2 =
         repo.findEntity("dummy2")
             .orElseThrow(() -> new IllegalStateException("Missing entity dummy2"));

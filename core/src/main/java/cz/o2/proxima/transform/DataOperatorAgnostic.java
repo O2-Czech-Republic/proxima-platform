@@ -15,19 +15,19 @@
  */
 package cz.o2.proxima.transform;
 
-public class AsymmetricRead implements ElementWiseProxyTransform {
+import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.repository.DataOperatorFactory;
 
-  private static final long serialVersionUID = 1L;
+@Internal
+public interface DataOperatorAgnostic extends DataOperatorAware {
 
   @Override
-  public String fromProxy(String proxy) {
-    int pos = proxy.indexOf('.');
-    return "raw." + proxy.substring(pos + 1);
+  default boolean isContextual() {
+    return false;
   }
 
   @Override
-  public String toProxy(String raw) {
-    int pos = raw.indexOf('.');
-    return "asymmetric." + raw.substring(pos + 1);
+  default boolean isDelegateOf(DataOperatorFactory operatorFactory) {
+    throw new UnsupportedOperationException(getClass() + " is not delegated to operators");
   }
 }

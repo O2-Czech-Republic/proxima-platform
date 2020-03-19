@@ -23,7 +23,7 @@ import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.transform.Transformation;
+import cz.o2.proxima.transform.ElementWiseTransformation;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,14 +32,17 @@ import lombok.extern.slf4j.Slf4j;
 public class TransformationObserver implements LogObserver {
 
   private final RepositoryFactory repoFactory;
-  private final Transformation transformation;
+  private final ElementWiseTransformation transformation;
   private final StorageFilter filter;
   private final String name;
 
   private transient DirectDataOperator direct;
 
   TransformationObserver(
-      DirectDataOperator direct, String name, Transformation transformation, StorageFilter filter) {
+      DirectDataOperator direct,
+      String name,
+      ElementWiseTransformation transformation,
+      StorageFilter filter) {
 
     this.repoFactory = direct.getRepository().asFactory();
     this.name = name;
@@ -74,7 +77,7 @@ public class TransformationObserver implements LogObserver {
 
     AtomicInteger toConfirm = new AtomicInteger(0);
     try {
-      Transformation.Collector<StreamElement> collector =
+      ElementWiseTransformation.Collector<StreamElement> collector =
           elem -> {
             try {
               log.debug("Transformation {}: writing transformed element {}", name, elem);

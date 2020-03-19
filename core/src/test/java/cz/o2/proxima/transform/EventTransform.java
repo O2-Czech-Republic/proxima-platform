@@ -16,7 +16,7 @@
 package cz.o2.proxima.transform;
 
 /** Transformation from proxy space (event.*) to raw space (_e.*). */
-public class EventTransform implements ProxyTransform {
+public class EventTransform implements ElementWiseProxyTransform {
 
   @Override
   public String fromProxy(String proxy) {

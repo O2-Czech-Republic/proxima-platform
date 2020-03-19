@@ -74,7 +74,8 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
       String name,
       AttributeDescriptor<T> targetRead,
       AttributeDescriptor<T> targetWrite,
-      boolean replica) {
+      boolean replica,
+      ValueSerializer<T> valueSerializer) {
 
     this.name = Objects.requireNonNull(name);
     Preconditions.checkArgument(
@@ -95,7 +96,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
     this.proxy = true;
     this.replica = replica;
     this.wildcard = targetRead.isWildcard();
-    this.valueSerializer = targetRead.getValueSerializer();
+    this.valueSerializer = valueSerializer;
   }
 
   @Override

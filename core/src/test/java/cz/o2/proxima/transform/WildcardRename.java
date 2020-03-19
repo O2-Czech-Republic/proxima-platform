@@ -16,7 +16,7 @@
 package cz.o2.proxima.transform;
 
 /** Rename {@code wildcard.*} to {@code _w.*}. */
-public class WildcardRename implements ProxyTransform {
+public class WildcardRename implements ElementWiseProxyTransform {
 
   @Override
   public String fromProxy(String proxy) {

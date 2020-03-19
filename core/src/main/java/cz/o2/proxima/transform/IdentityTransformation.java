@@ -15,19 +15,34 @@
  */
 package cz.o2.proxima.transform;
 
-public class AsymmetricRead implements ElementWiseProxyTransform {
+import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.StreamElement;
+import java.util.Map;
 
-  private static final long serialVersionUID = 1L;
+/** Transform perfoming identity mapping. */
+@Stable
+public class IdentityTransformation
+    implements ElementWiseTransformation, ElementWiseProxyTransform {
+
+  @Override
+  public void setup(Repository repo, Map<String, Object> cfg) {
+    // nop
+  }
+
+  @Override
+  public int apply(StreamElement input, Collector<StreamElement> collector) {
+    collector.collect(input);
+    return 1;
+  }
 
   @Override
   public String fromProxy(String proxy) {
-    int pos = proxy.indexOf('.');
-    return "raw." + proxy.substring(pos + 1);
+    return proxy;
   }
 
   @Override
   public String toProxy(String raw) {
-    int pos = raw.indexOf('.');
-    return "asymmetric." + raw.substring(pos + 1);
+    return raw;
   }
 }

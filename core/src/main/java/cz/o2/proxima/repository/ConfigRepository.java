@@ -15,19 +15,26 @@
  */
 package cz.o2.proxima.repository;
 
+import static cz.o2.proxima.repository.ConfigConstants.*;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transform.DataOperatorAware;
+import cz.o2.proxima.transform.ElementWiseProxyTransform;
+import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.transform.ProxyTransform;
 import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.CamelCase;
@@ -65,27 +72,6 @@ import lombok.extern.slf4j.Slf4j;
 public final class ConfigRepository extends Repository {
 
   private static final long serialVersionUID = 1L;
-
-  // config parsing constants
-  private static final String ALL = "all";
-  private static final String LOCAL = "local";
-  private static final String READ = "read";
-  private static final String ATTRIBUTES = "attributes";
-  private static final String ENTITY = "entity";
-  private static final String VIA = "via";
-  private static final String SOURCE = "source";
-  private static final String TARGETS = "targets";
-  private static final String READ_ONLY = "read-only";
-  private static final String REPLICATIONS = "replications";
-  private static final String DISABLED = "disabled";
-  private static final String ENTITIES = "entities";
-  private static final String SCHEME = "scheme";
-  private static final String PROXY = "proxy";
-  private static final String FROM = "from";
-  private static final String STORAGE = "storage";
-  private static final String ACCESS = "access";
-  private static final String TYPE = "type";
-  private static final String FILTER = "filter";
 
   private static final Pattern ENTITY_NAME_PATTERN = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
   private static final Pattern ATTRIBUTE_NAME_PATTERN =
@@ -329,6 +315,8 @@ public final class ConfigRepository extends Repository {
       loadProxiedFamilies(true);
       // Read transformations from one entity to another.
       readTransformations(config);
+      // call setup() on all transforms
+      setupTransforms();
     }
 
     if (shouldValidate) {
@@ -337,6 +325,21 @@ public final class ConfigRepository extends Repository {
     }
 
     operators.forEach(DataOperator::reload);
+  }
+
+  private void setupTransforms() {
+    getAllEntities()
+        .flatMap(e -> e.getAllAttributes().stream())
+        .filter(AttributeDescriptor::isProxy)
+        .map(AttributeDescriptor::asProxy)
+        .flatMap(
+            a ->
+                Stream.of(
+                    Pair.of(a.getReadTarget(), a.getReadTransform()),
+                    Pair.of(a.getWriteTarget(), a.getWriteTransform())))
+        .distinct()
+        .forEach(
+            p -> setupTransform(getEntity(p.getFirst().getEntity()), p.getFirst(), p.getSecond()));
   }
 
   private void readSchemeSerializers(Iterable<ValueSerializerFactory> serializers) {
@@ -706,27 +709,36 @@ public final class ConfigRepository extends Repository {
       Map<String, Object> proxyMap = (Map) settings.get(PROXY);
       addProxyAttributeAsymmetric(attrName, proxyMap, entityBuilder);
     } else {
-      final AttributeDescriptor readTarget;
       final AttributeDescriptor writeTarget;
       final ProxyTransform readTransform;
       final ProxyTransform writeTransform;
-      readTarget =
+      final AttributeDescriptor readTarget =
           writeTarget =
               Optional.ofNullable(settings.get(PROXY))
                   .map(Object::toString)
                   .map(entityBuilder::getAttribute)
                   .orElseThrow(
                       () -> new IllegalStateException("Invalid state: `proxy` must not be null"));
-
       if (loadClasses) {
         readTransform = writeTransform = getProxyTransform(settings);
-        readTransform.setup(readTarget);
       } else {
         readTransform = writeTransform = null;
       }
+      ValueSerializer<?> valueSerializer = readSchemeOptional(settings, readTarget);
       entityBuilder.addAttribute(
           AttributeDescriptor.newProxy(
-              attrName, readTarget, readTransform, writeTarget, writeTransform));
+              attrName, readTarget, readTransform, writeTarget, writeTransform, valueSerializer));
+    }
+  }
+
+  private void setupTransform(
+      EntityDescriptor entity, AttributeDescriptor readTarget, ProxyTransform transform) {
+
+    if (transform.isContextual()) {
+      DataOperator operator = getDataOperatorForDelegate(transform);
+      transform.asContextual().setup(entity, operator);
+    } else {
+      transform.asElementWise().setup(readTarget);
     }
   }
 
@@ -767,13 +779,27 @@ public final class ConfigRepository extends Repository {
       writeTarget = original;
     }
 
-    readTransform = readTarget == original ? ProxyTransform.identity() : getProxyTransform(read);
-    writeTransform = writeTarget == original ? ProxyTransform.identity() : getProxyTransform(write);
-    readTransform.setup(readTarget);
-    writeTransform.setup(writeTarget);
+    readTransform =
+        readTarget == original ? ElementWiseProxyTransform.identity() : getProxyTransform(read);
+    writeTransform =
+        writeTarget == original ? ElementWiseProxyTransform.identity() : getProxyTransform(write);
     entityBuilder.addAttribute(
         AttributeDescriptor.newProxy(
-            attrName, readTarget, readTransform, writeTarget, writeTransform));
+            attrName,
+            readTarget,
+            readTransform,
+            writeTarget,
+            writeTransform,
+            readSchemeOptional(proxyMap, readTarget)));
+  }
+
+  private ValueSerializer<Object> readSchemeOptional(
+      Map<String, Object> settings, AttributeDescriptor<Object> target) {
+    return Optional.ofNullable(settings.get(SCHEME))
+        .map(Object::toString)
+        .map(this::asSchemeUri)
+        .map(schemeUri -> requireValueSerializerFactory(schemeUri).getValueSerializer(schemeUri))
+        .orElse(target.getValueSerializer());
   }
 
   private ProxyTransform getProxyTransform(Map<String, Object> map) {
@@ -789,28 +815,27 @@ public final class ConfigRepository extends Repository {
       Map<String, Object> settings,
       EntityDescriptor.Builder entityBuilder) {
 
-    try {
+    final Object scheme =
+        Objects.requireNonNull(
+            settings.get(SCHEME),
+            "Missing key entities." + entityName + ".attributes." + attrName + ".scheme");
 
-      final Object scheme =
-          Objects.requireNonNull(
-              settings.get(SCHEME),
-              "Missing key entities." + entityName + ".attributes." + attrName + ".scheme");
+    URI schemeUri = asSchemeUri(scheme.toString());
+    validateSerializerFactory(schemeUri);
+    entityBuilder.addAttribute(
+        AttributeDescriptor.newBuilder(this)
+            .setEntity(entityName)
+            .setName(attrName)
+            .setSchemeUri(schemeUri)
+            .build());
+  }
 
-      String schemeStr = scheme.toString();
-      if (schemeStr.indexOf(':') == -1) {
-        schemeStr += ":///";
-      }
-      URI schemeUri = new URI(schemeStr);
-      validateSerializerFactory(schemeUri);
-      entityBuilder.addAttribute(
-          AttributeDescriptor.newBuilder(this)
-              .setEntity(entityName)
-              .setName(attrName)
-              .setSchemeUri(schemeUri)
-              .build());
-    } catch (URISyntaxException ex) {
-      throw new RuntimeException(ex);
+  private URI asSchemeUri(String scheme) {
+    String schemeStr = scheme;
+    if (schemeStr.indexOf(':') == -1) {
+      schemeStr += ":///";
     }
+    return URI.create(schemeStr);
   }
 
   private void validateSerializerFactory(URI schemeUri) {
@@ -818,19 +843,21 @@ public final class ConfigRepository extends Repository {
     // ignore the return value
     try {
       if (shouldValidate) {
-        getValueSerializerFactory(schemeUri.getScheme())
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "Unable to get ValueSerializerFactory for scheme "
-                            + schemeUri.getScheme()
-                            + "."))
-            .getValueSerializer(schemeUri)
-            .isUsable();
+        requireValueSerializerFactory(schemeUri).getValueSerializer(schemeUri).isUsable();
       }
     } catch (Exception ex) {
       throw new IllegalStateException("Cannot use serializer for URI " + schemeUri, ex);
     }
+  }
+
+  private ValueSerializerFactory requireValueSerializerFactory(URI schemeUri) {
+    return getValueSerializerFactory(schemeUri.getScheme())
+        .orElseThrow(
+            () ->
+                new IllegalStateException(
+                    "Unable to get ValueSerializerFactory for scheme "
+                        + schemeUri.getScheme()
+                        + "."));
   }
 
   @SuppressWarnings("unchecked")
@@ -1290,7 +1317,8 @@ public final class ConfigRepository extends Repository {
                       // each incoming attribute is proxy
                       AttributeProxyDescriptor<?> proxyDesc;
                       proxyDesc = ((AttributeDescriptorBase<?>) desc).toProxy();
-                      return strippingReplPrefix(proxyDesc.getWriteTransform().fromProxy(raw));
+                      return strippingReplPrefix(
+                          proxyDesc.getWriteTransform().asElementWise().fromProxy(raw));
                     }))
             .build());
   }
@@ -1339,7 +1367,8 @@ public final class ConfigRepository extends Repository {
                       String raw = strippingReplPrefix(input);
                       AttributeProxyDescriptor<?> proxyDesc;
                       proxyDesc = ((AttributeDescriptorBase<?>) sourceToOrig.get(desc)).toProxy();
-                      return strippingReplPrefix(proxyDesc.getReadTransform().toProxy(raw));
+                      return strippingReplPrefix(
+                          proxyDesc.getReadTransform().asElementWise().toProxy(raw));
                     }))
             .build());
   }
@@ -1384,10 +1413,10 @@ public final class ConfigRepository extends Repository {
   }
 
   @SuppressWarnings("unchecked")
-  private static AttributeDescriptorBase<?> findAttributeRequired(
+  private static <T> AttributeDescriptorBase<T> findAttributeRequired(
       EntityDescriptor entity, String attribute) {
 
-    return (AttributeDescriptorBase<?>)
+    return (AttributeDescriptorBase<T>)
         entity
             .findAttribute(attribute, true)
             .orElseThrow(
@@ -1455,7 +1484,7 @@ public final class ConfigRepository extends Repository {
   }
 
   private static ProxyTransform strippingReplPrefixTransform() {
-    return ProxyTransform.droppingUntilCharacter('$', "");
+    return ElementWiseProxyTransform.droppingUntilCharacter('$', "");
   }
 
   private static Transformation renameTransform(
@@ -1463,10 +1492,10 @@ public final class ConfigRepository extends Repository {
       UnaryFunction<AttributeDescriptor<?>, AttributeDescriptor<?>> descTransform,
       BiFunction<String, AttributeDescriptor<?>, String> nameTransform) {
 
-    return new Transformation() {
+    return new ElementWiseTransformation() {
 
       @Override
-      public void setup(Repository repo) {
+      public void setup(Repository repo, Map<String, Object> cfg) {
         // nop
       }
 
@@ -1559,10 +1588,11 @@ public final class ConfigRepository extends Repository {
       boolean readNonReplicatedOnly,
       boolean readOnly) {
 
-    if (((AttributeDescriptorBase<?>) proxy).isProxy()) {
+    if (proxy.isProxy()) {
       // recursively bind targets
-      AttributeProxyDescriptor<?> targetProxy;
-      targetProxy = ((AttributeDescriptorBase<?>) proxy).toProxy();
+      @SuppressWarnings("unchecked")
+      AttributeProxyDescriptor<Object> targetProxy =
+          ((AttributeDescriptorBase<Object>) proxy).toProxy();
       Set<String> toRebind =
           Stream.of(targetProxy.getReadTarget(), targetProxy.getWriteTarget())
               .filter(a -> !((AttributeDescriptorBase<?>) a).isReplica())
@@ -1574,13 +1604,14 @@ public final class ConfigRepository extends Repository {
           entity,
           AttributeDescriptor.newProxy(
               proxy.getName(),
-              (AttributeDescriptor) targetProxy.getReadTarget(),
+              targetProxy.getReadTarget(),
               targetProxy.getReadTransform(),
               targetProxy.getWriteTarget(),
-              targetProxy.getWriteTransform()));
+              targetProxy.getWriteTransform(),
+              targetProxy.getReadTarget().getValueSerializer()));
     } else {
-      final AttributeDescriptor<?> source;
-      final AttributeDescriptor<?> target;
+      final AttributeDescriptor<Object> source;
+      final AttributeDescriptor<Object> target;
       source =
           findAttributeRequired(
               entity,
@@ -1596,11 +1627,12 @@ public final class ConfigRepository extends Repository {
           entity,
           AttributeDescriptor.newProxy(
               proxy.getName(),
-              (AttributeDescriptor) source,
+              source,
               strippingReplPrefixTransform(),
               target,
               // store under original name
-              strippingReplPrefixTransform()));
+              strippingReplPrefixTransform(),
+              target.getValueSerializer()));
     }
   }
 
@@ -1818,10 +1850,31 @@ public final class ConfigRepository extends Repository {
               .map(s -> Classpath.newInstance(s, StorageFilter.class))
               .ifPresent(desc::setFilter);
 
-          this.transformations.put(name, desc.build());
+          TransformationDescriptor transformationDescriptor = desc.build();
+          setupTransform(transformationDescriptor.getTransformation(), transformation);
+          this.transformations.put(name, transformationDescriptor);
         });
+  }
 
-    this.transformations.forEach((k, v) -> v.getTransformation().setup(this));
+  private void setupTransform(Transformation transformation, Map<String, Object> cfg) {
+    if (transformation.isContextual()) {
+      final DataOperator op = getDataOperatorForDelegate(transformation);
+      transformation.asContextualTransform().setup(this, op, cfg);
+    } else {
+      transformation.asElementWiseTransform().setup(this, cfg);
+    }
+  }
+
+  private DataOperator getDataOperatorForDelegate(DataOperatorAware delegate) {
+    Optional<DataOperatorFactory<?>> factory =
+        Streams.stream(getDataOperatorFactories()).filter(delegate::isDelegateOf).findFirst();
+    Preconditions.checkState(
+        factory.isPresent(),
+        "Transformation %s does not have delegating DataOperator available",
+        delegate);
+    Optional<DataOperator> current =
+        operators.stream().filter(op -> factory.get().isOfType(op.getClass())).findAny();
+    return current.isPresent() ? current.get() : cacheDataOperator(factory.get().create(this));
   }
 
   private static String readStr(String key, Map<String, Object> map, String name) {

@@ -207,7 +207,7 @@ public class BeamDataOperator implements DataOperator {
                   desc, limit < 0 || limit == Long.MAX_VALUE, d -> d.createStream(limit));
             })
         .reduce((left, right) -> Union.of(left, right).output())
-        .orElseThrow(failEmpty())
+        .orElseThrow(failNotFound(attrs, "commit-log"))
         .apply(filterAttrs(attrs));
   }
 
@@ -279,7 +279,7 @@ public class BeamDataOperator implements DataOperator {
               return getOrCreatePCollection(desc, true, d -> d.createBatchUpdates(attrClosure));
             })
         .reduce((left, right) -> Union.of(left, right).output())
-        .orElseThrow(failEmpty())
+        .orElseThrow(failNotFound(attrs, "batch-updates"))
         .apply(filterAttrs(attrs));
   }
 
@@ -344,7 +344,7 @@ public class BeamDataOperator implements DataOperator {
                 return getOrCreatePCollection(desc, true, d -> d.createBatchUpdates(attrList));
               })
           .reduce((left, right) -> Union.of(left, right).output())
-          .orElseThrow(failEmpty())
+          .orElseThrow(failNotFound(attrs, "batch-snapshot"))
           .apply(filterAttrs(attrs));
     }
     return PCollectionTools.reduceAsSnapshot(
@@ -447,8 +447,16 @@ public class BeamDataOperator implements DataOperator {
     };
   }
 
-  private static Supplier<IllegalArgumentException> failEmpty() {
-    return () -> new IllegalArgumentException("Pass non empty attribute list");
+  private Supplier<IllegalArgumentException> failNotFound(
+      AttributeDescriptor<?>[] attrs, String accessorType) {
+    Set<AttributeFamilyDescriptor> families =
+        Arrays.stream(attrs)
+            .flatMap(a -> repo.getFamiliesForAttribute(a).stream())
+            .collect(Collectors.toSet());
+    return () ->
+        new IllegalArgumentException(
+            String.format(
+                "Failed to find suitable family type [%s] in [%s]", accessorType, families));
   }
 
   private <T extends PCollectionDescriptor> PCollection<StreamElement> getOrCreatePCollection(

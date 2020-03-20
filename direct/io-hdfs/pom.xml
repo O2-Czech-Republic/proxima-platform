@@ -65,6 +65,10 @@
               <shadedPattern>${shadePattern}.org.mortbay.jetty.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>org.mortbay.servlet.</pattern>
+              <shadedPattern>${shadePattern}.org.mortbay.servlet.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>com.google.</pattern>
               <shadedPattern>${shadePattern}.com.google.</shadedPattern>
             </relocation>

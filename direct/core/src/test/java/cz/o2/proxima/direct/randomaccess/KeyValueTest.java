@@ -51,6 +51,7 @@ public class KeyValueTest {
     assertEquals(status, kv.getAttributeDescriptor());
     assertEquals(status.getName(), kv.getAttribute());
     assertNotNull(kv.toString());
+    assertNotNull(kv.getParsedRequired());
   }
 
   @Test

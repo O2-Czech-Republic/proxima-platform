@@ -129,6 +129,18 @@ public class KeyValue<T> extends StreamElement {
     return valueBytes;
   }
 
+  /**
+   * Equivalent of getParsed().get() throwing explaining exceptions.
+   *
+   * @return value if present
+   * @throws IllegalStateException if {@link #getParsed} would have returned {@link
+   *     Optional#empty()}
+   */
+  public T getParsedRequired() {
+    return this.<T>getParsed()
+        .orElseThrow(() -> new IllegalStateException(String.format("Missing value in %s", this)));
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)

@@ -101,7 +101,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
                 response.addValue(
                     Rpc.ListResponse.AttrValue.newBuilder()
                         .setAttribute(kv.getAttribute())
-                        .setValue(ByteString.copyFrom(kv.getValueBytes()))));
+                        .setValue(ByteString.copyFrom(kv.getValue()))));
       }
       replyLogged(responseObserver, request, response.build());
     } catch (Status s) {
@@ -182,7 +182,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
         responseObserver.onNext(
             Rpc.GetResponse.newBuilder()
                 .setStatus(200)
-                .setValue(ByteString.copyFrom(kv.getValueBytes()))
+                .setValue(ByteString.copyFrom(kv.getValue()))
                 .build());
       }
     } catch (Status s) {

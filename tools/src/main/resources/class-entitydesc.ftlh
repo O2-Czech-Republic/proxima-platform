@@ -151,8 +151,8 @@ class Environment implements RepositoryProvider {
               console.delete(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), stamp)
             }
           <#else>
-            def ${attribute.type} get(String key) {
-              return (${attribute.type}) ${entity.classname}Descriptor.this.reader.get(key, name)?.getValue()
+            def KeyValue<${attribute.type}> get(String key) {
+              return ${entity.classname}Descriptor.this.reader.get(key, name)
             }
             def void put(String key, String textFormat) {
               console.put(${entity.classname}Descriptor.this.desc, desc, key, desc.getName(), textFormat)

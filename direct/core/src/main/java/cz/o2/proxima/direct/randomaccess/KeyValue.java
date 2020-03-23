@@ -15,17 +15,20 @@
  */
 package cz.o2.proxima.direct.randomaccess;
 
-import cz.o2.proxima.annotations.Stable;
+import com.google.common.base.MoreObjects;
+import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.storage.StreamElement;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import javax.annotation.Nullable;
 import lombok.Getter;
 
 /** {@code KeyValue} with {@code Offset}. */
-@Stable
-public class KeyValue<T> {
+@Evolving
+public class KeyValue<T> extends StreamElement {
 
   public static <T> KeyValue<T> of(
       EntityDescriptor entityDesc,
@@ -94,21 +97,7 @@ public class KeyValue<T> {
     return new KeyValue<>(entityDesc, attrDesc, key, attribute, offset, value, valueBytes, stamp);
   }
 
-  @Getter private final EntityDescriptor entityDescriptor;
-
-  @Getter private final AttributeDescriptor<T> attrDescriptor;
-
-  @Getter private final String key;
-
-  @Getter private final String attribute;
-
-  @Getter private final T value;
-
-  @Getter @Nullable private final byte[] valueBytes;
-
   @Getter private final RandomOffset offset;
-
-  @Getter private final long stamp;
 
   private KeyValue(
       EntityDescriptor entityDesc,
@@ -117,36 +106,55 @@ public class KeyValue<T> {
       String attribute,
       RandomOffset offset,
       T value,
-      byte[] valueBytes,
+      @Nullable byte[] valueBytes,
       long stamp) {
 
-    this.entityDescriptor = Objects.requireNonNull(entityDesc);
-    this.attrDescriptor = Objects.requireNonNull(attrDesc);
-    this.key = Objects.requireNonNull(key);
-    this.attribute = Objects.requireNonNull(attribute);
-    this.value = Objects.requireNonNull(value);
-    this.valueBytes = valueBytes;
+    super(
+        entityDesc,
+        attrDesc,
+        UUID.randomUUID().toString(),
+        key,
+        attribute,
+        stamp,
+        false,
+        asValueBytes(attrDesc, value, valueBytes));
     this.offset = Objects.requireNonNull(offset);
-    this.stamp = stamp;
+    setParsed(value);
+  }
+
+  private static <T> byte[] asValueBytes(AttributeDescriptor<T> attr, T value, byte[] valueBytes) {
+    if (valueBytes == null) {
+      return attr.getValueSerializer().serialize(value);
+    }
+    return valueBytes;
   }
 
   @Override
   public String toString() {
-    return "KeyValue("
-        + "entityDesc="
-        + getEntityDescriptor()
-        + ", attrDesc="
-        + getAttrDescriptor()
-        + ", key="
-        + getKey()
-        + ", attribute="
-        + getAttribute()
-        + ", offset="
-        + getOffset()
-        + ", stamp="
-        + getStamp()
-        + ", value="
-        + getValue()
-        + ")";
+    return MoreObjects.toStringHelper(this)
+        .add("entityDescriptor", getEntityDescriptor())
+        .add("attributeDescriptor", getAttributeDescriptor())
+        .add("key", getKey())
+        .add("attribute", getAttribute())
+        .add("stamp", getStamp())
+        .add("offset", getOffset())
+        .add("value", getParsed().orElse(null))
+        .toString();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this) {
+      return true;
+    }
+    if (!(obj instanceof KeyValue)) {
+      return false;
+    }
+    return super.equals(obj) && ((KeyValue) obj).getOffset().equals(offset);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(super.hashCode(), offset);
   }
 }

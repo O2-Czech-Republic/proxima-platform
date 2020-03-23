@@ -72,7 +72,7 @@ public class DirectBatchUnboundedSourceTest {
     testBatchUnboundedSourceWithCount(2);
   }
 
-  @Test(timeout = 20000)
+  @Test
   public void testDirectBatchUnboundedSourceWithMany() {
     testBatchUnboundedSourceWithCount(1000);
   }

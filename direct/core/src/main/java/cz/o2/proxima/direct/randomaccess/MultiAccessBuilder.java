@@ -184,12 +184,12 @@ public class MultiAccessBuilder implements Serializable {
                               KeyValue mapped =
                                   KeyValue.of(
                                       kv.getEntityDescriptor(),
-                                      (AttributeDescriptor) kv.getAttrDescriptor(),
+                                      (AttributeDescriptor) kv.getAttributeDescriptor(),
                                       kv.getKey(),
                                       kv.getAttribute(),
                                       current.get(),
                                       kv.getValue(),
-                                      kv.getValueBytes(),
+                                      kv.getValue(),
                                       kv.getStamp());
                               consumer.accept(mapped);
                             }));

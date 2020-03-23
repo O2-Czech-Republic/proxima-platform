@@ -412,7 +412,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
                         limit,
                         kv ->
                             lookup
-                                .lookupRead(kv.getAttrDescriptor().getName())
+                                .lookupRead(kv.getAttributeDescriptor().getName())
                                 .stream()
                                 .forEach(attr -> consumer.accept(transformToProxy(kv, attr))));
                   }
@@ -577,7 +577,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
         targetDesc.getReadTransform().asElementWise().toProxy(kv.getAttribute()),
         kv.getOffset(),
         kv.getValue(),
-        kv.getValueBytes(),
+        kv.getValue(),
         kv.getStamp());
   }
 

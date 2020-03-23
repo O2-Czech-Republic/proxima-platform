@@ -245,7 +245,7 @@ public class DirectDataOperatorTest {
                 });
 
     assertEquals("test", new String((byte[]) kv.getValue()));
-    assertEquals(source, kv.getAttrDescriptor());
+    assertEquals(source, kv.getAttributeDescriptor());
     assertEquals("event.abc", kv.getAttribute());
     assertEquals("key", kv.getKey());
   }
@@ -300,12 +300,12 @@ public class DirectDataOperatorTest {
 
     assertEquals(2, kvs.size());
     assertEquals("test", new String((byte[]) kvs.get(0).getValue()));
-    assertEquals(source, kvs.get(0).getAttrDescriptor());
+    assertEquals(source, kvs.get(0).getAttributeDescriptor());
     assertEquals("event.abc", kvs.get(0).getAttribute());
     assertEquals("key", kvs.get(0).getKey());
 
     assertEquals("test2", new String((byte[]) kvs.get(1).getValue()));
-    assertEquals(source, kvs.get(1).getAttrDescriptor());
+    assertEquals(source, kvs.get(1).getAttributeDescriptor());
     assertEquals("event.def", kvs.get(1).getAttribute());
     assertEquals("key", kvs.get(1).getKey());
   }
@@ -360,7 +360,7 @@ public class DirectDataOperatorTest {
 
     assertEquals(1, kvs.size());
     assertEquals("test2", new String((byte[]) kvs.get(0).getValue()));
-    assertEquals(source, kvs.get(0).getAttrDescriptor());
+    assertEquals(source, kvs.get(0).getAttributeDescriptor());
     assertEquals("event.def", kvs.get(0).getAttribute());
     assertEquals("key", kvs.get(0).getKey());
   }
@@ -642,7 +642,7 @@ public class DirectDataOperatorTest {
             .orElseThrow(() -> new IllegalStateException("Missing random access reader for armed"))
             .get("gw", armed);
     assertTrue(kv.isPresent());
-    assertEquals(armed, kv.get().getAttrDescriptor());
+    assertEquals(armed, kv.get().getAttributeDescriptor());
   }
 
   @Test

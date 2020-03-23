@@ -108,8 +108,8 @@ public class RandomHBaseReaderTest {
     Optional<KeyValue<byte[]>> res = reader.get("key", attr);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
-    assertArrayEquals(bytes("value"), res.get().getValueBytes());
-    assertEquals(attr, res.get().getAttrDescriptor());
+    assertArrayEquals(bytes("value"), res.get().getValue());
+    assertEquals(attr, res.get().getAttributeDescriptor());
     assertEquals(now, res.get().getStamp());
   }
 
@@ -120,9 +120,9 @@ public class RandomHBaseReaderTest {
     Optional<KeyValue<byte[]>> res = reader.get("key", "wildcard.12345", wildcard);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
-    assertArrayEquals(bytes("value"), res.get().getValueBytes());
+    assertArrayEquals(bytes("value"), res.get().getValue());
     assertEquals("wildcard.12345", res.get().getAttribute());
-    assertEquals(wildcard, res.get().getAttrDescriptor());
+    assertEquals(wildcard, res.get().getAttributeDescriptor());
     assertEquals(now, res.get().getStamp());
   }
 
@@ -153,7 +153,7 @@ public class RandomHBaseReaderTest {
     // all results have the same attribute descriptor
     assertEquals(
         Collections.singleton(wildcard),
-        res.stream().map(KeyValue::getAttrDescriptor).collect(Collectors.toSet()));
+        res.stream().map(KeyValue::getAttributeDescriptor).collect(Collectors.toSet()));
 
     // check the attributes, including ordering
     assertEquals(
@@ -169,7 +169,7 @@ public class RandomHBaseReaderTest {
     // check values
     assertEquals(
         Arrays.asList("value6", "value5", "value4", "value3", "value2", "value1"),
-        res.stream().map(k -> new String(k.getValueBytes())).collect(Collectors.toList()));
+        res.stream().map(k -> new String(k.getValue())).collect(Collectors.toList()));
 
     res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts >= now));
     res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts < now + 10));
@@ -193,7 +193,7 @@ public class RandomHBaseReaderTest {
     List<KeyValue<?>> res = new ArrayList<>();
     reader.scanWildcard("key", wildcard, null, 1, res::add);
     assertEquals(1, res.size());
-    assertEquals("value6", new String(res.get(0).getValueBytes()));
+    assertEquals("value6", new String(res.get(0).getValue()));
 
     RandomOffset offset = res.get(0).getOffset();
     res.clear();
@@ -208,12 +208,12 @@ public class RandomHBaseReaderTest {
     // all results have the same attribute descriptor
     assertEquals(
         Collections.singleton(wildcard),
-        res.stream().map(KeyValue::getAttrDescriptor).collect(Collectors.toSet()));
+        res.stream().map(KeyValue::getAttributeDescriptor).collect(Collectors.toSet()));
 
     // check the attributes, including ordering
     assertEquals(
         Arrays.asList("value5", "value4", "value3"),
-        res.stream().map(k -> new String(k.getValueBytes())).collect(Collectors.toList()));
+        res.stream().map(k -> new String(k.getValue())).collect(Collectors.toList()));
 
     // check values
     assertEquals(

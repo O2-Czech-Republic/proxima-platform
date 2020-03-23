@@ -114,7 +114,7 @@ public class PartitionedCachedViewTest {
     latch.get().await();
     Optional<KeyValue<Object>> kv = view.get("key", status);
     assertTrue(kv.isPresent());
-    assertEquals(status, kv.get().getAttrDescriptor());
+    assertEquals(status, kv.get().getAttributeDescriptor());
   }
 
   private void testScanWildcardAll(final Repository repo) throws InterruptedException {

@@ -16,10 +16,12 @@
 package cz.o2.proxima.direct.randomaccess;
 
 import cz.o2.proxima.annotations.Stable;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 /** Offset that is represented by raw string. */
 @Stable
+@EqualsAndHashCode
 public class RawOffset implements RandomOffset {
 
   private static final long serialVersionUID = 1L;

@@ -117,10 +117,10 @@ public class MultiAccessBuilderTest {
             (succ, exc) -> {});
     Optional<? extends KeyValue<?>> kv = reader.get("gw", armed);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] {1, 2}, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {1, 2}, kv.get().getValue());
     kv = reader.get("gw", device.toAttributePrefix() + "1", device);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] {2, 3}, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {2, 3}, kv.get().getValue());
     kv = reader.get("gw", device.toAttributePrefix() + "2", device);
     assertFalse(kv.isPresent());
   }
@@ -174,10 +174,10 @@ public class MultiAccessBuilderTest {
             (succ, exc) -> {});
     Optional<? extends KeyValue<?>> kv = reader.get("gw", armed);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] {1, 2}, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {1, 2}, kv.get().getValue());
     kv = reader.get("gw", device.toAttributePrefix() + "1", device);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] {2, 3}, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {2, 3}, kv.get().getValue());
     kv = reader.get("gw", device.toAttributePrefix() + "2", device);
     assertFalse(kv.isPresent());
   }
@@ -256,15 +256,15 @@ public class MultiAccessBuilderTest {
             (succ, exc) -> {});
     Optional<? extends KeyValue<?>> kv = reader.get("gw", armed);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] {1, 2}, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {1, 2}, kv.get().getValue());
     kv = reader.get("gw", device.toAttributePrefix() + "1", device);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] {2, 3}, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {2, 3}, kv.get().getValue());
     kv = reader.get("gw", device.toAttributePrefix() + "2", device);
     assertFalse(kv.isPresent());
     kv = reader.get("dummy", data);
     assertTrue(kv.isPresent());
-    assertArrayEquals(new byte[] {3, 4}, kv.get().getValueBytes());
+    assertArrayEquals(new byte[] {3, 4}, kv.get().getValue());
   }
 
   @Test

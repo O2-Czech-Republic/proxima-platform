@@ -168,6 +168,8 @@ public class StreamElement implements Serializable {
 
   private final boolean deleteWildcard;
 
+  private transient Object parsed;
+
   protected StreamElement(
       EntityDescriptor entityDesc,
       AttributeDescriptor<?> attributeDesc,
@@ -232,7 +234,14 @@ public class StreamElement implements Serializable {
     if (value == null) {
       return Optional.empty();
     }
-    return (Optional<T>) attributeDescriptor.getValueSerializer().deserialize(value);
+    if (parsed == null) {
+      attributeDescriptor.getValueSerializer().deserialize(value).ifPresent(this::setParsed);
+    }
+    return (Optional<T>) Optional.ofNullable(parsed);
+  }
+
+  protected void setParsed(Object parsed) {
+    this.parsed = parsed;
   }
 
   @Override
@@ -256,7 +265,7 @@ public class StreamElement implements Serializable {
   public String dump() {
     @SuppressWarnings("unchecked")
     AttributeDescriptor<Object> attrDesc = (AttributeDescriptor<Object>) getAttributeDescriptor();
-    Optional<Object> parsed = getParsed();
+    Optional<Object> parsedValue = getParsed();
     return MoreObjects.toStringHelper(getClass())
         .add("uuid", uuid)
         .add("entityDesc", entityDescriptor)
@@ -266,8 +275,8 @@ public class StreamElement implements Serializable {
         .add("stamp", new Date(stamp))
         .add(
             "value",
-            parsed.isPresent()
-                ? attrDesc.getValueSerializer().getLogString(parsed.get())
+            parsedValue.isPresent()
+                ? attrDesc.getValueSerializer().getLogString(parsedValue.get())
                 : "(null)")
         .toString();
   }

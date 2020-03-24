@@ -134,13 +134,15 @@ public class HadoopStorageTest {
     HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
 
     CountDownLatch latch = new CountDownLatch(1);
-    writeOneElement(
-        accessor,
-        ((success, error) -> {
-          assertTrue(success);
-          assertNull(error);
-          latch.countDown();
-        }));
+    BulkAttributeWriter writer =
+        writeOneElement(
+            accessor,
+            ((success, error) -> {
+              assertTrue(success);
+              assertNull(error);
+              latch.countDown();
+            }));
+    writer.updateWatermark(Long.MAX_VALUE);
     latch.await();
     assertTrue(root.exists());
     List<File> files = listRecursively(root);
@@ -173,13 +175,16 @@ public class HadoopStorageTest {
     HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
 
     CountDownLatch latch = new CountDownLatch(1);
-    writeOneElement(
-        accessor,
-        ((success, error) -> {
-          assertTrue(success);
-          assertNull(error);
-          latch.countDown();
-        }));
+    BulkAttributeWriter writer =
+        writeOneElement(
+            accessor,
+            ((success, error) -> {
+              assertTrue(success);
+              assertNull(error);
+              latch.countDown();
+            }));
+
+    writer.updateWatermark(Long.MAX_VALUE);
     latch.await();
     assertTrue(root.exists());
     List<File> files = listRecursively(root);
@@ -277,18 +282,14 @@ public class HadoopStorageTest {
 
   private BulkAttributeWriter write(
       HadoopDataAccessor accessor, CommitCallback callback, StreamElement... elements) {
+
     Optional<AttributeWriterBase> writer = accessor.newWriter(direct.getContext());
     assertTrue(writer.isPresent());
 
     BulkAttributeWriter bulk = writer.get().bulk();
 
-    try {
-      for (StreamElement el : elements) {
-        bulk.write(el, el.getStamp(), callback);
-      }
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
+    for (StreamElement el : elements) {
+      bulk.write(el, el.getStamp(), callback);
     }
     return bulk;
   }

@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.hadoop;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.bulk.FileFormat;
 import cz.o2.proxima.direct.bulk.FileFormatUtils;
@@ -96,6 +97,14 @@ public class HadoopDataAccessor implements DataAccessor {
     this.temporaryHadoopFs = new HadoopFileSystem(tmpFs, this, temporaryNamingConvention);
     this.allowedLateness =
         getCfg(HADOOP_ALLOWED_LATENESS, cfg, o -> Long.valueOf(o.toString()), 0L);
+
+    Preconditions.checkArgument(
+        rollInterval != 0, "Use non-negative %s got %s", HADOOP_ROLL_INTERVAL, rollInterval);
+    Preconditions.checkArgument(
+        allowedLateness >= 0,
+        "Use non-negative %s got %s",
+        HADOOP_ALLOWED_LATENESS,
+        allowedLateness);
   }
 
   public Map<String, Object> getCfg() {

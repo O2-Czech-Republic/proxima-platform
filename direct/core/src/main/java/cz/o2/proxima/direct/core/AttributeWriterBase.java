@@ -18,9 +18,11 @@ package cz.o2.proxima.direct.core;
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.net.URI;
+import javax.annotation.concurrent.NotThreadSafe;
 
 /** Base interface for {@code OnlineAttributeWriter} and {@code BulkAttributeWriter}. */
 @Stable
+@NotThreadSafe
 public interface AttributeWriterBase extends Serializable, AutoCloseable {
 
   enum Type {

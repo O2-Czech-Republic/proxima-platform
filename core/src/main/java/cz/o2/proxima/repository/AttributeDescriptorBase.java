@@ -84,11 +84,6 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
             "Cannot mix entities in proxies, got %s and %s",
             targetRead.getEntity(), targetWrite.getEntity()));
     Preconditions.checkArgument(
-        targetRead.getSchemeUri().equals(targetWrite.getSchemeUri()),
-        String.format(
-            "Cannot mix attributes with different schemes, got %s and %s",
-            targetRead.getSchemeUri(), targetWrite.getSchemeUri()));
-    Preconditions.checkArgument(
         targetRead.isWildcard() == targetWrite.isWildcard(),
         "Cannot mix non-wildcard and wildcard attributes in proxy");
     this.entity = targetRead.getEntity();

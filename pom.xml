@@ -95,6 +95,7 @@
     <jacoco.version>0.8.4</jacoco.version>
     <sonar.organization>datadriven</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+    <sonar.login>21787938b088389dc6edfdf1cf4008e91b81e70b</sonar.login>
     <error-prone.version>2.3.3</error-prone.version>
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
     <lombok.version>1.18.10</lombok.version>

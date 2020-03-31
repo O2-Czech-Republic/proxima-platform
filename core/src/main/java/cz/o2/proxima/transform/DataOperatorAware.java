@@ -45,7 +45,11 @@ public interface DataOperatorAware extends Serializable {
    */
   @SuppressWarnings("unchecked")
   default <T extends DataOperatorAware> T as(Class<T> cls) {
-    Preconditions.checkArgument(cls.isAssignableFrom(getClass()));
+    Preconditions.checkArgument(
+        cls.isAssignableFrom(getClass()),
+        "Class %s is not %s",
+        getClass().getName(),
+        cls.getName());
     return (T) this;
   }
 }

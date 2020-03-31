@@ -61,7 +61,7 @@ public class SingleTopicMultipleReplicationsTest {
   }
 
   final Repository repo =
-      Repository.of(ConfigFactory.parseResources("test-replication-sing-topic.conf"));
+      Repository.of(ConfigFactory.parseResources("test-replication-single-topic.conf"));
   final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
   final EntityDescriptor entity =
       repo.findEntity("entity")

@@ -31,11 +31,10 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
-import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transform.DataOperatorAware;
 import cz.o2.proxima.transform.ElementWiseProxyTransform;
-import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.transform.ProxyTransform;
+import cz.o2.proxima.transform.RenameTransformation;
 import cz.o2.proxima.transform.Transformation;
 import cz.o2.proxima.util.CamelCase;
 import cz.o2.proxima.util.Classpath;
@@ -1310,7 +1309,6 @@ public final class ConfigRepository extends Repository {
             .setFilter(replicated.getFilter())
             .setTransformation(
                 renameTransform(
-                    transform,
                     sourceMapping::get,
                     (input, desc) -> {
                       String raw = strippingReplPrefix(input);
@@ -1361,7 +1359,6 @@ public final class ConfigRepository extends Repository {
             .setFilter(targetFamily.getFilter())
             .setTransformation(
                 renameTransform(
-                    transform,
                     sourceMapping::get,
                     (input, desc) -> {
                       String raw = strippingReplPrefix(input);
@@ -1396,7 +1393,6 @@ public final class ConfigRepository extends Repository {
             .setFilter(replicated.getFilter())
             .setTransformation(
                 renameTransform(
-                    transform,
                     src ->
                         Objects.requireNonNull(
                             sourceMapping.get(src),
@@ -1488,57 +1484,10 @@ public final class ConfigRepository extends Repository {
   }
 
   private static Transformation renameTransform(
-      String transformName,
       UnaryFunction<AttributeDescriptor<?>, AttributeDescriptor<?>> descTransform,
       BiFunction<String, AttributeDescriptor<?>, String> nameTransform) {
 
-    return new ElementWiseTransformation() {
-
-      @Override
-      public void setup(Repository repo, Map<String, Object> cfg) {
-        // nop
-      }
-
-      @Override
-      public int apply(StreamElement input, Collector<StreamElement> collector) {
-        try {
-          AttributeDescriptor<?> desc = descTransform.apply(input.getAttributeDescriptor());
-
-          if (input.isDelete()) {
-            collector.collect(
-                input.isDeleteWildcard()
-                    ? StreamElement.deleteWildcard(
-                        input.getEntityDescriptor(),
-                        desc,
-                        input.getUuid(),
-                        input.getKey(),
-                        nameTransform.apply(input.getAttribute(), input.getAttributeDescriptor()),
-                        input.getStamp())
-                    : StreamElement.delete(
-                        input.getEntityDescriptor(),
-                        desc,
-                        input.getUuid(),
-                        input.getKey(),
-                        nameTransform.apply(input.getAttribute(), input.getAttributeDescriptor()),
-                        input.getStamp()));
-          } else {
-            collector.collect(
-                StreamElement.upsert(
-                    input.getEntityDescriptor(),
-                    desc,
-                    input.getUuid(),
-                    input.getKey(),
-                    nameTransform.apply(input.getAttribute(), input.getAttributeDescriptor()),
-                    input.getStamp(),
-                    input.getValue()));
-          }
-          return 1;
-        } catch (Exception ex) {
-          log.warn("Failed to apply rename transform {} on {}", transformName, input, ex);
-          return 0;
-        }
-      }
-    };
+    return new RenameTransformation(descTransform, nameTransform);
   }
 
   private Optional<AttributeFamilyDescriptor> findFamily(String name) {

@@ -20,6 +20,7 @@ import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.view.CachedView;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.storage.internal.AbstractDataAccessor;
 import java.util.Optional;
 
@@ -75,5 +76,15 @@ public interface DataAccessor extends AbstractDataAccessor {
    */
   default Optional<CachedView> getCachedView(Context context) {
     return Optional.empty();
+  }
+
+  /**
+   * Check whether this accessor is acceptable for a given family.
+   *
+   * @param familyDescriptor Attribute family descriptor.
+   * @return True if this accessor is acceptable.
+   */
+  default boolean isAcceptable(AttributeFamilyDescriptor familyDescriptor) {
+    return true;
   }
 }

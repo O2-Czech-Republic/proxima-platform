@@ -17,7 +17,7 @@ package cz.o2.proxima.transform;
 
 import cz.o2.proxima.repository.AttributeDescriptor;
 
-public class AsymmetricWrite implements ElementWiseProxyTransform {
+public class WriteProxy implements ElementWiseProxyTransform {
 
   private static final long serialVersionUID = 1L;
 

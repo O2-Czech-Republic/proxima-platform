@@ -65,4 +65,8 @@ public class AttributeProxyDescriptor<T> extends AttributeDescriptorBase<T> {
   public boolean isProxy() {
     return true;
   }
+
+  public boolean isAsymmetric() {
+    return readTarget != writeTarget || readTransform != writeTransform;
+  }
 }

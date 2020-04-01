@@ -22,6 +22,7 @@ public class ConfigConstants {
   public static final String ALL = "all";
   public static final String LOCAL = "local";
   public static final String READ = "read";
+  public static final String WRITE = "write";
   public static final String ATTRIBUTES = "attributes";
   public static final String ENTITY = "entity";
   public static final String VIA = "via";

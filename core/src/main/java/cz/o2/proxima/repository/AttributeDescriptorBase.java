@@ -75,6 +75,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
       AttributeDescriptor<T> targetRead,
       AttributeDescriptor<T> targetWrite,
       boolean replica,
+      URI schemeURI,
       ValueSerializer<T> valueSerializer) {
 
     this.name = Objects.requireNonNull(name);
@@ -87,11 +88,11 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
         targetRead.isWildcard() == targetWrite.isWildcard(),
         "Cannot mix non-wildcard and wildcard attributes in proxy");
     this.entity = targetRead.getEntity();
-    this.schemeUri = targetRead.getSchemeUri();
+    this.schemeUri = Objects.requireNonNull(schemeURI);
     this.proxy = true;
     this.replica = replica;
     this.wildcard = targetRead.isWildcard();
-    this.valueSerializer = valueSerializer;
+    this.valueSerializer = Objects.requireNonNull(valueSerializer);
   }
 
   @Override

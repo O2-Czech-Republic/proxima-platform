@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.transform;
 
-public class AsymmetricRead implements ElementWiseProxyTransform {
+public class ReadProxy implements ElementWiseProxyTransform {
 
   private static final long serialVersionUID = 1L;
 

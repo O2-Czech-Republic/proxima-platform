@@ -18,6 +18,7 @@ package cz.o2.proxima.repository;
 import com.google.common.base.MoreObjects;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.transform.ProxyTransform;
+import java.net.URI;
 import javax.annotation.Nullable;
 import lombok.Getter;
 
@@ -41,9 +42,10 @@ public class AttributeProxyDescriptor<T> extends AttributeDescriptorBase<T> {
       AttributeDescriptor<T> writeTarget,
       ProxyTransform writeTransform,
       boolean replica,
+      URI schemeURI,
       ValueSerializer<T> valueSerializer) {
 
-    super(name, readTarget, writeTarget, replica, valueSerializer);
+    super(name, readTarget, writeTarget, replica, schemeURI, valueSerializer);
     this.readTarget = readTarget;
     this.readTransform = readTransform;
     this.writeTarget = writeTarget;

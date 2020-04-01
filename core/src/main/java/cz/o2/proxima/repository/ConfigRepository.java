@@ -26,7 +26,6 @@ import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageFilter;
@@ -706,6 +705,8 @@ public final class ConfigRepository extends Repository {
 
     if (settings.get(PROXY) instanceof Map) {
       Map<String, Object> proxyMap = (Map) settings.get(PROXY);
+      // copy scheme from upper to inner map, if needed
+      proxyMap.computeIfAbsent(SCHEME, settings::get);
       addProxyAttributeAsymmetric(attrName, proxyMap, entityBuilder);
     } else {
       final AttributeDescriptor writeTarget;
@@ -723,10 +724,16 @@ public final class ConfigRepository extends Repository {
       } else {
         readTransform = writeTransform = null;
       }
-      ValueSerializer<?> valueSerializer = readSchemeOptional(settings, readTarget);
+      URI schemeURI = readProxySchemeOptional(attrName, settings, writeTarget, readTarget);
       entityBuilder.addAttribute(
           AttributeDescriptor.newProxy(
-              attrName, readTarget, readTransform, writeTarget, writeTransform, valueSerializer));
+              attrName,
+              readTarget,
+              readTransform,
+              writeTarget,
+              writeTransform,
+              schemeURI,
+              requireValueSerializerFactory(schemeURI).getValueSerializer(schemeURI)));
     }
   }
 
@@ -749,7 +756,7 @@ public final class ConfigRepository extends Repository {
     final AttributeDescriptor writeTarget;
     final ProxyTransform readTransform;
     final ProxyTransform writeTransform;
-    Map<String, Object> write = toMapOrNull(proxyMap.get("write"));
+    Map<String, Object> write = toMapOrNull(proxyMap.get(WRITE));
     Map<String, Object> read = toMapOrNull(proxyMap.get(READ));
     AttributeDescriptor<?> original = null;
     if (write == null || read == null) {
@@ -782,6 +789,7 @@ public final class ConfigRepository extends Repository {
         readTarget == original ? ElementWiseProxyTransform.identity() : getProxyTransform(read);
     writeTransform =
         writeTarget == original ? ElementWiseProxyTransform.identity() : getProxyTransform(write);
+    URI schemeURI = readProxySchemeOptional(attrName, proxyMap, writeTarget, readTarget);
     entityBuilder.addAttribute(
         AttributeDescriptor.newProxy(
             attrName,
@@ -789,16 +797,28 @@ public final class ConfigRepository extends Repository {
             readTransform,
             writeTarget,
             writeTransform,
-            readSchemeOptional(proxyMap, readTarget)));
+            schemeURI,
+            requireValueSerializerFactory(schemeURI).getValueSerializer(schemeURI)));
   }
 
-  private ValueSerializer<Object> readSchemeOptional(
-      Map<String, Object> settings, AttributeDescriptor<Object> target) {
+  private URI readProxySchemeOptional(
+      String proxyName,
+      Map<String, Object> settings,
+      AttributeDescriptor<Object> write,
+      AttributeDescriptor<Object> read) {
     return Optional.ofNullable(settings.get(SCHEME))
         .map(Object::toString)
         .map(this::asSchemeUri)
-        .map(schemeUri -> requireValueSerializerFactory(schemeUri).getValueSerializer(schemeUri))
-        .orElse(target.getValueSerializer());
+        .orElseGet(
+            () -> {
+              Preconditions.checkArgument(
+                  write.getSchemeUri().equals(read.getSchemeUri()),
+                  "Proxy %s does not specify explicit scheme, and read scheme URI %s does not match write scheme URI %s",
+                  proxyName,
+                  read.getSchemeUri(),
+                  write.getSchemeUri());
+              return write.getSchemeUri();
+            });
   }
 
   private ProxyTransform getProxyTransform(Map<String, Object> map) {
@@ -1557,6 +1577,7 @@ public final class ConfigRepository extends Repository {
               targetProxy.getReadTransform(),
               targetProxy.getWriteTarget(),
               targetProxy.getWriteTransform(),
+              targetProxy.getReadTarget().getSchemeUri(),
               targetProxy.getReadTarget().getValueSerializer()));
     } else {
       final AttributeDescriptor<Object> source;
@@ -1581,6 +1602,7 @@ public final class ConfigRepository extends Repository {
               target,
               // store under original name
               strippingReplPrefixTransform(),
+              target.getSchemeUri(),
               target.getValueSerializer()));
     }
   }

@@ -15,17 +15,17 @@
  */
 package cz.o2.proxima.transform;
 
-import cz.o2.proxima.repository.AttributeDescriptor;
+import lombok.Getter;
 
 public class WriteProxy implements ElementWiseProxyTransform {
 
   private static final long serialVersionUID = 1L;
 
-  private String target;
+  @Getter private String target;
 
   @Override
-  public void setup(AttributeDescriptor<?> target) {
-    this.target = target.toAttributePrefix();
+  public void setup(ProxySetupContext context) {
+    this.target = context.getTargetAttribute().toAttributePrefix();
   }
 
   @Override

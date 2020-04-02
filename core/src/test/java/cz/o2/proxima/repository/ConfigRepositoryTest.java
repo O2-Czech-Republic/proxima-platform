@@ -29,8 +29,10 @@ import cz.o2.proxima.repository.ConfigRepository.Builder;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transform.ElementWiseProxyTransform.ProxySetupContext;
 import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.transform.EventDataToDummy;
+import cz.o2.proxima.transform.WriteProxy;
 import cz.o2.proxima.util.DummyFilter;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
@@ -463,6 +465,27 @@ public class ConfigRepositoryTest {
     assertTrue(repo != repo2);
     assertTrue(TestUtils.deserializeObject(serialized) == repo2);
     RepositoryFactory.VersionedCaching.drop();
+  }
+
+  @Test
+  public void testProxySetuped() {
+    AttributeProxyDescriptor<Object> proxy =
+        repo.getEntity("proxied").getAttribute("asymmetric..*").asProxy();
+    WriteProxy transform = (WriteProxy) proxy.getWriteTransform();
+    assertEquals("_e.", transform.getTarget());
+  }
+
+  @Test
+  public void testProxySetupContext() {
+    EntityDescriptor entity = repo.getEntity("proxied");
+    AttributeDescriptor<Object> attribute = entity.getAttribute("raw.*");
+    AttributeProxyDescriptor<Object> proxy = entity.getAttribute("event.*").asProxy();
+    ProxySetupContext context = ConfigRepository.asProxySetupContext(proxy, attribute, true, false);
+    assertTrue(context.isReadTransform());
+    assertFalse(context.isWriteTransform());
+    assertFalse(context.isSymmetric());
+    assertEquals(attribute, context.getTargetAttribute());
+    assertEquals(proxy, context.getProxyAttribute());
   }
 
   private void checkThrows(Factory<?> factory) {

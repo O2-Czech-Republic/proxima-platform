@@ -122,6 +122,33 @@ public interface ElementWiseProxyTransform extends ProxyTransform, DataOperatorA
     };
   }
 
+  interface ProxySetupContext {
+
+    /**
+     * Retrieve attribute that is the proxied attribute.
+     *
+     * @return descriptor of proxied attribute
+     */
+    AttributeDescriptor<?> getProxyAttribute();
+
+    /**
+     * Retrieve attribute that is target of this transform (attribute to read from, or to write to).
+     *
+     * @return decriptor of target attribute
+     */
+    AttributeDescriptor<?> getTargetAttribute();
+
+    /** @return {@code true} is this is read transform */
+    boolean isReadTransform();
+
+    /** @return {@code true} is this is read transform */
+    boolean isWriteTransform();
+
+    default boolean isSymmetric() {
+      return isReadTransform() && isWriteTransform();
+    }
+  }
+
   /**
    * Apply transformation to attribute name from proxy naming.
    *
@@ -142,8 +169,19 @@ public interface ElementWiseProxyTransform extends ProxyTransform, DataOperatorA
    * Setup this transform for given target attribute.
    *
    * @param target the target attribute descriptor
+   * @deprecated use {@link #setup(ProxySetupContext)}
    */
+  @Deprecated
   default void setup(AttributeDescriptor<?> target) {
     // nop
+  }
+
+  /**
+   * Setup this transform with specified target and source attribute.
+   *
+   * @param context context of the setup
+   */
+  default void setup(ProxySetupContext context) {
+    setup(context.getTargetAttribute());
   }
 }

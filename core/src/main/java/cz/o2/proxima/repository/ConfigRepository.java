@@ -32,6 +32,7 @@ import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.transform.DataOperatorAware;
 import cz.o2.proxima.transform.ElementWiseProxyTransform;
+import cz.o2.proxima.transform.ElementWiseProxyTransform.ProxySetupContext;
 import cz.o2.proxima.transform.ProxyTransform;
 import cz.o2.proxima.transform.RenameTransformation;
 import cz.o2.proxima.transform.Transformation;
@@ -330,14 +331,34 @@ public final class ConfigRepository extends Repository {
         .flatMap(e -> e.getAllAttributes().stream())
         .filter(AttributeDescriptor::isProxy)
         .map(AttributeDescriptor::asProxy)
-        .flatMap(
-            a ->
-                Stream.of(
-                    Pair.of(a.getReadTarget(), a.getReadTransform()),
-                    Pair.of(a.getWriteTarget(), a.getWriteTransform())))
         .distinct()
         .forEach(
-            p -> setupTransform(getEntity(p.getFirst().getEntity()), p.getFirst(), p.getSecond()));
+            a -> {
+              if (a.isAsymmetric()) {
+                setupTransform(
+                    getEntity(a.getEntity()),
+                    a,
+                    a.getReadTarget(),
+                    a.getReadTransform(),
+                    true,
+                    false);
+                setupTransform(
+                    getEntity(a.getEntity()),
+                    a,
+                    a.getWriteTarget(),
+                    a.getWriteTransform(),
+                    false,
+                    true);
+              } else {
+                setupTransform(
+                    getEntity(a.getEntity()),
+                    a,
+                    a.getReadTarget(),
+                    a.getReadTransform(),
+                    true,
+                    true);
+              }
+            });
   }
 
   private void readSchemeSerializers(Iterable<ValueSerializerFactory> serializers) {
@@ -738,13 +759,18 @@ public final class ConfigRepository extends Repository {
   }
 
   private void setupTransform(
-      EntityDescriptor entity, AttributeDescriptor readTarget, ProxyTransform transform) {
+      EntityDescriptor entity,
+      AttributeDescriptor<?> proxyAttribute,
+      AttributeDescriptor<?> target,
+      ProxyTransform transform,
+      boolean isRead,
+      boolean isWrite) {
 
     if (transform.isContextual()) {
       DataOperator operator = getDataOperatorForDelegate(transform);
       transform.asContextual().setup(entity, operator);
     } else {
-      transform.asElementWise().setup(readTarget);
+      transform.asElementWise().setup(asProxySetupContext(proxyAttribute, target, isRead, isWrite));
     }
   }
 
@@ -2028,6 +2054,35 @@ public final class ConfigRepository extends Repository {
   @Override
   public int hashCode() {
     return Objects.hash(config, enableCaching, readonly, shouldValidate, loadClasses);
+  }
+
+  @VisibleForTesting
+  static ProxySetupContext asProxySetupContext(
+      AttributeDescriptor<?> proxyAttribute,
+      AttributeDescriptor<?> targetAttribute,
+      boolean isRead,
+      boolean isWrite) {
+    return new ProxySetupContext() {
+      @Override
+      public AttributeDescriptor<?> getProxyAttribute() {
+        return proxyAttribute;
+      }
+
+      @Override
+      public AttributeDescriptor<?> getTargetAttribute() {
+        return targetAttribute;
+      }
+
+      @Override
+      public boolean isReadTransform() {
+        return isRead;
+      }
+
+      @Override
+      public boolean isWriteTransform() {
+        return isWrite;
+      }
+    };
   }
 
   private void writeObject(ObjectOutputStream oos) throws IOException {

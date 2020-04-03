@@ -26,6 +26,7 @@ import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.Repository.Validate;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.internal.DataAccessorLoader;
 import java.net.URI;
@@ -182,7 +183,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return loader
         .findForUri(desc.getStorageUri())
         .map(f -> f.createAccessor(this, desc.getEntity(), desc.getStorageUri(), desc.getCfg()))
-        .filter(f -> f.isAcceptable(desc))
+        .filter(f -> !repo.isShouldValidate(Validate.ACCESSES) || f.isAcceptable(desc))
         .orElseThrow(
             () ->
                 new IllegalStateException(

@@ -82,9 +82,11 @@ public class ${java_classname} implements Serializable {
    * @param config the configuration to use
    * @return ${java_classname}
    **/
-  public static ${java_classname} ofTest(Config config) {
-    return new ${java_classname}(ConfigRepository.Builder.ofTest(
-      config.withFallback(ConfigFactory.parseString(GENERATED_FROM))));
+  public static ${java_classname} ofTest(Config config, Repository.Validate... validations) {
+    return new ${java_classname}(
+        ConfigRepository.Builder
+            .ofTest(config.withFallback(ConfigFactory.parseString(GENERATED_FROM)))
+            .withValidate(validations));
   }
 
   @FunctionalInterface

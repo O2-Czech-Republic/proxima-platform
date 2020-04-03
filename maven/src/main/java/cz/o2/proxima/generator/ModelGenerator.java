@@ -24,6 +24,7 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.Repository.Validate;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.util.CamelCase;
 import freemarker.template.Configuration;
@@ -118,7 +119,7 @@ public class ModelGenerator {
         ConfigRepository.Builder.of(config)
             .withCachingEnabled(false)
             .withReadOnly(true)
-            .withValidate(false)
+            .withValidate(Validate.NONE)
             .withLoadFamilies(false)
             .withLoadClasses(false)
             .build();

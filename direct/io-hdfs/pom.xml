@@ -61,6 +61,10 @@
               <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>javax.</pattern>
+              <shadedPattern>${shadePattern}.javax.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>org.mortbay.jetty.</pattern>
               <shadedPattern>${shadePattern}.org.mortbay.jetty.</shadedPattern>
             </relocation>

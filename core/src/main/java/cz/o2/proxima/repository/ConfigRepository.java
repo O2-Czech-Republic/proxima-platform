@@ -46,6 +46,7 @@ import java.io.ObjectStreamException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -92,10 +93,14 @@ public final class ConfigRepository extends Repository {
    * Construct default repository from the config.
    *
    * @param config configuration to use
+   * @param validates which validations to perform
    * @return constructed repository
    */
-  public static Repository ofTest(Config config) {
-    return Builder.of(config).withCachingEnabled(false).build();
+  public static Repository ofTest(Config config, Validate... validates) {
+    return Builder.of(config)
+        .withValidate(validates.length == 0 ? new Validate[] {Validate.ALL} : validates)
+        .withCachingEnabled(false)
+        .build();
   }
 
   /** Builder for the repository. */
@@ -124,7 +129,7 @@ public final class ConfigRepository extends Repository {
     private final Config config;
     private boolean cachingEnabled = true;
     private boolean readOnly = false;
-    private boolean validate = true;
+    private int validate = Validate.ALL.getFlag();
     private boolean loadFamilies = true;
     private boolean loadClasses = true;
 
@@ -142,8 +147,8 @@ public final class ConfigRepository extends Repository {
       return this;
     }
 
-    public Builder withValidate(boolean flag) {
-      this.validate = flag;
+    public Builder withValidate(Validate... values) {
+      this.validate = Arrays.stream(values).map(Validate::getFlag).reduce(0, (a, b) -> a | b);
       return this;
     }
 
@@ -194,11 +199,10 @@ public final class ConfigRepository extends Repository {
   @Getter private final boolean readonly;
 
   /**
-   * Flag to indicate if we should validate the scheme with serializer. Defaults to {@code true}.
-   * {@code false} can be used when the classpath is not completed during constructing this object.
-   * This is useful mostly inside the maven plugin.
+   * Flags to indicate if we should validate perform various validations. Defaults to all
+   * validations various validations can be switched off when appropriate.
    */
-  private final boolean shouldValidate;
+  private final int validateFlags;
 
   /**
    * Flag to indicate if we should actually load classes specified in config. This is usually set to
@@ -243,7 +247,7 @@ public final class ConfigRepository extends Repository {
    * @param cachingEnabled can we cache the Repository per JVM
    * @param isReadonly true in client applications where you want to use repository specifications
    *     to read from the datalake.
-   * @param shouldValidate set to false to skip some sanity checks (not recommended)
+   * @param validateFlags validation {@link cz.o2.proxima.repository.Repository.Validate} flags
    * @param loadFamilies should we load attribute families? This is needed only during runtime, for
    *     maven plugin it is set to false
    */
@@ -251,7 +255,7 @@ public final class ConfigRepository extends Repository {
       Config config,
       boolean cachingEnabled,
       boolean isReadonly,
-      boolean shouldValidate,
+      int validateFlags,
       boolean loadFamilies,
       boolean loadClasses) {
 
@@ -259,7 +263,7 @@ public final class ConfigRepository extends Repository {
     this.enableCaching = cachingEnabled;
     this.config = config;
     this.readonly = isReadonly;
-    this.shouldValidate = shouldValidate;
+    this.validateFlags = validateFlags;
     this.loadClasses = loadClasses;
     try {
 
@@ -318,7 +322,7 @@ public final class ConfigRepository extends Repository {
       setupTransforms();
     }
 
-    if (shouldValidate) {
+    if (isShouldValidate(Validate.FAMILIES)) {
       // Sanity checks.
       validate();
     }
@@ -887,7 +891,7 @@ public final class ConfigRepository extends Repository {
     // validate that the scheme serializer doesn't throw exceptions
     // ignore the return value
     try {
-      if (shouldValidate) {
+      if (isShouldValidate(Validate.SERIALIZERS)) {
         requireValueSerializerFactory(schemeUri).getValueSerializer(schemeUri).isUsable();
       }
     } catch (Exception ex) {
@@ -947,13 +951,18 @@ public final class ConfigRepository extends Repository {
 
     ValueSerializerFactory serializer = serializersMap.get(scheme);
     if (serializer == null) {
-      if (shouldValidate) {
+      if (isShouldValidate(Validate.SERIALIZERS)) {
         throw new IllegalArgumentException("Missing serializer for scheme " + scheme);
       } else {
         return Optional.empty();
       }
     }
     return Optional.of(serializer);
+  }
+
+  @Override
+  public boolean isShouldValidate(Validate what) {
+    return what.getFlag() == 0 || (this.validateFlags & what.getFlag()) != 0;
   }
 
   private void readAttributeFamilies(Config cfg) {
@@ -2046,14 +2055,14 @@ public final class ConfigRepository extends Repository {
     ConfigRepository that = (ConfigRepository) o;
     return enableCaching == that.enableCaching
         && readonly == that.readonly
-        && shouldValidate == that.shouldValidate
+        && validateFlags == that.validateFlags
         && loadClasses == that.loadClasses
         && Objects.equals(config, that.config);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(config, enableCaching, readonly, shouldValidate, loadClasses);
+    return Objects.hash(config, enableCaching, readonly, validateFlags, loadClasses);
   }
 
   @VisibleForTesting

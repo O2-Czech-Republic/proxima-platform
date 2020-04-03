@@ -26,6 +26,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.ConfigRepository.Builder;
+import cz.o2.proxima.repository.Repository.Validate;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
@@ -414,8 +415,7 @@ public class ConfigRepositoryTest {
       ConfigRepository.validateEntityName("testOk");
       ConfigRepository.validateEntityName("_testOk");
       ConfigRepository.validateEntityName("test_with_underscores");
-      Repository.of(
-          () -> ConfigFactory.load("test-reference-with-invalid-entities.conf").resolve());
+      Repository.of(ConfigFactory.load("test-reference-with-invalid-entities.conf").resolve());
       fail("Should have thrown exception");
     } catch (IllegalArgumentException ex) {
       assertEquals(
@@ -486,6 +486,30 @@ public class ConfigRepositoryTest {
     assertFalse(context.isSymmetric());
     assertEquals(attribute, context.getTargetAttribute());
     assertEquals(proxy, context.getProxyAttribute());
+  }
+
+  @Test
+  public void testDisableValidations() {
+    Repository r =
+        Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve(), Validate.NONE);
+    for (Validate v : Validate.values()) {
+      if (v != Validate.NONE) {
+        assertFalse(r.isShouldValidate(v));
+      } else {
+        assertTrue(r.isShouldValidate(v));
+      }
+    }
+  }
+
+  @Test
+  public void testValidateAllHasAllFlags() {
+    int flag = 0;
+    for (Validate v : Validate.values()) {
+      if (v != Validate.ALL) {
+        flag |= v.getFlag();
+      }
+    }
+    assertEquals(flag, Validate.ALL.getFlag());
   }
 
   private void checkThrows(Factory<?> factory) {

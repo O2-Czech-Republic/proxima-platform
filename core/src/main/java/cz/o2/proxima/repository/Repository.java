@@ -45,13 +45,34 @@ public abstract class Repository implements Serializable {
     Config apply();
   }
 
+  /** Various validation flags. */
+  public enum Validate {
+    /** Do not perform any validations. */
+    NONE(0x00),
+    /** Validate that attributes have associated families. */
+    FAMILIES(0x01),
+    /** Validate that families have correctly configured access patterns. */
+    ACCESSES(0x02),
+    /** Validate scheme serializers. */
+    SERIALIZERS(0x04),
+
+    /** Turn on all validations. */
+    ALL(FAMILIES.flag | ACCESSES.flag | SERIALIZERS.flag);
+
+    @Getter final int flag;
+
+    Validate(int value) {
+      this.flag = value;
+    }
+  }
+
   /** @deprecated Use {@link Repository#of(Config)} */
   @Deprecated
   public static Repository of(ConfigFactory factory) {
     return of(factory.apply());
   }
 
-  /** @deprecated Use {@link Repository#ofTest(Config)}. */
+  /** @deprecated Use {@link Repository#ofTest(Config, Validate...)}. */
   @Deprecated
   public static Repository ofTest(ConfigFactory factory) {
     return ofTest(factory.apply());
@@ -71,10 +92,11 @@ public abstract class Repository implements Serializable {
    * Create {@link Repository} from given {@link Config} for testing purposes.
    *
    * @param config the config
+   * @param validate validations that should be performed
    * @return repository
    */
-  public static Repository ofTest(Config config) {
-    return ConfigRepository.ofTest(config);
+  public static Repository ofTest(Config config, Validate... validate) {
+    return ConfigRepository.ofTest(config, validate);
   }
 
   RepositoryFactory factory;
@@ -253,6 +275,15 @@ public abstract class Repository implements Serializable {
     Iterable<DataOperatorFactory<?>> loaders = getDataOperatorFactories();
     return Streams.stream(loaders).anyMatch(f -> f.getOperatorName().equals(name));
   }
+
+  /**
+   * Check if this {@link Repository} should eagerly validate various settings.
+   *
+   * @param what validation flag
+   * @return {@code true} if this Repository should validate settings before usage (typically
+   *     production settings, while test settings can be less strict).
+   */
+  public abstract boolean isShouldValidate(Validate what);
 
   /**
    * Called when new {@link DataOperator} is created.

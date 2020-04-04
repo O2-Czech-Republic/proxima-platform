@@ -249,11 +249,11 @@ First, let's introduce some glossary:
  This plugin then generates class `cz.o2.proxima.testing.model.Model` into `target/generated-sources/model`.
  The class can be instantiated via
  ```java
-   Model model = Model.of(ConfigFactory::defaultApplication);
+   Model model = Model.of(ConfigFactory.defaultApplication());
   ```
   or (in case of tests, where some validations and initializations are skipped)
   ```
-   Model model = Model.ofTest(ConfigFactory::defaultApplication);
+   Model model = Model.ofTest(ConfigFactory.defaultApplication());
   ```  
  
  ## Platform's _DataOperators_

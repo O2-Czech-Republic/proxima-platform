@@ -120,7 +120,9 @@ public class BeamDataOperator implements DataOperator {
 
   @Override
   public void close() {
-    direct.close();
+    if (direct != null) {
+      direct.close();
+    }
     reload();
   }
 

@@ -973,15 +973,15 @@ public final class ConfigRepository extends Repository {
     }
     Map<String, Object> attributeFamilyMap =
         toMap(
-            "attributeFamilies",
+            ATTRIBUTE_FAMILIES,
             Objects.requireNonNull(
-                    cfg.root().get("attributeFamilies"),
-                    "Missing required `attributeFamilies' settings")
+                    cfg.root().get(ATTRIBUTE_FAMILIES),
+                    String.format("Missing required [%s] setting", ATTRIBUTE_FAMILIES))
                 .unwrapped());
 
     for (Map.Entry<String, Object> e : attributeFamilyMap.entrySet()) {
       String name = e.getKey();
-      Map<String, Object> storage = toMap("attributeFamilies." + name, e.getValue());
+      Map<String, Object> storage = toMap(ATTRIBUTE_FAMILIES + "." + name, e.getValue());
 
       try {
         loadSingleFamily(name, false, storage);

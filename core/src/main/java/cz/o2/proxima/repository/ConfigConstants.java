@@ -39,6 +39,7 @@ public class ConfigConstants {
   public static final String ACCESS = "access";
   public static final String TYPE = "type";
   public static final String FILTER = "filter";
+  public static final String ATTRIBUTE_FAMILIES = "attributeFamilies";
 
   private ConfigConstants() {
     // nop

@@ -28,6 +28,7 @@ import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.direct.storage.InMemStorage.WatermarkEstimator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -35,13 +36,13 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.Serializable;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -59,12 +60,12 @@ public class InMemStorageTest implements Serializable {
           .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
 
   @Test(timeout = 10000)
-  public void testObservePartitions() throws URISyntaxException, InterruptedException {
+  public void testObservePartitions() throws InterruptedException {
 
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
         storage.createAccessor(
-            direct, entity, new URI("inmem:///inmemstoragetest"), Collections.emptyMap());
+            direct, entity, URI.create("inmem:///inmemstoragetest"), Collections.emptyMap());
     CommitLogReader reader =
         accessor
             .getCommitLogReader(direct.getContext())
@@ -117,12 +118,12 @@ public class InMemStorageTest implements Serializable {
   }
 
   @Test(timeout = 10000)
-  public void testObservePartionsWithSamePath() throws URISyntaxException, InterruptedException {
+  public void testObservePartionsWithSamePath() throws InterruptedException {
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
-        storage.createAccessor(direct, entity, new URI("inmem://test1"), Collections.emptyMap());
+        storage.createAccessor(direct, entity, URI.create("inmem://test1"), Collections.emptyMap());
     DataAccessor accessor2 =
-        storage.createAccessor(direct, entity, new URI("inmem://test2"), Collections.emptyMap());
+        storage.createAccessor(direct, entity, URI.create("inmem://test2"), Collections.emptyMap());
     CommitLogReader reader =
         accessor
             .getCommitLogReader(direct.getContext())
@@ -177,12 +178,12 @@ public class InMemStorageTest implements Serializable {
   }
 
   @Test(timeout = 10000)
-  public void testObserveBatch() throws URISyntaxException, InterruptedException {
+  public void testObserveBatch() throws InterruptedException {
 
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
         storage.createAccessor(
-            direct, entity, new URI("inmem:///inmemstoragetest"), Collections.emptyMap());
+            direct, entity, URI.create("inmem:///inmemstoragetest"), Collections.emptyMap());
     BatchLogObservable reader =
         accessor
             .getBatchLogObservable(direct.getContext())
@@ -226,13 +227,13 @@ public class InMemStorageTest implements Serializable {
   }
 
   @Test(timeout = 10000)
-  public void testObserveBatchWithSamePath() throws URISyntaxException, InterruptedException {
+  public void testObserveBatchWithSamePath() throws InterruptedException {
 
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
-        storage.createAccessor(direct, entity, new URI("inmem://test1"), Collections.emptyMap());
+        storage.createAccessor(direct, entity, URI.create("inmem://test1"), Collections.emptyMap());
     DataAccessor accessor2 =
-        storage.createAccessor(direct, entity, new URI("inmem://test2"), Collections.emptyMap());
+        storage.createAccessor(direct, entity, URI.create("inmem://test2"), Collections.emptyMap());
     BatchLogObservable reader =
         accessor
             .getBatchLogObservable(direct.getContext())
@@ -286,12 +287,12 @@ public class InMemStorageTest implements Serializable {
   }
 
   @Test(timeout = 10000)
-  public void testObserveCancel() throws URISyntaxException, InterruptedException {
+  public void testObserveCancel() {
 
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
         storage.createAccessor(
-            direct, entity, new URI("inmem:///inmemstoragetest"), Collections.emptyMap());
+            direct, entity, URI.create("inmem:///inmemstoragetest"), Collections.emptyMap());
     CommitLogReader reader =
         accessor
             .getCommitLogReader(direct.getContext())
@@ -359,12 +360,12 @@ public class InMemStorageTest implements Serializable {
   }
 
   @Test(timeout = 10000)
-  public void testObserveOffsets() throws URISyntaxException, InterruptedException {
+  public void testObserveOffsets() {
 
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
         storage.createAccessor(
-            direct, entity, new URI("inmem:///inmemstoragetest"), Collections.emptyMap());
+            direct, entity, URI.create("inmem:///inmemstoragetest"), Collections.emptyMap());
     CommitLogReader reader =
         accessor
             .getCommitLogReader(direct.getContext())
@@ -419,7 +420,9 @@ public class InMemStorageTest implements Serializable {
     handle = reader.observeBulkOffsets(offsets, observer);
     offsets = handle.getCurrentOffsets();
     assertEquals(1, offsets.size());
-    assertTrue(offsets.get(0).getWatermark() > 0);
+    assertTrue(
+        "Expected positive watermark, got " + offsets.get(0).getWatermark(),
+        offsets.get(0).getWatermark() > 0);
     writer
         .online()
         .write(
@@ -433,5 +436,50 @@ public class InMemStorageTest implements Serializable {
                 new byte[] {2}),
             (succ, exc) -> {});
     assertEquals(Arrays.asList((byte) 1, (byte) 2), received);
+  }
+
+  @Test
+  public void testObserveWithEndOfTime() throws InterruptedException {
+    URI uri = URI.create("inmem:///inmemstoragetest");
+    InMemStorage storage = new InMemStorage();
+    InMemStorage.setWatermarkEstimatorFactory(
+        uri,
+        stamp ->
+            new WatermarkEstimator() {
+
+              @Override
+              public long getWatermark() {
+                return WatermarkEstimator.MAX_TIMESTAMP;
+              }
+
+              @Override
+              public void accumulate(StreamElement element) {}
+            });
+    DataAccessor accessor = storage.createAccessor(direct, entity, uri, Collections.emptyMap());
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    CountDownLatch completed = new CountDownLatch(1);
+    reader.observe(
+        "observer",
+        new LogObserver() {
+
+          @Override
+          public void onCompleted() {
+            completed.countDown();
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            return false;
+          }
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            return false;
+          }
+        });
+    assertTrue(completed.await(1, TimeUnit.SECONDS));
   }
 }

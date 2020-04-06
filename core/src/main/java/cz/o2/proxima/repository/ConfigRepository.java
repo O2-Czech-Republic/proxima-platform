@@ -97,10 +97,13 @@ public final class ConfigRepository extends Repository {
    * @return constructed repository
    */
   public static Repository ofTest(Config config, Validate... validates) {
-    return Builder.of(config)
-        .withValidate(validates.length == 0 ? new Validate[] {Validate.ALL} : validates)
-        .withCachingEnabled(false)
-        .build();
+    Builder builder = Builder.of(config).withCachingEnabled(false);
+    if (validates.length == 0) {
+      builder = builder.withValidateFlag(Validate.ALL.getFlag() & ~Validate.FAMILIES.getFlag());
+    } else {
+      builder = builder.withValidate(validates);
+    }
+    return builder.build();
   }
 
   /** Builder for the repository. */
@@ -149,6 +152,11 @@ public final class ConfigRepository extends Repository {
 
     public Builder withValidate(Validate... values) {
       this.validate = Arrays.stream(values).map(Validate::getFlag).reduce(0, (a, b) -> a | b);
+      return this;
+    }
+
+    public Builder withValidateFlag(int flag) {
+      this.validate = flag;
       return this;
     }
 

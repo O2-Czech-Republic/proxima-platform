@@ -25,7 +25,27 @@ echo ${GOOGLE_CREDENTIALS} > /tmp/google-credentials.json
 
 export GOOGLE_APPLICATION_CREDENTIALS=/tmp/google-credentials.json
 
+RESUME=""
 if echo ${VERSION} | grep SNAPSHOT >/dev/null && echo ${GITHUB_REPOSITORY} | grep O2-Czech-Republic >/dev/null; then
-  mvn deploy -DskipTests -Prelease-snapshot
+  TRY=0
+  while [ $TRY -lt 3 ]; do
+    CMD="mvn deploy -DskipTests -Prelease-snapshot"
+    if [ ! -z "${RESUME}" ]; then
+      CMD="${CMD} $(echo $RESUME | sed "s/.\+\(-rf .\+\)/\1/")"
+    fi
+    echo "Starting to deploy step $((TRY + 1)) with command ${CMD}"
+    RESUME=$(${CMD} | grep -A1 "After correcting the problems, you can resume the build with the command" | tail -1)
+    if [ -z "${RESUME}" ]; then
+      break
+    fi
+    TRY="$((TRY+1))"
+  done
+fi
+
+if [ $TRY -lt 3 ]; then
+  echo "Success deploying snapshot"
+else
+  echo "Failed to deploy snapshot"
+  exit 1
 fi
 

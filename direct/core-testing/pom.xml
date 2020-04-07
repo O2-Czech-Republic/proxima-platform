@@ -37,14 +37,28 @@
         <groupId>cz.o2.proxima</groupId>
         <artifactId>compiler-maven-plugin</artifactId>
         <version>${project.version}</version>
-        <configuration>
-          <outputDir>${project.build.directory}/generated-sources/model</outputDir>
-          <javaPackage>cz.o2.proxima.testing.model</javaPackage>
-          <className>Model</className>
-          <config>${basedir}/src/main/resources/test-readme.conf</config>
-        </configuration>
         <executions>
           <execution>
+            <id>readme-model</id>
+            <configuration>
+              <outputDir>${project.build.directory}/generated-sources/model</outputDir>
+              <javaPackage>cz.o2.proxima.testing.model</javaPackage>
+              <className>Model</className>
+              <config>${basedir}/src/main/resources/test-readme.conf</config>
+            </configuration>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>core-model</id>
+            <configuration>
+              <outputDir>${project.build.directory}/generated-sources/model</outputDir>
+              <javaPackage>cz.o2.proxima.testing.model</javaPackage>
+              <className>CoreModel</className>
+              <config>${basedir}/../../core/src/test/resources/test-reference.conf</config>
+            </configuration>
             <phase>generate-sources</phase>
             <goals>
               <goal>compile</goal>
@@ -98,6 +112,14 @@
       <artifactId>proxima-core</artifactId>
       <version>${project.version}</version>
       <classifier>tests</classifier>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>proxima-direct-core</artifactId>
+      <version>${project.version}</version>
+      <classifier>tests</classifier>
+      <scope>test</scope>
     </dependency>
 
     <dependency>

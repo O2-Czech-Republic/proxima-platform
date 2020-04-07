@@ -1,15 +1,22 @@
     
-    DirectDataOperator direct = factory.apply().getOrCreateOperator(DirectDataOperator.class);
+    private transient DirectDataOperator direct;
+
+    private DirectDataOperator direct() {
+      if (direct == null) {
+        direct = factory.apply().getOrCreateOperator(DirectDataOperator.class);
+      }
+      return direct;
+    }
 
     @Override
     public DirectDataOperator getOperator() {
-      return direct;
+      return direct();
     }
 
     public Optional<CommitLogReader> getCommitLog(AttributeDescriptor<?>... attributes) {
       Set<DirectAttributeFamilyDescriptor> descriptors = new HashSet<>();
       for (AttributeDescriptor<?> attr : attributes) {
-        Set<DirectAttributeFamilyDescriptor> commitLogs = direct.getFamiliesForAttribute(attr)
+        Set<DirectAttributeFamilyDescriptor> commitLogs = direct().getFamiliesForAttribute(attr)
             .stream()
             .filter(af -> af.getDesc().getAccess().canReadCommitLog())
             .filter(af -> af.getCommitLogReader().isPresent())

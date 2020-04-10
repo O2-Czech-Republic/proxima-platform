@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.core;
 
+import static cz.o2.proxima.util.ReplicationRunner.runAttributeReplicas;
 import static org.junit.Assert.*;
 
 import com.google.common.collect.Iterables;
@@ -25,7 +26,6 @@ import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.view.CachedView;
-import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
@@ -984,7 +984,7 @@ public class DirectDataOperatorTest {
     AttributeDescriptor<Object> data = dummy.getAttribute("data", true);
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
-    runAttributeReplicas(tmp -> latch.countDown());
+    runAttributeReplicas(direct, tmp -> latch.countDown());
     assertTrue(direct.getWriter(data).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(data).get();
     writer.write(
@@ -1025,7 +1025,7 @@ public class DirectDataOperatorTest {
     final AttributeDescriptor<Object> event = dummy.getAttribute("event.*", true);
     final AttributeDescriptor<Object> raw = dummy.getAttribute("_e.*", true);
     CountDownLatch latch = new CountDownLatch(2);
-    runAttributeReplicas(tmp -> latch.countDown());
+    runAttributeReplicas(direct, tmp -> latch.countDown());
     TransformationRunner.runTransformations(repo, direct);
     assertTrue(direct.getWriter(event).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
@@ -1081,7 +1081,7 @@ public class DirectDataOperatorTest {
     final AttributeDescriptor<Object> raw = dummy.getAttribute("_e.*", true);
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
-    runAttributeReplicas(tmp -> latch.countDown());
+    runAttributeReplicas(direct, tmp -> latch.countDown());
     assertTrue(direct.getWriter(eventSource).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(eventSource).get();
     writer.write(
@@ -1133,7 +1133,7 @@ public class DirectDataOperatorTest {
     final AttributeDescriptor<Object> raw = dummy.getAttribute("_e.*", true);
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
-    runAttributeReplicas(tmp -> latch.countDown());
+    runAttributeReplicas(direct, tmp -> latch.countDown());
     assertTrue(direct.getWriter(event).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
     writer.write(
@@ -1190,7 +1190,7 @@ public class DirectDataOperatorTest {
 
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(2);
-    runAttributeReplicas(tmp -> latch.countDown());
+    runAttributeReplicas(direct, tmp -> latch.countDown());
     assertTrue(direct.getWriter(data).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(data).get();
     long now = System.currentTimeMillis();
@@ -1234,7 +1234,7 @@ public class DirectDataOperatorTest {
     final AttributeDescriptor<Object> wildcardFirst = first.getAttribute("wildcard.*");
     final AttributeDescriptor<Object> wildcardSecond = second.getAttribute("wildcard.*");
     AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
-    runAttributeReplicas(tmp -> latch.get().countDown());
+    runAttributeReplicas(direct, tmp -> latch.get().countDown());
     TransformationRunner.runTransformations(repo, direct, tmp -> latch.get().countDown());
     long now = System.currentTimeMillis();
     assertTrue(direct.getWriter(wildcardFirst).isPresent());
@@ -1621,7 +1621,7 @@ public class DirectDataOperatorTest {
 
     TransformationRunner.runTransformations(repo, direct);
     CountDownLatch latch = new CountDownLatch(1);
-    runAttributeReplicas(tmp -> latch.countDown());
+    runAttributeReplicas(direct, tmp -> latch.countDown());
     assertTrue(direct.getWriter(event).isPresent());
     OnlineAttributeWriter writer = direct.getWriter(event).get();
 
@@ -1735,57 +1735,5 @@ public class DirectDataOperatorTest {
                 new byte[] {1, 2, 3}),
             element::set));
     return element.get().getAttribute();
-  }
-
-  private void runAttributeReplicas(Consumer<StreamElement> onReplicated) {
-    direct
-        .getAllFamilies()
-        .filter(af -> af.getDesc().getType() == StorageType.REPLICA)
-        .filter(af -> !af.getDesc().getAccess().isReadonly() && !af.getDesc().isProxy())
-        .forEach(
-            af -> {
-              List<AttributeDescriptor<?>> attributes = af.getAttributes();
-              OnlineAttributeWriter writer =
-                  af.getWriter()
-                      .orElseThrow(
-                          () -> new IllegalStateException("Missing writer of family " + af))
-                      .online();
-              attributes
-                  .stream()
-                  .map(
-                      a ->
-                          direct
-                              .getFamiliesForAttribute(a)
-                              .stream()
-                              .filter(f -> f.getDesc().getType() == StorageType.PRIMARY)
-                              .findAny()
-                              .get())
-                  .collect(Collectors.toSet())
-                  .stream()
-                  .findFirst()
-                  .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
-                  .get()
-                  .observe(
-                      af.getDesc().getName(),
-                      new LogObserver() {
-                        @Override
-                        public boolean onNext(StreamElement ingest, OnNextContext context) {
-                          log.debug("Replicating input {} to {}", ingest, writer);
-                          writer.write(
-                              ingest,
-                              (succ, exc) -> {
-                                context.commit(succ, exc);
-                                onReplicated.accept(ingest);
-                              });
-                          return true;
-                        }
-
-                        @Override
-                        public boolean onError(Throwable error) {
-                          throw new RuntimeException(error);
-                        }
-                      });
-              log.info("Started attribute replica {}", af.getDesc().getName());
-            });
   }
 }

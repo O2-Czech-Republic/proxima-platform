@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
@@ -90,16 +91,12 @@ class DirectUnboundedSource
 
     @Override
     public String toString() {
-      return "DirectUnboundedSource.Checkpoint("
-          + "offset="
-          + offset
-          + ", limit="
-          + limit
-          + ", committer="
-          + committer
-          + ", nackCommitter="
-          + nackCommitter
-          + ")";
+      return MoreObjects.toStringHelper(this)
+          .add("offset", offset)
+          .add("limit", limit)
+          .add("committer", committer)
+          .add("nackCommitter", nackCommitter)
+          .toString();
     }
   }
 
@@ -159,9 +156,7 @@ class DirectUnboundedSource
   }
 
   @Override
-  public UnboundedReader<StreamElement> createReader(PipelineOptions po, Checkpoint cmt)
-      throws IOException {
-
+  public UnboundedReader<StreamElement> createReader(PipelineOptions po, Checkpoint cmt) {
     Offset offset = cmt == null ? null : cmt.getOffset();
     long readerLimit = cmt == null ? limit : cmt.getLimit();
     return BeamCommitLogReader.unbounded(

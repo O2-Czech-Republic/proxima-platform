@@ -21,9 +21,11 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -50,7 +52,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   private final AtomicReference<Throwable> error = new AtomicReference<>();
   private final AtomicLong watermark;
   private final BlockingQueue<Pair<StreamElement, OnNextContext>> queue;
-  AtomicBoolean stopped = new AtomicBoolean();
+  private final AtomicBoolean stopped = new AtomicBoolean();
   @Getter @Nullable private OnNextContext lastWrittenContext;
   @Getter @Nullable private OnNextContext lastReadContext;
   private long limit;
@@ -72,7 +74,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
-    watermark.set(context.getWatermark());
+    updateAndLogWatermark(context.getWatermark());
     log.trace("Received next element {} at watermark {}", ingest, watermark);
     return enqueue(ingest, context);
   }
@@ -125,7 +127,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public void onIdle(OnIdleContext context) {
-    watermark.set(context.getWatermark());
+    updateAndLogWatermark(context.getWatermark());
   }
 
   /**
@@ -179,10 +181,22 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     stopped.set(true);
     List<Pair<StreamElement, OnNextContext>> drop = new ArrayList<>();
     queue.drainTo(drop);
-    drop.forEach(p -> p.getSecond().nack());
+    drop.forEach(p -> Optional.ofNullable(p.getSecond()).ifPresent(OnNextContext::nack));
   }
 
   void clearIncomingQueue() {
     queue.clear();
+  }
+
+  private void updateAndLogWatermark(long newWatermark) {
+    if (log.isDebugEnabled()) {
+      if (watermark.get() < newWatermark) {
+        log.debug(
+            "Watermark updated from {} to {}",
+            Instant.ofEpochMilli(watermark.get()),
+            Instant.ofEpochMilli(newWatermark));
+      }
+    }
+    watermark.set(newWatermark);
   }
 }

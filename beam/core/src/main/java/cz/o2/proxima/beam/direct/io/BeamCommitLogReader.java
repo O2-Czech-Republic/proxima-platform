@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
@@ -359,18 +360,32 @@ class BeamCommitLogReader {
   }
 
   private Instant getWatermark() {
+    final Instant watermark;
     if (finished) {
-      return HIGHEST_INSTANT;
+      watermark = HIGHEST_INSTANT;
+    } else if (eventTime) {
+      watermark = new Instant(observer.getWatermark());
+    } else {
+      watermark = new Instant(System.currentTimeMillis() - AUTO_WATERMARK_LAG_MS);
     }
-    if (eventTime) {
-      return new Instant(observer.getWatermark());
-    }
-    return new Instant(System.currentTimeMillis() - AUTO_WATERMARK_LAG_MS);
+    return watermark;
   }
 
   private void autoCommitIfBounded() {
     if (stopAtCurrent) {
       Optional.ofNullable(getLastReadCommitter()).ifPresent(OffsetCommitter::confirm);
     }
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("name", name)
+        .add("partition", partition)
+        .add("offset", offset)
+        .add("eventTime", eventTime)
+        .add("stopAtCurrent", stopAtCurrent)
+        .add("reader", reader)
+        .toString();
   }
 }

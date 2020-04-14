@@ -44,11 +44,13 @@ import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.time.WatermarkSupplier;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.net.URI;
@@ -64,6 +66,7 @@ import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
@@ -86,8 +89,8 @@ public class InMemStorage implements DataAccessorFactory {
   private static final long serialVersionUID = 1L;
 
   private static final Partition PARTITION = () -> 0;
-
-  private static long BOUNDED_OUT_OF_ORDERNESS = 5000;
+  private static final long IDLE_FLUSH_TIME = 500L;
+  private static long BOUNDED_OUT_OF_ORDERNESS = 5000L;
 
   static class IntOffset implements Offset {
 
@@ -201,9 +204,7 @@ public class InMemStorage implements DataAccessorFactory {
         boolean stopAtCurrent,
         LogObserver observer) {
 
-      log.debug("Observing {} as {}", getUri(), name);
-
-      return doObserve(position, offset, stopAtCurrent, observer);
+      return doObserve(position, offset, stopAtCurrent, observer, name);
     }
 
     @Override
@@ -232,7 +233,7 @@ public class InMemStorage implements DataAccessorFactory {
         boolean stopAtCurrent,
         LogObserver observer) {
 
-      return doObserve(position, offset, stopAtCurrent, observer);
+      return doObserve(position, offset, stopAtCurrent, observer, name);
     }
 
     @Override
@@ -250,11 +251,24 @@ public class InMemStorage implements DataAccessorFactory {
     public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
 
       return doObserve(
-          Position.OLDEST, ((IntOffset) Iterables.getOnlyElement(offsets)), false, observer);
+          Position.OLDEST, ((IntOffset) Iterables.getOnlyElement(offsets)), false, observer, null);
     }
 
     private ObserveHandle doObserve(
-        Position position, IntOffset offset, boolean stopAtCurrent, LogObserver observer) {
+        Position position,
+        IntOffset offset,
+        boolean stopAtCurrent,
+        LogObserver observer,
+        @Nullable String name) {
+
+      log.debug(
+          "Observing {} as {} from offset {} with position {} and stopAtCurrent {} using observer {}",
+          getUri(),
+          name,
+          offset,
+          position,
+          stopAtCurrent,
+          observer);
 
       int id = createConsumerId(stopAtCurrent);
 
@@ -333,7 +347,7 @@ public class InMemStorage implements DataAccessorFactory {
         LogObserver observer) {
 
       AtomicLong offsetTracker = new AtomicLong(offset.getOffset());
-      AtomicLong watermark = new AtomicLong(offset.getWatermark());
+      WatermarkEstimator watermark = holder.getWatermarkEstimator(getUri(), offset.getWatermark());
       CountDownLatch latch = new CountDownLatch(1);
       observeThread.set(
           new Thread(
@@ -354,7 +368,7 @@ public class InMemStorage implements DataAccessorFactory {
       } catch (InterruptedException ex) {
         log.warn("Interrupted.", ex);
       }
-      return () -> new IntOffset(offsetTracker.get(), watermark.get());
+      return () -> new IntOffset(offsetTracker.get(), watermark.getWatermark());
     }
 
     private void handleFlushDataBaseOnPosition(
@@ -364,33 +378,38 @@ public class InMemStorage implements DataAccessorFactory {
         boolean stopAtCurrent,
         AtomicBoolean killSwitch,
         AtomicLong offsetTracker,
-        AtomicLong watermark,
+        WatermarkEstimator watermark,
         CountDownLatch latch,
         LogObserver observer) {
 
       AtomicLong restartedOffset = new AtomicLong();
+      AtomicReference<ScheduledFuture<?>> onIdleRef = new AtomicReference<>();
 
-      AtomicLong onIdleTime = new AtomicLong(watermark.get());
       Runnable onIdle =
           () -> {
             synchronized (observer) {
-              observer.onIdle(onIdleTime::get);
-              onIdleTime.set(
-                  watermark.updateAndGet(current -> Math.max(current, onIdleTime.get() + 500)));
+              watermark.onIdle();
+              observer.onIdle(watermark::getWatermark);
+              if (watermark.getWatermark() >= WatermarkEstimator.MAX_TIMESTAMP) {
+                observer.onCompleted();
+                getObservers(getUri()).remove(consumerId);
+                onIdleRef.get().cancel(true);
+                killSwitch.set(true);
+              }
             }
           };
       ScheduledFuture<?> onIdleFuture =
-          scheduler.scheduleAtFixedRate(onIdle, 500, 500, TimeUnit.MILLISECONDS);
+          scheduler.scheduleAtFixedRate(
+              onIdle, IDLE_FLUSH_TIME, IDLE_FLUSH_TIME, TimeUnit.MILLISECONDS);
+      onIdleRef.set(onIdleFuture);
       BiConsumer<StreamElement, OffsetCommitter> consumer =
           (el, committer) -> {
             try {
               if (!killSwitch.get()) {
                 el = cloneAndUpdateAttribute(getEntityDescriptor(), el);
-                long stamp = el.getStamp();
                 long off = offsetTracker.incrementAndGet();
-                long w =
-                    watermark.updateAndGet(
-                        current -> Math.max(current, stamp - BOUNDED_OUT_OF_ORDERNESS));
+                watermark.accumulate(el);
+                long w = watermark.getWatermark();
                 synchronized (observer) {
                   killSwitch.compareAndSet(
                       false,
@@ -695,19 +714,79 @@ public class InMemStorage implements DataAccessorFactory {
     }
   }
 
+  /** Estimator of watermark. */
+  public interface WatermarkEstimator extends Serializable, WatermarkSupplier {
+
+    long MAX_TIMESTAMP = Long.MAX_VALUE - BOUNDED_OUT_OF_ORDERNESS;
+
+    /** Update the watermark estimate with given element. */
+    void accumulate(StreamElement element);
+
+    /** Signal that all data is processed and reader is empty. */
+    default void onIdle() {}
+  }
+
+  public static class DefaultWatermarkEstimator implements WatermarkEstimator {
+
+    private long watermark;
+    private long lastWatermarkWhenIdle = Long.MIN_VALUE;
+
+    public DefaultWatermarkEstimator(long initialWatermark) {
+      this.watermark = initialWatermark;
+    }
+
+    @Override
+    public void accumulate(StreamElement element) {
+      watermark = Math.max(watermark, element.getStamp() - BOUNDED_OUT_OF_ORDERNESS);
+    }
+
+    @Override
+    public long getWatermark() {
+      return watermark;
+    }
+
+    @Override
+    public void onIdle() {
+      watermark = Math.max(watermark, lastWatermarkWhenIdle + IDLE_FLUSH_TIME);
+      lastWatermarkWhenIdle = getWatermark();
+    }
+  }
+
   private static class DataHolder {
     final NavigableMap<String, Pair<Long, byte[]>> data;
     final Map<URI, NavigableMap<Integer, InMemIngestWriter>> observers;
+    final Map<URI, UnaryFunction<Long, WatermarkEstimator>> watermarkEstimatorFactories;
 
     DataHolder() {
       this.data = Collections.synchronizedNavigableMap(new TreeMap<>());
       this.observers = Collections.synchronizedMap(new HashMap<>());
+      this.watermarkEstimatorFactories = new ConcurrentHashMap<>();
+    }
+
+    WatermarkEstimator getWatermarkEstimator(URI uri, long initializationWatermark) {
+      return Optional.ofNullable(watermarkEstimatorFactories.get(uri))
+          .map(f -> f.apply(initializationWatermark))
+          .orElseGet(() -> new DefaultWatermarkEstimator(initializationWatermark));
     }
 
     void clear() {
       this.data.clear();
       this.observers.clear();
+      this.watermarkEstimatorFactories.clear();
     }
+  }
+
+  /**
+   * Specify {@link WatermarkEstimator} for given inmem storage URI.
+   *
+   * @param uri the inmem:// URI
+   * @param factory factory to use for creation of the estimator. The input parameter of the factory
+   *     is initial watermark
+   */
+  public static void setWatermarkEstimatorFactory(
+      URI uri, UnaryFunction<Long, WatermarkEstimator> factory) {
+    Preconditions.checkArgument(uri.getScheme().equals("inmem"), "Expected inmem URI got %s", uri);
+    holder.watermarkEstimatorFactories.put(uri, factory);
   }
 
   private static final DataHolder holder = new DataHolder();
@@ -730,7 +809,8 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   NavigableMap<Integer, InMemIngestWriter> getObservers(URI uri) {
-    return Objects.requireNonNull(holder.observers.get(uri));
+    return Objects.requireNonNull(
+        holder.observers.get(uri), () -> String.format("Missing observer for [%s]", uri));
   }
 
   @Override
@@ -742,6 +822,7 @@ public class InMemStorage implements DataAccessorFactory {
   public DataAccessor createAccessor(
       DirectDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
+    log.info("Creating accessor {} for URI {}", getClass(), uri);
     holder.observers.computeIfAbsent(
         uri, k -> Collections.synchronizedNavigableMap(new TreeMap<>()));
     final Writer writer = new Writer(entity, uri);

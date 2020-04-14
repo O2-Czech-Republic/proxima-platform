@@ -189,13 +189,11 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   }
 
   private void updateAndLogWatermark(long newWatermark) {
-    if (log.isDebugEnabled()) {
-      if (watermark.get() < newWatermark) {
-        log.debug(
-            "Watermark updated from {} to {}",
-            Instant.ofEpochMilli(watermark.get()),
-            Instant.ofEpochMilli(newWatermark));
-      }
+    if (log.isDebugEnabled() && watermark.get() < newWatermark) {
+      log.debug(
+          "Watermark updated from {} to {}",
+          Instant.ofEpochMilli(watermark.get()),
+          Instant.ofEpochMilli(newWatermark));
     }
     watermark.set(newWatermark);
   }

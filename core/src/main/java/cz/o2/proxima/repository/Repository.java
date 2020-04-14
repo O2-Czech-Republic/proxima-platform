@@ -64,6 +64,16 @@ public abstract class Repository implements Serializable {
     Validate(int value) {
       this.flag = value;
     }
+
+    /**
+     * A default flag that is used when constructing {@link Repository} using {@link
+     * Repository#ofTest(Config, Validate...)}
+     *
+     * @return the default flag to use for testing repositories
+     */
+    public static int defaultTesting() {
+      return ALL.getFlag() & ~Validate.FAMILIES.getFlag();
+    }
   }
 
   /** @deprecated Use {@link Repository#of(Config)} */

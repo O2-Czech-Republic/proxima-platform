@@ -99,7 +99,7 @@ public final class ConfigRepository extends Repository {
   public static Repository ofTest(Config config, Validate... validates) {
     Builder builder = Builder.of(config).withCachingEnabled(false);
     if (validates.length == 0) {
-      builder = builder.withValidateFlag(Validate.ALL.getFlag() & ~Validate.FAMILIES.getFlag());
+      builder = builder.withValidateFlag(Validate.defaultTesting());
     } else {
       builder = builder.withValidate(validates);
     }

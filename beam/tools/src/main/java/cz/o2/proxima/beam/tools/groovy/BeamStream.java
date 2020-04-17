@@ -22,8 +22,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import cz.o2.proxima.beam.core.BeamDataOperator;
-import cz.o2.proxima.beam.core.io.AttributeDescriptorCoder;
-import cz.o2.proxima.beam.core.io.EntityDescriptorCoder;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -120,7 +118,6 @@ import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow;
-import org.apache.beam.sdk.transforms.windowing.IntervalWindow.IntervalWindowCoder;
 import org.apache.beam.sdk.transforms.windowing.Sessions;
 import org.apache.beam.sdk.transforms.windowing.SlidingWindows;
 import org.apache.beam.sdk.transforms.windowing.TimestampTransform;
@@ -154,18 +151,6 @@ class BeamStream<T> implements Stream<T> {
         collection::getPipeline);
   }
 
-  static <T, S extends BeamStream<T>> S withRegisteredTypes(Repository repo, S in) {
-
-    return in.addRegistrar(
-            r -> r.registerCoderForClass(StreamElement.class, StreamElementCoder.of(repo)))
-        .addRegistrar(
-            r -> r.registerCoderForClass(EntityDescriptor.class, EntityDescriptorCoder.of(repo)))
-        .addRegistrar(
-            r ->
-                r.registerCoderForClass(
-                    AttributeDescriptor.class, AttributeDescriptorCoder.of(repo)));
-  }
-
   @SafeVarargs
   static Stream<StreamElement> stream(
       BeamDataOperator beam,
@@ -176,16 +161,14 @@ class BeamStream<T> implements Stream<T> {
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>... attrs) {
 
-    return withRegisteredTypes(
-        beam.getRepository(),
-        new BeamStream<>(
-            asConfig(beam),
-            stopAtCurrent,
-            PCollectionProvider.fixedType(
-                pipeline -> beam.getStream(pipeline, position, stopAtCurrent, eventTime, attrs)),
-            WindowingStrategy.globalDefault(),
-            terminateCheck,
-            pipelineFactory));
+    return new BeamStream<>(
+        asConfig(beam),
+        stopAtCurrent,
+        PCollectionProvider.fixedType(
+            pipeline -> beam.getStream(pipeline, position, stopAtCurrent, eventTime, attrs)),
+        WindowingStrategy.globalDefault(),
+        terminateCheck,
+        pipelineFactory);
   }
 
   static WindowedStream<StreamElement> batchUpdates(
@@ -196,18 +179,16 @@ class BeamStream<T> implements Stream<T> {
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
-    return withRegisteredTypes(
-            beam.getRepository(),
-            new BeamStream<>(
-                asConfig(beam),
-                true,
-                PCollectionProvider.boundedOrUnbounded(
-                    pipeline -> beam.getBatchUpdates(pipeline, startStamp, endStamp, attrs),
-                    pipeline -> beam.getBatchUpdates(pipeline, startStamp, endStamp, true, attrs),
-                    true),
-                WindowingStrategy.globalDefault(),
-                terminateCheck,
-                pipelineFactory))
+    return new BeamStream<>(
+            asConfig(beam),
+            true,
+            PCollectionProvider.boundedOrUnbounded(
+                pipeline -> beam.getBatchUpdates(pipeline, startStamp, endStamp, attrs),
+                pipeline -> beam.getBatchUpdates(pipeline, startStamp, endStamp, true, attrs),
+                true),
+            WindowingStrategy.globalDefault(),
+            terminateCheck,
+            pipelineFactory)
         .windowAll();
   }
 
@@ -219,16 +200,14 @@ class BeamStream<T> implements Stream<T> {
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
-    return withRegisteredTypes(
-            beam.getRepository(),
-            new BeamStream<>(
-                asConfig(beam),
-                true,
-                PCollectionProvider.fixedType(
-                    pipeline -> beam.getBatchSnapshot(pipeline, fromStamp, toStamp, attrs)),
-                WindowingStrategy.globalDefault(),
-                terminateCheck,
-                pipelineFactory))
+    return new BeamStream<>(
+            asConfig(beam),
+            true,
+            PCollectionProvider.fixedType(
+                pipeline -> beam.getBatchSnapshot(pipeline, fromStamp, toStamp, attrs)),
+            WindowingStrategy.globalDefault(),
+            terminateCheck,
+            pipelineFactory)
         .windowAll();
   }
 
@@ -239,7 +218,6 @@ class BeamStream<T> implements Stream<T> {
   final StreamConfig config;
   final boolean bounded;
   final PCollectionProvider<T> collection;
-  final List<Consumer<CoderRegistry>> registrars = new ArrayList<>();
   final StreamProvider.TerminatePredicate terminateCheck;
   final Factory<Pipeline> pipelineFactory;
   final List<RemoteConsumer<?>> remoteConsumers = new ArrayList<>();
@@ -276,12 +254,6 @@ class BeamStream<T> implements Stream<T> {
     this.terminateCheck = terminateCheck;
     this.pipelineFactory = pipelineFactory;
     this.windowingStrategy = windowingStrategy;
-  }
-
-  @SuppressWarnings("unchecked")
-  <S extends BeamStream<T>> S addRegistrar(Consumer<CoderRegistry> registrar) {
-    registrars.add(registrar);
-    return (S) this;
   }
 
   @Override
@@ -920,7 +892,7 @@ class BeamStream<T> implements Stream<T> {
 
   Pipeline createPipeline() {
     Pipeline ret = pipelineFactory.apply();
-    registerCoders(ret.getCoderRegistry(), registrars, config);
+    registerCoders(ret.getCoderRegistry(), config.getRepo());
     return ret;
   }
 
@@ -965,11 +937,7 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @SuppressWarnings("unchecked")
-  private static void registerCoders(
-      CoderRegistry registry, List<Consumer<CoderRegistry>> registrars, StreamConfig config) {
-    registry.registerCoderForClass(GlobalWindow.class, GlobalWindow.Coder.INSTANCE);
-    registry.registerCoderForClass(IntervalWindow.class, IntervalWindowCoder.of());
-    registrars.forEach(r -> r.accept(registry));
+  private static void registerCoders(CoderRegistry registry, Repository repo) {
     // FIXME: need to get rid of this fallback
     KryoCoder<Object> coder =
         KryoCoder.of(
@@ -977,17 +945,16 @@ class BeamStream<T> implements Stream<T> {
                 kryo.setInstantiatorStrategy(
                     new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())),
             kryo -> kryo.addDefaultSerializer(Tuple.class, (Class) TupleSerializer.class),
-            kryo -> BeamStream.registerCodersForSchemes(kryo, config),
-            kryo -> BeamStream.registerCommonTypes(kryo, config),
+            kryo -> BeamStream.registerCodersForSchemes(kryo, repo),
+            kryo -> BeamStream.registerCommonTypes(kryo, repo),
             kryo -> kryo.setRegistrationRequired(true));
     registry.registerCoderForClass(Object.class, coder);
     registry.registerCoderForClass(Tuple.class, TupleCoder.of(coder));
     registry.registerCoderForClass(Pair.class, PairCoder.of(coder, coder));
   }
 
-  private static void registerCodersForSchemes(Kryo kryo, StreamConfig conf) {
-    conf.getRepo()
-        .getAllEntities()
+  private static void registerCodersForSchemes(Kryo kryo, Repository repo) {
+    repo.getAllEntities()
         .flatMap(d -> d.getAllAttributes().stream())
         .filter(d -> Objects.nonNull(d.getValueSerializer().getDefault()))
         .distinct()
@@ -1021,7 +988,7 @@ class BeamStream<T> implements Stream<T> {
     };
   }
 
-  private static void registerCommonTypes(Kryo kryo, StreamConfig conf) {
+  private static void registerCommonTypes(Kryo kryo, Repository repo) {
     java.util.stream.Stream<Class<?>> basicClasses =
         java.util.stream.Stream.of(
             StreamElement.class,
@@ -1046,8 +1013,7 @@ class BeamStream<T> implements Stream<T> {
 
     // register all types of all serializers that provide default values
     java.util.stream.Stream<Class<?>> serializerClasses =
-        conf.getRepo()
-            .getAllEntities()
+        repo.getAllEntities()
             .flatMap(d -> d.getAllAttributes().stream())
             .filter(d -> Objects.nonNull(d.getValueSerializer().getDefault()))
             .flatMap(d -> fieldsRecursively(d.getValueSerializer().getDefault().getClass()))

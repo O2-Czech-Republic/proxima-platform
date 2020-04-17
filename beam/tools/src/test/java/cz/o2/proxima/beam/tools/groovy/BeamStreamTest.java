@@ -64,6 +64,9 @@ import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
+import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
+import org.apache.beam.sdk.transforms.windowing.IntervalWindow;
+import org.apache.beam.sdk.transforms.windowing.IntervalWindow.IntervalWindowCoder;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
@@ -110,15 +113,36 @@ public class BeamStreamTest extends StreamTest {
             new BeamStream<>(
                 StreamConfig.empty(),
                 true,
-                PCollectionProvider.boundedOrUnbounded(
-                    p -> p.apply(Create.of(values)).setTypeDescriptor(typeDesc),
-                    p -> p.apply(asTestStream(values)).setTypeDescriptor(typeDesc),
-                    stream),
+                registeringTypes(
+                    PCollectionProvider.boundedOrUnbounded(
+                        p -> p.apply(Create.of(values)).setTypeDescriptor(typeDesc),
+                        p -> p.apply(asTestStream(values)).setTypeDescriptor(typeDesc),
+                        stream)),
                 WindowingStrategy.globalDefault(),
                 () -> {
                   LockSupport.park();
                   return false;
                 }));
+      }
+    };
+  }
+
+  private static <T> PCollectionProvider<T> registeringTypes(PCollectionProvider<T> inner) {
+    return new PCollectionProvider<T>() {
+      @Override
+      public PCollection<T> materialize(Pipeline pipeline) {
+        pipeline
+            .getCoderRegistry()
+            .registerCoderForClass(GlobalWindow.class, GlobalWindow.Coder.INSTANCE);
+        pipeline
+            .getCoderRegistry()
+            .registerCoderForClass(IntervalWindow.class, IntervalWindowCoder.of());
+        return inner.materialize(pipeline);
+      }
+
+      @Override
+      public void asUnbounded() {
+        inner.asUnbounded();
       }
     };
   }

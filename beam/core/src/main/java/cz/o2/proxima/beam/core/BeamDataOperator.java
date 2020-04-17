@@ -16,11 +16,15 @@
 package cz.o2.proxima.beam.core;
 
 import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.beam.core.io.AttributeDescriptorCoder;
+import cz.o2.proxima.beam.core.io.EntityDescriptorCoder;
+import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.DataOperator;
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
@@ -31,6 +35,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,9 +48,13 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.Value;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.CoderRegistry;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
 import org.apache.beam.sdk.transforms.Filter;
 import org.apache.beam.sdk.transforms.PTransform;
+import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
+import org.apache.beam.sdk.transforms.windowing.IntervalWindow;
+import org.apache.beam.sdk.transforms.windowing.IntervalWindow.IntervalWindowCoder;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
 
@@ -109,6 +118,7 @@ public class BeamDataOperator implements DataOperator {
   private final Map<AttributeFamilyDescriptor, DataAccessor> accessorMap;
   private final Map<PCollectionDescriptor, PCollection<StreamElement>> createdStreamsMap =
       new HashMap<>();
+  private final Set<Pipeline> typesRegistered = new HashSet<>();
 
   BeamDataOperator(Repository repo) {
     this.repo = repo;
@@ -130,6 +140,7 @@ public class BeamDataOperator implements DataOperator {
   public void reload() {
     accessorMap.clear();
     createdStreamsMap.clear();
+    typesRegistered.clear();
   }
 
   /**
@@ -471,6 +482,23 @@ public class BeamDataOperator implements DataOperator {
       // when limit is applied we must create a new source for each input
       ret = factory.apply(desc);
     }
+    if (!typesRegisteredFor(ret.getPipeline())) {
+      registerTypesFor(ret.getPipeline());
+    }
     return ret;
+  }
+
+  private void registerTypesFor(Pipeline pipeline) {
+    CoderRegistry registry = pipeline.getCoderRegistry();
+    registry.registerCoderForClass(GlobalWindow.class, GlobalWindow.Coder.INSTANCE);
+    registry.registerCoderForClass(IntervalWindow.class, IntervalWindowCoder.of());
+    registry.registerCoderForClass(StreamElement.class, StreamElementCoder.of(repo));
+    registry.registerCoderForClass(EntityDescriptor.class, EntityDescriptorCoder.of(repo));
+    registry.registerCoderForClass(AttributeDescriptor.class, AttributeDescriptorCoder.of(repo));
+    typesRegistered.add(pipeline);
+  }
+
+  private boolean typesRegisteredFor(Pipeline pipeline) {
+    return typesRegistered.contains(pipeline);
   }
 }

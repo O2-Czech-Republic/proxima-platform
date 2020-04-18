@@ -40,12 +40,12 @@ if echo ${VERSION} | grep SNAPSHOT >/dev/null && echo ${GITHUB_REPOSITORY} | gre
     fi
     TRY="$((TRY+1))"
   done
+  if [ $TRY -lt 3 ]; then
+    echo "Success deploying snapshot"
+  else
+    echo "Failed to deploy snapshot"
+    exit 1
+  fi
 fi
 
-if [ $TRY -lt 3 ]; then
-  echo "Success deploying snapshot"
-else
-  echo "Failed to deploy snapshot"
-  exit 1
-fi
 

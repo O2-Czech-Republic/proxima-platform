@@ -59,7 +59,7 @@ import org.junit.Test;
 /** Test suite for {@link BeamDataOperator}. */
 public class BeamDataOperatorTest {
 
-  final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
+  final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf"));
   final EntityDescriptor gateway = repo.getEntity("gateway");
   final AttributeDescriptor<?> armed = gateway.getAttribute("armed");
   final EntityDescriptor proxied = repo.getEntity("proxied");
@@ -356,6 +356,29 @@ public class BeamDataOperatorTest {
     second = beam.getBatchSnapshot(p, armed);
     terminatePipeline(first, second);
     checkHasSingleInput(p);
+  }
+
+  @Test
+  public void testReadFromProxy() {
+    EntityDescriptor entity = repo.getEntity("proxied");
+    AttributeDescriptor<byte[]> event = entity.getAttribute("event.*");
+    direct
+        .getWriter(event)
+        .get()
+        .write(
+            StreamElement.upsert(
+                entity,
+                event,
+                UUID.randomUUID().toString(),
+                "key",
+                event.toAttributePrefix() + 1,
+                System.currentTimeMillis(),
+                new byte[] {1}),
+            (succ, exc) -> {});
+    Pipeline p = Pipeline.create();
+    PCollection<StreamElement> input = beam.getStream(p, Position.OLDEST, true, true, event);
+    PAssert.that(input.apply(Count.globally())).containsInAnyOrder(1L);
+    assertNotNull(p.run());
   }
 
   private void terminatePipeline(

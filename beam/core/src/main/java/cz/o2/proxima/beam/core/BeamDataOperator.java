@@ -117,7 +117,7 @@ public class BeamDataOperator implements DataOperator {
   private final DataAccessorLoader<BeamDataOperator, DataAccessor, DataAccessorFactory> loader;
   private final Map<AttributeFamilyDescriptor, DataAccessor> accessorMap;
   private final Map<PCollectionDescriptor, PCollection<StreamElement>> createdStreamsMap =
-      new HashMap<>();
+      Collections.synchronizedMap(new HashMap<>());
   private final Set<Pipeline> typesRegistered = new HashSet<>();
 
   BeamDataOperator(Repository repo) {
@@ -414,7 +414,14 @@ public class BeamDataOperator implements DataOperator {
   }
 
   private DataAccessor accessorFor(AttributeFamilyDescriptor family) {
-    return accessorMap.computeIfAbsent(family, this::createAccessorFor);
+    synchronized (accessorMap) {
+      if (family.isProxy()) {
+        // prevent ConcurrentModificationException
+        accessorFor(family.toProxy().getTargetFamilyRead());
+        accessorFor(family.toProxy().getTargetFamilyWrite());
+      }
+      return accessorMap.computeIfAbsent(family, this::createAccessorFor);
+    }
   }
 
   private DataAccessor createAccessorFor(AttributeFamilyDescriptor family) {
@@ -477,7 +484,15 @@ public class BeamDataOperator implements DataOperator {
 
     final PCollection<StreamElement> ret;
     if (cacheable) {
-      ret = createdStreamsMap.computeIfAbsent(desc, tmp -> factory.apply(desc));
+      synchronized (createdStreamsMap) {
+        PCollection<StreamElement> current = createdStreamsMap.get(desc);
+        if (current == null) {
+          ret = factory.apply(desc);
+          createdStreamsMap.put(desc, ret);
+        } else {
+          ret = current;
+        }
+      }
     } else {
       // when limit is applied we must create a new source for each input
       ret = factory.apply(desc);

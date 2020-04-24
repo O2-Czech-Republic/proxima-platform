@@ -34,6 +34,6 @@ if [ -z `which docker-compose` ]; then
 fi
 
 cd $BIN_DIR
-docker-compose up -d 
+docker-compose up -d
 cd $PWD
 

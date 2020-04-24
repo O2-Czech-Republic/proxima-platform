@@ -25,10 +25,10 @@
     <artifactId>platform-parent</artifactId>
     <version>0.3.0</version>
   </parent>
-     
+
   <artifactId>proxima-tools</artifactId>
   <packaging>jar</packaging>
-     
+
   <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
@@ -105,6 +105,16 @@
         <artifactId>maven-shade-plugin</artifactId>
         <version>${maven.shade.version}</version>
         <configuration>
+          <filters>
+            <filter>
+              <artifact>*:*</artifact>
+              <excludes>
+                <exclude>META-INF/*.SF</exclude>
+                <exclude>META-INF/*.DSA</exclude>
+                <exclude>META-INF/*.RSA</exclude>
+              </excludes>
+            </filter>
+          </filters>
           <shadeTestJar>true</shadeTestJar>
           <artifactSet>
             <includes>

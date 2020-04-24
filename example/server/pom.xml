@@ -25,10 +25,10 @@
     <artifactId>example-parent</artifactId>
     <version>0.3.0</version>
   </parent>
-     
+
   <artifactId>example-ingest-server</artifactId>
   <packaging>jar</packaging>
-     
+
   <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
@@ -69,7 +69,7 @@
         </executions>
       </plugin>
 
-    </plugins>    
+    </plugins>
   </build>
 
   <dependencies>

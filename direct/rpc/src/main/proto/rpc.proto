@@ -40,7 +40,7 @@ message Ingest {
   /** Timestamp of the ingest. If not provided, it will be replaced with actual ingest timestamp. */
   uint64 stamp = 7;
 
-  /** 
+  /**
    * Whether to delete the attribute. You must explicitly set this
    * if you want to delete an attribute.
    **/
@@ -158,7 +158,7 @@ message GetResponse {
    * Value of the requested attribute.
    **/
   bytes value = 3;
-  
+
 }
 
 /**

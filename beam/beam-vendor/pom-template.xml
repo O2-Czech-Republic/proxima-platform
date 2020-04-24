@@ -36,7 +36,7 @@
   <description>Proxima platform's Apache Beam vendored modules.</description>
 
   <modules>
-${beam-vendor-modules}    
+${beam-vendor-modules}
   </modules>
 
 </project>

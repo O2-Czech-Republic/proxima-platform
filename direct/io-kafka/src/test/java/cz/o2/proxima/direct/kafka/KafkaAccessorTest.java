@@ -45,22 +45,22 @@ import org.mockito.Mockito;
 public class KafkaAccessorTest {
 
   // mocks and config structures
-  private static AdminClient adminClient;
-  private static KafkaFuture kafkaFuture;
-  private static Map map;
-  private static DescribeConfigsResult cfgResult;
-  private static AttributeFamilyDescriptor attrFmlDesc;
-  private static AccessType accessType;
-  private static List<Config> cfgs;
-  private static KafkaAccessor kafkaAccessor;
-  private static List<ConfigEntry> cfgEtrs;
+  private AdminClient adminClient;
+  private KafkaFuture<Map<ConfigResource, Config>> kafkaFuture;
+  private Map<ConfigResource, Config> cfgMap;
+  private DescribeConfigsResult cfgResult;
+  private AttributeFamilyDescriptor attrFmlDesc;
+  private AccessType accessType;
+  private List<Config> cfgs;
+  private KafkaAccessor kafkaAccessor;
+  private List<ConfigEntry> cfgEtrs;
 
-  private static void setupMocks() throws ExecutionException, InterruptedException {
+  private void setupMocks() throws ExecutionException, InterruptedException {
     // mocks needed for when/thenReturn
     adminClient = Mockito.mock(AdminClient.class);
     kafkaFuture = mock(KafkaFuture.class);
     cfgResult = mock(DescribeConfigsResult.class);
-    map = mock(HashMap.class);
+    cfgMap = mock(HashMap.class);
     attrFmlDesc = mock(AttributeFamilyDescriptor.class);
     accessType = mock(AccessType.class);
     cfgs = new ArrayList<>();
@@ -69,8 +69,8 @@ public class KafkaAccessorTest {
     // return Collection(Config) from describeConfigResult
     when(adminClient.describeConfigs(anyCollectionOf(ConfigResource.class))).thenReturn(cfgResult);
     when(cfgResult.all()).thenReturn(kafkaFuture);
-    when(kafkaFuture.get()).thenReturn(map);
-    when(map.values()).thenReturn(cfgs);
+    when(kafkaFuture.get()).thenReturn(cfgMap);
+    when(cfgMap.values()).thenReturn(cfgs);
 
     // This topic is state-commit-log and has cleanup_policy set
     when(attrFmlDesc.getAccess()).thenReturn(accessType);
@@ -91,7 +91,7 @@ public class KafkaAccessorTest {
 
   @Test
   public void testIsStateCommitLogCleanupCompactAndDeleteMultipleCfgs() {
-    ExceptionUtils.unchecked(KafkaAccessorTest::setupMocks);
+    ExceptionUtils.unchecked(this::setupMocks);
 
     when(accessType.isStateCommitLog()).thenReturn(true);
     cfgs.add(new Config(new ArrayList<>()));
@@ -110,7 +110,7 @@ public class KafkaAccessorTest {
 
   @Test
   public void testIsAcceptableStateCommitLog() {
-    ExceptionUtils.unchecked(KafkaAccessorTest::setupMocks);
+    ExceptionUtils.unchecked(this::setupMocks);
 
     when(accessType.isStateCommitLog()).thenReturn(true);
     assertTrue(

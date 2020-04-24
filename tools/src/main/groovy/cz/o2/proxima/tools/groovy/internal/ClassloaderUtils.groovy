@@ -26,7 +26,7 @@ import org.codehaus.groovy.control.customizers.builder.CompilerCustomizationBuil
  */
 @CompileStatic
 class ClassloaderUtils {
-  
+
   static CompilerConfiguration createConfiguration() {
     return CompilerConfiguration.DEFAULT;
   }

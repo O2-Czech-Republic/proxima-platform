@@ -79,10 +79,10 @@
     <groovy.version>2.5.11</groovy.version>
     <hadoop.version>2.10.0</hadoop.version>
     <hbase.version>1.5.0</hbase.version>
-    <kafka.version>2.4.0</kafka.version>
-    <proto.version>3.11.0</proto.version>
-    <protoc.version>3.11.0</protoc.version>
-    <grpc.version>1.25.0</grpc.version>
+    <kafka.version>2.5.0</kafka.version>
+    <proto.version>3.11.1</proto.version>
+    <protoc.version>3.11.1</protoc.version>
+    <grpc.version>1.27.2</grpc.version>
     <guava.version>28.1-jre</guava.version>
     <commons-io.version>2.6</commons-io.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
@@ -389,8 +389,8 @@
             <exclude>**/.idea/**</exclude>
             <exclude>**/README</exclude>
             <exclude>**/LICENSE</exclude>
-            <exclude>src/test/resources/**</exclude>
-            <exclude>src/main/resources/**</exclude>
+            <exclude>**/src/test/resources/**</exclude>
+            <exclude>**/src/main/resources/**</exclude>
           </excludes>
         </configuration>
         <executions>

@@ -1,4 +1,4 @@
-    
+
     private transient DirectDataOperator direct;
 
     private DirectDataOperator direct() {

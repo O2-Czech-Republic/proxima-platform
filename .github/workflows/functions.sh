@@ -18,7 +18,7 @@
 
 proxima_version() {
   oldPwd=$(pwd)
-  cd "${oldPwd}/$(dirname $BASH_SOURCE)/../../"  
+  cd "${oldPwd}/$(dirname $BASH_SOURCE)/../../"
   mvn help:evaluate -Dexpression=project.version -q -Doutput=/tmp/VERSION
   local version=$(cat /tmp/VERSION)
   cd $oldPwd

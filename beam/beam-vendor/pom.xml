@@ -41,7 +41,7 @@
     <module>beam-sdks-java-core</module>
     <module>beam-sdks-java-extensions-euphoria</module>
     <module>beam-sdks-java-extensions-kryo</module>
-    
+
   </modules>
 
 </project>

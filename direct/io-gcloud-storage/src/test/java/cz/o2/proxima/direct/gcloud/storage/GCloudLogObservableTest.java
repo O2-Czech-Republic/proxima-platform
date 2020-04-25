@@ -44,7 +44,8 @@ public class GCloudLogObservableTest {
 
   @Before
   public void setUp() {
-    accessor = new GCloudStorageAccessor(gateway, URI.create("gs://dummy"), Collections.emptyMap());
+    accessor =
+        new GCloudStorageAccessor(gateway, URI.create("gs://bucket/path"), Collections.emptyMap());
   }
 
   @Test

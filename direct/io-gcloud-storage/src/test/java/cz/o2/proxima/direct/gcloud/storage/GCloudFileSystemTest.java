@@ -18,12 +18,12 @@ package cz.o2.proxima.direct.gcloud.storage;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BlobListOption;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.bulk.FileFormat;
 import cz.o2.proxima.direct.bulk.NamingConvention;
@@ -61,8 +61,25 @@ public class GCloudFileSystemTest {
 
   private Storage mockStorage() {
     Storage ret = mock(Storage.class);
-    Page<Blob> page = asPage(blobs);
-    when(ret.list(anyString(), any())).thenReturn(page);
+    doAnswer(
+            invocation -> {
+              String bucket = invocation.getArguments()[0].toString();
+              assertEquals("bucket", bucket);
+              BlobListOption option = (BlobListOption) invocation.getArguments()[1];
+              String tmp = option.toString();
+              int valueIndex = tmp.indexOf("value=");
+              String prefix = valueIndex > 0 ? tmp.substring(valueIndex + 6, tmp.length() - 1) : "";
+              Page<Blob> page =
+                  asPage(
+                      blobs
+                          .entrySet()
+                          .stream()
+                          .filter(entry -> entry.getKey().startsWith(prefix))
+                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+              return page;
+            })
+        .when(ret)
+        .list(anyString(), any());
     return ret;
   }
 
@@ -83,11 +100,32 @@ public class GCloudFileSystemTest {
   public void testList() {
     long now = System.currentTimeMillis();
     for (int i = 0; i < 100; i++) {
-      String name = naming.nameOf(now + 86400000 * i);
+      String name = "path" + naming.nameOf(now + 86400000 * i);
       Blob blob = mockBlob(name);
       blobs.put(name, blob);
     }
     List<Path> paths = fs.list().collect(Collectors.toList());
     assertEquals(100, paths.size());
+  }
+
+  @Test
+  public void testListRange() {
+    long now = 1500000000000L;
+    for (int i = 0; i < 100; i++) {
+      String name = "path" + naming.nameOf(now + 86400000 * i);
+      Blob blob = mockBlob(name);
+      blobs.put(name, blob);
+    }
+    List<Path> paths = fs.list(now, now + 1).collect(Collectors.toList());
+    assertEquals(1, paths.size());
+  }
+
+  @Test
+  public void testNormalizePath() {
+    assertEquals("", GCloudFileSystem.normalizePath(""));
+    assertEquals("", GCloudFileSystem.normalizePath("/"));
+    assertEquals("path/", GCloudFileSystem.normalizePath("/path//"));
+    assertEquals("path/", GCloudFileSystem.normalizePath("path//"));
+    assertEquals("path", GCloudFileSystem.normalizePath("path"));
   }
 }

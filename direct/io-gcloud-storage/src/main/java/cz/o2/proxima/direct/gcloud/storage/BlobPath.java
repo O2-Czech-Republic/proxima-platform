@@ -24,9 +24,11 @@ import cz.o2.proxima.direct.bulk.Path;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
+import lombok.ToString;
 
 /** A {@link Path} representation of a remote {@link Blob}. */
 @Internal
+@ToString
 public class BlobPath implements Path {
 
   private static final long serialVersionUID = 1L;

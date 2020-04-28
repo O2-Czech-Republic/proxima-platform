@@ -17,8 +17,9 @@ package cz.o2.proxima.direct.gcloud.storage;
 
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage.BlobListOption;
-import com.google.common.collect.Lists;
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
@@ -28,6 +29,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,19 +68,50 @@ public class GCloudFileSystem extends GCloudClient implements FileSystem {
 
   private List<Blob> getBlobsInRange(long startStamp, long endStamp) {
     List<Blob> ret = new ArrayList<>();
-    Collection<String> prefixes = namingConvention.prefixesOf(startStamp, endStamp);
+    int pathPrefixLength = normalizePath((getUri().getPath())).length();
+    Collection<String> prefixes =
+        namingConvention
+            .prefixesOf(startStamp, endStamp)
+            .stream()
+            .map(e -> normalizePath(getUri().getPath() + e))
+            .collect(Collectors.toList());
     prefixes.forEach(
         prefix -> {
           Page<Blob> p = client().list(this.bucket, BlobListOption.prefix(prefix));
-          List<Blob> sorted = Lists.newArrayList(p.iterateAll());
-          sorted.sort(Comparator.comparing(Blob::getName));
+          Set<Blob> sorted = new TreeSet<>(Comparator.comparing(BlobInfo::getName));
+          p.iterateAll().forEach(sorted::add);
+          log.debug(
+              "Search of prefix {} in bucket {} yielded {} candidate blobs",
+              prefix,
+              bucket,
+              sorted.size());
           for (Blob blob : sorted) {
-            if (namingConvention.isInRange(blob.getName(), startStamp, endStamp)) {
+            log.trace("Considering blob {} for inclusion into partition", blob);
+            if (namingConvention.isInRange(
+                blob.getName().substring(pathPrefixLength - 1), startStamp, endStamp)) {
               ret.add(blob);
             }
           }
         });
     log.debug("Parsed partitions {} for startStamp {}, endStamp {}", ret, startStamp, endStamp);
     return ret;
+  }
+
+  @VisibleForTesting
+  static String normalizePath(String path) {
+    StringBuilder sb = new StringBuilder();
+    boolean lastSlash = true;
+    for (char ch : path.toCharArray()) {
+      if (ch == '/') {
+        if (!lastSlash) {
+          lastSlash = true;
+          sb.append(ch);
+        }
+      } else {
+        lastSlash = false;
+        sb.append(ch);
+      }
+    }
+    return sb.toString();
   }
 }

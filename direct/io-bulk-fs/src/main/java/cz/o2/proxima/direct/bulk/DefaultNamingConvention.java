@@ -98,6 +98,7 @@ public class DefaultNamingConvention implements NamingConvention {
     } else {
       prefixes.add(String.valueOf(SEPARATOR));
     }
+    log.debug("Prefixes of stamp range {}-{} are {}", startStamp, endStamp, prefixes);
     return prefixes;
   }
 

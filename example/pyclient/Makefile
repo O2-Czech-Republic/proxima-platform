@@ -17,7 +17,7 @@
 #
 # @author: Tomas Hegr, tomas.hegr@o2.cz
 # This makefile helps to generate required platform packages for the example python client.
-# 1. target model: requires protoc binary to be installed. 
+# 1. target model: requires protoc binary to be installed.
 # 2. target rpc: requires python package grpc_tool to be installed in the current environment (part of the requirements.txt).
 # In case all requirements are satisfied just call make.
 #
@@ -33,12 +33,12 @@ model:
 ifdef PROTOC
 	$(error "protoc binary is not available, please, install it.")
 else
-	$(info "protoc binary found.") 
+	$(info "protoc binary found.")
 	protoc -I=../proto/src/main/proto/ --python_out=./ ../proto/src/main/proto/*
 endif
 
 rpc:
-ifdef PYTHON 
+ifdef PYTHON
 	$(error "python binary is not available, please, install it.")
 else
 	$(info "python binary found")

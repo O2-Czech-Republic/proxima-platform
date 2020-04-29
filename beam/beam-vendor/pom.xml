@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>proxima-beam</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <version>0.3.0</version>
   </parent>
 
   <groupId>cz.o2.proxima.beam</groupId>
@@ -41,7 +41,7 @@
     <module>beam-sdks-java-core</module>
     <module>beam-sdks-java-extensions-euphoria</module>
     <module>beam-sdks-java-extensions-kryo</module>
-    
+
   </modules>
 
 </project>

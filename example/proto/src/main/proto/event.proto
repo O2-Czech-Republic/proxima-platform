@@ -53,8 +53,8 @@ message BaseEvent {
   /* Timestamp of the event. */
   uint64 stamp = 5;
 
-  // additional type dependent payloads would come here 
+  // additional type dependent payloads would come here
 
-  
+
 }
 

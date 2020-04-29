@@ -23,12 +23,12 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>proxima-direct</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <version>0.3.0</version>
   </parent>
-     
+
   <artifactId>proxima-direct-io-kafka</artifactId>
   <packaging>jar</packaging>
-     
+
   <name>${project.groupId}:${project.artifactId}</name>
 
   <build>
@@ -53,6 +53,16 @@
         <artifactId>maven-shade-plugin</artifactId>
         <version>${maven.shade.version}</version>
         <configuration>
+          <filters>
+            <filter>
+              <artifact>*:*</artifact>
+              <excludes>
+                <exclude>META-INF/*.SF</exclude>
+                <exclude>META-INF/*.DSA</exclude>
+                <exclude>META-INF/*.RSA</exclude>
+              </excludes>
+            </filter>
+          </filters>
           <artifactSet>
             <excludes>
               <!-- exclude proxima and core dependencies -->

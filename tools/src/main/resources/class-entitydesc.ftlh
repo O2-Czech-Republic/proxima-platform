@@ -52,7 +52,7 @@ class Environment implements RepositoryProvider {
       /* All attributes */
       <#list entity.attributes as attribute>
         class ${attribute.classname}Descriptor implements AttributeDescriptorProvider {
-      
+
           private final Console console = Environment.this.console
           private final AttributeDescriptor desc = ${entity.classname}Descriptor.this.desc.findAttribute("${attribute.origname}").get()
           private final Class type = ${attribute.type}

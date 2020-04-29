@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <version>0.3.0</version>
   </parent>
 
   <artifactId>proxima-direct</artifactId>
@@ -84,8 +84,8 @@
     <module>compiler</module>
     <module>core</module>
     <module>core-testing</module>
-    <module>ingest-client</module>    
-    <module>ingest-server</module>    
+    <module>ingest-client</module>
+    <module>ingest-server</module>
     <module>io-bigtable</module>
     <module>io-bulk-fs</module>
     <module>io-cassandra</module>

@@ -48,5 +48,5 @@ message Category {
   uint32 categoryId = 1;
 
   // might include additional (denormalized) data
-  
+
 }

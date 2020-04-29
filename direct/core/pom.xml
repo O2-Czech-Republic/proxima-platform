@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>proxima-direct</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <version>0.3.0</version>
   </parent>
 
   <artifactId>proxima-direct-core</artifactId>
@@ -38,6 +38,16 @@
         <artifactId>maven-shade-plugin</artifactId>
         <version>${maven.shade.version}</version>
         <configuration>
+          <filters>
+            <filter>
+              <artifact>*:*</artifact>
+              <excludes>
+                <exclude>META-INF/*.SF</exclude>
+                <exclude>META-INF/*.DSA</exclude>
+                <exclude>META-INF/*.RSA</exclude>
+              </excludes>
+            </filter>
+          </filters>
           <shadeTestJar>true</shadeTestJar>
           <artifactSet>
             <excludes>

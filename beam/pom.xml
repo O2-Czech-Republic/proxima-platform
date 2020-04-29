@@ -23,7 +23,7 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>platform-parent</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <version>0.3.0</version>
   </parent>
 
   <artifactId>proxima-beam</artifactId>
@@ -35,7 +35,7 @@
 
   <properties>
     <apache.beam.groupId>org.apache.beam</apache.beam.groupId>
-    <apache.beam.version>2.19.0-SNAPSHOT</apache.beam.version>
+    <apache.beam.version>2.20.0</apache.beam.version>
     <apache.beam.groupId.raw>org.apache.beam</apache.beam.groupId.raw>
     <apache.beam.version.raw>${apache.beam.version}</apache.beam.version.raw>
   </properties>
@@ -46,7 +46,7 @@
       <properties>
         <apache.beam.groupId>cz.o2.proxima.beam</apache.beam.groupId>
         <apache.beam.version>0.3-1d562f</apache.beam.version>
-        <apache.beam.version.raw>2.19.0-SNAPSHOT</apache.beam.version.raw>
+        <apache.beam.version.raw>2.20.0</apache.beam.version.raw>
       </properties>
       <build>
         <plugins>
@@ -98,13 +98,10 @@
     </profile>
     <profile>
       <id>useVendoredBeam</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
       <properties>
         <apache.beam.groupId>cz.o2.proxima.beam</apache.beam.groupId>
         <apache.beam.version>0.3-1d562f</apache.beam.version>
-        <apache.beam.version.raw>2.19.0-SNAPSHOT</apache.beam.version.raw>
+        <apache.beam.version.raw>2.20.0</apache.beam.version.raw>
       </properties>
       <modules>
         <module>core</module>
@@ -115,6 +112,9 @@
     </profile>
     <profile>
       <id>useNativeBeam</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
       <modules>
         <module>core</module>
         <module>core-testing</module>
@@ -171,12 +171,12 @@
         <scope>test</scope>
       </dependency>
 
-      <dependency> 
-        <groupId>${apache.beam.groupId}</groupId> 
+      <dependency>
+        <groupId>${apache.beam.groupId}</groupId>
         <artifactId>beam-runners-flink-1.9</artifactId>
         <version>${apache.beam.version}</version>
         <scope>provided</scope>
-      </dependency> 
+      </dependency>
 
       <dependency>
         <groupId>org.projectlombok</groupId>

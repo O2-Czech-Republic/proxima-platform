@@ -181,7 +181,7 @@ public class Metrics {
    *
    * @param mbs the MBeanServer
    */
-  private static void registerWithMBeanServer(Metric m, MBeanServer mbs) {
+  private static void registerWithMBeanServer(Metric<?> m, MBeanServer mbs) {
     try {
       ObjectName mxbeanName =
           new ObjectName(

@@ -36,31 +36,6 @@ public class StreamElement implements Serializable {
   private static final long serialVersionUID = 1L;
 
   /**
-   * Update given entity attribute with given value.
-   *
-   * @param entityDesc descriptor of entity
-   * @param attributeDesc descriptor of attribute
-   * @param uuid UUID of the request
-   * @param key key of entity
-   * @param attribute name of attribute of the entity
-   * @param stamp timestamp of the event
-   * @param value serialized value
-   * @return {@link StreamElement} to be written to the system
-   * @deprecated use {@link StreamElement#upsert}
-   */
-  @Deprecated
-  public static StreamElement update(
-      EntityDescriptor entityDesc,
-      AttributeDescriptor<?> attributeDesc,
-      String uuid,
-      String key,
-      String attribute,
-      long stamp,
-      byte[] value) {
-    return upsert(entityDesc, attributeDesc, uuid, key, attribute, stamp, value);
-  }
-
-  /**
    * Upsert given entity attribute with given value.
    *
    * @param entityDesc descriptor of entity

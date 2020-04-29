@@ -95,7 +95,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
 
   @Override
   public BoundStatement getReadStatement(
-      String key, String attribute, AttributeDescriptor desc, Session session) {
+      String key, String attribute, AttributeDescriptor<?> desc, Session session) {
 
     ensureSession(session);
     PreparedStatement statement = getPreparedGetStatement(session, attribute, desc);
@@ -109,7 +109,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
   @Override
   public BoundStatement getListStatement(
       String key,
-      AttributeDescriptor wildcard,
+      AttributeDescriptor<?> wildcard,
       @Nullable Offsets.Raw offset,
       int limit,
       Session session) {
@@ -211,7 +211,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
   }
 
   @Override
-  protected String createGetStatement(String attribute, AttributeDescriptor desc) {
+  protected String createGetStatement(String attribute, AttributeDescriptor<?> desc) {
 
     if (desc.isWildcard()) {
       String colName = toColName(desc);
@@ -225,7 +225,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
   }
 
   @Override
-  protected String createListStatement(AttributeDescriptor attr) {
+  protected String createListStatement(AttributeDescriptor<?> attr) {
 
     String colName = toColName(attr);
     String dataCol = toUnderScore(colName);
@@ -234,7 +234,7 @@ public class DefaultCqlFactory extends CacheableCqlFactory {
         dataCol, toPayloadCol(attr), getTableName(), primaryField, dataCol, reversed ? "<" : ">");
   }
 
-  private String toColName(AttributeDescriptor desc) {
+  private String toColName(AttributeDescriptor<?> desc) {
     if (secondaryField == null) {
       return desc.toAttributePrefix(false);
     }

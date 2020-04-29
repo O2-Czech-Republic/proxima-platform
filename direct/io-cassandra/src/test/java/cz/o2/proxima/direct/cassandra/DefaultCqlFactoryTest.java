@@ -142,6 +142,7 @@ public class DefaultCqlFactoryTest {
   public void testSetupWithJustPrimary() throws URISyntaxException {
     factory.setup(
         entity, new URI("cassandra://wherever/my_table?primary=hgw"), StringConverter.getDefault());
+    assertNotNull(factory);
   }
 
   @Test(expected = IllegalArgumentException.class)

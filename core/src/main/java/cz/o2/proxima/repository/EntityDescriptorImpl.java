@@ -71,7 +71,8 @@ public class EntityDescriptorImpl implements EntityDescriptor {
   @Override
   public <T> Optional<AttributeDescriptor<T>> findAttribute(String name, boolean includeProtected) {
 
-    AttributeDescriptor found = attributesByName.get(name);
+    @SuppressWarnings("unchecked")
+    AttributeDescriptor<T> found = (AttributeDescriptor<T>) attributesByName.get(name);
     if (found == null) {
       found =
           attributesByPattern
@@ -80,6 +81,7 @@ public class EntityDescriptorImpl implements EntityDescriptor {
               .filter(e -> e.getKey().matches(name))
               .findFirst()
               .map(Map.Entry::getValue)
+              .map(a -> (AttributeDescriptor<T>) a)
               .orElse(null);
     }
     if (found != null && (includeProtected || found.isPublic())) {

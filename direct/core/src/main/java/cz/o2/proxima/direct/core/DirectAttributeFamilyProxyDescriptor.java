@@ -366,7 +366,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
                             transform.asElementWise().fromProxy(attribute),
                             targetAttribute.getReadTarget(),
                             stamp)
-                        .map(kv -> transformToProxy(kv, targetAttribute));
+                        .map(kv -> transformKvToProxy(kv, targetAttribute));
                   }
 
                   @SuppressWarnings("unchecked")
@@ -394,7 +394,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
                         offset,
                         stamp,
                         limit,
-                        kv -> consumer.accept((KeyValue) transformToProxy(kv, targetAttribute)));
+                        kv -> consumer.accept(transformKvToProxy((KeyValue) kv, targetAttribute)));
                   }
 
                   @Override
@@ -414,7 +414,9 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
                             lookup
                                 .lookupRead(kv.getAttributeDescriptor().getName())
                                 .stream()
-                                .forEach(attr -> consumer.accept(transformToProxy(kv, attr))));
+                                .forEach(
+                                    attr ->
+                                        consumer.accept(transformKvToProxy((KeyValue) kv, attr))));
                   }
 
                   @Override
@@ -541,7 +543,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
 
   @SuppressWarnings("unchecked")
   private static StreamElement transformToRaw(
-      StreamElement data, AttributeProxyDescriptor targetDesc) {
+      StreamElement data, AttributeProxyDescriptor<?> targetDesc) {
 
     return transform(
         data,
@@ -551,7 +553,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
 
   @SuppressWarnings("unchecked")
   private static StreamElement transformToRawRead(
-      StreamElement data, AttributeProxyDescriptor targetReadDesc) {
+      StreamElement data, AttributeProxyDescriptor<?> targetReadDesc) {
 
     return transform(
         data,
@@ -561,14 +563,14 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
 
   @SuppressWarnings("unchecked")
   private static StreamElement transformToProxy(
-      StreamElement data, AttributeProxyDescriptor targetDesc) {
+      StreamElement data, AttributeProxyDescriptor<?> targetDesc) {
 
     return transform(data, targetDesc, targetDesc.getReadTransform().asElementWise()::toProxy);
   }
 
   @SuppressWarnings("unchecked")
-  private static <T> KeyValue<T> transformToProxy(
-      KeyValue<T> kv, AttributeProxyDescriptor targetDesc) {
+  private static <T> KeyValue<T> transformKvToProxy(
+      KeyValue<T> kv, AttributeProxyDescriptor<T> targetDesc) {
 
     return KeyValue.of(
         kv.getEntityDescriptor(),
@@ -576,14 +578,14 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
         kv.getKey(),
         targetDesc.getReadTransform().asElementWise().toProxy(kv.getAttribute()),
         kv.getOffset(),
-        kv.getValue(),
+        kv.getParsedRequired(),
         kv.getValue(),
         kv.getStamp());
   }
 
   @SuppressWarnings("unchecked")
   private static StreamElement transform(
-      StreamElement data, AttributeDescriptor target, UnaryFunction<String, String> transform) {
+      StreamElement data, AttributeDescriptor<?> target, UnaryFunction<String, String> transform) {
 
     if (data.isDeleteWildcard()) {
       return StreamElement.deleteWildcard(

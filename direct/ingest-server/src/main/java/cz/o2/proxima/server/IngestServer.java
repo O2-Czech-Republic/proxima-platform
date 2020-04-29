@@ -106,7 +106,7 @@ public class IngestServer {
       Consumer<Rpc.Status> responseConsumer) {
 
     EntityDescriptor entityDesc = ingest.getEntityDescriptor();
-    AttributeDescriptor attributeDesc = ingest.getAttributeDescriptor();
+    AttributeDescriptor<?> attributeDesc = ingest.getAttributeDescriptor();
 
     OnlineAttributeWriter writer =
         direct

@@ -34,7 +34,7 @@ public interface OperatorGenerator {
    *
    * @return {@link DataOperatorFactory} associated with this generator.
    */
-  DataOperatorFactory operatorFactory();
+  DataOperatorFactory<?> operatorFactory();
 
   /**
    * Retrieve imports for the operator module subclass.

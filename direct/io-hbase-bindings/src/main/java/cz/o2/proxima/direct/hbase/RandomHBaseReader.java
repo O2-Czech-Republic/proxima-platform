@@ -173,7 +173,7 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
   }
 
   @SuppressWarnings("unchecked")
-  private KeyValue kv(AttributeDescriptor<?> desc, Cell cell) {
+  private <T> KeyValue<T> kv(AttributeDescriptor<T> desc, Cell cell) {
     String key = new String(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
     String attribute =
         new String(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());

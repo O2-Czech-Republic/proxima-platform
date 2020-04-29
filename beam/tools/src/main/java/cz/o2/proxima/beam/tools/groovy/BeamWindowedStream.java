@@ -68,7 +68,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       StreamConfig config,
       boolean bounded,
       PCollectionProvider<T> input,
-      WindowingStrategy windowingStrategy,
+      WindowingStrategy<Object, ?> windowingStrategy,
       StreamProvider.TerminatePredicate terminateCheck,
       Factory<Pipeline> pipelineFactory) {
 
@@ -230,7 +230,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @SuppressWarnings("unchecked")
   private Window<T> createWindowFn() {
-    Window ret = Window.into(windowingStrategy.getWindowFn());
+    Window<T> ret = Window.into(windowingStrategy.getWindowFn());
     switch (windowingStrategy.getMode()) {
       case ACCUMULATING_FIRED_PANES:
         ret = ret.accumulatingFiredPanes();

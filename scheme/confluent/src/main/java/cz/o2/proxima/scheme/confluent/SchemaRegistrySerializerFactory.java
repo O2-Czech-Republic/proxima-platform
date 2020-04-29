@@ -53,7 +53,8 @@ public class SchemaRegistrySerializerFactory implements ValueSerializerFactory {
 
   @Override
   public String getClassName(URI scheme) {
-    SchemaRegistryValueSerializer serializer =
+    @SuppressWarnings("unchecked")
+    SchemaRegistryValueSerializer<?> serializer =
         (SchemaRegistryValueSerializer) getValueSerializer(scheme);
 
     return serializer.getClassName();

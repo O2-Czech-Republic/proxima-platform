@@ -38,13 +38,6 @@ public abstract class Repository implements Serializable {
 
   private static final long serialVersionUID = 1L;
 
-  /** This is deprecated and will be removed in 0.4.0. */
-  @Deprecated
-  @FunctionalInterface
-  public interface ConfigFactory {
-    Config apply();
-  }
-
   /** Various validation flags. */
   public enum Validate {
     /** Do not perform any validations. */
@@ -74,18 +67,6 @@ public abstract class Repository implements Serializable {
     public static int defaultTesting() {
       return ALL.getFlag() & ~Validate.FAMILIES.getFlag();
     }
-  }
-
-  /** @deprecated Use {@link Repository#of(Config)} */
-  @Deprecated
-  public static Repository of(ConfigFactory factory) {
-    return of(factory.apply());
-  }
-
-  /** @deprecated Use {@link Repository#ofTest(Config, Validate...)}. */
-  @Deprecated
-  public static Repository ofTest(ConfigFactory factory) {
-    return ofTest(factory.apply());
   }
 
   /**

@@ -268,7 +268,7 @@ public class ReplicationController {
       indexFamilyToCommitLogs() {
 
     // each attribute and its associated primary family
-    final Map<AttributeDescriptor, DirectAttributeFamilyDescriptor> primaryFamilies =
+    final Map<AttributeDescriptor<?>, DirectAttributeFamilyDescriptor> primaryFamilies =
         dataOperator
             .getAllFamilies()
             .filter(family -> family.getDesc().getType() == StorageType.PRIMARY)

@@ -50,7 +50,7 @@ public class Pair<A, B> implements Serializable {
       return false;
     }
     if (obj instanceof Pair) {
-      Pair other = (Pair) obj;
+      Pair<?, ?> other = (Pair) obj;
       return Objects.equals(other.first, first) && Objects.equals(other.second, second);
     }
     return false;

@@ -155,7 +155,7 @@ public class StreamElementTest {
     StreamElement element2 =
         StreamElement.upsert(gateway, armed, uuid, "key", armed.getName(), now, new byte[] {1, 2});
     StreamElement element3 =
-        StreamElement.update(gateway, armed, uuid, "key", armed.getName(), now, new byte[] {1, 2});
+        StreamElement.upsert(gateway, armed, uuid, "key", armed.getName(), now, new byte[] {1, 2});
     TestUtils.assertHashCodeAndEquals(element1, element2);
     TestUtils.assertHashCodeAndEquals(element1, element3);
   }

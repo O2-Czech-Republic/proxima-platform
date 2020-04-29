@@ -74,7 +74,7 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
     if (!(obj instanceof PairCoder)) {
       return false;
     }
-    PairCoder other = (PairCoder) obj;
+    PairCoder<?, ?> other = (PairCoder<?, ?>) obj;
     return other.keyCoder.equals(keyCoder) && other.valueCoder.equals(valueCoder);
   }
 

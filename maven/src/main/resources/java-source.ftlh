@@ -45,17 +45,6 @@ public class ${java_classname} implements Serializable {
   }
 
   /**
-   * Create instance of {@code ${java_classname}} for production usage.
-   *
-   * @param factory configuration to use
-   * @return ${java_classname}
-   **/
-  @Deprecated
-  public static ${java_classname} of(Repository.ConfigFactory factory) {
-    return of(factory.apply());
-  }
-
-  /**
    * Create instance of {@code ${java_classname}} with specified {@code ConfigRepository.Builder}.
    *
    * @param builder configuration to use
@@ -63,17 +52,6 @@ public class ${java_classname} implements Serializable {
    **/
   public static ${java_classname} of(ConfigRepository.Builder builder) {
     return new ${java_classname}(builder);
-  }
-
-  /**
-   * Create instance of {@code ${java_classname}} for testing purposes.
-   *
-   * @param factory configuration to use
-   * @return ${java_classname}
-   **/
-  @Deprecated
-  public static ${java_classname} ofTest(Repository.ConfigFactory factory) {
-    return ofTest(factory.apply());
   }
 
   /**

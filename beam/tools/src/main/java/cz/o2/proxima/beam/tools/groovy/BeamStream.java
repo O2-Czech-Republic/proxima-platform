@@ -917,13 +917,18 @@ class BeamStream<T> implements Stream<T> {
   <X> BeamWindowedStream<X> windowed(
       Function<Pipeline, PCollection<X>> factory, WindowFn<? super X, ?> window) {
 
+    @SuppressWarnings("unchecked")
+    WindowingStrategy<Object, ?> strategy =
+        (WindowingStrategy)
+            WindowingStrategy.of(window)
+                .withMode(WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES)
+                .fixDefaults();
+
     return new BeamWindowedStream<>(
         config,
         bounded,
         PCollectionProvider.withParents(factory, collection),
-        WindowingStrategy.of(window)
-            .withMode(WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES)
-            .fixDefaults(),
+        strategy,
         terminateCheck,
         pipelineFactory);
   }
@@ -1116,7 +1121,8 @@ class BeamStream<T> implements Stream<T> {
     @Override
     public TypeDescriptor<Pair<BoundedWindow, T>> getOutputTypeDescriptor() {
       return PairCoder.descriptor(
-          TypeDescriptor.of(BoundedWindow.class), (TypeDescriptor) TypeDescriptor.of(Object.class));
+          TypeDescriptor.of(BoundedWindow.class),
+          (TypeDescriptor<T>) TypeDescriptor.of(Object.class));
     }
   }
 
@@ -1135,7 +1141,7 @@ class BeamStream<T> implements Stream<T> {
     @Override
     public TypeDescriptor<Pair<T, Long>> getOutputTypeDescriptor() {
       return PairCoder.descriptor(
-          (TypeDescriptor) TypeDescriptor.of(Object.class), TypeDescriptor.of(Long.class));
+          (TypeDescriptor<T>) TypeDescriptor.of(Object.class), TypeDescriptor.of(Long.class));
     }
   }
 
@@ -1182,8 +1188,8 @@ class BeamStream<T> implements Stream<T> {
     @Override
     public TypeDescriptor<Pair<K, V>> getOutputTypeDescriptor() {
       return PairCoder.descriptor(
-          (TypeDescriptor) TypeDescriptor.of(Object.class),
-          (TypeDescriptor) TypeDescriptor.of(Object.class));
+          (TypeDescriptor<K>) TypeDescriptor.of(Object.class),
+          (TypeDescriptor<V>) TypeDescriptor.of(Object.class));
     }
   }
 
@@ -1281,8 +1287,8 @@ class BeamStream<T> implements Stream<T> {
     @Override
     public TypeDescriptor<Pair<K, O>> getOutputTypeDescriptor() {
       return PairCoder.descriptor(
-          (TypeDescriptor) TypeDescriptor.of(Object.class),
-          (TypeDescriptor) TypeDescriptor.of(Object.class));
+          (TypeDescriptor<K>) TypeDescriptor.of(Object.class),
+          (TypeDescriptor<O>) TypeDescriptor.of(Object.class));
     }
   }
 

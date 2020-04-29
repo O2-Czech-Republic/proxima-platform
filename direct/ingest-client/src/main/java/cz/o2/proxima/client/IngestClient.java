@@ -50,7 +50,7 @@ public class IngestClient implements AutoCloseable {
   private class Request {
 
     final Consumer<Rpc.Status> consumer;
-    final ScheduledFuture timeoutFuture;
+    final ScheduledFuture<?> timeoutFuture;
     final Rpc.Ingest payload;
 
     /**

@@ -90,7 +90,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
     }
 
     tmp = cfg.get(CQL_STRING_CONVERTER);
-    StringConverter c = StringConverter.getDefault();
+    StringConverter<String> c = StringConverter.getDefault();
     if (tmp != null) {
       try {
         c = Classpath.newInstance(tmp.toString(), StringConverter.class);
@@ -98,7 +98,7 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
         log.warn("Failed to instantiate type converter {}", tmp, ex);
       }
     }
-    this.converter = c;
+    this.converter = (StringConverter) c;
     try {
       cqlFactory = Classpath.findClass(cqlFactoryName, CqlFactory.class).newInstance();
       cqlFactory.setup(entityDesc, uri, converter);

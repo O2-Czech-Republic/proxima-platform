@@ -46,7 +46,7 @@ public class DirectOperatorGeneratorFactory implements OperatorGeneratorFactory 
     }
 
     @Override
-    public DataOperatorFactory operatorFactory() {
+    public DataOperatorFactory<?> operatorFactory() {
       return new DirectDataOperatorFactory();
     }
 

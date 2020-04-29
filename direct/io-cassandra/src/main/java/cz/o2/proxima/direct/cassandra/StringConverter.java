@@ -52,7 +52,7 @@ public interface StringConverter<T> extends Serializable {
     }
   }
 
-  public static StringConverter<String> getDefault() {
+  static StringConverter<String> getDefault() {
     return new DefaultConverter();
   }
 

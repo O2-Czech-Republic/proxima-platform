@@ -345,16 +345,15 @@ public class LocalCachedPartitionedView implements CachedView {
     if (p == null || p.getSecond() == null) {
       return null;
     }
-    return (KeyValue)
-        KeyValue.of(
-            entity,
-            (AttributeDescriptor) attr,
-            key,
-            attribute,
-            new RawOffset(attribute),
-            (T) p.getSecond(),
-            null,
-            p.getFirst());
+    return KeyValue.of(
+        entity,
+        (AttributeDescriptor<T>) attr,
+        key,
+        attribute,
+        new RawOffset(attribute),
+        (T) p.getSecond(),
+        null,
+        p.getFirst());
   }
 
   @Override

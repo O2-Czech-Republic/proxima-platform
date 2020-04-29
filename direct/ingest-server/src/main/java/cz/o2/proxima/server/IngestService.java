@@ -338,7 +338,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
   }
 
   private static StreamElement toStreamElement(
-      Rpc.Ingest request, EntityDescriptor entity, AttributeDescriptor attr) {
+      Rpc.Ingest request, EntityDescriptor entity, AttributeDescriptor<?> attr) {
 
     long stamp = request.getStamp() == 0 ? System.currentTimeMillis() : request.getStamp();
 

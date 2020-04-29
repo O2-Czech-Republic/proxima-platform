@@ -36,7 +36,7 @@ public class Classpath {
   @SuppressWarnings({"unchecked", "rawtypes"})
   public static <T> Class<? extends T> findClass(String name, Class<T> superClass) {
 
-    Class clz;
+    Class<T> clz;
     if ((clz = findClass(name)) != null) {
       Preconditions.checkState(
           superClass.isAssignableFrom(clz), "Class %s is not assignable for %s", clz, superClass);
@@ -63,9 +63,9 @@ public class Classpath {
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  private static Class findClass(String name) {
+  private static <T> Class<T> findClass(String name) {
     try {
-      return Thread.currentThread().getContextClassLoader().loadClass(name);
+      return (Class<T>) Thread.currentThread().getContextClassLoader().loadClass(name);
     } catch (ClassNotFoundException t) {
       log.debug("Cannot instantiate class {}", name, t);
       return null;

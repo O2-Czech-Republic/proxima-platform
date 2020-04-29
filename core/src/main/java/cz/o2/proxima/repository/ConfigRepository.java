@@ -742,14 +742,15 @@ public final class ConfigRepository extends Repository {
       proxyMap.computeIfAbsent(SCHEME, settings::get);
       addProxyAttributeAsymmetric(attrName, proxyMap, entityBuilder);
     } else {
-      final AttributeDescriptor writeTarget;
+      final AttributeDescriptor<Object> writeTarget;
       final ProxyTransform readTransform;
       final ProxyTransform writeTransform;
-      final AttributeDescriptor readTarget =
+      final AttributeDescriptor<Object> readTarget =
           writeTarget =
               Optional.ofNullable(settings.get(PROXY))
                   .map(Object::toString)
                   .map(entityBuilder::getAttribute)
+                  .map(a -> (AttributeDescriptor<Object>) a)
                   .orElseThrow(
                       () -> new IllegalStateException("Invalid state: `proxy` must not be null"));
       if (loadClasses) {
@@ -790,23 +791,24 @@ public final class ConfigRepository extends Repository {
   private void addProxyAttributeAsymmetric(
       String attrName, Map<String, Object> proxyMap, EntityDescriptor.Builder entityBuilder) {
 
-    final AttributeDescriptor readTarget;
-    final AttributeDescriptor writeTarget;
+    final AttributeDescriptor<Object> readTarget;
+    final AttributeDescriptor<Object> writeTarget;
     final ProxyTransform readTransform;
     final ProxyTransform writeTransform;
     Map<String, Object> write = toMapOrNull(proxyMap.get(WRITE));
     Map<String, Object> read = toMapOrNull(proxyMap.get(READ));
-    AttributeDescriptor<?> original = null;
+    AttributeDescriptor<Object> original = null;
     if (write == null || read == null) {
       // we need to load the original attribute, which must have been
       // loaded (must contain `scheme`)
-      original = entityBuilder.getAttribute(attrName);
+      original = (AttributeDescriptor<Object>) entityBuilder.getAttribute(attrName);
     }
     if (read != null) {
       readTarget =
           Optional.ofNullable(read.get("from"))
               .map(Object::toString)
               .map(entityBuilder::getAttribute)
+              .map(a -> (AttributeDescriptor<Object>) a)
               .orElseThrow(
                   () -> new IllegalStateException("Invalid state: `read.from` must not be null"));
     } else {
@@ -817,6 +819,7 @@ public final class ConfigRepository extends Repository {
           Optional.ofNullable(write.get("into"))
               .map(Object::toString)
               .map(entityBuilder::getAttribute)
+              .map(a -> (AttributeDescriptor<Object>) a)
               .orElseThrow(
                   () -> new IllegalStateException("Invalid state: `write.into` must not be null"));
     } else {
@@ -842,8 +845,9 @@ public final class ConfigRepository extends Repository {
   private URI readProxySchemeOptional(
       String proxyName,
       Map<String, Object> settings,
-      AttributeDescriptor<Object> write,
-      AttributeDescriptor<Object> read) {
+      AttributeDescriptor<?> write,
+      AttributeDescriptor<?> read) {
+
     return Optional.ofNullable(settings.get(SCHEME))
         .map(Object::toString)
         .map(this::asSchemeUri)
@@ -1313,7 +1317,7 @@ public final class ConfigRepository extends Repository {
   private static AttributeDescriptor<?> resolveProxyTarget(
       EntityDescriptor entity, String attr, boolean read) {
 
-    AttributeDescriptor result = findAttributeRequired(entity, attr);
+    AttributeDescriptor<?> result = findAttributeRequired(entity, attr);
     while (((AttributeDescriptorBase<?>) result).isProxy()) {
       result =
           read

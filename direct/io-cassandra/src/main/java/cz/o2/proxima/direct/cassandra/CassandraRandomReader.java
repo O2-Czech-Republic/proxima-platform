@@ -134,15 +134,14 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
 
           if (parsed.isPresent()) {
             consumer.accept(
-                (KeyValue<T>)
-                    KeyValue.of(
-                        getEntityDescriptor(),
-                        wildcard,
-                        key,
-                        name,
-                        new Offsets.Raw(name),
-                        parsed.get(),
-                        rowValue));
+                KeyValue.of(
+                    getEntityDescriptor(),
+                    wildcard,
+                    key,
+                    name,
+                    new Offsets.Raw(name),
+                    parsed.get(),
+                    rowValue));
           } else {
             log.error("Failed to parse value for key {} attribute {}.{}", key, wildcard, attribute);
           }

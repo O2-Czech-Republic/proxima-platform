@@ -41,12 +41,9 @@ public class AvroSerializer<T extends GenericContainer> {
   }
 
   public byte[] serialize(T input) throws IOException {
-    final ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try {
+    try (final ByteArrayOutputStream out = new ByteArrayOutputStream()) {
       serialize(input, out);
       return out.toByteArray();
-    } finally {
-      out.close();
     }
   }
 

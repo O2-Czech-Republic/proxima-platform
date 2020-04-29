@@ -326,7 +326,7 @@ public class BeamDataOperator implements DataOperator {
 
     List<AttributeDescriptor<?>> attrList = Arrays.stream(attrs).collect(Collectors.toList());
 
-    List<Pair<AttributeDescriptor, Optional<AttributeFamilyDescriptor>>> resolvedAttrs;
+    List<Pair<AttributeDescriptor<?>, Optional<AttributeFamilyDescriptor>>> resolvedAttrs;
     resolvedAttrs =
         findSuitableFamilies(af -> af.getAccess().canReadBatchSnapshot(), attrs)
             .collect(Collectors.toList());
@@ -397,7 +397,7 @@ public class BeamDataOperator implements DataOperator {
   }
 
   @SuppressWarnings("unchecked")
-  private Stream<Pair<AttributeDescriptor, Optional<AttributeFamilyDescriptor>>>
+  private Stream<Pair<AttributeDescriptor<?>, Optional<AttributeFamilyDescriptor>>>
       findSuitableFamilies(
           Predicate<AttributeFamilyDescriptor> predicate, AttributeDescriptor<?>[] attrs) {
 

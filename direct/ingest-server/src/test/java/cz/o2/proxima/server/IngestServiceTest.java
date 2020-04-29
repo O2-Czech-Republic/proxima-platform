@@ -481,6 +481,7 @@ public class IngestServiceTest {
                 .withFallback(ConfigFactory.load("test-reference.conf"))
                 .resolve());
     dummy.runReplications();
+    assertNotNull(dummy);
   }
 
   private void flushToIngest(Rpc.Ingest request) throws InterruptedException {

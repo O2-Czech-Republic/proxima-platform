@@ -531,7 +531,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   private ObserveHandle createObserveHandle(
       AtomicBoolean shutdown,
       List<TopicOffset> seekOffsets,
-      ElementConsumer consumer,
+      ElementConsumer<?, ?> consumer,
       CountDownLatch latch) {
 
     return new ObserveHandle() {
@@ -597,7 +597,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     Preconditions.checkArgument(
         name != null || listener == null,
         "Please use either named group (with listener) or offsets without listener");
-    KafkaConsumerFactory factory = accessor.createConsumerFactory();
+    KafkaConsumerFactory<Object, Object> factory = accessor.createConsumerFactory();
     final KafkaConsumer<Object, Object> consumer;
 
     if ("".equals(name)) {

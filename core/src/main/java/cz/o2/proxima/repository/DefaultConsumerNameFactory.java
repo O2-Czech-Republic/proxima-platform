@@ -58,7 +58,7 @@ abstract class DefaultConsumerNameFactory<T> implements ConsumerNameFactory<T> {
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof DefaultConsumerNameFactory) {
-      DefaultConsumerNameFactory that = (DefaultConsumerNameFactory) obj;
+      DefaultConsumerNameFactory<?> that = (DefaultConsumerNameFactory<?>) obj;
       return prefix.equals(that.prefix)
           && name.equals(that.name)
           && suffix.equals(that.suffix)

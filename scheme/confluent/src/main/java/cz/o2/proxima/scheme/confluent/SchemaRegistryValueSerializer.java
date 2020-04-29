@@ -53,7 +53,7 @@ class SchemaRegistryValueSerializer<M extends GenericContainer> implements Value
   private Integer schemaId = null;
   private transient M defaultInstance = null;
 
-  private transient Map<Integer, AvroSerializer> serializersCache = null;
+  private transient Map<Integer, AvroSerializer<?>> serializersCache = null;
 
   SchemaRegistryValueSerializer(URI scheme) throws URISyntaxException {
 
@@ -175,7 +175,7 @@ class SchemaRegistryValueSerializer<M extends GenericContainer> implements Value
     return schemaId;
   }
 
-  private Map<Integer, AvroSerializer> getAvroSerializersCache() {
+  private Map<Integer, AvroSerializer<?>> getAvroSerializersCache() {
     if (serializersCache == null) {
       serializersCache = new ConcurrentHashMap<>();
     }

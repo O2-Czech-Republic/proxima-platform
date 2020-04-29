@@ -50,11 +50,11 @@ public abstract class CacheableCqlFactory implements CqlFactory {
   /** A TTL value in seconds associated with each update or insert. */
   protected long ttl = 0;
 
-  private final Map<AttributeDescriptor, PreparedStatement> ingestCache;
-  private final Map<AttributeDescriptor, PreparedStatement> deleteCache;
-  private final Map<AttributeDescriptor, PreparedStatement> deleteWildcardCache;
-  private final Map<AttributeDescriptor, PreparedStatement> getCache;
-  private final Map<AttributeDescriptor, PreparedStatement> listCache;
+  private final Map<AttributeDescriptor<?>, PreparedStatement> ingestCache;
+  private final Map<AttributeDescriptor<?>, PreparedStatement> deleteCache;
+  private final Map<AttributeDescriptor<?>, PreparedStatement> deleteWildcardCache;
+  private final Map<AttributeDescriptor<?>, PreparedStatement> getCache;
+  private final Map<AttributeDescriptor<?>, PreparedStatement> listCache;
 
   @Nullable private transient PreparedStatement listEntities;
 
@@ -62,13 +62,13 @@ public abstract class CacheableCqlFactory implements CqlFactory {
 
   @Nullable private transient PreparedStatement listAllAttributes;
 
-  private static Map<AttributeDescriptor, PreparedStatement> createCache(long maxSize) {
+  private static Map<AttributeDescriptor<?>, PreparedStatement> createCache(long maxSize) {
 
-    return new LinkedHashMap<AttributeDescriptor, PreparedStatement>() {
+    return new LinkedHashMap<AttributeDescriptor<?>, PreparedStatement>() {
 
       @Override
       protected boolean removeEldestEntry(
-          Map.Entry<AttributeDescriptor, PreparedStatement> eldest) {
+          Map.Entry<AttributeDescriptor<?>, PreparedStatement> eldest) {
 
         return size() > maxSize;
       }
@@ -77,7 +77,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
       public PreparedStatement get(Object key) {
         PreparedStatement ret = super.get(key);
         if (ret != null) {
-          remove((AttributeDescriptor) key);
+          remove(key);
           put((AttributeDescriptor) key, ret);
         }
         return ret;
@@ -178,7 +178,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
    * @return the statement to use in order to read the data
    */
   protected PreparedStatement getPreparedGetStatement(
-      Session session, String attribute, AttributeDescriptor desc) {
+      Session session, String attribute, AttributeDescriptor<?> desc) {
 
     return getCache.computeIfAbsent(
         desc,
@@ -198,7 +198,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
    * @return the statement to use in order to read the data
    */
   protected PreparedStatement getPreparedListStatement(
-      Session session, AttributeDescriptor wildcardAttribute) {
+      Session session, AttributeDescriptor<?> wildcardAttribute) {
 
     return listCache.computeIfAbsent(
         wildcardAttribute, k -> prepare(session, createListStatement(wildcardAttribute)));
@@ -244,7 +244,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
    * @param desc the descriptor of the attribute
    * @return string representation of the CQL
    */
-  protected abstract String createGetStatement(String attribute, AttributeDescriptor desc);
+  protected abstract String createGetStatement(String attribute, AttributeDescriptor<?> desc);
 
   /**
    * Create list statement for key-wildcardAttribute pair. The statement must return two fields -
@@ -253,7 +253,7 @@ public abstract class CacheableCqlFactory implements CqlFactory {
    * @param desc the descriptor of the attribute
    * @return string representation of the CQL
    */
-  protected abstract String createListStatement(AttributeDescriptor desc);
+  protected abstract String createListStatement(AttributeDescriptor<?> desc);
 
   /**
    * Create list statement for entity keys. The statement must return single field - the entity key.

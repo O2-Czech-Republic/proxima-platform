@@ -34,7 +34,7 @@ public interface DataOperatorAware extends Serializable {
    *
    * @param operatorFactory the DataOperatorFactory
    */
-  boolean isDelegateOf(DataOperatorFactory operatorFactory);
+  boolean isDelegateOf(DataOperatorFactory<?> operatorFactory);
 
   /**
    * Convert this transformation to a more ({@link DataOperator}) specific one.

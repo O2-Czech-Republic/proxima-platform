@@ -181,7 +181,7 @@ public class MultiAccessBuilder implements Serializable {
                               current.set(
                                   new SequentialOffset(current.get())
                                       .update(e.getKey(), kv.getOffset()));
-                              KeyValue mapped =
+                              KeyValue<?> mapped =
                                   KeyValue.of(
                                       kv.getEntityDescriptor(),
                                       (AttributeDescriptor) kv.getAttributeDescriptor(),

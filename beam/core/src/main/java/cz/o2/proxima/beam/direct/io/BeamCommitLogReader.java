@@ -241,14 +241,12 @@ class BeamCommitLogReader {
         offset == null || !stopAtCurrent, "Offset can be used only for streaming reader");
   }
 
-  public BoundedSource<StreamElement> getCurrentSource() {
-    throw new UnsupportedOperationException("Unsupported.");
-  }
-
   public boolean start() throws IOException {
     this.observer =
         BlockingQueueLogObserver.create(
-            name == null ? "Source(" + partition + ")" : name, limit, offsetWatermark);
+            name == null ? "Source(" + reader.getUri() + "@" + partition.getId() + ")" : name,
+            limit,
+            offsetWatermark);
     if (!finished) {
       if (offset != null) {
         this.handle = reader.observeBulkOffsets(Arrays.asList(offset), observer);

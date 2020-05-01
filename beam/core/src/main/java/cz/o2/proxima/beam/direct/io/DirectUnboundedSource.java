@@ -130,7 +130,7 @@ class DirectUnboundedSource
 
   @Override
   public List<UnboundedSource<StreamElement, Checkpoint>> split(
-      int desiredNumSplits, PipelineOptions options) throws Exception {
+      int desiredNumSplits, PipelineOptions options) {
 
     if (partition != null) {
       return Arrays.asList(this);

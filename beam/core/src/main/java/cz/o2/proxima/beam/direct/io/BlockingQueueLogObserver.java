@@ -48,7 +48,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return new BlockingQueueLogObserver(name, limit, startingWatermark);
   }
 
-  private final String name;
+  @Getter private final String name;
   private final AtomicReference<Throwable> error = new AtomicReference<>();
   private final AtomicLong watermark;
   private final BlockingQueue<Pair<StreamElement, OnNextContext>> queue;
@@ -91,7 +91,9 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
       if (limit-- > 0) {
         return putToQueue(element, context);
       }
+      log.debug("Terminating consumption of {} due to limit", name);
     } catch (InterruptedException ex) {
+      log.warn("Interrupted while putting element {} to queue", element, ex);
       Thread.currentThread().interrupt();
     }
     return false;
@@ -122,6 +124,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
         return true;
       }
     }
+    log.debug("Finishing consumption due to source being stopped");
     return false;
   }
 

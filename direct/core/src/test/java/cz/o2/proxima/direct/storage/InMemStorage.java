@@ -19,6 +19,7 @@ import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
@@ -162,9 +163,15 @@ public class InMemStorage implements DataAccessorFactory {
                 }
                 return Pair.of(data.getStamp(), data.getValue());
               });
+      final List<InMemIngestWriter> observers;
       synchronized (writeObservers) {
-        writeObservers.values().forEach(o -> o.write(data));
+        observers = Lists.newArrayList(writeObservers.values());
       }
+      observers.forEach(
+          o -> {
+            o.write(data);
+            log.debug("Passed element {} to {}", data, o);
+          });
       statusCallback.commit(true, null);
     }
 
@@ -653,6 +660,8 @@ public class InMemStorage implements DataAccessorFactory {
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer) {
 
+      log.debug(
+          "Batch observing {} partitions {} for attributes {}", getUri(), partitions, attributes);
       Preconditions.checkArgument(
           partitions.size() == 1,
           "This observable works on single partition only, got " + partitions);

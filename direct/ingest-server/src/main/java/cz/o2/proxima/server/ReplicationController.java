@@ -419,7 +419,8 @@ public class ReplicationController {
    * @param writer Writer for replica.
    * @return Log observer.
    */
-  private AbstractRetryableLogObserver createBulkObserver(
+  @VisibleForTesting
+  AbstractRetryableLogObserver createBulkObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,

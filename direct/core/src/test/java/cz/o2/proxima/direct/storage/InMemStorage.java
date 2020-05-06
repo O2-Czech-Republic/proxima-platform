@@ -92,7 +92,7 @@ public class InMemStorage implements DataAccessorFactory {
 
   private static final Partition PARTITION = () -> 0;
   private static final long IDLE_FLUSH_TIME = 500L;
-  private static long BOUNDED_OUT_OF_ORDERNESS = 5000L;
+  private static final long BOUNDED_OUT_OF_ORDERNESS = 5000L;
 
   static class IntOffset implements Offset {
 
@@ -134,6 +134,14 @@ public class InMemStorage implements DataAccessorFactory {
   @FunctionalInterface
   private interface InMemIngestWriter extends Serializable {
     void write(StreamElement data);
+  }
+
+  public static long getBoundedOutOfOrderness() {
+    return BOUNDED_OUT_OF_ORDERNESS;
+  }
+
+  public static long getIdleFlushTime() {
+    return IDLE_FLUSH_TIME;
   }
 
   public final class Writer extends AbstractOnlineAttributeWriter {

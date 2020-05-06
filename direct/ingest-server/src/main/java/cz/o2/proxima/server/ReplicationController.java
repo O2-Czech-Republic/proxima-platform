@@ -119,10 +119,12 @@ public class ReplicationController {
             allowed ? "applied filter" : "invalid attribute",
             allowedAttributes,
             filter.getClass());
-        context.confirm();
+        maybeCommitInvalidWrite(context);
       }
       return true;
     }
+
+    void maybeCommitInvalidWrite(OnNextContext context) {}
 
     @Override
     public boolean onError(Throwable error) {
@@ -419,7 +421,8 @@ public class ReplicationController {
    * @param writer Writer for replica.
    * @return Log observer.
    */
-  private AbstractRetryableLogObserver createBulkObserver(
+  @VisibleForTesting
+  AbstractRetryableLogObserver createBulkObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,
@@ -496,6 +499,11 @@ public class ReplicationController {
                         exc,
                         context::confirm,
                         context::fail));
+          }
+
+          @Override
+          void maybeCommitInvalidWrite(OnNextContext context) {
+            context.confirm();
           }
         };
     return RetryableLogObserver.online(3, consumerName, commitLog, logObserver);

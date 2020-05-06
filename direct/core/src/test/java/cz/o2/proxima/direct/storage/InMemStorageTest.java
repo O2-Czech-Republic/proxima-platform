@@ -444,7 +444,7 @@ public class InMemStorageTest implements Serializable {
     InMemStorage storage = new InMemStorage();
     InMemStorage.setWatermarkEstimatorFactory(
         uri,
-        stamp ->
+        (stamp, name) ->
             new WatermarkEstimator() {
 
               @Override

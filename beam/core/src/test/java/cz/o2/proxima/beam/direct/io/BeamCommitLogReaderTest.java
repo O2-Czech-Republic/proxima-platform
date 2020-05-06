@@ -70,7 +70,7 @@ public class BeamCommitLogReaderTest {
         .forEach(
             af ->
                 InMemStorage.setWatermarkEstimatorFactory(
-                    af.getStorageUri(), stamp -> asWatermarkEstimator(watermark)));
+                    af.getStorageUri(), (stamp, name) -> asWatermarkEstimator(watermark)));
   }
 
   @After

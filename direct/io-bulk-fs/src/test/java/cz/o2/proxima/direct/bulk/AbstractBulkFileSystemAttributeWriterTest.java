@@ -216,7 +216,7 @@ public class AbstractBulkFileSystemAttributeWriterTest {
     write(
         first,
         (succ, exc) -> {
-          // this one will not get committed
+          fail("This should not have been committed!");
         });
     write(
         second,

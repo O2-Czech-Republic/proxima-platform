@@ -170,6 +170,53 @@ public class ReplicationControllerTest {
   }
 
   @Test
+  public void testEventReplicationWithReadOfInvalidAttributeBulk() {
+    List<StreamElement> written = new ArrayList<>();
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<byte[]> armed = gateway.getAttribute("armed");
+    AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
+    AbstractRetryableLogObserver observer =
+        controller.createBulkObserver(
+            "consumer",
+            direct
+                .getCommitLogReader(status)
+                .orElseThrow(
+                    () -> new IllegalArgumentException("Missing commit log reader for data")),
+            Sets.newHashSet(status),
+            new PassthroughFilter(),
+            fakeBulkWriter(written, stamp -> stamp == 100));
+    AtomicInteger commits = new AtomicInteger();
+    for (int i = 0; i < 10; i++) {
+      long watermark = i * 20;
+      observer.onNext(
+          getUpdate(gateway, armed, now),
+          new OnNextContext() {
+            @Override
+            public OffsetCommitter committer() {
+              return (success, error) -> commits.incrementAndGet();
+            }
+
+            @Override
+            public Partition getPartition() {
+              return null;
+            }
+
+            @Override
+            public long getWatermark() {
+              return watermark;
+            }
+
+            @Override
+            public Offset getOffset() {
+              return null;
+            }
+          });
+    }
+    assertEquals(0, commits.get());
+    assertEquals(0, written.size());
+  }
+
+  @Test
   public void testBulkReplication() throws InterruptedException {
     List<StreamElement> written = new ArrayList<>();
     AbstractRetryableLogObserver observer =

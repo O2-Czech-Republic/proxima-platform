@@ -31,7 +31,12 @@ import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeDescriptorBase;
+import cz.o2.proxima.repository.AttributeDescriptorImpl;
+import cz.o2.proxima.repository.AttributeProxyDescriptor;
+import cz.o2.proxima.repository.EntityAwareAttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.EntityDescriptorImpl;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.scheme.ValueSerializer;
@@ -997,6 +1002,15 @@ class BeamStream<T> implements Stream<T> {
     java.util.stream.Stream<Class<?>> basicClasses =
         java.util.stream.Stream.of(
             StreamElement.class,
+            AttributeDescriptor.class,
+            AttributeDescriptorBase.class,
+            AttributeDescriptorImpl.class,
+            AttributeProxyDescriptor.class,
+            EntityAwareAttributeDescriptor.class,
+            EntityAwareAttributeDescriptor.Regular.class,
+            EntityAwareAttributeDescriptor.Wildcard.class,
+            EntityDescriptor.class,
+            EntityDescriptorImpl.class,
             Date.class,
             ArrayList.class,
             GlobalWindow.class,

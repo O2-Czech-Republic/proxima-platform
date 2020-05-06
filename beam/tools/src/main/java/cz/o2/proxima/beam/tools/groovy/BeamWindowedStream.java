@@ -21,28 +21,33 @@ import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.tools.groovy.WindowedStream;
+import cz.o2.proxima.tools.groovy.util.Types;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
-import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.DoubleCoder;
 import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.NullableCoder;
 import org.apache.beam.sdk.extensions.euphoria.core.client.io.Collector;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Distinct;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Join;
-import org.apache.beam.sdk.extensions.euphoria.core.client.operator.LeftJoin;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.ReduceByKey;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.base.Builders;
 import org.apache.beam.sdk.extensions.euphoria.core.client.util.Fold;
 import org.apache.beam.sdk.extensions.euphoria.core.client.util.Sums;
+import org.apache.beam.sdk.extensions.joinlibrary.Join;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.GroupByKey;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.join.CoGbkResult;
+import org.apache.beam.sdk.transforms.join.CoGroupByKey;
+import org.apache.beam.sdk.transforms.join.KeyedPCollectionTuple;
 import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
@@ -53,6 +58,7 @@ import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.transforms.windowing.WindowFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.TupleTag;
 import org.apache.beam.sdk.values.TypeDescriptor;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.sdk.values.WindowingStrategy;
@@ -230,7 +236,12 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
   @SuppressWarnings("unchecked")
   private Window<T> createWindowFn() {
-    Window<T> ret = Window.into(windowingStrategy.getWindowFn());
+    return createWindowFn((WindowingStrategy) windowingStrategy, getTrigger());
+  }
+
+  private static <T> Window<T> createWindowFn(
+      WindowingStrategy<T, ?> windowingStrategy, Trigger trigger) {
+    Window<T> ret = Window.<T>into(windowingStrategy.getWindowFn());
     switch (windowingStrategy.getMode()) {
       case ACCUMULATING_FIRED_PANES:
         ret = ret.accumulatingFiredPanes();
@@ -241,7 +252,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       default:
         throw new IllegalArgumentException("Unknown mode " + windowingStrategy.getMode());
     }
-    return ret.triggering(getTrigger()).withAllowedLateness(windowingStrategy.getAllowedLateness());
+    return ret.triggering(trigger).withAllowedLateness(windowingStrategy.getAllowedLateness());
   }
 
   private <
@@ -417,48 +428,69 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         });
   }
 
+  @SuppressWarnings("unchecked")
   @Override
-  public <K, OTHER> WindowedStream<Pair<T, OTHER>> join(
-      @Nullable String name, WindowedStream<OTHER> right, Closure<K> leftKey, Closure<K> rightKey) {
+  public <K, RIGHT> WindowedStream<Pair<T, RIGHT>> join(
+      @Nullable String name, WindowedStream<RIGHT> right, Closure<K> leftKey, Closure<K> rightKey) {
 
     Closure<K> leftKeyDehydrated = dehydrate(leftKey);
     Closure<K> rightKeyDehydrated = dehydrate(rightKey);
     return descendant(
         pipeline -> {
-          PCollection<T> lc = collection.materialize(pipeline);
-          PCollection<OTHER> rc =
-              ((BeamWindowedStream<OTHER>) right).collection.materialize(pipeline);
-          return Join.named(name)
-              .of(lc, rc)
-              .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
-              .using((T l, OTHER r, Collector<Pair<T, OTHER>> ctx) -> ctx.collect(Pair.of(l, r)))
-              .applyIf(!windowingStrategy.equals(lc.getWindowingStrategy()), this::createWindowFn)
-              .outputValues()
-              .setCoder(PairCoder.of(lc.getCoder(), rc.getCoder()));
+          JoinInputs<K, T, RIGHT> joinInputs =
+              new JoinInputs<>(
+                  this,
+                  (BeamWindowedStream<RIGHT>) right,
+                  leftKeyDehydrated,
+                  rightKeyDehydrated,
+                  windowingStrategy,
+                  this::getTrigger,
+                  pipeline);
+          PCollection<KV<K, T>> leftKv = joinInputs.getLeftKv();
+          PCollection<KV<K, RIGHT>> rightKv = joinInputs.getRightKv();
+          return MapElements.of(Join.innerJoin(leftKv, rightKv))
+              .using(kv -> Pair.of(kv.getValue().getKey(), kv.getValue().getValue()))
+              .output()
+              .setCoder(PairCoder.of(joinInputs.getLeftCoder(), joinInputs.getRightCoder()));
         });
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public <K, RIGHT> WindowedStream<Pair<T, RIGHT>> leftJoin(
       @Nullable String name, WindowedStream<RIGHT> right, Closure<K> leftKey, Closure<K> rightKey) {
 
     Closure<K> leftKeyDehydrated = dehydrate(leftKey);
     Closure<K> rightKeyDehydrated = dehydrate(rightKey);
-
     return descendant(
         pipeline -> {
-          PCollection<T> lc = collection.materialize(pipeline);
-          PCollection<RIGHT> rc =
-              ((BeamWindowedStream<RIGHT>) right).collection.materialize(pipeline);
-          return LeftJoin.named(name)
-              .of(lc, rc)
-              .by(leftKeyDehydrated::call, rightKeyDehydrated::call)
-              .using(
-                  (T l, Optional<RIGHT> r, Collector<Pair<T, RIGHT>> ctx) ->
-                      ctx.collect(Pair.of(l, r.orElse(null))))
-              .applyIf(!windowingStrategy.equals(lc.getWindowingStrategy()), this::createWindowFn)
-              .outputValues()
-              .setCoder(PairCoder.of(lc.getCoder(), rc.getCoder()));
+          JoinInputs<K, T, RIGHT> joinInputs =
+              new JoinInputs<>(
+                  this,
+                  (BeamWindowedStream<RIGHT>) right,
+                  leftKeyDehydrated,
+                  rightKeyDehydrated,
+                  windowingStrategy,
+                  this::getTrigger,
+                  pipeline);
+
+          final TupleTag<T> leftTuple = new TupleTag<>();
+          final TupleTag<RIGHT> rightTuple = new TupleTag<>();
+
+          PCollection<KV<K, CoGbkResult>> coGbkResultCollection =
+              KeyedPCollectionTuple.of(leftTuple, joinInputs.getLeftKv())
+                  .and(rightTuple, joinInputs.getRightKv())
+                  .apply(CoGroupByKey.create());
+
+          TypeDescriptor<T> leftType = joinInputs.getLeftCoder().getEncodedTypeDescriptor();
+          TypeDescriptor<RIGHT> rightType = joinInputs.getRightCoder().getEncodedTypeDescriptor();
+
+          return coGbkResultCollection
+              .apply(ParDo.of(new JoinFn<>(leftTuple, rightTuple, leftType, rightType)))
+              .setTypeDescriptor(PairCoder.descriptor(leftType, rightType))
+              .setCoder(
+                  PairCoder.of(
+                      joinInputs.getLeftCoder(), NullableCoder.of(joinInputs.getRightCoder())));
         });
   }
 
@@ -658,5 +690,98 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         .using(kv -> Pair.of(kv.getKey(), kv.getValue()))
         .output()
         .setCoder(PairCoder.of(keyCoder, valueCoder));
+  }
+
+  private static class JoinFn<K, LEFT, RIGHT> extends DoFn<KV<K, CoGbkResult>, Pair<LEFT, RIGHT>> {
+
+    private final TupleTag<LEFT> leftTuple;
+    private final TupleTag<RIGHT> rightTuple;
+    private final TypeDescriptor<LEFT> leftType;
+    private final TypeDescriptor<RIGHT> rightType;
+
+    JoinFn(
+        TupleTag<LEFT> leftTuple,
+        TupleTag<RIGHT> rightTuple,
+        TypeDescriptor<LEFT> leftType,
+        TypeDescriptor<RIGHT> rightType) {
+
+      this.leftType = leftType;
+      this.rightType = rightType;
+      this.leftTuple = leftTuple;
+      this.rightTuple = rightTuple;
+    }
+
+    @ProcessElement
+    public void processElement(ProcessContext c) {
+      KV<K, CoGbkResult> e = c.element();
+
+      Iterable<LEFT> leftValuesIterable = e.getValue().getAll(leftTuple);
+      Iterable<RIGHT> rightValuesIterable = e.getValue().getAll(rightTuple);
+
+      for (LEFT leftValue : leftValuesIterable) {
+        if (rightValuesIterable.iterator().hasNext()) {
+          for (RIGHT rightValue : rightValuesIterable) {
+            c.output(Pair.of(leftValue, rightValue));
+          }
+        } else {
+          c.output(Pair.of(leftValue, null));
+        }
+      }
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public TypeDescriptor<Pair<LEFT, RIGHT>> getOutputTypeDescriptor() {
+      return PairCoder.descriptor(leftType, rightType);
+    }
+  }
+
+  private static class JoinInputs<K, LEFT, RIGHT> {
+
+    @Getter private final PCollection<KV<K, LEFT>> leftKv;
+    @Getter private final PCollection<KV<K, RIGHT>> rightKv;
+    @Getter private final Coder<LEFT> leftCoder;
+    @Getter private final Coder<RIGHT> rightCoder;
+
+    @SuppressWarnings("unchecked")
+    public JoinInputs(
+        BeamWindowedStream<LEFT> left,
+        BeamWindowedStream<RIGHT> right,
+        Closure<K> leftKeyDehydrated,
+        Closure<K> rightKeyDehydrated,
+        WindowingStrategy<?, ?> windowingStrategy,
+        Supplier<Trigger> triggerSupplier,
+        Pipeline pipeline) {
+
+      PCollection<LEFT> leftTmp = left.collection.materialize(pipeline);
+      PCollection<RIGHT> rightTmp = right.collection.materialize(pipeline);
+      if (!windowingStrategy.equals(leftTmp.getWindowingStrategy())) {
+        leftTmp =
+            leftTmp.apply(
+                createWindowFn(
+                    (WindowingStrategy<LEFT, ?>) windowingStrategy, triggerSupplier.get()));
+      }
+      if (!windowingStrategy.equals(rightTmp.getWindowingStrategy())) {
+        rightTmp =
+            (PCollection)
+                rightTmp.apply(
+                    createWindowFn(
+                        (WindowingStrategy<RIGHT, ?>) windowingStrategy, triggerSupplier.get()));
+      }
+      TypeDescriptor<K> keyType = TypeDescriptor.of(Types.returnClass(leftKeyDehydrated));
+      Coder<K> keyCoder = getCoder(pipeline, keyType);
+      this.leftKv =
+          MapElements.of(leftTmp)
+              .using(e -> KV.of(leftKeyDehydrated.call(e), e))
+              .output()
+              .setCoder(KvCoder.of(keyCoder, leftTmp.getCoder()));
+      this.rightKv =
+          MapElements.of(rightTmp)
+              .using(e -> KV.of(rightKeyDehydrated.call(e), e))
+              .output()
+              .setCoder(KvCoder.of(keyCoder, rightTmp.getCoder()));
+      this.leftCoder = leftTmp.getCoder();
+      this.rightCoder = rightTmp.getCoder();
+    }
   }
 }

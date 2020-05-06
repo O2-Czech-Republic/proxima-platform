@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.storage;
 
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -45,7 +46,6 @@ import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
-import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
@@ -58,6 +58,7 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -284,7 +285,7 @@ public class InMemStorage implements DataAccessorFactory {
       AtomicBoolean killSwitch = new AtomicBoolean();
       Supplier<IntOffset> offsetSupplier =
           flushBasedOnPosition(
-              position, offset, id, stopAtCurrent, killSwitch, threadInterrupt, observer);
+              name, position, offset, id, stopAtCurrent, killSwitch, threadInterrupt, observer);
 
       return createHandle(id, observer, offsetSupplier, killSwitch, threadInterrupt);
     }
@@ -345,6 +346,7 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     private Supplier<IntOffset> flushBasedOnPosition(
+        @Nullable String name,
         Position position,
         IntOffset offset,
         int consumerId,
@@ -354,7 +356,11 @@ public class InMemStorage implements DataAccessorFactory {
         LogObserver observer) {
 
       AtomicLong offsetTracker = new AtomicLong(offset.getOffset());
-      WatermarkEstimator watermark = holder.getWatermarkEstimator(getUri(), offset.getWatermark());
+      WatermarkEstimator watermark =
+          holder.getWatermarkEstimator(
+              getUri(),
+              offset.getWatermark(),
+              MoreObjects.firstNonNull(name, "InMemConsumer@" + getUri() + ":" + consumerId));
       CountDownLatch latch = new CountDownLatch(1);
       observeThread.set(
           new Thread(
@@ -440,7 +446,7 @@ public class InMemStorage implements DataAccessorFactory {
               .entrySet()
               .stream()
               .filter(e -> e.getKey().startsWith(prefix))
-              .sorted((a, b) -> Long.compare(a.getValue().getFirst(), b.getValue().getFirst()))
+              .sorted(Comparator.comparingLong(a -> a.getValue().getFirst()))
               .forEachOrdered(
                   e -> {
                     if (restartedOffset.getAndIncrement() < offset.getOffset()) {
@@ -761,10 +767,15 @@ public class InMemStorage implements DataAccessorFactory {
     }
   }
 
+  @FunctionalInterface
+  public interface WatermarkEstimatorFactory extends Serializable {
+    WatermarkEstimator apply(long stamp, String consumer);
+  }
+
   private static class DataHolder {
     final NavigableMap<String, Pair<Long, byte[]>> data;
     final Map<URI, NavigableMap<Integer, InMemIngestWriter>> observers;
-    final Map<URI, UnaryFunction<Long, WatermarkEstimator>> watermarkEstimatorFactories;
+    final Map<URI, WatermarkEstimatorFactory> watermarkEstimatorFactories;
 
     DataHolder() {
       this.data = Collections.synchronizedNavigableMap(new TreeMap<>());
@@ -772,9 +783,11 @@ public class InMemStorage implements DataAccessorFactory {
       this.watermarkEstimatorFactories = new ConcurrentHashMap<>();
     }
 
-    WatermarkEstimator getWatermarkEstimator(URI uri, long initializationWatermark) {
+    WatermarkEstimator getWatermarkEstimator(
+        URI uri, long initializationWatermark, String consumerName) {
+
       return Optional.ofNullable(watermarkEstimatorFactories.get(uri))
-          .map(f -> f.apply(initializationWatermark))
+          .map(f -> f.apply(initializationWatermark, consumerName))
           .orElseGet(() -> new DefaultWatermarkEstimator(initializationWatermark));
     }
 
@@ -790,10 +803,9 @@ public class InMemStorage implements DataAccessorFactory {
    *
    * @param uri the inmem:// URI
    * @param factory factory to use for creation of the estimator. The input parameter of the factory
-   *     is initial watermark
+   *     is initial watermark and name of consumer
    */
-  public static void setWatermarkEstimatorFactory(
-      URI uri, UnaryFunction<Long, WatermarkEstimator> factory) {
+  public static void setWatermarkEstimatorFactory(URI uri, WatermarkEstimatorFactory factory) {
     Preconditions.checkArgument(uri.getScheme().equals("inmem"), "Expected inmem URI got %s", uri);
     holder.watermarkEstimatorFactories.put(uri, factory);
   }

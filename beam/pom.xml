@@ -154,6 +154,12 @@
 
       <dependency>
         <groupId>${apache.beam.groupId}</groupId>
+        <artifactId>beam-sdks-java-extensions-join-library</artifactId>
+        <version>${apache.beam.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>${apache.beam.groupId}</groupId>
         <artifactId>beam-sdks-java-extensions-kryo</artifactId>
         <version>${apache.beam.version}</version>
       </dependency>

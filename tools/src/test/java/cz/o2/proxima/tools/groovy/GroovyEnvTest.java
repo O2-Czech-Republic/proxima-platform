@@ -23,6 +23,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Script;
+import groovy.lang.Tuple;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -349,6 +350,104 @@ public abstract class GroovyEnvTest extends GroovyTest {
         result.stream().collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
     assertEquals((Integer) 2, resultMap.get("key1").get(1));
     assertEquals((Integer) 1, resultMap.get("key2").get(1));
+  }
+
+  @Test
+  public void testJoin() throws Exception {
+    final Script compiled =
+        compile(
+            "env.batch.wildcard.batchUpdates().join("
+                + "env.batch.wildcard.batchUpdates(), { it.key }, { it.key })"
+                + ".map({ new Tuple(it.first.key, it.second.key) })"
+                + ".collect()");
+
+    write(
+        StreamElement.upsert(
+            batch,
+            wildcard,
+            "uuid1",
+            "key1",
+            wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(),
+            new byte[] {}));
+    write(
+        StreamElement.upsert(
+            batch,
+            wildcard,
+            "uuid2",
+            "key2",
+            wildcard.toAttributePrefix() + "2",
+            System.currentTimeMillis(),
+            new byte[] {}));
+    write(
+        StreamElement.upsert(
+            batch,
+            data,
+            "uuid3",
+            "key3",
+            wildcard.toAttributePrefix() + "3",
+            System.currentTimeMillis(),
+            new byte[] {}));
+
+    @SuppressWarnings("unchecked")
+    List<Tuple> result = (List) compiled.run();
+    Map<String, String> resultMap =
+        result
+            .stream()
+            .map(t -> Pair.of(t.get(0).toString(), t.get(1).toString()))
+            .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+    assertEquals(3, resultMap.size());
+    assertEquals("key1", resultMap.get("key1"));
+    assertEquals("key2", resultMap.get("key2"));
+    assertEquals("key3", resultMap.get("key3"));
+  }
+
+  @Test
+  public void testLeftOuterJoin() throws Exception {
+    final Script compiled =
+        compile(
+            "env.batch.wildcard.batchUpdates().leftJoin("
+                + "env.batch.wildcard.batchUpdates().filter({ it.key != \"key1\" }), { it.key }, { it.key })"
+                + ".collect()");
+
+    write(
+        StreamElement.upsert(
+            batch,
+            wildcard,
+            "uuid1",
+            "key1",
+            wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(),
+            new byte[] {}));
+    write(
+        StreamElement.upsert(
+            batch,
+            wildcard,
+            "uuid2",
+            "key2",
+            wildcard.toAttributePrefix() + "2",
+            System.currentTimeMillis(),
+            new byte[] {}));
+    write(
+        StreamElement.upsert(
+            batch,
+            data,
+            "uuid3",
+            "key3",
+            wildcard.toAttributePrefix() + "3",
+            System.currentTimeMillis(),
+            new byte[] {}));
+
+    @SuppressWarnings("unchecked")
+    List<Pair<StreamElement, StreamElement>> result = (List) compiled.run();
+    Map<String, String> resultMap =
+        result
+            .stream()
+            .filter(p -> p.getSecond() != null)
+            .collect(Collectors.toMap(p -> p.getFirst().getKey(), p -> p.getSecond().getKey()));
+    assertEquals(2, resultMap.size());
+    assertEquals("key2", resultMap.get("key2"));
+    assertEquals("key3", resultMap.get("key3"));
   }
 
   @Test

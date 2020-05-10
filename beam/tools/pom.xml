@@ -107,6 +107,11 @@
 
     <dependency>
       <groupId>${apache.beam.groupId}</groupId>
+      <artifactId>beam-sdks-java-extensions-join-library</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>${apache.beam.groupId}</groupId>
       <artifactId>beam-sdks-java-extensions-kryo</artifactId>
     </dependency>
 

@@ -34,6 +34,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -42,16 +43,19 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /** Storage acting as a bulk in memory storage. */
+@Slf4j
 public class InMemBulkStorage implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;
 
-  private class Writer extends AbstractBulkAttributeWriter {
+  private static class Writer extends AbstractBulkAttributeWriter {
 
     int writtenSinceLastCommit = 0;
+    CommitCallback toCommit = null;
+    long lastWriteWatermark = Long.MIN_VALUE;
 
     public Writer(EntityDescriptor entityDesc, URI uri) {
       super(entityDesc, uri);
@@ -61,13 +65,28 @@ public class InMemBulkStorage implements DataAccessorFactory {
     public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
 
       // store the data, commit after each 10 elements
-      InMemBulkStorage.this.data.put(
+      log.debug("Writing {} into {}", data, getUri());
+      InMemBulkStorage.data.put(
           getUri().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
           Pair.of(data.getStamp(), data.getValue()));
+      lastWriteWatermark = watermark;
+      toCommit = statusCallback;
       if (++writtenSinceLastCommit >= 10) {
-        statusCallback.commit(true, null);
-        writtenSinceLastCommit = 0;
+        commit();
       }
+    }
+
+    @Override
+    public void updateWatermark(long watermark) {
+      if (toCommit != null && lastWriteWatermark + 3600000L < watermark) {
+        commit();
+      }
+    }
+
+    void commit() {
+      Optional.ofNullable(toCommit).ifPresent(c -> c.commit(true, null));
+      writtenSinceLastCommit = 0;
+      toCommit = null;
     }
 
     @Override
@@ -81,7 +100,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
     }
   }
 
-  private class BatchObservable extends AbstractStorage implements BatchLogObservable {
+  private static class BatchObservable extends AbstractStorage implements BatchLogObservable {
 
     private final Factory<ExecutorService> executorFactory;
     private transient ExecutorService executor;
@@ -112,7 +131,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
           .execute(
               () -> {
                 try {
-                  InMemBulkStorage.this.data.forEach(
+                  InMemBulkStorage.data.forEach(
                       (k, v) -> {
                         String[] parts = k.substring(prefix).split("#");
                         String key = parts[0];
@@ -134,7 +153,8 @@ public class InMemBulkStorage implements DataAccessorFactory {
                                           key,
                                           attribute,
                                           v.getFirst(),
-                                          v.getSecond()));
+                                          v.getSecond()),
+                                      Partition.of(0));
                                 });
                       });
                   observer.onCompleted();
@@ -175,7 +195,8 @@ public class InMemBulkStorage implements DataAccessorFactory {
     }
   }
 
-  @Getter private final NavigableMap<String, Pair<Long, byte[]>> data = new TreeMap<>();
+  private static final NavigableMap<String, Pair<Long, byte[]>> data =
+      Collections.synchronizedNavigableMap(new TreeMap<>());
 
   @Override
   public Accept accepts(URI uri) {
@@ -187,5 +208,10 @@ public class InMemBulkStorage implements DataAccessorFactory {
       DirectDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     return new InMemBulkAccessor(entity, uri);
+  }
+
+  public NavigableMap<String, Pair<Long, byte[]>> getData(String prefix) {
+    return Collections.unmodifiableNavigableMap(
+        data.subMap(prefix, true, prefix + Character.MAX_VALUE, false));
   }
 }

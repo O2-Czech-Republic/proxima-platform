@@ -671,7 +671,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   }
 
   @Override
-  public WindowedStream<T> windowAll() {
+  public BeamWindowedStream<T> windowAll() {
     if (!windowingStrategy.equals(WindowingStrategy.globalDefault())) {
       return intoGlobalWindow();
     }

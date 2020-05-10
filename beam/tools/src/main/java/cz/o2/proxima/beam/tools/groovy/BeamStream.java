@@ -19,11 +19,15 @@ import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
+import cz.o2.proxima.direct.core.AttributeWriterBase;
+import cz.o2.proxima.direct.core.BulkAttributeWriter;
+import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.functional.BiFunction;
@@ -49,6 +53,7 @@ import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.tools.groovy.util.Types;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.util.SerializableScopedValue;
 import fi.iki.elonen.NanoHTTPD;
 import groovy.lang.Closure;
 import groovy.lang.Tuple;
@@ -135,6 +140,7 @@ import org.apache.beam.sdk.values.PCollection.IsBounded;
 import org.apache.beam.sdk.values.PCollectionList;
 import org.apache.beam.sdk.values.PDone;
 import org.apache.beam.sdk.values.TypeDescriptor;
+import org.apache.beam.sdk.values.TypeDescriptors;
 import org.apache.beam.sdk.values.WindowingStrategy;
 import org.apache.beam.sdk.values.WindowingStrategy.AccumulationMode;
 import org.codehaus.groovy.runtime.GStringImpl;
@@ -373,6 +379,10 @@ class BeamStream<T> implements Stream<T> {
     } else {
       pcoll.apply(asWriteTransform(asDoFn(consumer)));
     }
+    runPipeline(pipeline);
+  }
+
+  private void runPipeline(Pipeline pipeline) {
     AtomicReference<PipelineResult> result = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
     Thread running =
@@ -503,6 +513,56 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @Override
+  public void persistIntoTargetFamily(
+      RepositoryProvider repoProvider, String targetFamilyname, int parallelism) {
+    DirectAttributeFamilyDescriptor familyDescriptor =
+        repoProvider
+            .getDirect()
+            .getAllFamilies()
+            .filter(af -> af.getDesc().getName().equals(targetFamilyname))
+            .findAny()
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        String.format("Family [%s] does not exist", targetFamilyname)));
+    Preconditions.checkArgument(!familyDescriptor.getDesc().getAccess().isReadonly());
+    AttributeWriterBase rawWriter =
+        familyDescriptor
+            .getWriter()
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        String.format("Family [%s] does not have writer", targetFamilyname)));
+    SerializableScopedValue<Integer, AttributeWriterBase> writer =
+        new SerializableScopedValue<>(rawWriter);
+    Set<String> allowedAttributes =
+        familyDescriptor
+            .getAttributes()
+            .stream()
+            .map(AttributeDescriptor::getName)
+            .collect(Collectors.toSet());
+    switch (rawWriter.getType()) {
+      case ONLINE:
+        writeUsingOnlineWriterFactory(
+            "write-to-" + targetFamilyname,
+            el -> {
+              Preconditions.checkArgument(
+                  el == null || allowedAttributes.contains(el.getAttributeDescriptor().getName()));
+              return writer.get(0).online();
+            });
+        break;
+      case BULK:
+        writeUsingBulkWriterFactory(
+            "write-bulk-to-" + targetFamilyname,
+            parallelism,
+            BulkWriterFactory.wrap(writer, allowedAttributes));
+        break;
+      default:
+        throw new IllegalArgumentException("Unknonw type " + rawWriter.getType());
+    }
+  }
+
+  @Override
   public <V> BeamStream<StreamElement> asStreamElements(
       RepositoryProvider repoProvider,
       EntityDescriptor entity,
@@ -568,26 +628,35 @@ class BeamStream<T> implements Stream<T> {
 
     RepositoryFactory factory = repoProvider.getRepo().asFactory();
 
+    writeUsingOnlineWriterFactory(
+        "write",
+        el ->
+            factory
+                .apply()
+                .getOrCreateOperator(DirectDataOperator.class)
+                .getWriter(el.getAttributeDescriptor())
+                .orElseThrow(() -> new IllegalStateException("Missing writer for " + el)));
+  }
+
+  void writeUsingOnlineWriterFactory(
+      String name, UnaryFunction<StreamElement, OnlineAttributeWriter> writerFactory) {
+
     @SuppressWarnings("unchecked")
     BeamStream<StreamElement> elements = (BeamStream<StreamElement>) this;
     elements.forEach(
-        "write",
+        name,
         el -> {
+          OnlineAttributeWriter writer = writerFactory.apply(el);
           CountDownLatch latch = new CountDownLatch(1);
           AtomicReference<Throwable> err = new AtomicReference<>();
-          OnlineAttributeWriter writer =
-              factory
-                  .apply()
-                  .getOrCreateOperator(DirectDataOperator.class)
-                  .getWriter(el.getAttributeDescriptor())
-                  .orElseThrow(() -> new IllegalStateException("Missing writer for " + el));
-
-          writer.write(
-              el,
-              (succ, exc) -> {
-                latch.countDown();
-                err.set(exc);
-              });
+          writer
+              .online()
+              .write(
+                  el,
+                  (succ, exc) -> {
+                    latch.countDown();
+                    err.set(exc);
+                  });
           try {
             latch.await();
           } catch (InterruptedException ex) {
@@ -599,6 +668,20 @@ class BeamStream<T> implements Stream<T> {
           }
         },
         false);
+  }
+
+  private void writeUsingBulkWriterFactory(
+      String name, int parallelism, BulkWriterFactory factory) {
+
+    Pipeline pipeline = createPipeline();
+    @SuppressWarnings("unchecked")
+    PCollection<StreamElement> elements =
+        (PCollection<StreamElement>) windowAll().collection.materialize(pipeline);
+    Preconditions.checkArgument(
+        elements.isBounded() == IsBounded.BOUNDED,
+        "Persising into bulk families is currently supported in batch mode only.");
+    elements.apply(name, createBulkWriteTransform(parallelism, factory));
+    runPipeline(pipeline);
   }
 
   @Override
@@ -631,7 +714,7 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @Override
-  public WindowedStream<T> windowAll() {
+  public BeamWindowedStream<T> windowAll() {
     return windowed(collection::materialize, new GlobalWindows());
   }
 
@@ -1102,6 +1185,34 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
+  private static PTransform<PCollection<StreamElement>, PDone> createBulkWriteTransform(
+      int parallelism, BulkWriterFactory factory) {
+
+    return createBulkWriteTransform(
+        el -> (el.getKey().hashCode() & Integer.MAX_VALUE) % parallelism,
+        new BulkWriteDoFn(factory));
+  }
+
+  @VisibleForTesting
+  static PTransform<PCollection<StreamElement>, PDone> createBulkWriteTransform(
+      UnaryFunction<StreamElement, Integer> keyFn, BulkWriteDoFn bulkWriteDoFn) {
+
+    return new PTransform<PCollection<StreamElement>, PDone>() {
+
+      @Override
+      public PDone expand(PCollection<StreamElement> input) {
+        input
+            .apply(
+                org.apache.beam.sdk.transforms.MapElements.into(
+                        TypeDescriptors.kvs(
+                            TypeDescriptors.integers(), TypeDescriptor.of(StreamElement.class)))
+                    .via(el -> KV.of(keyFn.apply(el), el)))
+            .apply(ParDo.of(bulkWriteDoFn));
+        return PDone.in(input.getPipeline());
+      }
+    };
+  }
+
   private static class ConsumeFn<T> extends DoFn<T, Void> {
 
     private final Consumer<T> consumer;
@@ -1475,5 +1586,102 @@ class BeamStream<T> implements Stream<T> {
 
   static @Nullable String withSuffix(@Nullable String prefix, String suffix) {
     return prefix == null ? null : prefix + suffix;
+  }
+
+  @VisibleForTesting
+  static class BulkWriteDoFn extends DoFn<KV<Integer, StreamElement>, Void> {
+
+    private static final String TIMER_NAME = "flushTimer";
+    private static final String KEY_NAME = "flushTimerKey";
+    private static final Instant END_OF_TIME =
+        BoundedWindow.TIMESTAMP_MAX_VALUE.minus(Duration.standardDays(100));
+
+    @TimerId(TIMER_NAME)
+    private final TimerSpec finishTimer = TimerSpecs.timer(TimeDomain.EVENT_TIME);
+
+    @StateId(KEY_NAME)
+    private final StateSpec<ValueState<Integer>> keyStateSpec = StateSpecs.value();
+
+    private final BulkWriterFactory factory;
+    private final AtomicReference<Throwable> error = new AtomicReference<>();
+
+    public BulkWriteDoFn(BulkWriterFactory factory) {
+      this.factory = factory;
+    }
+
+    @RequiresTimeSortedInput
+    @ProcessElement
+    public void process(
+        @Element KV<Integer, StreamElement> element,
+        @TimerId(TIMER_NAME) Timer timer,
+        @StateId(KEY_NAME) ValueState<Integer> keyState) {
+
+      throwOnError();
+      if (keyState.read() == null) {
+        timer.set(END_OF_TIME);
+        keyState.write(element.getKey());
+      }
+
+      factory.checkAllowed(element.getValue().getAttributeDescriptor());
+      BulkAttributeWriter writer = factory.getWriter(element.getKey());
+      writer.write(
+          element.getValue(),
+          element.getValue().getStamp(),
+          (succ, exc) -> {
+            if (!succ) {
+              error.set(exc);
+            }
+          });
+    }
+
+    @OnTimer(TIMER_NAME)
+    public void flush(@StateId(KEY_NAME) ValueState<Integer> keyState) {
+      int key = keyState.read();
+      throwOnError();
+      BulkAttributeWriter writer = factory.getWriter(key);
+      writer.updateWatermark(BoundedWindow.TIMESTAMP_MAX_VALUE.getMillis());
+      writer.close();
+      factory.resetWriter(key);
+    }
+
+    void throwOnError() {
+      Throwable err = error.getAndSet(null);
+      if (err != null) {
+        throw new RuntimeException(err);
+      }
+    }
+  }
+
+  @VisibleForTesting
+  interface BulkWriterFactory extends Serializable {
+
+    static BulkWriterFactory wrap(
+        SerializableScopedValue<Integer, AttributeWriterBase> writer,
+        Set<String> allowedAttributes) {
+
+      return new BulkWriterFactory() {
+        @Override
+        public BulkAttributeWriter getWriter(int key) {
+          return writer.get(key).bulk();
+        }
+
+        @Override
+        public void checkAllowed(AttributeDescriptor<?> attribute) {
+          Preconditions.checkArgument(allowedAttributes.contains(attribute.getName()));
+        }
+
+        @Override
+        public void resetWriter(int key) {
+          writer.reset(key);
+        }
+      };
+    }
+
+    BulkAttributeWriter getWriter(int key);
+
+    void checkAllowed(AttributeDescriptor<?> attribute);
+
+    /** After the writer has been closed, reset internal reference. */
+    void resetWriter(int key);
   }
 }

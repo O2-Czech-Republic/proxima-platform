@@ -21,7 +21,13 @@ import cz.o2.proxima.repository.Repository;
 /** Provider of repository. */
 public interface RepositoryProvider {
 
+  static RepositoryProvider from(Repository repo) {
+    return () -> repo;
+  }
+
   Repository getRepo();
 
-  DirectDataOperator getDirect();
+  default DirectDataOperator getDirect() {
+    return getRepo().getOrCreateOperator(DirectDataOperator.class);
+  }
 }

@@ -35,6 +35,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -52,6 +53,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.core.org.apache.commons.compress.utils.IOUtils;
+import org.apache.beam.runners.core.construction.resources.PipelineResources;
+import org.apache.beam.runners.spark.SparkCommonPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineRunner;
 import org.apache.beam.sdk.options.PipelineOptions;
@@ -198,8 +201,9 @@ public abstract class BeamStreamProvider implements StreamProvider {
     UnaryFunction<PipelineOptions, Pipeline> createPipeline = getCreatePipelineFromOpts();
     return () -> {
       PipelineOptions opts = factory.get();
-      createUdfJarAndRegisterToPipeline(opts);
-      return createPipeline.apply(opts);
+      Pipeline pipeline = createPipeline.apply(opts);
+      createUdfJarAndRegisterToPipeline(pipeline.getOptions());
+      return pipeline;
     };
   }
 
@@ -227,6 +231,26 @@ public abstract class BeamStreamProvider implements StreamProvider {
       if (opts.getRunner().getClassLoader() instanceof URLClassLoader) {
         // this is fallback
         injectUrlIntoClassloader((URLClassLoader) opts.getRunner().getClassLoader(), url);
+      }
+      if (runnerName.equals("SparkRunner")) {
+        List<String> filesToStage =
+            PipelineResources.detectClassPathResourcesToStage(
+                Thread.currentThread().getContextClassLoader(), opts);
+        log.info("Injecting generated jar {} into SparkRunner.filesToStage", url.toExternalForm());
+        SparkCommonPipelineOptions sparkOpts = opts.as(SparkCommonPipelineOptions.class);
+        filesToStage.add(url.toExternalForm());
+        sparkOpts.setFilesToStage(
+            filesToStage
+                .stream()
+                .filter(
+                    f -> {
+                      URI uri = URI.create(f);
+                      if (!uri.isAbsolute()) {
+                        uri = URI.create("file:///" + f);
+                      }
+                      return !new File(uri).isDirectory();
+                    })
+                .collect(Collectors.toList()));
       }
     } catch (IOException ex) {
       throw new RuntimeException(ex);

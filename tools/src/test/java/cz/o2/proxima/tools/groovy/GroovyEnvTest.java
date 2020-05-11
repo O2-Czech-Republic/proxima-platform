@@ -596,7 +596,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     assertEquals(Arrays.asList(2), resultMap.get("key2"));
   }
 
-  @Test(timeout = 10000)
+  @Test
   public void testReduceValueWithIntegratePerKey() throws Exception {
     int prefixLen = wildcard.toAttributePrefix().length();
     final Script compiled =

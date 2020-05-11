@@ -42,40 +42,21 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BulkGCloudStorageWriter extends GCloudClient implements BulkAttributeWriter {
 
-  private final File tmpDir;
-  private final FileSystem localFs;
-  private final NamingConvention namingConvention;
-  private final BulkAttributeWriter wrap;
-  private final int bufferSize;
+  private final GCloudStorageAccessor accessor;
+  private final Context context;
+  private transient File tmpDir;
+  private transient FileSystem localFs;
+  private transient NamingConvention namingConvention;
+  private transient BulkAttributeWriter wrap;
+  private transient int bufferSize;
   private transient boolean initialized;
 
   public BulkGCloudStorageWriter(
       EntityDescriptor entityDesc, GCloudStorageAccessor accessor, Context context) {
 
     super(entityDesc, accessor.getUri(), accessor.getCfg());
-
-    tmpDir = accessor.getTmpDir();
-    localFs = FileSystem.local(tmpDir, accessor.getNamingConvention());
-    namingConvention = accessor.getNamingConvention();
-
-    wrap =
-        new AbstractBulkFileSystemAttributeWriter(
-            entityDesc,
-            accessor.getUri(),
-            localFs,
-            accessor.getNamingConvention(),
-            accessor.getFileFormat(),
-            context,
-            accessor.getRollPeriod(),
-            accessor.getAllowedLateness()) {
-
-          @Override
-          protected void flush(Bulk bulk) {
-            ExceptionUtils.unchecked(
-                () -> BulkGCloudStorageWriter.this.flush(bulk.getPath(), bulk.getMaxTs()));
-          }
-        };
-    bufferSize = accessor.getBufferSize();
+    this.accessor = accessor;
+    this.context = context;
     init();
   }
 
@@ -97,6 +78,28 @@ public class BulkGCloudStorageWriter extends GCloudClient implements BulkAttribu
 
   private void init() {
     if (!initialized) {
+      tmpDir = accessor.getTmpDir();
+      localFs = FileSystem.local(tmpDir, accessor.getNamingConvention());
+      namingConvention = accessor.getNamingConvention();
+      wrap =
+          new AbstractBulkFileSystemAttributeWriter(
+              getEntityDescriptor(),
+              accessor.getUri(),
+              localFs,
+              accessor.getNamingConvention(),
+              accessor.getFileFormat(),
+              context,
+              accessor.getRollPeriod(),
+              accessor.getAllowedLateness()) {
+
+            @Override
+            protected void flush(Bulk bulk) {
+              ExceptionUtils.unchecked(
+                  () -> BulkGCloudStorageWriter.this.flush(bulk.getPath(), bulk.getMaxTs()));
+            }
+          };
+      bufferSize = accessor.getBufferSize();
+
       if (!tmpDir.exists()) {
         tmpDir.mkdirs();
       } else if (tmpDir.isDirectory()) {

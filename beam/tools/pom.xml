@@ -31,6 +31,10 @@
 
   <name>${project.groupId}:${project.artifactId}</name>
 
+  <properties>
+    <spark.version>2.4.5</spark.version>
+  </properties>
+
   <build>
     <plugins>
       <plugin>
@@ -72,6 +76,21 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.22.2</version>
+        <configuration>
+          <forkCount>${surefire.forkCount}</forkCount>
+          <reuseForks>false</reuseForks>
+          <threadCount>1</threadCount>
+          <parallel>suites</parallel>
+          <useSystemClassLoader>true</useSystemClassLoader>
+          <useManifestOnlyJar>false</useManifestOnlyJar>
+          <argLine>@{argLine} -Xmx700m -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true</argLine>
+        </configuration>
       </plugin>
     </plugins>
   </build>
@@ -165,6 +184,25 @@
     <dependency>
       <groupId>${apache.beam.groupId}</groupId>
       <artifactId>beam-runners-flink-1.9</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>${apache.beam.groupId}</groupId>
+      <artifactId>beam-runners-spark</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-core_${scala.version}</artifactId>
+      <version>${spark.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-streaming_${scala.version}</artifactId>
+      <version>${spark.version}</version>
+      <scope>test</scope>
     </dependency>
 
     <dependency>

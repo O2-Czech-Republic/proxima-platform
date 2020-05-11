@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.runners.flink.FlinkRunner;
+import org.apache.beam.runners.spark.SparkRunner;
 import org.apache.beam.sdk.PipelineRunner;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -34,7 +35,7 @@ public class BeamGroovyEnvTest extends GroovyEnvTest {
 
   @Parameters
   public static Collection<Class<? extends PipelineRunner>> parameters() {
-    return Arrays.asList(DirectRunner.class, FlinkRunner.class);
+    return Arrays.asList(DirectRunner.class, FlinkRunner.class, SparkRunner.class);
   }
 
   public BeamGroovyEnvTest(Class<? extends PipelineRunner> runner) {

@@ -2111,12 +2111,10 @@ public final class ConfigRepository extends Repository {
   }
 
   private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
-    RepositoryFactory readFactory = (RepositoryFactory) ois.readObject();
-    this.factory = readFactory;
+    factory = (RepositoryFactory) ois.readObject();
   }
 
   private Object readResolve() throws ObjectStreamException {
-    Preconditions.checkState(this.factory != null);
-    return this.factory.apply();
+    return Objects.requireNonNull(factory).apply();
   }
 }

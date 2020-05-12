@@ -19,6 +19,7 @@ package cz.o2.proxima.repository;
 public class ConfigConstants {
 
   // config parsing constants
+  public static final String VALIDATIONS = "validations";
   public static final String ALL = "all";
   public static final String LOCAL = "local";
   public static final String READ = "read";

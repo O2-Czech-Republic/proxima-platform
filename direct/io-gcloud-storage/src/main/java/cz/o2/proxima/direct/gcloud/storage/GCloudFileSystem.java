@@ -77,13 +77,13 @@ public class GCloudFileSystem extends GCloudClient implements FileSystem {
             .collect(Collectors.toList());
     prefixes.forEach(
         prefix -> {
-          Page<Blob> p = client().list(this.bucket, BlobListOption.prefix(prefix));
+          Page<Blob> p = client().list(this.getBucket(), BlobListOption.prefix(prefix));
           Set<Blob> sorted = new TreeSet<>(Comparator.comparing(BlobInfo::getName));
           p.iterateAll().forEach(sorted::add);
           log.debug(
               "Search of prefix {} in bucket {} yielded {} candidate blobs",
               prefix,
-              bucket,
+              getBucket(),
               sorted.size());
           for (Blob blob : sorted) {
             log.trace("Considering blob {} for inclusion into partition", blob);

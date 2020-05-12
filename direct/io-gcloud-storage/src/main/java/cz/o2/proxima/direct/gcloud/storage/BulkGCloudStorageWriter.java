@@ -33,8 +33,11 @@ import cz.o2.proxima.util.ExceptionUtils;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectStreamException;
 import java.nio.ByteBuffer;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /** {@link BulkAttributeWriter} for gcloud storage. */
@@ -42,46 +45,26 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class BulkGCloudStorageWriter extends GCloudClient implements BulkAttributeWriter {
 
-  private final File tmpDir;
-  private final FileSystem localFs;
-  private final NamingConvention namingConvention;
-  private final BulkAttributeWriter wrap;
-  private final int bufferSize;
+  private final GCloudStorageAccessor accessor;
+  private final Context context;
+  private transient NamingConvention namingConvention;
+  private transient BulkAttributeWriter wrap;
+  private transient int bufferSize;
+
+  @Getter(AccessLevel.PACKAGE)
   private transient boolean initialized;
 
   public BulkGCloudStorageWriter(
       EntityDescriptor entityDesc, GCloudStorageAccessor accessor, Context context) {
 
     super(entityDesc, accessor.getUri(), accessor.getCfg());
-
-    tmpDir = accessor.getTmpDir();
-    localFs = FileSystem.local(tmpDir, accessor.getNamingConvention());
-    namingConvention = accessor.getNamingConvention();
-
-    wrap =
-        new AbstractBulkFileSystemAttributeWriter(
-            entityDesc,
-            accessor.getUri(),
-            localFs,
-            accessor.getNamingConvention(),
-            accessor.getFileFormat(),
-            context,
-            accessor.getRollPeriod(),
-            accessor.getAllowedLateness()) {
-
-          @Override
-          protected void flush(Bulk bulk) {
-            ExceptionUtils.unchecked(
-                () -> BulkGCloudStorageWriter.this.flush(bulk.getPath(), bulk.getMaxTs()));
-          }
-        };
-    bufferSize = accessor.getBufferSize();
+    this.accessor = accessor;
+    this.context = context;
     init();
   }
 
   @Override
   public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
-    init();
     wrap.write(data, watermark, statusCallback);
   }
 
@@ -97,6 +80,28 @@ public class BulkGCloudStorageWriter extends GCloudClient implements BulkAttribu
 
   private void init() {
     if (!initialized) {
+      File tmpDir = accessor.getTmpDir();
+      FileSystem localFs = FileSystem.local(tmpDir, accessor.getNamingConvention());
+      namingConvention = accessor.getNamingConvention();
+      wrap =
+          new AbstractBulkFileSystemAttributeWriter(
+              getEntityDescriptor(),
+              accessor.getUri(),
+              localFs,
+              accessor.getNamingConvention(),
+              accessor.getFileFormat(),
+              context,
+              accessor.getRollPeriod(),
+              accessor.getAllowedLateness()) {
+
+            @Override
+            protected void flush(Bulk bulk) {
+              ExceptionUtils.unchecked(
+                  () -> BulkGCloudStorageWriter.this.flush(bulk.getPath(), bulk.getMaxTs()));
+            }
+          };
+      bufferSize = accessor.getBufferSize();
+
       if (!tmpDir.exists()) {
         tmpDir.mkdirs();
       } else if (tmpDir.isDirectory()) {
@@ -161,6 +166,10 @@ public class BulkGCloudStorageWriter extends GCloudClient implements BulkAttribu
 
   @VisibleForTesting
   void flushToBlob(long bucketEndStamp, Path file, Blob blob) throws IOException {
+    retry(() -> ExceptionUtils.unchecked(() -> flushToBlobInternal(file, blob)));
+  }
+
+  private void flushToBlobInternal(Path file, Blob blob) throws IOException {
     int written = 0;
     try (final WriteChannel channel = client().writer(blob);
         final InputStream fin = file.reader()) {
@@ -189,5 +198,10 @@ public class BulkGCloudStorageWriter extends GCloudClient implements BulkAttribu
   @Override
   public void close() {
     wrap.close();
+  }
+
+  protected Object readResolve() throws ObjectStreamException {
+    init();
+    return this;
   }
 }

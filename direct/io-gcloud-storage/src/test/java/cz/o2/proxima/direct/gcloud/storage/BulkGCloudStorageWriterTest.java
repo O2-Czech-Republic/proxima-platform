@@ -33,7 +33,10 @@ import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
+import java.io.ObjectStreamException;
+import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -60,15 +63,15 @@ import org.junit.runners.Parameterized;
 
 /** Test suite for {@link BulkGCloudStorageWriter}. */
 @RunWith(Parameterized.class)
-public class BulkGCloudStorageWriterTest {
+public class BulkGCloudStorageWriterTest implements Serializable {
 
-  @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
+  @Rule public final transient TemporaryFolder tempFolder = new TemporaryFolder();
 
   final Repository repo = Repository.of(ConfigFactory.load().resolve());
-  final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final AttributeDescriptor<?> attr;
   final AttributeDescriptor<?> wildcard;
   final EntityDescriptor entity;
+  final transient DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
 
   @Parameterized.Parameters
   public static Collection<Boolean> parameters() {
@@ -149,6 +152,10 @@ public class BulkGCloudStorageWriterTest {
               }
             }
           }
+
+          protected Object readResolve() throws ObjectStreamException {
+            return super.readResolve();
+          }
         };
   }
 
@@ -161,6 +168,12 @@ public class BulkGCloudStorageWriterTest {
   public synchronized void testWriteToJson() throws Exception {
     initWriter(cfg("json"));
     testWriteWithWriter();
+  }
+
+  @Test
+  public void testSerializable() throws IOException, ClassNotFoundException, InterruptedException {
+    BulkGCloudStorageWriter clone = TestUtils.assertSerializable(writer);
+    assertTrue(clone.isInitialized());
   }
 
   void testWriteWithWriter() throws InterruptedException, IOException {

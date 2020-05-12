@@ -132,12 +132,24 @@ public final class ConfigRepository extends Repository {
     private final Config config;
     private boolean cachingEnabled = true;
     private boolean readOnly = false;
-    private int validate = Validate.ALL.getFlag();
+    private int validate;
     private boolean loadFamilies = true;
     private boolean loadClasses = true;
 
     private Builder(Config config) {
       this.config = Objects.requireNonNull(config);
+      this.validate = getDefaultValidationFlags(config);
+    }
+
+    private int getDefaultValidationFlags(Config config) {
+      if (config.hasPath(VALIDATIONS)) {
+        return config
+            .getStringList(VALIDATIONS)
+            .stream()
+            .map(Validate::valueOf)
+            .reduce(0, (flag, v) -> flag | v.getFlag(), (a, b) -> a | b);
+      }
+      return Validate.ALL.getFlag();
     }
 
     public Builder withCachingEnabled(boolean flag) {

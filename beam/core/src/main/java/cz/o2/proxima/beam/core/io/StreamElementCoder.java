@@ -171,4 +171,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
   public int hashCode() {
     return 0;
   }
+
+  @Override
+  public void verifyDeterministic() {}
 }

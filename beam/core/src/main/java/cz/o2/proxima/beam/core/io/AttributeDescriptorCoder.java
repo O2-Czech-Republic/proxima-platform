@@ -76,4 +76,7 @@ public class AttributeDescriptorCoder extends AbstractRepositoryCoder<AttributeD
   public TypeDescriptor<AttributeDescriptor<?>> getEncodedTypeDescriptor() {
     return (TypeDescriptor) TypeDescriptor.of(AttributeDescriptor.class);
   }
+
+  @Override
+  public void verifyDeterministic() {}
 }

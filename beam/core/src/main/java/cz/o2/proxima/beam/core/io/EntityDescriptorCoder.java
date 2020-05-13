@@ -71,4 +71,7 @@ public class EntityDescriptorCoder extends AbstractRepositoryCoder<EntityDescrip
   public TypeDescriptor<EntityDescriptor> getEncodedTypeDescriptor() {
     return TypeDescriptor.of(EntityDescriptor.class);
   }
+
+  @Override
+  public void verifyDeterministic() {}
 }

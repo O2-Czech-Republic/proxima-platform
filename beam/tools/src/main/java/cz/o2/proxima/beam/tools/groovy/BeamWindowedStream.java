@@ -482,12 +482,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
                   .and(rightTuple, joinInputs.getRightKv())
                   .apply(CoGroupByKey.create());
 
-          TypeDescriptor<T> leftType = joinInputs.getLeftCoder().getEncodedTypeDescriptor();
-          TypeDescriptor<RIGHT> rightType = joinInputs.getRightCoder().getEncodedTypeDescriptor();
-
           return coGbkResultCollection
-              .apply(ParDo.of(new JoinFn<>(leftTuple, rightTuple, leftType, rightType)))
-              .setTypeDescriptor(PairCoder.descriptor(leftType, rightType))
+              .apply(ParDo.of(new JoinFn<>(leftTuple, rightTuple)))
               .setCoder(
                   PairCoder.of(
                       joinInputs.getLeftCoder(), NullableCoder.of(joinInputs.getRightCoder())));
@@ -696,17 +692,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
 
     private final TupleTag<LEFT> leftTuple;
     private final TupleTag<RIGHT> rightTuple;
-    private final TypeDescriptor<LEFT> leftType;
-    private final TypeDescriptor<RIGHT> rightType;
 
-    JoinFn(
-        TupleTag<LEFT> leftTuple,
-        TupleTag<RIGHT> rightTuple,
-        TypeDescriptor<LEFT> leftType,
-        TypeDescriptor<RIGHT> rightType) {
-
-      this.leftType = leftType;
-      this.rightType = rightType;
+    JoinFn(TupleTag<LEFT> leftTuple, TupleTag<RIGHT> rightTuple) {
       this.leftTuple = leftTuple;
       this.rightTuple = rightTuple;
     }
@@ -729,10 +716,11 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       }
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     @Override
     public TypeDescriptor<Pair<LEFT, RIGHT>> getOutputTypeDescriptor() {
-      return PairCoder.descriptor(leftType, rightType);
+      return (TypeDescriptor)
+          PairCoder.descriptor(TypeDescriptor.of(Object.class), TypeDescriptor.of(Object.class));
     }
   }
 

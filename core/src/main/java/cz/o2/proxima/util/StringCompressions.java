@@ -26,6 +26,11 @@ import java.util.zip.GZIPOutputStream;
 public class StringCompressions {
 
   private static final int BUFFER_SIZE = 4096;
+
+  private StringCompressions() {
+    // No-op.
+  }
+
   /**
    * Gzip compress a given string.
    *
@@ -40,7 +45,7 @@ public class StringCompressions {
       gos.finish();
       return baos.toByteArray();
     } catch (IOException e) {
-      throw new RuntimeException("Failed to zip content.", e);
+      throw new IllegalStateException("Failed to zip content.", e);
     }
   }
 
@@ -62,7 +67,7 @@ public class StringCompressions {
       }
       return new String(baos.toByteArray(), encoding);
     } catch (IOException e) {
-      throw new RuntimeException("Failed to unzip content.", e);
+      throw new IllegalStateException("Failed to unzip content.", e);
     }
   }
 }

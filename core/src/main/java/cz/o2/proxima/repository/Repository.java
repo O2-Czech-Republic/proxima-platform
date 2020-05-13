@@ -108,7 +108,7 @@ public abstract class Repository implements Serializable {
    */
   Repository(Config config, boolean cachingEnabled) {
     final RepositoryFactory repoFactory =
-        cachingEnabled ? () -> Repository.of(config) : () -> Repository.ofTest(config);
+        cachingEnabled ? RepositoryFactory.compressed(config) : () -> Repository.ofTest(config);
     this.factory =
         cachingEnabled
             ? RepositoryFactory.caching(repoFactory, this)

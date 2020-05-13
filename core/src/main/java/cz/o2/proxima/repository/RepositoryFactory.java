@@ -17,13 +17,38 @@ package cz.o2.proxima.repository;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
+import cz.o2.proxima.util.StringCompressions;
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Factory for {@link cz.o2.proxima.repository.Repository}. */
 @FunctionalInterface
 public interface RepositoryFactory extends Serializable {
+
+  class Compressed implements RepositoryFactory {
+
+    private static final long serialVersionUID = 1L;
+
+    private final byte[] compressedConfig;
+
+    Compressed(Config config) {
+      compressedConfig =
+          StringCompressions.gzip(
+              config.root().render(ConfigRenderOptions.concise()), StandardCharsets.UTF_8);
+    }
+
+    @Override
+    public Repository apply() {
+      return Repository.of(
+          ConfigFactory.parseString(
+              StringCompressions.gunzip(compressedConfig, StandardCharsets.UTF_8)));
+    }
+  }
 
   class VersionedCaching implements RepositoryFactory {
 
@@ -82,8 +107,8 @@ public interface RepositoryFactory extends Serializable {
     }
   }
 
-  static RepositoryFactory caching(RepositoryFactory factory) {
-    return new VersionedCaching(factory, factory.apply());
+  static RepositoryFactory compressed(Config config) {
+    return new Compressed(config);
   }
 
   static RepositoryFactory caching(RepositoryFactory factory, Repository current) {

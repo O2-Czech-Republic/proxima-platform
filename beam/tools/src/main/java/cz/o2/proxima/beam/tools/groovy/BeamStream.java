@@ -673,12 +673,10 @@ class BeamStream<T> implements Stream<T> {
           if (name != null) {
             return PCollectionList.of(collections)
                 .apply(name, Flatten.pCollections())
-                .setTypeDescriptor(any.getTypeDescriptor())
                 .setCoder(any.getCoder());
           }
           return PCollectionList.of(collections)
               .apply(Flatten.pCollections())
-              .setTypeDescriptor(any.getTypeDescriptor())
               .setCoder(any.getCoder());
         },
         parents);

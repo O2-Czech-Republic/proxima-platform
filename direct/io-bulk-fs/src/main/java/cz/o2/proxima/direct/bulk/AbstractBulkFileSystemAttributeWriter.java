@@ -66,7 +66,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
       this.maxTs = maxTs;
     }
 
-    void write(StreamElement data, CommitCallback commit, long watermark, long seqNo)
+    synchronized void write(StreamElement data, CommitCallback commit, long watermark, long seqNo)
         throws IOException {
       this.commit = commit;
       this.lastWriteWatermark = watermark;
@@ -89,7 +89,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
     }
 
     @Override
-    void write(StreamElement data, CommitCallback commit, long watermark, long seqNo)
+    synchronized void write(StreamElement data, CommitCallback commit, long watermark, long seqNo)
         throws IOException {
       super.write(data, commit, watermark, seqNo);
       maxSeenTs = Math.max(data.getStamp(), maxSeenTs);
@@ -113,10 +113,11 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
   @Getter private final long rollPeriodMs;
   @Getter private final long allowedLatenessMs;
   private final Factory<Executor> executorFactory;
-  private final Map<String, LateBulk> lateBulks = new HashMap<>();
+  private final Map<Long, Bulk> writers = Collections.synchronizedMap(new HashMap<>());
+  private final Map<String, LateBulk> lateWriters = Collections.synchronizedMap(new HashMap<>());
 
   private long seqNo = 0;
-  private transient Map<Long, Bulk> writers = null;
+
   private transient @Nullable Executor executor = null;
 
   protected AbstractBulkFileSystemAttributeWriter(
@@ -151,19 +152,16 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
    */
   @Override
   public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
-    if (writers == null) {
-      writers = new HashMap<>();
-    }
     long startStamp = data.getStamp() - data.getStamp() % rollPeriodMs;
     long maxStamp = Math.max(startStamp + rollPeriodMs, startStamp);
     if (maxStamp + allowedLatenessMs >= watermark) {
-      Path path = fs.newPath(data.getStamp());
       Bulk bulk =
           writers.computeIfAbsent(
               startStamp,
-              p -> ExceptionUtils.uncheckedFactory(() -> new Bulk(path, startStamp, maxStamp)));
+              p ->
+                  ExceptionUtils.uncheckedFactory(
+                      () -> new Bulk(fs.newPath(startStamp), startStamp, maxStamp)));
       writeToBulk(data, statusCallback, watermark, bulk);
-      log.debug("Written element {} to {} on watermark {}", data, bulk.getWriter(), watermark);
     } else {
       handleLateData(data, watermark, statusCallback);
     }
@@ -179,7 +177,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
    */
   protected void handleLateData(StreamElement data, long watermark, CommitCallback statusCallback) {
     LateBulk lateBulk =
-        lateBulks.computeIfAbsent(
+        lateWriters.computeIfAbsent(
             Iterables.getOnlyElement(namingConvention.prefixesOf(data.getStamp(), data.getStamp())),
             prefix -> newLateBulkFor(data));
     writeToBulk(data, statusCallback, watermark, lateBulk);
@@ -197,7 +195,9 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
 
   private void writeToBulk(
       StreamElement data, CommitCallback statusCallback, long watermark, Bulk bulk) {
+
     ExceptionUtils.unchecked(() -> bulk.write(data, statusCallback, watermark, seqNo++));
+    log.debug("Written element {} to {} on watermark {}", data, bulk.getWriter(), watermark);
   }
 
   @Override
@@ -212,7 +212,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
 
   @Override
   public void close() {
-    if (writers != null) {
+    synchronized (writers) {
       writers
           .values()
           .forEach(
@@ -227,7 +227,6 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
               });
       writers.clear();
     }
-    seqNo = 0;
   }
 
   /**
@@ -244,14 +243,14 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
 
   private void flushOnWatermark(long watermark) {
     Collection<Bulk> flushable = collectFlushable(watermark);
-    if (log.isDebugEnabled()) {
-      log.debug(
-          "Collected {} flushable bulks at watermark {} with allowedLatenessMs {}.",
-          flushable,
-          watermark,
-          allowedLatenessMs);
-    }
     if (!flushable.isEmpty()) {
+      if (log.isDebugEnabled()) {
+        log.debug(
+            "Collected {} flushable bulks at watermark {} with allowedLatenessMs {}.",
+            flushable,
+            watermark,
+            allowedLatenessMs);
+      }
       CommitCallback commit =
           flushable.stream().max(Comparator.comparing(Bulk::getLastWriteSeqNo)).get().getCommit();
       try {
@@ -293,7 +292,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
   }
 
   private Collection<Bulk> collectFlushable(long watermark) {
-    if (writers != null) {
+    synchronized (writers) {
       Set<Bulk> ret =
           writers
               .values()
@@ -301,18 +300,20 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
               .filter(bulk -> bulk.getMaxTs() + allowedLatenessMs < watermark)
               .collect(Collectors.toSet());
 
-      if (!ret.isEmpty() && !lateBulks.isEmpty()) {
-        // flush late bulk if there is any bulk to flush
-        lateBulks.forEach((k, bulk) -> ret.add(bulk));
-        log.debug("Added late bulks {} into flushable list", lateBulks);
-        lateBulks.clear();
+      synchronized (lateWriters) {
+        if (!ret.isEmpty() && !lateWriters.isEmpty()) {
+          // flush late bulk if there is any bulk to flush
+          lateWriters.forEach((k, bulk) -> ret.add(bulk));
+          log.debug("Added late bulks {} into flushable list", lateWriters);
+          lateWriters.clear();
+        }
       }
 
       // search for commit callback to use for committing
       long maxWriteSeqNo =
           ret.stream().mapToLong(Bulk::getLastWriteSeqNo).max().orElse(Long.MIN_VALUE);
 
-      // add all paths that were written *before* the committed seq no
+      // add all bulks that were written *before* the committed seq no
       writers
           .entrySet()
           .stream()
@@ -321,6 +322,5 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
 
       return ret;
     }
-    return Collections.emptyList();
   }
 }

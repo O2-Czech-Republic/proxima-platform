@@ -23,6 +23,7 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.TestUtils;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -85,5 +86,13 @@ public class HadoopPathTest {
     } catch (FileNotFoundException ex) {
       // pass
     }
+  }
+
+  @Test
+  public void testSerializable() throws IOException, ClassNotFoundException {
+    HadoopFileSystem fs = new HadoopFileSystem(accessor);
+    HadoopPath path1 = (HadoopPath) fs.newPath(System.currentTimeMillis());
+    HadoopPath path2 = TestUtils.assertSerializable(path1);
+    TestUtils.assertHashCodeAndEquals(path1, path2);
   }
 }

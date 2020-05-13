@@ -24,6 +24,7 @@ import cz.o2.proxima.direct.bulk.Path;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.Channels;
+import java.util.Objects;
 import lombok.ToString;
 
 /** A {@link Path} representation of a remote {@link Blob}. */
@@ -33,7 +34,7 @@ public class BlobPath implements Path {
 
   private static final long serialVersionUID = 1L;
 
-  public static Path of(FileSystem fs, Blob blob) {
+  public static BlobPath of(FileSystem fs, Blob blob) {
     return new BlobPath(fs, blob);
   }
 
@@ -72,5 +73,23 @@ public class BlobPath implements Path {
 
   public String getBlobName() {
     return blob.getName();
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(getFileSystem().getUri(), getBlobName().hashCode());
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this) {
+      return true;
+    }
+    if (!(obj instanceof BlobPath)) {
+      return false;
+    }
+    BlobPath other = (BlobPath) obj;
+    return other.getFileSystem().getUri().equals(getFileSystem().getUri())
+        && other.getBlobName().equals(getBlobName());
   }
 }

@@ -127,4 +127,21 @@ class HadoopPath implements Path {
   public boolean isTmpPath() {
     return path.toString().startsWith(accessor.getUriRemapped() + "/_tmp");
   }
+
+  @Override
+  public int hashCode() {
+    return path.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this) {
+      return true;
+    }
+    if (!(obj instanceof HadoopPath)) {
+      return false;
+    }
+    HadoopPath other = (HadoopPath) obj;
+    return other.getPath().equals(getPath());
+  }
 }

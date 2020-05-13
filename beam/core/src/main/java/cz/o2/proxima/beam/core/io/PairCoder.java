@@ -82,4 +82,7 @@ public class PairCoder<K, V> extends CustomCoder<Pair<K, V>> {
   public int hashCode() {
     return Objects.hash(keyCoder, valueCoder);
   }
+
+  @Override
+  public void verifyDeterministic() {}
 }

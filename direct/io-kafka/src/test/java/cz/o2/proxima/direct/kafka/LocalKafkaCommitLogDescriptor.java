@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.kafka;
 import static org.mockito.Mockito.*;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
@@ -487,7 +488,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
       Map<TopicPartition, List<ConsumerRecord<K, V>>> map;
       map = new HashMap<>();
-      Collection<Partition> assignment = group.getAssignment(consumerId.getId());
+      Collection<Partition> assignment =
+          Lists.newArrayList(group.getAssignment(consumerId.getId()));
       List<Pair<Integer, AtomicInteger>> offsets = consumerOffsets.get(consumerId);
 
       if (log.isDebugEnabled()) {

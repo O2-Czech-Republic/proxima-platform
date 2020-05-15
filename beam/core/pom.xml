@@ -50,11 +50,9 @@
           </filters>
           <shadeTestJar>true</shadeTestJar>
           <artifactSet>
-            <excludes>
-              <exclude>org.slf4j:slf4j-api:jar:</exclude>
-              <exclude>${apache.beam.groupId}:*</exclude>
-              <exclude>cz.o2.proxima:proxima-core</exclude>
-            </excludes>
+            <includes>
+              <include>${project.groupId}:${project.artifactId}</include>
+            </includes>
           </artifactSet>
           <relocations>
             <relocation>

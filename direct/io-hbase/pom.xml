@@ -33,6 +33,7 @@
 
   <properties>
     <protobuf.version>2.5.0</protobuf.version>
+    <shadePattern>cz.o2.proxima.hbase.shaded</shadePattern>
   </properties>
 
   <build>
@@ -65,15 +66,23 @@
           <relocations>
             <relocation>
               <pattern>io.netty.</pattern>
-              <shadedPattern>cz.o2.proxima.hadoop.shaded.io.netty.</shadedPattern>
+              <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.common.</pattern>
-              <shadedPattern>cz.o2.proxima.hadoop.shaded.com.google.common.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.google.common.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.protobuf.</pattern>
-              <shadedPattern>cz.o2.proxima.hadoop.shaded.com.google.protobuf.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.google.protobuf.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>org.codehaus.</pattern>
+              <shadedPattern>${shadePattern}.org.codehaus.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.fasterxml.</pattern>
+              <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>

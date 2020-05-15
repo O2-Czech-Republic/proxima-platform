@@ -81,6 +81,14 @@
               <pattern>org.objectweb.</pattern>
               <shadedPattern>${shadePattern}.org.objectweb.</shadedPattern>
             </relocation>
+            <relocation>
+              <pattern>org.codehaus.</pattern>
+              <shadedPattern>${shadePattern}.org.codehaus.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.fasterxml.</pattern>
+              <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
+            </relocation>
           </relocations>
         </configuration>
         <executions>

@@ -431,7 +431,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               }
               increaseWatermarkOnEmptyPolls(emptyPollCount, partitionToClockDimension, clock);
               flushCommits(kafka, consumer);
-              rethrowErrorIfPresent(error);
+              rethrowErrorIfPresent(name, error);
               terminateIfConsumed(stopAtCurrent, kafka, endOffsets, completed);
               waitToReduceThroughput(bytesPolled, bytesPerPoll);
               poll = kafka.poll(pollDuration);
@@ -472,9 +472,11 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     latch.await();
   }
 
-  private void rethrowErrorIfPresent(AtomicReference<Throwable> error) {
+  private void rethrowErrorIfPresent(
+      @Nullable String consumerName, AtomicReference<Throwable> error) {
     Throwable errorThrown = error.getAndSet(null);
     if (errorThrown != null) {
+      log.warn("Error during processing {}", consumerName, errorThrown);
       throw new RuntimeException(errorThrown);
     }
   }

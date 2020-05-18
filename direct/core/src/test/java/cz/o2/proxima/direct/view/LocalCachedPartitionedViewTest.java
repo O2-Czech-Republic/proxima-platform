@@ -85,6 +85,28 @@ public class LocalCachedPartitionedViewTest {
   }
 
   @Test
+  public void testWriteOnCacheError() {
+    view.assign(
+        singlePartition(),
+        (elem, old) -> {
+          throw new IllegalStateException("Fail");
+        });
+    writer.write(update("key", armed, now), (succ, exc) -> {});
+    assertTrue(view.get("key", armed, now).isPresent());
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testWriteConfirmError() {
+    view.assign(singlePartition());
+    writer.write(
+        update("key", armed, now),
+        (succ, exc) -> {
+          throw new IllegalStateException("Fail");
+        });
+    assertFalse(view.get("key", armed, now).isPresent());
+  }
+
+  @Test
   public void testWriteWildcard() {
     view.assign(singlePartition());
     writer.write(update("key", "device.1", device, now), (succ, exc) -> {});

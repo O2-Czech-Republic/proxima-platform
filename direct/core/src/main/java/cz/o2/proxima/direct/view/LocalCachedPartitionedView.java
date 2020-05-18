@@ -129,22 +129,16 @@ public class LocalCachedPartitionedView implements CachedView {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
-
-            try {
-              final long prefetched = prefetchedCount.incrementAndGet();
-              if (prefetched % 10000 == 0) {
-                log.info(
-                    "Prefetched so far {} elements in {} millis",
-                    prefetched,
-                    System.currentTimeMillis() - prefetchStartTime);
-              }
-              onCache(ingest, false);
-              context.confirm();
-              return true;
-            } catch (Throwable ex) {
-              context.fail(ex);
-              return false;
+            final long prefetched = prefetchedCount.incrementAndGet();
+            if (prefetched % 10000 == 0) {
+              log.info(
+                  "Prefetched so far {} elements in {} millis",
+                  prefetched,
+                  System.currentTimeMillis() - prefetchStartTime);
             }
+            onCache(ingest, false);
+            context.confirm();
+            return true;
           }
 
           @Override
@@ -166,14 +160,9 @@ public class LocalCachedPartitionedView implements CachedView {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
 
-            try {
-              onCache(ingest, false);
-              context.confirm();
-              return true;
-            } catch (Throwable err) {
-              context.fail(err);
-              return false;
-            }
+            onCache(ingest, false);
+            context.confirm();
+            return true;
           }
 
           @Override

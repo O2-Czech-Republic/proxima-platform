@@ -15,60 +15,77 @@
  */
 package cz.o2.proxima.direct.gcloud.storage;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
 
+import com.google.api.client.googleapis.json.GoogleJsonError;
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
+import com.google.api.client.http.HttpHeaders;
+import com.google.api.client.http.HttpResponseException;
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.StorageException;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.bulk.FileSystem;
-import cz.o2.proxima.direct.core.Context;
+import cz.o2.proxima.direct.blob.BlobLogObservable.ThrowingRunnable;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.direct.gcloud.storage.GCloudBlobPath.GCloudBlob;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import java.net.URI;
-import java.util.Collections;
-import java.util.List;
-import org.junit.Before;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import org.junit.Test;
 
-/** Test suite for {@link GCloudLogObservableTest}. */
 public class GCloudLogObservableTest {
 
-  private final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
-  private final EntityDescriptor gateway =
-      repo.findEntity("gateway")
-          .orElseThrow(() -> new IllegalStateException("Missing entity gateway"));
-  private final Context context = repo.getOrCreateOperator(DirectDataOperator.class).getContext();
+  final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
+  final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
+  final EntityDescriptor gateway = repo.getEntity("gateway");
+  final GCloudStorageAccessor accessor =
+      new GCloudStorageAccessor(gateway, URI.create("gs://bucket/path"), cfg());
 
-  private GCloudStorageAccessor accessor;
-
-  @Before
-  public void setUp() {
-    accessor =
-        new GCloudStorageAccessor(gateway, URI.create("gs://bucket/path"), Collections.emptyMap());
+  private Map<String, Object> cfg() {
+    return new HashMap<String, Object>() {
+      {
+        put("initial-retry-delay-ms", 10);
+        put("max-retry-delay-ms", 50);
+      }
+    };
   }
 
+  final GCloudLogObservable observable = new GCloudLogObservable(accessor, direct.getContext());
+
   @Test
-  public void testListPartitions() {
+  public void testRetries() {
+    GCloudBlob blob = new GCloudBlob(mock(Blob.class));
+    observable.runHandlingErrors(blob, () -> {});
+    observable.runHandlingErrors(blob, throwTimes(() -> jsonResponse(404), 1));
+    try {
+      observable.runHandlingErrors(blob, throwTimes(() -> jsonResponse(429), 20));
+      fail("Should have thrown exception");
+    } catch (StorageException ex) {
+      // pass
+    }
+    try {
+      observable.runHandlingErrors(blob, throwTimes(() -> new RuntimeException("fail"), 1));
+      fail("Should have thrown exception");
+    } catch (RuntimeException ex) {
+      // pass
+    }
+  }
 
-    GCloudLogObservable observable =
-        new GCloudLogObservable(accessor, context) {
-          @Override
-          FileSystem createFileSystem(GCloudStorageAccessor accessor) {
-            return new MockGCloudFileSystem(
-                accessor.getNamingConvention(), accessor.getRollPeriod()) {
-              {
-                for (int i = 0; i < 20; i++) {
-                  put(1234567890000L + 1200000L * i, new byte[] {}, 2 << (7 + i));
-                }
-              }
-            };
-          }
-        };
+  private GoogleJsonResponseException jsonResponse(int code) {
+    return new GoogleJsonResponseException(
+        new HttpResponseException.Builder(code, "", new HttpHeaders()), new GoogleJsonError());
+  }
 
-    List<Partition> partitions = observable.getPartitions();
-    assertEquals(2, partitions.size());
-    assertEquals(1234566000000L, partitions.get(0).getMinTimestamp());
-    assertEquals(1234591200000L, partitions.get(0).getMaxTimestamp());
+  private ThrowingRunnable throwTimes(Supplier<Exception> throwSupplier, int times) {
+    AtomicInteger counter = new AtomicInteger();
+    return () -> {
+      if (counter.getAndIncrement() < times) {
+        throw throwSupplier.get();
+      }
+    };
   }
 }

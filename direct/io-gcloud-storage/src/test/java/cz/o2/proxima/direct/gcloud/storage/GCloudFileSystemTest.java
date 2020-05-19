@@ -119,13 +119,4 @@ public class GCloudFileSystemTest {
     List<Path> paths = fs.list(now, now + 1).collect(Collectors.toList());
     assertEquals(1, paths.size());
   }
-
-  @Test
-  public void testNormalizePath() {
-    assertEquals("", GCloudFileSystem.normalizePath(""));
-    assertEquals("", GCloudFileSystem.normalizePath("/"));
-    assertEquals("path/", GCloudFileSystem.normalizePath("/path//"));
-    assertEquals("path/", GCloudFileSystem.normalizePath("path//"));
-    assertEquals("path", GCloudFileSystem.normalizePath("path"));
-  }
 }

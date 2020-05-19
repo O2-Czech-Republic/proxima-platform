@@ -138,7 +138,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-direct-io-bulk-fs</artifactId>
+      <artifactId>proxima-direct-io-blob</artifactId>
       <version>${project.version}</version>
     </dependency>
 

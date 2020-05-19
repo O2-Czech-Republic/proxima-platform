@@ -37,7 +37,7 @@ import lombok.Getter;
 
 public class MockGCloudFileSystem implements FileSystem {
 
-  private class MockPath extends BlobPath implements Path {
+  private class MockPath extends GCloudBlobPath implements Path {
 
     @Getter final String name;
     byte[] contents;

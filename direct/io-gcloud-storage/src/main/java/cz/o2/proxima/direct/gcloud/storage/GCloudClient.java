@@ -23,50 +23,35 @@ import com.google.cloud.storage.StorageClass;
 import com.google.cloud.storage.StorageException;
 import com.google.cloud.storage.StorageOptions;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.direct.blob.RetryStrategy;
 import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.UriUtil;
-import cz.o2.proxima.util.ExceptionUtils;
+import java.io.Serializable;
 import java.net.URI;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-class GCloudClient extends AbstractStorage {
+class GCloudClient implements Serializable {
 
-  private final Map<String, Object> cfg;
   @Getter private final String bucket;
   @Getter private final String path;
   @Getter private final StorageClass storageClass;
-  private final int initialRetryDelay;
-  private final int maxRetryDelay;
+  @Getter private final RetryStrategy retry;
   @Nullable @Getter private transient Storage client;
 
-  GCloudClient(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-    super(entityDesc, uri);
-    this.cfg = cfg;
+  GCloudClient(URI uri, Map<String, Object> cfg) {
     this.bucket = uri.getAuthority();
     this.path = toPath(uri);
     this.storageClass = getOpt(cfg, "storage-class", StorageClass::valueOf, StorageClass.STANDARD);
-    this.initialRetryDelay = getOpt(cfg, "initial-retry-delay-ms", Integer::valueOf, 5000);
-    this.maxRetryDelay = getOpt(cfg, "max-retry-delay-ms", Integer::valueOf, (2 << 10) * 5000);
-    Preconditions.checkArgument(
-        initialRetryDelay < maxRetryDelay / 2,
-        "Max retry delay must be at least doble of initial delay, got %s and %s",
-        initialRetryDelay,
-        maxRetryDelay);
-  }
-
-  public Map<String, Object> getCfg() {
-    return Collections.unmodifiableMap(cfg);
+    int initialRetryDelay = getOpt(cfg, "initial-retry-delay-ms", Integer::valueOf, 5000);
+    int maxRetryDelay = getOpt(cfg, "max-retry-delay-ms", Integer::valueOf, (2 << 10) * 5000);
+    this.retry =
+        new RetryStrategy(initialRetryDelay, maxRetryDelay)
+            .withRetryableException(StorageException.class);
   }
 
   // normalize path to not start and to end with slash
@@ -79,39 +64,9 @@ class GCloudClient extends AbstractStorage {
     return Optional.ofNullable(cfg.get(name)).map(Object::toString).map(map::apply).orElse(defval);
   }
 
-  void retry(Runnable what) throws StorageException {
-    retry(
-        () -> {
-          what.run();
-          return null;
-        });
-  }
-
-  <T> T retry(Factory<T> what) throws StorageException {
-    int delay = initialRetryDelay;
-    StorageException caught = null;
-    while (true) {
-      try {
-        return what.apply();
-      } catch (StorageException ex) {
-        caught = ex;
-        boolean shouldRetry = delay <= maxRetryDelay;
-        if (shouldRetry) {
-          log.warn(
-              "Exception while communicating with cloud storage. Retrying after {} ms", delay, ex);
-          long effectiveDelay = delay;
-          ExceptionUtils.unchecked(() -> TimeUnit.MILLISECONDS.sleep(effectiveDelay));
-          delay *= 2;
-        } else {
-          throw caught;
-        }
-      }
-    }
-  }
-
   Blob createBlob(String name) {
     final String nameNoSlash = dropSlashes(name);
-    return retry(
+    return retry.retry(
         () ->
             client()
                 .create(

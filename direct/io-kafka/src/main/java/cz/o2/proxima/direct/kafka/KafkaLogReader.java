@@ -124,7 +124,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
     // name is ignored, because when observing partition the offsets
     // are not committed to kafka
-    return observeKafkaBulk(null, asOffsets(partitions), position, stopAtCurrent, observer);
+    return observeKafkaBulk(
+        null, createDefaultOffsets(partitions), position, stopAtCurrent, observer);
   }
 
   @Override
@@ -153,7 +154,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     try {
       return processConsumer(
           name,
-          asOffsets(partitions),
+          createDefaultOffsets(partitions),
           position,
           stopAtCurrent,
           name != null,
@@ -654,11 +655,11 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     return true;
   }
 
-  private static Collection<Offset> asOffsets(Collection<Partition> partitions) {
+  private static Collection<Offset> createDefaultOffsets(Collection<Partition> partitions) {
     if (partitions != null) {
       return partitions
           .stream()
-          .map(p -> new TopicOffset(p.getId(), 0, Long.MIN_VALUE))
+          .map(p -> new TopicOffset(p.getId(), -1, Long.MIN_VALUE))
           .collect(Collectors.toList());
     }
     return null;

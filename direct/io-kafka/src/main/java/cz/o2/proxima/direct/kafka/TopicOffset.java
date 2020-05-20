@@ -16,7 +16,6 @@
 package cz.o2.proxima.direct.kafka;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Partition;
 import java.util.List;
@@ -39,9 +38,6 @@ class TopicOffset implements Offset {
     this.partition = partition;
     this.offset = offset;
     this.watermark = watermark;
-
-    Preconditions.checkArgument(
-        offset >= 0, "Offset must be greater or equal to zero, got %s", offset);
   }
 
   @Override

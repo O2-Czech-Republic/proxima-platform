@@ -26,9 +26,4 @@ public class TopicOffsetTest {
     TopicOffset off2 = new TopicOffset(0, 1, 2);
     TestUtils.assertHashCodeAndEquals(off1, off2);
   }
-
-  @Test(expected = IllegalArgumentException.class)
-  public void testNegativeOffset() {
-    TopicOffset off = new TopicOffset(0, -1, 0);
-  }
 }

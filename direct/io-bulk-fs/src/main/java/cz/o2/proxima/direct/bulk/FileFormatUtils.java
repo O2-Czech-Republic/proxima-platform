@@ -23,11 +23,13 @@ import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 
 /** Utility class to be shared between various bulk storages. */
+@Slf4j
 public class FileFormatUtils {
 
-  /** Retrieve {@link NamingConvention} from configuration. */
+  /** Retrieve {@link cz.o2.proxima.direct.bulk.NamingConvention} from configuration. */
   public static NamingConvention getNamingConvention(
       String cfgPrefix, Map<String, Object> cfg, long rollPeriodMs, FileFormat format) {
 
@@ -38,23 +40,36 @@ public class FileFormatUtils {
           new String(Base64.getEncoder().withoutPadding().encode(digest.digest()))
               .substring(0, 10)
               .replace('/', '-');
-      return Optional.ofNullable(cfg.get(cfgPrefix + "naming-convention"))
-          .map(Object::toString)
-          .map(cls -> Classpath.newInstance(cls, NamingConvention.class))
-          .orElse(
-              NamingConvention.defaultConvention(
-                  Duration.ofMillis(rollPeriodMs), prefix, format.fileSuffix()));
+
+      final String namingConventionKey = cfgPrefix + "naming-convention";
+      final String namingConventionFactoryKey = cfgPrefix + "naming-convention-factory";
+
+      if (cfg.containsKey(namingConventionKey)) {
+        log.warn(
+            String.format(
+                "Legacy configuration being used '%s' prefer to use configuration '%s'",
+                namingConventionKey, namingConventionFactoryKey));
+        return Classpath.newInstance(
+            cfg.get(namingConventionKey).toString(), NamingConvention.class);
+      } else {
+        return Optional.ofNullable(cfg.get(namingConventionFactoryKey))
+            .map(Object::toString)
+            .map(cls -> Classpath.newInstance(cls, NamingConventionFactory.class))
+            .orElse(new DefaultNamingConventionFactory())
+            .create(cfgPrefix, cfg, Duration.ofMillis(rollPeriodMs), prefix, format.fileSuffix());
+      }
+
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }
   }
 
   /**
-   * Get {@link FileFormat} from configuration.
+   * Get {@link cz.o2.proxima.direct.bulk.FileFormat} from configuration.
    *
    * @param cfgPrefix prefix to add to default config settings
    * @param cfg the configuration
-   * @return {@link FileFormat}
+   * @return {@link cz.o2.proxima.direct.bulk.FileFormat}
    */
   public static FileFormat getFileFormat(String cfgPrefix, Map<String, Object> cfg) {
     String format =

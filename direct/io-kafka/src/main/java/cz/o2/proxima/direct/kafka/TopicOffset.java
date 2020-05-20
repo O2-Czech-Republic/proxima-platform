@@ -31,6 +31,7 @@ class TopicOffset implements Offset {
 
   // map of partitionId -> committed offset
   private final int partition;
+  // offset to kafka partition, < 0 means undefined (or default)
   @Getter private final long offset;
   @Getter private final long watermark;
 

@@ -411,8 +411,8 @@ public class IngestServiceTest {
 
     Repository repo = server.repo;
     InMemBulkStorage storage = getInMemBulkStorage();
-    Map<String, Pair<Long, byte[]>> data = storage.getData();
-    assertEquals(1, data.size());
+    Map<String, Pair<Long, byte[]>> data = storage.getData("/proxima_events/bulk");
+    assertEquals("Expected single element in: " + data, 1, data.size());
     assertTrue(data.containsKey("/proxima_events/bulk/my-dummy-entity#data"));
   }
 

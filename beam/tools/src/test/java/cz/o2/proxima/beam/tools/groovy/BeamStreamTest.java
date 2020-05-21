@@ -23,7 +23,11 @@ import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.io.PairCoder;
+import cz.o2.proxima.beam.tools.groovy.BeamStream.BulkWriteDoFn;
 import cz.o2.proxima.beam.tools.groovy.BeamStream.IntegrateDoFn;
+import cz.o2.proxima.direct.core.AttributeWriterBase;
+import cz.o2.proxima.direct.core.BulkAttributeWriter;
+import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -35,20 +39,28 @@ import cz.o2.proxima.tools.groovy.StreamTest;
 import cz.o2.proxima.tools.groovy.TestStreamProvider;
 import cz.o2.proxima.tools.groovy.util.Closures;
 import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.util.SerializableScopedValue;
 import groovy.lang.Closure;
+import java.io.Serializable;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.beam.runners.spark.SparkRunner;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.KvCoder;
@@ -64,6 +76,7 @@ import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
+import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindow;
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow;
 import org.apache.beam.sdk.transforms.windowing.IntervalWindow.IntervalWindowCoder;
@@ -487,6 +500,113 @@ public class BeamStreamTest extends StreamTest {
             .collect(Collectors.toList()));
   }
 
+  @Test
+  public void testPersistIntoTargetFamilySortedOnSpark() {
+    if (stream) {
+      return;
+    }
+    Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
+    EntityDescriptor event = repo.getEntity("event");
+    AttributeDescriptor<byte[]> data = event.getAttribute("data");
+    long now = System.currentTimeMillis();
+    SparkRunner sparkRunner = SparkRunner.create();
+    Pipeline p = Pipeline.create();
+    PCollection<StreamElement> elements =
+        p.apply(
+            Create.timestamped(
+                timestamped(upsertRandom(event, data, now)),
+                timestamped(upsertRandom(event, data, now - 1))));
+
+    Collector<Pair<Long, StreamElement>> collected = new Collector<>();
+
+    SerializableScopedValue<Integer, AttributeWriterBase> writer =
+        new SerializableScopedValue<>(collectingBulkWriter(collected));
+
+    BeamStream.BulkWriterFactory writerFactory =
+        BeamStream.BulkWriterFactory.wrap(
+            writer,
+            java.util.stream.Stream.of(data)
+                .map(AttributeDescriptor::getName)
+                .collect(Collectors.toSet()));
+
+    elements.apply(BeamStream.createBulkWriteTransform(tmp -> 1, new BulkWriteDoFn(writerFactory)));
+
+    sparkRunner.run(p).waitUntilFinish();
+
+    List<Long> stamps =
+        collected
+            .get()
+            .stream()
+            .filter(pair -> pair.getSecond() != null)
+            .map(Pair::getSecond)
+            .map(StreamElement::getStamp)
+            .collect(Collectors.toList());
+    assertEquals(Lists.newArrayList(now - 1, now), stamps);
+    List<Long> watermarks =
+        collected.get().stream().map(Pair::getFirst).collect(Collectors.toList());
+    assertEquals(
+        Lists.newArrayList(now - 1, now, BoundedWindow.TIMESTAMP_MAX_VALUE.getMillis()),
+        watermarks);
+  }
+
+  private static BulkAttributeWriter collectingBulkWriter(
+      Collector<Pair<Long, StreamElement>> collected) {
+
+    return new BulkAttributeWriter() {
+      @Override
+      public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
+        collected.add(Pair.of(watermark, data));
+      }
+
+      @Override
+      public void updateWatermark(long watermark) {
+        collected.add(Pair.of(watermark, null));
+      }
+
+      @Override
+      public URI getUri() {
+        return URI.create("fake:///");
+      }
+
+      @Override
+      public void rollback() {}
+
+      @Override
+      public void close() {}
+    };
+  }
+
+  @Test
+  public void testFieldClassExtraction() {
+    Set<Class<?>> classes =
+        BeamStream.fieldsRecursively(new MyTestedExtractedClass()).collect(Collectors.toSet());
+    assertTrue(
+        classes.containsAll(
+            Arrays.asList(
+                ParentClass.class,
+                MyTestedExtractedClass.class,
+                MyTestedExtractedClass.NestedStaticClass.class,
+                MyTestedExtractedClass.NestedNonStaticClass.class,
+                Long.class,
+                String.class,
+                Float.class,
+                Integer.class,
+                Number.class,
+                List.class,
+                ArrayList.class)));
+  }
+
+  private StreamElement upsertRandom(
+      EntityDescriptor event, AttributeDescriptor<byte[]> data, long now) {
+
+    String key = UUID.randomUUID().toString();
+    return StreamElement.upsert(event, data, key, key, data.getName(), now, new byte[] {0});
+  }
+
+  private static TimestampedValue<StreamElement> timestamped(StreamElement element) {
+    return TimestampedValue.of(element, Instant.ofEpochMilli(element.getStamp()));
+  }
+
   private static class ParentClass {
     private Long longField;
   }
@@ -510,23 +630,22 @@ public class BeamStreamTest extends StreamTest {
     private List<Object> list = new ArrayList<>();
   }
 
-  @Test
-  public void testFieldClassExtraction() {
-    Set<Class<?>> classes =
-        BeamStream.fieldsRecursively(new MyTestedExtractedClass()).collect(Collectors.toSet());
-    assertTrue(
-        classes.containsAll(
-            Arrays.asList(
-                ParentClass.class,
-                MyTestedExtractedClass.class,
-                MyTestedExtractedClass.NestedStaticClass.class,
-                MyTestedExtractedClass.NestedNonStaticClass.class,
-                Long.class,
-                String.class,
-                Float.class,
-                Integer.class,
-                Number.class,
-                List.class,
-                ArrayList.class)));
+  private static class Collector<T> implements Serializable {
+
+    private static final Map<Integer, List<?>> MAP = new ConcurrentHashMap<>();
+
+    final int id = System.identityHashCode(this);
+
+    void add(T what) {
+      @SuppressWarnings("unchecked")
+      List<T> list =
+          (List) MAP.computeIfAbsent(id, k -> Collections.synchronizedList(new ArrayList<>()));
+      list.add(what);
+    }
+
+    @SuppressWarnings("unchecked")
+    List<T> get() {
+      return (List) Optional.ofNullable(MAP.get(id)).orElse(new ArrayList<>());
+    }
   }
 }

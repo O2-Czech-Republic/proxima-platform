@@ -38,6 +38,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
 
   final EntityDescriptor gateway = repo.getEntity("gateway");
   final EntityDescriptor batch = repo.getEntity("batch");
+  final EntityDescriptor dummy = repo.getEntity("dummy");
 
   final AttributeDescriptor<byte[]> armed = gateway.getAttribute("armed");
 
@@ -186,6 +187,46 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
+
+    @SuppressWarnings("unchecked")
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
+  }
+
+  @Test
+  public void testPersistIntoTargetFamily() throws Exception {
+    Script compiled =
+        compile(
+            "env.batch.data.batchUpdates().persistIntoTargetFamily(env, \"dummy-storage\")\n"
+                + "env.dummy.data.streamFromOldest().collect()");
+
+    write(
+        StreamElement.upsert(
+            batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
+
+    @SuppressWarnings("unchecked")
+    List<StreamElement> result = (List) compiled.run();
+    assertEquals(1, result.size());
+    assertEquals(dummy, result.get(0).getEntityDescriptor());
+  }
+
+  @Test
+  public void testPersistIntoTargetFamilyBulk() throws Exception {
+    Script compiled =
+        compile(
+            "env.dummy.data.streamFromOldest().persistIntoTargetFamily(env, \"dummy-storage-bulk\")\n"
+                + "env.dummy.data.batchUpdates().collect()");
+
+    AttributeDescriptor<Object> dummyData = dummy.getAttribute("data");
+    write(
+        StreamElement.upsert(
+            dummy,
+            dummyData,
+            "uuid",
+            "key",
+            dummyData.getName(),
+            System.currentTimeMillis(),
+            new byte[] {}));
 
     @SuppressWarnings("unchecked")
     List<StreamElement> result = (List) compiled.run();

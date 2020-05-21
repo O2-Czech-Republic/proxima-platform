@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -221,6 +222,34 @@ public interface Stream<T> {
    */
   void persistIntoTargetReplica(
       RepositoryProvider repoProvider, String replicationName, String target);
+
+  /**
+   * Persist this stream to specific family.
+   *
+   * <p>Note that the type of the stream has to be already {@link StreamElement StreamElements} to
+   * be persisted to the specified family. The family has to accept given {@link
+   * AttributeDescriptor} of the {@link StreamElement}.
+   *
+   * @param repoProvider provider of {@link Repository}.
+   * @param targetFamilyname name of target family to persist the stream into
+   */
+  default void persistIntoTargetFamily(RepositoryProvider repoProvider, String targetFamilyname) {
+    persistIntoTargetFamily(repoProvider, targetFamilyname, 10);
+  }
+
+  /**
+   * Persist this stream to specific family.
+   *
+   * <p>Note that the type of the stream has to be already {@link StreamElement StreamElements} to
+   * be persisted to the specified family. The family has to accept given {@link
+   * AttributeDescriptor} of the {@link StreamElement}.
+   *
+   * @param repoProvider provider of {@link Repository}.
+   * @param targetFamilyname name of target family to persist the stream into
+   * @param parallelism parallelism to use when target family is bulk attribute family
+   */
+  void persistIntoTargetFamily(
+      RepositoryProvider repoProvider, String targetFamilyname, int parallelism);
 
   /**
    * Persist this stream as attribute of entity

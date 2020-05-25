@@ -92,12 +92,6 @@ public class Metrics {
   public static final TimeAveragingMetric INVALID_REQUEST =
       getOrCreate("invalid-request", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
 
-  public static final TimeAveragingMetric INVALID_ENTITY =
-      getOrCreate("invalid-entity", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
-
-  public static final TimeAveragingMetric INVALID_ATTRIBUTE =
-      getOrCreate("invalid-attribute", name -> TimeAveragingMetric.of(GROUP, name, 1_000));
-
   public static final GaugeMetric LIVENESS =
       getOrCreate("liveness", name -> GaugeMetric.of(GROUP, name));
 
@@ -106,7 +100,7 @@ public class Metrics {
 
   public static Metric<Double> ingestsForAttribute(AttributeDescriptor<?> attr) {
     return getOrCreate(
-        String.format("%s_%s_ingests", attr.getEntity(), getAttrNameForJMX(attr)),
+        attr.getEntity() + "_" + getAttrNameForJMX(attr) + "_ingests",
         name -> TimeAveragingMetric.of(GROUP, name, 1_000));
   }
 
@@ -116,24 +110,27 @@ public class Metrics {
 
   public static ApproxPercentileMetric sizeForAttribute(AttributeDescriptor<?> attr) {
     return getOrCreate(
-        String.format("%s_%s_size", attr.getEntity(), getAttrNameForJMX(attr)),
+        attr.getEntity() + "_" + getAttrNameForJMX(attr) + "_size",
         name ->
             ApproxPercentileMetric.of(
                 GROUP, name, Duration.ofHours(1).toMillis(), Duration.ofMinutes(5).toMillis()));
   }
 
-  public static void reportConsumerWatermark(String consumer, long watermark) {
+  public static void reportConsumerWatermark(
+      String consumer, long watermark, long elementTimestamp) {
     consumerWatermark(consumer, watermark);
     consumerWatermarkLag(consumer, watermark);
+    // Element timestamp is set to -1 for onIdle methods.
+    if (elementTimestamp >= 0) {
+      consumerWatermarkDiff(consumer, watermark, elementTimestamp);
+    }
   }
 
   private static void consumerWatermark(String consumer, long watermark) {
-
     GaugeMetric metric =
         getOrCreate(
-            String.format("%s_watermark", toJmxCompatibleConsumerName(consumer)),
+            toJmxCompatibleConsumerName(consumer) + "_watermark",
             name -> GaugeMetric.of(GROUP, name));
-
     consumerMetrics.put(consumer, metric);
     metric.increment(watermark);
   }
@@ -141,11 +138,22 @@ public class Metrics {
   private static void consumerWatermarkLag(String consumer, long watermark) {
     long lag = System.currentTimeMillis() - watermark;
     getOrCreate(
-            String.format("%s_watermark_lag", toJmxCompatibleConsumerName(consumer)),
+            toJmxCompatibleConsumerName(consumer) + "_watermark_lag",
             name ->
                 ApproxPercentileMetric.of(
                     GROUP, name, Duration.ofHours(1).toMillis(), Duration.ofMinutes(5).toMillis()))
         .increment(lag);
+  }
+
+  private static void consumerWatermarkDiff(
+      String consumer, long watermark, long elementTimestamp) {
+    final long diff = elementTimestamp - watermark;
+    getOrCreate(
+            toJmxCompatibleConsumerName(consumer) + "_watermark_diff",
+            name ->
+                ApproxPercentileMetric.of(
+                    GROUP, name, Duration.ofHours(1).toMillis(), Duration.ofMinutes(5).toMillis()))
+        .increment(diff);
   }
 
   private static String toJmxCompatibleConsumerName(String consumer) {

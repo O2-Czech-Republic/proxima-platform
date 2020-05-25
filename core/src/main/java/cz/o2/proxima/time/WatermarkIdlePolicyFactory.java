@@ -15,18 +15,10 @@
  */
 package cz.o2.proxima.time;
 
-import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
+import java.util.Map;
 
-/** Supplies the current watermark to clients. */
-@Internal
-@FunctionalInterface
-public interface WatermarkSupplier extends Serializable {
-
-  /**
-   * Retrieve watermark.
-   *
-   * @return the current watermark.
-   */
-  long getWatermark();
+/** Factory creates watermark idle policy instance. */
+public interface WatermarkIdlePolicyFactory extends Serializable {
+  WatermarkIdlePolicy create(Map<String, Object> cfg);
 }

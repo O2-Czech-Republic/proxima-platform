@@ -46,6 +46,10 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.KeyPartitioner;
 import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.time.WatermarkEstimator;
+import cz.o2.proxima.time.WatermarkEstimatorFactory;
+import cz.o2.proxima.time.WatermarkIdlePolicy;
+import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.Serializable;
@@ -2349,6 +2353,128 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(1, tested);
   }
 
+  @Test(timeout = 10000)
+  public void testCustomWatermarkEstimator() throws InterruptedException {
+    Map<String, Object> cfg = partitionsCfg(3);
+    cfg.put("watermark.estimator-factory", FixedWatermarkEstimatorFactory.class.getName());
+
+    Accessor accessor = kafka.createAccessor(direct, entity, storageUri, cfg);
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(context())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+
+    long now = System.currentTimeMillis();
+    final UnaryFunction<Integer, StreamElement> update =
+        pos ->
+            StreamElement.upsert(
+                entity,
+                attr,
+                UUID.randomUUID().toString(),
+                "key" + pos,
+                attr.getName(),
+                now + pos,
+                new byte[] {1, 2});
+
+    AtomicLong watermark = new AtomicLong();
+    CountDownLatch latch = new CountDownLatch(100);
+    reader
+        .observe(
+            "test",
+            Position.NEWEST,
+            new LogObserver() {
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                watermark.set(context.getWatermark());
+                latch.countDown();
+                return true;
+              }
+
+              @Override
+              public void onCompleted() {
+                fail("This should not be called");
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            })
+        .waitUntilReady();
+
+    for (int i = 0; i < 100; i++) {
+      writer.write(update.apply(i), (succ, e) -> {});
+    }
+
+    latch.await();
+
+    assertEquals(FixedWatermarkEstimatorFactory.FIXED_WATERMARK, watermark.get());
+  }
+
+  @Test(timeout = 10000)
+  public void testCustomIdlePolicy() throws InterruptedException {
+    Map<String, Object> cfg =
+        and(partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000")));
+    cfg.put("watermark.idle-policy-factory", FixedWatermarkIdlePolicyFactory.class.getName());
+
+    Accessor accessor = kafka.createAccessor(direct, entity, storageUri, cfg);
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(context())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+
+    long now = System.currentTimeMillis();
+    final StreamElement update =
+        StreamElement.upsert(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            attr.getName(),
+            now + 2000,
+            new byte[] {1, 2});
+
+    AtomicLong watermark = new AtomicLong();
+    CountDownLatch latch = new CountDownLatch(2);
+    reader
+        .observe(
+            "test",
+            Position.NEWEST,
+            new LogObserver() {
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                watermark.set(context.getWatermark());
+                latch.countDown();
+                return true;
+              }
+
+              @Override
+              public void onCompleted() {
+                fail("This should not be called");
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            })
+        .waitUntilReady();
+
+    // then we write single element
+    writer.write(update, (succ, e) -> {});
+    // for two seconds we have empty data
+    TimeUnit.SECONDS.sleep(2);
+    // finally, last update to save watermark
+    writer.write(update, (succ, e) -> {});
+    latch.await();
+
+    assertEquals(FixedWatermarkIdlePolicyFactory.FIXED_IDLE_WATERMARK, watermark.get());
+  }
+
   private long testSequentialConsumption(long maxBytesPerSec) throws InterruptedException {
 
     final Accessor accessor =
@@ -2489,6 +2615,33 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     @Override
     public Serde<String> valueSerde() {
       return Serdes.String();
+    }
+  }
+
+  public static final class FixedWatermarkEstimatorFactory implements WatermarkEstimatorFactory {
+    public static final long FIXED_WATERMARK = 333L;
+
+    @Override
+    public WatermarkEstimator create(
+        Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
+      return new WatermarkEstimator() {
+        @Override
+        public long getWatermark() {
+          return FIXED_WATERMARK;
+        }
+
+        @Override
+        public void setMinWatermark(long minWatermark) {}
+      };
+    }
+  }
+
+  public static final class FixedWatermarkIdlePolicyFactory implements WatermarkIdlePolicyFactory {
+    public static final long FIXED_IDLE_WATERMARK = 555L;
+
+    @Override
+    public WatermarkIdlePolicy create(Map<String, Object> cfg) {
+      return (WatermarkIdlePolicy) () -> FIXED_IDLE_WATERMARK;
     }
   }
 }

@@ -13,20 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.time;
+package cz.o2.proxima.direct.time;
 
 import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
 
-/** Supplies the current watermark to clients. */
 @Internal
 @FunctionalInterface
-public interface WatermarkSupplier extends Serializable {
-
-  /**
-   * Retrieve watermark.
-   *
-   * @return the current watermark.
-   */
-  long getWatermark();
+public interface TimestampSupplier extends Serializable {
+  long get();
 }

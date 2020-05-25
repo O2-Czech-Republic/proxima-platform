@@ -37,8 +37,8 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
   public static final String CFG_MAX_ACK_DEADLINE = "pubsub.deadline-max-ms";
   public static final String CFG_SUBSCRIPTION_AUTOCREATE = "pubsub.subscription.auto-create";
   public static final String CFG_SUBSCRIPTION_ACK_DEADLINE = "pubsub.subscription.ack-deadline";
-  public static final String CFG_WATERMARK_ESTIMATE_DURATION = "pubsub.watermark.estimate-duration";
-  public static final String CFG_ALLOWED_TIMESTAMP_SKEW = "pubsub.watermark.allowed-timestamp-skew";
+
+  @Getter private final Map<String, Object> cfg;
 
   @Getter private final String project;
 
@@ -50,13 +50,12 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
 
   @Getter private final boolean subscriptionAutoCreate;
 
-  @Getter private final long watermarkEstimateDuration;
-
-  @Getter private final long allowedTimestampSkew;
+  @Getter private final PubSubWatermarkConfiguration watermarkConfiguration;
 
   PubSubAccessor(PubSubStorage storage, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     super(entity, uri);
+    this.cfg = cfg;
     project = uri.getAuthority();
     topic = UriUtil.getPathNormalized(uri);
     maxAckDeadline =
@@ -74,19 +73,15 @@ class PubSubAccessor extends AbstractStorage implements DataAccessor {
             .map(Object::toString)
             .map(Integer::valueOf)
             .orElse(storage.getDefaultSubscriptionAckDeadlineSeconds());
-    watermarkEstimateDuration =
-        Optional.ofNullable(cfg.get(CFG_WATERMARK_ESTIMATE_DURATION))
-            .map(Object::toString)
-            .map(Integer::valueOf)
-            .orElse(
-                storage.getDefaultWatermarkEstimateDuration() == null
-                    ? subscriptionAckDeadline * 1000
-                    : (int) storage.getDefaultWatermarkEstimateDuration());
-    allowedTimestampSkew =
-        Optional.ofNullable(cfg.get(CFG_ALLOWED_TIMESTAMP_SKEW))
-            .map(Object::toString)
-            .map(Long::valueOf)
-            .orElse(storage.getDefaultAllowedTimestampSkew());
+
+    long defaultEstimateDuration =
+        storage.getDefaultWatermarkEstimateDuration() == null
+            ? subscriptionAckDeadline * 1000
+            : storage.getDefaultWatermarkEstimateDuration();
+
+    watermarkConfiguration =
+        new PubSubWatermarkConfiguration(
+            cfg, defaultEstimateDuration, storage.getDefaultAllowedTimestampSkew());
 
     Preconditions.checkArgument(!Strings.isNullOrEmpty(project), "Authority cannot be empty");
     Preconditions.checkArgument(!Strings.isNullOrEmpty(topic), "Path has to represent topic");

@@ -21,13 +21,14 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.storage.InMemStorage;
-import cz.o2.proxima.direct.storage.InMemStorage.WatermarkEstimator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.config.ConfigUtils;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.time.WatermarkEstimator;
+import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.net.URI;
 import java.util.UUID;
@@ -125,7 +126,7 @@ public class BeamCommitLogReaderTest {
     write("key1");
     write("key2");
     if (!stopAtCurrent) {
-      watermark.set(WatermarkEstimator.MAX_TIMESTAMP);
+      watermark.set(Watermarks.MAX_WATERMARK);
     }
     if (!err.take()) {
       throw new AssertionError(caught.get());
@@ -151,12 +152,12 @@ public class BeamCommitLogReaderTest {
   private WatermarkEstimator asWatermarkEstimator(AtomicLong watermark) {
     return new WatermarkEstimator() {
       @Override
-      public void accumulate(StreamElement element) {}
-
-      @Override
       public long getWatermark() {
         return watermark.get();
       }
+
+      @Override
+      public void setMinWatermark(long minWatermark) {}
     };
   }
 }

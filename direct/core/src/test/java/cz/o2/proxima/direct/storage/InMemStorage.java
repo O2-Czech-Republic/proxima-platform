@@ -41,6 +41,7 @@ import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.randomaccess.RawOffset;
+import cz.o2.proxima.direct.time.BoundedOutOfOrdernessWatermarkEstimator;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.functional.BiConsumer;
@@ -51,7 +52,9 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.time.WatermarkSupplier;
+import cz.o2.proxima.time.WatermarkEstimator;
+import cz.o2.proxima.time.WatermarkIdlePolicy;
+import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.net.URI;
@@ -409,9 +412,10 @@ public class InMemStorage implements DataAccessorFactory {
       Runnable onIdle =
           () -> {
             synchronized (observer) {
-              watermark.onIdle();
+              watermark.idle();
               observer.onIdle(watermark::getWatermark);
-              if (watermark.getWatermark() >= WatermarkEstimator.MAX_TIMESTAMP) {
+              if (watermark.getWatermark()
+                  >= (Watermarks.MAX_WATERMARK - BOUNDED_OUT_OF_ORDERNESS)) {
                 observer.onCompleted();
                 getObservers(getUri()).remove(consumerId);
                 onIdleRef.get().cancel(true);
@@ -429,7 +433,7 @@ public class InMemStorage implements DataAccessorFactory {
               if (!killSwitch.get()) {
                 el = cloneAndUpdateAttribute(getEntityDescriptor(), el);
                 long off = offsetTracker.incrementAndGet();
-                watermark.accumulate(el);
+                watermark.update(el);
                 long w = watermark.getWatermark();
                 synchronized (observer) {
                   killSwitch.compareAndSet(
@@ -737,44 +741,6 @@ public class InMemStorage implements DataAccessorFactory {
     }
   }
 
-  /** Estimator of watermark. */
-  public interface WatermarkEstimator extends Serializable, WatermarkSupplier {
-
-    long MAX_TIMESTAMP = Long.MAX_VALUE - BOUNDED_OUT_OF_ORDERNESS;
-
-    /** Update the watermark estimate with given element. */
-    void accumulate(StreamElement element);
-
-    /** Signal that all data is processed and reader is empty. */
-    default void onIdle() {}
-  }
-
-  public static class DefaultWatermarkEstimator implements WatermarkEstimator {
-
-    private long watermark;
-    private long lastWatermarkWhenIdle = Long.MIN_VALUE;
-
-    public DefaultWatermarkEstimator(long initialWatermark) {
-      this.watermark = initialWatermark;
-    }
-
-    @Override
-    public void accumulate(StreamElement element) {
-      watermark = Math.max(watermark, element.getStamp() - BOUNDED_OUT_OF_ORDERNESS);
-    }
-
-    @Override
-    public long getWatermark() {
-      return watermark;
-    }
-
-    @Override
-    public void onIdle() {
-      watermark = Math.max(watermark, lastWatermarkWhenIdle + IDLE_FLUSH_TIME);
-      lastWatermarkWhenIdle = getWatermark();
-    }
-  }
-
   @FunctionalInterface
   public interface WatermarkEstimatorFactory extends Serializable {
     WatermarkEstimator apply(long stamp, String consumer);
@@ -796,7 +762,13 @@ public class InMemStorage implements DataAccessorFactory {
 
       return Optional.ofNullable(watermarkEstimatorFactories.get(uri))
           .map(f -> f.apply(initializationWatermark, consumerName))
-          .orElseGet(() -> new DefaultWatermarkEstimator(initializationWatermark));
+          .orElseGet(
+              () ->
+                  BoundedOutOfOrdernessWatermarkEstimator.newBuilder()
+                      .withMinWatermark(initializationWatermark)
+                      .withMaxOutOfOrderness(BOUNDED_OUT_OF_ORDERNESS)
+                      .withWatermarkIdlePolicy(new IdlePolicy(getIdleFlushTime()))
+                      .build());
     }
 
     void clear() {
@@ -940,5 +912,24 @@ public class InMemStorage implements DataAccessorFactory {
       LogObserver.OffsetCommitter committer, Offset offset) {
 
     return ObserverUtils.asOnNextContext(committer, offset);
+  }
+
+  static class IdlePolicy implements WatermarkIdlePolicy {
+    private final long idleFlushTime;
+    private long lastWatermarkWhenIdle = Watermarks.MIN_WATERMARK;
+
+    public IdlePolicy(long idleFlushTime) {
+      this.idleFlushTime = idleFlushTime;
+    }
+
+    @Override
+    public void idle(long currentWatermark) {
+      lastWatermarkWhenIdle = Math.max(currentWatermark, lastWatermarkWhenIdle + idleFlushTime);
+    }
+
+    @Override
+    public long getIdleWatermark() {
+      return lastWatermarkWhenIdle;
+    }
   }
 }

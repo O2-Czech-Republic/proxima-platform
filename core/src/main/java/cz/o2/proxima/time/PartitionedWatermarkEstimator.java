@@ -15,18 +15,25 @@
  */
 package cz.o2.proxima.time;
 
-import cz.o2.proxima.annotations.Internal;
-import java.io.Serializable;
+import cz.o2.proxima.storage.StreamElement;
 
-/** Supplies the current watermark to clients. */
-@Internal
-@FunctionalInterface
-public interface WatermarkSupplier extends Serializable {
+/** Watermark estimator wrapper for partitioned sources. */
+public interface PartitionedWatermarkEstimator extends WatermarkSupplier {
 
   /**
-   * Retrieve watermark.
+   * Returns estimated watermark across all partitions.
    *
-   * @return the current watermark.
+   * @return the watermark estimate.
    */
   long getWatermark();
+
+  /**
+   * Updates the partition watermark estimate according to the given stream element.
+   *
+   * @param element a stream element.
+   */
+  default void update(int partition, StreamElement element) {}
+
+  /** Signals that a given partition is idle. */
+  default void idle(int partition) {}
 }

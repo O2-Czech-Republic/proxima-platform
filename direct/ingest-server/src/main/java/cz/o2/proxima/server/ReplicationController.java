@@ -148,7 +148,7 @@ public class ReplicationController {
 
     @Override
     public void onIdle(OnIdleContext context) {
-      Metrics.reportConsumerWatermark(consumerName, context.getWatermark());
+      Metrics.reportConsumerWatermark(consumerName, context.getWatermark(), -1);
     }
 
     abstract void ingestElement(StreamElement ingest, OnNextContext context);
@@ -435,7 +435,7 @@ public class ReplicationController {
           @Override
           void ingestElement(StreamElement ingest, OnNextContext context) {
             final long watermark = context.getWatermark();
-            Metrics.reportConsumerWatermark(consumerName, watermark);
+            Metrics.reportConsumerWatermark(consumerName, watermark, ingest.getStamp());
             log.debug(
                 "Consumer {}: writing element {} into {} at watermark {}",
                 consumerName,
@@ -486,7 +486,8 @@ public class ReplicationController {
 
           @Override
           void ingestElement(StreamElement ingest, OnNextContext context) {
-            Metrics.reportConsumerWatermark(consumerName, context.getWatermark());
+            Metrics.reportConsumerWatermark(
+                consumerName, context.getWatermark(), ingest.getStamp());
             log.debug("Consumer {}: writing element {} into {}", consumerName, ingest, writer);
             writer.write(
                 ingest,

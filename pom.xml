@@ -75,8 +75,8 @@
   </distributionManagement>
 
   <properties>
-    <maven.shade.version>3.2.2</maven.shade.version>
-    <groovy.version>2.5.11</groovy.version>
+    <maven.shade.version>3.2.3</maven.shade.version>
+    <groovy.version>2.5.12</groovy.version>
     <hadoop.version>2.10.0</hadoop.version>
     <hbase.version>1.5.0</hbase.version>
     <kafka.version>2.5.0</kafka.version>

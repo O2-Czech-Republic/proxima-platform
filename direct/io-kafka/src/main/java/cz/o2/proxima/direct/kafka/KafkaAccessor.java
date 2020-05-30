@@ -67,8 +67,6 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   public static final String MAX_BYTES_PER_SEC = "bytes-per-sec-max";
   /** Allowed timestamp skew between consumer and producer. */
   public static final String TIMESTAMP_SKEW = "timestamp-skew";
-  /** Number of empty polls to consider partition empty. */
-  public static final String EMPTY_POLLS = "poll.count-for-empty";
   /** Number of records per poll() */
   public static final String MAX_POLL_RECORDS = "kafka.max.poll.records";
   /** Auto commit interval in milliseconds. */
@@ -100,9 +98,6 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Getter(AccessLevel.PACKAGE)
   private long timestampSkew = 100;
-
-  @Getter(AccessLevel.PACKAGE)
-  private int emptyPolls = (int) (1000 / consumerPollInterval);
 
   @Getter(AccessLevel.PACKAGE)
   private int maxPollRecords = 500;
@@ -152,11 +147,6 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
             .map(v -> Long.valueOf(v.toString()))
             .orElse(timestampSkew);
 
-    this.emptyPolls =
-        Optional.ofNullable(cfg.get(EMPTY_POLLS))
-            .map(v -> Integer.valueOf(v.toString()))
-            .orElse((int) (1000 / consumerPollInterval));
-
     this.maxPollRecords =
         Optional.ofNullable(cfg.get(MAX_POLL_RECORDS))
             .map(v -> Integer.valueOf(v.toString()))
@@ -186,7 +176,6 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
             + "partitionerClass {}, "
             + "maxBytesPerSec {}, "
             + "timestampSkew {}, "
-            + "emptyPolls {}, "
             + "maxPollRecords {}, "
             + "autoCommitIntervalNs {}, "
             + "logStaleCommitIntervalNs {}, "
@@ -196,7 +185,6 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
         partitioner.getClass(),
         maxBytesPerSec,
         timestampSkew,
-        emptyPolls,
         maxPollRecords,
         autoCommitIntervalNs,
         logStaleCommitIntervalNs,

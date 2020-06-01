@@ -35,7 +35,6 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
-import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -152,10 +151,6 @@ public class BulkGCloudStorageWriterTest implements Serializable {
               }
             }
           }
-
-          protected Object readResolve() throws ObjectStreamException {
-            return super.readResolve();
-          }
         };
   }
 
@@ -173,7 +168,6 @@ public class BulkGCloudStorageWriterTest implements Serializable {
   @Test
   public void testSerializable() throws IOException, ClassNotFoundException, InterruptedException {
     BulkGCloudStorageWriter clone = TestUtils.assertSerializable(writer);
-    assertTrue(clone.isInitialized());
   }
 
   void testWriteWithWriter() throws InterruptedException, IOException {

@@ -33,7 +33,6 @@ import cz.o2.proxima.util.ExceptionUtils;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectStreamException;
 import java.nio.ByteBuffer;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
@@ -65,6 +64,7 @@ public class BulkGCloudStorageWriter extends GCloudClient implements BulkAttribu
 
   @Override
   public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
+    init();
     wrap.write(data, watermark, statusCallback);
   }
 
@@ -198,10 +198,5 @@ public class BulkGCloudStorageWriter extends GCloudClient implements BulkAttribu
   @Override
   public void close() {
     wrap.close();
-  }
-
-  protected Object readResolve() throws ObjectStreamException {
-    init();
-    return this;
   }
 }

@@ -25,7 +25,6 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -152,8 +151,8 @@ public class AbstractBulkFileSystemAttributeWriterTest {
     this.entity =
         EntityDescriptor.newBuilder()
             .setName("dummy")
-            .addAttribute((AttributeDescriptorBase<?>) attr)
-            .addAttribute((AttributeDescriptorBase<?>) wildcard)
+            .addAttribute(attr)
+            .addAttribute(wildcard)
             .build();
   }
 
@@ -226,7 +225,7 @@ public class AbstractBulkFileSystemAttributeWriterTest {
           commits.incrementAndGet();
           latch.countDown();
         });
-    writer.flush(Long.MAX_VALUE);
+    writer.updateWatermark(Long.MAX_VALUE);
     latch.await();
     assertEquals(1, commits.get());
     assertEquals(1, written.size());
@@ -455,7 +454,7 @@ public class AbstractBulkFileSystemAttributeWriterTest {
                       assertNotNull(exc);
                       latch.countDown();
                     }));
-    writer.flush(Long.MAX_VALUE);
+    writer.updateWatermark(Long.MAX_VALUE);
     latch.await();
     assertTrue(written.isEmpty());
   }
@@ -472,7 +471,7 @@ public class AbstractBulkFileSystemAttributeWriterTest {
         (succ, exc) -> {
           latch.countDown();
         });
-    writer.flush(Long.MIN_VALUE);
+    writer.updateWatermark(Long.MIN_VALUE);
     assertFalse(latch.await(500, TimeUnit.MILLISECONDS));
   }
 
@@ -493,7 +492,7 @@ public class AbstractBulkFileSystemAttributeWriterTest {
           "wildcard.1",
           now,
           new byte[] {1, 2}),
-      // late, flushed
+      // not late, flushes previous two
       StreamElement.upsert(
           entity,
           wildcard,
@@ -547,16 +546,13 @@ public class AbstractBulkFileSystemAttributeWriterTest {
         .bulk()
         .updateWatermark(now + 4 * params.getRollPeriod() + 1 + params.getAllowedLateness());
     latch.await();
-    assertEquals(4, written.size());
+    assertEquals("Written: " + written.keySet(), 3, written.size());
     validate(written.get(now + params.getRollPeriod()), elements[0], elements[1]);
-    validate(written.get(now + params.getRollPeriod() + 1), elements[2]);
-    validate(written.get(now + params.getRollPeriod() / 2 + 1), elements[3]);
+    validate(written.get(now + params.getRollPeriod() + 1), elements[2], elements[3]);
     validate(written.get(now + 4 * params.getRollPeriod()), elements[4]);
-    assertEquals("Expected four paths, got " + flushedPaths, 4, flushedPaths.size());
+    assertEquals("Expected three paths, got " + flushedPaths, 3, flushedPaths.size());
     assertEquals(2, committed.size());
-    assertEquals(
-        Sets.newHashSet(now + params.getRollPeriod() + 1, now + 3 * params.getRollPeriod()),
-        committed);
+    assertEquals(Sets.newHashSet(now, now + 3 * params.getRollPeriod()), committed);
   }
 
   @Test(timeout = 10000)
@@ -564,9 +560,6 @@ public class AbstractBulkFileSystemAttributeWriterTest {
     CountDownLatch latch = new CountDownLatch(1);
     long now = 1500000000000L;
     StreamElement[] elements = {
-      // not late
-      StreamElement.upsert(
-          entity, attr, UUID.randomUUID().toString(), "key1", "attr", now + 200, new byte[] {1}),
       // very late, not flushed
       StreamElement.upsert(
           entity, attr, UUID.randomUUID().toString(), "key1", "attr", 0L, new byte[] {1}),
@@ -577,13 +570,24 @@ public class AbstractBulkFileSystemAttributeWriterTest {
           UUID.randomUUID().toString(),
           "key3",
           "wildcard.1",
-          now + params.getRollPeriod() + 1,
-          new byte[] {1, 2, 3})
+          now,
+          new byte[] {1, 2, 3}),
+      // not late
+      StreamElement.upsert(
+          entity,
+          attr,
+          UUID.randomUUID().toString(),
+          "key1",
+          "attr",
+          now + 2 * params.getRollPeriod(),
+          new byte[] {1})
     };
     List<Long> watermarks =
         new ArrayList<>(
             Arrays.asList(
-                now, now, now + 2 * params.getRollPeriod() + params.getAllowedLateness() + 1));
+                now,
+                now + 2 * params.getRollPeriod() + params.getAllowedLateness(),
+                now + 2 * params.getRollPeriod() + params.getAllowedLateness() + 1));
 
     Set<Long> committed = Collections.synchronizedSet(new HashSet<>());
     Arrays.stream(elements)
@@ -602,16 +606,16 @@ public class AbstractBulkFileSystemAttributeWriterTest {
         .bulk()
         .updateWatermark(now + 4 * params.getRollPeriod() + 1 + params.getAllowedLateness());
     latch.await();
-    assertEquals(3, written.size());
+    assertEquals("Written: " + written.keySet(), 3, written.size());
     // on time
-    validate(written.get(now + params.getRollPeriod()), elements[0]);
+    validate(written.get(now + 3 * params.getRollPeriod()), elements[2]);
     // late
-    validate(written.get(now + params.getRollPeriod() + 1), elements[2]);
+    validate(written.get(now), elements[1]);
     // very late
-    validate(written.get(0L), elements[1]);
+    validate(written.get(0L), elements[0]);
     assertEquals("Expected three paths, got " + flushedPaths, 3, flushedPaths.size());
     assertEquals(1, committed.size());
-    assertEquals(Sets.newHashSet(now + params.getRollPeriod() + 1), committed);
+    assertEquals(Sets.newHashSet(now + 2 * params.getRollPeriod()), committed);
   }
 
   @Test

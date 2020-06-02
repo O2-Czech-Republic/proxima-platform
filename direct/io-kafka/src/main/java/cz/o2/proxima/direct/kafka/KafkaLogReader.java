@@ -224,18 +224,20 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
     final OffsetCommitter<TopicPartition> offsetCommitter = createOffsetCommitter();
 
-    BiConsumer<TopicPartition, ConsumerRecord<Object, Object>> preWrite =
-        (tp, r) ->
-            offsetCommitter.register(
-                tp,
-                r.offset(),
-                1,
-                () -> {
-                  OffsetAndMetadata mtd = new OffsetAndMetadata(r.offset() + 1);
-                  if (commitToKafka) {
-                    kafkaCommitMap.put(tp, mtd);
-                  }
-                });
+    final BiConsumer<TopicPartition, ConsumerRecord<Object, Object>> preWrite =
+        (tp, r) -> {
+          final long offset = r.offset();
+          offsetCommitter.register(
+              tp,
+              offset,
+              1,
+              () -> {
+                OffsetAndMetadata mtd = new OffsetAndMetadata(offset + 1);
+                if (commitToKafka) {
+                  kafkaCommitMap.put(tp, mtd);
+                }
+              });
+        };
 
     OnlineConsumer<Object, Object> onlineConsumer =
         new OnlineConsumer<>(

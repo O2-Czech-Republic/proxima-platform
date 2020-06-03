@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.bulk;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import cz.o2.proxima.direct.core.AbstractBulkAttributeWriter;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -213,18 +214,20 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
   @Override
   public void close() {
     synchronized (writers) {
-      writers
-          .values()
-          .forEach(
-              writer -> {
-                Path path = writer.getWriter().getPath();
-                try {
-                  writer.getWriter().close();
-                  path.delete();
-                } catch (IOException ex) {
-                  throw new RuntimeException(ex);
-                }
-              });
+      synchronized (lateWriters) {
+        Streams.concat(writers.values().stream(), lateWriters.values().stream())
+            .forEach(
+                writer -> {
+                  Path path = writer.getWriter().getPath();
+                  try {
+                    writer.getWriter().close();
+                    path.delete();
+                  } catch (IOException ex) {
+                    throw new RuntimeException(ex);
+                  }
+                });
+        lateWriters.clear();
+      }
       writers.clear();
     }
   }
@@ -235,11 +238,6 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
    * @param bulk the bulk to flush
    */
   protected abstract void flush(Bulk bulk);
-
-  @VisibleForTesting
-  void flush(long watermark) {
-    flushOnWatermark(watermark);
-  }
 
   private void flushOnWatermark(long watermark) {
     Collection<Bulk> flushable = collectFlushable(watermark);
@@ -300,27 +298,40 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
               .filter(bulk -> bulk.getMaxTs() + allowedLatenessMs < watermark)
               .collect(Collectors.toSet());
 
-      synchronized (lateWriters) {
-        if (!ret.isEmpty() && !lateWriters.isEmpty()) {
-          // flush late bulk if there is any bulk to flush
-          lateWriters.forEach((k, bulk) -> ret.add(bulk));
-          log.debug("Added late bulks {} into flushable list", lateWriters);
-          lateWriters.clear();
-        }
+      // search for commit callback to use for committing
+      long maxWriteSeqNo = getMaxWriteSeqNo(ret);
+
+      if (ret.isEmpty()) {
+        return ret;
       }
 
-      // search for commit callback to use for committing
-      long maxWriteSeqNo =
-          ret.stream().mapToLong(Bulk::getLastWriteSeqNo).max().orElse(Long.MIN_VALUE);
-
-      // add all bulks that were written *before* the committed seq no
-      writers
-          .entrySet()
-          .stream()
-          .filter(e -> e.getValue().getFirstWriteSeqNo() < maxWriteSeqNo)
-          .forEach(e -> ret.add(e.getValue()));
-
+      synchronized (lateWriters) {
+        int initialSize;
+        do {
+          initialSize = ret.size();
+          List<Map.Entry<String, LateBulk>> lateBulks =
+              getAdditionalBulks(lateWriters.entrySet(), maxWriteSeqNo);
+          lateBulks.forEach(e -> ret.add(lateWriters.remove(e.getKey())));
+          maxWriteSeqNo = getMaxWriteSeqNo(ret);
+          List<Map.Entry<Long, Bulk>> normalBulks =
+              getAdditionalBulks(writers.entrySet(), maxWriteSeqNo);
+          normalBulks.forEach(e -> ret.add(e.getValue()));
+          maxWriteSeqNo = getMaxWriteSeqNo(ret);
+        } while (initialSize < ret.size());
+      }
       return ret;
     }
+  }
+
+  private long getMaxWriteSeqNo(Set<Bulk> ret) {
+    return ret.stream().mapToLong(Bulk::getLastWriteSeqNo).max().orElse(Long.MIN_VALUE);
+  }
+
+  private <K, B extends Bulk> List<Map.Entry<K, B>> getAdditionalBulks(
+      Collection<Map.Entry<K, B>> bulks, long maxWriteSeqNo) {
+    return bulks
+        .stream()
+        .filter(e -> e.getValue().getFirstWriteSeqNo() < maxWriteSeqNo)
+        .collect(Collectors.toList());
   }
 }

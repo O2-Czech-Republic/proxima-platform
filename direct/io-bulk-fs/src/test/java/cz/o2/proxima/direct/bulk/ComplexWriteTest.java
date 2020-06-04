@@ -147,7 +147,12 @@ public class ComplexWriteTest {
           watermark.get(),
           (succ, exc) -> {
             int flushed = this.flushed.get();
-            if (currentPos > flushed) {
+            if (!succ) {
+              log.error("Exception while committing offset {}", currentPos, exc);
+              failures.add(
+                  String.format(
+                      "Exception while committing offset %d: %s", currentPos, exc.getMessage()));
+            } else if (currentPos > flushed) {
               failures.add(
                   String.format("Committed offset %d while written only %d", currentPos, flushed));
             }

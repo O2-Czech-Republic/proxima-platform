@@ -55,6 +55,7 @@ public class KafkaAccessorTest {
   private KafkaAccessor kafkaAccessor;
   private List<ConfigEntry> cfgEtrs;
 
+  @SuppressWarnings("unchecked")
   private void setupMocks() throws ExecutionException, InterruptedException {
     // mocks needed for when/thenReturn
     adminClient = Mockito.mock(AdminClient.class);

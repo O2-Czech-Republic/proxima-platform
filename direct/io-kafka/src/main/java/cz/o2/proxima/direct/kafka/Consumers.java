@@ -26,6 +26,7 @@ import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkSupplier;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -64,8 +65,7 @@ class Consumers {
     }
 
     @Override
-    public void onAssign(KafkaConsumer<K, V> consumer, List<TopicOffset> offsets) {
-
+    public void onAssign(KafkaConsumer<K, V> consumer, Collection<TopicOffset> offsets) {
       committed.clear();
       committed.putAll(
           offsets
@@ -143,7 +143,7 @@ class Consumers {
     }
 
     @Override
-    public void onAssign(KafkaConsumer<K, V> consumer, List<TopicOffset> offsets) {
+    public void onAssign(KafkaConsumer<K, V> consumer, Collection<TopicOffset> offsets) {
       super.onAssign(consumer, offsets);
       committer.clear();
       observer.onRepartition(
@@ -244,7 +244,7 @@ class Consumers {
 
     @SuppressWarnings("unchecked")
     @Override
-    public void onAssign(KafkaConsumer<K, V> consumer, List<TopicOffset> offsets) {
+    public void onAssign(KafkaConsumer<K, V> consumer, Collection<TopicOffset> offsets) {
       super.onAssign(consumer, offsets);
       observer.onRepartition(
           asRepartitionContext(

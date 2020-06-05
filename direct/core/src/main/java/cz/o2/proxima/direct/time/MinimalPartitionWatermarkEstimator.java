@@ -20,6 +20,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.PartitionedWatermarkEstimator;
 import cz.o2.proxima.time.WatermarkEstimator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -52,7 +53,8 @@ public class MinimalPartitionWatermarkEstimator implements PartitionedWatermarkE
 
   @Override
   public void update(int partition, StreamElement element) {
-    estimators.get(partition).update(element);
+    Optional.ofNullable(estimators.get(partition))
+        .ifPresent(estimator -> estimator.update(element));
   }
 
   @Override

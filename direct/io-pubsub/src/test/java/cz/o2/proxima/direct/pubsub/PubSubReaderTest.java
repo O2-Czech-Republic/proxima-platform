@@ -34,6 +34,7 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.pubsub.PubSubReader.PubSubOffset;
+import cz.o2.proxima.direct.time.UnboundedOutOfOrdernessWatermarkEstimator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorImpl;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -41,16 +42,19 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.WatermarkEstimator;
+import cz.o2.proxima.time.WatermarkEstimatorFactory;
+import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import io.grpc.internal.GrpcUtil;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -76,10 +80,10 @@ public class PubSubReaderTest {
   private final EntityDescriptor entity;
   private final PubSubStorage storage = new PubSubStorage();
   private final PubSubAccessor accessor;
-  private final AtomicLong timestampSupplier = new AtomicLong();
+  private static final AtomicLong timestampSupplier = new AtomicLong();
   private TestPubSubReader reader;
 
-  private class TestPubSubReader extends PubSubReader {
+  public class TestPubSubReader extends PubSubReader {
 
     private final Context context;
     private final Set<Integer> acked = new HashSet<>();
@@ -102,13 +106,15 @@ public class PubSubReaderTest {
       return MockSubscriber.create(
           subscription, receiver, supplier, acked, nacked, context.getExecutorService());
     }
+  }
 
+  public static class TestWatermarkEstimatorFactory implements WatermarkEstimatorFactory {
     @Override
-    WatermarkEstimator createWatermarkEstimator(long minWatermark) {
-      return WatermarkEstimator.newBuilder()
+    public WatermarkEstimator create(
+        Map<String, Object> cfg, WatermarkIdlePolicyFactory idlePolicyFactory) {
+      return UnboundedOutOfOrdernessWatermarkEstimator.newBuilder()
           .withDurationMs(1)
           .withStepMs(1)
-          .withMinWatermark(minWatermark)
           .withTimestampSupplier(timestampSupplier::get)
           .build();
     }
@@ -134,9 +140,16 @@ public class PubSubReaderTest {
             .addAttribute(wildcard)
             .build();
     assertTrue(entity.findAttribute("attr").isPresent());
-    this.accessor =
-        new PubSubAccessor(
-            storage, entity, new URI("gps://my-project/topic"), Collections.emptyMap());
+
+    Map<String, Object> cfg =
+        new HashMap<String, Object>() {
+          {
+            put(
+                "watermark.estimator-factory",
+                PubSubReaderTest.TestWatermarkEstimatorFactory.class.getName());
+          }
+        };
+    this.accessor = new PubSubAccessor(storage, entity, new URI("gps://my-project/topic"), cfg);
   }
 
   @Before
@@ -478,7 +491,7 @@ public class PubSubReaderTest {
   }
 
   @Test
-  public void testeInstantiationHttp2Error() {
+  public void testInstantiationHttp2Error() {
     GrpcUtil.Http2Error error = GrpcUtil.Http2Error.NO_ERROR;
     assertNotNull(error);
   }

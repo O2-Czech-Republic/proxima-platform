@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.direct.kafka;
 
+import static java.util.stream.Collectors.toMap;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
@@ -25,11 +27,15 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.kafka.Consumers.BulkConsumer;
 import cz.o2.proxima.direct.kafka.Consumers.OnlineConsumer;
+import cz.o2.proxima.direct.time.MinimalPartitionWatermarkEstimator;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
-import cz.o2.proxima.time.VectorClock;
+import cz.o2.proxima.time.PartitionedWatermarkEstimator;
+import cz.o2.proxima.time.WatermarkEstimator;
+import cz.o2.proxima.time.WatermarkEstimatorFactory;
+import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -67,8 +73,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   private final Context context;
   private final long consumerPollInterval;
   private final long maxBytesPerSec;
-  private final long timestampSkew;
   private final String topic;
+  private final Map<String, Object> cfg;
 
   KafkaLogReader(KafkaAccessor accessor, Context context) {
     super(accessor.getEntityDescriptor(), accessor.getUri());
@@ -76,8 +82,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     this.context = context;
     this.consumerPollInterval = accessor.getConsumerPollInterval();
     this.maxBytesPerSec = accessor.getMaxBytesPerSec();
-    this.timestampSkew = accessor.getTimestampSkew();
     this.topic = accessor.getTopic();
+    this.cfg = accessor.getCfg();
 
     log.debug("Created {} for accessor {}", getClass().getSimpleName(), accessor);
   }
@@ -330,15 +336,14 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         () -> {
           handle.set(createObserveHandle(shutdown, seekOffsets, consumer, latch));
           final AtomicReference<KafkaConsumer<Object, Object>> consumerRef;
-          final AtomicReference<VectorClock> clock = new AtomicReference<>(VectorClock.of(1));
-          final Map<Integer, Integer> partitionToClockDimension = new ConcurrentHashMap<>();
+          final AtomicReference<PartitionedWatermarkEstimator> watermarkEstimator =
+              new AtomicReference<>(createWatermarkEstimatorForEmptyParts());
           final Map<Integer, Integer> emptyPollCount = new ConcurrentHashMap<>();
           final Duration pollDuration = Duration.ofMillis(consumerPollInterval);
           consumerRef = new AtomicReference<>();
           consumer.onStart();
           ConsumerRebalanceListener listener =
-              listener(
-                  name, consumerRef, consumer, clock, partitionToClockDimension, emptyPollCount);
+              listener(name, consumerRef, consumer, emptyPollCount, watermarkEstimator);
           final ElementSerializer<Object, Object> serializer = accessor.getSerializer();
 
           try (KafkaConsumer<Object, Object> kafka =
@@ -367,7 +372,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
             AtomicReference<Throwable> error = new AtomicReference<>();
             do {
               if (poll.isEmpty()) {
-                consumer.onIdle(clock.get());
+                consumer.onIdle(watermarkEstimator.get());
               }
               if (log.isDebugEnabled()) {
                 log.debug(
@@ -376,8 +381,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                     name,
                     offsets,
                     poll.count(),
-                    clock.get().getStamp());
+                    watermarkEstimator.get().getWatermark());
               }
+
               synchronized (seekOffsets) {
                 if (!seekOffsets.isEmpty()) {
                   Utils.seekToOffsets(topic, offsets, kafka);
@@ -391,7 +397,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                                   new TopicOffset(
                                       tp.partition(),
                                       kafka.position(tp),
-                                      clock.get().getWatermark()))
+                                      watermarkEstimator.get().getWatermark()))
                           .collect(Collectors.toList()));
                   log.info("Seeked consumer to offsets {} as requested", seekOffsets);
                   seekOffsets.clear();
@@ -412,13 +418,11 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 preWrite.accept(tp, r);
                 StreamElement ingest = serializer.read(r, getEntityDescriptor());
                 if (ingest != null) {
-                  // move watermark
-                  clock
-                      .get()
-                      .update(partitionToClockDimension.get(tp.partition()), ingest.getStamp());
+                  watermarkEstimator.get().update(tp.partition(), ingest);
                 }
                 boolean cont =
-                    consumer.consumeWithConfirm(ingest, tp, r.offset(), clock.get(), error::set);
+                    consumer.consumeWithConfirm(
+                        ingest, tp, r.offset(), watermarkEstimator.get(), error::set);
                 if (!cont) {
                   log.info("Terminating consumption by request");
                   completed.set(true);
@@ -432,7 +436,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                   }
                 }
               }
-              increaseWatermarkOnEmptyPolls(emptyPollCount, partitionToClockDimension, clock);
+              increaseWatermarkOnEmptyPolls(emptyPollCount, watermarkEstimator);
               flushCommits(kafka, consumer);
               rethrowErrorIfPresent(name, error);
               terminateIfConsumed(stopAtCurrent, kafka, endOffsets, completed);
@@ -519,10 +523,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
   private void increaseWatermarkOnEmptyPolls(
       Map<Integer, Integer> emptyPollCount,
-      Map<Integer, Integer> partitionToClockDimension,
-      AtomicReference<VectorClock> clock) {
+      AtomicReference<PartitionedWatermarkEstimator> watermarkEstimator) {
 
-    long nowSkewed = clock.get().getProcessingStamp() - timestampSkew;
     // we have to poll at least number of assigned partitions-times and still have empty poll
     // on that partition to be sure that it is actually empty
     int numEmptyPolls = emptyPollCount.size();
@@ -530,7 +532,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         .entrySet()
         .stream()
         .filter(e -> e.getValue() >= numEmptyPolls)
-        .forEach(e -> clock.get().update(partitionToClockDimension.get(e.getKey()), nowSkewed));
+        .forEach(e -> watermarkEstimator.get().idle(e.getKey()));
   }
 
   private ObserveHandle createObserveHandle(
@@ -583,7 +585,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         .entrySet()
         .stream()
         .filter(entry -> beginning.get(entry.getKey()) < entry.getValue())
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        .collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   private KafkaConsumer<Object, Object> createConsumer() {
@@ -706,9 +708,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       String name,
       AtomicReference<KafkaConsumer<Object, Object>> kafka,
       ElementConsumer<Object, Object> consumer,
-      AtomicReference<VectorClock> clock,
-      Map<Integer, Integer> partitionToClockDimension,
-      Map<Integer, Integer> emptyPollCount) {
+      Map<Integer, Integer> emptyPollCount,
+      AtomicReference<PartitionedWatermarkEstimator> watermarkEstimator) {
 
     return new ConsumerRebalanceListener() {
 
@@ -723,11 +724,19 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
             parts.stream().map(TopicPartition::partition).sorted().collect(Collectors.toList());
 
         emptyPollCount.clear();
-        for (int pos = 0; pos < partitions.size(); pos++) {
-          partitionToClockDimension.put(partitions.get(pos), pos);
-          emptyPollCount.put(partitions.get(pos), 0);
+        for (Integer partition : partitions) {
+          emptyPollCount.put(partition, 0);
         }
-        clock.set(VectorClock.of(parts.size()));
+
+        if (partitions.isEmpty()) {
+          watermarkEstimator.set(createWatermarkEstimatorForEmptyParts());
+        } else {
+          watermarkEstimator.set(
+              new MinimalPartitionWatermarkEstimator(
+                  partitions
+                      .stream()
+                      .collect(toMap(item -> item, item -> createWatermarkEstimator()))));
+        }
 
         Optional.ofNullable(kafka.get())
             .ifPresent(
@@ -743,7 +752,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           Collection<TopicPartition> parts, KafkaConsumer<Object, Object> c) {
         return parts
             .stream()
-            .map(tp -> new TopicOffset(tp.partition(), c.position(tp), clock.get().getWatermark()))
+            .map(
+                tp ->
+                    new TopicOffset(
+                        tp.partition(), c.position(tp), watermarkEstimator.get().getWatermark()))
             .collect(Collectors.toList());
       }
 
@@ -753,9 +765,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         Map<TopicPartition, OffsetAndMetadata> committed =
             new HashMap<>(c.committed(new HashSet<>(parts)));
         for (TopicPartition tp : parts) {
-          if (committed.get(tp) == null) {
-            committed.put(tp, null);
-          }
+          committed.putIfAbsent(tp, null);
         }
         return committed
             .entrySet()
@@ -764,10 +774,22 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 entry -> {
                   final long offset = entry.getValue() == null ? 0L : entry.getValue().offset();
                   return new TopicOffset(
-                      entry.getKey().partition(), offset, clock.get().getWatermark());
+                      entry.getKey().partition(), offset, watermarkEstimator.get().getWatermark());
                 })
             .collect(Collectors.toList());
       }
+
+      private WatermarkEstimator createWatermarkEstimator() {
+        final WatermarkIdlePolicyFactory idlePolicyFactory =
+            accessor.getWatermarkConfiguration().getWatermarkIdlePolicyFactory();
+        final WatermarkEstimatorFactory estimatorFactory =
+            accessor.getWatermarkConfiguration().getWatermarkEstimatorFactory();
+        return estimatorFactory.create(cfg, idlePolicyFactory);
+      }
     };
+  }
+
+  private static PartitionedWatermarkEstimator createWatermarkEstimatorForEmptyParts() {
+    return (PartitionedWatermarkEstimator) System::currentTimeMillis;
   }
 }

@@ -15,18 +15,9 @@
  */
 package cz.o2.proxima.time;
 
-import cz.o2.proxima.annotations.Internal;
-import java.io.Serializable;
+public class Watermarks {
+  private Watermarks() {}
 
-/** Supplies the current watermark to clients. */
-@Internal
-@FunctionalInterface
-public interface WatermarkSupplier extends Serializable {
-
-  /**
-   * Retrieve watermark.
-   *
-   * @return the current watermark.
-   */
-  long getWatermark();
+  public static final long MIN_WATERMARK = Long.MIN_VALUE;
+  public static final long MAX_WATERMARK = Long.MAX_VALUE;
 }

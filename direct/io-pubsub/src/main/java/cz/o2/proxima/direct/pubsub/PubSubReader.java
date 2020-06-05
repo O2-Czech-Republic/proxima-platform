@@ -52,6 +52,8 @@ import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.WatermarkEstimator;
+import cz.o2.proxima.time.WatermarkEstimatorFactory;
+import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.time.WatermarkSupplier;
 import java.io.IOException;
 import java.io.Serializable;
@@ -59,6 +61,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -79,7 +82,6 @@ import org.threeten.bp.Duration;
 @Stable
 @Slf4j
 class PubSubReader extends AbstractStorage implements CommitLogReader {
-
   static final class PubSubPartition implements Partition {
 
     @Getter private final String consumerName;
@@ -151,27 +153,27 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     boolean consume(StreamElement elem, WatermarkSupplier watermark, AckReplyConsumer ack);
   }
 
+  private final Map<String, Object> cfg;
   private final Context context;
   private final String project;
   private final String topic;
   private final int maxAckDeadline;
   private final int subscriptionAckDeadline;
   private final boolean subscriptionAutoCreate;
-  private final long watermarkEstimateDuration;
-  private final long allowedTimestampSkew;
+  private final PubSubWatermarkConfiguration watermarkConfiguration;
 
   private transient ExecutorService executor;
 
   PubSubReader(PubSubAccessor accessor, Context context) {
     super(accessor.getEntityDescriptor(), accessor.getUri());
+    this.cfg = accessor.getCfg();
     this.context = context;
     this.project = accessor.getProject();
     this.topic = accessor.getTopic();
     this.maxAckDeadline = accessor.getMaxAckDeadline();
     this.subscriptionAckDeadline = accessor.getSubscriptionAckDeadline();
     this.subscriptionAutoCreate = accessor.isSubscriptionAutoCreate();
-    this.watermarkEstimateDuration = accessor.getWatermarkEstimateDuration();
-    this.allowedTimestampSkew = accessor.getAllowedTimestampSkew();
+    this.watermarkConfiguration = accessor.getWatermarkConfiguration();
   }
 
   @Override
@@ -417,15 +419,14 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         .build();
   }
 
-  @VisibleForTesting
   WatermarkEstimator createWatermarkEstimator(long minWatermark) {
-    long duration = (watermarkEstimateDuration) / 100 * 100;
-    return WatermarkEstimator.newBuilder()
-        .withMinWatermark(minWatermark)
-        .withDurationMs(duration)
-        .withAllowedTimestampSkew(allowedTimestampSkew)
-        .withStepMs(100)
-        .build();
+    final WatermarkIdlePolicyFactory idlePolicyFactory =
+        watermarkConfiguration.getWatermarkIdlePolicyFactory();
+    final WatermarkEstimatorFactory estimatorFactory =
+        watermarkConfiguration.getWatermarkEstimatorFactory();
+    final WatermarkEstimator estimator = estimatorFactory.create(cfg, idlePolicyFactory);
+    estimator.setMinWatermark(minWatermark);
+    return estimator;
   }
 
   private void createSubscription(
@@ -591,7 +592,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
         Optional<StreamElement> elem = toElement(getEntityDescriptor(), m);
         if (elem.isPresent()) {
           long current = watermarkEstimator.getWatermark();
-          watermarkEstimator.add(elem.get().getStamp());
+          watermarkEstimator.update(elem.get());
           if (watermarkEstimator.getWatermark() < current) {
             log.warn(
                 "Element {} is moving watermark backwards of {} ms. "

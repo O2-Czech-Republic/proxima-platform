@@ -85,6 +85,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Getter private final String topic;
 
+  @Getter(AccessLevel.PACKAGE)
   private final Map<String, Object> cfg;
 
   @Getter(AccessLevel.PACKAGE)
@@ -107,6 +108,9 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Getter(AccessLevel.PACKAGE)
   private long logStaleCommitIntervalNs = Long.MAX_VALUE;
+
+  @Getter(AccessLevel.PACKAGE)
+  private KafkaWatermarkConfiguration watermarkConfiguration;
 
   Class<ElementSerializer<?, ?>> serializerClass;
 
@@ -169,6 +173,8 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
             .map(c -> (Class) Classpath.findClass(c, ElementSerializer.class))
             .orElse(KafkaStreamElementSerializer.class);
     this.serializerClass = serializer;
+
+    this.watermarkConfiguration = new KafkaWatermarkConfiguration(cfg);
 
     log.info(
         "Configured accessor with "

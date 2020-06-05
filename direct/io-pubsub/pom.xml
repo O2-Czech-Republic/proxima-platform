@@ -52,11 +52,13 @@
             <executions>
               <execution>
                 <id>unpack-dependencies</id>
-                <phase>validate</phase>
+                <phase>generate-sources</phase>
                 <goals>
                   <goal>unpack-dependencies</goal>
                 </goals>
                 <configuration>
+                  <!-- Proxima dependencies may not be packaged yet. -->
+                  <excludeGroupIds>cz.o2.proxima</excludeGroupIds>
                   <includes>**/META-INF/native/*</includes>
                   <outputDirectory>${project.build.directory}/classes/</outputDirectory>
                   <overWriteReleases>true</overWriteReleases>

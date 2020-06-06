@@ -22,16 +22,12 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageClass;
-import com.google.cloud.storage.StorageException;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import java.net.URI;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -49,39 +45,6 @@ public class GCloudClientTest {
   public void testCreateBlob() {
     createBlob(null);
     createBlob(StorageClass.COLDLINE);
-  }
-
-  @Test
-  public void testRetry() {
-    GCloudClient client =
-        createClient(
-            mock(Storage.class),
-            new HashMap<String, Object>() {
-              {
-                put("initial-retry-delay-ms", 100);
-                put("max-retry-delay-ms", 400);
-              }
-            });
-    AtomicInteger round = new AtomicInteger();
-    AtomicInteger failUntil = new AtomicInteger(1);
-    Factory<Integer> callable =
-        () -> {
-          if (round.incrementAndGet() <= failUntil.get()) {
-            throw new StorageException(round.get(), "Fail");
-          }
-          return round.get();
-        };
-    assertEquals(2, (int) client.retry(callable));
-    round.set(0);
-    failUntil.set(2);
-    assertEquals(3, (int) client.retry(callable));
-    failUntil.set(Integer.MAX_VALUE);
-    try {
-      client.retry((Runnable) callable::apply);
-      fail("Should have thrown exception");
-    } catch (StorageException ex) {
-      // pass
-    }
   }
 
   private void createBlob(@Nullable StorageClass storageClass) {
@@ -105,7 +68,7 @@ public class GCloudClientTest {
   }
 
   private GCloudClient createClient(Storage mock, Map<String, Object> cfg) {
-    return new GCloudClient(entity, uri, cfg) {
+    return new GCloudClient(uri, cfg) {
       @Override
       Storage client() {
         return mock;

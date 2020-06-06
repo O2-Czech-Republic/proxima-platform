@@ -33,7 +33,7 @@
 
   <properties>
     <shadePattern>cz.o2.proxima.s3.shaded</shadePattern>
-    <hadoop.version>2.10.0</hadoop.version>
+    <aws.client.version>1.11.785</aws.client.version>
   </properties>
 
   <build>
@@ -67,36 +67,12 @@
           </artifactSet>
           <relocations>
             <relocation>
-              <pattern>io.netty.</pattern>
-              <shadedPattern>${shadePattern}.io.netty.</shadedPattern>
+              <pattern>com.fasterxml.</pattern>
+              <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>
             <relocation>
-              <pattern>javax.servlet.</pattern>
-              <shadedPattern>${shadePattern}.javax.servlet.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>javax.ws.</pattern>
-              <shadedPattern>${shadePattern}.javax.ws.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>org.mortbay.jetty.</pattern>
-              <shadedPattern>${shadePattern}.org.mortbay.jetty.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>org.mortbay.servlet.</pattern>
-              <shadedPattern>${shadePattern}.org.mortbay.servlet.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>com.google.</pattern>
-              <shadedPattern>${shadePattern}.com.google.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>org.codehaus.jackson.</pattern>
-              <shadedPattern>${shadePattern}.org.codehaus.jackson.</shadedPattern>
-            </relocation>
-            <relocation>
-              <pattern>org.objectweb.</pattern>
-              <shadedPattern>${shadePattern}.org.objectweb.</shadedPattern>
+              <pattern>org.joda.time.</pattern>
+              <shadedPattern>${shadePattern}.org.joda.time.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -116,8 +92,27 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-direct-io-hadoop</artifactId>
+      <artifactId>proxima-direct-core</artifactId>
       <version>${project.version}</version>
+    </dependency> 
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-io-blob</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>${guava.version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.amazonaws</groupId>
+      <artifactId>aws-java-sdk-s3</artifactId>
+      <version>${aws.client.version}</version>
     </dependency>
 
     <dependency>
@@ -126,30 +121,13 @@
     </dependency>
 
     <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
-      <version>${hadoop.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.slf4j</groupId>
-          <artifactId>slf4j-log4j12</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>log4j</groupId>
-          <artifactId>log4j</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-aws</artifactId>
-      <version>${hadoop.version}</version>
-    </dependency>
-
-    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-all</artifactId>
     </dependency>
 
     <dependency>

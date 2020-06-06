@@ -87,7 +87,8 @@
     <module>ingest-client</module>
     <module>ingest-server</module>
     <module>io-bigtable</module>
-    <module>io-bulk-fs</module>
+    <module>io-blob</module>
+    <module>io-bulkfs</module>
     <module>io-cassandra</module>
     <module>io-gcloud-storage</module>
     <module>io-hadoop</module>

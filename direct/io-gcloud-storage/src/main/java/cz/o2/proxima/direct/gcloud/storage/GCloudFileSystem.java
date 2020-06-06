@@ -15,11 +15,12 @@
  */
 package cz.o2.proxima.direct.gcloud.storage;
 
+import static cz.o2.proxima.direct.blob.BlobPath.normalizePath;
+
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage.BlobListOption;
-import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
@@ -46,7 +47,7 @@ public class GCloudFileSystem extends GCloudClient implements FileSystem {
   private final NamingConvention namingConvention;
 
   GCloudFileSystem(GCloudStorageAccessor accessor) {
-    super(accessor.getEntityDescriptor(), accessor.getUri(), accessor.getCfg());
+    super(accessor.getUri(), accessor.getCfg());
     this.uri = accessor.getUri();
     this.namingConvention = accessor.getNamingConvention();
   }
@@ -58,12 +59,12 @@ public class GCloudFileSystem extends GCloudClient implements FileSystem {
 
   @Override
   public Stream<Path> list(long minTs, long maxTs) {
-    return getBlobsInRange(minTs, maxTs).stream().map(blob -> BlobPath.of(this, blob));
+    return getBlobsInRange(minTs, maxTs).stream().map(blob -> GCloudBlobPath.of(this, blob));
   }
 
   @Override
   public Path newPath(long ts) {
-    return BlobPath.of(this, createBlob(namingConvention.nameOf(ts)));
+    return GCloudBlobPath.of(this, createBlob(namingConvention.nameOf(ts)));
   }
 
   private List<Blob> getBlobsInRange(long startStamp, long endStamp) {
@@ -95,23 +96,5 @@ public class GCloudFileSystem extends GCloudClient implements FileSystem {
         });
     log.debug("Parsed partitions {} for startStamp {}, endStamp {}", ret, startStamp, endStamp);
     return ret;
-  }
-
-  @VisibleForTesting
-  static String normalizePath(String path) {
-    StringBuilder sb = new StringBuilder();
-    boolean lastSlash = true;
-    for (char ch : path.toCharArray()) {
-      if (ch == '/') {
-        if (!lastSlash) {
-          lastSlash = true;
-          sb.append(ch);
-        }
-      } else {
-        lastSlash = false;
-        sb.append(ch);
-      }
-    }
-    return sb.toString();
   }
 }

@@ -33,6 +33,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -46,7 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulkAttributeWriter {
 
-  private static final long serialVersionUID = 1L;
+  private static final long serialVersionUID = 2L;
 
   @ToString
   protected class Bulk {
@@ -55,7 +56,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
     @Getter private final long startTs;
     @Getter private final long maxTs;
 
-    @Getter @Nullable private CommitCallback commit = null;
+    @Nullable private CommitCallback commit = null;
     @Getter private long lastWriteWatermark = Long.MIN_VALUE;
     @Getter private long firstWriteSeqNo = -1;
     @Getter private long lastWriteSeqNo = 0;
@@ -76,6 +77,10 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
         firstWriteSeqNo = seqNo;
       }
       writer.write(data);
+    }
+
+    public CommitCallback getCommit() {
+      return Objects.requireNonNull(commit);
     }
   }
 
@@ -116,6 +121,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
   private final Factory<Executor> executorFactory;
   private final Map<Long, Bulk> writers = Collections.synchronizedMap(new HashMap<>());
   private final Map<String, LateBulk> lateWriters = Collections.synchronizedMap(new HashMap<>());
+  private final AtomicInteger inFlightFlushes = new AtomicInteger();
 
   private long seqNo = 0;
 
@@ -265,7 +271,9 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
                           if (toFlush.decrementAndGet() == 0) {
                             commit.commit(true, null);
                           }
+                          inFlightFlushes.decrementAndGet();
                         } catch (Exception ex) {
+                          inFlightFlushes.decrementAndGet();
                           log.error("Failed to flush path {}", bulk.getPath(), ex);
                           toFlush.set(-1);
                           ExceptionUtils.unchecked(bulk.getPath()::delete);
@@ -290,6 +298,9 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
   }
 
   private Collection<Bulk> collectFlushable(long watermark) {
+    if (inFlightFlushes.get() > 0) {
+      return Collections.emptyList();
+    }
     synchronized (writers) {
       Set<Bulk> ret =
           writers
@@ -319,6 +330,7 @@ public abstract class AbstractBulkFileSystemAttributeWriter extends AbstractBulk
           maxWriteSeqNo = getMaxWriteSeqNo(ret);
         } while (initialSize < ret.size());
       }
+      inFlightFlushes.addAndGet(ret.size());
       return ret;
     }
   }

@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.kafka;
 import static org.mockito.Mockito.*;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -48,6 +49,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -128,7 +130,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     // ingests in different partitions
     transient List<List<StreamElement>> written;
     // (consumer name, consumer id) -> list(partition id, offset) (sparse)
-    transient Map<ConsumerId, List<Pair<Integer, AtomicInteger>>> consumerOffsets;
+    transient Map<ConsumerId, Map<Integer, Integer>> consumerOffsets;
     // (consumer name, partition id) -> committed offset
     transient Map<Pair<String, Integer>, AtomicInteger> committedOffsets;
 
@@ -148,9 +150,9 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       super(entity, uri, cfg);
 
       this.descriptorId = descriptorId;
-      this.consumerOffsets = Collections.synchronizedMap(new HashMap<>());
+      this.consumerOffsets = new ConcurrentHashMap<>();
       this.written = Collections.synchronizedList(new ArrayList<>());
-      this.consumerGroups = Collections.synchronizedMap(new HashMap<>());
+      this.consumerGroups = new ConcurrentHashMap<>();
       this.committedOffsets = Collections.synchronizedMap(new HashMap<>());
 
       configure(uri, cfg);
@@ -194,7 +196,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         @Override
         public KafkaConsumer<K, V> create(Collection<Partition> partitions) {
           String name = "unnamed-consumer-" + UUID.randomUUID().toString();
-          ConsumerGroup group = new ConsumerGroup(name, getTopic(), numPartitions);
+          ConsumerGroup group = new ConsumerGroup(name, getTopic(), numPartitions, false);
           return mockKafkaConsumer(name, group, serializer, partitions, null);
         }
 
@@ -210,7 +212,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           synchronized (LocalKafkaCommitLogDescriptor.class) {
             ConsumerGroup group = consumerGroups.get(name);
             if (group == null) {
-              group = new ConsumerGroup(name, getTopic(), numPartitions);
+              group = new ConsumerGroup(name, getTopic(), numPartitions, true);
               consumerGroups.put(name, group);
             }
 
@@ -259,9 +261,9 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
                   p -> {
                     int off = getCommittedOffset(name, p.getId());
                     off = off >= 0 ? off : written.get(p.getId()).size();
-                    return Pair.of(p.getId(), new AtomicInteger(off));
+                    return Pair.of(p.getId(), off);
                   })
-              .collect(Collectors.toList()));
+              .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
 
       doAnswer(
               invocation -> {
@@ -270,7 +272,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
                 return pollConsumer(group, sleep.toMillis(), consumerId, serializer, listener);
               })
           .when(mock)
-          .poll((Duration) any());
+          .poll(any());
 
       doAnswer(
               invocation -> {
@@ -373,11 +375,11 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
                 TopicPartition tp = (TopicPartition) invocation.getArguments()[0];
                 return consumerOffsets
                     .get(consumerId)
+                    .entrySet()
                     .stream()
-                    .filter(p -> p.getFirst() == tp.partition())
+                    .filter(e -> e.getKey() == tp.partition())
                     .findAny()
-                    .map(Pair::getSecond)
-                    .map(AtomicInteger::get)
+                    .map(Map.Entry::getValue)
                     .orElse(-1);
               })
           .when(mock)
@@ -419,18 +421,11 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
     private void seekConsumerTo(ConsumerId consumerId, int partition, long offset) {
 
-      List<Pair<Integer, AtomicInteger>> partOffsets;
-      partOffsets = consumerOffsets.computeIfAbsent(consumerId, c -> new ArrayList<>());
-      for (Pair<Integer, AtomicInteger> p : partOffsets) {
-        if (p.getFirst() == partition) {
-          p.getSecond().set((int) (offset));
-          return;
-        }
-      }
-      if (offset < 0) {
-        throw new IllegalArgumentException("Cannot seek to negative offset");
-      }
-      partOffsets.add(Pair.of(partition, new AtomicInteger((int) (offset))));
+      Preconditions.checkArgument(offset >= 0, "Cannot seek to negative offset %s", offset);
+
+      Map<Integer, Integer> partOffsets;
+      partOffsets = consumerOffsets.computeIfAbsent(consumerId, c -> new HashMap<>());
+      partOffsets.put(partition, (int) offset);
       log.debug("Consumer {} seeked to offset {} in partition {}", consumerId, offset, partition);
     }
 
@@ -440,8 +435,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           consumerId,
           parts
               .stream()
-              .map(tp -> Pair.of(tp.partition(), new AtomicInteger(0)))
-              .collect(Collectors.toList()));
+              .map(tp -> Pair.of(tp.partition(), 0))
+              .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
 
       log.debug("Consumer {} seeked to beginning of {}", consumerId.getName(), parts);
     }
@@ -468,9 +463,9 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
       String name = consumerId.getName();
       if (!consumerId.isAssigned()) {
-        log.debug("Initializing consumer {} after first time poll", name);
-        consumerId.setAssigned(true);
-        if (listener != null) {
+        log.debug(
+            "Initializing consumer {} after first time poll with listener {}", name, listener);
+        if (!group.rebalanceIfNeeded() && listener != null) {
           listener.onPartitionsAssigned(
               group
                   .getAssignment(consumerId.getId())
@@ -478,6 +473,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
                   .map(p -> new TopicPartition(getTopic(), p.getId()))
                   .collect(Collectors.toList()));
         }
+        consumerId.setAssigned(true);
       }
       // need to sleep in order not to pollute the heap with
       // unnecessary objects
@@ -490,7 +486,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       map = new HashMap<>();
       Collection<Partition> assignment =
           Lists.newArrayList(group.getAssignment(consumerId.getId()));
-      List<Pair<Integer, AtomicInteger>> offsets = consumerOffsets.get(consumerId);
+      Map<Integer, Integer> offsets = consumerOffsets.get(consumerId);
 
       if (log.isDebugEnabled()) {
         log.debug(
@@ -508,9 +504,10 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         List<ConsumerRecord<K, V>> records = new ArrayList<>();
         int off =
             offsets
+                .entrySet()
                 .stream()
-                .filter(p -> p.getFirst() == partition)
-                .map(p -> p.getSecond().get())
+                .filter(e -> e.getKey() == partition)
+                .map(Map.Entry::getValue)
                 .findAny()
                 .orElse(getCommittedOffset(name, part.getId()));
         log.trace("Partition {} has last {}, reading from {}", partition, last, off);
@@ -523,22 +520,9 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         }
 
         // advance the offset
-        boolean found = false;
-        for (Pair<Integer, AtomicInteger> p : offsets) {
-          if (p.getFirst() == partition) {
-            p.getSecond().set(off);
-            log.trace(
-                "Advanced offset of consumer ID {} on partition {} to {}",
-                consumerId,
-                partition,
-                off);
-            found = true;
-            break;
-          }
-        }
-        if (!found) {
-          offsets.add(Pair.of(partition, new AtomicInteger(off)));
-        }
+        offsets.put(partition, off);
+        log.trace(
+            "Advanced offset of consumer ID {} on partition {} to {}", consumerId, partition, off);
         if (!records.isEmpty()) {
           map.put(new TopicPartition(getTopic(), partition), records);
         }
@@ -587,12 +571,10 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
                   int current = partition;
                   if (consumerOffsets
                       .get(ConsumerId.of(name, current))
+                      .entrySet()
                       .stream()
-                      .filter(off -> off.getFirst() == current)
-                      .filter(off -> off.getSecond().get() < written)
-                      .findAny()
-                      .isPresent()) {
-
+                      .filter(e -> e.getKey() == current)
+                      .anyMatch(e -> e.getValue() < written)) {
                     return false;
                   }
                   partition++;
@@ -620,7 +602,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     private void readObject(ObjectInputStream ois) throws ClassNotFoundException, IOException {
-
       // default deserialization
       ois.defaultReadObject();
       Accessor original = ACCESSORS.get(this.descriptorId).get(getUri());

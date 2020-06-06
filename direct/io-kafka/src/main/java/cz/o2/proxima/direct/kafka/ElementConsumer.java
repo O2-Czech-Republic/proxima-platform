@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.kafka;
 
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkSupplier;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -81,7 +82,7 @@ interface ElementConsumer<K, V> {
    * @param consumer the consumer that actually reads data
    * @param offsets the assigned partitions
    */
-  void onAssign(KafkaConsumer<K, V> consumer, List<TopicOffset> offsets);
+  void onAssign(KafkaConsumer<K, V> consumer, Collection<TopicOffset> offsets);
 
   /** Called before the processing actually starts. */
   void onStart();

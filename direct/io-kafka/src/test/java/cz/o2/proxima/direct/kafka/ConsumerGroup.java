@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.kafka;
 
 import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.functional.UnaryFunction;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -109,13 +110,17 @@ public class ConsumerGroup implements Serializable {
   /** Total number of partitions. */
   @Getter final int numPartitions;
 
+  /** Flag to indicate of the group id auto rebalancing. */
+  @Getter final boolean autoRelalance;
+
   /** Current assignment of partitions into consumers. Key is ID of the consumer. */
   final NavigableMap<Integer, Assignment> assignments = new TreeMap<>();
 
-  ConsumerGroup(String name, String topic, int numPartitions) {
+  ConsumerGroup(String name, String topic, int numPartitions, boolean autoRebalance) {
     this.name = name;
     this.topic = topic;
     this.numPartitions = numPartitions;
+    this.autoRelalance = autoRebalance;
     if (numPartitions <= 0) {
       throw new IllegalArgumentException("Number of partitions must be strictly positive");
     }
@@ -137,12 +142,8 @@ public class ConsumerGroup implements Serializable {
    * @return the ID of the newly created consumer.
    */
   public synchronized int add(@Nullable ConsumerRebalanceListener listener) {
-    int id = assignments.isEmpty() ? 0 : assignments.lastKey() + 1;
-    Assignment assignment = new Assignment(id, listener);
-    assignments.put(id, assignment);
-    assign(assignments);
-    log.debug("Added new consumer to group {} with assignments {}", name, assignments);
-    return id;
+    log.debug("Adding new consumer to group {} with assignments {}", name, assignments);
+    return addWithNoAssignment(id -> new Assignment(id, listener));
   }
 
   /**
@@ -152,11 +153,26 @@ public class ConsumerGroup implements Serializable {
    * @return the ID of the newly created consumer.
    */
   public synchronized int add(Collection<Partition> partitions) {
-    int id = assignments.isEmpty() ? 0 : assignments.lastKey() + 1;
-    Assignment assignment = new Assignment(id, null);
-    assignments.put(id, assignment);
-    assignment.assign(partitions);
+    int id = addWithNoAssignment(tmp -> new Assignment(tmp, null));
+    assignments.get(id).assign(partitions);
     return id;
+  }
+
+  private int addWithNoAssignment(UnaryFunction<Integer, Assignment> assignFactory) {
+    int id = assignments.isEmpty() ? 0 : assignments.lastKey() + 1;
+    assignments.put(id, assignFactory.apply(id));
+    return id;
+  }
+
+  public boolean rebalanceIfNeeded() {
+    if (isAutoRelalance()) {
+      log.info("(re-)joining group {}", name);
+      synchronized (this) {
+        assign(assignments);
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -187,7 +203,7 @@ public class ConsumerGroup implements Serializable {
         shared += equalShare;
         int last = (int) shared;
         while (partition < last) {
-          int partitionId = (int) partition++;
+          int partitionId = partition++;
           partitions.add(Partition.of(partitionId));
         }
         next.getValue().assign(partitions);

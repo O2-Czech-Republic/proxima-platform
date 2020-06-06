@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.kafka;
 
 import static org.junit.Assert.*;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
@@ -50,6 +51,7 @@ import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.time.WatermarkIdlePolicy;
 import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
+import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.Serializable;
@@ -59,10 +61,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -1009,19 +1013,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test(timeout = 10000)
-  public void testPillFromMoreConsumersThanPartitionsMovesWatermark() throws InterruptedException {
-
-    testPollFromNConsumersMovesWatermark(4);
-  }
-
-  @Test(timeout = 100000)
-  public void testPillFromManyMoreConsumersThanPartitionsMovesWatermark()
-      throws InterruptedException {
-
-    testPollFromNConsumersMovesWatermark(400);
-  }
-
-  void testPollFromNConsumersMovesWatermark(int numObservers) throws InterruptedException {
+  public void testPollFromMoreConsumersThanPartitionsMovesWatermark() throws InterruptedException {
 
     Accessor accessor =
         kafka.createAccessor(
@@ -1029,28 +1021,73 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             entity,
             storageUri,
             and(partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
+    int numObservers = 4;
+
+    testPollFromNConsumersMovesWatermarkWithNoWrite(accessor, numObservers);
+    writeData(accessor);
+    testPollFromNConsumersMovesWatermark(accessor, numObservers);
+  }
+
+  @Test(timeout = 100000)
+  public void testPollFromManyMoreConsumersThanPartitionsMovesWatermark()
+      throws InterruptedException {
+
+    Accessor accessor =
+        kafka.createAccessor(
+            direct,
+            entity,
+            storageUri,
+            and(partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
+
+    int numObservers = 400;
+    testPollFromNConsumersMovesWatermarkWithNoWrite(accessor, numObservers);
+    writeData(accessor);
+    testPollFromNConsumersMovesWatermark(accessor, numObservers);
+  }
+
+  void writeData(Accessor accessor) {
+    LocalKafkaWriter writer = accessor.newWriter();
+    long now = 1500000000000L;
+    writer.write(
+        StreamElement.upsert(
+            entity, attr, "key", UUID.randomUUID().toString(), attr.getName(), now, new byte[] {1}),
+        (succ, exc) -> {});
+  }
+
+  void testPollFromNConsumersMovesWatermark(Accessor accessor, int numObservers)
+      throws InterruptedException {
+    testPollFromNConsumersMovesWatermark(accessor, numObservers, true);
+  }
+
+  void testPollFromNConsumersMovesWatermarkWithNoWrite(Accessor accessor, int numObservers)
+      throws InterruptedException {
+    testPollFromNConsumersMovesWatermark(accessor, numObservers, false);
+  }
+
+  void testPollFromNConsumersMovesWatermark(
+      Accessor accessor, int numObservers, boolean expectMoved) throws InterruptedException {
+
     CommitLogReader reader =
         accessor
             .getCommitLogReader(context())
             .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
     final long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(numObservers);
+    Set<LogObserver> movedConsumers = Collections.synchronizedSet(new HashSet<>());
     Map<LogObserver, Long> observerWatermarks = new ConcurrentHashMap<>();
+    AtomicInteger readyObservers = new AtomicInteger();
     for (int i = 0; i < numObservers; i++) {
+      int observerId = i;
       reader
           .observe(
-              "test",
-              Position.NEWEST,
+              "test-" + expectMoved,
+              Position.OLDEST,
               new LogObserver() {
 
                 @Override
                 public boolean onNext(StreamElement ingest, OnNextContext context) {
+                  log.debug("Received element {} on watermark {}", ingest, context.getWatermark());
                   return true;
-                }
-
-                @Override
-                public void onCompleted() {
-                  fail("This should not be called");
                 }
 
                 @Override
@@ -1060,19 +1097,23 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
                 @Override
                 public void onIdle(OnIdleContext context) {
-                  if (!observerWatermarks.containsKey(this)) {
-                    latch.countDown();
+                  if (readyObservers.get() == numObservers) {
+                    observerWatermarks.compute(
+                        this,
+                        (k, v) ->
+                            Math.max(
+                                MoreObjects.firstNonNull(v, Long.MIN_VALUE),
+                                context.getWatermark()));
+                    if ((!expectMoved || observerWatermarks.get(this) > 0)
+                        && movedConsumers.add(this)) {
+                      latch.countDown();
+                    }
                   }
-                  observerWatermarks.compute(
-                      this,
-                      (k, v) -> Math.max(v == null ? Long.MIN_VALUE : v, context.getWatermark()));
                 }
               })
           .waitUntilReady();
+      readyObservers.incrementAndGet();
     }
-
-    // for two seconds we have empty data
-    TimeUnit.SECONDS.sleep(2);
 
     latch.await();
 
@@ -1080,8 +1121,13 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     long watermark = observerWatermarks.values().stream().min(Long::compare).orElse(Long.MIN_VALUE);
 
     // watermark should be moved
-    assertTrue(watermark > 0);
-    assertTrue(watermark < now * 10);
+    assertTrue(!expectMoved || watermark > 0);
+    assertTrue(
+        "Watermark should not be too far, got "
+            + watermark
+            + " calculated from "
+            + observerWatermarks,
+        watermark < now * 10);
   }
 
   @Test(timeout = 10000)
@@ -1497,10 +1543,12 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(
         1L,
         (long)
-            handle
-                .getCommittedOffsets()
-                .stream()
-                .collect(Collectors.summingLong(o -> ((TopicOffset) o).getOffset())));
+            (Long)
+                handle
+                    .getCommittedOffsets()
+                    .stream()
+                    .mapToLong(o -> ((TopicOffset) o).getOffset())
+                    .sum());
   }
 
   @Test(timeout = 10000)
@@ -1631,10 +1679,89 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(
         1L,
         (long)
-            handle
-                .getCommittedOffsets()
-                .stream()
-                .collect(Collectors.summingLong(o -> ((TopicOffset) o).getOffset())));
+            (Long)
+                handle
+                    .getCommittedOffsets()
+                    .stream()
+                    .mapToLong(o -> ((TopicOffset) o).getOffset())
+                    .sum());
+  }
+
+  @Test(timeout = 10000)
+  public void testBulkObservePartitionsResetOffsetsSuccess() throws InterruptedException {
+    Accessor accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(3));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(context())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+
+    AtomicInteger restarts = new AtomicInteger();
+    AtomicReference<Throwable> exc = new AtomicReference<>();
+    AtomicReference<StreamElement> input = new AtomicReference<>();
+    AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(2));
+    StreamElement update =
+        StreamElement.upsert(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            attr.getName(),
+            System.currentTimeMillis(),
+            new byte[] {1, 2});
+
+    final ObserveHandle handle =
+        reader.observePartitions(
+            reader.getPartitions(),
+            Position.NEWEST,
+            new LogObserver() {
+
+              @Override
+              public void onRepartition(OnRepartitionContext context) {
+                restarts.incrementAndGet();
+              }
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                input.set(ingest);
+                context.confirm();
+                latch.get().countDown();
+                return true;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                exc.set(error);
+                throw new RuntimeException(error);
+              }
+            });
+
+    handle.waitUntilReady();
+    writer.write(
+        update,
+        (succ, e) -> {
+          assertTrue(succ);
+          latch.get().countDown();
+        });
+
+    latch.get().await();
+    latch.set(new CountDownLatch(1));
+    handle.resetOffsets(
+        reader
+            .getPartitions()
+            .stream()
+            .map(p -> new TopicOffset(p.getId(), 0, Watermarks.MIN_WATERMARK))
+            .collect(Collectors.toList()));
+    latch.get().await();
+    assertEquals(
+        1L,
+        (long)
+            (Long)
+                handle
+                    .getCommittedOffsets()
+                    .stream()
+                    .mapToLong(o -> ((TopicOffset) o).getOffset())
+                    .sum());
   }
 
   @Test

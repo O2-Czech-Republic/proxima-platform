@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -113,6 +114,7 @@ public class ComplexWriteTest {
   }
 
   @Test(timeout = 20000)
+  @Ignore("https://github.com/O2-Czech-Republic/proxima-platform/issues/157")
   public synchronized void testWriteLate() throws Exception {
     long now = 1500000000000L;
     int numElements = 100000;

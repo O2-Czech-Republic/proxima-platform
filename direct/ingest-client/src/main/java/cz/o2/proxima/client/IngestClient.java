@@ -29,6 +29,7 @@ import io.grpc.stub.StreamObserver;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -111,7 +113,9 @@ public class IngestClient implements AutoCloseable {
 
   @VisibleForTesting final StreamObserver<Rpc.StatusBulk> statusObserver = newStatusObserver();
 
-  private Thread flushThread;
+  @VisibleForTesting
+  @Getter(AccessLevel.PACKAGE)
+  private final AtomicReference<Thread> flushThread = new AtomicReference<>();
 
   private final AtomicReference<Throwable> flushThreadExc = new AtomicReference<>();
 
@@ -127,7 +131,6 @@ public class IngestClient implements AutoCloseable {
     this.port = port;
     this.options = options;
     this.inFlightRequests = Collections.synchronizedMap(new HashMap<>());
-    this.flushThread = createFlushThread();
   }
 
   private Thread createFlushThread() {
@@ -139,13 +142,16 @@ public class IngestClient implements AutoCloseable {
                 while (!Thread.currentThread().isInterrupted()) {
                   flushLoop(flushTimeNanos);
                 }
+                flushThread.set(null);
               } catch (Throwable thwbl) {
                 log.error("Error in flush thread", thwbl);
+                flushThread.set(null);
                 flushThreadExc.set(thwbl);
               }
             });
     ret.setDaemon(true);
     ret.setName(getClass().getSimpleName() + "-flushThread");
+    ret.start();
     return ret;
   }
 
@@ -462,19 +468,12 @@ public class IngestClient implements AutoCloseable {
       Throwable flushExc = flushThreadExc.getAndSet(null);
       if (flushExc != null) {
         log.warn("Received exception from flush thread. Restarting flush thread.", flushExc);
-        try {
-          flushThread.join(500);
-        } catch (InterruptedException ex) {
-          log.warn("Interrupted while waiting for flushThread join.");
-          Thread.currentThread().interrupt();
-        }
-        flushThread = createFlushThread();
         onError(flushExc);
-      }
-      if (!flushThread.isAlive()) {
-        flushThread.start();
+        flushThread.set(null);
       }
     }
+
+    flushThread.getAndUpdate(current -> current == null ? createFlushThread() : current);
 
     ScheduledFuture<?> scheduled = null;
     if (timeout > 0) {
@@ -571,7 +570,7 @@ public class IngestClient implements AutoCloseable {
         ingestRequestObserver.onCompleted();
       }
 
-      flushThread.interrupt();
+      Optional.ofNullable(flushThread.get()).ifPresent(Thread::interrupt);
       try {
         if (!closedLatch.await(1, TimeUnit.SECONDS)) {
           log.warn("Unable to await for flushThreads");

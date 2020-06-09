@@ -32,6 +32,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.util.Optional;
+import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -44,7 +46,7 @@ public abstract class BulkBlobWriter<BlobT extends BlobBase, AccessorT extends B
 
   @Getter private final AccessorT accessor;
   @Getter private final Context context;
-  private transient BulkAttributeWriter wrap;
+  private transient @Nullable BulkAttributeWriter wrap;
 
   @Getter(AccessLevel.PACKAGE)
   private transient boolean initialized;
@@ -74,12 +76,12 @@ public abstract class BulkBlobWriter<BlobT extends BlobBase, AccessorT extends B
 
   @Override
   public void updateWatermark(long watermark) {
-    wrap.updateWatermark(watermark);
+    Optional.ofNullable(wrap).ifPresent(w -> w.updateWatermark(watermark));
   }
 
   @Override
   public void rollback() {
-    wrap.rollback();
+    Optional.ofNullable(wrap).ifPresent(BulkAttributeWriter::rollback);
   }
 
   private void init() {
@@ -133,7 +135,7 @@ public abstract class BulkBlobWriter<BlobT extends BlobBase, AccessorT extends B
 
   @VisibleForTesting
   void flush() {
-    wrap.updateWatermark(Long.MAX_VALUE);
+    updateWatermark(Long.MAX_VALUE);
   }
 
   private void flush(Path file, long bucketEndStamp) {
@@ -166,7 +168,7 @@ public abstract class BulkBlobWriter<BlobT extends BlobBase, AccessorT extends B
 
   @Override
   public void close() {
-    wrap.close();
+    Optional.ofNullable(wrap).ifPresent(BulkAttributeWriter::close);
     if (tmpDir.exists() && tmpDir.isDirectory()) {
       try {
         removeDir(tmpDir);

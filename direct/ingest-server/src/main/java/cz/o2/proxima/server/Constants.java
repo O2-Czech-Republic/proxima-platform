@@ -18,9 +18,13 @@ package cz.o2.proxima.server;
 /** Various (mostly config related) constants. */
 public class Constants {
 
+  public static final int CORES = Math.max(2, Runtime.getRuntime().availableProcessors());
+
   public static final String CFG_IGNORE_ERRORS = "ingest.ignore-errors";
   public static final String CFG_PORT = "ingest.server.port";
-  public static final int DEFALT_PORT = 4001;
+  public static final int DEFAULT_PORT = 4001;
+  public static final String CFG_NUM_THREADS = "ingest.server.num-threads";
+  public static final int DEFAULT_NUM_THREADS = 10 * CORES;
 
   private Constants() {
     // nop

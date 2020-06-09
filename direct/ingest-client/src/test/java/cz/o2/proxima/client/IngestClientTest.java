@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 import org.junit.Test;
@@ -192,6 +193,88 @@ public class IngestClientTest {
             .setValue(ByteString.EMPTY)
             .build(),
         s -> {
+          received.add(s);
+          latch.countDown();
+        });
+    client.send(
+        Rpc.Ingest.newBuilder()
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("gw1")
+            .setEntity("gateway")
+            .setAttribute("armed")
+            .setValue(ByteString.EMPTY)
+            .build(),
+        s -> {
+          received.add(s);
+          latch.countDown();
+        });
+
+    latch.await();
+    assertEquals(2, received.size());
+  }
+
+  @Test(timeout = 10000)
+  public void testMultiRequestsInterruptFlushThread() throws InterruptedException {
+    IngestClient client = create(new Options());
+    AtomicReference<Thread> flushThread = client.getFlushThread();
+    CountDownLatch latch = new CountDownLatch(2);
+    List<Rpc.Status> received = new ArrayList<>();
+    statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
+    statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
+    client.send(
+        Rpc.Ingest.newBuilder()
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("gw1")
+            .setEntity("gateway")
+            .setAttribute("armed")
+            .setValue(ByteString.EMPTY)
+            .build(),
+        s -> {
+          received.add(s);
+          latch.countDown();
+        });
+    Thread flush = flushThread.get();
+    assertNotNull(flush);
+    flush.interrupt();
+    while (flush.equals(flushThread.get())) {}
+    client.send(
+        Rpc.Ingest.newBuilder()
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("gw1")
+            .setEntity("gateway")
+            .setAttribute("armed")
+            .setValue(ByteString.EMPTY)
+            .build(),
+        s -> {
+          received.add(s);
+          latch.countDown();
+        });
+
+    latch.await();
+    assertEquals(2, received.size());
+  }
+
+  @Test(timeout = 10000)
+  public void testMultiRequestsWithConfirmError() throws InterruptedException {
+    IngestClient client = create(new Options());
+    AtomicReference<Thread> flushThread = client.getFlushThread();
+    CountDownLatch latch = new CountDownLatch(2);
+    List<Rpc.Status> received = new ArrayList<>();
+    statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
+    statuses.add(Rpc.Status.newBuilder().setStatus(200).build());
+    AtomicInteger retries = new AtomicInteger();
+    client.send(
+        Rpc.Ingest.newBuilder()
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("gw1")
+            .setEntity("gateway")
+            .setAttribute("armed")
+            .setValue(ByteString.EMPTY)
+            .build(),
+        s -> {
+          if (retries.incrementAndGet() == 0) {
+            throw new RuntimeException("Fail");
+          }
           received.add(s);
           latch.countDown();
         });

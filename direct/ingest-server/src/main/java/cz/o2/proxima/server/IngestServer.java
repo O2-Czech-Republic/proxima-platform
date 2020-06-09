@@ -15,6 +15,9 @@
  */
 package cz.o2.proxima.server;
 
+import static cz.o2.proxima.server.Constants.CFG_NUM_THREADS;
+import static cz.o2.proxima.server.Constants.DEFAULT_NUM_THREADS;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -28,8 +31,8 @@ import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.StreamElement;
 import io.grpc.ServerBuilder;
 import java.io.File;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -60,12 +63,7 @@ public class IngestServer {
     server.run();
   }
 
-  @Getter static final int CORES = Math.max(2, Runtime.getRuntime().availableProcessors());
-
-  @Getter
-  final Executor executor =
-      new ThreadPoolExecutor(
-          CORES, 10 * CORES, 10, TimeUnit.SECONDS, new ArrayBlockingQueue<>(10 * CORES));
+  @Getter final Executor executor;
 
   @Getter final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(5);
 
@@ -97,6 +95,7 @@ public class IngestServer {
     }
     this.ignoreErrors =
         cfg.hasPath(Constants.CFG_IGNORE_ERRORS) && cfg.getBoolean(Constants.CFG_IGNORE_ERRORS);
+    executor = createExecutor(cfg);
   }
 
   static boolean ingestRequest(
@@ -179,10 +178,17 @@ public class IngestServer {
         .build();
   }
 
+  protected Executor createExecutor(Config cfg) {
+    int numThreads =
+        cfg.hasPath(CFG_NUM_THREADS) ? cfg.getInt(CFG_NUM_THREADS) : DEFAULT_NUM_THREADS;
+    return new ThreadPoolExecutor(
+        numThreads, numThreads, 10, TimeUnit.SECONDS, new LinkedBlockingDeque<>());
+  }
+
   /** Run the server. */
   private void run() {
     final int port =
-        cfg.hasPath(Constants.CFG_PORT) ? cfg.getInt(Constants.CFG_PORT) : Constants.DEFALT_PORT;
+        cfg.hasPath(Constants.CFG_PORT) ? cfg.getInt(Constants.CFG_PORT) : Constants.DEFAULT_PORT;
     io.grpc.Server server =
         ServerBuilder.forPort(port)
             .executor(executor)

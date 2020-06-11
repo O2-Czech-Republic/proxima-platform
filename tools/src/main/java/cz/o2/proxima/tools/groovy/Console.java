@@ -96,6 +96,11 @@ public class Console {
     return INSTANCE.get();
   }
 
+  public static Console create(Config config, Repository repo, String[] args) {
+    INSTANCE.set(new Console(config, repo, args));
+    return INSTANCE.get();
+  }
+
   public static void main(String[] args) throws Exception {
     ClassLoader loader = new ToolsClassLoader();
     Thread.currentThread().setContextClassLoader(loader);

@@ -17,11 +17,11 @@ package cz.o2.proxima.tools.groovy;
 
 import cz.o2.proxima.tools.groovy.internal.ClassloaderUtils;
 import groovy.lang.GroovyClassLoader;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.codehaus.groovy.ast.ClassNode;
 import org.codehaus.groovy.control.CompilationUnit;
 import org.codehaus.groovy.control.SourceUnit;
@@ -36,17 +36,17 @@ public class ToolsClassLoader extends GroovyClassLoader {
     }
 
     @Override
-    protected Class createClass(byte[] code, ClassNode classNode) {
-      bytecodes.put(classNode.getName(), code);
+    protected Class<?> createClass(byte[] code, ClassNode classNode) {
+      byteCode.put(classNode.getName(), code);
       return super.createClass(code, classNode);
     }
   }
 
-  ToolsClassLoader() {
+  public ToolsClassLoader() {
     super(Thread.currentThread().getContextClassLoader(), ClassloaderUtils.createConfiguration());
   }
 
-  final Map<String, byte[]> bytecodes = new ConcurrentHashMap<>();
+  final Map<String, byte[]> byteCode = new ConcurrentHashMap<>();
 
   @Override
   protected ClassCollector createCollector(CompilationUnit unit, SourceUnit su) {
@@ -55,10 +55,10 @@ public class ToolsClassLoader extends GroovyClassLoader {
   }
 
   public Set<String> getDefinedClasses() {
-    return bytecodes.keySet().stream().collect(Collectors.toSet());
+    return new HashSet<>(byteCode.keySet());
   }
 
   public byte[] getClassByteCode(String name) {
-    return Objects.requireNonNull(bytecodes.get(name));
+    return Objects.requireNonNull(byteCode.get(name));
   }
 }

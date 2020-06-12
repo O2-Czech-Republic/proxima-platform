@@ -244,7 +244,7 @@ class BinaryBlobFormat implements FileFormat {
 
     private AttributeDescriptor<?> getAttr(Serialization.Element parsed) {
       return entity
-          .findAttribute(parsed.getAttribute())
+          .findAttribute(parsed.getAttribute(), true)
           .orElseThrow(
               () -> new IllegalArgumentException("Unknown attribute " + parsed.getAttribute()));
     }

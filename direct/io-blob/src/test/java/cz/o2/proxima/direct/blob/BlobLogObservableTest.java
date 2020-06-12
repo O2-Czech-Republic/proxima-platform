@@ -32,6 +32,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
@@ -103,6 +104,65 @@ public class BlobLogObservableTest {
         });
     assertTrue(latch.await(5, TimeUnit.SECONDS));
     assertEquals(2, observed.size());
+  }
+
+  @Test
+  public void testObservePartitionsReaderException() throws InterruptedException {
+    writePartitions(Arrays.asList(0L, 1L, 2L));
+    final BlobReader observable = accessor.new BlobReader(context);
+    final CountDownLatch errorReceived = new CountDownLatch(1);
+    observable.observe(
+        observable.getPartitions(),
+        Lists.newArrayList(status),
+        new BatchLogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement element) {
+            throw new UnsupportedOperationException("Failure.");
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            errorReceived.countDown();
+            return false;
+          }
+
+          @Override
+          public void onCompleted() {
+            // Noop.
+          }
+        });
+    assertTrue(errorReceived.await(5, TimeUnit.SECONDS));
+  }
+
+  @Test
+  public void testObservePartitionsReaderExceptionWithRetry() throws InterruptedException {
+    writePartitions(Arrays.asList(0L, 1L, 2L));
+    final BlobReader observable = accessor.new BlobReader(context);
+    final CountDownLatch errorReceived = new CountDownLatch(10);
+    observable.observe(
+        observable.getPartitions(),
+        Lists.newArrayList(status),
+        new BatchLogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement element) {
+            throw new UnsupportedOperationException("Failure.");
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            errorReceived.countDown();
+            // Retry until zero.
+            return errorReceived.getCount() > 0;
+          }
+
+          @Override
+          public void onCompleted() {
+            // Noop.
+          }
+        });
+    assertTrue(errorReceived.await(5, TimeUnit.SECONDS));
   }
 
   private void writePartitions(List<Long> stamps) throws InterruptedException {

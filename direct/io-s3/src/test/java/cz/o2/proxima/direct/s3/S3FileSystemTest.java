@@ -22,51 +22,43 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.ObjectListing;
-import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.google.common.io.ByteStreams;
+import com.amazonaws.services.s3.model.UploadPartResult;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
-import lombok.Value;
 import org.junit.Before;
 import org.junit.Test;
 
 /** Test {@link S3FileSystem}. */
 public class S3FileSystemTest {
 
-  @Value
   private static class Blob {
-    String name;
-    byte[] contents;
-    S3ObjectSummary summary;
 
-    Blob(String name, byte[] contents) {
+    private final String name;
+
+    Blob(String name) {
       this.name = name;
-      this.contents = contents;
-      summary = toSummary();
     }
 
-    private final S3ObjectSummary toSummary() {
-      S3ObjectSummary ret = mock(S3ObjectSummary.class);
-      when(ret.getKey()).thenReturn(name);
-      when(ret.getSize()).thenReturn((long) contents.length);
-      return ret;
+    S3ObjectSummary toSummary() {
+      final S3ObjectSummary summary = new S3ObjectSummary();
+      summary.setKey(name);
+      return summary;
     }
   }
 
@@ -78,26 +70,34 @@ public class S3FileSystemTest {
 
   @Before
   public void setUp() {
-    List<Blob> blobs = Collections.synchronizedList(new ArrayList<>());
+    Map<String, Blob> blobs = new HashMap<>();
     S3Accessor accessor = new S3Accessor(gateway, URI.create("s3://bucket/path"), cfg());
     fs =
         new S3FileSystem(accessor, direct.getContext()) {
           @Override
           AmazonS3 client() {
             AmazonS3 client = mock(AmazonS3.class);
-            when(client.listObjects(any(), any())).thenAnswer(invocationOnMock -> asListing(blobs));
-            when(client.putObject(any()))
+            when(client.listObjects(any(), any()))
+                .thenAnswer(invocationOnMock -> asListing(new ArrayList<>(blobs.values())));
+            when(client.initiateMultipartUpload(any()))
                 .thenAnswer(
                     invocationOnMock -> {
-                      PutObjectRequest req =
-                          invocationOnMock.getArgumentAt(0, PutObjectRequest.class);
-                      InputStream input = req.getInputStream();
+                      final InitiateMultipartUploadRequest req =
+                          invocationOnMock.getArgumentAt(0, InitiateMultipartUploadRequest.class);
                       String name = req.getKey();
-                      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                      ByteStreams.copy(input, baos);
                       assertTrue(name.startsWith("path/"));
-                      blobs.add(new Blob(name.substring(5), baos.toByteArray()));
-                      return mock(PutObjectResult.class);
+                      blobs.put(name.substring(5), new Blob(name.substring(5)));
+                      final InitiateMultipartUploadResult result =
+                          new InitiateMultipartUploadResult();
+                      result.setUploadId(UUID.randomUUID().toString());
+                      return result;
+                    });
+            when(client.uploadPart(any()))
+                .thenAnswer(
+                    invocationOnMock -> {
+                      final UploadPartResult result = new UploadPartResult();
+                      result.setETag(UUID.randomUUID().toString());
+                      return result;
                     });
             return client;
           }
@@ -116,7 +116,7 @@ public class S3FileSystemTest {
   private ObjectListing asListing(List<Blob> blobs) {
     ObjectListing listing = mock(ObjectListing.class);
     when(listing.getObjectSummaries())
-        .thenReturn(blobs.stream().map(Blob::getSummary).collect(Collectors.toList()));
+        .thenReturn(blobs.stream().map(Blob::toSummary).collect(Collectors.toList()));
     return listing;
   }
 

@@ -20,12 +20,17 @@ import static org.junit.Assert.assertNotNull;
 import static org.mockito.Mockito.*;
 
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
+import com.amazonaws.services.s3.model.UploadPartResult;
 import cz.o2.proxima.direct.s3.S3Client.AmazonS3Factory;
-import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 
@@ -39,29 +44,42 @@ public class S3ClientTest {
   }
 
   @Test
-  public void testPathParsing() {
-    AmazonS3 mock = mock(AmazonS3.class);
-    AtomicReference<PutObjectRequest> request = new AtomicReference<>();
-    S3Client client =
+  public void testUploadLifecycle() throws IOException {
+    final AmazonS3 mock = mock(AmazonS3.class);
+    final AtomicReference<InitiateMultipartUploadRequest> request = new AtomicReference<>();
+    final S3Client client =
         new S3Client(URI.create("s3://bucket/path"), cfg()) {
           @Override
           AmazonS3 client() {
-            when(mock.putObject(any()))
-                .thenAnswer(
-                    invocationOnMock -> {
-                      request.set(invocationOnMock.getArgumentAt(0, PutObjectRequest.class));
-                      return null;
-                    });
             return mock;
           }
         };
+    final String uploadId = UUID.randomUUID().toString();
+    when(mock.initiateMultipartUpload(any()))
+        .thenAnswer(
+            invocationOnMock -> {
+              request.set(invocationOnMock.getArgumentAt(0, InitiateMultipartUploadRequest.class));
+              final InitiateMultipartUploadResult result = new InitiateMultipartUploadResult();
+              result.setUploadId(uploadId);
+              return result;
+            });
+    when(mock.uploadPart(any()))
+        .thenAnswer(
+            invocationOnMock -> {
+              final UploadPartResult result = new UploadPartResult();
+              result.setETag(UUID.randomUUID().toString());
+              return result;
+            });
     assertEquals("bucket", client.getBucket());
-    ByteArrayInputStream bais = new ByteArrayInputStream(new byte[] {1});
-    client.putObject("object", bais);
-    assertNotNull(request.get());
-    assertEquals(client.getBucket(), request.get().getBucketName());
-    assertEquals("object", request.get().getKey());
-    assertEquals(bais, request.get().getInputStream());
+    try (final OutputStream os = client.putObject("object")) {
+      os.write("payload".getBytes(StandardCharsets.UTF_8));
+      verify(mock, times(1)).initiateMultipartUpload(any());
+      verify(mock, times(0)).uploadPart(any());
+      assertEquals("bucket", request.get().getBucketName());
+      assertEquals("object", request.get().getKey());
+    }
+    verify(mock, times(1)).uploadPart(any());
+    verify(mock, times(1)).completeMultipartUpload(any());
   }
 
   private Map<String, Object> cfg() {

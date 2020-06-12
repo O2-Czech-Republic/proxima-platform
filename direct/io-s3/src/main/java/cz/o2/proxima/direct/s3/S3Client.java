@@ -26,6 +26,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.StorageClass;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
@@ -145,7 +146,6 @@ class S3Client implements Serializable {
   @Getter private final String bucket;
   @Getter private final String path;
   @Getter private final RetryStrategy retry;
-  private final StorageClass storageClass;
   private final Map<String, Object> cfg;
   @Nullable @Getter private transient AmazonS3 client;
 
@@ -156,7 +156,6 @@ class S3Client implements Serializable {
     int maxRetryDelay = getOpt(cfg, "max-retry-delay-ms", Integer::valueOf, (2 << 10) * 5000);
     this.retry = new RetryStrategy(initialRetryDelay, maxRetryDelay);
     this.cfg = cfg;
-    this.storageClass = getOpt(cfg, "storage-class", StorageClass::valueOf, StorageClass.Standard);
     new AmazonS3Factory(cfg).validate();
   }
 
@@ -178,6 +177,10 @@ class S3Client implements Serializable {
     return client;
   }
 
+  public S3Object getObject(String blobName) {
+    return client().getObject(getBucket(), blobName);
+  }
+
   public void deleteObject(String key) {
     client().deleteObject(getBucket(), key);
   }
@@ -189,10 +192,11 @@ class S3Client implements Serializable {
    * @return Output stream that we can write data into.
    */
   public OutputStream putObject(String blobName) {
-    final String bucket = getBucket();
+    Preconditions.checkState(!client().doesObjectExist(bucket, blobName), "Object already exists.");
+    final String currentBucket = getBucket();
     final String uploadId =
         client()
-            .initiateMultipartUpload(new InitiateMultipartUploadRequest(bucket, blobName))
+            .initiateMultipartUpload(new InitiateMultipartUploadRequest(currentBucket, blobName))
             .getUploadId();
     final List<PartETag> eTags = new ArrayList<>();
     final byte[] partBuffer = new byte[UPLOAD_PART_SIZE];
@@ -225,7 +229,7 @@ class S3Client implements Serializable {
           try (final InputStream is = new ByteArrayInputStream(partBuffer, 0, currentBytes)) {
             final UploadPartRequest uploadPartRequest =
                 new UploadPartRequest()
-                    .withBucketName(bucket)
+                    .withBucketName(currentBucket)
                     .withKey(blobName)
                     .withUploadId(uploadId)
                     .withPartNumber(partNumber)
@@ -245,7 +249,7 @@ class S3Client implements Serializable {
           flush();
           client()
               .completeMultipartUpload(
-                  new CompleteMultipartUploadRequest(bucket, blobName, uploadId, eTags));
+                  new CompleteMultipartUploadRequest(currentBucket, blobName, uploadId, eTags));
           closed = true;
         }
       }

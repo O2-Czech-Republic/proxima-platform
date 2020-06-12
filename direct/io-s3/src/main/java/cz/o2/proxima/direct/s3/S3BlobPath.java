@@ -17,19 +17,15 @@ package cz.o2.proxima.direct.s3;
 
 import com.amazonaws.services.s3.model.S3Object;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.blob.BlobBase;
 import cz.o2.proxima.direct.blob.BlobPath;
-import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.core.Context;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Objects;
-import java.util.Optional;
-import javax.annotation.Nullable;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
@@ -45,58 +41,48 @@ public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> {
   public static class S3Blob implements BlobBase {
 
     @Getter private final String name;
-
-    @Getter(AccessLevel.PRIVATE)
-    private final @Nullable S3Object remoteObject;
+    private final S3FileSystem fs;
 
     @VisibleForTesting
-    S3Blob(String name) {
+    S3Blob(String name, S3FileSystem fs) {
       this.name = Objects.requireNonNull(name);
-      this.remoteObject = null;
+      this.fs = fs;
     }
 
     @Override
     public long getSize() {
-      return Optional.ofNullable(remoteObject)
-          .map(o -> o.getObjectMetadata().getContentLength())
-          .orElse(0L);
+      try (final S3Object object = fs.getObject(name)) {
+        return object.getObjectMetadata().getContentLength();
+      } catch (IOException e) {
+        return 0L;
+      }
     }
   }
 
-  public static S3BlobPath of(Context context, FileSystem fs, String name) {
-    return new S3BlobPath(context, fs, new S3Blob(name));
+  public static S3BlobPath of(Context context, S3FileSystem fs, String name) {
+    return new S3BlobPath(context, fs, new S3Blob(name, fs));
   }
 
   private final Context context;
 
   @VisibleForTesting
-  S3BlobPath(Context context, FileSystem fs, S3Blob blob) {
+  S3BlobPath(Context context, S3FileSystem fs, S3Blob blob) {
     super(fs, blob);
     this.context = Objects.requireNonNull(context);
   }
 
   @Override
   public InputStream reader() {
-    Preconditions.checkState(
-        getBlob().getRemoteObject() != null,
-        "Cannot read from not-yet written object [%s]",
-        getBlobName());
-    return getBlob().getRemoteObject().getObjectContent();
+    return ((S3FileSystem) getFileSystem()).getObject(getBlob().getName()).getObjectContent();
   }
 
   @Override
   public OutputStream writer() {
-    Preconditions.checkState(
-        getBlob().getRemoteObject() == null,
-        "Cannot write to already put object [%s]",
-        getBlob().getName());
     return ((S3Client) getFileSystem()).putObject(getBlobName());
   }
 
   @Override
   public void delete() {
-    if (getBlob().getRemoteObject() != null) {
-      ((S3Client) getFileSystem()).deleteObject(getBlob().getRemoteObject().getKey());
-    }
+    ((S3Client) getFileSystem()).deleteObject(getBlob().getName());
   }
 }

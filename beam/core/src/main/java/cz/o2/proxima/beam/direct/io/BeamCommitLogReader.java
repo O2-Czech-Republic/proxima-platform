@@ -26,7 +26,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -172,7 +172,7 @@ class BeamCommitLogReader {
       }
 
       @Override
-      public void close() throws IOException {
+      public void close() {
         r.close();
       }
 
@@ -214,7 +214,7 @@ class BeamCommitLogReader {
   private Instant currentProcessingTime = Instant.now();
 
   private BeamCommitLogReader(
-      String name,
+      @Nullable String name,
       CommitLogReader reader,
       Position position,
       boolean eventTime,
@@ -249,11 +249,11 @@ class BeamCommitLogReader {
             offsetWatermark);
     if (!finished) {
       if (offset != null) {
-        this.handle = reader.observeBulkOffsets(Arrays.asList(offset), observer);
+        this.handle = reader.observeBulkOffsets(Collections.singletonList(offset), observer);
       } else {
         this.handle =
             reader.observeBulkPartitions(
-                name, Arrays.asList(partition), position, stopAtCurrent, observer);
+                name, Collections.singletonList(partition), position, stopAtCurrent, observer);
       }
     }
     return advance();
@@ -365,6 +365,12 @@ class BeamCommitLogReader {
       watermark = new Instant(observer.getWatermark());
     } else {
       watermark = new Instant(System.currentTimeMillis() - AUTO_WATERMARK_LAG_MS);
+    }
+    if (watermark.isBefore(LOWEST_INSTANT)) {
+      return LOWEST_INSTANT;
+    }
+    if (watermark.isAfter(HIGHEST_INSTANT)) {
+      return HIGHEST_INSTANT;
     }
     return watermark;
   }

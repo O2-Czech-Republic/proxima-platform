@@ -58,7 +58,7 @@ public class S3ClientTest {
     when(mock.initiateMultipartUpload(any()))
         .thenAnswer(
             invocationOnMock -> {
-              request.set(invocationOnMock.getArgumentAt(0, InitiateMultipartUploadRequest.class));
+              request.set(invocationOnMock.getArgument(0, InitiateMultipartUploadRequest.class));
               final InitiateMultipartUploadResult result = new InitiateMultipartUploadResult();
               result.setUploadId(uploadId);
               return result;

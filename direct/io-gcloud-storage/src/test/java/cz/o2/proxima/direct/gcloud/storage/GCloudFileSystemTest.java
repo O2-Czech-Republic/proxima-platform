@@ -16,8 +16,6 @@
 package cz.o2.proxima.direct.gcloud.storage;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.*;
 
 import com.google.api.gax.paging.Page;

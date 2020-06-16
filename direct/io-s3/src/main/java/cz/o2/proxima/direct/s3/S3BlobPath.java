@@ -22,7 +22,6 @@ import cz.o2.proxima.direct.blob.BlobBase;
 import cz.o2.proxima.direct.blob.BlobPath;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.core.Context;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Objects;
@@ -53,7 +52,8 @@ public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> {
     public long getSize() {
       try (final S3Object object = fs.getObject(name)) {
         return object.getObjectMetadata().getContentLength();
-      } catch (IOException e) {
+      } catch (Exception e) {
+        log.warn("Unable to retrieve object size of [{}] from [{}].", name, fs.getUri(), e);
         return 0L;
       }
     }

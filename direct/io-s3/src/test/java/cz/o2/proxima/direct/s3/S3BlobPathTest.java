@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.direct.s3;
 
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.S3Object;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -25,13 +27,35 @@ import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
+import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 public class S3BlobPathTest implements Serializable {
 
   Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   DirectDataOperator op = repo.getOrCreateOperator(DirectDataOperator.class);
   EntityDescriptor entity = repo.getEntity("gateway");
+
+  @Test
+  public void testBlobGetSize() {
+    final S3FileSystem fs = Mockito.mock(S3FileSystem.class);
+    final ObjectMetadata objectMetadata = new ObjectMetadata();
+    objectMetadata.setContentLength(1337L);
+    final S3Object object = new S3Object();
+    object.setObjectMetadata(objectMetadata);
+    Mockito.when(fs.getObject(Mockito.eq("name"))).thenReturn(object);
+    final S3Blob blob = new S3Blob("name", fs);
+    Assert.assertEquals(1337L, blob.getSize());
+  }
+
+  @Test
+  public void testBlobGetSizeOnException() {
+    final S3FileSystem fs = Mockito.mock(S3FileSystem.class, Mockito.RETURNS_DEEP_STUBS);
+    Mockito.when(fs.getObject(Mockito.any())).thenThrow(new IllegalStateException());
+    final S3Blob blob = new S3Blob("name", fs);
+    Assert.assertEquals(0L, blob.getSize());
+  }
 
   @Test
   public void testSerializable() throws IOException, ClassNotFoundException {

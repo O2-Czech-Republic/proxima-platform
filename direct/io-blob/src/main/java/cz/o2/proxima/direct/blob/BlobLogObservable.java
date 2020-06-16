@@ -200,7 +200,6 @@ public abstract class BlobLogObservable<BlobT extends BlobBase, BlobPathT extend
                                         }
                                       });
                                 } catch (Exception ex) {
-                                  // noop
                                   throw new IllegalStateException(
                                       String.format("Failed to read from %s", blob), ex);
                                 }

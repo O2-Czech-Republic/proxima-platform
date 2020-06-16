@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.s3;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -83,7 +83,7 @@ public class S3FileSystemTest {
                 .thenAnswer(
                     invocationOnMock -> {
                       final InitiateMultipartUploadRequest req =
-                          invocationOnMock.getArgumentAt(0, InitiateMultipartUploadRequest.class);
+                          invocationOnMock.getArgument(0, InitiateMultipartUploadRequest.class);
                       String name = req.getKey();
                       assertTrue(name.startsWith("path/"));
                       blobs.put(name.substring(5), new Blob(name.substring(5)));

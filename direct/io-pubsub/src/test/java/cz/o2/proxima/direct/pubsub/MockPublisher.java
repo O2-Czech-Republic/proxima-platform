@@ -33,13 +33,13 @@ class MockPublisher {
     Publisher ret = mock(Publisher.class);
     doAnswer(
             invocation -> {
-              writer.accept(invocation.getArgumentAt(0, PubsubMessage.class));
+              writer.accept(invocation.getArgument(0, PubsubMessage.class));
               ApiFuture future = mock(ApiFuture.class);
               when(future.isDone()).thenReturn(true);
               when(future.isCancelled()).thenReturn(false);
               doAnswer(
                       i -> {
-                        i.getArgumentAt(0, Runnable.class).run();
+                        i.getArgument(0, Runnable.class).run();
                         return null;
                       })
                   .when(future)

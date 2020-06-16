@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.kafka;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.anyCollectionOf;
+import static org.mockito.Mockito.anyCollectionOf;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 

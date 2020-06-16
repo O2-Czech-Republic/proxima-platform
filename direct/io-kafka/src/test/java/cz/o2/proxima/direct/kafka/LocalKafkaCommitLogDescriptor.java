@@ -373,14 +373,15 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       doAnswer(
               invocation -> {
                 TopicPartition tp = (TopicPartition) invocation.getArguments()[0];
-                return consumerOffsets
-                    .get(consumerId)
-                    .entrySet()
-                    .stream()
-                    .filter(e -> e.getKey() == tp.partition())
-                    .findAny()
-                    .map(Map.Entry::getValue)
-                    .orElse(-1);
+                return (long)
+                    consumerOffsets
+                        .get(consumerId)
+                        .entrySet()
+                        .stream()
+                        .filter(e -> e.getKey() == tp.partition())
+                        .findAny()
+                        .map(Map.Entry::getValue)
+                        .orElse(-1);
               })
           .when(mock)
           .position(any());

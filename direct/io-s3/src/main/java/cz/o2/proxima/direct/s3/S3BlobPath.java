@@ -17,27 +17,14 @@ package cz.o2.proxima.direct.s3;
 
 import com.amazonaws.services.s3.model.S3Object;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.blob.BlobBase;
 import cz.o2.proxima.direct.blob.BlobPath;
-import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.core.Context;
-import cz.o2.proxima.util.ExceptionUtils;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import javax.annotation.Nullable;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
@@ -50,180 +37,52 @@ public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> {
 
   private static final long serialVersionUID = 1L;
 
-  @VisibleForTesting
-  static class CopyInputOutputStream {
-
-    private static class Block {
-      private static final int SIZE = 1024;
-      final byte[] buf = new byte[SIZE];
-      int writePos = 0;
-
-      boolean add(int i) {
-        buf[writePos++] = (byte) i;
-        return writePos >= SIZE;
-      }
-
-      boolean isEmpty() {
-        return writePos == 0;
-      }
-
-      public int size() {
-        return writePos;
-      }
-    }
-
-    private final List<Block> written = Collections.synchronizedList(new ArrayList<>());
-    private final CountDownLatch writeLatch;
-    private Block current = new Block();
-    AtomicBoolean finished = new AtomicBoolean();
-    AtomicReference<Throwable> error = new AtomicReference<>();
-
-    CopyInputOutputStream() {
-      this(0);
-    }
-
-    CopyInputOutputStream(int waitForConsumers) {
-      writeLatch = new CountDownLatch(waitForConsumers);
-    }
-
-    public InputStream read() {
-      return new InputStream() {
-        int readBlock = 0;
-        int readPosition = 0;
-        Block reading = null;
-
-        @Override
-        public int read() {
-          while (!finished.get() || readBlock < written.size()) {
-            if (reading == null) {
-              if (readBlock < written.size()) {
-                reading = written.get(readBlock++);
-                readPosition = 0;
-              } else {
-                synchronized (written) {
-                  ExceptionUtils.unchecked(() -> written.wait(50));
-                }
-                continue;
-              }
-            }
-            if (readPosition < reading.size()) {
-              return reading.buf[readPosition++] & 0xFF;
-            }
-            reading = null;
-          }
-          return -1;
-        }
-      };
-    }
-
-    public OutputStream write() {
-      return new OutputStream() {
-        @Override
-        public void write(int i) {
-          synchronized (written) {
-            if (!current.add(i)) {
-              written.add(current);
-              current = new Block();
-            }
-            written.notifyAll();
-          }
-        }
-
-        @Override
-        public void close() throws IOException {
-          if (!current.isEmpty()) {
-            written.add(current);
-            current = new Block();
-          }
-          finished.set(true);
-          ExceptionUtils.unchecked(writeLatch::await);
-          Throwable errorCaught = error.getAndSet(null);
-          if (errorCaught != null) {
-            throw new IOException(errorCaught);
-          }
-        }
-      };
-    }
-
-    void setError(Throwable err) {
-      error.set(err);
-      consumed();
-    }
-
-    public void consumed() {
-      writeLatch.countDown();
-    }
-  }
-
   public static class S3Blob implements BlobBase {
 
     @Getter private final String name;
-
-    @Getter(AccessLevel.PRIVATE)
-    private final @Nullable S3Object remoteObject;
+    private final S3FileSystem fs;
 
     @VisibleForTesting
-    S3Blob(String name) {
+    S3Blob(String name, S3FileSystem fs) {
       this.name = Objects.requireNonNull(name);
-      this.remoteObject = null;
+      this.fs = fs;
     }
 
     @Override
     public long getSize() {
-      return Optional.ofNullable(remoteObject)
-          .map(o -> o.getObjectMetadata().getContentLength())
-          .orElse(0L);
+      try (final S3Object object = fs.getObject(name)) {
+        return object.getObjectMetadata().getContentLength();
+      } catch (Exception e) {
+        log.warn("Unable to retrieve object size of [{}] from [{}].", name, fs.getUri(), e);
+        return 0L;
+      }
     }
   }
 
-  public static S3BlobPath of(Context context, FileSystem fs, String name) {
-    return new S3BlobPath(context, fs, new S3Blob(name));
+  public static S3BlobPath of(Context context, S3FileSystem fs, String name) {
+    return new S3BlobPath(context, fs, new S3Blob(name, fs));
   }
 
   private final Context context;
 
   @VisibleForTesting
-  S3BlobPath(Context context, FileSystem fs, S3Blob blob) {
+  S3BlobPath(Context context, S3FileSystem fs, S3Blob blob) {
     super(fs, blob);
     this.context = Objects.requireNonNull(context);
   }
 
   @Override
   public InputStream reader() {
-    Preconditions.checkState(
-        getBlob().getRemoteObject() != null,
-        "Cannot read from not-yet written object [%s]",
-        getBlobName());
-    return getBlob().getRemoteObject().getObjectContent();
+    return ((S3FileSystem) getFileSystem()).getObject(getBlob().getName()).getObjectContent();
   }
 
   @Override
   public OutputStream writer() {
-    Preconditions.checkState(
-        getBlob().getRemoteObject() == null,
-        "Cannot write to already put object [%s]",
-        getBlob().getName());
-    CopyInputOutputStream copy = new CopyInputOutputStream(1);
-    OutputStream ret = copy.write();
-    context
-        .getExecutorService()
-        .submit(
-            () -> {
-              try (InputStream input = copy.read()) {
-                ((S3Client) getFileSystem()).putObject(getBlobName(), input);
-                copy.consumed();
-              } catch (Throwable err) {
-                log.error("Failed to put object {}", getBlobName(), err);
-                copy.setError(err);
-              }
-            });
-    return ret;
+    return ((S3Client) getFileSystem()).putObject(getBlobName());
   }
 
   @Override
   public void delete() {
-    if (getBlob().getRemoteObject() != null) {
-      ((S3Client) getFileSystem()).deleteObject(getBlob().getRemoteObject().getKey());
-    }
+    ((S3Client) getFileSystem()).deleteObject(getBlob().getName());
   }
 }

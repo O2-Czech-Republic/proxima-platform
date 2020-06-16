@@ -23,19 +23,27 @@ import com.amazonaws.client.builder.AwsClientBuilder.EndpointConfiguration;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.model.StorageClass;
+import com.amazonaws.services.s3.model.CompleteMultipartUploadRequest;
+import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
+import com.amazonaws.services.s3.model.PartETag;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.UploadPartRequest;
+import com.amazonaws.services.s3.model.UploadPartResult;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.blob.RetryStrategy;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.storage.UriUtil;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.Serializable;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -44,6 +52,9 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 class S3Client implements Serializable {
+
+  /** Part size in multi-part upload (5MB). */
+  private static final int UPLOAD_PART_SIZE = 5 * 1024 * 1024;
 
   @VisibleForTesting
   static class AmazonS3Factory {
@@ -134,7 +145,6 @@ class S3Client implements Serializable {
   @Getter private final String bucket;
   @Getter private final String path;
   @Getter private final RetryStrategy retry;
-  private final StorageClass storageClass;
   private final Map<String, Object> cfg;
   @Nullable @Getter private transient AmazonS3 client;
 
@@ -145,7 +155,6 @@ class S3Client implements Serializable {
     int maxRetryDelay = getOpt(cfg, "max-retry-delay-ms", Integer::valueOf, (2 << 10) * 5000);
     this.retry = new RetryStrategy(initialRetryDelay, maxRetryDelay);
     this.cfg = cfg;
-    this.storageClass = getOpt(cfg, "storage-class", StorageClass::valueOf, StorageClass.Standard);
     new AmazonS3Factory(cfg).validate();
   }
 
@@ -167,14 +176,82 @@ class S3Client implements Serializable {
     return client;
   }
 
+  public S3Object getObject(String blobName) {
+    return client().getObject(getBucket(), blobName);
+  }
+
   public void deleteObject(String key) {
     client().deleteObject(getBucket(), key);
   }
 
-  public void putObject(String blobName, InputStream input) {
-    PutObjectRequest req =
-        new PutObjectRequest(getBucket(), blobName, input, new ObjectMetadata())
-            .withStorageClass(storageClass);
-    client().putObject(req);
+  /**
+   * Put object to s3 using multi-part upload.
+   *
+   * @param blobName Name of the blob we want to write.
+   * @return Output stream that we can write data into.
+   */
+  public OutputStream putObject(String blobName) {
+    Preconditions.checkState(!client().doesObjectExist(bucket, blobName), "Object already exists.");
+    final String currentBucket = getBucket();
+    final String uploadId =
+        client()
+            .initiateMultipartUpload(new InitiateMultipartUploadRequest(currentBucket, blobName))
+            .getUploadId();
+    final List<PartETag> eTags = new ArrayList<>();
+    final byte[] partBuffer = new byte[UPLOAD_PART_SIZE];
+    return new OutputStream() {
+
+      /** Signalizes whether this output stream is closed. */
+      private boolean closed = false;
+
+      /** Number of un-flushed bytes in current part buffer. */
+      private int currentBytes = 0;
+
+      /** Part number of current part in multi-part upload. Indexing from 1. */
+      private int partNumber = 1;
+
+      @Override
+      public void write(int b) throws IOException {
+        Preconditions.checkState(!closed, "Output stream already closed.");
+        // Number of bytes written is also position of next write.
+        partBuffer[currentBytes] = (byte) b;
+        currentBytes++;
+        if (currentBytes >= UPLOAD_PART_SIZE) {
+          flush();
+        }
+      }
+
+      @Override
+      public void flush() throws IOException {
+        Preconditions.checkState(!closed, "Output stream already closed.");
+        if (currentBytes > 0) {
+          try (final InputStream is = new ByteArrayInputStream(partBuffer, 0, currentBytes)) {
+            final UploadPartRequest uploadPartRequest =
+                new UploadPartRequest()
+                    .withBucketName(currentBucket)
+                    .withKey(blobName)
+                    .withUploadId(uploadId)
+                    .withPartNumber(partNumber)
+                    .withInputStream(is)
+                    .withPartSize(currentBytes);
+            final UploadPartResult uploadPartResult = client().uploadPart(uploadPartRequest);
+            eTags.add(uploadPartResult.getPartETag());
+            partNumber++;
+          }
+        }
+        currentBytes = 0;
+      }
+
+      @Override
+      public void close() throws IOException {
+        if (!closed) {
+          flush();
+          client()
+              .completeMultipartUpload(
+                  new CompleteMultipartUploadRequest(currentBucket, blobName, uploadId, eTags));
+          closed = true;
+        }
+      }
+    };
   }
 }

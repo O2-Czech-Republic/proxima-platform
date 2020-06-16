@@ -113,7 +113,7 @@ public abstract class BlobLogObservable<BlobT extends BlobBase, BlobPathT extend
   private final EntityDescriptor entity;
   private final FileSystem fs;
   private final FileFormat fileFormat;
-  private final NamingConvention namingConvetion;
+  private final NamingConvention namingConvention;
   private final long partitionMinSize;
   private final int partitionMaxNumBlobs;
   private final Factory<Executor> executorFactory;
@@ -123,7 +123,7 @@ public abstract class BlobLogObservable<BlobT extends BlobBase, BlobPathT extend
     this.entity = accessor.getEntityDescriptor();
     this.fs = accessor.getTargetFileSystem();
     this.fileFormat = accessor.getFileFormat();
-    this.namingConvetion = accessor.getNamingConvention();
+    this.namingConvention = accessor.getNamingConvention();
     this.partitionMinSize = accessor.getPartitionMinSize();
     this.partitionMaxNumBlobs = accessor.getPartitionMaxNumBlobs();
     this.executorFactory = context::getExecutorService;
@@ -151,7 +151,7 @@ public abstract class BlobLogObservable<BlobT extends BlobBase, BlobPathT extend
       List<Partition> resultingPartitions) {
 
     log.trace("Considering blob {} for partition inclusion", b.getName());
-    Pair<Long, Long> minMaxStamp = namingConvetion.parseMinMaxTimestamp(b.getName());
+    Pair<Long, Long> minMaxStamp = namingConvention.parseMinMaxTimestamp(b.getName());
     if (currentPartition.get() == null) {
       currentPartition.set(
           new BulkStoragePartition<>(
@@ -200,15 +200,16 @@ public abstract class BlobLogObservable<BlobT extends BlobBase, BlobPathT extend
                                         }
                                       });
                                 } catch (Exception ex) {
-                                  log.error("Failed to read from {}", blob, ex);
+                                  throw new IllegalStateException(
+                                      String.format("Failed to read from %s", blob), ex);
                                 }
                               });
                     });
                 observer.onCompleted();
               } catch (Exception ex) {
-                log.warn("Failed to observe partitions {}", partitions, ex);
+                log.error("Failed to observe partitions {}", partitions, ex);
                 if (observer.onError(ex)) {
-                  log.info("Restaring processing by request");
+                  log.info("Restarting processing by request");
                   observe(partitions, attributes, observer);
                 }
               }

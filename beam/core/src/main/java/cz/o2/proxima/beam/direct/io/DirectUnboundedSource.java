@@ -24,9 +24,8 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
-import java.io.IOException;
 import java.io.Serializable;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -75,7 +74,7 @@ class DirectUnboundedSource
     }
 
     @Override
-    public void finalizeCheckpoint() throws IOException {
+    public void finalizeCheckpoint() {
       if (committer != null) {
         committer.confirm();
       }
@@ -133,7 +132,7 @@ class DirectUnboundedSource
       int desiredNumSplits, PipelineOptions options) {
 
     if (partition != null) {
-      return Arrays.asList(this);
+      return Collections.singletonList(this);
     }
 
     long splittable = partitions.stream().filter(Partition::isSplittable).count();

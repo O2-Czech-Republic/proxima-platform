@@ -56,6 +56,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Getter @Nullable private OnNextContext lastWrittenContext;
   @Getter @Nullable private OnNextContext lastReadContext;
   private long limit;
+  private boolean cancelled = false;
 
   private BlockingQueueLogObserver(String name, long limit, long startingWatermark) {
     this.name = Objects.requireNonNull(name);
@@ -101,6 +102,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public void onCancelled() {
+    cancelled = true;
     log.debug("Cancelled {} consumption by request.", name);
   }
 
@@ -192,12 +194,14 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   }
 
   private void updateAndLogWatermark(long newWatermark) {
-    if (log.isDebugEnabled() && watermark.get() < newWatermark) {
-      log.debug(
-          "Watermark updated from {} to {}",
-          Instant.ofEpochMilli(watermark.get()),
-          Instant.ofEpochMilli(newWatermark));
+    if (!cancelled) {
+      if (log.isDebugEnabled() && watermark.get() < newWatermark) {
+        log.debug(
+            "Watermark updated from {} to {}",
+            Instant.ofEpochMilli(watermark.get()),
+            Instant.ofEpochMilli(newWatermark));
+      }
+      watermark.set(newWatermark);
     }
-    watermark.set(newWatermark);
   }
 }

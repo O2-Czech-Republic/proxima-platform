@@ -336,7 +336,7 @@ public class InMemStorage implements DataAccessorFactory {
         @Override
         public List<Offset> getCommittedOffsets() {
           // no commits supported for now
-          return Arrays.asList(new IntOffset(0, Long.MIN_VALUE));
+          return Collections.singletonList(new IntOffset(0, Long.MIN_VALUE));
         }
 
         @Override
@@ -346,7 +346,7 @@ public class InMemStorage implements DataAccessorFactory {
 
         @Override
         public List<Offset> getCurrentOffsets() {
-          return Arrays.asList(offsetTracker.get());
+          return Collections.singletonList(offsetTracker.get());
         }
 
         @Override
@@ -411,16 +411,20 @@ public class InMemStorage implements DataAccessorFactory {
 
       Runnable onIdle =
           () -> {
-            synchronized (observer) {
-              watermark.idle();
-              observer.onIdle(watermark::getWatermark);
-              if (watermark.getWatermark()
-                  >= (Watermarks.MAX_WATERMARK - BOUNDED_OUT_OF_ORDERNESS)) {
-                observer.onCompleted();
-                getObservers(getUri()).remove(consumerId);
-                onIdleRef.get().cancel(true);
-                killSwitch.set(true);
+            try {
+              synchronized (observer) {
+                watermark.idle();
+                observer.onIdle(watermark::getWatermark);
+                if (watermark.getWatermark()
+                    >= (Watermarks.MAX_WATERMARK - BOUNDED_OUT_OF_ORDERNESS)) {
+                  observer.onCompleted();
+                  getObservers(getUri()).remove(consumerId);
+                  onIdleRef.get().cancel(true);
+                  killSwitch.set(true);
+                }
               }
+            } catch (Throwable ex) {
+              log.warn("Exception in onIdle", ex);
             }
           };
       ScheduledFuture<?> onIdleFuture =

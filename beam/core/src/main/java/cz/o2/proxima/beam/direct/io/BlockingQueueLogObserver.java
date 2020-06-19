@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.Partition;
@@ -63,6 +64,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     this.watermark = new AtomicLong(startingWatermark);
     this.limit = limit;
     queue = new ArrayBlockingQueue<>(100);
+    log.debug("Created {}", this);
   }
 
   @Override
@@ -75,24 +77,30 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
-    updateAndLogWatermark(context.getWatermark());
-    log.trace("Received next element {} at watermark {}", ingest, watermark);
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Received next element {} at watermark {} offset {}",
+          ingest,
+          context.getWatermark(),
+          context.getOffset());
+    }
     return enqueue(ingest, context);
   }
 
   @Override
   public boolean onNext(StreamElement element, Partition partition) {
-    log.trace("Received next element {} on partition {}", element, partition);
+    log.debug("Received next element {} on partition {}", element, partition);
     return enqueue(element, null);
   }
 
-  private boolean enqueue(StreamElement element, OnNextContext context) {
+  private boolean enqueue(StreamElement element, @Nullable OnNextContext context) {
     try {
       lastWrittenContext = context;
       if (limit-- > 0) {
         return putToQueue(element, context);
       }
-      log.debug("Terminating consumption of {} due to limit", name);
+      log.debug(
+          "Terminating consumption of {} due to limit {} while enqueing {}", name, limit, element);
     } catch (InterruptedException ex) {
       log.warn("Interrupted while putting element {} to queue", element, ex);
       Thread.currentThread().interrupt();
@@ -132,7 +140,9 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public void onIdle(OnIdleContext context) {
-    updateAndLogWatermark(context.getWatermark());
+    if (queue.isEmpty()) {
+      updateAndLogWatermark(context.getWatermark());
+    }
   }
 
   /**
@@ -168,6 +178,9 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   private StreamElement consumeTaken(@Nullable Pair<StreamElement, OnNextContext> taken) {
     if (taken != null && taken.getFirst() != null) {
       lastReadContext = taken.getSecond();
+      if (lastReadContext != null) {
+        updateAndLogWatermark(lastReadContext.getWatermark());
+      }
       return taken.getFirst();
     }
     return null;
@@ -203,5 +216,10 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
       }
       watermark.set(newWatermark);
     }
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this).add("name", name).add("limit", limit).toString();
   }
 }

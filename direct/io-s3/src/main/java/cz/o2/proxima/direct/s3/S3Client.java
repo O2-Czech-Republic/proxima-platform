@@ -53,6 +53,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class S3Client implements Serializable {
 
+  private static final long serialVersionUID = 1L;
+
   /** Part size in multi-part upload (5MB). */
   private static final int UPLOAD_PART_SIZE = 5 * 1024 * 1024;
 

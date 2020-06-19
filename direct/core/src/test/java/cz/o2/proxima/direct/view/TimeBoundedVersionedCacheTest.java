@@ -111,6 +111,14 @@ public class TimeBoundedVersionedCacheTest {
   }
 
   @Test
+  public void testGetWithDelete() {
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
+    assertTrue(cache.put("key", "attribute.suffix", now, false, null));
+    assertTrue(cache.put("key", "attribute.suffix2", now, false, "value"));
+    assertNull(cache.get("key", "attribute.", now + 1));
+  }
+
+  @Test
   public void testMultiCacheScan() {
     TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
     assertTrue(cache.put("key", "a.1", now, false, "test1"));

@@ -159,7 +159,6 @@ public class LocalCachedPartitionedView implements CachedView {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
-
             onCache(ingest, false);
             context.confirm();
             return true;
@@ -227,7 +226,7 @@ public class LocalCachedPartitionedView implements CachedView {
     long deleteStamp = Long.MIN_VALUE;
     synchronized (cache) {
       if (desc.isWildcard()) {
-        // check there is not wildcard delete
+        // check for wildcard delete
         Pair<Long, Object> wildcard = cache.get(key, desc.toAttributePrefix(), stamp);
         if (wildcard != null && wildcard.getSecond() == null) {
           // this is delete

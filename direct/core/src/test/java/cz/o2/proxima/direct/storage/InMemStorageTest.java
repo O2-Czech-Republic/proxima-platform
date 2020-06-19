@@ -416,7 +416,7 @@ public class InMemStorageTest implements Serializable {
     List<Offset> offsets = handle.getCurrentOffsets();
     assertEquals(1, offsets.size());
     assertTrue(offsets.get(0).getWatermark() > 0);
-    assertEquals(Arrays.asList((byte) 1), received);
+    assertEquals(Collections.singletonList((byte) 1), received);
     handle.close();
     handle = reader.observeBulkOffsets(offsets, observer);
     offsets = handle.getCurrentOffsets();

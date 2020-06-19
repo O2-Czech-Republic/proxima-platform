@@ -75,14 +75,15 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
-    updateAndLogWatermark(context.getWatermark());
-    log.trace("Received next element {} at watermark {}", ingest, watermark);
+    if (log.isDebugEnabled()) {
+      log.debug("Received next element {} at watermark {}", ingest, context.getWatermark());
+    }
     return enqueue(ingest, context);
   }
 
   @Override
   public boolean onNext(StreamElement element, Partition partition) {
-    log.trace("Received next element {} on partition {}", element, partition);
+    log.debug("Received next element {} on partition {}", element, partition);
     return enqueue(element, null);
   }
 
@@ -132,7 +133,9 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public void onIdle(OnIdleContext context) {
-    updateAndLogWatermark(context.getWatermark());
+    if (queue.isEmpty()) {
+      updateAndLogWatermark(context.getWatermark());
+    }
   }
 
   /**
@@ -168,6 +171,9 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   private StreamElement consumeTaken(@Nullable Pair<StreamElement, OnNextContext> taken) {
     if (taken != null && taken.getFirst() != null) {
       lastReadContext = taken.getSecond();
+      if (lastReadContext != null) {
+        updateAndLogWatermark(lastReadContext.getWatermark());
+      }
       return taken.getFirst();
     }
     return null;

@@ -28,6 +28,7 @@ import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.direct.storage.InMemStorage.ConsumedOffset;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -416,7 +417,7 @@ public class InMemStorageTest implements Serializable {
     List<Offset> offsets = handle.getCurrentOffsets();
     assertEquals(1, offsets.size());
     assertTrue(offsets.get(0).getWatermark() > 0);
-    assertEquals(Arrays.asList((byte) 1), received);
+    assertEquals(Collections.singletonList((byte) 1), received);
     handle.close();
     handle = reader.observeBulkOffsets(offsets, observer);
     offsets = handle.getCurrentOffsets();
@@ -437,6 +438,8 @@ public class InMemStorageTest implements Serializable {
                 new byte[] {2}),
             (succ, exc) -> {});
     assertEquals(Arrays.asList((byte) 1, (byte) 2), received);
+    assertEquals(
+        2, ((ConsumedOffset) handle.getCurrentOffsets().get(0)).getConsumedKeyAttr().size());
   }
 
   @Test

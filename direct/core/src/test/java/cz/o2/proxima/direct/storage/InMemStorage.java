@@ -63,11 +63,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -79,7 +81,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -97,15 +98,21 @@ public class InMemStorage implements DataAccessorFactory {
   private static final long IDLE_FLUSH_TIME = 500L;
   private static final long BOUNDED_OUT_OF_ORDERNESS = 5000L;
 
-  static class IntOffset implements Offset {
+  static class ConsumedOffset implements Offset {
 
     private static final long serialVersionUID = 1L;
 
-    @Getter final long offset;
-    @Getter final long watermark;
+    static ConsumedOffset empty() {
+      return new ConsumedOffset(Collections.emptySet(), Long.MIN_VALUE);
+    }
 
-    public IntOffset(long offset, long watermark) {
-      this.offset = offset;
+    @Getter final long watermark;
+    @Getter final Set<String> consumedKeyAttr;
+
+    public ConsumedOffset(final Set<String> consumedKeyAttr, long watermark) {
+      synchronized (consumedKeyAttr) {
+        this.consumedKeyAttr = new HashSet<>(consumedKeyAttr);
+      }
       this.watermark = watermark;
     }
 
@@ -116,21 +123,25 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public String toString() {
-      return "IntOffset(" + "offset=" + offset + ", watermark=" + watermark + ")";
+      return MoreObjects.toStringHelper(this)
+          .add("offset", consumedKeyAttr.size())
+          .add("watermark", watermark)
+          .toString();
     }
 
     @Override
     public boolean equals(Object obj) {
-      if (obj instanceof IntOffset) {
-        IntOffset other = (IntOffset) obj;
-        return other.offset == this.offset && other.watermark == this.watermark;
+      if (obj instanceof ConsumedOffset) {
+        ConsumedOffset other = (ConsumedOffset) obj;
+        return other.consumedKeyAttr.equals(this.consumedKeyAttr)
+            && other.watermark == this.watermark;
       }
       return false;
     }
 
     @Override
     public int hashCode() {
-      return (int) ((offset ^ watermark) % Integer.MAX_VALUE);
+      return Objects.hash(watermark, consumedKeyAttr);
     }
   }
 
@@ -213,13 +224,13 @@ public class InMemStorage implements DataAccessorFactory {
     private ObserveHandle observe(
         String name, Position position, boolean stopAtCurrent, LogObserver observer) {
 
-      return observe(name, position, new IntOffset(0L, Long.MIN_VALUE), stopAtCurrent, observer);
+      return observe(name, position, ConsumedOffset.empty(), stopAtCurrent, observer);
     }
 
     private ObserveHandle observe(
         String name,
         Position position,
-        IntOffset offset,
+        ConsumedOffset offset,
         boolean stopAtCurrent,
         LogObserver observer) {
 
@@ -241,14 +252,13 @@ public class InMemStorage implements DataAccessorFactory {
     public ObserveHandle observeBulk(
         String name, Position position, boolean stopAtCurrent, LogObserver observer) {
 
-      return observeBulk(
-          name, position, new IntOffset(0L, Long.MIN_VALUE), stopAtCurrent, observer);
+      return observeBulk(name, position, ConsumedOffset.empty(), stopAtCurrent, observer);
     }
 
     private ObserveHandle observeBulk(
         String name,
         Position position,
-        IntOffset offset,
+        ConsumedOffset offset,
         boolean stopAtCurrent,
         LogObserver observer) {
 
@@ -270,12 +280,16 @@ public class InMemStorage implements DataAccessorFactory {
     public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
 
       return doObserve(
-          Position.OLDEST, ((IntOffset) Iterables.getOnlyElement(offsets)), false, observer, null);
+          Position.OLDEST,
+          ((ConsumedOffset) Iterables.getOnlyElement(offsets)),
+          false,
+          observer,
+          null);
     }
 
     private ObserveHandle doObserve(
         Position position,
-        IntOffset offset,
+        ConsumedOffset offset,
         boolean stopAtCurrent,
         LogObserver observer,
         @Nullable String name) {
@@ -294,7 +308,7 @@ public class InMemStorage implements DataAccessorFactory {
       observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION)));
       AtomicReference<Thread> threadInterrupt = new AtomicReference<>();
       AtomicBoolean killSwitch = new AtomicBoolean();
-      Supplier<IntOffset> offsetSupplier =
+      Supplier<ConsumedOffset> offsetSupplier =
           flushBasedOnPosition(
               name, position, offset, id, stopAtCurrent, killSwitch, threadInterrupt, observer);
 
@@ -316,10 +330,15 @@ public class InMemStorage implements DataAccessorFactory {
       return id;
     }
 
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(getClass()).add("uri", getUri()).toString();
+    }
+
     private ObserveHandle createHandle(
         int consumerId,
         LogObserver observer,
-        Supplier<IntOffset> offsetTracker,
+        Supplier<ConsumedOffset> offsetTracker,
         AtomicBoolean killSwitch,
         AtomicReference<Thread> threadInterrupt) {
 
@@ -336,7 +355,7 @@ public class InMemStorage implements DataAccessorFactory {
         @Override
         public List<Offset> getCommittedOffsets() {
           // no commits supported for now
-          return Collections.singletonList(new IntOffset(0, Long.MIN_VALUE));
+          return Collections.singletonList(ConsumedOffset.empty());
         }
 
         @Override
@@ -356,17 +375,18 @@ public class InMemStorage implements DataAccessorFactory {
       };
     }
 
-    private Supplier<IntOffset> flushBasedOnPosition(
+    private Supplier<ConsumedOffset> flushBasedOnPosition(
         @Nullable String name,
         Position position,
-        IntOffset offset,
+        ConsumedOffset offset,
         int consumerId,
         boolean stopAtCurrent,
         AtomicBoolean killSwitch,
         AtomicReference<Thread> observeThread,
         LogObserver observer) {
 
-      AtomicLong offsetTracker = new AtomicLong(offset.getOffset());
+      Set<String> consumedOffsets =
+          Collections.synchronizedSet(new HashSet<>(offset.getConsumedKeyAttr()));
       WatermarkEstimator watermark =
           holder.getWatermarkEstimator(
               getUri(),
@@ -382,7 +402,7 @@ public class InMemStorage implements DataAccessorFactory {
                       consumerId,
                       stopAtCurrent,
                       killSwitch,
-                      offsetTracker,
+                      consumedOffsets,
                       watermark,
                       latch,
                       observer)));
@@ -392,21 +412,20 @@ public class InMemStorage implements DataAccessorFactory {
       } catch (InterruptedException ex) {
         log.warn("Interrupted.", ex);
       }
-      return () -> new IntOffset(offsetTracker.get(), watermark.getWatermark());
+      return () -> new ConsumedOffset(consumedOffsets, watermark.getWatermark());
     }
 
     private void handleFlushDataBaseOnPosition(
         Position position,
-        IntOffset offset,
+        ConsumedOffset offset,
         int consumerId,
         boolean stopAtCurrent,
         AtomicBoolean killSwitch,
-        AtomicLong offsetTracker,
+        Set<String> consumedOffsets,
         WatermarkEstimator watermark,
         CountDownLatch latch,
         LogObserver observer) {
 
-      AtomicLong restartedOffset = new AtomicLong();
       AtomicReference<ScheduledFuture<?>> onIdleRef = new AtomicReference<>();
 
       Runnable onIdle =
@@ -436,13 +455,15 @@ public class InMemStorage implements DataAccessorFactory {
             try {
               if (!killSwitch.get()) {
                 el = cloneAndUpdateAttribute(getEntityDescriptor(), el);
-                long off = offsetTracker.incrementAndGet();
                 watermark.update(el);
                 long w = watermark.getWatermark();
+                consumedOffsets.add(
+                    String.format("%s#%s:%d", el.getKey(), el.getAttribute(), el.getStamp()));
                 synchronized (observer) {
                   killSwitch.compareAndSet(
                       false,
-                      !observer.onNext(el, asOnNextContext(committer, new IntOffset(off, w))));
+                      !observer.onNext(
+                          el, asOnNextContext(committer, new ConsumedOffset(consumedOffsets, w))));
                 }
               }
             } catch (Exception ex) {
@@ -465,10 +486,13 @@ public class InMemStorage implements DataAccessorFactory {
               .sorted(Comparator.comparingLong(a -> a.getValue().getFirst()))
               .forEachOrdered(
                   e -> {
-                    if (restartedOffset.getAndIncrement() < offset.getOffset()) {
+                    String keyAttr = e.getKey().substring(prefixLength);
+                    long stamp = e.getValue().getFirst();
+                    if (offset.getConsumedKeyAttr().contains(keyAttr + ":" + stamp)) {
+                      // this record has already been consumed in previous offset, so skip it
                       return;
                     }
-                    String[] parts = e.getKey().substring(prefixLength).split("#");
+                    String[] parts = keyAttr.split("#");
                     String key = parts[0];
                     String attribute = parts[1];
                     AttributeDescriptor<?> desc =
@@ -485,7 +509,7 @@ public class InMemStorage implements DataAccessorFactory {
                             UUID.randomUUID().toString(),
                             key,
                             attribute,
-                            e.getValue().getFirst(),
+                            stamp,
                             value);
                     consumer.accept(
                         element,

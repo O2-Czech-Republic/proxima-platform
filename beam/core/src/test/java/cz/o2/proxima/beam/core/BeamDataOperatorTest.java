@@ -28,7 +28,6 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -331,7 +330,7 @@ public class BeamDataOperatorTest {
       Pipeline p = Pipeline.create();
       PCollection<StreamElement> input = operator.getStream(p, Position.OLDEST, true, true, data);
       PCollection<Long> count = input.apply(Count.globally());
-      PAssert.that(count).containsInAnyOrder(Arrays.asList((long) numElements));
+      PAssert.that(count).containsInAnyOrder(Collections.singletonList((long) numElements));
       assertNotNull(p.run());
     }
   }

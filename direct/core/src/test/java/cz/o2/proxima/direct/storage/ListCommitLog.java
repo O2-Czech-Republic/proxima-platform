@@ -25,7 +25,6 @@ import cz.o2.proxima.direct.commitlog.ObserverUtils;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.direct.storage.InMemStorage.IntOffset;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
@@ -35,6 +34,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import lombok.Getter;
 
 /**
  * A bounded {@link CommitLogReader} containing predefined data.
@@ -44,6 +44,43 @@ import java.util.concurrent.ExecutorService;
 public class ListCommitLog implements CommitLogReader {
 
   private static final Partition PARTITION = () -> 0;
+
+  static class IntOffset implements Offset {
+
+    private static final long serialVersionUID = 1L;
+
+    @Getter final long offset;
+    @Getter final long watermark;
+
+    public IntOffset(long offset, long watermark) {
+      this.offset = offset;
+      this.watermark = watermark;
+    }
+
+    @Override
+    public Partition getPartition() {
+      return PARTITION;
+    }
+
+    @Override
+    public String toString() {
+      return "IntOffset(" + "offset=" + offset + ", watermark=" + watermark + ")";
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof IntOffset) {
+        IntOffset other = (IntOffset) obj;
+        return other.offset == this.offset && other.watermark == this.watermark;
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return (int) ((offset ^ watermark) % Integer.MAX_VALUE);
+    }
+  }
 
   public static ListCommitLog of(List<StreamElement> data, Context context) {
     return new ListCommitLog(data, context);

@@ -25,6 +25,7 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.NoSuchElementException;
@@ -80,6 +81,7 @@ class BeamCommitLogReader {
 
     @Override
     public boolean start() throws IOException {
+      log.debug("{} started to consume reader {}", this, reader.getUri());
       return reader.start();
     }
 
@@ -241,6 +243,10 @@ class BeamCommitLogReader {
         offset == null || !stopAtCurrent, "Offset can be used only for streaming reader");
   }
 
+  private URI getUri() {
+    return reader.getUri();
+  }
+
   public boolean start() throws IOException {
     this.observer =
         BlockingQueueLogObserver.create(
@@ -328,6 +334,7 @@ class BeamCommitLogReader {
       handle.close();
       handle = null;
     }
+    log.debug("Closed reader {}", this);
   }
 
   @Nullable

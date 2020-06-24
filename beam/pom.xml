@@ -35,7 +35,7 @@
 
   <properties>
     <apache.beam.groupId>org.apache.beam</apache.beam.groupId>
-    <apache.beam.version>2.21.0</apache.beam.version>
+    <apache.beam.version>2.22.0</apache.beam.version>
     <apache.beam.groupId.raw>org.apache.beam</apache.beam.groupId.raw>
     <apache.beam.version.raw>${apache.beam.version}</apache.beam.version.raw>
     <scala.version>2.11</scala.version>

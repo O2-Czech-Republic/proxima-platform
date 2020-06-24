@@ -15,14 +15,9 @@
 # limitations under the License.
 #
 
+#
+# Generate list of merge pull request in master since last tagged version (in current branch)
+#
 
-MODULES=""
-for d in beam-*; do
-  sed "s/\${artifactId}/$d/" vendor-template-pom.xml > $d/pom.xml
-  MODULES="${MODULES}    <module>$d<\\/module>\n"
-  cd $d
-  ln -s ../license-header-spotless.txt
-  cd ..
-done
-
-sed "s/\${beam-vendor-modules}/${MODULES}/" pom-template.xml > pom.xml
+COMMIT=$(git log --tags | head -1 | cut -d' ' -f2)
+git log $COMMIT..HEAD | grep "Merge pull request" | sed "s/ \+Merge pull request #\([0-9]\+\)/Merge pull request \[\#\1\](https:\/\/github.com\/datadrivencz\/proxima-platform\/pull\/\1)/"

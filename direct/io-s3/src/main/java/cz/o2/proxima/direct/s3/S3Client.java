@@ -156,7 +156,7 @@ class S3Client implements Serializable {
   @Getter private final String path;
   @Getter private final RetryStrategy retry;
   private final Map<String, Object> cfg;
-  @Nullable @Getter private transient AmazonS3 client;
+  @Nullable private transient AmazonS3 client;
 
   S3Client(URI uri, Map<String, Object> cfg) {
     this.bucket = uri.getAuthority();

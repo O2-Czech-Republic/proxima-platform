@@ -23,6 +23,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 import java.time.Duration;
 
 /** Proxima's abstraction of path in {@link FileSystem}. */
@@ -103,19 +106,43 @@ public interface Path extends Serializable {
   }
 
   /**
+   * Open readable byte channel from a given Path.
+   *
+   * @return {@link ReadableByteChannel} of the {@link Path}.
+   * @throws IOException on errors
+   */
+  default ReadableByteChannel read() throws IOException {
+    return Channels.newChannel(reader());
+  }
+
+  /**
    * Open input stream from given Path.
    *
    * @return {@link InputStream} of the {@link Path}.
    * @throws IOException on errors
+   * @deprecated Use {@link #read()} instead.
    */
+  @Deprecated
   InputStream reader() throws IOException;
+
+  /**
+   * Open writeable byte channel to a given Path.
+   *
+   * @return {@link WritableByteChannel} of the {@link Path}.
+   * @throws IOException on errors
+   */
+  default WritableByteChannel write() throws IOException {
+    return Channels.newChannel(writer());
+  }
 
   /**
    * Open output stream to the Path.
    *
    * @return {@link OutputStream} of the {@link Path}
    * @throws IOException on errors *
+   * @deprecated Use {@link #write()} instead.
    */
+  @Deprecated
   OutputStream writer() throws IOException;
 
   /**

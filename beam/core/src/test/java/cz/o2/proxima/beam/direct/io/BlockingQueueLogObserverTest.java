@@ -43,6 +43,15 @@ public class BlockingQueueLogObserverTest {
     testWithStartingWatermark(0);
   }
 
+  @Test
+  public void testMaxWatermarkWhenOnCompleted() {
+    BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", Long.MIN_VALUE);
+    assertEquals(Long.MIN_VALUE, observer.getWatermark());
+    observer.onCompleted();
+    assertNull(observer.take());
+    assertEquals(Long.MAX_VALUE, observer.getWatermark());
+  }
+
   void testWithStartingWatermark(long startingWatermark) throws InterruptedException {
     BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", startingWatermark);
     long now = System.currentTimeMillis();

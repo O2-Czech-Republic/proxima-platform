@@ -16,6 +16,7 @@
 package cz.o2.proxima.util;
 
 import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.functional.Consumer;
@@ -52,7 +53,10 @@ public class TransformationRunner {
       Repository repo, DirectDataOperator direct, Consumer<StreamElement> onReplicated) {
 
     repo.getTransformations()
-        .forEach((name, desc) -> runTransformation(direct, name, desc, onReplicated));
+        .entrySet()
+        .stream()
+        .map(entry -> runTransformation(direct, entry.getKey(), entry.getValue(), onReplicated))
+        .forEach(h -> ExceptionUtils.unchecked(h::waitUntilReady));
   }
 
   /**
@@ -62,14 +66,15 @@ public class TransformationRunner {
    * @param name name of the transformation
    * @param desc the transformation to run
    * @param onReplicated callback to be called before write to replicated target
+   * @return {@link ObserveHandle} of the transformation
    */
-  public static void runTransformation(
+  public static ObserveHandle runTransformation(
       DirectDataOperator direct,
       String name,
       TransformationDescriptor desc,
       Consumer<StreamElement> onReplicated) {
 
-    desc.getAttributes()
+    return desc.getAttributes()
         .stream()
         .flatMap(
             attr ->

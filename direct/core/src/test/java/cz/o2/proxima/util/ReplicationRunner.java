@@ -16,6 +16,7 @@
 package cz.o2.proxima.util;
 
 import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -59,41 +60,43 @@ public class ReplicationRunner {
                       .orElseThrow(
                           () -> new IllegalStateException("Missing writer of family " + af))
                       .online();
-              attributes
-                  .stream()
-                  .map(
-                      a ->
-                          direct
-                              .getFamiliesForAttribute(a)
-                              .stream()
-                              .filter(f -> f.getDesc().getType() == StorageType.PRIMARY)
-                              .findAny()
-                              .get())
-                  .collect(Collectors.toSet())
-                  .stream()
-                  .findFirst()
-                  .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
-                  .get()
-                  .observe(
-                      af.getDesc().getName(),
-                      new LogObserver() {
-                        @Override
-                        public boolean onNext(StreamElement ingest, OnNextContext context) {
-                          log.debug("Replicating input {} to {}", ingest, writer);
-                          writer.write(
-                              ingest,
-                              (succ, exc) -> {
-                                context.commit(succ, exc);
-                                onReplicated.accept(ingest);
-                              });
-                          return true;
-                        }
+              ObserveHandle handle =
+                  attributes
+                      .stream()
+                      .map(
+                          a ->
+                              direct
+                                  .getFamiliesForAttribute(a)
+                                  .stream()
+                                  .filter(f -> f.getDesc().getType() == StorageType.PRIMARY)
+                                  .findAny()
+                                  .get())
+                      .collect(Collectors.toSet())
+                      .stream()
+                      .findFirst()
+                      .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
+                      .get()
+                      .observe(
+                          af.getDesc().getName(),
+                          new LogObserver() {
+                            @Override
+                            public boolean onNext(StreamElement ingest, OnNextContext context) {
+                              log.debug("Replicating input {} to {}", ingest, writer);
+                              writer.write(
+                                  ingest,
+                                  (succ, exc) -> {
+                                    context.commit(succ, exc);
+                                    onReplicated.accept(ingest);
+                                  });
+                              return true;
+                            }
 
-                        @Override
-                        public boolean onError(Throwable error) {
-                          throw new RuntimeException(error);
-                        }
-                      });
+                            @Override
+                            public boolean onError(Throwable error) {
+                              throw new RuntimeException(error);
+                            }
+                          });
+              ExceptionUtils.unchecked(handle::waitUntilReady);
               log.info("Started attribute replica {}", af.getDesc().getName());
             });
   }

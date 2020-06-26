@@ -181,6 +181,10 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
       if (lastReadContext != null) {
         updateAndLogWatermark(lastReadContext.getWatermark());
       }
+      log.debug(
+          "Consuming taken element {} with offset {}",
+          taken.getFirst(),
+          lastReadContext != null ? lastReadContext.getOffset() : null);
       return taken.getFirst();
     }
     return null;

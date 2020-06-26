@@ -253,6 +253,8 @@ class BeamCommitLogReader {
             name == null ? "Source(" + reader.getUri() + "@" + partition.getId() + ")" : name,
             limit,
             offsetWatermark);
+    log.debug(
+        "Starting {}@{} with offset {} and partition {}", name, reader.getUri(), offset, partition);
     if (!finished) {
       if (offset != null) {
         this.handle = reader.observeBulkOffsets(Collections.singletonList(offset), observer);

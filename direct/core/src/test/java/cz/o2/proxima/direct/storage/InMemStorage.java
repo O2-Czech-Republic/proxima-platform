@@ -454,12 +454,12 @@ public class InMemStorage implements DataAccessorFactory {
           (el, committer) -> {
             try {
               if (!killSwitch.get()) {
-                el = cloneAndUpdateAttribute(getEntityDescriptor(), el);
-                watermark.update(el);
-                long w = watermark.getWatermark();
-                consumedOffsets.add(
-                    String.format("%s#%s:%d", el.getKey(), el.getAttribute(), el.getStamp()));
                 synchronized (observer) {
+                  el = cloneAndUpdateAttribute(getEntityDescriptor(), el);
+                  watermark.update(el);
+                  long w = watermark.getWatermark();
+                  consumedOffsets.add(
+                      String.format("%s#%s:%d", el.getKey(), el.getAttribute(), el.getStamp()));
                   killSwitch.compareAndSet(
                       false,
                       !observer.onNext(
@@ -490,6 +490,7 @@ public class InMemStorage implements DataAccessorFactory {
                     long stamp = e.getValue().getFirst();
                     if (offset.getConsumedKeyAttr().contains(keyAttr + ":" + stamp)) {
                       // this record has already been consumed in previous offset, so skip it
+                      log.debug("Discarding element {} due to being already consumed.", keyAttr);
                       return;
                     }
                     String[] parts = keyAttr.split("#");

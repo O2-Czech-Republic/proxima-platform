@@ -55,8 +55,16 @@ public class TransformationRunner {
     repo.getTransformations()
         .entrySet()
         .stream()
-        .map(entry -> runTransformation(direct, entry.getKey(), entry.getValue(), onReplicated))
-        .forEach(h -> ExceptionUtils.unchecked(h::waitUntilReady));
+        .map(
+            entry ->
+                Pair.of(
+                    entry.getKey(),
+                    runTransformation(direct, entry.getKey(), entry.getValue(), onReplicated)))
+        .forEach(
+            p -> {
+              ExceptionUtils.unchecked(p.getSecond()::waitUntilReady);
+              log.info("Started transformation {}", p.getFirst());
+            });
   }
 
   /**

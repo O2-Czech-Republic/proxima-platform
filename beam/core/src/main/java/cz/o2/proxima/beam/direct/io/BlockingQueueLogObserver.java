@@ -26,7 +26,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -186,6 +185,9 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
           taken.getFirst(),
           lastReadContext != null ? lastReadContext.getOffset() : null);
       return taken.getFirst();
+    } else if (taken != null) {
+      // we have read the finalizing marker
+      updateAndLogWatermark(Long.MAX_VALUE);
     }
     return null;
   }
@@ -203,7 +205,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     stopped.set(true);
     List<Pair<StreamElement, OnNextContext>> drop = new ArrayList<>();
     queue.drainTo(drop);
-    drop.forEach(p -> Optional.ofNullable(p.getSecond()).ifPresent(OnNextContext::nack));
+    drop.stream().map(Pair::getSecond).filter(Objects::nonNull).forEach(OnNextContext::nack);
   }
 
   void clearIncomingQueue() {

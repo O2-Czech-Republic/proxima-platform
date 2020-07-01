@@ -78,7 +78,8 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   public boolean onNext(StreamElement ingest, OnNextContext context) {
     if (log.isDebugEnabled()) {
       log.debug(
-          "Received next element {} at watermark {} offset {}",
+          "{}: Received next element {} at watermark {} offset {}",
+          name,
           ingest,
           context.getWatermark(),
           context.getOffset());
@@ -88,7 +89,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   @Override
   public boolean onNext(StreamElement element, Partition partition) {
-    log.debug("Received next element {} on partition {}", element, partition);
+    log.debug("{}: Received next element {} on partition {}", name, element, partition);
     return enqueue(element, null);
   }
 
@@ -99,7 +100,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
         return putToQueue(element, context);
       }
       log.debug(
-          "Terminating consumption of {} due to limit {} while enqueing {}", name, limit, element);
+          "{}: Terminating consumption due to limit {} while enqueuing {}", name, limit, element);
     } catch (InterruptedException ex) {
       log.warn("Interrupted while putting element {} to queue", element, ex);
       Thread.currentThread().interrupt();
@@ -110,17 +111,17 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Override
   public void onCancelled() {
     cancelled = true;
-    log.debug("Cancelled {} consumption by request.", name);
+    log.debug("{}: Cancelled consumption by request.", name);
   }
 
   @Override
   public void onCompleted() {
     try {
-      log.debug("Finished reading from observer {}", name);
+      log.debug("{}: Finished reading from observer", name);
       putToQueue(null, null);
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
-      log.warn("Interrupted while passing end-of-stream.", ex);
+      log.warn("{}: Interrupted while passing end-of-stream.", name, ex);
     }
   }
 
@@ -133,7 +134,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
         return true;
       }
     }
-    log.debug("Finishing consumption due to source being stopped");
+    log.debug("{}: Finishing consumption due to source being stopped", name);
     return false;
   }
 
@@ -181,7 +182,8 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
         updateAndLogWatermark(lastReadContext.getWatermark());
       }
       log.debug(
-          "Consuming taken element {} with offset {}",
+          "{}: Consuming taken element {} with offset {}",
+          name,
           taken.getFirst(),
           lastReadContext != null ? lastReadContext.getOffset() : null);
       return taken.getFirst();
@@ -216,7 +218,8 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     if (!cancelled) {
       if (log.isDebugEnabled() && watermark.get() < newWatermark) {
         log.debug(
-            "Watermark updated from {} to {}",
+            "{}: Watermark updated from {} to {}",
+            name,
             Instant.ofEpochMilli(watermark.get()),
             Instant.ofEpochMilli(newWatermark));
       }

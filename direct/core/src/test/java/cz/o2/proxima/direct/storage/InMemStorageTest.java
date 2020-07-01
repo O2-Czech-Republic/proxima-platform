@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.storage;
 
 import static org.junit.Assert.*;
 
+import com.google.common.base.Preconditions;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
@@ -448,8 +449,12 @@ public class InMemStorageTest implements Serializable {
     InMemStorage storage = new InMemStorage();
     InMemStorage.setWatermarkEstimatorFactory(
         uri,
-        (stamp, name) ->
+        (stamp, name, offset) ->
             new WatermarkEstimator() {
+
+              {
+                Preconditions.checkArgument(offset != null);
+              }
 
               @Override
               public long getWatermark() {

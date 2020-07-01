@@ -20,11 +20,10 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.io.BoundedSource;
@@ -69,27 +68,29 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
   }
 
   @Override
-  public List<BoundedSource<StreamElement>> split(long desiredBundleSizeBytes, PipelineOptions opts)
-      throws Exception {
+  public List<BoundedSource<StreamElement>> split(
+      long desiredBundleSizeBytes, PipelineOptions opts) {
 
     if (partition != null) {
-      return Arrays.asList(this);
+      return Collections.singletonList(this);
     }
-    List<BoundedSource<StreamElement>> ret = new ArrayList<>();
     List<Partition> partitions = reader.getPartitions();
-    for (Partition p : partitions) {
-      ret.add(
-          new DirectBoundedSource(factory, name, reader, position, limit / partitions.size(), p));
-    }
+    int numPartitions = partitions.size();
+    List<BoundedSource<StreamElement>> ret =
+        partitions
+            .stream()
+            .map(
+                p ->
+                    new DirectBoundedSource(
+                        factory, name, reader, position, limit / numPartitions, p))
+            .collect(Collectors.toList());
     log.debug("Split source {} into {}", this, ret);
     return ret;
   }
 
   @Override
-  public BoundedReader<StreamElement> createReader(PipelineOptions options) throws IOException {
-
+  public BoundedReader<StreamElement> createReader(PipelineOptions options) {
     log.debug("Creating reader reading from position {} on partition {}", position, partition);
-
     return BeamCommitLogReader.bounded(this, name, reader, position, limit, partition);
   }
 }

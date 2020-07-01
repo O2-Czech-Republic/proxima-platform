@@ -98,7 +98,7 @@ public class InMemStorage implements DataAccessorFactory {
   private static final long IDLE_FLUSH_TIME = 500L;
   private static final long BOUNDED_OUT_OF_ORDERNESS = 5000L;
 
-  static class ConsumedOffset implements Offset {
+  public static class ConsumedOffset implements Offset {
 
     private static final long serialVersionUID = 1L;
 
@@ -109,7 +109,7 @@ public class InMemStorage implements DataAccessorFactory {
     @Getter final long watermark;
     @Getter final Set<String> consumedKeyAttr;
 
-    public ConsumedOffset(final Set<String> consumedKeyAttr, long watermark) {
+    ConsumedOffset(final Set<String> consumedKeyAttr, long watermark) {
       synchronized (consumedKeyAttr) {
         this.consumedKeyAttr = new HashSet<>(consumedKeyAttr);
       }
@@ -391,7 +391,8 @@ public class InMemStorage implements DataAccessorFactory {
           holder.getWatermarkEstimator(
               getUri(),
               offset.getWatermark(),
-              MoreObjects.firstNonNull(name, "InMemConsumer@" + getUri() + ":" + consumerId));
+              MoreObjects.firstNonNull(name, "InMemConsumer@" + getUri() + ":" + consumerId),
+              offset);
       CountDownLatch latch = new CountDownLatch(1);
       observeThread.set(
           new Thread(
@@ -772,7 +773,7 @@ public class InMemStorage implements DataAccessorFactory {
 
   @FunctionalInterface
   public interface WatermarkEstimatorFactory extends Serializable {
-    WatermarkEstimator apply(long stamp, String consumer);
+    WatermarkEstimator apply(long stamp, String consumer, ConsumedOffset offset);
   }
 
   private static class DataHolder {
@@ -787,10 +788,10 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     WatermarkEstimator getWatermarkEstimator(
-        URI uri, long initializationWatermark, String consumerName) {
+        URI uri, long initializationWatermark, String consumerName, ConsumedOffset offset) {
 
       return Optional.ofNullable(watermarkEstimatorFactories.get(uri))
-          .map(f -> f.apply(initializationWatermark, consumerName))
+          .map(f -> f.apply(initializationWatermark, consumerName, offset))
           .orElseGet(
               () ->
                   BoundedOutOfOrdernessWatermarkEstimator.newBuilder()

@@ -214,6 +214,7 @@ class BeamCommitLogReader {
   @Nullable private BlockingQueueLogObserver observer;
   private StreamElement current;
   private Instant currentProcessingTime = Instant.now();
+  private Instant lastReadWatermark = BoundedWindow.TIMESTAMP_MIN_VALUE;
 
   private BeamCommitLogReader(
       @Nullable String name,
@@ -250,7 +251,7 @@ class BeamCommitLogReader {
   public boolean start() throws IOException {
     this.observer =
         BlockingQueueLogObserver.create(
-            name == null ? "Source(" + reader.getUri() + "@" + partition.getId() + ")" : name,
+            name == null ? "Source(" + reader.getUri() + ":" + partition.getId() + ")" : name,
             limit,
             offsetWatermark);
     log.debug(
@@ -274,6 +275,7 @@ class BeamCommitLogReader {
         if (limit > 0) {
           current = takeNext();
           if (current == null) {
+            lastReadWatermark = BoundedWindow.TIMESTAMP_MAX_VALUE;
             return false;
           }
         } else {
@@ -284,6 +286,7 @@ class BeamCommitLogReader {
           if (!eventTime) {
             currentProcessingTime = Instant.now();
           }
+          lastReadWatermark = Instant.ofEpochMilli(observer.getWatermark());
           return true;
         }
       } catch (InterruptedException ex) {
@@ -295,6 +298,7 @@ class BeamCommitLogReader {
     if (error != null) {
       throw new IOException(error);
     }
+    lastReadWatermark = BoundedWindow.TIMESTAMP_MAX_VALUE;
     finished = true;
     log.debug("Finished reading observer name {}, partition {}", name, partition);
     return false;
@@ -308,13 +312,13 @@ class BeamCommitLogReader {
   }
 
   public Instant getCurrentTimestamp() {
-    if (!finished) {
-      if (eventTime) {
-        return new Instant(getCurrent().getStamp());
-      }
+    if (!eventTime) {
       return currentProcessingTime;
     }
-    return HIGHEST_INSTANT;
+    if (!finished) {
+      return new Instant(getCurrent().getStamp());
+    }
+    return lastReadWatermark;
   }
 
   public StreamElement getCurrent() throws NoSuchElementException {
@@ -380,6 +384,9 @@ class BeamCommitLogReader {
     }
     if (watermark.isAfter(HIGHEST_INSTANT)) {
       return HIGHEST_INSTANT;
+    }
+    if (watermark.isAfter(lastReadWatermark)) {
+      return lastReadWatermark;
     }
     return watermark;
   }

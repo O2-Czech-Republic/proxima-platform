@@ -71,7 +71,7 @@ public class BeamCommitLogReaderTest {
         .forEach(
             af ->
                 InMemStorage.setWatermarkEstimatorFactory(
-                    af.getStorageUri(), (stamp, name) -> asWatermarkEstimator(watermark)));
+                    af.getStorageUri(), (stamp, name, offset) -> asWatermarkEstimator(watermark)));
   }
 
   @After

@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.s3;
 
 import com.amazonaws.services.s3.model.S3Object;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.blob.BlobBase;
 import cz.o2.proxima.direct.blob.BlobPath;
@@ -25,6 +26,7 @@ import cz.o2.proxima.direct.core.Context;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
@@ -40,16 +42,31 @@ public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> {
   public static class S3Blob implements BlobBase {
 
     @Getter private final String name;
-    private final S3FileSystem fs;
+    private final long size;
+    @Nullable private final S3FileSystem fs;
+
+    S3Blob(String name, long size) {
+      // For existing files, where we already know the size.
+      Preconditions.checkArgument(size >= 0, "Unknown size.");
+      this.name = Objects.requireNonNull(name);
+      this.size = size;
+      this.fs = null;
+    }
 
     @VisibleForTesting
     S3Blob(String name, S3FileSystem fs) {
+      // For new files where we don't know the size upfront.
       this.name = Objects.requireNonNull(name);
-      this.fs = fs;
+      this.size = -1;
+      this.fs = Objects.requireNonNull(fs);
     }
 
     @Override
     public long getSize() {
+      if (size > -1) {
+        return size;
+      }
+      Objects.requireNonNull(fs);
       try (final S3Object object = fs.getObject(name)) {
         return object.getObjectMetadata().getContentLength();
       } catch (Exception e) {
@@ -61,6 +78,10 @@ public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> {
 
   public static S3BlobPath of(Context context, S3FileSystem fs, String name) {
     return new S3BlobPath(context, fs, new S3Blob(name, fs));
+  }
+
+  public static S3BlobPath of(Context context, S3FileSystem fs, String name, long size) {
+    return new S3BlobPath(context, fs, new S3Blob(name, size));
   }
 
   private final Context context;

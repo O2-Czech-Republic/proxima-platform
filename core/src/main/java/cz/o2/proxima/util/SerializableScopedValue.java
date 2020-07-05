@@ -50,7 +50,11 @@ public final class SerializableScopedValue<C, V extends Serializable> implements
     return SerializableUtils.clone(original);
   }
 
-  /** Clear reference for given context and reinitialize it when accessed again. */
+  /**
+   * Clear reference for given context and reinitialize it when accessed again.
+   *
+   * @param context context type parameter
+   */
   public void reset(C context) {
     MAP.get(uuid).remove(context);
   }

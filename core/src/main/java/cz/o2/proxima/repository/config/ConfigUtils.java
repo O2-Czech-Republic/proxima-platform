@@ -35,7 +35,7 @@ public class ConfigUtils {
    * @param config input {@link Config} to modify
    * @param familyFilter filter of family names to modify
    * @param storageReplacement function for replacement of URIs
-   * @return
+   * @return Config
    */
   public static Config withStorageReplacement(
       Config config,

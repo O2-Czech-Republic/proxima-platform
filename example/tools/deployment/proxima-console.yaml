@@ -71,7 +71,7 @@ items:
             value: cassandra-0:9042
           - name: LOG_LEVEL
             value: INFO
-          image: proxima/example-tools:0.3.0-rc1
+          image: proxima/example-tools:latest # <-- change me
           imagePullPolicy: IfNotPresent # <-- change to Always
           name: proxima-console
           ports:

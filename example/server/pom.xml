@@ -52,6 +52,12 @@
             <transformer
                 implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
           </transformers>
+          <relocations>
+            <relocation>
+              <pattern>com.google.common.</pattern>
+              <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
+            </relocation>
+          </relocations>
         </configuration>
         <executions>
           <execution>
@@ -62,30 +68,47 @@
           </execution>
         </executions>
       </plugin>
-
     </plugins>
-      <plugin>
-        <groupId>io.fabric8</groupId>
-        <artifactId>docker-maven-plugin</artifactId>
-        <version>${maven.docker.version}</version>
-        <configuration>
-          <images>
-            <image>
-              <name>proxima/example-ingest-server:${project.version}</name>
-              <alias>proxima-example-ingest-server</alias>
-              <build>
-                <cleanup>true</cleanup>
-                <from>java:8</from>
-                <entryPoint>
-                  <exec>
-                    <arg>/maven/entry-point.sh</arg>
-                    <arg>cz.o2.proxima.server.IngestServer</arg>
-                  </exec>
-                </entryPoint>
-                <ports>
-                  <port>4001</port>
-                </ports>
-                <assembly>
+  </build>
+  <profiles>
+    <profile>
+      <id>with-docker</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>io.fabric8</groupId>
+            <artifactId>docker-maven-plugin</artifactId>
+            <version>${maven.docker.version}</version>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>build</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <images>
+                <image>
+                  <name>proxima/example-ingest-server:${project.version}</name>
+                  <alias>proxima-example-ingest-server</alias>
+                  <build>
+                    <cleanup>true</cleanup>
+                    <from>java:8</from>
+                    <tags>
+                      <tag>${project.version}</tag>
+                      <tag>latest</tag>
+                    </tags>
+                    <entryPoint>
+                      <exec>
+                        <arg>/maven/entry-point.sh</arg>
+                        <arg>cz.o2.proxima.server.IngestServer</arg>
+                      </exec>
+                    </entryPoint>
+                    <ports>
+                      <port>4001</port>
+                    </ports>
+                    <assembly>
                   <mode>dir</mode>
                   <inline>
                     <id>proxima-server</id>
@@ -113,6 +136,10 @@
               <build>
                 <cleanup>true</cleanup>
                 <from>java:8</from>
+                <tags>
+                  <tag>${project.version}</tag>
+                  <tag>latest</tag>
+                </tags>
                 <entryPoint>
                   <exec>
                     <arg>/maven/entry-point.sh</arg>
@@ -140,11 +167,13 @@
                 </assembly>
               </build>
             </image>
-          </images>
-        </configuration>
-      </plugin>
-    </plugins>    
-  </build>
+              </images>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 
   <dependencies>
 

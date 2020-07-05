@@ -32,9 +32,6 @@
   <name>${project.groupId}:${project.artifactId}</name>
 
   <properties>
-    <apache.beam.groupId>cz.o2.proxima.beam</apache.beam.groupId>
-    <apache.beam.version>${project.version}</apache.beam.version>
-    <apache.beam.version.raw>2.18.0-SNAPSHOT</apache.beam.version.raw>
     <tool.finaljar.name>proxima-example-tools</tool.finaljar.name>
   </properties>
 
@@ -62,11 +59,24 @@
             </goals>
             <configuration>
               <transformers>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
-                 <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
+                <transformer
+                  implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+                  <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
                 </transformer>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                <transformer
+                  implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
               </transformers>
+              <filters>
+                <!-- some artifact are signed -> signature files must be excluded -->
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
             </configuration>
           </execution>
         </executions>
@@ -124,55 +134,75 @@
         </configuration>
       </plugin>
 
-      <plugin>
-        <groupId>io.fabric8</groupId>
-        <artifactId>docker-maven-plugin</artifactId>
-        <version>${maven.docker.version}</version>
-        <configuration>
-          <images>
-            <image>
-              <name>proxima/example-tools:${project.version}</name>
-              <alias>proxima-example-tools</alias>
-              <build>
-                <cleanup>true</cleanup>
-                <from>java:8</from>
-                <entryPoint>
-                  <exec>
-                    <arg>/maven/entry-point.sh</arg>
-                  </exec>
-                </entryPoint>
-                <assembly>
-                  <mode>dir</mode>
-                  <inline>
-                    <id>proxima-console</id>
-                    <files>
-                      <file>
-                        <source>${project.build.directory}/${tool.finaljar.name}.jar
-                        </source>
-                        <outputDirectory>./</outputDirectory>
-                        <destName>${tool.finaljar.name}.jar</destName>
-                      </file>
-                      <file>
-                        <source>${project.basedir}/bin/entry-point.sh</source>
-                        <outputDirectory>./</outputDirectory>
-                        <destName>entry-point.sh</destName>
-                      </file>
-                      <file>
-                        <source>${project.basedir}/bin/run.sh</source>
-                        <outputDirectory>./</outputDirectory>
-                        <destName>run.sh</destName>
-                      </file>
-                    </files>
-                  </inline>
-                </assembly>
-              </build>
-            </image>
-          </images>
-        </configuration>
-      </plugin>
     </plugins>
   </build>
-
+  <profiles>
+    <profile>
+      <id>with-docker</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>io.fabric8</groupId>
+            <artifactId>docker-maven-plugin</artifactId>
+            <version>${maven.docker.version}</version>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>build</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <images>
+                <image>
+                  <name>proxima/example-tools:${project.version}</name>
+                  <alias>proxima-example-tools</alias>
+                  <build>
+                    <cleanup>true</cleanup>
+                    <from>java:8</from>
+                    <tags>
+                      <tag>${project.version}</tag>
+                      <tag>latest</tag>
+                    </tags>
+                    <entryPoint>
+                      <exec>
+                        <arg>/maven/entry-point.sh</arg>
+                      </exec>
+                    </entryPoint>
+                    <assembly>
+                      <mode>dir</mode>
+                      <inline>
+                        <id>proxima-console</id>
+                        <files>
+                          <file>
+                            <source>${project.build.directory}/${tool.finaljar.name}.jar
+                            </source>
+                            <outputDirectory>./</outputDirectory>
+                            <destName>${tool.finaljar.name}.jar</destName>
+                          </file>
+                          <file>
+                            <source>${project.basedir}/bin/entry-point.sh</source>
+                            <outputDirectory>./</outputDirectory>
+                            <destName>entry-point.sh</destName>
+                          </file>
+                          <file>
+                            <source>${project.basedir}/bin/run.sh</source>
+                            <outputDirectory>./</outputDirectory>
+                            <destName>run.sh</destName>
+                          </file>
+                        </files>
+                      </inline>
+                    </assembly>
+                  </build>
+                </image>
+              </images>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
   <dependencies>
 
     <dependency>

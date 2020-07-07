@@ -20,12 +20,14 @@ import static cz.o2.proxima.direct.blob.BlobPath.normalizePath;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.direct.blob.BlobPath;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.core.Context;
 import java.net.URI;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -56,7 +58,9 @@ public class S3FileSystem extends S3Client implements FileSystem {
 
   @Override
   public Stream<Path> list(long minTs, long maxTs) {
-    return getBlobsInRange(minTs, maxTs).stream().map(blob -> S3BlobPath.of(context, this, blob));
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    final List<Path> blobs = (List) getBlobsInRange(minTs, maxTs);
+    return blobs.stream();
   }
 
   @Override
@@ -65,14 +69,14 @@ public class S3FileSystem extends S3Client implements FileSystem {
         context, this, normalizePath(getUri().getPath() + namingConvention.nameOf(ts)));
   }
 
-  private List<String> getBlobsInRange(long startStamp, long endStamp) {
-    Collection<String> prefixes =
+  private List<S3BlobPath> getBlobsInRange(long startStamp, long endStamp) {
+    final Collection<String> prefixes =
         namingConvention
             .prefixesOf(startStamp, endStamp)
             .stream()
             .map(e -> normalizePath(getUri().getPath() + e))
             .collect(Collectors.toList());
-    List<String> ret =
+    final List<S3BlobPath> ret =
         prefixes
             .stream()
             .flatMap(
@@ -81,12 +85,22 @@ public class S3FileSystem extends S3Client implements FileSystem {
                   return listing
                       .getObjectSummaries()
                       .stream()
-                      .map(S3ObjectSummary::getKey)
-                      .filter(name -> namingConvention.isInRange(name, startStamp, endStamp))
-                      .sorted();
+                      .filter(
+                          summary ->
+                              namingConvention.isInRange(summary.getKey(), startStamp, endStamp))
+                      .sorted(Comparator.comparing(S3ObjectSummary::getKey))
+                      .map(
+                          summary ->
+                              S3BlobPath.of(context, this, summary.getKey(), summary.getSize()));
                 })
             .collect(Collectors.toList());
-    log.debug("Parsed partitions {} for startStamp {}, endStamp {}", ret, startStamp, endStamp);
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Parsed partitions {} for startStamp {}, endStamp {}",
+          ret.stream().map(BlobPath::getBlobName).collect(Collectors.toList()),
+          startStamp,
+          endStamp);
+    }
     return ret;
   }
 }

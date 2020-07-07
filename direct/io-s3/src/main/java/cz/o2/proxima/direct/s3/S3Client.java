@@ -87,6 +87,14 @@ class S3Client implements Serializable {
             }
           });
       UPDATERS.put("region", (value, builder) -> builder.setRegion(value.toString()));
+
+      UPDATERS.put(
+          "max-connections",
+          (value, builder) -> clientConfiguration(builder).setMaxConnections((int) value));
+
+      UPDATERS.put(
+          "connection-timeout-ms",
+          (value, builder) -> clientConfiguration(builder).setConnectionTimeout((int) value));
     }
 
     private static ClientConfiguration clientConfiguration(AmazonS3ClientBuilder builder) {

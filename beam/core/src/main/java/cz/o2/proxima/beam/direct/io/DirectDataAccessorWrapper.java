@@ -99,6 +99,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
 
     PCollection<StreamElement> ret =
         pipeline.apply(
+            "ReadBoundedBatch:" + uri,
             Read.from(DirectBatchSource.of(factory, reader, attrs, startStamp, endStamp)));
 
     ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class))

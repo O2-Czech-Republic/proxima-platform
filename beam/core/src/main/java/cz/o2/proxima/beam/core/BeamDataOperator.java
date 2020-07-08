@@ -103,12 +103,12 @@ public class BeamDataOperator implements DataOperator {
   @Value
   private final class BatchSnapshotDescriptor implements PCollectionDescriptor {
     private final Pipeline pipeline;
-    private final DataAccessor dataAcessor;
+    private final DataAccessor dataAccessor;
     private final long fromStamp;
     private final long untilStamp;
 
     PCollection<StreamElement> createBatchUpdates(List<AttributeDescriptor<?>> attrList) {
-      return dataAcessor.createBatch(pipeline, attrList, fromStamp, untilStamp);
+      return dataAccessor.createBatch(pipeline, attrList, fromStamp, untilStamp);
     }
   }
 
@@ -221,7 +221,7 @@ public class BeamDataOperator implements DataOperator {
             })
         .reduce((left, right) -> Union.of(left, right).output())
         .orElseThrow(failNotFound(attrs, "commit-log"))
-        .apply(filterAttrs(attrs));
+        .apply(String.format("get-stream-%s-filter-attrs-%s", name, attrs), filterAttrs(attrs));
   }
 
   /**
@@ -293,7 +293,7 @@ public class BeamDataOperator implements DataOperator {
             })
         .reduce((left, right) -> Union.of(left, right).output())
         .orElseThrow(failNotFound(attrs, "batch-updates"))
-        .apply(filterAttrs(attrs));
+        .apply(String.format("get-batch-updates-filter-attrs-%s", attrClosure), filterAttrs(attrs));
   }
 
   /**
@@ -358,7 +358,7 @@ public class BeamDataOperator implements DataOperator {
               })
           .reduce((left, right) -> Union.of(left, right).output())
           .orElseThrow(failNotFound(attrs, "batch-snapshot"))
-          .apply(filterAttrs(attrs));
+          .apply(String.format("get-batch-snapshot-filter-attrs-%s", attrList), filterAttrs(attrs));
     }
     return PCollectionTools.reduceAsSnapshot(
         "getBatchSnapshot:" + Arrays.toString(attrs),

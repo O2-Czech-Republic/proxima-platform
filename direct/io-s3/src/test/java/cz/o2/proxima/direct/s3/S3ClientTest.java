@@ -91,6 +91,8 @@ public class S3ClientTest {
         put("endpoint", "http://endpoint321:123");
         put("signing-region", "signing-region");
         put("ssl-enable", "false");
+        put("max-connections", 100);
+        put("connection-timeout-ms", 1000);
       }
     };
   }

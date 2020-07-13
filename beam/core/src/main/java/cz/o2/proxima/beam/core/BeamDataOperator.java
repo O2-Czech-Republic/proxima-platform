@@ -103,12 +103,12 @@ public class BeamDataOperator implements DataOperator {
   @Value
   private final class BatchSnapshotDescriptor implements PCollectionDescriptor {
     private final Pipeline pipeline;
-    private final DataAccessor dataAcessor;
+    private final DataAccessor dataAccessor;
     private final long fromStamp;
     private final long untilStamp;
 
     PCollection<StreamElement> createBatchUpdates(List<AttributeDescriptor<?>> attrList) {
-      return dataAcessor.createBatch(pipeline, attrList, fromStamp, untilStamp);
+      return dataAccessor.createBatch(pipeline, attrList, fromStamp, untilStamp);
     }
   }
 

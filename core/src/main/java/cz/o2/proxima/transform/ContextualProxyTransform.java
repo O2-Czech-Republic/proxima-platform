@@ -27,6 +27,7 @@ public interface ContextualProxyTransform<OP extends DataOperator>
   /**
    * Setup this transform for given entity.
    *
+   * @param op Operator
    * @param entity the target attribute descriptor
    */
   default void setup(EntityDescriptor entity, OP op) {

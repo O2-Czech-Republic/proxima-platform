@@ -24,7 +24,11 @@ import java.io.Serializable;
 @Internal
 public interface DataOperatorAware extends Serializable {
 
-  /** Verify if this is {@link DataOperator} specific (contextual) object. */
+  /**
+   * Verify if this is {@link DataOperator} specific (contextual) object.
+   *
+   * @return boolean
+   */
   default boolean isContextual() {
     return true;
   }
@@ -33,6 +37,7 @@ public interface DataOperatorAware extends Serializable {
    * Verify if this Transformation belongs to given DataOperatorFactory
    *
    * @param operatorFactory the DataOperatorFactory
+   * @return boolean
    */
   boolean isDelegateOf(DataOperatorFactory<?> operatorFactory);
 

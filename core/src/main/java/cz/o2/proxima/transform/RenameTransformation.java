@@ -57,8 +57,8 @@ public class RenameTransformation implements ElementWiseTransformation {
    * Update desc and name transforms. This is typically used in response to {@link
    * #setup(Repository, Map)}.
    *
-   * @param descTransform
-   * @param nameTransform
+   * @param descTransform transformation
+   * @param nameTransform name transformation
    */
   protected void setTransforms(
       UnaryFunction<AttributeDescriptor<?>, AttributeDescriptor<?>> descTransform,

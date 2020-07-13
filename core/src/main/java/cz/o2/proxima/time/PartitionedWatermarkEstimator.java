@@ -30,10 +30,15 @@ public interface PartitionedWatermarkEstimator extends WatermarkSupplier {
   /**
    * Updates the partition watermark estimate according to the given stream element.
    *
+   * @param partition partition
    * @param element a stream element.
    */
   default void update(int partition, StreamElement element) {}
 
-  /** Signals that a given partition is idle. */
+  /**
+   * Signals that a given partition is idle.
+   *
+   * @param partition partition
+   */
   default void idle(int partition) {}
 }

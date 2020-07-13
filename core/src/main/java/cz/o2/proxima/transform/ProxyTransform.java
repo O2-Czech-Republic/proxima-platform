@@ -25,6 +25,7 @@ public interface ProxyTransform extends DataOperatorAware {
   /**
    * Convert this proxy to contextual transform.
    *
+   * @param <OP> DataOperator
    * @return this transform converted to operator specific
    * @throws IllegalArgumentException on errors
    */

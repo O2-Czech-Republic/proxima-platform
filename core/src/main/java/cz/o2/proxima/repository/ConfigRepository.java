@@ -388,11 +388,13 @@ public final class ConfigRepository extends Repository {
   private void readSchemeSerializers(Iterable<ValueSerializerFactory> serializers) {
     serializers.forEach(
         v -> {
-          log.info(
-              "Added scheme serializer {} for scheme {}",
-              v.getClass().getName(),
-              v.getAcceptableScheme());
-          serializersMap.put(v.getAcceptableScheme(), v);
+          if (!serializersMap.containsKey(v.getAcceptableScheme())) {
+            log.info(
+                "Added scheme serializer {} for scheme {}",
+                v.getClass().getName(),
+                v.getAcceptableScheme());
+            serializersMap.put(v.getAcceptableScheme(), v);
+          }
         });
   }
 
@@ -413,15 +415,17 @@ public final class ConfigRepository extends Repository {
       Object attributes = cfgMap.get(ATTRIBUTES);
       final EntityDescriptor entity;
       if (attributes != null) {
-        entity = loadEntityWithAttributes(entityName, attributes);
-        log.info("Adding entity {}", entityName);
-        entitiesByName.put(entityName, entity);
+        if (!entitiesByName.containsKey(entityName)) {
+          entity = loadEntityWithAttributes(entityName, attributes);
+          log.info("Adding entity {}", entityName);
+          entitiesByName.put(entityName, entity);
+        }
       } else if (cfgMap.get("from") != null) {
         String fromName = cfgMap.get("from").toString();
         clonedEntities.add(Pair.of(entityName, fromName));
       } else {
         throw new IllegalArgumentException(
-            "Invalid entity specfication. Entity " + entityName + " has no attributes");
+            "Invalid entity specification. Entity " + entityName + " has no attributes");
       }
     }
 
@@ -1904,7 +1908,7 @@ public final class ConfigRepository extends Repository {
         delegate);
     Optional<DataOperator> current =
         operators.stream().filter(op -> factory.get().isOfType(op.getClass())).findAny();
-    return current.isPresent() ? current.get() : cacheDataOperator(factory.get().create(this));
+    return current.orElseGet(() -> cacheDataOperator(factory.get().create(this)));
   }
 
   private static String readStr(String key, Map<String, Object> map, String name) {

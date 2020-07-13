@@ -24,6 +24,7 @@ public interface Transformation extends DataOperatorAware {
   /**
    * Convert this transformation to (operator specific) contextual transform.
    *
+   * @param <OP> Operator
    * @return this transform converted to contextual transform.
    * @throws IllegalArgumentException on errors
    */

@@ -41,6 +41,8 @@ public interface WatermarkEstimator extends WatermarkSupplier, Serializable {
   /**
    * Sets minimal watermark to ensuring that the watermark won't move back for already committed
    * watermark
+   *
+   * @param minWatermark min watermark as long
    */
   void setMinWatermark(long minWatermark);
 }

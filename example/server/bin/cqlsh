@@ -1,5 +1,0 @@
-#!/bin/bash
-# Run cqlsh
-
-docker exec -it $(docker ps | grep cassandra | cut -c1-15) cqlsh
-

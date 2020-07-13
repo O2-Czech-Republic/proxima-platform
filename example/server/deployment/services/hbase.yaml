@@ -1,0 +1,103 @@
+#
+# Copyright 2017-2020 O2 Czech Republic, a.s.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hbase
+  labels:
+    app: hbase
+spec:
+  ports:
+    - port: 60000
+      targetPort: 60000
+      protocol: TCP
+      name: hmaster
+    - port: 60010
+      targetPort: 60010
+      protocol: TCP
+      name: hmaster-ui
+    - port: 60020
+      targetPort: 60020
+      protocol: TCP
+      name: region-server
+    - port: 60030
+      targetPort: 60030
+      protocol: TCP
+      name: rs-ui
+  clusterIP: None
+  selector:
+    app: hbase
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: hbase-pdb
+spec:
+  selector:
+    matchLabels:
+      app: hbase
+  maxUnavailable: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hbase
+  labels:
+    app: hbase
+spec:
+  serviceName: hbase
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hbase
+  template:
+    metadata:
+      labels:
+        app: hbase
+    spec:
+      containers:
+        - name: hbase
+          image: dajobe/hbase
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 60000
+              name: hmaster
+            - containerPort: 60010
+              name: hmaster-ui
+            - containerPort: 60020
+              name: region-server
+            - containerPort: 60030
+              name: rs-ui
+          securityContext:
+            capabilities:
+              add:
+                - IPC_LOCK
+          volumeMounts:
+            - name: hbase-data
+              mountPath: /hbase_data
+  # These are converted to volume claims by the controller
+  # and mounted at the paths mentioned above.
+  # do not use these in production until ssd GCEPersistentDisk or other ssd pd
+  volumeClaimTemplates:
+    - metadata:
+        name: hbase-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 5Gi

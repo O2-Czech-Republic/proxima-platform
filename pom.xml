@@ -100,6 +100,11 @@
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
     <lombok.version>1.18.10</lombok.version>
     <spotless.version>1.26.1</spotless.version>
+    <!-- apache beam related properties -->
+    <apache.beam.groupId>org.apache.beam</apache.beam.groupId>
+    <apache.beam.version>2.22.0</apache.beam.version>
+    <apache.beam.groupId.raw>org.apache.beam</apache.beam.groupId.raw>
+    <apache.beam.version.raw>${apache.beam.version}</apache.beam.version.raw>
   </properties>
 
   <profiles>
@@ -187,6 +192,14 @@
           <snapshots><enabled>true</enabled></snapshots>
         </repository>
       </repositories>
+      <pluginRepositories>
+        <pluginRepository>
+          <id>snapshots-repo</id>
+          <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+          <releases><enabled>false</enabled></releases>
+          <snapshots><enabled>true</enabled></snapshots>
+        </pluginRepository>
+      </pluginRepositories>
     </profile>
     <profile>
       <id>with-coverage</id>
@@ -381,6 +394,7 @@
             <proto>JAVADOC_STYLE</proto>
             <avsc>JAVADOC_STYLE</avsc>
             <Makefile>SCRIPT_STYLE</Makefile>
+            <yaml>SCRIPT_STYLE</yaml>
             <conf>JAVADOC_STYLE</conf>
           </mapping>
           <excludes>

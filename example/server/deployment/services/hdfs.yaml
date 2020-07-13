@@ -1,0 +1,91 @@
+#
+# Copyright 2017-2020 O2 Czech Republic, a.s.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfs
+  labels:
+    app: hdfs
+spec:
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+      name: namenode
+    - port: 50070
+      targetPort: 50070
+      protocol: TCP
+      name: web-hdfs
+  clusterIP: None
+  selector:
+    app: hdfs
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: hdfs-pdb
+spec:
+  selector:
+    matchLabels:
+      app: hdfs
+  maxUnavailable: 1
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: hdfs
+  labels:
+    app: hdfs
+spec:
+  serviceName: hdfs
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hdfs
+  template:
+    metadata:
+      labels:
+        app: hdfs
+    spec:
+      containers:
+        - name: hdfs
+          image: sequenceiq/hadoop-docker
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9000
+              name: namenode
+            - containerPort: 50070
+              name: webhdfs
+          securityContext:
+            capabilities:
+              add:
+                - IPC_LOCK
+          volumeMounts:
+            - name: hdfs-data
+              mountPath: /hdfs_data
+  # These are converted to volume claims by the controller
+  # and mounted at the paths mentioned above.
+  # do not use these in production until ssd GCEPersistentDisk or other ssd pd
+  volumeClaimTemplates:
+    - metadata:
+        name: hdfs-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 5Gi

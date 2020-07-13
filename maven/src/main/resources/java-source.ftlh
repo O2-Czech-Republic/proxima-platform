@@ -58,6 +58,7 @@ public class ${java_classname} implements Serializable {
    * Create instance of {@code ${java_classname}} for testing purposes.
    *
    * @param config the configuration to use
+   * @param validations which validations to perform
    * @return ${java_classname}
    **/
   public static ${java_classname} ofTest(Config config, Repository.Validate... validations) {

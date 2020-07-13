@@ -68,9 +68,112 @@
           </execution>
         </executions>
       </plugin>
-
     </plugins>
   </build>
+  <profiles>
+    <profile>
+      <id>with-docker</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>io.fabric8</groupId>
+            <artifactId>docker-maven-plugin</artifactId>
+            <version>${maven.docker.version}</version>
+            <executions>
+              <execution>
+                <phase>package</phase>
+                <goals>
+                  <goal>build</goal>
+                </goals>
+              </execution>
+            </executions>
+            <configuration>
+              <images>
+                <image>
+                  <name>proxima/example-ingest-server:${project.version}</name>
+                  <alias>proxima-example-ingest-server</alias>
+                  <build>
+                    <cleanup>true</cleanup>
+                    <from>java:8</from>
+                    <tags>
+                      <tag>${project.version}</tag>
+                      <tag>latest</tag>
+                    </tags>
+                    <entryPoint>
+                      <exec>
+                        <arg>/maven/entry-point.sh</arg>
+                        <arg>cz.o2.proxima.server.IngestServer</arg>
+                      </exec>
+                    </entryPoint>
+                    <ports>
+                      <port>4001</port>
+                    </ports>
+                    <assembly>
+                  <mode>dir</mode>
+                  <inline>
+                    <id>proxima-server</id>
+                    <files>
+                      <file>
+                        <source>${project.build.directory}/proxima-example-ingest-server.jar
+                        </source>
+                        <outputDirectory>./</outputDirectory>
+                        <destName>proxima-example-ingest-server.jar</destName>
+                      </file>
+                      <file>
+                        <source>${project.basedir}/bin/entry-point.sh</source>
+                        <outputDirectory>./</outputDirectory>
+                        <destName>entry-point.sh</destName>
+                      </file>
+                    </files>
+                  </inline>
+                </assembly>
+              </build>
+            </image>
+            <!-- @TODO: try to find a way how to reuse image from ingest-server -->
+            <image>
+              <name>proxima/example-replication-controller:${project.version}</name>
+              <alias>proxima-example-replication-controller</alias>
+              <build>
+                <cleanup>true</cleanup>
+                <from>java:8</from>
+                <tags>
+                  <tag>${project.version}</tag>
+                  <tag>latest</tag>
+                </tags>
+                <entryPoint>
+                  <exec>
+                    <arg>/maven/entry-point.sh</arg>
+                    <arg>cz.o2.proxima.server.ReplicationController</arg>
+                  </exec>
+                </entryPoint>
+                <assembly>
+                  <mode>dir</mode>
+                  <inline>
+                    <id>proxima-server</id>
+                    <files>
+                      <file>
+                        <source>${project.build.directory}/proxima-example-ingest-server.jar
+                        </source>
+                        <outputDirectory>./</outputDirectory>
+                        <destName>proxima-example-ingest-server.jar</destName>
+                      </file>
+                      <file>
+                        <source>${project.basedir}/bin/entry-point.sh</source>
+                        <outputDirectory>./</outputDirectory>
+                        <destName>entry-point.sh</destName>
+                      </file>
+                    </files>
+                  </inline>
+                </assembly>
+              </build>
+            </image>
+              </images>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 
   <dependencies>
 
@@ -100,6 +203,8 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-log4j12</artifactId>
+      <version>${slf4j.version}</version>
+      <scope>compile</scope>
     </dependency>
 
   </dependencies>

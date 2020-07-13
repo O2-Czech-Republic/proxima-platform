@@ -15,25 +15,8 @@
 # limitations under the License.
 #
 
-# Run the required services locally
 
-export BIN_DIR=$(dirname $0)
-
-source ${BIN_DIR}/config.sh
-
-PWD=`pwd`
-
-echo "Starting required services in docker."
-echo "===================================="
-echo "Stop command: docker-compose stop"
-echo "Clean command: docker-compose rm"
-
-if [ -z `which docker-compose` ]; then
-  echo "Need to install docker compose (i.e apt-get install docker-compose)"
-  exit 1
-fi
-
-cd $BIN_DIR
-docker-compose up -d
-cd $PWD
+while /bin/true; do
+  sleep 20;
+done
 

@@ -18,6 +18,7 @@ package cz.o2.proxima.beam.direct.io;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
+import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper.ConfigProvider;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.Partition;
@@ -35,7 +36,6 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -59,7 +59,19 @@ import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.joda.time.Instant;
 
-/** Source reading from {@link BatchLogObservable} in unbounded manner. */
+/**
+ * Source reading from {@link BatchLogObservable} in unbounded manner. The source can be configured
+ * using repository config as follows:
+ *
+ * <pre>
+ *   beam.unbounded-batch {
+ *     my-source {
+ *       uri = <storageUri of batch updates attribute family>
+ *       throughput = <throughput in bytes per second per reader>
+ *     }
+ *   }
+ * </pre>
+ */
 @Slf4j
 public class DirectBatchUnboundedSource
     extends UnboundedSource<StreamElement, DirectBatchUnboundedSource.Checkpoint> {
@@ -69,11 +81,13 @@ public class DirectBatchUnboundedSource
   public static DirectBatchUnboundedSource of(
       RepositoryFactory factory,
       BatchLogObservable reader,
+      ConfigProvider configProvider,
       List<AttributeDescriptor<?>> attrs,
       long startStamp,
       long endStamp) {
 
-    return new DirectBatchUnboundedSource(factory, reader, attrs, startStamp, endStamp);
+    return new DirectBatchUnboundedSource(
+        factory, reader, configProvider, attrs, startStamp, endStamp);
   }
 
   @ToString
@@ -150,10 +164,12 @@ public class DirectBatchUnboundedSource
   private final List<Partition> partitions;
   private final long startStamp;
   private final long endStamp;
+  @Getter private final long maxThroughput;
 
   private DirectBatchUnboundedSource(
       RepositoryFactory factory,
       BatchLogObservable reader,
+      ConfigProvider configProvider,
       List<AttributeDescriptor<?>> attributes,
       long startStamp,
       long endStamp) {
@@ -164,6 +180,13 @@ public class DirectBatchUnboundedSource
     this.partitions = Collections.emptyList();
     this.startStamp = startStamp;
     this.endStamp = endStamp;
+    this.maxThroughput = configProvider.getBytesPerSecThroughput();
+
+    log.info(
+        "Created {} for {} with max throughput {}",
+        getClass().getSimpleName(),
+        reader,
+        maxThroughput);
   }
 
   private DirectBatchUnboundedSource(
@@ -185,11 +208,12 @@ public class DirectBatchUnboundedSource
           "Created source with partition min timestamps {}",
           parts.stream().map(Partition::getMinTimestamp).collect(Collectors.toList()));
     }
+    this.maxThroughput = parent.maxThroughput;
   }
 
   @Override
   public List<? extends UnboundedSource<StreamElement, Checkpoint>> split(
-      int desiredNumSplits, PipelineOptions options) throws Exception {
+      int desiredNumSplits, PipelineOptions options) {
 
     if (partitions.isEmpty()) {
       // round robin
@@ -208,12 +232,12 @@ public class DirectBatchUnboundedSource
           .map(s -> new DirectBatchUnboundedSource(this, s, startStamp, endStamp))
           .collect(Collectors.toList());
     }
-    return Arrays.asList(this);
+    return Collections.singletonList(this);
   }
 
   @Override
   public UnboundedReader<StreamElement> createReader(
-      PipelineOptions options, Checkpoint checkpointMark) throws IOException {
+      PipelineOptions options, Checkpoint checkpointMark) {
 
     List<Partition> toProcess =
         Collections.synchronizedList(
@@ -278,22 +302,24 @@ public class DirectBatchUnboundedSource
 
   private static class StreamElementUnboundedReader extends UnboundedReader<StreamElement> {
 
-    private final UnboundedSource<StreamElement, ?> source;
+    private final DirectBatchUnboundedSource source;
     private final BatchLogObservable reader;
     private final List<AttributeDescriptor<?>> attributes;
     private final List<Partition> toProcess;
     private final BlockingQueue<StreamElement> queue = new ArrayBlockingQueue<>(100);
     private final AtomicBoolean running = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
+    private final long createdNanoTime = System.nanoTime();
 
     long consumedFromCurrent;
     @Nullable StreamElement current = null;
     long skip;
     Instant watermark;
     @Nullable Partition runningPartition = null;
+    long bytesConsumed = 0L;
 
     public StreamElementUnboundedReader(
-        UnboundedSource<StreamElement, ?> source,
+        DirectBatchUnboundedSource source,
         BatchLogObservable reader,
         List<AttributeDescriptor<?>> attributes,
         @Nullable Checkpoint checkpointMark,
@@ -305,6 +331,11 @@ public class DirectBatchUnboundedSource
       this.toProcess = new ArrayList<>(Objects.requireNonNull(toProcess));
       this.consumedFromCurrent = 0;
       this.skip = checkpointMark == null ? 0 : checkpointMark.skipFromFirst;
+      log.info(
+          "Created {} reading from {} with max throughput {}",
+          getClass().getSimpleName(),
+          reader,
+          source.getMaxThroughput());
     }
 
     @Override
@@ -314,6 +345,9 @@ public class DirectBatchUnboundedSource
 
     @Override
     public boolean advance() {
+      if (exceededThroughput()) {
+        return false;
+      }
       do {
         if (queue.isEmpty() && !running.get()) {
           if (runningPartition != null) {
@@ -324,7 +358,9 @@ public class DirectBatchUnboundedSource
             // read partitions one by one
             runningPartition = toProcess.get(0);
             reader.observe(
-                Arrays.asList(runningPartition), attributes, asObserver(queue, running, stopped));
+                Collections.singletonList(runningPartition),
+                attributes,
+                asObserver(queue, running, stopped));
             running.set(true);
             watermark = new Instant(runningPartition.getMinTimestamp());
             consumedFromCurrent = 0;
@@ -339,7 +375,24 @@ public class DirectBatchUnboundedSource
         }
         consumedFromCurrent++;
       } while (skip-- > 0);
-      return current != null;
+      bytesConsumed += sizeOf(current);
+      return true;
+    }
+
+    private static int sizeOf(StreamElement element) {
+      return (element.isDelete() ? 0 : element.getValue().length)
+          + element.getKey().length()
+          + element.getAttribute().length()
+          + element.getUuid().length();
+    }
+
+    private boolean exceededThroughput() {
+      if (source.getMaxThroughput() < 0) {
+        return false;
+      }
+      long nanoNow = System.nanoTime();
+      long durationSeconds = (nanoNow - createdNanoTime) / 1_000_000_000L;
+      return bytesConsumed > durationSeconds * source.getMaxThroughput();
     }
 
     @Override
@@ -359,7 +412,7 @@ public class DirectBatchUnboundedSource
 
     @Override
     public StreamElement getCurrent() throws NoSuchElementException {
-      return current;
+      return Objects.requireNonNull(current);
     }
 
     @Override

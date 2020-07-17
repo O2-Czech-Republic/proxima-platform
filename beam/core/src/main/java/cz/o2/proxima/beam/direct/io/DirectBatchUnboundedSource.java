@@ -66,8 +66,8 @@ import org.joda.time.Instant;
  * <pre>
  *   beam.unbounded-batch {
  *     my-source {
- *       uri = <storageUri of batch updates attribute family>
- *       throughput = <throughput in bytes per second per reader>
+ *       uri = &lt;storageUri of batch updates attribute family&gt;
+ *       throughput = &lt;throughput in bytes per second per reader&gt;
  *     }
  *   }
  * </pre>

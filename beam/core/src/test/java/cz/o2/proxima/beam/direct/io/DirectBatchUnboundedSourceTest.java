@@ -19,7 +19,7 @@ import static org.junit.Assert.*;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper.ConfigProvider;
+import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper.ConfigReader;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -85,13 +85,13 @@ public class DirectBatchUnboundedSourceTest {
   @Test
   public void testThroughputParsing() {
     URI uri = URI.create("inmem://test");
-    ConfigProvider configProvider =
-        DirectDataAccessorWrapper.getConfigProvider(
+    long maxThroughput =
+        DirectDataAccessorWrapper.readThroughput(
+            uri,
             ConfigFactory.parseString(
                 String.format("beam.unbounded-batch.first.uri = \"%s\"\n", uri.toASCIIString())
-                    + "beam.unbounded-batch.first.throughput = 1000"),
-            uri);
-    assertEquals(1000, configProvider.getBytesPerSecThroughput());
+                    + "beam.unbounded-batch.first.throughput = 1000"));
+    assertEquals(1000, maxThroughput);
   }
 
   @Test(timeout = 20000)
@@ -110,7 +110,7 @@ public class DirectBatchUnboundedSourceTest {
             .get();
     assertEquals(URI.create("inmem:///proxima_gateway"), readFamily.getStorageUri());
     testBatchUnboundedSourceWithCountUsingRepository(
-        repo, DirectDataAccessorWrapper.getConfigProvider(config, readFamily.getStorageUri()), 100);
+        repo, DirectDataAccessorWrapper.getConfigProvider(readFamily.getStorageUri()), 100);
   }
 
   void testBatchUnboundedSourceWithCount(int count) {
@@ -121,7 +121,7 @@ public class DirectBatchUnboundedSourceTest {
   }
 
   void testBatchUnboundedSourceWithCountUsingRepository(
-      Repository repo, ConfigProvider configProvider, int count) {
+      Repository repo, ConfigReader configReader, int count) {
     Pipeline pipeline = Pipeline.create();
     EntityDescriptor gateway = repo.getEntity("gateway");
     AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
@@ -140,7 +140,7 @@ public class DirectBatchUnboundedSourceTest {
                 DirectBatchUnboundedSource.of(
                     repo.asFactory(),
                     observable,
-                    configProvider,
+                    configReader,
                     Collections.singletonList(armed),
                     Long.MIN_VALUE,
                     Long.MAX_VALUE)));
@@ -176,8 +176,8 @@ public class DirectBatchUnboundedSourceTest {
     direct.close();
   }
 
-  private ConfigProvider emptyConfigProvider() {
-    return () -> -1L;
+  private ConfigReader emptyConfigProvider() {
+    return repo -> -1L;
   }
 
   static Partition partition(int id, long minStamp, long maxStamp) {

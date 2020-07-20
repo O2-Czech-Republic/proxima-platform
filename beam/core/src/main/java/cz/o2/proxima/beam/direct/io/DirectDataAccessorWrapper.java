@@ -31,6 +31,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import java.io.Serializable;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -49,19 +50,18 @@ public class DirectDataAccessorWrapper implements DataAccessor {
   private static final String CONFIG_PREFIX = "beam.";
   private static final String UNBOUNDED_BATCH_SOURCE_PREFIX = CONFIG_PREFIX + "unbounded-batch";
 
-  interface ConfigProvider {
+  interface ConfigReader extends Serializable {
     /**
      * Return bytes per second allowed throughput to be read from {@link
      * DirectBatchUnboundedSource}.
      */
-    long getBytesPerSecThroughput();
+    long getBytesPerSecThroughput(Repository repository);
   }
 
   private final RepositoryFactory factory;
   private final cz.o2.proxima.direct.core.DataAccessor direct;
   private final URI uri;
   private final Context context;
-  private final transient Config config;
 
   public DirectDataAccessorWrapper(
       Repository repo, cz.o2.proxima.direct.core.DataAccessor direct, URI uri, Context context) {
@@ -70,7 +70,6 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     this.direct = direct;
     this.uri = uri;
     this.context = context;
-    this.config = repo instanceof ConfigRepository ? ((ConfigRepository) repo).getConfig() : null;
   }
 
   @Override
@@ -154,18 +153,22 @@ public class DirectDataAccessorWrapper implements DataAccessor {
             "ReadBatchUnbounded:" + uri,
             Read.from(
                 DirectBatchUnboundedSource.of(
-                    factory, reader, getConfigProvider(config, uri), attrs, startStamp, endStamp)));
+                    factory, reader, getConfigProvider(uri), attrs, startStamp, endStamp)));
     return ret.setCoder(StreamElementCoder.of(factory))
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
   }
 
   @VisibleForTesting
-  static ConfigProvider getConfigProvider(@Nullable Config config, URI uri) {
-    long throughput = readThroughput(uri, config);
-    return () -> throughput;
+  static ConfigReader getConfigProvider(URI uri) {
+    return repo -> {
+      Config config =
+          repo instanceof ConfigRepository ? ((ConfigRepository) repo).getConfig() : null;
+      return readThroughput(uri, config);
+    };
   }
 
-  private static long readThroughput(URI uri, @Nullable Config config) {
+  @VisibleForTesting
+  static long readThroughput(URI uri, @Nullable Config config) {
     if (config != null && config.hasPath(UNBOUNDED_BATCH_SOURCE_PREFIX)) {
       ConfigObject object = config.getObject(UNBOUNDED_BATCH_SOURCE_PREFIX);
       String uriString = uri.toString();

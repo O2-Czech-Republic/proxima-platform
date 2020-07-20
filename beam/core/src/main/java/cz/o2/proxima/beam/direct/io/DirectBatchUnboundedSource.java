@@ -18,7 +18,7 @@ package cz.o2.proxima.beam.direct.io;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
-import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper.ConfigProvider;
+import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper.ConfigReader;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.Partition;
@@ -81,13 +81,13 @@ public class DirectBatchUnboundedSource
   public static DirectBatchUnboundedSource of(
       RepositoryFactory factory,
       BatchLogObservable reader,
-      ConfigProvider configProvider,
+      ConfigReader configReader,
       List<AttributeDescriptor<?>> attrs,
       long startStamp,
       long endStamp) {
 
     return new DirectBatchUnboundedSource(
-        factory, reader, configProvider, attrs, startStamp, endStamp);
+        factory, reader, configReader, attrs, startStamp, endStamp);
   }
 
   @ToString
@@ -158,35 +158,29 @@ public class DirectBatchUnboundedSource
     }
   }
 
-  private final RepositoryFactory factory;
+  private final RepositoryFactory repositoryFactory;
   private final BatchLogObservable reader;
   private final List<AttributeDescriptor<?>> attributes;
   private final List<Partition> partitions;
   private final long startStamp;
   private final long endStamp;
-  @Getter private final long maxThroughput;
+  private final ConfigReader configReader;
 
   private DirectBatchUnboundedSource(
-      RepositoryFactory factory,
+      RepositoryFactory repositoryFactory,
       BatchLogObservable reader,
-      ConfigProvider configProvider,
+      ConfigReader configReader,
       List<AttributeDescriptor<?>> attributes,
       long startStamp,
       long endStamp) {
 
-    this.factory = factory;
+    this.repositoryFactory = repositoryFactory;
     this.reader = reader;
     this.attributes = Collections.unmodifiableList(attributes);
     this.partitions = Collections.emptyList();
     this.startStamp = startStamp;
     this.endStamp = endStamp;
-    this.maxThroughput = configProvider.getBytesPerSecThroughput();
-
-    log.info(
-        "Created {} for {} with max throughput {}",
-        getClass().getSimpleName(),
-        reader,
-        maxThroughput);
+    this.configReader = configReader;
   }
 
   private DirectBatchUnboundedSource(
@@ -195,7 +189,7 @@ public class DirectBatchUnboundedSource
       long startStamp,
       long endStamp) {
 
-    this.factory = parent.factory;
+    this.repositoryFactory = parent.repositoryFactory;
     this.reader = parent.reader;
     this.attributes = parent.attributes;
     this.startStamp = startStamp;
@@ -208,7 +202,7 @@ public class DirectBatchUnboundedSource
           "Created source with partition min timestamps {}",
           parts.stream().map(Partition::getMinTimestamp).collect(Collectors.toList()));
     }
-    this.maxThroughput = parent.maxThroughput;
+    this.configReader = parent.configReader;
   }
 
   @Override
@@ -253,7 +247,7 @@ public class DirectBatchUnboundedSource
 
   @Override
   public Coder<StreamElement> getOutputCoder() {
-    return StreamElementCoder.of(factory);
+    return StreamElementCoder.of(repositoryFactory);
   }
 
   @VisibleForTesting
@@ -298,6 +292,10 @@ public class DirectBatchUnboundedSource
         throw new RuntimeException(error);
       }
     };
+  }
+
+  private long getMaxThroughput() {
+    return configReader.getBytesPerSecThroughput(repositoryFactory.apply());
   }
 
   private static class StreamElementUnboundedReader extends UnboundedReader<StreamElement> {

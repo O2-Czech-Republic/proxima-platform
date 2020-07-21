@@ -22,6 +22,7 @@ import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.Serializable;
@@ -63,11 +64,13 @@ public class MultiAccessBuilder implements Serializable {
     }
   }
 
+  private transient Repository repo;
   private final Context context;
-  private final Map<AttributeDescriptor<?>, RandomAccessReader> attrMap;
+  private final Map<AttributeDescriptor<?>, RandomAccessReader.Factory<?>> attrMapToFactory;
 
-  MultiAccessBuilder(Context context) {
-    this.attrMap = new HashMap<>();
+  MultiAccessBuilder(Repository repo, Context context) {
+    this.repo = Objects.requireNonNull(repo);
+    this.attrMapToFactory = new HashMap<>();
     this.context = context;
   }
 
@@ -82,7 +85,7 @@ public class MultiAccessBuilder implements Serializable {
       RandomAccessReader reader, AttributeDescriptor<?>... attrs) {
 
     for (AttributeDescriptor<?> a : attrs) {
-      attrMap.put(a, reader);
+      attrMapToFactory.put(a, reader.asFactory());
     }
     return this;
   }
@@ -104,7 +107,7 @@ public class MultiAccessBuilder implements Serializable {
                     new IllegalArgumentException(
                         "Family " + family + " has no random access reader"));
 
-    family.getAttributes().forEach(a -> attrMap.put(a, reader));
+    family.getAttributes().forEach(a -> attrMapToFactory.put(a, reader.asFactory()));
     return this;
   }
 
@@ -114,8 +117,9 @@ public class MultiAccessBuilder implements Serializable {
    * @return {@link RandomAccessReader} capable of reading from multiple attribute families.
    */
   public RandomAccessReader build() {
-
-    final EntityDescriptor entity = getSingleEntityOrNull(attrMap);
+    final Map<AttributeDescriptor<?>, RandomAccessReader> attrMapToReader =
+        materializeReaders(repo);
+    final EntityDescriptor entity = getSingleEntityOrNull(attrMapToReader);
 
     return new RandomAccessReader() {
 
@@ -127,7 +131,7 @@ public class MultiAccessBuilder implements Serializable {
               "Please use specific attribute family to scan entities.");
         }
         Map<RandomAccessReader, RandomOffset> offsets =
-            attrMap
+            attrMapToReader
                 .values()
                 .stream()
                 .distinct()
@@ -140,7 +144,7 @@ public class MultiAccessBuilder implements Serializable {
       public <T> Optional<KeyValue<T>> get(
           String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
-        return Optional.ofNullable(attrMap.get(desc))
+        return Optional.ofNullable(attrMapToReader.get(desc))
             .map(ra -> ra.get(key, attribute, desc, stamp))
             .orElseGet(
                 () -> {
@@ -161,7 +165,7 @@ public class MultiAccessBuilder implements Serializable {
           current.set(new SequentialOffset(soff));
         } else {
           Map<RandomAccessReader, RandomOffset> m = new HashMap<>();
-          attrMap.values().stream().distinct().forEach(ra -> m.put(ra, null));
+          attrMapToReader.values().stream().distinct().forEach(ra -> m.put(ra, null));
           current.set(new SequentialOffset(m));
         }
         current
@@ -204,7 +208,7 @@ public class MultiAccessBuilder implements Serializable {
           int limit,
           Consumer<KeyValue<T>> consumer) {
 
-        Optional.ofNullable(attrMap.get(wildcard))
+        Optional.ofNullable(attrMapToReader.get(wildcard))
             .ifPresent(ra -> ra.scanWildcard(key, wildcard, offset, stamp, limit, consumer));
       }
 
@@ -226,8 +230,18 @@ public class MultiAccessBuilder implements Serializable {
       }
 
       @Override
-      public void close() throws IOException {
-        attrMap.values().forEach(this::closeQuietly);
+      public Factory<?> asFactory() {
+        return repo -> {
+          MultiAccessBuilder builder = new MultiAccessBuilder(repo, context);
+          attrMapToFactory.forEach(
+              (attr, factory) -> builder.addAttributes(factory.apply(repo), attr));
+          return builder.build();
+        };
+      }
+
+      @Override
+      public void close() {
+        attrMapToReader.values().forEach(this::closeQuietly);
       }
 
       private void closeQuietly(RandomAccessReader c) {
@@ -238,6 +252,14 @@ public class MultiAccessBuilder implements Serializable {
         }
       }
     };
+  }
+
+  private Map<AttributeDescriptor<?>, RandomAccessReader> materializeReaders(Repository repo) {
+    return attrMapToFactory
+        .entrySet()
+        .stream()
+        .map(e -> Pair.of(e.getKey(), e.getValue().apply(repo)))
+        .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
   }
 
   private @Nullable EntityDescriptor getSingleEntityOrNull(

@@ -21,13 +21,14 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.TestUtils;
+import java.io.Serializable;
 import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
 import org.junit.Test;
 
 /** Verify that all accessors are serializable. */
-public class SerializableTest {
+public class SerializableTest implements Serializable {
 
   Repository repo = Repository.of(ConfigFactory.load());
   AttributeDescriptor<byte[]> attr =

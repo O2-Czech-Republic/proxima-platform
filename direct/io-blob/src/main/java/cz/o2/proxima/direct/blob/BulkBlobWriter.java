@@ -33,8 +33,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.util.Optional;
-import javax.annotation.Nullable;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,16 +44,24 @@ public abstract class BulkBlobWriter<BlobT extends BlobBase, AccessorT extends B
 
   @Getter private final AccessorT accessor;
   @Getter private final Context context;
-  private transient @Nullable BulkAttributeWriter wrap;
-
-  @Getter(AccessLevel.PACKAGE)
-  private transient boolean initialized;
-
-  private transient File tmpDir;
+  private final BulkAttributeWriter wrap;
+  private final File tmpDir;
 
   public BulkBlobWriter(AccessorT accessor, Context context) {
     this.accessor = accessor;
     this.context = context;
+    tmpDir = accessor.getTmpDir();
+    FileSystem localFs = FileSystem.local(tmpDir, accessor.getNamingConvention());
+    wrap = new BlobFileSystemAttributeWriter(localFs);
+    if (tmpDir.exists() && tmpDir.isDirectory()) {
+      removeDir(tmpDir);
+    }
+    if (!tmpDir.exists()) {
+      Preconditions.checkArgument(tmpDir.mkdirs());
+    } else {
+      throw new IllegalStateException(
+          "Temporary directory " + tmpDir + " exists and is not directory");
+    }
   }
 
   /** Retrieve {@link EntityDescriptor} of this {@link BulkAttributeWriter}. */
@@ -70,7 +76,6 @@ public abstract class BulkBlobWriter<BlobT extends BlobBase, AccessorT extends B
 
   @Override
   public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
-    init();
     wrap.write(data, watermark, statusCallback);
   }
 
@@ -82,39 +87,6 @@ public abstract class BulkBlobWriter<BlobT extends BlobBase, AccessorT extends B
   @Override
   public void rollback() {
     Optional.ofNullable(wrap).ifPresent(BulkAttributeWriter::rollback);
-  }
-
-  private void init() {
-    if (!initialized) {
-      tmpDir = accessor.getTmpDir();
-      FileSystem localFs = FileSystem.local(tmpDir, accessor.getNamingConvention());
-      wrap =
-          new AbstractBulkFileSystemAttributeWriter(
-              getEntityDescriptor(),
-              accessor.getUri(),
-              localFs,
-              accessor.getNamingConvention(),
-              accessor.getFileFormat(),
-              context,
-              accessor.getRollPeriod(),
-              accessor.getAllowedLateness()) {
-
-            @Override
-            protected void flush(Bulk bulk) {
-              BulkBlobWriter.this.flush(bulk.getPath(), bulk.getMaxTs());
-            }
-          };
-
-      if (!tmpDir.exists()) {
-        tmpDir.mkdirs();
-      } else if (tmpDir.isDirectory()) {
-        removeDir(tmpDir);
-        tmpDir.mkdirs();
-      } else {
-        throw new IllegalStateException("Temporary directory " + tmpDir + " is not directory");
-      }
-      initialized = true;
-    }
   }
 
   private void removeDir(File dir) {
@@ -178,8 +150,28 @@ public abstract class BulkBlobWriter<BlobT extends BlobBase, AccessorT extends B
     }
   }
 
-  @VisibleForTesting
-  String toBlobName(long ts) {
-    return accessor.getNamingConvention().nameOf(ts);
+  private class BlobFileSystemAttributeWriter extends AbstractBulkFileSystemAttributeWriter {
+
+    public BlobFileSystemAttributeWriter(FileSystem localFs) {
+      super(
+          BulkBlobWriter.this.getEntityDescriptor(),
+          BulkBlobWriter.this.accessor.getUri(),
+          localFs,
+          BulkBlobWriter.this.accessor.getNamingConvention(),
+          BulkBlobWriter.this.accessor.getFileFormat(),
+          BulkBlobWriter.this.context,
+          BulkBlobWriter.this.accessor.getRollPeriod(),
+          BulkBlobWriter.this.accessor.getAllowedLateness());
+    }
+
+    @Override
+    protected void flush(Bulk bulk) {
+      BulkBlobWriter.this.flush(bulk.getPath(), bulk.getMaxTs());
+    }
+
+    @Override
+    public BulkAttributeWriter.Factory<?> asFactory() {
+      throw new UnsupportedOperationException("This should not be called directly");
+    }
   }
 }

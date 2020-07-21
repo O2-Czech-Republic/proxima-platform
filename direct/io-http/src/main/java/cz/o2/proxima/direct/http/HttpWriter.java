@@ -28,11 +28,15 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
+import lombok.Getter;
 
 /** Writer via HTTP(S) requests. */
 public class HttpWriter extends AbstractStorage implements OnlineAttributeWriter, DataAccessor {
 
-  final ConnFactory connFactory;
+  private static final long serialVersionUID = 1L;
+
+  private final ConnFactory connFactory;
+  @Getter private final Map<String, Object> cfg;
 
   public HttpWriter(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
 
@@ -42,6 +46,7 @@ public class HttpWriter extends AbstractStorage implements OnlineAttributeWriter
     } catch (InstantiationException | IllegalAccessException ex) {
       throw new RuntimeException(ex);
     }
+    this.cfg = cfg;
   }
 
   @Override
@@ -69,6 +74,14 @@ public class HttpWriter extends AbstractStorage implements OnlineAttributeWriter
         conn.disconnect();
       }
     }
+  }
+
+  @Override
+  public Factory<?> asFactory() {
+    final EntityDescriptor entity = getEntityDescriptor();
+    final URI uri = getUri();
+    final Map<String, Object> cfg = this.cfg;
+    return repo -> new HttpWriter(entity, uri, cfg);
   }
 
   protected ConnFactory getConnFactory(Map<String, Object> cfg)

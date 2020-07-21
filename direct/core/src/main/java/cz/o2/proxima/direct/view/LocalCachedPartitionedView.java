@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.view;
 
 import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.CommitLogReader.Factory;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
@@ -372,5 +373,15 @@ public class LocalCachedPartitionedView implements CachedView {
   @Override
   public Collection<Partition> getPartitions() {
     return reader.getPartitions();
+  }
+
+  @Override
+  public Factory asFactory() {
+    final CommitLogReader.Factory<?> readerFactory = reader.asFactory();
+    final OnlineAttributeWriter.Factory<?> writerFactory = writer.asFactory();
+    final EntityDescriptor entity = this.entity;
+    return repo ->
+        new LocalCachedPartitionedView(
+            entity, readerFactory.apply(repo), writerFactory.apply(repo));
   }
 }

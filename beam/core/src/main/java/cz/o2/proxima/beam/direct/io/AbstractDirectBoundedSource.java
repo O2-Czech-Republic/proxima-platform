@@ -16,7 +16,6 @@
 package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
-import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import org.apache.beam.sdk.coders.Coder;
@@ -29,10 +28,6 @@ abstract class AbstractDirectBoundedSource extends BoundedSource<StreamElement> 
   private static final long serialVersionUID = 1L;
 
   final RepositoryFactory factory;
-
-  AbstractDirectBoundedSource(Repository repo) {
-    this.factory = repo.asFactory();
-  }
 
   AbstractDirectBoundedSource(RepositoryFactory factory) {
     this.factory = factory;

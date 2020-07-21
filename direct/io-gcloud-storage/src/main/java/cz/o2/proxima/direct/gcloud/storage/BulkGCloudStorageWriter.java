@@ -42,4 +42,11 @@ public class BulkGCloudStorageWriter extends BulkBlobWriter<GCloudBlob, GCloudSt
       storage.delete(blob.getName());
     }
   }
+
+  @Override
+  public Factory<?> asFactory() {
+    final GCloudStorageAccessor accessor = getAccessor();
+    final Context context = getContext();
+    return repo -> new BulkGCloudStorageWriter(accessor, context);
+  }
 }

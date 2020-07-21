@@ -61,6 +61,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -106,6 +107,10 @@ public final class ConfigRepository extends Repository {
     return builder.build();
   }
 
+  public static Repository ofCached(Config config, RepositoryFactory preexistingFactory) {
+    return Builder.of(config).withFactory(preexistingFactory).build();
+  }
+
   /** Builder for the repository. */
   public static class Builder {
 
@@ -135,6 +140,7 @@ public final class ConfigRepository extends Repository {
     private int validate;
     private boolean loadFamilies = true;
     private boolean loadClasses = true;
+    private @Nullable RepositoryFactory factory = null;
 
     private Builder(Config config) {
       this.config = Objects.requireNonNull(config);
@@ -182,9 +188,14 @@ public final class ConfigRepository extends Repository {
       return this;
     }
 
+    public Builder withFactory(RepositoryFactory preexistingFactory) {
+      this.factory = preexistingFactory;
+      return this;
+    }
+
     public ConfigRepository build() {
       return new ConfigRepository(
-          config, cachingEnabled, readOnly, validate, loadFamilies, loadClasses);
+          config, cachingEnabled, readOnly, validate, loadFamilies, loadClasses, factory);
     }
   }
 
@@ -277,9 +288,10 @@ public final class ConfigRepository extends Repository {
       boolean isReadonly,
       int validateFlags,
       boolean loadFamilies,
-      boolean loadClasses) {
+      boolean loadClasses,
+      RepositoryFactory factory) {
 
-    super(config, cachingEnabled);
+    super(config, cachingEnabled, factory);
     this.enableCaching = cachingEnabled;
     this.config = config;
     this.readonly = isReadonly;

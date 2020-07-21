@@ -533,8 +533,10 @@ class BeamStream<T> implements Stream<T> {
                 () ->
                     new IllegalArgumentException(
                         String.format("Family [%s] does not have writer", targetFamilyname)));
+    RepositoryFactory repositoryFactory = repoProvider.getRepo().asFactory();
+    AttributeWriterBase.Factory<?> writerFactory = rawWriter.asFactory();
     SerializableScopedValue<Integer, AttributeWriterBase> writer =
-        new SerializableScopedValue<>(rawWriter);
+        new SerializableScopedValue<>(() -> writerFactory.apply(repositoryFactory.apply()));
     Set<String> allowedAttributes =
         familyDescriptor
             .getAttributes()
@@ -679,7 +681,7 @@ class BeamStream<T> implements Stream<T> {
         (PCollection<StreamElement>) windowAll().collection.materialize(pipeline);
     Preconditions.checkArgument(
         elements.isBounded() == IsBounded.BOUNDED,
-        "Persising into bulk families is currently supported in batch mode only.");
+        "Persisting into bulk families is currently supported in batch mode only.");
     elements.apply(name, createBulkWriteTransform(parallelism, factory));
     runPipeline(pipeline);
   }

@@ -20,8 +20,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.Serializable;
 import java.net.URI;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -33,13 +33,13 @@ import org.apache.hadoop.io.Writable;
 
 /** Class containing embedded HBase client. */
 @Slf4j
-class HBaseClientWrapper implements AutoCloseable, Serializable {
+class HBaseClientWrapper implements AutoCloseable {
 
   final URI uri;
   final byte[] serializedConf;
   final byte[] family;
-  transient Connection conn;
-  transient Table client;
+  @Nullable Connection conn;
+  @Nullable Table client;
 
   HBaseClientWrapper(URI uri, Configuration conf) {
     this.uri = uri;
@@ -97,7 +97,7 @@ class HBaseClientWrapper implements AutoCloseable, Serializable {
     }
   }
 
-  private static <W extends Writable> W deserialize(byte[] bytes, W obj) {
+  static <W extends Writable> W deserialize(byte[] bytes, W obj) {
     try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
         DataInputStream dis = new DataInputStream(bais)) {
       obj.readFields(dis);

@@ -92,7 +92,7 @@ public class BeamDataOperatorTest {
     PCollection<KV<String, Long>> counted =
         CountByKey.of(stream).keyBy(e -> "", TypeDescriptors.strings()).output();
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L));
-    assertNotNull(pipeline.run());
+    runPipeline(pipeline);
   }
 
   @SuppressWarnings("unchecked")
@@ -126,7 +126,7 @@ public class BeamDataOperatorTest {
             .output();
 
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L), KV.of("", 1L));
-    assertNotNull(pipeline.run());
+    runPipeline(pipeline);
   }
 
   @SuppressWarnings("unchecked")
@@ -160,7 +160,7 @@ public class BeamDataOperatorTest {
             .output();
 
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L), KV.of("", 1L));
-    assertNotNull(pipeline.run());
+    runPipeline(pipeline);
   }
 
   @Test(timeout = 30000)
@@ -235,7 +235,7 @@ public class BeamDataOperatorTest {
     PCollection<KV<String, Long>> counted =
         CountByKey.of(stream).keyBy(e -> "", TypeDescriptors.strings()).output();
     PAssert.that(counted).containsInAnyOrder(KV.of("", 1L));
-    assertNotNull(pipeline.run());
+    runPipeline(pipeline);
   }
 
   @Test
@@ -257,12 +257,12 @@ public class BeamDataOperatorTest {
     PCollection<Long> result =
         beam.getStream(pipeline, Position.OLDEST, true, true, event).apply(Count.globally());
     PAssert.that(result).containsInAnyOrder(1L);
-    assertNotNull(pipeline.run());
+    runPipeline(pipeline);
 
     pipeline = Pipeline.create();
     result = beam.getStream(pipeline, Position.OLDEST, true, true, event).apply(Count.globally());
     PAssert.that(result).containsInAnyOrder(1L);
-    assertNotNull(pipeline.run());
+    runPipeline(pipeline);
   }
 
   @Test
@@ -294,7 +294,7 @@ public class BeamDataOperatorTest {
         beam.getStream(pipeline, Position.OLDEST, true, true, armed);
     PCollection<Long> result = Union.of(events, armedStream).output().apply(Count.globally());
     PAssert.that(result).containsInAnyOrder(2L);
-    assertNotNull(pipeline.run());
+    runPipeline(pipeline);
   }
 
   @Test
@@ -477,6 +477,15 @@ public class BeamDataOperatorTest {
             .output();
 
     PAssert.that(counted).containsInAnyOrder(KV.of("", elements), KV.of("", 1L));
-    assertNotNull(pipeline.run());
+    runPipeline(pipeline);
+  }
+
+  private void runPipeline(Pipeline pipeline) {
+    try {
+      assertNotNull(pipeline.run());
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
+    }
   }
 }

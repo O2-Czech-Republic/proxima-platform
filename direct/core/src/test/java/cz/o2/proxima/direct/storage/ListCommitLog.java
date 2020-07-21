@@ -197,6 +197,13 @@ public class ListCommitLog implements CommitLogReader {
     return observeBulk(null, null, observer);
   }
 
+  @Override
+  public Factory asFactory() {
+    final List<StreamElement> data = this.data;
+    final Context context = this.context;
+    return repo -> new ListCommitLog(data, context);
+  }
+
   private void pushTo(BiConsumer<StreamElement, Integer> consumer, Runnable finish) {
 
     executor()

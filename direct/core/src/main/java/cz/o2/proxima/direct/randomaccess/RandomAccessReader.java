@@ -18,9 +18,12 @@ package cz.o2.proxima.direct.randomaccess;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.ContextProvider;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.view.CachedView.Factory;
 import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.Pair;
 import java.io.Closeable;
 import java.io.Serializable;
@@ -34,17 +37,22 @@ import javax.annotation.Nullable;
  * through by a mask (key, attributePrefix) for attributes that are wildcard attributes.
  */
 @Stable
-public interface RandomAccessReader extends Closeable, Serializable {
+public interface RandomAccessReader extends Closeable {
+
+  /** {@link Serializable} factory for {@link RandomAccessReader}. */
+  @FunctionalInterface
+  interface Factory<T extends RandomAccessReader> extends UnaryFunction<Repository, T> {}
 
   /**
    * Create a new builder that is able to construct {@link RandomAccessReader} from multiple readers
    * responsible for reading from various attribute families.
    *
+   * @param repo the {@link Repository}
    * @param context direct translation context provider (e.g. {@link DirectDataOperator})
    * @return new builder for multi random access reader
    */
-  public static MultiAccessBuilder newBuilder(ContextProvider context) {
-    return new MultiAccessBuilder(context.getContext());
+  static MultiAccessBuilder newBuilder(Repository repo, ContextProvider context) {
+    return new MultiAccessBuilder(repo, context.getContext());
   }
 
   /** Type of listing (either listing entities of entity attributes). */
@@ -262,4 +270,11 @@ public interface RandomAccessReader extends Closeable, Serializable {
    * @return entity associated with this reader
    */
   EntityDescriptor getEntityDescriptor();
+
+  /**
+   * Convert instance of this reader to {@link Factory} suitable for serialization.
+   *
+   * @return the {@link Factory} representing this reader
+   */
+  Factory<?> asFactory();
 }

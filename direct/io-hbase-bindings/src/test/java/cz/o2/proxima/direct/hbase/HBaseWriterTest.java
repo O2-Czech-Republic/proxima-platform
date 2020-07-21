@@ -19,11 +19,13 @@ import static cz.o2.proxima.direct.hbase.HbaseTestUtil.bytes;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -253,5 +255,12 @@ public class HBaseWriterTest {
                 .get(bytes(wildcard.toAttributePrefix() + 3))
                 .firstEntry()
                 .getKey());
+  }
+
+  @Test
+  public void testAsFactorySerializable() throws IOException, ClassNotFoundException {
+    byte[] bytes = TestUtils.serializeObject(writer.asFactory());
+    Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(writer.getUri(), ((HBaseWriter) factory.apply(repo)).getUri());
   }
 }

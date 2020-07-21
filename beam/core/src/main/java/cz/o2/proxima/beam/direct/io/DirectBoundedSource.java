@@ -46,10 +46,11 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
   }
 
   private final String name;
-  private final CommitLogReader reader;
+  private final CommitLogReader.Factory<?> readerFactory;
   private final Position position;
   private final long limit;
   private final Partition partition;
+  private transient CommitLogReader reader;
 
   DirectBoundedSource(
       RepositoryFactory factory,
@@ -61,10 +62,11 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
 
     super(factory);
     this.name = name;
-    this.reader = Objects.requireNonNull(reader);
+    this.readerFactory = Objects.requireNonNull(reader).asFactory();
     this.position = position;
     this.limit = limit;
     this.partition = partition;
+    this.reader = reader;
   }
 
   @Override
@@ -74,7 +76,7 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
     if (partition != null) {
       return Collections.singletonList(this);
     }
-    List<Partition> partitions = reader.getPartitions();
+    List<Partition> partitions = reader().getPartitions();
     int numPartitions = partitions.size();
     List<BoundedSource<StreamElement>> ret =
         partitions
@@ -82,7 +84,7 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
             .map(
                 p ->
                     new DirectBoundedSource(
-                        factory, name, reader, position, limit / numPartitions, p))
+                        factory, name, reader(), position, limit / numPartitions, p))
             .collect(Collectors.toList());
     log.debug("Split source {} into {}", this, ret);
     return ret;
@@ -91,6 +93,13 @@ class DirectBoundedSource extends AbstractDirectBoundedSource {
   @Override
   public BoundedReader<StreamElement> createReader(PipelineOptions options) {
     log.debug("Creating reader reading from position {} on partition {}", position, partition);
-    return BeamCommitLogReader.bounded(this, name, reader, position, limit, partition);
+    return BeamCommitLogReader.bounded(this, name, reader(), position, limit, partition);
+  }
+
+  private CommitLogReader reader() {
+    if (reader == null) {
+      reader = readerFactory.apply(factory.apply());
+    }
+    return reader;
   }
 }

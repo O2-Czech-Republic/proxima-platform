@@ -16,6 +16,7 @@
 package cz.o2.proxima.beam.direct.io;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper.ConfigReader;
@@ -159,12 +160,14 @@ public class DirectBatchUnboundedSource
   }
 
   private final RepositoryFactory repositoryFactory;
-  private final BatchLogObservable reader;
+  private final BatchLogObservable.Factory<?> readerFactory;
   private final List<AttributeDescriptor<?>> attributes;
   private final List<Partition> partitions;
   private final long startStamp;
   private final long endStamp;
   private final ConfigReader configReader;
+  private transient @Nullable BatchLogObservable reader;
+  private transient long maxThroughput;
 
   private DirectBatchUnboundedSource(
       RepositoryFactory repositoryFactory,
@@ -175,12 +178,13 @@ public class DirectBatchUnboundedSource
       long endStamp) {
 
     this.repositoryFactory = repositoryFactory;
-    this.reader = reader;
+    this.readerFactory = reader.asFactory();
     this.attributes = Collections.unmodifiableList(attributes);
     this.partitions = Collections.emptyList();
     this.startStamp = startStamp;
     this.endStamp = endStamp;
     this.configReader = configReader;
+    this.reader = reader;
   }
 
   private DirectBatchUnboundedSource(
@@ -190,7 +194,7 @@ public class DirectBatchUnboundedSource
       long endStamp) {
 
     this.repositoryFactory = parent.repositoryFactory;
-    this.reader = parent.reader;
+    this.readerFactory = parent.readerFactory;
     this.attributes = parent.attributes;
     this.startStamp = startStamp;
     this.endStamp = endStamp;
@@ -211,7 +215,7 @@ public class DirectBatchUnboundedSource
 
     if (partitions.isEmpty()) {
       // round robin
-      List<Partition> parts = reader.getPartitions(startStamp, endStamp);
+      List<Partition> parts = reader().getPartitions(startStamp, endStamp);
       List<List<Partition>> splits = new ArrayList<>();
       int current = 0;
       for (Partition p : parts) {
@@ -237,7 +241,14 @@ public class DirectBatchUnboundedSource
         Collections.synchronizedList(
             new ArrayList<>(checkpointMark == null ? partitions : checkpointMark.partitions));
     return new StreamElementUnboundedReader(
-        DirectBatchUnboundedSource.this, reader, attributes, checkpointMark, toProcess);
+        DirectBatchUnboundedSource.this, reader(), attributes, checkpointMark, toProcess);
+  }
+
+  private BatchLogObservable reader() {
+    if (reader == null) {
+      reader = readerFactory.apply(repositoryFactory.apply());
+    }
+    return reader;
   }
 
   @Override
@@ -295,7 +306,12 @@ public class DirectBatchUnboundedSource
   }
 
   private long getMaxThroughput() {
-    return configReader.getBytesPerSecThroughput(repositoryFactory.apply());
+    if (maxThroughput == 0) {
+      long configured = configReader.getBytesPerSecThroughput(repositoryFactory.apply());
+      Preconditions.checkArgument(configured != 0, "Max bytes per sec cannot be 0");
+      maxThroughput = configured;
+    }
+    return maxThroughput;
   }
 
   private static class StreamElementUnboundedReader extends UnboundedReader<StreamElement> {
@@ -307,7 +323,7 @@ public class DirectBatchUnboundedSource
     private final BlockingQueue<StreamElement> queue = new ArrayBlockingQueue<>(100);
     private final AtomicBoolean running = new AtomicBoolean();
     private final AtomicBoolean stopped = new AtomicBoolean();
-    private final long createdNanoTime = System.nanoTime();
+    private final long createdTime = System.currentTimeMillis();
 
     long consumedFromCurrent;
     @Nullable StreamElement current = null;
@@ -388,9 +404,9 @@ public class DirectBatchUnboundedSource
       if (source.getMaxThroughput() < 0) {
         return false;
       }
-      long nanoNow = System.nanoTime();
-      long durationSeconds = (nanoNow - createdNanoTime) / 1_000_000_000L;
-      return bytesConsumed > durationSeconds * source.getMaxThroughput();
+      long now = System.currentTimeMillis();
+      long durationMillis = now - createdTime;
+      return bytesConsumed > durationMillis * source.getMaxThroughput() / 1000;
     }
 
     @Override

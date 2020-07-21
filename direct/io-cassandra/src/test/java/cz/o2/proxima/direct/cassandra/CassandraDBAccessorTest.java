@@ -26,7 +26,10 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.core.AttributeWriterBase;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
@@ -36,6 +39,8 @@ import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.TestUtils;
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
@@ -519,6 +524,40 @@ public class CassandraDBAccessorTest {
 
     List<Statement> executed = accessor.getExecuted();
     assertEquals(2, executed.size());
+  }
+
+  @Test
+  public void testReaderAsFactorySerializable() throws IOException, ClassNotFoundException {
+    TestDBAccessor accessor =
+        new TestDBAccessor(
+            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+    CassandraRandomReader reader = accessor.newRandomReader();
+    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
+    RandomAccessReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(reader.getUri(), ((CassandraRandomReader) factory.apply(repo)).getUri());
+  }
+
+  @Test
+  public void testWriterAsFactorySerializable() throws IOException, ClassNotFoundException {
+    TestDBAccessor accessor =
+        new TestDBAccessor(
+            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+    CassandraWriter writer = accessor.newWriter();
+    byte[] bytes = TestUtils.serializeObject(writer.asFactory());
+    AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(writer.getUri(), ((CassandraWriter) factory.apply(repo)).getUri());
+  }
+
+  @Test
+  public void testObservableAsFactorySerializable() throws IOException, ClassNotFoundException {
+    TestDBAccessor accessor =
+        new TestDBAccessor(
+            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+    CassandraLogObservable reader =
+        accessor.newLogObservable(repo.getOrCreateOperator(DirectDataOperator.class).getContext());
+    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
+    BatchLogObservable.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(reader.getUri(), ((CassandraLogObservable) factory.apply(repo)).getUri());
   }
 
   private Map<String, Object> getCfg(Class<?> cls, Class<? extends StringConverter> converter) {

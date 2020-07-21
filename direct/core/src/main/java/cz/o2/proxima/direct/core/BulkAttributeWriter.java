@@ -15,8 +15,11 @@
  */
 package cz.o2.proxima.direct.core;
 
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.direct.core.AttributeWriterBase.Factory;
 import cz.o2.proxima.storage.StreamElement;
+import java.io.Serializable;
 
 /**
  * Writer for attribute values. This is online version, where each element is committed one after
@@ -37,6 +40,11 @@ import cz.o2.proxima.storage.StreamElement;
  */
 @Stable
 public interface BulkAttributeWriter extends AttributeWriterBase {
+
+  /** {@link Serializable} factory for {@link BulkAttributeWriter}. */
+  @Internal
+  @FunctionalInterface
+  interface Factory<T extends BulkAttributeWriter> extends AttributeWriterBase.Factory<T> {}
 
   @Override
   default Type getType() {
@@ -59,4 +67,8 @@ public interface BulkAttributeWriter extends AttributeWriterBase {
    * @param watermark timestamp of the new watermark
    */
   default void updateWatermark(long watermark) {}
+
+  @SuppressWarnings("unchecked")
+  @Override
+  Factory<?> asFactory();
 }

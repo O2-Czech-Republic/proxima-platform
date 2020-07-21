@@ -520,7 +520,8 @@ public class BeamStreamTest extends StreamTest {
     Collector<Pair<Long, StreamElement>> collected = new Collector<>();
 
     SerializableScopedValue<Integer, AttributeWriterBase> writer =
-        new SerializableScopedValue<>(collectingBulkWriter(collected));
+        new SerializableScopedValue<>(
+            () -> collectingBulkWriter(collected).asFactory().apply(repo));
 
     BeamStream.BulkWriterFactory writerFactory =
         BeamStream.BulkWriterFactory.wrap(
@@ -561,6 +562,11 @@ public class BeamStreamTest extends StreamTest {
       @Override
       public void updateWatermark(long watermark) {
         collected.add(Pair.of(watermark, null));
+      }
+
+      @Override
+      public Factory<?> asFactory() {
+        return repo -> collectingBulkWriter(collected);
       }
 
       @Override

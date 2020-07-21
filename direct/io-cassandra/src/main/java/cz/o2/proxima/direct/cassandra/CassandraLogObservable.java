@@ -24,26 +24,28 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
-import javax.annotation.Nullable;
 
 /** A {@link BatchLogObservable} implementation for cassandra. */
 class CassandraLogObservable implements BatchLogObservable {
 
   private final CassandraDBAccessor accessor;
   private final int parallelism;
-  private final Factory<Executor> executorFactory;
-  @Nullable private transient Executor executor;
+  private final cz.o2.proxima.functional.Factory<Executor> executorFactory;
+  private final Executor executor;
 
-  CassandraLogObservable(CassandraDBAccessor accessor, Factory<Executor> executorFactory) {
+  CassandraLogObservable(
+      CassandraDBAccessor accessor, cz.o2.proxima.functional.Factory<Executor> executorFactory) {
     this.accessor = accessor;
     this.parallelism = accessor.getBatchParallelism();
     this.executorFactory = executorFactory;
+    this.executor = executorFactory.apply();
   }
 
   @Override
@@ -72,69 +74,72 @@ class CassandraLogObservable implements BatchLogObservable {
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor()
-        .execute(
-            () -> {
-              boolean cont = true;
-              Iterator<Partition> it = partitions.iterator();
-              try {
-                while (cont && it.hasNext()) {
-                  CassandraPartition p = (CassandraPartition) it.next();
-                  ResultSet result;
-                  Session session = accessor.ensureSession();
-                  result =
-                      accessor.execute(
-                          accessor.getCqlFactory().scanPartition(attributes, p, session));
-                  AtomicLong position = new AtomicLong();
-                  Iterator<Row> rowIter = result.iterator();
-                  while (cont && rowIter.hasNext()) {
-                    Row row = rowIter.next();
-                    String key = row.getString(0);
-                    int field = 1;
-                    for (AttributeDescriptor<?> attribute : attributes) {
-                      String attributeName = attribute.getName();
-                      if (attribute.isWildcard()) {
-                        // FIXME: this is wrong
-                        // need mapping between attribute and accessor
-                        String suffix = accessor.getConverter().asString(row.getObject(field++));
-                        attributeName = attribute.toAttributePrefix() + suffix;
-                      }
-                      ByteBuffer bytes = row.getBytes(field++);
-                      if (bytes != null) {
-                        byte[] array = bytes.slice().array();
-                        if (!observer.onNext(
-                            StreamElement.upsert(
-                                accessor.getEntityDescriptor(),
-                                attribute,
-                                "cql-"
-                                    + accessor.getEntityDescriptor().getName()
-                                    + "-part"
-                                    + p.getId()
-                                    + position.incrementAndGet(),
-                                key,
-                                attributeName,
-                                System.currentTimeMillis(),
-                                array),
-                            p)) {
+    executor.execute(
+        () -> {
+          boolean cont = true;
+          Iterator<Partition> it = partitions.iterator();
+          try {
+            while (cont && it.hasNext()) {
+              CassandraPartition p = (CassandraPartition) it.next();
+              ResultSet result;
+              Session session = accessor.ensureSession();
+              result =
+                  accessor.execute(accessor.getCqlFactory().scanPartition(attributes, p, session));
+              AtomicLong position = new AtomicLong();
+              Iterator<Row> rowIter = result.iterator();
+              while (cont && rowIter.hasNext()) {
+                Row row = rowIter.next();
+                String key = row.getString(0);
+                int field = 1;
+                for (AttributeDescriptor<?> attribute : attributes) {
+                  String attributeName = attribute.getName();
+                  if (attribute.isWildcard()) {
+                    // FIXME: this is wrong
+                    // need mapping between attribute and accessor
+                    String suffix = accessor.getConverter().asString(row.getObject(field++));
+                    attributeName = attribute.toAttributePrefix() + suffix;
+                  }
+                  ByteBuffer bytes = row.getBytes(field++);
+                  if (bytes != null) {
+                    byte[] array = bytes.slice().array();
+                    if (!observer.onNext(
+                        StreamElement.upsert(
+                            accessor.getEntityDescriptor(),
+                            attribute,
+                            "cql-"
+                                + accessor.getEntityDescriptor().getName()
+                                + "-part"
+                                + p.getId()
+                                + position.incrementAndGet(),
+                            key,
+                            attributeName,
+                            System.currentTimeMillis(),
+                            array),
+                        p)) {
 
-                          cont = false;
-                          break;
-                        }
-                      }
+                      cont = false;
+                      break;
                     }
                   }
                 }
-                observer.onCompleted();
-              } catch (Throwable err) {
-                observer.onError(err);
               }
-            });
+            }
+            observer.onCompleted();
+          } catch (Throwable err) {
+            observer.onError(err);
+          }
+        });
   }
 
-  private Executor executor() {
-    if (executor == null) {
-      executor = executorFactory.apply();
-    }
-    return executor;
+  /** Retrieve associated URI of this {@link BatchLogObservable}. */
+  public URI getUri() {
+    return accessor.getUri();
+  }
+
+  @Override
+  public Factory<?> asFactory() {
+    final CassandraDBAccessor accessor = this.accessor;
+    final cz.o2.proxima.functional.Factory<Executor> executorFactory = this.executorFactory;
+    return repo -> new CassandraLogObservable(accessor, executorFactory);
   }
 }

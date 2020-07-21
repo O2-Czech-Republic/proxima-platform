@@ -20,6 +20,7 @@ import static org.junit.Assert.*;
 
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.batch.BatchLogObservable.Factory;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -27,6 +28,7 @@ import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
@@ -220,6 +222,13 @@ public class HBaseLogObservableTest {
     latch.await();
 
     assertEquals(Lists.newArrayList("a", "fir", "firs"), keys);
+  }
+
+  @Test
+  public void testAsFactorySerializable() throws IOException, ClassNotFoundException {
+    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
+    Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(reader.getUri(), ((HBaseLogObservable) factory.apply(repo)).getUri());
   }
 
   private void write(String key, String attribute, String value, long stamp) throws IOException {

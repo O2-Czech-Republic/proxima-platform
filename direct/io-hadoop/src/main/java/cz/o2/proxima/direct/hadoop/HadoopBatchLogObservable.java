@@ -29,19 +29,21 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /** Observable of data stored in {@code SequenceFiles} in HDFS. */
 @Slf4j
 public class HadoopBatchLogObservable implements BatchLogObservable {
 
-  private final HadoopDataAccessor accessor;
+  @Getter private final HadoopDataAccessor accessor;
   private final Context context;
-  private transient Executor executor;
+  private final Executor executor;
 
   public HadoopBatchLogObservable(HadoopDataAccessor accessor, Context context) {
     this.accessor = accessor;
     this.context = context;
+    this.executor = context.getExecutorService();
   }
 
   @Override
@@ -75,10 +77,6 @@ public class HadoopBatchLogObservable implements BatchLogObservable {
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    if (executor == null) {
-      executor = context.getExecutorService();
-    }
-
     executor.execute(
         () -> {
           boolean run = true;
@@ -101,6 +99,13 @@ public class HadoopBatchLogObservable implements BatchLogObservable {
             }
           }
         });
+  }
+
+  @Override
+  public Factory<?> asFactory() {
+    final HadoopDataAccessor accessor = this.accessor;
+    final Context context = this.context;
+    return repo -> new HadoopBatchLogObservable(accessor, context);
   }
 
   private boolean processPath(BatchLogObserver observer, HadoopPartition p, HadoopPath path) {

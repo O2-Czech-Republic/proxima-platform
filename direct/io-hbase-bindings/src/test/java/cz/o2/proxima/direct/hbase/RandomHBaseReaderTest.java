@@ -22,12 +22,14 @@ import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.randomaccess.RandomAccessReader.Factory;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
@@ -71,8 +73,13 @@ public class RandomHBaseReaderTest {
 
   @BeforeClass
   public static void beforeClass() throws Exception {
-    util = new HBaseTestingUtility();
-    cluster = util.startMiniCluster();
+    try {
+      util = new HBaseTestingUtility();
+      cluster = util.startMiniCluster();
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
+    }
   }
 
   @AfterClass
@@ -250,6 +257,13 @@ public class RandomHBaseReaderTest {
     keys.clear();
     reader.listEntities(off, 1, keys::add);
     assertEquals("key1", keys.get(0).getSecond());
+  }
+
+  @Test
+  public void testAsFactorySerializable() throws IOException, ClassNotFoundException {
+    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
+    Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(reader.getUri(), ((RandomHBaseReader) factory.apply(repo)).getUri());
   }
 
   void write(String key, String attribute, String value, long stamp) throws IOException {

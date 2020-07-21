@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.http.opentsdb;
 
-import cz.o2.proxima.annotations.Experimental;
+import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.direct.http.ConnFactory;
 import cz.o2.proxima.direct.http.HttpWriter;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -23,18 +23,25 @@ import java.net.URI;
 import java.util.Map;
 
 /** A {@link HttpWriter} specialized on opentsdb. */
-@Experimental("Missing production use-case")
+@Evolving
 public class OpenTsdbWriter extends HttpWriter {
 
-  public OpenTsdbWriter(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  private static final long serialVersionUID = 1L;
 
+  public OpenTsdbWriter(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
     super(entityDesc, uri, cfg);
   }
 
   @Override
-  protected ConnFactory getConnFactory(Map<String, Object> cfg)
-      throws InstantiationException, IllegalAccessException {
-
+  protected ConnFactory getConnFactory(Map<String, Object> cfg) {
     return new OpenTsdbConnectionFactory();
+  }
+
+  @Override
+  public Factory<?> asFactory() {
+    final EntityDescriptor entity = getEntityDescriptor();
+    final URI uri = getUri();
+    final Map<String, Object> cfg = getCfg();
+    return repo -> new OpenTsdbWriter(entity, uri, cfg);
   }
 }

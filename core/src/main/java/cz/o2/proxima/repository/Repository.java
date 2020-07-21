@@ -29,10 +29,13 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /** Repository of all entities configured in the system. */
+@Slf4j
 @Evolving
 public abstract class Repository implements Serializable {
 
@@ -92,27 +95,30 @@ public abstract class Repository implements Serializable {
 
   RepositoryFactory factory;
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "rawtypes"})
   @Getter(AccessLevel.PACKAGE)
   private final transient Iterable<DataOperatorFactory<?>> dataOperatorFactories =
       (Iterable) ServiceLoader.load(DataOperatorFactory.class);
 
-  private final transient Map<Class<? extends DataOperator>, DataOperator> operatorCache =
-      new ConcurrentHashMap<>();
+  private final transient Map<String, DataOperator> operatorCache = new ConcurrentHashMap<>();
 
   /**
    * Construct the repository.
    *
    * @param config the config to create instance of this {@link Config}
-   * @param cachingEnabled enable caching of Repository pre JVM
+   * @param cachingEnabled enable caching of Repository per JVM
+   * @param factory factory to use when (re)constructing this {@link Repository}. When {@code null}
+   *     a new factory is created
    */
-  Repository(Config config, boolean cachingEnabled) {
-    final RepositoryFactory repoFactory =
-        cachingEnabled ? RepositoryFactory.compressed(config) : () -> Repository.ofTest(config);
-    this.factory =
-        cachingEnabled
-            ? RepositoryFactory.caching(repoFactory, this)
-            : RepositoryFactory.local(this);
+  Repository(Config config, boolean cachingEnabled, @Nullable RepositoryFactory factory) {
+    if (factory == null) {
+      this.factory =
+          cachingEnabled
+              ? RepositoryFactory.caching(RepositoryFactory.compressed(config), this)
+              : RepositoryFactory.local(this);
+    } else {
+      this.factory = factory;
+    }
   }
 
   /**
@@ -232,7 +238,7 @@ public abstract class Repository implements Serializable {
 
   <T extends DataOperator> T cacheDataOperator(T op) {
     addedDataOperator(op);
-    operatorCache.put(op.getClass(), op);
+    operatorCache.put(op.getClass().getName(), op);
     return op;
   }
 
@@ -246,8 +252,7 @@ public abstract class Repository implements Serializable {
    */
   @SuppressWarnings("unchecked")
   public final synchronized <T extends DataOperator> T getOrCreateOperator(Class<T> type) {
-
-    T ret = (T) operatorCache.get(type);
+    T ret = (T) operatorCache.get(type.getName());
     if (ret != null) {
       return ret;
     }

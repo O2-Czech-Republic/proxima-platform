@@ -22,13 +22,14 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.blob.TestBlobStorageAccessor.BlobWriter;
 import cz.o2.proxima.direct.bulk.DefaultNamingConvention;
 import cz.o2.proxima.direct.bulk.NamingConvention;
+import cz.o2.proxima.direct.core.BulkAttributeWriter.Factory;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
@@ -36,6 +37,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -77,7 +79,7 @@ public class BulkBlobWriterTest implements Serializable {
   TestBlobStorageAccessor accessor;
   BlobWriter writer;
   AtomicReference<CountDownLatch> latch = new AtomicReference<>();
-  AtomicReference<Runnable> onFlushToBlob = new AtomicReference<>();
+  AtomicReference<TestBlobStorageAccessor.Runnable> onFlushToBlob = new AtomicReference<>();
 
   public BulkBlobWriterTest() {
     this.wildcard =
@@ -95,8 +97,8 @@ public class BulkBlobWriterTest implements Serializable {
     this.entity =
         EntityDescriptor.newBuilder()
             .setName("dummy")
-            .addAttribute((AttributeDescriptorBase<?>) attr)
-            .addAttribute((AttributeDescriptorBase<?>) wildcard)
+            .addAttribute(attr)
+            .addAttribute(wildcard)
             .build();
     direct = repo.getOrCreateOperator(DirectDataOperator.class);
   }
@@ -112,7 +114,7 @@ public class BulkBlobWriterTest implements Serializable {
     Optional.ofNullable(writer).ifPresent(BulkBlobWriter::close);
   }
 
-  void initWriter(Map<String, Object> cfg) throws IOException {
+  void initWriter(Map<String, Object> cfg) {
     accessor =
         new TestBlobStorageAccessor(
             entity,
@@ -357,6 +359,22 @@ public class BulkBlobWriterTest implements Serializable {
     writer.flush();
     latch.get().await();
     assertEquals(0, accessor.getWrittenBlobs());
+  }
+
+  @Test
+  public void testAsFactorySerializable() throws IOException, ClassNotFoundException {
+    accessor =
+        new TestBlobStorageAccessor(
+            entity,
+            URI.create("blob-test://bucket/path"),
+            Collections.emptyMap(),
+            () -> {},
+            new AtomicReference<>());
+    BlobWriter writer = accessor.new BlobWriter(direct.getContext());
+    byte[] bytes = TestUtils.serializeObject(writer.asFactory());
+    Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(
+        writer.getAccessor().getUri(), ((BlobWriter) factory.apply(repo)).getAccessor().getUri());
   }
 
   private void validate(List<StreamElement> written, StreamElement... elements) {

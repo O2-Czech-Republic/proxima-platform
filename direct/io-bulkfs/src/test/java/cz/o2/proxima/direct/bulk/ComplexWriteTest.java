@@ -19,13 +19,16 @@ import static org.junit.Assert.*;
 
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -46,7 +49,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 @Slf4j
-public class ComplexWriteTest {
+public class ComplexWriteTest implements Serializable {
 
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
@@ -98,6 +101,11 @@ public class ComplexWriteTest {
         FileSystem.local(new File(tempFolder.newFolder(), UUID.randomUUID().toString()), naming);
     return new AbstractBulkFileSystemAttributeWriter(
         entity, uri, fs, naming, format, direct.getContext(), rollPeriod, allowedLateness) {
+
+      @Override
+      public BulkAttributeWriter.Factory<?> asFactory() {
+        return repo -> ExceptionUtils.uncheckedFactory(() -> initWriter());
+      }
 
       @Override
       protected void flush(Bulk v) {

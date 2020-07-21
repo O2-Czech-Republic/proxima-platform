@@ -17,6 +17,9 @@ package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.direct.view.CachedView.Factory;
+import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.Serializable;
 import java.net.URI;
@@ -30,7 +33,11 @@ import java.util.UUID;
  * is automatically load balanced.
  */
 @Stable
-public interface CommitLogReader extends Serializable {
+public interface CommitLogReader {
+
+  /** {@link Serializable} factory for {@link CommitLogReader}. */
+  @FunctionalInterface
+  interface Factory<T extends CommitLogReader> extends UnaryFunction<Repository, T> {}
 
   /**
    * Retrieve URI representing this resource.
@@ -284,4 +291,11 @@ public interface CommitLogReader extends Serializable {
   default boolean hasExternalizableOffsets() {
     return false;
   }
+
+  /**
+   * Convert instance of this reader to {@link Factory} suitable for serialization.
+   *
+   * @return the {@link Factory} representing this reader
+   */
+  Factory<?> asFactory();
 }

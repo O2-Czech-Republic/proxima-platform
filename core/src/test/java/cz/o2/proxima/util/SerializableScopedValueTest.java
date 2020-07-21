@@ -28,17 +28,16 @@ public class SerializableScopedValueTest {
 
   @Test
   public void testSerializable() throws IOException, ClassNotFoundException {
-    SerializableScopedValue<Integer, Integer> value = new SerializableScopedValue<>(1);
+    SerializableScopedValue<Integer, Integer> value = new SerializableScopedValue<>(() -> 1);
     SerializableScopedValue<Integer, Integer> other = TestUtils.assertSerializable(value);
     TestUtils.assertHashCodeAndEquals(value, other);
   }
 
   @Test
-  public void testContextLocality()
-      throws IOException, ClassNotFoundException, InterruptedException {
+  public void testContextLocality() throws IOException, ClassNotFoundException {
     BlockingQueue<Integer> results = new LinkedBlockingDeque<>();
     SerializableScopedValue<Integer, AtomicInteger> value =
-        new SerializableScopedValue<>(new AtomicInteger(1));
+        new SerializableScopedValue<>(() -> new AtomicInteger(1));
     value.reset(1);
     SerializableScopedValue<Integer, AtomicInteger> other =
         TestUtils.deserializeObject(TestUtils.serializeObject(value));

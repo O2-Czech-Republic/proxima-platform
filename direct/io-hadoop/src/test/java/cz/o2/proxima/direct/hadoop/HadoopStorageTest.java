@@ -259,6 +259,28 @@ public class HadoopStorageTest {
     assertNotNull(element);
   }
 
+  @Test
+  public void testWriterAsFactorySerializable() throws IOException, ClassNotFoundException {
+    HadoopDataAccessor accessor =
+        new HadoopDataAccessor(entity, URI.create("hdfs://namenode"), Collections.emptyMap());
+    HadoopBulkAttributeWriter writer = new HadoopBulkAttributeWriter(accessor, direct.getContext());
+    byte[] bytes = TestUtils.serializeObject(writer.asFactory());
+    AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(writer.getUri(), factory.apply(repository).getUri());
+  }
+
+  @Test
+  public void testObservableAsFactorySerializable() throws IOException, ClassNotFoundException {
+    HadoopDataAccessor accessor =
+        new HadoopDataAccessor(entity, URI.create("hdfs://namenode"), Collections.emptyMap());
+    HadoopBatchLogObservable reader = new HadoopBatchLogObservable(accessor, direct.getContext());
+    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
+    BatchLogObservable.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(
+        accessor.getUri(),
+        ((HadoopBatchLogObservable) factory.apply(repository)).getAccessor().getUri());
+  }
+
   Map<String, Object> cfg(Object... kvs) {
     Preconditions.checkArgument(kvs.length % 2 == 0);
     Map<String, Object> ret = new HashMap<>();

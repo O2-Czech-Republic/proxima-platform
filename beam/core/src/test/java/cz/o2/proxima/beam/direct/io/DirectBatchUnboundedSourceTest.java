@@ -94,12 +94,12 @@ public class DirectBatchUnboundedSourceTest {
     assertEquals(1000, maxThroughput);
   }
 
-  @Test(timeout = 20000)
+  @Test(timeout = 30000)
   public void testDirectBatchUnboundedSourceWithManyAndThrottling() {
     Config config =
         ConfigFactory.parseString(
                 "beam.unbounded-batch.limit.uri = \"inmem:///proxima_gateway\"\n"
-                    + "beam.unbounded-batch.limit.throughput = 5000")
+                    + "beam.unbounded-batch.limit.throughput = 10000")
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve();
     Repository repo = Repository.ofTest(config);

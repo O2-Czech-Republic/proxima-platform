@@ -11,7 +11,6 @@ addons:
       - realpath
   sonarcloud:
     organization: datadriven
-    token: $SONAR_TOKEN
 
 install: true
 script: mvn spotless:check && mvn install sonar:sonar -B -V -Pallow-snapshots,with-coverage,travis

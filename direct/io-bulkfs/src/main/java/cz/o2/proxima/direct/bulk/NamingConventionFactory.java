@@ -15,11 +15,12 @@
  */
 package cz.o2.proxima.direct.bulk;
 
+import java.io.Serializable;
 import java.time.Duration;
 import java.util.Map;
 
 /** Factory for creating convention for naming files. */
-public interface NamingConventionFactory {
+public interface NamingConventionFactory extends Serializable {
   /**
    * Create {@link cz.o2.proxima.direct.bulk.NamingConvention} that is used with {@link
    * cz.o2.proxima.direct.bulk.FileFormat}.

@@ -86,7 +86,10 @@ public class KafkaStreamElement extends StreamElement {
     }
   }
 
+  /** Partition in Kafka this element comes from. */
   @Getter private final int partition;
+
+  /** Offset in the partition. */
   @Getter private final long offset;
 
   KafkaStreamElement(

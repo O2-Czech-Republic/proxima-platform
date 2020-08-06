@@ -18,6 +18,8 @@ package cz.o2.proxima.direct.pubsub;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 
+import com.google.api.gax.batching.FlowControlSettings;
+import com.google.api.gax.batching.FlowController.LimitExceededBehavior;
 import com.google.api.gax.rpc.AlreadyExistsException;
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
@@ -416,6 +418,10 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
     }
     return Subscriber.newBuilder(subscription, receiver)
         .setMaxAckExtensionPeriod(Duration.ofMillis(maxAckDeadline))
+        .setFlowControlSettings(
+            FlowControlSettings.newBuilder()
+                .setLimitExceededBehavior(LimitExceededBehavior.Ignore)
+                .build())
         .build();
   }
 

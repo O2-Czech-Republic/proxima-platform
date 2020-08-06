@@ -25,14 +25,10 @@ import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import cz.o2.proxima.util.ForwardingInputStream;
+import cz.o2.proxima.util.ForwardingOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -53,7 +49,7 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.coders.Coder;
-import org.apache.beam.sdk.coders.CoderException;
+import org.apache.beam.sdk.coders.SerializableCoder;
 import org.apache.beam.sdk.io.UnboundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
@@ -115,35 +111,39 @@ public class DirectBatchUnboundedSource
    */
   public static class CheckpointCoder extends Coder<Checkpoint> {
 
+    private static final SerializableCoder<Checkpoint> DELEGATE =
+        SerializableCoder.of(Checkpoint.class);
+
     private static final long serialVersionUID = 1L;
 
     @Override
     public void encode(Checkpoint value, OutputStream outStream) throws IOException {
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      GZIPOutputStream gzout = new GZIPOutputStream(baos);
-      ObjectOutputStream oos = new ObjectOutputStream(gzout);
-      oos.writeObject(value);
-      oos.flush();
-      gzout.finish();
-      byte[] bytes = baos.toByteArray();
-      DataOutputStream dos = new DataOutputStream(outStream);
-      dos.writeInt(bytes.length);
-      dos.write(bytes);
+      try (final GZIPOutputStream gzipOutputStream =
+          new GZIPOutputStream(
+              new ForwardingOutputStream(outStream) {
+
+                @Override
+                public void close() {
+                  // No-op. We don't want gzip output stream to close underlying stream.
+                }
+              })) {
+        DELEGATE.encode(value, gzipOutputStream);
+      }
     }
 
     @Override
-    public Checkpoint decode(InputStream inStream) throws CoderException, IOException {
+    public Checkpoint decode(InputStream inStream) throws IOException {
+      try (final GZIPInputStream gzipInputStream =
+          new GZIPInputStream(
+              new ForwardingInputStream(inStream) {
 
-      DataInputStream dis = new DataInputStream(inStream);
-      int length = dis.readInt();
-      byte[] bytes = new byte[length];
-      dis.readFully(bytes);
-      GZIPInputStream gzin = new GZIPInputStream(new ByteArrayInputStream(bytes));
-      ObjectInputStream ois = new ObjectInputStream(gzin);
-      try {
-        return (Checkpoint) ois.readObject();
-      } catch (ClassNotFoundException ex) {
-        throw new CoderException(ex);
+                @Override
+                public void close() {
+
+                  // No-op. We don't want gzip input stream to close underlying stream.
+                }
+              })) {
+        return DELEGATE.decode(gzipInputStream);
       }
     }
 
@@ -153,8 +153,8 @@ public class DirectBatchUnboundedSource
     }
 
     @Override
-    public void verifyDeterministic() {
-      // nop
+    public void verifyDeterministic() throws NonDeterministicException {
+      DELEGATE.verifyDeterministic();
     }
   }
 

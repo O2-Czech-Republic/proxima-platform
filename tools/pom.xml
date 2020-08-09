@@ -31,6 +31,13 @@
 
   <name>${project.groupId}:${project.artifactId}</name>
 
+  <properties>
+    <!-- @TODO: there is something weird in classpath for javadoc plugin and it always failed with
+    error: package cz.o2.proxima.tools.groovy.internal does not exist
+    temporally disabled for this module and should be fixed later
+    -->
+    <maven.javadoc.skip>true</maven.javadoc.skip>
+  </properties>
   <build>
     <plugins>
       <!-- error prone not working with gmaven -->
@@ -44,25 +51,6 @@
           <compilerArgs>
             <arg>-Xlint:all</arg>
           </compilerArgs>
-        </configuration>
-      </plugin>
-      <!-- javadoc -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-javadoc-plugin</artifactId>
-        <version>${maven.javadoc.version}</version>
-        <executions>
-          <execution>
-            <id>attach-javadocs</id>
-            <goals>
-              <goal>jar</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <source>8</source>
-          <!-- FIXME: -->
-          <failOnError>false</failOnError>
         </configuration>
       </plugin>
       <plugin>
@@ -95,12 +83,12 @@
         </executions>
       </plugin>
 
-      <plugin>
+      <!--plugin>
         <groupId>org.codehaus.groovy</groupId>
         <artifactId>groovy-eclipse-compiler</artifactId>
-        <version>3.4.0-01</version>
+        <version>3.6.0-03</version>
         <extensions>true</extensions>
-      </plugin>
+      </plugin-->
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

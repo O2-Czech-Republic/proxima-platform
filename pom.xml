@@ -88,7 +88,7 @@
     <proto.version>3.11.1</proto.version>
     <protoc.version>3.11.1</protoc.version>
     <grpc.version>1.29.0</grpc.version>
-    <gmaven.version>1.9.0</gmaven.version>
+    <gmaven.version>1.10.0</gmaven.version>
     <guava.version>28.1-jre</guava.version>
     <commons-io.version>2.6</commons-io.version>
     <license-maven-plugin.version>3.0</license-maven-plugin.version>
@@ -106,7 +106,7 @@
     <error-prone.version>2.4.0</error-prone.version>
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
     <lombok.version>1.18.16</lombok.version>
-    <spotless.version>1.31.3</spotless.version>
+    <spotless.version>2.0.1</spotless.version>
     <!-- apache beam related properties -->
     <apache.beam.groupId>org.apache.beam</apache.beam.groupId>
     <apache.beam.version>2.27.0</apache.beam.version>
@@ -329,6 +329,8 @@
                 <reports>
                   <report>javadoc</report>
                   <report>test-javadoc</report>
+                  <report>aggregate-no-fork</report>
+                  <report>test-aggregate-no-fork</report>
                 </reports>
               </reportSet>
               <reportSet>
@@ -478,6 +480,7 @@
         </executions>
         <configuration>
           <source>8</source>
+          <doclint>none</doclint>
         </configuration>
       </plugin>
 

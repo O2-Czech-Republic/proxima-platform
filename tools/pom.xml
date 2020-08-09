@@ -61,12 +61,14 @@
         </executions>
         <configuration>
           <source>8</source>
+          <!-- FIXME: -->
+          <failOnError>false</failOnError>
         </configuration>
       </plugin>
       <plugin>
         <groupId>org.codehaus.gmavenplus</groupId>
         <artifactId>gmavenplus-plugin</artifactId>
-        <version>1.12.1</version>
+        <version>${gmaven.version}</version>
         <executions>
           <execution>
             <phase>process-sources</phase>
@@ -154,6 +156,12 @@
       <artifactId>proxima-direct-core</artifactId>
       <version>${project.version}</version>
       <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.codehaus.groovy</groupId>
+      <artifactId>groovy</artifactId>
+      <version>${groovy.version}</version>
     </dependency>
 
     <dependency>

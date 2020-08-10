@@ -15,13 +15,14 @@
  */
 package cz.o2.proxima.beam.transforms;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertNotNull;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import java.util.Arrays;
 import java.util.UUID;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.testing.PAssert;
@@ -44,7 +45,7 @@ public class ExtractKeyToKvTest {
     PCollection<StreamElement> elems = p.apply(Create.of(write("gw1"), write("gw2")));
     PCollection<KV<String, Long>> result =
         elems.apply(ExtractKeyToKv.fromStreamElements()).apply(Count.perKey());
-    PAssert.that(result).containsInAnyOrder(KV.of("gw1", 1L), KV.of("gw2", 1L));
+    PAssert.that(result).containsInAnyOrder(Arrays.asList(KV.of("gw1", 1L), KV.of("gw2", 1L)));
     assertNotNull(p.run());
   }
 

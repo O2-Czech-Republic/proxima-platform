@@ -375,6 +375,12 @@ class BeamCommitLogReader {
     if (finished) {
       watermark = HIGHEST_INSTANT;
     } else if (eventTime) {
+      if (observer == null) {
+        // Temporary workaround for race condition in UnboundedSourceWrapper.
+        log.warn(
+            "Call to getWatermark() before start(). This breaks UnboundedSource.Reader contract.");
+        return LOWEST_INSTANT;
+      }
       watermark = new Instant(observer.getWatermark());
     } else {
       watermark = new Instant(System.currentTimeMillis() - AUTO_WATERMARK_LAG_MS);

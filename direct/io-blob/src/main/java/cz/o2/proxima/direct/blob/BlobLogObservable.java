@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.blob;
 
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.bulk.FileFormat;
@@ -102,6 +103,16 @@ public abstract class BlobLogObservable<BlobT extends BlobBase, BlobPathT extend
     @Override
     public long getMaxTimestamp() {
       return maxStamp;
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(BulkStoragePartition.class)
+          .add("id", getId())
+          .add("size", size())
+          .add("minTimestamp", getMinTimestamp())
+          .add("maxTimestamp", getMaxTimestamp())
+          .toString();
     }
   }
 

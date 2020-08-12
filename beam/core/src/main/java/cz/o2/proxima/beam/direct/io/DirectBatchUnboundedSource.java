@@ -355,11 +355,11 @@ public class DirectBatchUnboundedSource
           if (!toProcess.isEmpty()) {
             // read partitions one by one
             runningPartition = toProcess.get(0);
+            running.set(true);
             reader.observe(
                 Collections.singletonList(runningPartition),
                 attributes,
                 asObserver(queue, running, stopped));
-            running.set(true);
             watermark = new Instant(runningPartition.getMinTimestamp());
             consumedFromCurrent = 0;
           } else {

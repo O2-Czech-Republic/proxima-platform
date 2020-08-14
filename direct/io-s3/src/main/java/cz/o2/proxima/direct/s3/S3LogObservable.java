@@ -44,4 +44,11 @@ public class S3LogObservable extends BlobLogObservable<S3Blob, S3BlobPath> {
   protected S3BlobPath createPath(S3Blob blob) {
     return new S3BlobPath(context, fs, blob);
   }
+
+  @Override
+  public Factory<?> asFactory() {
+    final S3Accessor accessor = (S3Accessor) getAccessor();
+    final Context context = getContext();
+    return repo -> new S3LogObservable(accessor, context);
+  }
 }

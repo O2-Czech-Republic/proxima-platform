@@ -86,7 +86,7 @@ public class MultiAccessBuilderTest {
             .map(direct::resolveRequired)
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
             .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
-    reader = RandomAccessReader.newBuilder(direct).addAttributes(base, armed, device).build();
+    reader = RandomAccessReader.newBuilder(repo, direct).addAttributes(base, armed, device).build();
 
     // write some data
     direct
@@ -143,7 +143,7 @@ public class MultiAccessBuilderTest {
             .filter(af -> af.getName().equals("gateway-storage-stream"))
             .findAny()
             .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
-    reader = RandomAccessReader.newBuilder(direct).addFamily(family).build();
+    reader = RandomAccessReader.newBuilder(repo, direct).addFamily(family).build();
 
     // write some data
     direct
@@ -212,7 +212,11 @@ public class MultiAccessBuilderTest {
             .filter(af -> af.getName().equals("dummy-storage"))
             .findAny()
             .orElseThrow(() -> new IllegalStateException("Cannot get random reader"));
-    reader = RandomAccessReader.newBuilder(direct).addFamily(family).addFamily(dummyFamily).build();
+    reader =
+        RandomAccessReader.newBuilder(repo, direct)
+            .addFamily(family)
+            .addFamily(dummyFamily)
+            .build();
 
     // write some data
     direct
@@ -281,7 +285,7 @@ public class MultiAccessBuilderTest {
             .filter(af -> af.getName().equals("gateway-storage-stream"))
             .findAny()
             .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
-    reader = RandomAccessReader.newBuilder(direct).addFamily(family).build();
+    reader = RandomAccessReader.newBuilder(repo, direct).addFamily(family).build();
 
     // write some data
     direct
@@ -337,7 +341,7 @@ public class MultiAccessBuilderTest {
             .map(direct::resolveRequired)
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
             .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
-    reader = RandomAccessReader.newBuilder(direct).addAttributes(base, armed, device).build();
+    reader = RandomAccessReader.newBuilder(repo, direct).addAttributes(base, armed, device).build();
 
     // write some data
     direct
@@ -395,7 +399,7 @@ public class MultiAccessBuilderTest {
             .map(direct::resolveRequired)
             .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
             .orElseThrow(() -> new IllegalStateException("Cannot get random access reader"));
-    reader = RandomAccessReader.newBuilder(direct).addAttributes(base, armed, device).build();
+    reader = RandomAccessReader.newBuilder(repo, direct).addAttributes(base, armed, device).build();
 
     // write some data
     direct

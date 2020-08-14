@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -44,6 +45,8 @@ import org.java_websocket.handshake.ServerHandshake;
 
 /** Reader of data from websocket (ws, or wss). */
 public class WebsocketReader extends AbstractStorage implements CommitLogReader {
+
+  private static final long serialVersionUID = 1L;
 
   private static final Partition PARTITION = () -> 0;
   private static final Offset OFFSET =
@@ -65,12 +68,13 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   private final AttributeDescriptor<?> attr;
   private final UnaryFunction<String, String> keyExtractor;
   private final String hello;
+  private final Map<String, Object> cfg;
 
   public WebsocketReader(EntityDescriptor entityDescriptor, URI uri, Map<String, Object> cfg) {
 
     super(entityDescriptor, uri);
     @SuppressWarnings("unchecked")
-    List<String> attributes = (List<String>) cfg.get("attributes");
+    List<String> attributes = (List<String>) Objects.requireNonNull(cfg.get("attributes"));
     if (attributes.size() > 1) {
       throw new IllegalArgumentException(
           "Can read only single attribute from websocket, got " + attributes);
@@ -99,6 +103,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
         Optional.ofNullable(cfg.get("hello"))
             .map(Object::toString)
             .orElseThrow(() -> new IllegalArgumentException("Missing 'hello' message"));
+    this.cfg = cfg;
   }
 
   @Override
@@ -214,6 +219,14 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
 
     return observeBulk(null, Position.NEWEST, observer);
+  }
+
+  @Override
+  public Factory<?> asFactory() {
+    final EntityDescriptor entity = getEntityDescriptor();
+    final URI uri = getUri();
+    final Map<String, Object> cfg = this.cfg;
+    return repo -> new WebsocketReader(entity, uri, cfg);
   }
 
   private OnNextContext nullContext() {

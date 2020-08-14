@@ -16,6 +16,7 @@
 package cz.o2.proxima.util;
 
 import com.google.common.base.MoreObjects;
+import cz.o2.proxima.functional.Factory;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.Map;
@@ -24,30 +25,30 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * A value that holds a serializable value and scopes it value to given context value.
+ * A value that holds a {@link Serializable} value and scopes its value to given context.
  *
  * @param <C> context type parameter
  * @param <V> type parameter
  */
-public final class SerializableScopedValue<C, V extends Serializable> implements Serializable {
+public final class SerializableScopedValue<C, V> implements Serializable {
 
-  private static final Map<String, Map<Object, Object>> MAP = new ConcurrentHashMap<>();
+  private static final Map<String, Map<Object, Object>> VALUE_MAP = new ConcurrentHashMap<>();
 
   private final String uuid = UUID.randomUUID().toString();
-  private final V original;
+  private final Factory<V> factory;
 
-  public SerializableScopedValue(V what) {
-    this.original = Objects.requireNonNull(what);
-    MAP.putIfAbsent(uuid, new ConcurrentHashMap<>());
+  public SerializableScopedValue(Factory<V> what) {
+    this.factory = Objects.requireNonNull(what);
+    VALUE_MAP.putIfAbsent(uuid, new ConcurrentHashMap<>());
   }
 
   @SuppressWarnings("unchecked")
   public V get(C context) {
-    return (V) MAP.get(uuid).computeIfAbsent(context, t -> cloneOriginal());
+    return (V) VALUE_MAP.get(uuid).computeIfAbsent(context, t -> cloneOriginal());
   }
 
   private V cloneOriginal() {
-    return SerializableUtils.clone(original);
+    return factory.apply();
   }
 
   /**
@@ -56,17 +57,17 @@ public final class SerializableScopedValue<C, V extends Serializable> implements
    * @param context context type parameter
    */
   public void reset(C context) {
-    MAP.get(uuid).remove(context);
+    VALUE_MAP.get(uuid).remove(context);
   }
 
   private Object readResolve() throws ObjectStreamException {
-    MAP.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
+    VALUE_MAP.computeIfAbsent(uuid, k -> new ConcurrentHashMap<>());
     return this;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(original, uuid);
+    return Objects.hash(uuid);
   }
 
   @Override
@@ -78,11 +79,11 @@ public final class SerializableScopedValue<C, V extends Serializable> implements
       return false;
     }
     SerializableScopedValue<?, ?> other = (SerializableScopedValue<?, ?>) obj;
-    return other.uuid.equals(uuid) && other.original.equals(original);
+    return other.uuid.equals(uuid);
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this).add("uuid", uuid).add("original", original).toString();
+    return MoreObjects.toStringHelper(this).add("uuid", uuid).add("factory", factory).toString();
   }
 }

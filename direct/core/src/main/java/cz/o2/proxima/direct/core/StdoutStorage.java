@@ -28,6 +28,41 @@ public class StdoutStorage implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;
 
+  private static class StdoutDataAccessor implements DataAccessor {
+
+    private static final long serialVersionUID = 1L;
+    private final EntityDescriptor entity;
+    private final URI uri;
+
+    public StdoutDataAccessor(EntityDescriptor entity, URI uri) {
+      this.entity = entity;
+      this.uri = uri;
+    }
+
+    @Override
+    public Optional<AttributeWriterBase> getWriter(Context context) {
+      return Optional.of(
+          new AbstractOnlineAttributeWriter(entity, uri) {
+            @Override
+            public void write(StreamElement data, CommitCallback callback) {
+              System.out.println(
+                  String.format(
+                      "Writing entity %s to attribute %s with key %s and value of size %d",
+                      data.getEntityDescriptor(),
+                      data.getAttributeDescriptor(),
+                      data.getKey(),
+                      data.getValue().length));
+              callback.commit(true, null);
+            }
+
+            @Override
+            public OnlineAttributeWriter.Factory<?> asFactory() {
+              return repo -> StdoutDataAccessor.this.getWriter(context).get().online();
+            }
+          });
+    }
+  }
+
   @Override
   public Accept accepts(URI uri) {
     return uri.getScheme().equals("stdout") ? Accept.ACCEPT : Accept.REJECT;
@@ -37,27 +72,6 @@ public class StdoutStorage implements DataAccessorFactory {
   public DataAccessor createAccessor(
       DirectDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
-    return new DataAccessor() {
-
-      private static final long serialVersionUID = 1L;
-
-      @Override
-      public Optional<AttributeWriterBase> getWriter(Context context) {
-        return Optional.of(
-            new AbstractOnlineAttributeWriter(entity, uri) {
-              @Override
-              public void write(StreamElement data, CommitCallback callback) {
-                System.out.println(
-                    String.format(
-                        "Writing entity %s to attribute %s with key %s and value of size %d",
-                        data.getEntityDescriptor(),
-                        data.getAttributeDescriptor(),
-                        data.getKey(),
-                        data.getValue().length));
-                callback.commit(true, null);
-              }
-            });
-      }
-    };
+    return new StdoutDataAccessor(entity, uri);
   }
 }

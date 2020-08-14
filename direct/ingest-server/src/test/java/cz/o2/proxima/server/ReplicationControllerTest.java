@@ -249,6 +249,11 @@ public class ReplicationControllerTest {
       }
 
       @Override
+      public Factory<?> asFactory() {
+        return repo -> fakeOnlineWriter(written);
+      }
+
+      @Override
       public URI getUri() {
         return URI.create("fake-online:///");
       }
@@ -273,6 +278,11 @@ public class ReplicationControllerTest {
           buffered.clear();
           statusCallback.commit(true, null);
         }
+      }
+
+      @Override
+      public Factory<?> asFactory() {
+        return repo -> fakeBulkWriter(written, commitWatermarkPredicate);
       }
 
       @Override

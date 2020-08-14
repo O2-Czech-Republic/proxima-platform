@@ -72,7 +72,7 @@ import org.apache.kafka.common.TopicPartition;
 public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
   @Getter final KafkaAccessor accessor;
-  private final Context context;
+  @Getter private final Context context;
   private final long consumerPollInterval;
   private final long maxBytesPerSec;
   private final String topic;
@@ -686,6 +686,13 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   @Override
   public boolean hasExternalizableOffsets() {
     return true;
+  }
+
+  @Override
+  public Factory asFactory() {
+    final KafkaAccessor accessor = this.accessor;
+    final Context context = this.context;
+    return repo -> new KafkaLogReader(accessor, context);
   }
 
   private static Collection<Offset> createDefaultOffsets(Collection<Partition> partitions) {

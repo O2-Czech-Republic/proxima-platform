@@ -22,6 +22,7 @@ import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
+import java.io.Serializable;
 import java.util.Collection;
 
 /**
@@ -34,6 +35,11 @@ import java.util.Collection;
  */
 @Stable
 public interface CachedView extends RandomAccessReader, OnlineAttributeWriter {
+
+  /** {@link Serializable} factory for {@link CachedView}. */
+  @FunctionalInterface
+  interface Factory
+      extends OnlineAttributeWriter.Factory<CachedView>, RandomAccessReader.Factory<CachedView> {}
 
   /**
    * Assign and make given partitions accessible by random reads. If the view contains any
@@ -79,4 +85,12 @@ public interface CachedView extends RandomAccessReader, OnlineAttributeWriter {
    * @return all partitions of underlying commit log
    */
   Collection<Partition> getPartitions();
+
+  /**
+   * Convert instance of this view to {@link Factory} suitable for serialization.
+   *
+   * @return the {@link Factory} representing this view
+   */
+  @Override
+  Factory asFactory();
 }

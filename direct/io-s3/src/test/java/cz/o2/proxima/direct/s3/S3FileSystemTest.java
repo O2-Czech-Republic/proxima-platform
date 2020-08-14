@@ -27,6 +27,7 @@ import com.amazonaws.services.s3.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.amazonaws.services.s3.model.UploadPartResult;
+import com.google.common.collect.ImmutableMap;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -105,12 +106,10 @@ public class S3FileSystemTest {
   }
 
   static Map<String, Object> cfg() {
-    return new HashMap<String, Object>() {
-      {
-        put("access-key", "access-key");
-        put("secret-key", "secret-key");
-      }
-    };
+    return ImmutableMap.<String, Object>builder()
+        .put("access-key", "access-key")
+        .put("secret-key", "secret-key")
+        .build();
   }
 
   private ObjectListing asListing(List<Blob> blobs) {

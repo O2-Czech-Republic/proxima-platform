@@ -174,6 +174,12 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
   }
 
   @Override
+  public Factory asFactory() {
+    final CassandraDBAccessor accessor = this.accessor;
+    return repo -> new CassandraRandomReader(accessor);
+  }
+
+  @Override
   public synchronized void close() {
     accessor.close();
   }

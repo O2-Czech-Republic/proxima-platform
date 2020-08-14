@@ -41,6 +41,7 @@ import cz.o2.proxima.transform.EventDataToDummy;
 import cz.o2.proxima.util.DummyFilter;
 import cz.o2.proxima.util.TestUtils;
 import cz.o2.proxima.util.TransformationRunner;
+import java.io.IOException;
 import java.io.NotSerializableException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
@@ -74,6 +75,13 @@ public class DirectDataOperatorTest {
                     .resolve())
             .build();
     this.direct = repo.asDataOperator(DirectDataOperator.class);
+  }
+
+  @Test
+  public void testContextSerializable() throws IOException, ClassNotFoundException {
+    byte[] bytes = TestUtils.serializeObject(direct.getContext());
+    Context deserialized = TestUtils.deserializeObject(bytes);
+    assertNotNull(deserialized);
   }
 
   @Test

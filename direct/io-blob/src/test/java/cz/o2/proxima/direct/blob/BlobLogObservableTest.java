@@ -19,6 +19,7 @@ import static org.junit.Assert.*;
 
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.batch.BatchLogObservable.Factory;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.blob.TestBlobStorageAccessor.BlobReader;
 import cz.o2.proxima.direct.blob.TestBlobStorageAccessor.BlobWriter;
@@ -30,6 +31,8 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.util.TestUtils;
+import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -163,6 +166,15 @@ public class BlobLogObservableTest {
           }
         });
     assertTrue(errorReceived.await(5, TimeUnit.SECONDS));
+  }
+
+  @Test
+  public void testAsFactorySerializable() throws IOException, ClassNotFoundException {
+    BlobReader reader = accessor.new BlobReader(context);
+    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
+    Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(
+        reader.getAccessor().getUri(), ((BlobReader) factory.apply(repo)).getAccessor().getUri());
   }
 
   private void writePartitions(List<Long> stamps) throws InterruptedException {

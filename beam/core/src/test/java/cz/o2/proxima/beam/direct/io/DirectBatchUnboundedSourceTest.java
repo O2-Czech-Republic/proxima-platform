@@ -134,46 +134,51 @@ public class DirectBatchUnboundedSourceTest {
             .findFirst()
             .flatMap(DirectAttributeFamilyDescriptor::getBatchObservable)
             .orElseThrow(() -> new IllegalArgumentException("Missing batch snapshot for armed"));
-    PCollection<StreamElement> input =
-        pipeline.apply(
-            Read.from(
-                DirectBatchUnboundedSource.of(
-                    repo.asFactory(),
-                    observable,
-                    configReader,
-                    Collections.singletonList(armed),
-                    Long.MIN_VALUE,
-                    Long.MAX_VALUE)));
-    PCollection<Long> res =
-        input
-            .apply(
-                Window.<StreamElement>into(new GlobalWindows())
-                    .triggering(
-                        Repeatedly.forever(
-                            AfterProcessingTime.pastFirstElementInPane()
-                                .plusDelayOf(Duration.standardSeconds(100))))
-                    .accumulatingFiredPanes())
-            .apply(Count.globally());
-    PAssert.that(res).containsInAnyOrder((long) count);
-    OnlineAttributeWriter writer =
-        direct
-            .getWriter(armed)
-            .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
-    long now = System.currentTimeMillis();
-    for (int i = 0; i < count; i++) {
-      writer.write(
-          StreamElement.upsert(
-              gateway,
-              armed,
-              UUID.randomUUID().toString(),
-              "key" + i,
-              armed.getName(),
-              now + i,
-              new byte[] {1, 2}),
-          (succ, exc) -> {});
+    try {
+      PCollection<StreamElement> input =
+          pipeline.apply(
+              Read.from(
+                  DirectBatchUnboundedSource.of(
+                      repo.asFactory(),
+                      observable,
+                      configReader,
+                      Collections.singletonList(armed),
+                      Long.MIN_VALUE,
+                      Long.MAX_VALUE)));
+      PCollection<Long> res =
+          input
+              .apply(
+                  Window.<StreamElement>into(new GlobalWindows())
+                      .triggering(
+                          Repeatedly.forever(
+                              AfterProcessingTime.pastFirstElementInPane()
+                                  .plusDelayOf(Duration.standardSeconds(100))))
+                      .accumulatingFiredPanes())
+              .apply(Count.globally());
+      PAssert.that(res).containsInAnyOrder((long) count);
+      OnlineAttributeWriter writer =
+          direct
+              .getWriter(armed)
+              .orElseThrow(() -> new IllegalStateException("Missing writer for armed"));
+      long now = System.currentTimeMillis();
+      for (int i = 0; i < count; i++) {
+        writer.write(
+            StreamElement.upsert(
+                gateway,
+                armed,
+                UUID.randomUUID().toString(),
+                "key" + i,
+                armed.getName(),
+                now + i,
+                new byte[] {1, 2}),
+            (succ, exc) -> {});
+      }
+      pipeline.run();
+      direct.close();
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
     }
-    pipeline.run();
-    direct.close();
   }
 
   private ConfigReader emptyConfigProvider() {

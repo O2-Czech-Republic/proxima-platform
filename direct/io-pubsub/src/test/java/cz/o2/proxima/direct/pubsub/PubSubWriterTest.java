@@ -23,6 +23,7 @@ import static org.junit.Assert.*;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.pubsub.v1.PubsubMessage;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -30,6 +31,7 @@ import cz.o2.proxima.repository.AttributeDescriptorImpl;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -205,5 +207,12 @@ public class PubSubWriterTest {
           latch.countDown();
         });
     latch.await();
+  }
+
+  @Test
+  public void testAsFactorySerializable() throws IOException, ClassNotFoundException {
+    byte[] bytes = TestUtils.serializeObject(writer.asFactory());
+    AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(accessor.getUri(), factory.apply(repo).getUri());
   }
 }

@@ -60,4 +60,10 @@ class CassandraWriter extends AbstractOnlineAttributeWriter implements OnlineAtt
       statusCallback.commit(false, ex);
     }
   }
+
+  @Override
+  public OnlineAttributeWriter.Factory<?> asFactory() {
+    final CassandraDBAccessor accessor = this.accessor;
+    return repo -> new CassandraWriter(accessor);
+  }
 }

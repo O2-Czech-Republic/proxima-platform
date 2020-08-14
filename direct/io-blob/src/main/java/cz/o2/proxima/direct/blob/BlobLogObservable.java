@@ -25,7 +25,6 @@ import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.bulk.Reader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.util.Pair;
@@ -38,7 +37,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -127,9 +125,11 @@ public abstract class BlobLogObservable<BlobT extends BlobBase, BlobPathT extend
   private final NamingConvention namingConvention;
   private final long partitionMinSize;
   private final int partitionMaxNumBlobs;
-  private final Factory<Executor> executorFactory;
-  @Nullable private transient Executor executor = null;
+  private final Executor executor;
+  @Getter private final BlobStorageAccessor accessor;
+  @Getter private final Context context;
 
+  @SuppressWarnings({"unchecked", "rawtypes"})
   public BlobLogObservable(BlobStorageAccessor accessor, Context context) {
     this.entity = accessor.getEntityDescriptor();
     this.fs = accessor.getTargetFileSystem();
@@ -137,7 +137,9 @@ public abstract class BlobLogObservable<BlobT extends BlobBase, BlobPathT extend
     this.namingConvention = accessor.getNamingConvention();
     this.partitionMinSize = accessor.getPartitionMinSize();
     this.partitionMaxNumBlobs = accessor.getPartitionMaxNumBlobs();
-    this.executorFactory = context::getExecutorService;
+    this.executor = context.getExecutorService();
+    this.context = context;
+    this.accessor = accessor;
   }
 
   @SuppressWarnings("unchecked")
@@ -182,59 +184,51 @@ public abstract class BlobLogObservable<BlobT extends BlobBase, BlobPathT extend
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor()
-        .execute(
-            () -> {
-              try {
-                Set<AttributeDescriptor<?>> attrs = new HashSet<>(attributes);
+    executor.execute(
+        () -> {
+          try {
+            Set<AttributeDescriptor<?>> attrs = new HashSet<>(attributes);
 
-                partitions.forEach(
-                    p -> {
-                      @SuppressWarnings("unchecked")
-                      BulkStoragePartition<BlobT> part = (BulkStoragePartition<BlobT>) p;
-                      part.getBlobs()
-                          .forEach(
-                              blob -> {
-                                try {
-                                  runHandlingErrors(
-                                      blob,
-                                      () -> {
-                                        log.info("Starting to observe partition {}", p);
-                                        try (Reader reader =
-                                            fileFormat.openReader(createPath(blob), entity)) {
-                                          reader.forEach(
-                                              e -> {
-                                                if (attrs.contains(e.getAttributeDescriptor())) {
-                                                  observer.onNext(e, p);
-                                                }
-                                              });
-                                        }
-                                      });
-                                } catch (Exception ex) {
-                                  throw new IllegalStateException(
-                                      String.format("Failed to read from %s", blob), ex);
-                                }
-                              });
-                    });
-                observer.onCompleted();
-              } catch (Exception ex) {
-                log.error("Failed to observe partitions {}", partitions, ex);
-                if (observer.onError(ex)) {
-                  log.info("Restarting processing by request");
-                  observe(partitions, attributes, observer);
-                }
-              }
-            });
+            partitions.forEach(
+                p -> {
+                  @SuppressWarnings("unchecked")
+                  BulkStoragePartition<BlobT> part = (BulkStoragePartition<BlobT>) p;
+                  part.getBlobs()
+                      .forEach(
+                          blob -> {
+                            try {
+                              runHandlingErrors(
+                                  blob,
+                                  () -> {
+                                    log.info("Starting to observe partition {}", p);
+                                    try (Reader reader =
+                                        fileFormat.openReader(createPath(blob), entity)) {
+                                      reader.forEach(
+                                          e -> {
+                                            if (attrs.contains(e.getAttributeDescriptor())) {
+                                              observer.onNext(e, p);
+                                            }
+                                          });
+                                    }
+                                  });
+                            } catch (Exception ex) {
+                              throw new IllegalStateException(
+                                  String.format("Failed to read from %s", blob), ex);
+                            }
+                          });
+                });
+            observer.onCompleted();
+          } catch (Exception ex) {
+            log.error("Failed to observe partitions {}", partitions, ex);
+            if (observer.onError(ex)) {
+              log.info("Restarting processing by request");
+              observe(partitions, attributes, observer);
+            }
+          }
+        });
   }
 
   protected abstract void runHandlingErrors(BlobT blob, ThrowingRunnable runnable) throws Exception;
 
   protected abstract BlobPath<BlobT> createPath(BlobT blob);
-
-  private Executor executor() {
-    if (executor == null) {
-      executor = executorFactory.apply();
-    }
-    return executor;
-  }
 }

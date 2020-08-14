@@ -15,12 +15,18 @@
  */
 package cz.o2.proxima.direct.s3;
 
+import static cz.o2.proxima.direct.s3.S3FileSystemTest.cfg;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.bulk.NamingConvention;
+import cz.o2.proxima.direct.core.AttributeWriterBase;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.TestUtils;
+import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
 import org.junit.Test;
@@ -29,6 +35,7 @@ public class S3AccessorTest {
 
   private final Repository repo =
       Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+  private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor entity = repo.getEntity("gateway");
 
   @Test
@@ -44,5 +51,23 @@ public class S3AccessorTest {
     S3Accessor accessor = new S3Accessor(entity, URI.create("gs://bucket"), Collections.emptyMap());
     NamingConvention convention = accessor.getNamingConvention();
     assertTrue(convention.nameOf(1500000000000L).startsWith("/2017/07/"));
+  }
+
+  @Test
+  public void testWriterAsFactorySerializable() throws IOException, ClassNotFoundException {
+    S3Accessor accessor = new S3Accessor(entity, URI.create("s3://bucket"), cfg());
+    BulkS3Writer writer = new BulkS3Writer(accessor, direct.getContext());
+    byte[] bytes = TestUtils.serializeObject(writer.asFactory());
+    AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(writer.getUri(), factory.apply(repo).getUri());
+  }
+
+  @Test
+  public void testObservableAsFactorySerializable() throws IOException, ClassNotFoundException {
+    S3Accessor accessor = new S3Accessor(entity, URI.create("s3://bucket"), cfg());
+    S3LogObservable reader = new S3LogObservable(accessor, direct.getContext());
+    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
+    BatchLogObservable.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(accessor.getUri(), ((S3LogObservable) factory.apply(repo)).getAccessor().getUri());
   }
 }

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.core;
 
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.functional.UnaryFunction;
@@ -59,6 +60,11 @@ public class Context implements Serializable, ContextProvider {
   public ExecutorService getExecutorService() {
     initialize();
     return service;
+  }
+
+  @VisibleForTesting
+  public Factory<ExecutorService> getExecutorFactory() {
+    return executorFactory;
   }
 
   /**

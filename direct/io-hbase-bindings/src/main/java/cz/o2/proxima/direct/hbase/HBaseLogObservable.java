@@ -49,15 +49,19 @@ import org.apache.hadoop.hbase.filter.QualifierFilter;
 class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservable {
 
   private final EntityDescriptor entity;
-  private final Factory<Executor> executorFactory;
-  private transient Executor executor;
+  private final cz.o2.proxima.functional.Factory<Executor> executorFactory;
+  private final Executor executor;
 
   public HBaseLogObservable(
-      URI uri, Configuration conf, EntityDescriptor entity, Factory<Executor> executorFactory) {
+      URI uri,
+      Configuration conf,
+      EntityDescriptor entity,
+      cz.o2.proxima.functional.Factory<Executor> executorFactory) {
 
     super(uri, conf);
     this.entity = entity;
     this.executorFactory = executorFactory;
+    this.executor = executorFactory.apply();
   }
 
   @Override
@@ -86,20 +90,30 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor()
-        .execute(
-            () -> {
-              ensureClient();
-              try {
-                flushPartitions(partitions, attributes, observer);
-              } catch (Throwable ex) {
-                log.warn("Failed to observe partitions {}", partitions, ex);
-                if (observer.onError(ex)) {
-                  log.info("Restaring processing by request");
-                  observe(partitions, attributes, observer);
-                }
-              }
-            });
+    executor.execute(
+        () -> {
+          ensureClient();
+          try {
+            flushPartitions(partitions, attributes, observer);
+          } catch (Throwable ex) {
+            log.warn("Failed to observe partitions {}", partitions, ex);
+            if (observer.onError(ex)) {
+              log.info("Restaring processing by request");
+              observe(partitions, attributes, observer);
+            }
+          }
+        });
+  }
+
+  @Override
+  public Factory<?> asFactory() {
+    final URI uri = getUri();
+    final EntityDescriptor entity = this.entity;
+    final cz.o2.proxima.functional.Factory<Executor> executorFactory = this.executorFactory;
+    final byte[] serializedConf = this.serializedConf;
+    return repo ->
+        new HBaseLogObservable(
+            uri, deserialize(serializedConf, new Configuration()), entity, executorFactory);
   }
 
   private void flushPartitions(
@@ -131,13 +145,6 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
       }
     }
     observer.onCompleted();
-  }
-
-  private Executor executor() {
-    if (executor == null) {
-      executor = executorFactory.apply();
-    }
-    return executor;
   }
 
   private boolean consume(

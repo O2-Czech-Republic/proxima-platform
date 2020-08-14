@@ -16,6 +16,7 @@
 package cz.o2.proxima.repository;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -44,9 +45,24 @@ public interface RepositoryFactory extends Serializable {
 
     @Override
     public Repository apply() {
-      return Repository.of(
-          ConfigFactory.parseString(
-              StringCompressions.gunzip(compressedConfig, StandardCharsets.UTF_8)));
+      return Repository.of(getConfig());
+    }
+
+    @Override
+    public Repository applyWithFactory(RepositoryFactory preexistingFactory) {
+      return ConfigRepository.ofCached(getConfig(), preexistingFactory);
+    }
+
+    Config getConfig() {
+      return ConfigFactory.parseString(
+          StringCompressions.gunzip(compressedConfig, StandardCharsets.UTF_8));
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("compressedConfig.length", compressedConfig.length)
+          .toString();
     }
   }
 
@@ -73,7 +89,7 @@ public interface RepositoryFactory extends Serializable {
       synchronized (Repository.class) {
         if (initializedFrom < version) {
           ConfigRepository.dropCached();
-          repo = underlying.apply();
+          repo = underlying.applyWithFactory(this);
           initializedFrom = version;
         }
       }
@@ -85,6 +101,15 @@ public interface RepositoryFactory extends Serializable {
       ConfigRepository.dropCached();
       initializedFrom = Long.MIN_VALUE;
       repo = null;
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this)
+          .add("version", version)
+          .add("underlying", underlying)
+          .add("classLoader", getClass().getClassLoader())
+          .toString();
     }
   }
 
@@ -104,6 +129,11 @@ public interface RepositoryFactory extends Serializable {
     @Override
     public Repository apply() {
       return localMap.get(hashCode);
+    }
+
+    @Override
+    public String toString() {
+      return MoreObjects.toStringHelper(this).add("hashCode", hashCode).toString();
     }
   }
 
@@ -125,4 +155,15 @@ public interface RepositoryFactory extends Serializable {
    * @return new repository
    */
   Repository apply();
+
+  /**
+   * Create new {@link cz.o2.proxima.repository.Repository} with predefined factory to be used in
+   * call to {@link Repository#asFactory}.
+   *
+   * @param preexistingFactory factory to be used
+   * @return new repository
+   */
+  default Repository applyWithFactory(RepositoryFactory preexistingFactory) {
+    throw new UnsupportedOperationException("Unsupported");
+  }
 }

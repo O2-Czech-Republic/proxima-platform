@@ -20,6 +20,7 @@ import com.datastax.driver.core.ExecutionInfo;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.google.common.util.concurrent.ListenableFuture;
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -30,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** A result set with no data. */
-public class EmptyResultSet implements ResultSet {
+public class EmptyResultSet implements ResultSet, Serializable {
 
   @Override
   public Row one() {

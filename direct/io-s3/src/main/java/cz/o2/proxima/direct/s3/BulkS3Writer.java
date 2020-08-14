@@ -38,4 +38,11 @@ public class BulkS3Writer extends BulkBlobWriter<S3Blob, S3Accessor> {
   protected void deleteBlobIfExists(S3Blob blob) {
     client.deleteObject(blob.getName());
   }
+
+  @Override
+  public Factory<?> asFactory() {
+    final S3Accessor accessor = getAccessor();
+    final Context context = getContext();
+    return repo -> new BulkS3Writer(accessor, context);
+  }
 }

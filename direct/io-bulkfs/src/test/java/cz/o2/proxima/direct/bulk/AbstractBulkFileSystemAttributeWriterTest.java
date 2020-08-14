@@ -22,14 +22,17 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -62,7 +65,7 @@ import org.junit.runners.Parameterized;
 /** Test {@link java.util.AbstractCollection}. */
 @RunWith(Parameterized.class)
 @Slf4j
-public class AbstractBulkFileSystemAttributeWriterTest {
+public class AbstractBulkFileSystemAttributeWriterTest implements Serializable {
 
   public static class InstantiableJsonFormat extends JsonFormat {
 
@@ -181,6 +184,11 @@ public class AbstractBulkFileSystemAttributeWriterTest {
         direct.getContext(),
         params.getRollPeriod(),
         params.getAllowedLateness()) {
+
+      @Override
+      public BulkAttributeWriter.Factory<?> asFactory() {
+        return repo -> ExceptionUtils.uncheckedFactory(() -> initWriter());
+      }
 
       @Override
       protected void flush(Bulk v) {

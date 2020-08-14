@@ -15,23 +15,34 @@
  */
 package cz.o2.proxima.repository;
 
+import static org.junit.Assert.*;
+
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
-import org.junit.Assert;
+import cz.o2.proxima.repository.RepositoryFactory.VersionedCaching;
 import org.junit.Test;
 
 public class RepositoryFactoryTest {
 
+  private final Config config =
+      ConfigFactory.load()
+          .withFallback(ConfigFactory.load("test-replication.conf"))
+          .withFallback(ConfigFactory.load("test-reference.conf"))
+          .resolve();
+
   @Test
   public void testMemoryEfficientFactory() {
-    final Config config =
-        ConfigFactory.load()
-            .withFallback(ConfigFactory.load("test-replication.conf"))
-            .withFallback(ConfigFactory.load("test-reference.conf"))
-            .resolve();
     Repository first = Repository.of(config);
     Repository second = RepositoryFactory.compressed(config).apply();
-    Assert.assertNotSame(first, second);
-    Assert.assertEquals(first, second);
+    assertNotSame(first, second);
+    assertEquals(first, second);
+  }
+
+  @Test
+  public void testCachedFactoryCaches() {
+    Repository repo = Repository.of(config);
+    VersionedCaching.drop();
+    repo = repo.asFactory().apply();
+    assertSame(repo, repo.asFactory().apply());
   }
 }

@@ -77,4 +77,11 @@ public class GCloudLogObservable extends BlobLogObservable<GCloudBlob, GCloudBlo
     }
     return false;
   }
+
+  @Override
+  public Factory<?> asFactory() {
+    final GCloudStorageAccessor accessor = (GCloudStorageAccessor) getAccessor();
+    final Context context = getContext();
+    return repo -> new GCloudLogObservable(accessor, context);
+  }
 }

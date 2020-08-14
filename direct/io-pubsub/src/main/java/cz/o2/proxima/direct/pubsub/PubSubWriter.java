@@ -149,6 +149,13 @@ class PubSubWriter extends AbstractOnlineAttributeWriter implements OnlineAttrib
   }
 
   @Override
+  public OnlineAttributeWriter.Factory<?> asFactory() {
+    final PubSubAccessor accessor = this.accessor;
+    final Context context = this.context;
+    return repo -> new PubSubWriter(accessor, context);
+  }
+
+  @Override
   public synchronized void close() {
     if (publisher != null) {
       try {

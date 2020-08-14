@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.gcloud.storage;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
@@ -25,11 +26,14 @@ import com.google.api.client.http.HttpResponseException;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.StorageException;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.batch.BatchLogObservable.Factory;
 import cz.o2.proxima.direct.blob.BlobLogObservable.ThrowingRunnable;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.gcloud.storage.GCloudBlobPath.GCloudBlob;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.TestUtils;
+import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,7 +49,7 @@ public class GCloudLogObservableTest {
   final GCloudStorageAccessor accessor =
       new GCloudStorageAccessor(gateway, URI.create("gs://bucket/path"), cfg());
 
-  private Map<String, Object> cfg() {
+  private static Map<String, Object> cfg() {
     return new HashMap<String, Object>() {
       {
         put("initial-retry-delay-ms", 10);
@@ -73,6 +77,15 @@ public class GCloudLogObservableTest {
     } catch (RuntimeException ex) {
       // pass
     }
+  }
+
+  @Test
+  public void testAsFactorySerializable() throws IOException, ClassNotFoundException {
+    byte[] bytes = TestUtils.serializeObject(observable.asFactory());
+    Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(
+        observable.getAccessor().getUri(),
+        ((GCloudLogObservable) factory.apply(repo)).getAccessor().getUri());
   }
 
   private GoogleJsonResponseException jsonResponse(int code) {

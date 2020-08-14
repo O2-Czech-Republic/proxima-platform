@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.hadoop;
 
 import cz.o2.proxima.direct.bulk.AbstractBulkFileSystemAttributeWriter;
+import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.net.URI;
@@ -29,7 +30,6 @@ public class HadoopBulkAttributeWriter extends AbstractBulkFileSystemAttributeWr
   private final HadoopDataAccessor accessor;
 
   public HadoopBulkAttributeWriter(HadoopDataAccessor accessor, Context context) {
-
     super(
         accessor.getEntityDesc(),
         accessor.getUriRemapped(),
@@ -55,5 +55,12 @@ public class HadoopBulkAttributeWriter extends AbstractBulkFileSystemAttributeWr
     ExceptionUtils.unchecked(
         () -> path.move((HadoopPath) targetFs.newPath(bulk.getMaxTs() - getRollPeriodMs())));
     log.info("Flushed bulk {}", bulk);
+  }
+
+  @Override
+  public BulkAttributeWriter.Factory<?> asFactory() {
+    final HadoopDataAccessor accessor = this.accessor;
+    final Context context = getContext();
+    return repo -> new HadoopBulkAttributeWriter(accessor, context);
   }
 }

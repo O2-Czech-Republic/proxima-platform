@@ -48,6 +48,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
   private static final String FLUSH_COMMITS_CFG = "flush-commits";
 
   private final int batchSize;
+  private final Map<String, Object> cfg;
 
   private boolean flushCommits;
 
@@ -61,6 +62,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
         Optional.ofNullable(cfg.get(FLUSH_COMMITS_CFG))
             .map(o -> Boolean.valueOf(o.toString()))
             .orElse(true);
+    this.cfg = cfg;
   }
 
   @Override
@@ -95,6 +97,14 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
       log.error("Failed to write {}", data, ex);
       statusCallback.commit(false, ex);
     }
+  }
+
+  @Override
+  public Factory<?> asFactory() {
+    final URI uri = getUri();
+    final Map<String, Object> cfg = this.cfg;
+    final byte[] serializedConf = this.serializedConf;
+    return repo -> new HBaseWriter(uri, deserialize(serializedConf, new Configuration()), cfg);
   }
 
   private void deletePrefix(byte[] key, byte[] family, String prefix, long stamp)

@@ -18,9 +18,14 @@ package cz.o2.proxima.direct.gcloud.storage;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.bulk.NamingConvention;
+import cz.o2.proxima.direct.core.AttributeWriterBase;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.TestUtils;
+import java.io.IOException;
 import java.net.URI;
 import java.util.Collections;
 import org.junit.Test;
@@ -29,6 +34,7 @@ public class GCloudStorageAccessorTest {
 
   private final Repository repo =
       Repository.of(ConfigFactory.load("test-reference.conf").resolve());
+  private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor entity = repo.getEntity("gateway");
 
   @Test
@@ -45,5 +51,26 @@ public class GCloudStorageAccessorTest {
         new GCloudStorageAccessor(entity, URI.create("gs://bucket"), Collections.emptyMap());
     NamingConvention convention = accessor.getNamingConvention();
     assertTrue(convention.nameOf(1500000000000L).startsWith("/2017/07/"));
+  }
+
+  @Test
+  public void testWriterAsFactorySerializable() throws IOException, ClassNotFoundException {
+    GCloudStorageAccessor accessor =
+        new GCloudStorageAccessor(entity, URI.create("gs://bucket"), Collections.emptyMap());
+    BulkGCloudStorageWriter writer = new BulkGCloudStorageWriter(accessor, direct.getContext());
+    byte[] bytes = TestUtils.serializeObject(writer.asFactory());
+    AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(writer.getUri(), factory.apply(repo).getUri());
+  }
+
+  @Test
+  public void testObservableAsFactorySerializable() throws IOException, ClassNotFoundException {
+    GCloudStorageAccessor accessor =
+        new GCloudStorageAccessor(entity, URI.create("gs://bucket"), Collections.emptyMap());
+    GCloudLogObservable reader = new GCloudLogObservable(accessor, direct.getContext());
+    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
+    BatchLogObservable.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(
+        accessor.getUri(), ((GCloudLogObservable) factory.apply(repo)).getAccessor().getUri());
   }
 }

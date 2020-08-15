@@ -90,7 +90,9 @@ public interface Partition extends Serializable {
    * @return partition
    */
   static Partition of(int id) {
+
     return new Partition() {
+
       @Override
       public int getId() {
         return id;

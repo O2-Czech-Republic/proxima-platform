@@ -31,11 +31,13 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import org.apache.beam.sdk.Pipeline;
+import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.io.Read;
 import org.apache.beam.sdk.testing.PAssert;
@@ -53,14 +55,24 @@ public class DirectBatchUnboundedSourceTest {
 
   @Test
   public void testCheckpointCoder() throws CoderException {
-    DirectBatchUnboundedSource.CheckpointCoder coder;
-    coder = new DirectBatchUnboundedSource.CheckpointCoder();
+    final DirectBatchUnboundedSource.CheckpointCoder coder =
+        new DirectBatchUnboundedSource.CheckpointCoder();
+    final List<Partition> partitions = new ArrayList<>();
+    partitions.add(Partition.of(0));
+    partitions.add(Partition.of(1));
+    partitions.add(Partition.of(2));
+    final DirectBatchUnboundedSource.Checkpoint checkpoint =
+        new DirectBatchUnboundedSource.Checkpoint(partitions, 1234L);
+    final DirectBatchUnboundedSource.Checkpoint cloned = CoderUtils.clone(coder, checkpoint);
+    assertEquals(partitions.toString(), cloned.getPartitions().toString());
+    assertEquals(1234L, cloned.getSkipFromFirst());
+  }
+
+  @Test(expected = Coder.NonDeterministicException.class)
+  public void testCheckpointCoderNonDeterministic() throws Coder.NonDeterministicException {
+    final DirectBatchUnboundedSource.CheckpointCoder coder =
+        new DirectBatchUnboundedSource.CheckpointCoder();
     coder.verifyDeterministic();
-    DirectBatchUnboundedSource.Checkpoint checkpoint;
-    checkpoint = new DirectBatchUnboundedSource.Checkpoint(Arrays.asList(() -> 0), 1);
-    DirectBatchUnboundedSource.Checkpoint cloned = CoderUtils.clone(coder, checkpoint);
-    assertEquals(1, cloned.getPartitions().size());
-    assertEquals(1L, cloned.getSkipFromFirst());
   }
 
   @Test

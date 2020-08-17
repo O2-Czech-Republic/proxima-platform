@@ -13,7 +13,17 @@ addons:
     organization: datadriven
 
 install: true
-script: mvn spotless:check && mvn install sonar:sonar -B -V -Pallow-snapshots,with-coverage,travis
+
+before_script:
+  - wget https://github.com/sormuras/bach/raw/master/install-jdk.sh
+script:
+  - mvn spotless:check -B -V
+  - mvn install -B -V -Pallow-snapshots,with-coverage,travis
+  - export JAVA_HOME=$HOME/openjdk11
+  - chmod u+x $TRAVIS_BUILD_DIR/install-jdk.sh
+  - $TRAVIS_BUILD_DIR/install-jdk.sh --feature 11 --target $JAVA_HOME
+  - mvn sonar:sonar -B -V -Pallow-snapshots,with-coverage,travis
+
 before_cache: rm -rf ~/.m2/repository/cz/o2/proxima || /bin/true
 
 cache:

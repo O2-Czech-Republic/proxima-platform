@@ -411,6 +411,7 @@
             <exclude>**/LICENSE</exclude>
             <exclude>**/src/test/resources/**</exclude>
             <exclude>**/src/main/resources/**</exclude>
+            <exclude>install-jdk.sh</exclude>
           </excludes>
         </configuration>
         <executions>

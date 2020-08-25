@@ -107,10 +107,6 @@ public final class ConfigRepository extends Repository {
     return builder.build();
   }
 
-  public static Repository ofCached(Config config, RepositoryFactory preexistingFactory) {
-    return Builder.of(config).withFactory(preexistingFactory).build();
-  }
-
   /** Builder for the repository. */
   public static class Builder {
 
@@ -188,14 +184,15 @@ public final class ConfigRepository extends Repository {
       return this;
     }
 
-    public Builder withFactory(RepositoryFactory preexistingFactory) {
-      this.factory = preexistingFactory;
-      return this;
-    }
-
     public ConfigRepository build() {
-      return new ConfigRepository(
-          config, cachingEnabled, readOnly, validate, loadFamilies, loadClasses, factory);
+      ConfigRepository repo =
+          new ConfigRepository(
+              config, cachingEnabled, readOnly, validate, loadFamilies, loadClasses);
+      RepositoryFactory factory =
+          cachingEnabled
+              ? RepositoryFactory.caching(RepositoryFactory.compressed(config), repo)
+              : RepositoryFactory.local(repo);
+      return repo.withFactory(factory);
     }
   }
 
@@ -288,10 +285,8 @@ public final class ConfigRepository extends Repository {
       boolean isReadonly,
       int validateFlags,
       boolean loadFamilies,
-      boolean loadClasses,
-      RepositoryFactory factory) {
+      boolean loadClasses) {
 
-    super(config, cachingEnabled, factory);
     this.enableCaching = cachingEnabled;
     this.config = config;
     this.readonly = isReadonly;
@@ -324,6 +319,12 @@ public final class ConfigRepository extends Repository {
       }
       cachedConfigConstructed = this.config;
     }
+  }
+
+  /** @return this */
+  ConfigRepository withFactory(RepositoryFactory factory) {
+    this.factory = factory;
+    return this;
   }
 
   public final void reloadConfig(boolean loadFamilies, Config conf) {

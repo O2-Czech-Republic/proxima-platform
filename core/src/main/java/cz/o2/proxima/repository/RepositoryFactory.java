@@ -17,7 +17,6 @@ package cz.o2.proxima.repository;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
@@ -26,6 +25,7 @@ import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.Getter;
 
 /** Factory for {@link cz.o2.proxima.repository.Repository}. */
 @FunctionalInterface
@@ -48,11 +48,6 @@ public interface RepositoryFactory extends Serializable {
       return Repository.of(getConfig());
     }
 
-    @Override
-    public Repository applyWithFactory(RepositoryFactory preexistingFactory) {
-      return ConfigRepository.ofCached(getConfig(), preexistingFactory);
-    }
-
     Config getConfig() {
       return ConfigFactory.parseString(
           StringCompressions.gunzip(compressedConfig, StandardCharsets.UTF_8));
@@ -73,7 +68,7 @@ public interface RepositoryFactory extends Serializable {
     private static long initializedFrom = Long.MIN_VALUE;
     private static Repository repo;
 
-    private final long version = System.currentTimeMillis();
+    @Getter private final long version = System.currentTimeMillis();
     private final RepositoryFactory underlying;
 
     private VersionedCaching(RepositoryFactory underlying, Repository created) {
@@ -89,7 +84,7 @@ public interface RepositoryFactory extends Serializable {
       synchronized (Repository.class) {
         if (initializedFrom < version) {
           ConfigRepository.dropCached();
-          repo = underlying.applyWithFactory(this);
+          repo = ((ConfigRepository) underlying.apply()).withFactory(this);
           initializedFrom = version;
         }
       }
@@ -97,7 +92,7 @@ public interface RepositoryFactory extends Serializable {
     }
 
     @VisibleForTesting
-    static void drop() {
+    public static void drop() {
       ConfigRepository.dropCached();
       initializedFrom = Long.MIN_VALUE;
       repo = null;
@@ -123,7 +118,7 @@ public interface RepositoryFactory extends Serializable {
 
     private LocalInstance(Repository repo) {
       this.hashCode = System.identityHashCode(repo);
-      Preconditions.checkState(localMap.put(System.identityHashCode(repo), repo) == null);
+      localMap.putIfAbsent(System.identityHashCode(repo), repo);
     }
 
     @Override
@@ -155,15 +150,4 @@ public interface RepositoryFactory extends Serializable {
    * @return new repository
    */
   Repository apply();
-
-  /**
-   * Create new {@link cz.o2.proxima.repository.Repository} with predefined factory to be used in
-   * call to {@link Repository#asFactory}.
-   *
-   * @param preexistingFactory factory to be used
-   * @return new repository
-   */
-  default Repository applyWithFactory(RepositoryFactory preexistingFactory) {
-    throw new UnsupportedOperationException("Unsupported");
-  }
 }

@@ -24,12 +24,12 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -95,6 +95,10 @@ public abstract class Repository implements Serializable {
 
   RepositoryFactory factory;
 
+  Repository() {
+    this.factory = RepositoryFactory.local(this);
+  }
+
   @SuppressWarnings({"unchecked", "rawtypes"})
   @Getter(AccessLevel.PACKAGE)
   private final transient Iterable<DataOperatorFactory<?>> dataOperatorFactories =
@@ -103,31 +107,12 @@ public abstract class Repository implements Serializable {
   private final transient Map<String, DataOperator> operatorCache = new ConcurrentHashMap<>();
 
   /**
-   * Construct the repository.
-   *
-   * @param config the config to create instance of this {@link Config}
-   * @param cachingEnabled enable caching of Repository per JVM
-   * @param factory factory to use when (re)constructing this {@link Repository}. When {@code null}
-   *     a new factory is created
-   */
-  Repository(Config config, boolean cachingEnabled, @Nullable RepositoryFactory factory) {
-    if (factory == null) {
-      this.factory =
-          cachingEnabled
-              ? RepositoryFactory.caching(RepositoryFactory.compressed(config), this)
-              : RepositoryFactory.local(this);
-    } else {
-      this.factory = factory;
-    }
-  }
-
-  /**
    * Convert this repository to {@link Serializable} factory.
    *
    * @return this repository as factory
    */
   public RepositoryFactory asFactory() {
-    return factory;
+    return Objects.requireNonNull(factory);
   }
 
   /**

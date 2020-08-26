@@ -398,7 +398,7 @@ public class InMemStorage implements DataAccessorFactory {
       Set<String> consumedOffsets =
           Collections.synchronizedSet(new HashSet<>(offset.getConsumedKeyAttr()));
       WatermarkEstimator watermark =
-          holder.getWatermarkEstimator(
+          DataHolders.getWatermarkEstimator(
               getUri(),
               offset.getWatermark(),
               MoreObjects.firstNonNull(name, "InMemConsumer@" + getUri() + ":" + consumerId),
@@ -811,21 +811,23 @@ public class InMemStorage implements DataAccessorFactory {
     WatermarkEstimator apply(long stamp, String consumer, ConsumedOffset offset);
   }
 
-  private static class DataHolder {
-    final NavigableMap<String, Pair<Long, byte[]>> data;
-    final Map<URI, NavigableMap<Integer, InMemIngestWriter>> observers;
-    final Map<URI, WatermarkEstimatorFactory> watermarkEstimatorFactories;
+  private static class DataHolders {
+    static final Map<String, DataHolder> HOLDERS_MAP = new ConcurrentHashMap<>();
+    static final Map<URI, WatermarkEstimatorFactory> WATERMARK_ESTIMATOR_FACTORIES =
+        new ConcurrentHashMap<>();
 
-    DataHolder() {
-      this.data = Collections.synchronizedNavigableMap(new TreeMap<>());
-      this.observers = Collections.synchronizedMap(new HashMap<>());
-      this.watermarkEstimatorFactories = new ConcurrentHashMap<>();
+    static void newStorage(InMemStorage storage) {
+      HOLDERS_MAP.put(storage.getId(), new DataHolder());
     }
 
-    WatermarkEstimator getWatermarkEstimator(
+    static DataHolder get(InMemStorage storage) {
+      return Objects.requireNonNull(HOLDERS_MAP.get(storage.getId()));
+    }
+
+    static WatermarkEstimator getWatermarkEstimator(
         URI uri, long initializationWatermark, String consumerName, ConsumedOffset offset) {
 
-      return Optional.ofNullable(watermarkEstimatorFactories.get(uri))
+      return Optional.ofNullable(WATERMARK_ESTIMATOR_FACTORIES.get(uri))
           .map(f -> f.apply(initializationWatermark, consumerName, offset))
           .orElseGet(
               () ->
@@ -836,10 +838,18 @@ public class InMemStorage implements DataAccessorFactory {
                       .build());
     }
 
-    void clear() {
-      this.data.clear();
-      this.observers.clear();
-      this.watermarkEstimatorFactories.clear();
+    static void addWatermarkEstimatorFactory(URI uri, WatermarkEstimatorFactory factory) {
+      WATERMARK_ESTIMATOR_FACTORIES.put(uri, factory);
+    }
+  }
+
+  private static class DataHolder {
+    final NavigableMap<String, Pair<Long, byte[]>> data;
+    final Map<URI, NavigableMap<Integer, InMemIngestWriter>> observers;
+
+    DataHolder() {
+      this.data = Collections.synchronizedNavigableMap(new TreeMap<>());
+      this.observers = Collections.synchronizedMap(new HashMap<>());
     }
   }
 
@@ -852,31 +862,29 @@ public class InMemStorage implements DataAccessorFactory {
    */
   public static void setWatermarkEstimatorFactory(URI uri, WatermarkEstimatorFactory factory) {
     Preconditions.checkArgument(uri.getScheme().equals("inmem"), "Expected inmem URI got %s", uri);
-    holder.watermarkEstimatorFactories.put(uri, factory);
+    DataHolders.addWatermarkEstimatorFactory(uri, factory);
   }
-
-  private static final DataHolder holder = new DataHolder();
 
   private static final ScheduledExecutorService scheduler = new ScheduledThreadPoolExecutor(4);
 
+  @Getter private final String id = UUID.randomUUID().toString();
+
   public InMemStorage() {
-    // this is hackish, but working as expected
-    // that is - when we create new instance of the storage,
-    // we want the storage to be empty
-    // we should *never* be using two instances of InMemStorage
-    // simultaneously, as that would imply we are working with
-    // two repositories, which is not supported
-    holder.clear();
-    log.info("Created new empty {}", getClass().getName());
+    log.info("Created new empty {} with id {}", getClass().getName(), id);
+    DataHolders.newStorage(this);
+  }
+
+  private DataHolder holder() {
+    return DataHolders.get(this);
   }
 
   public NavigableMap<String, Pair<Long, byte[]>> getData() {
-    return holder.data;
+    return holder().data;
   }
 
   NavigableMap<Integer, InMemIngestWriter> getObservers(URI uri) {
     return Objects.requireNonNull(
-        holder.observers.get(uri), () -> String.format("Missing observer for [%s]", uri));
+        holder().observers.get(uri), () -> String.format("Missing observer for [%s]", uri));
   }
 
   @Override
@@ -889,10 +897,11 @@ public class InMemStorage implements DataAccessorFactory {
       DirectDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
     log.info("Creating accessor {} for URI {}", getClass(), uri);
-    holder.observers.computeIfAbsent(
-        uri, k -> Collections.synchronizedNavigableMap(new TreeMap<>()));
-    final Repository repo = op.getRepository();
-    final RepositoryFactory repositoryFactory = repo.asFactory();
+    holder()
+        .observers
+        .computeIfAbsent(uri, k -> Collections.synchronizedNavigableMap(new TreeMap<>()));
+    final Repository opRepo = op.getRepository();
+    final RepositoryFactory repositoryFactory = opRepo.asFactory();
     final OnlineAttributeWriter.Factory<?> writerFactory = new Writer(entity, uri).asFactory();
     final CommitLogReader.Factory<?> commitLogReaderFactory =
         new InMemCommitLogReader(entity, uri).asFactory();
@@ -901,14 +910,14 @@ public class InMemStorage implements DataAccessorFactory {
         new Reader(entity, uri, (Factory) op.getContext().getExecutorFactory()).asFactory();
     final CachedView.Factory cachedViewFactory =
         new LocalCachedPartitionedView(
-                entity, commitLogReaderFactory.apply(repo), writerFactory.apply(repo))
+                entity, commitLogReaderFactory.apply(opRepo), writerFactory.apply(opRepo))
             .asFactory();
 
     return new DataAccessor() {
 
       private static final long serialVersionUID = 1L;
 
-      private transient @Nullable Repository repo;
+      private transient @Nullable Repository repo = opRepo;
 
       @Override
       public Optional<AttributeWriterBase> getWriter(Context context) {

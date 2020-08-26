@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.core;
 
 import static org.junit.Assert.assertNotNull;
 
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -24,6 +25,7 @@ import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.util.UUID;
@@ -37,11 +39,11 @@ import org.junit.Test;
 
 public class JoinProxyTransformTest {
 
-  private final Repository repo =
-      Repository.ofTest(
-          ConfigFactory.load("test-beam-proxy.conf")
-              .resolve()
-              .withFallback(ConfigFactory.load("test-reference.conf").resolve()));
+  private final Config config =
+      ConfigFactory.load("test-beam-proxy.conf")
+          .resolve()
+          .withFallback(ConfigFactory.load("test-reference.conf").resolve());
+  private final Repository repo = Repository.ofTest(config);
   private final EntityDescriptor entity = repo.getEntity("gateway");
   private final AttributeDescriptor<byte[]> armed = entity.getAttribute("armed");
   private final AttributeDescriptor<byte[]> status = entity.getAttribute("status");
@@ -91,6 +93,15 @@ public class JoinProxyTransformTest {
     PCollection<StreamElement> input = beam.getBatchUpdates(p, proxy);
     PAssert.that(input.apply(toKeyAttribute())).empty();
     assertNotNull(p.run());
+  }
+
+  @Test
+  public void testDeserializeWithContextProxy() {
+    RepositoryFactory factory =
+        RepositoryFactory.caching(RepositoryFactory.compressed(config), repo);
+    RepositoryFactory.VersionedCaching.drop();
+    Repository repo = factory.apply();
+    assertNotNull(repo);
   }
 
   private static PTransform<PCollection<StreamElement>, PCollection<String>> toKeyAttribute() {

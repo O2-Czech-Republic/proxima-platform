@@ -15,7 +15,9 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import com.google.api.client.util.Lists;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.functional.Factory;
@@ -57,6 +59,7 @@ import org.apache.beam.runners.core.construction.resources.PipelineResources;
 import org.apache.beam.runners.spark.SparkCommonPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineRunner;
+import org.apache.beam.sdk.options.ExperimentalOptions;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 
@@ -201,6 +204,12 @@ public abstract class BeamStreamProvider implements StreamProvider {
     UnaryFunction<PipelineOptions, Pipeline> createPipeline = getCreatePipelineFromOpts();
     return () -> {
       PipelineOptions opts = factory.get();
+      ExperimentalOptions experimentOpts = opts.as(ExperimentalOptions.class);
+      ArrayList<String> experiments =
+          Lists.newArrayList(
+              MoreObjects.firstNonNull(experimentOpts.getExperiments(), new ArrayList<>()));
+      experiments.add("use_deprecated_read");
+      experimentOpts.setExperiments(experiments);
       Pipeline pipeline = createPipeline.apply(opts);
       createUdfJarAndRegisterToPipeline(pipeline.getOptions());
       return pipeline;

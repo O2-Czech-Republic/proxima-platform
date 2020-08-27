@@ -106,7 +106,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   private final transient Repository repo =
       ConfigRepository.Builder.ofTest(ConfigFactory.empty()).build();
   private final DirectDataOperator direct =
-      repo.asDataOperator(DirectDataOperator.class, op -> op.withExecutorFactory(serviceFactory));
+      repo.getOrCreateOperator(
+          DirectDataOperator.class, op -> op.withExecutorFactory(serviceFactory));
 
   private final AttributeDescriptorBase<byte[]> attr;
   private final AttributeDescriptorBase<byte[]> attrWildcard;

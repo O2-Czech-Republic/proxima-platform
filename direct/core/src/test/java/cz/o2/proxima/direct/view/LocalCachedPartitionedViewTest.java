@@ -48,7 +48,7 @@ import org.junit.Test;
 public class LocalCachedPartitionedViewTest {
 
   Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
-  DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
+  DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   EntityDescriptor gateway =
       repo.findEntity("gateway")
           .orElseThrow(() -> new IllegalStateException("Missing entity 'gateway'"));

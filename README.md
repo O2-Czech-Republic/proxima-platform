@@ -265,7 +265,7 @@ First, let's introduce some glossary:
  ```java
     private DirectDataOperator createDataOperator(Model model) {
       Repository repo = model.getRepo();
-      return repo.asDataOperator(DirectDataOperator.class);
+      return repo.getOrCreateOperator(DirectDataOperator.class);
     }
  ```
  Next, we can use the operator to create instances of data accessors, namely:
@@ -275,7 +275,7 @@ First, let's introduce some glossary:
 
  For instance, observing commit log can be done by
  ```java
-    DirectDataOperator operator = model.getRepo().asDataOperator(DirectDataOperator.class);
+    DirectDataOperator operator = model.getRepo().getOrCreateOperator(DirectDataOperator.class);
     CommitLogReader commitLog = operator.getCommitLogReader(
         model.getEvent().getDataDescriptor())
         .orElseThrow(() -> new IllegalArgumentException("Missing commit log for "
@@ -303,7 +303,7 @@ First, let's introduce some glossary:
  ### [Apache Beam](https://beam.apache.org/) access to data
  First, create BeamDataOperator as follows:
  ```java
-   BeamDataOperator operator = model.getRepo().asDataOperator(BeamDataOperator.class);
+   BeamDataOperator operator = model.getRepo().getOrCreateOperator(BeamDataOperator.class);
  ```
  Next, use this operator to create PCollection from Model.
  ```java

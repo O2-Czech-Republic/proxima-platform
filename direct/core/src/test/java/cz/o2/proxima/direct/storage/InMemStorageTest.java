@@ -54,7 +54,7 @@ import org.junit.Test;
 public class InMemStorageTest implements Serializable {
 
   final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
-  final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
+  final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final EntityDescriptor entity =
       repo.findEntity("dummy").orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
   final AttributeDescriptor<?> data =

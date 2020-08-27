@@ -53,7 +53,7 @@ public class MultiAccessBuilderTest {
                     .withFallback(ConfigFactory.load("test-reference.conf"))
                     .resolve())
             .build();
-    this.direct = repo.asDataOperator(DirectDataOperator.class);
+    this.direct = repo.getOrCreateOperator(DirectDataOperator.class);
   }
 
   @Before

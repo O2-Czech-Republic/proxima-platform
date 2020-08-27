@@ -89,11 +89,15 @@ public abstract class BeamStreamProvider implements StreamProvider {
       args = readAndRemoveRegistrars(args, registrars);
       super.init(repo, args);
       this.args = args;
-      log.info("Created {} arguments {}", getClass().getName(), Arrays.toString(args));
       runner = System.getenv("RUNNER");
+      log.info(
+          "Created {} with arguments {} and env RUNNER {}",
+          getClass().getName(),
+          Arrays.toString(args),
+          runner);
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     @Override
     protected Supplier<PipelineOptions> getPipelineOptionsFactory() {
       return () -> {

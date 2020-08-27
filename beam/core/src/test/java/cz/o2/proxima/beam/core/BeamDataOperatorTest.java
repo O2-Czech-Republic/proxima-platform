@@ -71,7 +71,7 @@ public class BeamDataOperatorTest {
 
   @Before
   public synchronized void setUp() {
-    beam = repo.asDataOperator(BeamDataOperator.class);
+    beam = repo.getOrCreateOperator(BeamDataOperator.class);
     direct = beam.getDirect();
     pipeline = Pipeline.create();
     now = System.currentTimeMillis();

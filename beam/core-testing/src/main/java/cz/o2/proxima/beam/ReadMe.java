@@ -44,7 +44,7 @@ class ReadMe {
 
   private void createStream() {
     Model model = createModel();
-    BeamDataOperator operator = model.getRepo().asDataOperator(BeamDataOperator.class);
+    BeamDataOperator operator = model.getRepo().getOrCreateOperator(BeamDataOperator.class);
     Pipeline pipeline = Pipeline.create();
     PCollection<StreamElement> input =
         operator.getStream(

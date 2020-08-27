@@ -51,7 +51,7 @@ public class PubSubWriterTest {
 
   private final Repository repo = Repository.of(ConfigFactory.load().resolve());
   private final DirectDataOperator direct =
-      repo.asDataOperator(
+      repo.getOrCreateOperator(
           DirectDataOperator.class,
           op ->
               op.withExecutorFactory(

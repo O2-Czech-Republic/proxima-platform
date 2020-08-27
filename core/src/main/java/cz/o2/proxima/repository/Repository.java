@@ -203,7 +203,7 @@ public abstract class Repository implements Serializable {
   @VisibleForTesting
   @SuppressWarnings("unchecked")
   @SafeVarargs
-  public final synchronized <T extends DataOperator> T asDataOperator(
+  private final synchronized <T extends DataOperator> T asDataOperator(
       Class<T> type, Consumer<T>... modifiers) {
 
     Iterable<DataOperatorFactory<?>> loaders = getDataOperatorFactories();
@@ -228,26 +228,27 @@ public abstract class Repository implements Serializable {
   }
 
   /**
-   * Retrieve an already created (via call to #asDataOperator} instance of data operator or create
-   * new instance with default settings.
+   * Retrieve instance of data operator or create new instance with given settings.
    *
    * @param <T> type of operator
    * @param type the operator class
+   * @param modifiers modifiers of operator applied when the operator is created
    * @return the data operator of given type
    */
   @SuppressWarnings("unchecked")
-  public final synchronized <T extends DataOperator> T getOrCreateOperator(Class<T> type) {
+  public final synchronized <T extends DataOperator> T getOrCreateOperator(
+      Class<T> type, Consumer<T>... modifiers) {
     T ret = (T) operatorCache.get(type.getName());
     if (ret != null) {
       return ret;
     }
-    return asDataOperator(type);
+    return asDataOperator(type, modifiers);
   }
 
   /**
    * Check if given implementation of data operator is available on classpath and {@link
-   * #asDataOperator(java.lang.Class, Consumer...)} will return non-null object for class
-   * corresponding the given name.
+   * #getOrCreateOperator(Class, Consumer[])} (java.lang.Class, Consumer...)} will return non-null
+   * object for class corresponding the given name.
    *
    * @param name name of the operator
    * @return {@code true} if the operator is available, {@code false} otherwise

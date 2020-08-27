@@ -36,7 +36,7 @@ class ReadMe {
 
   private void consumeCommitLog() {
     Model model = createModel();
-    DirectDataOperator operator = model.getRepo().asDataOperator(DirectDataOperator.class);
+    DirectDataOperator operator = model.getRepo().getOrCreateOperator(DirectDataOperator.class);
     CommitLogReader commitLog =
         operator
             .getCommitLogReader(model.getEvent().getDataDescriptor())

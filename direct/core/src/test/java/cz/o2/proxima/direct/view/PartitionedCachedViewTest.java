@@ -48,7 +48,7 @@ public class PartitionedCachedViewTest {
           .resolve();
 
   final ConfigRepository repo = (ConfigRepository) Repository.of(nonReplicated);
-  final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
+  final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   EntityDescriptor gateway;
 
   @Before

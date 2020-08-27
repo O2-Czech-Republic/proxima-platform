@@ -62,7 +62,7 @@ public class SingleTopicMultipleReplicationsTest {
 
   final Repository repo =
       Repository.of(ConfigFactory.parseResources("test-replication-single-topic.conf"));
-  final DirectDataOperator direct = repo.asDataOperator(DirectDataOperator.class);
+  final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final EntityDescriptor entity =
       repo.findEntity("entity")
           .orElseThrow(() -> new IllegalStateException("Missing entity entity"));

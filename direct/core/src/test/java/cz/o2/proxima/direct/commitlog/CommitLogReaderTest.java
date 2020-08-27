@@ -62,7 +62,7 @@ public class CommitLogReaderTest {
         repo.getAllFamilies()
             .filter(af -> af.getName().equals("event-storage-stream"))
             .findAny()
-            .map(repo.asDataOperator(DirectDataOperator.class)::resolveRequired)
+            .map(repo.getOrCreateOperator(DirectDataOperator.class)::resolveRequired)
             .get();
 
     reader = family.getCommitLogReader().get();

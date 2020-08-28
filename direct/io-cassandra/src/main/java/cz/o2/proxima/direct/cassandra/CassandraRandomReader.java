@@ -45,17 +45,17 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
   }
 
   @Override
-  public synchronized <T> Optional<KeyValue<T>> get(
+  public <T> Optional<KeyValue<T>> get(
       String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
     Session session = accessor.ensureSession();
     BoundStatement statement =
         accessor.getCqlFactory().getReadStatement(key, attribute, desc, session);
-    ResultSet result;
+    final ResultSet result;
     try {
       result = accessor.execute(statement);
     } catch (Exception ex) {
-      throw new RuntimeException(ex);
+      throw new RuntimeException("Unable to execute query.", ex);
     }
     // the row has to have format (value)
     for (Row row : result) {
@@ -77,14 +77,12 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
         }
       }
     }
-
     return Optional.empty();
   }
 
   @Override
   public void scanWildcardAll(
       String key, RandomOffset offset, long stamp, int limit, Consumer<KeyValue<?>> consumer) {
-
     try {
       Offsets.Raw off = (Offsets.Raw) offset;
       Session session = accessor.ensureSession();
@@ -104,8 +102,7 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
   }
 
   @Override
-  @SuppressWarnings("unchecked")
-  public synchronized <T> void scanWildcard(
+  public <T> void scanWildcard(
       String key,
       AttributeDescriptor<T> wildcard,
       @Nullable RandomOffset offset,
@@ -154,7 +151,7 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
   }
 
   @Override
-  public synchronized void listEntities(
+  public void listEntities(
       RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
 
     Session session = accessor.ensureSession();
@@ -174,18 +171,18 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
   }
 
   @Override
-  public Factory asFactory() {
+  public Factory<CassandraRandomReader> asFactory() {
     final CassandraDBAccessor accessor = this.accessor;
     return repo -> new CassandraRandomReader(accessor);
   }
 
   @Override
-  public synchronized void close() {
+  public void close() {
     accessor.close();
   }
 
   @Override
-  public synchronized RandomOffset fetchOffset(Listing type, String key) {
+  public RandomOffset fetchOffset(Listing type, String key) {
     try {
       switch (type) {
         case ATTRIBUTE:
@@ -199,7 +196,6 @@ class CassandraRandomReader extends AbstractStorage implements RandomAccessReade
             return new Offsets.Token(Long.MIN_VALUE);
           }
           return new Offsets.Token(res.one().getLong(0));
-
         default:
           throw new IllegalArgumentException("Unknown type of listing: " + type);
       }

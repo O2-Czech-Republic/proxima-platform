@@ -673,10 +673,13 @@ public class CassandraDBAccessorTest {
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
-    CassandraRandomReader reader = accessor.newRandomReader();
-    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
-    RandomAccessReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
-    assertEquals(reader.getUri(), ((CassandraRandomReader) factory.apply(repo)).getUri());
+    final CassandraRandomReader originalReader = accessor.newRandomReader();
+    byte[] bytes = TestUtils.serializeObject(originalReader.asFactory());
+    final RandomAccessReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    final CassandraRandomReader deserializedReader = (CassandraRandomReader) factory.apply(repo);
+    assertEquals(originalReader.getUri(), deserializedReader.getUri());
+    // Make sure we've deserialized everything we need for executing query.
+    assertFalse(deserializedReader.get("key", "attr", attr).isPresent());
   }
 
   @Test

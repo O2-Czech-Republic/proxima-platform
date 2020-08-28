@@ -324,22 +324,8 @@ public class DirectBatchUnboundedSource
         return false;
       }
       do {
-        if (observer == null) {
-          if (runningPartition != null) {
-            toProcess.remove(0);
-            runningPartition = null;
-          }
-          if (!toProcess.isEmpty()) {
-            // read partitions one by one
-            runningPartition = toProcess.get(0);
-            observer = newObserver(runningPartition);
-            reader.observe(Collections.singletonList(runningPartition), attributes, observer);
-            watermark = new Instant(runningPartition.getMinTimestamp());
-            consumedFromCurrent = 0;
-          } else {
-            watermark = BoundedWindow.TIMESTAMP_MAX_VALUE;
-            return false;
-          }
+        if (observer == null && !startNewObserver()) {
+          return false;
         }
         try {
           current = observer.takeBlocking();
@@ -359,6 +345,25 @@ public class DirectBatchUnboundedSource
         consumedFromCurrent++;
       } while (skip-- > 0);
       bytesConsumed += sizeOf(current);
+      return true;
+    }
+
+    private boolean startNewObserver() {
+      if (runningPartition != null) {
+        toProcess.remove(0);
+        runningPartition = null;
+      }
+      if (!toProcess.isEmpty()) {
+        // read partitions one by one
+        runningPartition = toProcess.get(0);
+        observer = newObserver(runningPartition);
+        reader.observe(Collections.singletonList(runningPartition), attributes, observer);
+        watermark = new Instant(runningPartition.getMinTimestamp());
+        consumedFromCurrent = 0;
+      } else {
+        watermark = BoundedWindow.TIMESTAMP_MAX_VALUE;
+        return false;
+      }
       return true;
     }
 

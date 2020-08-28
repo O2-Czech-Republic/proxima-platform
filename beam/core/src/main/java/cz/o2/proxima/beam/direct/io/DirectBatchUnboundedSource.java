@@ -21,7 +21,6 @@ import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper.ConfigReader;
 import cz.o2.proxima.direct.batch.BatchLogObservable;
-import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
@@ -38,10 +37,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -272,39 +268,6 @@ public class DirectBatchUnboundedSource
     };
   }
 
-  private static BatchLogObserver asObserver(
-      BlockingQueue<StreamElement> queue, AtomicBoolean running, AtomicBoolean stopped) {
-
-    return new BatchLogObserver() {
-
-      @Override
-      public boolean onNext(StreamElement element) {
-        try {
-          while (!stopped.get()) {
-            if (queue.offer(element, 100, TimeUnit.MILLISECONDS)) {
-              return true;
-            }
-            // the queue is full, give it another round
-          }
-        } catch (InterruptedException ex) {
-          log.warn("Interrupted while reading data.", ex);
-          Thread.currentThread().interrupt();
-        }
-        return false;
-      }
-
-      @Override
-      public void onCompleted() {
-        running.set(false);
-      }
-
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
-    };
-  }
-
   private long getMaxThroughput() {
     if (maxThroughput == 0) {
       long configured = configReader.getBytesPerSecThroughput(repositoryFactory.apply());
@@ -320,15 +283,13 @@ public class DirectBatchUnboundedSource
     private final BatchLogObservable reader;
     private final List<AttributeDescriptor<?>> attributes;
     private final List<Partition> toProcess;
-    private final BlockingQueue<StreamElement> queue = new ArrayBlockingQueue<>(100);
-    private final AtomicBoolean running = new AtomicBoolean();
-    private final AtomicBoolean stopped = new AtomicBoolean();
     private final long createdTime = System.currentTimeMillis();
+    private BlockingQueueLogObserver observer;
 
     long consumedFromCurrent;
     @Nullable StreamElement current = null;
     long skip;
-    Instant watermark;
+    Instant watermark = Instant.ofEpochMilli(Long.MIN_VALUE);
     @Nullable Partition runningPartition = null;
     long bytesConsumed = 0L;
 
@@ -353,17 +314,17 @@ public class DirectBatchUnboundedSource
     }
 
     @Override
-    public boolean start() {
+    public boolean start() throws IOException {
       return advance();
     }
 
     @Override
-    public boolean advance() {
+    public boolean advance() throws IOException {
       if (exceededThroughput()) {
         return false;
       }
       do {
-        if (queue.isEmpty() && !running.get()) {
+        if (observer == null) {
           if (runningPartition != null) {
             toProcess.remove(0);
             runningPartition = null;
@@ -371,11 +332,8 @@ public class DirectBatchUnboundedSource
           if (!toProcess.isEmpty()) {
             // read partitions one by one
             runningPartition = toProcess.get(0);
-            running.set(true);
-            reader.observe(
-                Collections.singletonList(runningPartition),
-                attributes,
-                asObserver(queue, running, stopped));
+            observer = newObserver(runningPartition);
+            reader.observe(Collections.singletonList(runningPartition), attributes, observer);
             watermark = new Instant(runningPartition.getMinTimestamp());
             consumedFromCurrent = 0;
           } else {
@@ -383,14 +341,30 @@ public class DirectBatchUnboundedSource
             return false;
           }
         }
-        current = queue.poll();
+        try {
+          current = observer.takeBlocking();
+        } catch (InterruptedException ex) {
+          log.debug("Interrupted while reading data", ex);
+          observer.stop();
+          Thread.currentThread().interrupt();
+        }
         if (current == null) {
+          Throwable error = observer.getError();
+          if (error != null) {
+            throw new IOException(error);
+          }
+          observer = null;
           return false;
         }
         consumedFromCurrent++;
       } while (skip-- > 0);
       bytesConsumed += sizeOf(current);
       return true;
+    }
+
+    private BlockingQueueLogObserver newObserver(Partition partition) {
+      return BlockingQueueLogObserver.create(
+          "DirectBatchUnbounded:" + partition.getId(), watermark.getMillis());
     }
 
     private static int sizeOf(StreamElement element) {
@@ -439,7 +413,7 @@ public class DirectBatchUnboundedSource
 
     @Override
     public void close() {
-      stopped.set(true);
+      Optional.ofNullable(observer).ifPresent(BlockingQueueLogObserver::stop);
     }
   }
 }

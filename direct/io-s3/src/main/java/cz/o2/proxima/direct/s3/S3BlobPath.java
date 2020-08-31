@@ -116,6 +116,10 @@ public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> {
       @Override
       public int read(ByteBuffer dst) throws IOException {
         ensureOpen();
+        if (position >= contentLength) {
+          // End of file.
+          return -1;
+        }
         if (object == null) {
           final S3FileSystem fs = (S3FileSystem) getFileSystem();
           final GetObjectRequest request = new GetObjectRequest(fs.getBucket(), getBlobName());
@@ -137,7 +141,7 @@ public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> {
           } catch (AmazonClientException e) {
             throw new IOException(e);
           }
-        } while (bytesRead > 0);
+        } while (bytesRead >= 0);
 
         position += totalBytesRead;
         return totalBytesRead;

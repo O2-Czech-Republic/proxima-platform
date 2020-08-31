@@ -44,6 +44,8 @@ import org.mockito.stubbing.Answer;
 
 public class S3BlobPathTest implements Serializable {
 
+  private static final int MAX_READ_CYCLES = 10;
+
   private static String toString(ByteBuffer buffer) {
     final byte[] result = new byte[buffer.position()];
     buffer.rewind();
@@ -54,6 +56,19 @@ public class S3BlobPathTest implements Serializable {
   Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   DirectDataOperator op = repo.getOrCreateOperator(DirectDataOperator.class);
   EntityDescriptor entity = repo.getEntity("gateway");
+
+  private static void readAll(ReadableByteChannel channel, ByteBuffer dst) throws IOException {
+    int readCycle = 0;
+    int bytesRead;
+    do {
+      if (readCycle > MAX_READ_CYCLES) {
+        throw new IOException(
+            String.format("Unable to reach end of channel after %d cycles.", MAX_READ_CYCLES));
+      }
+      bytesRead = channel.read(dst);
+      readCycle++;
+    } while (bytesRead >= 0);
+  }
 
   @Test
   public void testBlobGetSize() {
@@ -125,7 +140,7 @@ public class S3BlobPathTest implements Serializable {
       Assert.assertTrue(channel instanceof SeekableByteChannel);
       final SeekableByteChannel cast = (SeekableByteChannel) channel;
       final ByteBuffer readBuffer = ByteBuffer.allocate(4096);
-      cast.read(readBuffer);
+      readAll(cast, readBuffer);
       Assert.assertEquals(message, toString(readBuffer));
       Assert.assertEquals(messageBytes.length, cast.position());
 
@@ -135,7 +150,7 @@ public class S3BlobPathTest implements Serializable {
       // Seek to 'five' and re-read rest of the message.
       final String remaining = message.substring(message.indexOf("five"));
       cast.position(messageBytes.length - remaining.getBytes(StandardCharsets.UTF_8).length);
-      cast.read(readBuffer);
+      readAll(cast, readBuffer);
       Assert.assertEquals(remaining, toString(readBuffer));
 
       // Common checks.

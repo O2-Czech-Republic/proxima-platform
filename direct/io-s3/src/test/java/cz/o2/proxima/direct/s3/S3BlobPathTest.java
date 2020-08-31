@@ -153,6 +153,15 @@ public class S3BlobPathTest implements Serializable {
       readAll(cast, readBuffer);
       Assert.assertEquals(remaining, toString(readBuffer));
 
+      // Read partial.
+      final int oneLength = "one".getBytes(StandardCharsets.UTF_8).length;
+      final ByteBuffer smallReadBuffer = ByteBuffer.allocate(oneLength);
+      cast.position(0L);
+      Assert.assertEquals(oneLength, cast.read(smallReadBuffer));
+      // There are still bytes we can read, but there is no free space in receiving buffer left.
+      Assert.assertEquals(0, cast.read(smallReadBuffer));
+      Assert.assertEquals("one", toString(smallReadBuffer));
+
       // Common checks.
       Assert.assertTrue(cast.isOpen());
       Assert.assertEquals(messageBytes.length, cast.size());

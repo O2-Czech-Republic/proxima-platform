@@ -141,7 +141,7 @@ public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> {
           } catch (AmazonClientException e) {
             throw new IOException(e);
           }
-        } while (bytesRead >= 0);
+        } while (bytesRead > 0);
 
         position += totalBytesRead;
         return totalBytesRead;

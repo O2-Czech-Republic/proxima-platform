@@ -82,8 +82,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   public static final String CFG_NUM_PARTITIONS = "local-kafka-num-partitions";
 
   // we need this to be able to survive serialization
-  private static final Map<Integer, Map<URI, Accessor>> ACCESSORS =
-      Collections.synchronizedMap(new HashMap<>());
+  private static final Map<String, Map<URI, Accessor>> ACCESSORS = new ConcurrentHashMap<>();
 
   // identifier of consumer with group name and consumer Id
   private static class ConsumerId {
@@ -124,7 +123,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
     private static final long serialVersionUID = 1L;
 
-    int descriptorId;
+    String descriptorId;
     int numPartitions = 1;
 
     // list of consumers by name with assigned partitions
@@ -147,7 +146,8 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       configure(copy.getUri(), cfg);
     }
 
-    public Accessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg, int descriptorId) {
+    public Accessor(
+        EntityDescriptor entity, URI uri, Map<String, Object> cfg, String descriptorId) {
 
       super(entity, uri, cfg);
 
@@ -706,10 +706,10 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     private static final long serialVersionUID = 1L;
 
     private final int numPartitions;
-    private final int descriptorId;
+    private final String descriptorId;
 
     public LocalKafkaWriter(
-        LocalKafkaCommitLogDescriptor.Accessor accessor, int numPartitions, int descriptorId) {
+        LocalKafkaCommitLogDescriptor.Accessor accessor, int numPartitions, String descriptorId) {
 
       super(accessor);
       this.numPartitions = numPartitions;
@@ -744,12 +744,12 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     public OnlineAttributeWriter.Factory<?> asFactory() {
       final LocalKafkaCommitLogDescriptor.Accessor accessor = getAccessor();
       final int numPartitions = this.numPartitions;
-      final int descriptorId = this.descriptorId;
+      final String descriptorId = this.descriptorId;
       return repo -> new LocalKafkaWriter(accessor, numPartitions, descriptorId);
     }
   }
 
-  private final int id = System.identityHashCode(this);
+  private final String id = UUID.randomUUID().toString();
   private final Function<Accessor, Accessor> accessorModifier;
 
   public LocalKafkaCommitLogDescriptor() {

@@ -96,7 +96,12 @@ public abstract class Repository implements Serializable {
   RepositoryFactory factory;
 
   Repository() {
-    this.factory = RepositoryFactory.local(this);
+    this.factory =
+        RepositoryFactory.local(
+            this,
+            () -> {
+              throw new UnsupportedOperationException();
+            });
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
@@ -238,6 +243,7 @@ public abstract class Repository implements Serializable {
   @SuppressWarnings("unchecked")
   public final synchronized <T extends DataOperator> T getOrCreateOperator(
       Class<T> type, Consumer<T>... modifiers) {
+
     T ret = (T) operatorCache.get(type.getName());
     if (ret != null) {
       return ret;
@@ -266,6 +272,12 @@ public abstract class Repository implements Serializable {
    *     production settings, while test settings can be less strict).
    */
   public abstract boolean isShouldValidate(Validate what);
+
+  /**
+   * Drop the {@link Repository} and let it recreate from scratch using factory. This is intended
+   * for use in tests mostly to prevent influence between two test cases.
+   */
+  public abstract void drop();
 
   /**
    * Called when new {@link DataOperator} is created.

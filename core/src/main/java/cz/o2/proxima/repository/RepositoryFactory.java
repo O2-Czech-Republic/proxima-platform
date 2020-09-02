@@ -114,16 +114,22 @@ public interface RepositoryFactory extends Serializable {
 
     private static final Map<Integer, Repository> localMap = new ConcurrentHashMap<>();
 
-    private final int hashCode;
+    static void drop() {
+      localMap.clear();
+    }
 
-    private LocalInstance(Repository repo) {
+    private final int hashCode;
+    private final RepositoryFactory factory;
+
+    private LocalInstance(Repository repo, RepositoryFactory factory) {
       this.hashCode = System.identityHashCode(repo);
-      localMap.putIfAbsent(System.identityHashCode(repo), repo);
+      this.factory = factory;
+      localMap.put(this.hashCode, repo);
     }
 
     @Override
     public Repository apply() {
-      return localMap.get(hashCode);
+      return localMap.computeIfAbsent(hashCode, k -> factory.apply());
     }
 
     @Override
@@ -140,8 +146,8 @@ public interface RepositoryFactory extends Serializable {
     return new VersionedCaching(factory, current);
   }
 
-  static RepositoryFactory local(Repository repository) {
-    return new LocalInstance(repository);
+  static RepositoryFactory local(Repository repository, RepositoryFactory factory) {
+    return new LocalInstance(repository, factory);
   }
 
   /**

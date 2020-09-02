@@ -537,6 +537,25 @@ public class ConfigRepositoryTest {
     assertSame(factory.apply(), newRepo);
   }
 
+  @Test
+  public void testRepositoryDrop() {
+    Repository cloned = repo.asFactory().apply();
+    assertSame(cloned, repo);
+    repo.drop();
+    cloned = repo.asFactory().apply();
+    assertNotSame(cloned, repo);
+  }
+
+  @Test
+  public void testTestRepositoryDrop() {
+    Repository first = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
+    Repository second = first.asFactory().apply();
+    assertSame(second, first);
+    first.drop();
+    second = first.asFactory().apply();
+    assertNotSame(second, first);
+  }
+
   private void checkThrows(Factory<?> factory) {
     try {
       factory.apply();

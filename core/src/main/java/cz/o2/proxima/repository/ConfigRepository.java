@@ -26,6 +26,8 @@ import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.repository.RepositoryFactory.LocalInstance;
+import cz.o2.proxima.repository.RepositoryFactory.VersionedCaching;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageFilter;
@@ -191,8 +193,25 @@ public final class ConfigRepository extends Repository {
       RepositoryFactory factory =
           cachingEnabled
               ? RepositoryFactory.caching(RepositoryFactory.compressed(config), repo)
-              : RepositoryFactory.local(repo);
+              : RepositoryFactory.local(repo, asFactory());
       return repo.withFactory(factory);
+    }
+
+    private RepositoryFactory asFactory() {
+      final Config config = this.config;
+      final boolean cachingEnabled = this.cachingEnabled;
+      final boolean loadClasses = this.loadClasses;
+      final boolean loadFamilies = this.loadFamilies;
+      final boolean readOnly = this.readOnly;
+      final int validate = this.validate;
+      return () ->
+          new Builder(config)
+              .withCachingEnabled(cachingEnabled)
+              .withLoadClasses(loadClasses)
+              .withLoadFamilies(loadFamilies)
+              .withReadOnly(readOnly)
+              .withValidateFlag(validate)
+              .build();
     }
   }
 
@@ -1006,6 +1025,13 @@ public final class ConfigRepository extends Repository {
     return what.getFlag() == 0 || (this.validateFlags & what.getFlag()) != 0;
   }
 
+  @Override
+  public void drop() {
+    LocalInstance.drop();
+    VersionedCaching.drop();
+    ConfigRepository.dropCached();
+  }
+
   private void readAttributeFamilies(Config cfg) {
 
     if (entitiesByName.isEmpty()) {
@@ -1347,7 +1373,7 @@ public final class ConfigRepository extends Repository {
       EntityDescriptor entity, String attr, boolean read) {
 
     AttributeDescriptor<?> result = findAttributeRequired(entity, attr);
-    while (((AttributeDescriptorBase<?>) result).isProxy()) {
+    while (result.isProxy()) {
       result =
           read
               ? ((AttributeDescriptorBase<?>) result).toProxy().getReadTarget()
@@ -2104,6 +2130,11 @@ public final class ConfigRepository extends Repository {
   @Override
   public int hashCode() {
     return Objects.hash(config, enableCaching, readonly, validateFlags, loadClasses);
+  }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName() + "@" + System.identityHashCode(this);
   }
 
   @VisibleForTesting

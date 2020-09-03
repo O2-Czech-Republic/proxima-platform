@@ -29,7 +29,7 @@ RESUME=""
 if echo ${VERSION} | grep SNAPSHOT >/dev/null && echo ${GITHUB_REPOSITORY} | grep O2-Czech-Republic >/dev/null; then
   TRY=0
   while [ $TRY -lt 3 ]; do
-    CMD="mvn deploy -DskipTests -Prelease-snapshot"
+    CMD="mvn deploy -DskipTests -Prelease-snapshot -Pallow-snapshots"
     if [ ! -z "${RESUME}" ]; then
       CMD="${CMD} $(echo $RESUME | sed "s/.\+\(-rf .\+\)/\1/")"
     fi

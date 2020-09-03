@@ -34,6 +34,7 @@ if echo ${VERSION} | grep SNAPSHOT >/dev/null && echo ${GITHUB_REPOSITORY} | gre
       CMD="${CMD} $(echo $RESUME | sed "s/.\+\(-rf .\+\)/\1/")"
     fi
     echo "Starting to deploy step $((TRY + 1)) with command ${CMD}"
+    touch output${TRY}.log
     RESUME=$(${CMD} | tee output${TRY}.log | grep -A1 "After correcting the problems, you can resume the build with the command" | tail -1)
     tail -f output${TRY}.log &
     if [ -z "${RESUME}" ]; then

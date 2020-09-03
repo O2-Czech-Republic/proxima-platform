@@ -35,8 +35,8 @@ if echo ${VERSION} | grep SNAPSHOT >/dev/null && echo ${GITHUB_REPOSITORY} | gre
     fi
     echo "Starting to deploy step $((TRY + 1)) with command ${CMD}"
     touch output${TRY}.log
-    RESUME=$(${CMD} | tee output${TRY}.log | grep -A1 "After correcting the problems, you can resume the build with the command" | tail -1)
     tail -f output${TRY}.log &
+    RESUME=$(${CMD} | tee output${TRY}.log | grep -A1 "After correcting the problems, you can resume the build with the command" | tail -1)
     if [ -z "${RESUME}" ]; then
       break
     fi

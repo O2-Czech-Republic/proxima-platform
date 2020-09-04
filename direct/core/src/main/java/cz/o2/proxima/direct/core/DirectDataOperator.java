@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.core;
 
 import com.google.common.collect.Sets;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.ThroughputLimitedCommitLogReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.functional.Factory;
@@ -273,9 +274,10 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   public Optional<CommitLogReader> getCommitLogReader(Collection<AttributeDescriptor<?>> attrs) {
 
     return getAccessor(
-        attrs,
-        a -> a.getDesc().getAccess().canReadCommitLog(),
-        DirectAttributeFamilyDescriptor::getCommitLogReader);
+            attrs,
+            a -> a.getDesc().getAccess().canReadCommitLog(),
+            DirectAttributeFamilyDescriptor::getCommitLogReader)
+        .map(reader -> ThroughputLimitedCommitLogReader.withThroughputLimit(reader, null));
   }
 
   /**

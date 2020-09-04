@@ -23,11 +23,15 @@ import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.ThroughputLimiter;
+import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -36,9 +40,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -67,6 +73,11 @@ public class CommitLogReaderTest {
 
     reader = family.getCommitLogReader().get();
     writer = family.getWriter().get();
+  }
+
+  @After
+  public void tearDown() {
+    repo.drop();
   }
 
   @Test(timeout = 10000)
@@ -423,6 +434,132 @@ public class CommitLogReaderTest {
     assertEquals(0x1F, mask.get());
     inner.onIdle(() -> 0);
     assertEquals(0x3F, mask.get());
+  }
+
+  @Test(timeout = 5000)
+  public void testObserveThroughputLimitedCommitLog() throws InterruptedException {
+    testThroughputLimitedCommitLogWithObserve(
+        (reader, onNext) -> reader.observe("dummy", createLimitedObserver(onNext)));
+  }
+
+  @Test(timeout = 5000)
+  public void testObserveBulkThroughputLimitedCommitLog() throws InterruptedException {
+    testThroughputLimitedCommitLogWithObserve(
+        (reader, onNext) ->
+            reader.observeBulk("dummy", Position.NEWEST, createLimitedObserver(onNext)));
+  }
+
+  @Test(timeout = 5000)
+  public void testObserveBulkPartitionsThroughputLimitedCommitLog() throws InterruptedException {
+    testThroughputLimitedCommitLogWithObserve(
+        (reader, onNext) ->
+            reader.observeBulkPartitions(
+                "dummy", reader.getPartitions(), Position.NEWEST, createLimitedObserver(onNext)));
+  }
+
+  @Test(timeout = 5000)
+  public void testObservePartitionsThroughputLimitedCommitLog() throws InterruptedException {
+    testThroughputLimitedCommitLogWithObserve(
+        (reader, onNext) ->
+            reader.observePartitions(
+                "dummy",
+                reader.getPartitions(),
+                Position.NEWEST,
+                false,
+                createLimitedObserver(onNext)));
+  }
+
+  @Test(timeout = 5000)
+  public void testObserveOffsetsThroughputLimitedCommitLog() throws InterruptedException {
+    testThroughputLimitedCommitLogWithObserve(
+        (reader, onNext) -> {
+          ObserveHandle handle =
+              reader.observeBulk(
+                  "offset-fetch",
+                  Position.NEWEST,
+                  false,
+                  new LogObserver() {
+
+                    @Override
+                    public boolean onError(Throwable error) {
+                      return false;
+                    }
+
+                    @Override
+                    public boolean onNext(StreamElement ingest, OnNextContext context) {
+                      return false;
+                    }
+                  });
+          ExceptionUtils.unchecked(handle::waitUntilReady);
+          List<Offset> offsets = handle.getCommittedOffsets();
+          handle.close();
+          return reader.observeBulkOffsets(offsets, createLimitedObserver(onNext));
+        });
+  }
+
+  private LogObserver createLimitedObserver(Runnable onNext) {
+    return new LogObserver() {
+
+      @Override
+      public boolean onError(Throwable error) {
+        return false;
+      }
+
+      @Override
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
+        onNext.run();
+        return true;
+      }
+    };
+  }
+
+  private void testThroughputLimitedCommitLogWithObserve(
+      BiFunction<CommitLogReader, Runnable, ObserveHandle> observe) throws InterruptedException {
+    final int numElements = 50;
+    ThroughputLimiter limiter = withNumRecordsPerSec(2 * numElements);
+    CommitLogReader limitedReader =
+        ThroughputLimitedCommitLogReader.withThroughputLimit(reader, limiter);
+    assertEquals(limitedReader.getPartitions(), reader.getPartitions());
+    assertEquals(limitedReader.getUri(), reader.getUri());
+    CountDownLatch latch = new CountDownLatch(numElements);
+    AtomicLong lastMillis = new AtomicLong(System.currentTimeMillis());
+    List<Long> durations = new ArrayList<>();
+    ObserveHandle handle =
+        observe.apply(
+            limitedReader,
+            () -> {
+              latch.countDown();
+              long now = System.currentTimeMillis();
+              long lastGet = lastMillis.getAndUpdate(current -> now);
+              durations.add(now - lastGet);
+            });
+
+    for (int i = 0; i < 50; i++) {
+      writer
+          .online()
+          .write(
+              StreamElement.upsert(
+                  entity,
+                  attr,
+                  UUID.randomUUID().toString(),
+                  "key",
+                  attr.getName(),
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2}),
+              (succ, exc) -> {});
+    }
+    latch.await();
+    assertEquals(numElements, durations.size());
+    assertEquals(
+        durations.toString(),
+        numElements,
+        durations.stream().filter(s -> s >= 500 / numElements).count());
+    handle.close();
+  }
+
+  private static ThroughputLimiter withNumRecordsPerSec(int recordsPerSec) {
+    final Duration pauseDuration = Duration.ofMillis(1000L / recordsPerSec);
+    return context -> pauseDuration;
   }
 
   private OnNextContext asOnNextContext(long watermark) {

@@ -20,8 +20,8 @@ import static org.junit.Assert.*;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -149,7 +149,7 @@ public class HadoopStorageTest {
     assertEquals("Expected single file in " + files, 1, files.size());
     assertFalse(Iterables.getOnlyElement(files).getAbsolutePath().contains("_tmp"));
 
-    BatchLogObservable reader = accessor.getBatchLogObservable(direct.getContext()).orElse(null);
+    BatchLogReader reader = accessor.getBatchLogReader(direct.getContext()).orElse(null);
     assertNotNull(reader);
     List<Partition> partitions = reader.getPartitions();
     assertEquals(1, partitions.size());
@@ -191,7 +191,7 @@ public class HadoopStorageTest {
     assertEquals("Expected single file in " + files, 1, files.size());
     assertFalse(Iterables.getOnlyElement(files).getAbsolutePath().contains("_tmp"));
 
-    BatchLogObservable reader = accessor.getBatchLogObservable(direct.getContext()).orElse(null);
+    BatchLogReader reader = accessor.getBatchLogReader(direct.getContext()).orElse(null);
     assertNotNull(reader);
     List<Partition> partitions = reader.getPartitions();
     assertEquals(1, partitions.size());
@@ -232,7 +232,7 @@ public class HadoopStorageTest {
     assertEquals("Expected single file in " + files, 1, files.size());
     assertTrue(Iterables.getOnlyElement(files).getAbsolutePath().contains("_tmp"));
 
-    BatchLogObservable reader = accessor.getBatchLogObservable(direct.getContext()).orElse(null);
+    BatchLogReader reader = accessor.getBatchLogReader(direct.getContext()).orElse(null);
     assertNotNull(reader);
     List<Partition> partitions = reader.getPartitions();
     assertTrue("Expected empty partitions, got " + partitions, partitions.isEmpty());
@@ -270,15 +270,15 @@ public class HadoopStorageTest {
   }
 
   @Test
-  public void testObservableAsFactorySerializable() throws IOException, ClassNotFoundException {
+  public void testReaderAsFactorySerializable() throws IOException, ClassNotFoundException {
     HadoopDataAccessor accessor =
         new HadoopDataAccessor(entity, URI.create("hdfs://namenode"), Collections.emptyMap());
-    HadoopBatchLogObservable reader = new HadoopBatchLogObservable(accessor, direct.getContext());
+    HadoopBatchLogReader reader = new HadoopBatchLogReader(accessor, direct.getContext());
     byte[] bytes = TestUtils.serializeObject(reader.asFactory());
-    BatchLogObservable.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    BatchLogReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
     assertEquals(
         accessor.getUri(),
-        ((HadoopBatchLogObservable) factory.apply(repository)).getAccessor().getUri());
+        ((HadoopBatchLogReader) factory.apply(repository)).getAccessor().getUri());
   }
 
   Map<String, Object> cfg(Object... kvs) {

@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
 
-/** An {@link BoundedSource} created from direct operator's {@link BatchLogObservable}. */
+/** An {@link BoundedSource} created from direct operator's {@link BatchLogReader}. */
 @Slf4j
 public class DirectBatchSource extends AbstractDirectBoundedSource {
 
@@ -37,7 +37,7 @@ public class DirectBatchSource extends AbstractDirectBoundedSource {
 
   static DirectBatchSource of(
       RepositoryFactory factory,
-      BatchLogObservable reader,
+      BatchLogReader reader,
       List<AttributeDescriptor<?>> attrs,
       long startStamp,
       long endStamp) {
@@ -45,17 +45,17 @@ public class DirectBatchSource extends AbstractDirectBoundedSource {
     return new DirectBatchSource(factory, reader, attrs, startStamp, endStamp);
   }
 
-  private final BatchLogObservable.Factory<?> readerFactory;
+  private final BatchLogReader.Factory<?> readerFactory;
   private final List<AttributeDescriptor<?>> attrs;
   private final long startStamp;
   private final long endStamp;
   private final @Nullable Partition split;
   // need this to be able to deserialize old format
-  private transient BatchLogObservable reader;
+  private transient BatchLogReader reader;
 
   private DirectBatchSource(
       RepositoryFactory factory,
-      BatchLogObservable reader,
+      BatchLogReader reader,
       List<AttributeDescriptor<?>> attrs,
       long startStamp,
       long endStamp) {
@@ -96,7 +96,7 @@ public class DirectBatchSource extends AbstractDirectBoundedSource {
     return BeamBatchLogReader.of(this, reader(), attrs, split, startStamp, endStamp);
   }
 
-  private BatchLogObservable reader() {
+  private BatchLogReader reader() {
     if (reader == null) {
       reader = readerFactory.apply(factory.apply());
     }

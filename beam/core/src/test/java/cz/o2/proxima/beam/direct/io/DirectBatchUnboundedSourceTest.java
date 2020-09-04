@@ -21,8 +21,8 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.direct.io.DirectBatchUnboundedSource.Checkpoint;
 import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper.ConfigReader;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -150,8 +150,8 @@ public class DirectBatchUnboundedSourceTest {
     reader.advance();
   }
 
-  private BatchLogObservable throwingReader() {
-    return new BatchLogObservable() {
+  private BatchLogReader throwingReader() {
+    return new BatchLogReader() {
       @Override
       public List<Partition> getPartitions(long startStamp, long endStamp) {
         return Collections.singletonList(() -> 0);
@@ -185,13 +185,13 @@ public class DirectBatchUnboundedSourceTest {
     EntityDescriptor gateway = repo.getEntity("gateway");
     AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
     DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
-    BatchLogObservable observable =
+    BatchLogReader reader =
         direct
             .getFamiliesForAttribute(armed)
             .stream()
             .filter(af -> af.getDesc().getAccess().canReadBatchSnapshot())
             .findFirst()
-            .flatMap(DirectAttributeFamilyDescriptor::getBatchObservable)
+            .flatMap(DirectAttributeFamilyDescriptor::getBatchReader)
             .orElseThrow(() -> new IllegalArgumentException("Missing batch snapshot for armed"));
     try {
       PCollection<StreamElement> input =
@@ -199,7 +199,7 @@ public class DirectBatchUnboundedSourceTest {
               Read.from(
                   DirectBatchUnboundedSource.of(
                       repo.asFactory(),
-                      observable,
+                      reader,
                       configReader,
                       Collections.singletonList(armed),
                       Long.MIN_VALUE,

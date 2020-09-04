@@ -20,8 +20,8 @@ import static org.junit.Assert.*;
 
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.batch.BatchLogObservable.Factory;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader.Factory;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
@@ -47,8 +47,8 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-/** Test suite for {@link HBaseLogObservable}. */
-public class HBaseLogObservableTest {
+/** Test suite for {@link HBaseLogReader}. */
+public class HBaseLogReaderTest {
 
   private static final TableName tableName = TableName.valueOf("test");
   private static final HBaseTestingUtility util = HBaseTestingUtility.createLocalHTU();
@@ -60,7 +60,7 @@ public class HBaseLogObservableTest {
   private final AttributeDescriptor<?> attr = entity.findAttribute("dummy").get();
   private final AttributeDescriptor<?> wildcard = entity.findAttribute("wildcard.*").get();
 
-  private HBaseLogObservable reader;
+  private HBaseLogReader reader;
   private Connection conn;
   private Table client;
 
@@ -83,7 +83,7 @@ public class HBaseLogObservableTest {
     conn = ConnectionFactory.createConnection(util.getConfiguration());
     client = conn.getTable(tableName);
     reader =
-        new HBaseLogObservable(
+        new HBaseLogReader(
             new URI("hbase://localhost:2181/test?family=u"),
             cluster.getConfiguration(),
             entity,
@@ -228,7 +228,7 @@ public class HBaseLogObservableTest {
   public void testAsFactorySerializable() throws IOException, ClassNotFoundException {
     byte[] bytes = TestUtils.serializeObject(reader.asFactory());
     Factory<?> factory = TestUtils.deserializeObject(bytes);
-    assertEquals(reader.getUri(), ((HBaseLogObservable) factory.apply(repo)).getUri());
+    assertEquals(reader.getUri(), ((HBaseLogReader) factory.apply(repo)).getUri());
   }
 
   private void write(String key, String attribute, String value, long stamp) throws IOException {

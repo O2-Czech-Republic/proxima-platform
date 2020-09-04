@@ -22,7 +22,7 @@ import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -110,12 +110,11 @@ public class DirectDataAccessorWrapper implements DataAccessor {
   public PCollection<StreamElement> createBatch(
       Pipeline pipeline, List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp) {
 
-    BatchLogObservable reader =
+    BatchLogReader reader =
         direct
-            .getBatchLogObservable(context)
+            .getBatchLogReader(context)
             .orElseThrow(
-                () ->
-                    new IllegalArgumentException("Cannot create batch observable from " + direct));
+                () -> new IllegalArgumentException("Cannot create batch reader from " + direct));
 
     PCollection<StreamElement> ret =
         pipeline.apply(
@@ -140,12 +139,11 @@ public class DirectDataAccessorWrapper implements DataAccessor {
       long endStamp,
       long limit) {
 
-    BatchLogObservable reader =
+    BatchLogReader reader =
         direct
-            .getBatchLogObservable(context)
+            .getBatchLogReader(context)
             .orElseThrow(
-                () ->
-                    new IllegalArgumentException("Cannot create batch observable from " + direct));
+                () -> new IllegalArgumentException("Cannot create batch reader from " + direct));
 
     final PCollection<StreamElement> ret;
     ret =

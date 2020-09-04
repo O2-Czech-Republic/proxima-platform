@@ -19,7 +19,7 @@ import static cz.o2.proxima.direct.s3.S3FileSystemTest.cfg;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -63,11 +63,11 @@ public class S3AccessorTest {
   }
 
   @Test
-  public void testObservableAsFactorySerializable() throws IOException, ClassNotFoundException {
+  public void testReaderAsFactorySerializable() throws IOException, ClassNotFoundException {
     S3Accessor accessor = new S3Accessor(entity, URI.create("s3://bucket"), cfg());
-    S3LogObservable reader = new S3LogObservable(accessor, direct.getContext());
+    S3LogReader reader = new S3LogReader(accessor, direct.getContext());
     byte[] bytes = TestUtils.serializeObject(reader.asFactory());
-    BatchLogObservable.Factory<?> factory = TestUtils.deserializeObject(bytes);
-    assertEquals(accessor.getUri(), ((S3LogObservable) factory.apply(repo)).getAccessor().getUri());
+    BatchLogReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(accessor.getUri(), ((S3LogReader) factory.apply(repo)).getAccessor().getUri());
   }
 }

@@ -298,7 +298,7 @@ First, let's introduce some glossary:
 
     });
  ```
- Creating BatchLogObservable or RandomAccessReader is analogous.
+ Creating BatchLogReader or RandomAccessReader is analogous.
 
  ### [Apache Beam](https://beam.apache.org/) access to data
  First, create BeamDataOperator as follows:

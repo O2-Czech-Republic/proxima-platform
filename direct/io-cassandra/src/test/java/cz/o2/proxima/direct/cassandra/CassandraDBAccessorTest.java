@@ -26,8 +26,8 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.Partition;
@@ -45,7 +45,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -445,10 +444,10 @@ public class CassandraDBAccessorTest {
     CassandraDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 13));
-    CassandraLogObservable observable =
-        new CassandraLogObservable(accessor, () -> Executors.newCachedThreadPool());
+    CassandraLogReader reader =
+        new CassandraLogReader(accessor, () -> Executors.newCachedThreadPool());
 
-    List<Partition> partitions = observable.getPartitions();
+    List<Partition> partitions = reader.getPartitions();
     assertEquals(13, partitions.size());
     double start = Long.MIN_VALUE;
     double end = 0;
@@ -475,10 +474,10 @@ public class CassandraDBAccessorTest {
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
-    CassandraLogObservable observable =
-        new CassandraLogObservable(accessor, () -> Executors.newCachedThreadPool());
+    CassandraLogReader reader =
+        new CassandraLogReader(accessor, () -> Executors.newCachedThreadPool());
 
-    List<Partition> partitions = observable.getPartitions();
+    List<Partition> partitions = reader.getPartitions();
     assertEquals(2, partitions.size());
     for (int i = 0; i < 2; i++) {
       CassandraPartition part = (CassandraPartition) partitions.get(i);
@@ -495,19 +494,18 @@ public class CassandraDBAccessorTest {
   }
 
   @Test(timeout = 10000)
-  public void testBatchObserve() throws URISyntaxException, InterruptedException {
+  public void testBatchReader() throws URISyntaxException, InterruptedException {
 
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
 
-    CassandraLogObservable observable =
-        new CassandraLogObservable(accessor, () -> Executors.newCachedThreadPool());
+    CassandraLogReader reader = new CassandraLogReader(accessor, Executors::newCachedThreadPool);
 
     CountDownLatch latch = new CountDownLatch(1);
-    observable.observe(
-        observable.getPartitions(),
-        Arrays.asList(attr),
+    reader.observe(
+        reader.getPartitions(),
+        Collections.singletonList(attr),
         new BatchLogObserver() {
           @Override
           public boolean onNext(StreamElement element) {
@@ -549,15 +547,15 @@ public class CassandraDBAccessorTest {
   }
 
   @Test
-  public void testObservableAsFactorySerializable() throws IOException, ClassNotFoundException {
+  public void testBatchReaderAsFactorySerializable() throws IOException, ClassNotFoundException {
     TestDBAccessor accessor =
         new TestDBAccessor(
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
-    CassandraLogObservable reader =
-        accessor.newLogObservable(repo.getOrCreateOperator(DirectDataOperator.class).getContext());
+    CassandraLogReader reader =
+        accessor.newBatchReader(repo.getOrCreateOperator(DirectDataOperator.class).getContext());
     byte[] bytes = TestUtils.serializeObject(reader.asFactory());
-    BatchLogObservable.Factory<?> factory = TestUtils.deserializeObject(bytes);
-    assertEquals(reader.getUri(), ((CassandraLogObservable) factory.apply(repo)).getUri());
+    BatchLogReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(reader.getUri(), ((CassandraLogReader) factory.apply(repo)).getUri());
   }
 
   private Map<String, Object> getCfg(Class<?> cls, Class<? extends StringConverter> converter) {

@@ -20,7 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper.ConfigReader;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
@@ -53,7 +53,7 @@ import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.joda.time.Instant;
 
 /**
- * Source reading from {@link BatchLogObservable} in unbounded manner. The source can be configured
+ * Source reading from {@link BatchLogReader} in unbounded manner. The source can be configured
  * using repository config as follows:
  *
  * <pre>
@@ -73,7 +73,7 @@ public class DirectBatchUnboundedSource
 
   public static DirectBatchUnboundedSource of(
       RepositoryFactory factory,
-      BatchLogObservable reader,
+      BatchLogReader reader,
       ConfigReader configReader,
       List<AttributeDescriptor<?>> attrs,
       long startStamp,
@@ -156,18 +156,18 @@ public class DirectBatchUnboundedSource
   }
 
   private final RepositoryFactory repositoryFactory;
-  private final BatchLogObservable.Factory<?> readerFactory;
+  private final BatchLogReader.Factory<?> readerFactory;
   private final List<AttributeDescriptor<?>> attributes;
   private final List<Partition> partitions;
   private final long startStamp;
   private final long endStamp;
   private final ConfigReader configReader;
-  private transient @Nullable BatchLogObservable reader;
+  private transient @Nullable BatchLogReader reader;
   private transient long maxThroughput;
 
   private DirectBatchUnboundedSource(
       RepositoryFactory repositoryFactory,
-      BatchLogObservable reader,
+      BatchLogReader reader,
       ConfigReader configReader,
       List<AttributeDescriptor<?>> attributes,
       long startStamp,
@@ -240,7 +240,7 @@ public class DirectBatchUnboundedSource
         DirectBatchUnboundedSource.this, reader(), attributes, checkpointMark, toProcess);
   }
 
-  private BatchLogObservable reader() {
+  private BatchLogReader reader() {
     if (reader == null) {
       reader = readerFactory.apply(repositoryFactory.apply());
     }
@@ -280,7 +280,7 @@ public class DirectBatchUnboundedSource
   private static class StreamElementUnboundedReader extends UnboundedReader<StreamElement> {
 
     private final DirectBatchUnboundedSource source;
-    private final BatchLogObservable reader;
+    private final BatchLogReader reader;
     private final List<AttributeDescriptor<?>> attributes;
     private final List<Partition> toProcess;
     private final long createdTime = System.currentTimeMillis();
@@ -295,7 +295,7 @@ public class DirectBatchUnboundedSource
 
     public StreamElementUnboundedReader(
         DirectBatchUnboundedSource source,
-        BatchLogObservable reader,
+        BatchLogReader reader,
         List<AttributeDescriptor<?>> attributes,
         @Nullable Checkpoint checkpointMark,
         List<Partition> toProcess) {

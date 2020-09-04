@@ -18,7 +18,7 @@ package cz.o2.proxima.direct.gcloud.storage;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -64,13 +64,12 @@ public class GCloudStorageAccessorTest {
   }
 
   @Test
-  public void testObservableAsFactorySerializable() throws IOException, ClassNotFoundException {
+  public void testReaderAsFactorySerializable() throws IOException, ClassNotFoundException {
     GCloudStorageAccessor accessor =
         new GCloudStorageAccessor(entity, URI.create("gs://bucket"), Collections.emptyMap());
-    GCloudLogObservable reader = new GCloudLogObservable(accessor, direct.getContext());
+    GCloudLogReader reader = new GCloudLogReader(accessor, direct.getContext());
     byte[] bytes = TestUtils.serializeObject(reader.asFactory());
-    BatchLogObservable.Factory<?> factory = TestUtils.deserializeObject(bytes);
-    assertEquals(
-        accessor.getUri(), ((GCloudLogObservable) factory.apply(repo)).getAccessor().getUri());
+    BatchLogReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
+    assertEquals(accessor.getUri(), ((GCloudLogReader) factory.apply(repo)).getAccessor().getUri());
   }
 }

@@ -21,8 +21,8 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
@@ -565,10 +565,9 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   interface ReaderFactory
-      extends RandomAccessReader.Factory<Reader>, BatchLogObservable.Factory<Reader> {}
+      extends RandomAccessReader.Factory<Reader>, BatchLogReader.Factory<Reader> {}
 
-  private final class Reader extends AbstractStorage
-      implements RandomAccessReader, BatchLogObservable {
+  private final class Reader extends AbstractStorage implements RandomAccessReader, BatchLogReader {
 
     private final cz.o2.proxima.functional.Factory<Executor> executorFactory;
     private transient Executor executor;
@@ -746,8 +745,7 @@ public class InMemStorage implements DataAccessorFactory {
       log.debug(
           "Batch observing {} partitions {} for attributes {}", getUri(), partitions, attributes);
       Preconditions.checkArgument(
-          partitions.size() == 1,
-          "This observable works on single partition only, got " + partitions);
+          partitions.size() == 1, "This reader works on single partition only, got " + partitions);
       String prefix = toStoragePrefix(getUri());
       int prefixLength = prefix.length();
       executor()
@@ -944,7 +942,7 @@ public class InMemStorage implements DataAccessorFactory {
       }
 
       @Override
-      public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
+      public Optional<BatchLogReader> getBatchLogReader(Context context) {
         Objects.requireNonNull(context);
         Reader createdReader = readerFactory.apply(repo());
         return Optional.of(createdReader);

@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.gcloud.storage;
 
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.blob.BlobStorageAccessor;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
@@ -49,7 +49,7 @@ class GCloudStorageAccessor extends BlobStorageAccessor {
   }
 
   @Override
-  public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-    return Optional.of(new GCloudLogObservable(this, context));
+  public Optional<BatchLogReader> getBatchLogReader(Context context) {
+    return Optional.of(new GCloudLogReader(this, context));
   }
 }

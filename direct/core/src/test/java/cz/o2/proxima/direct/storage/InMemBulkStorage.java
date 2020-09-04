@@ -16,12 +16,11 @@
 package cz.o2.proxima.direct.storage;
 
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.AbstractBulkAttributeWriter;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
-import cz.o2.proxima.direct.core.BulkAttributeWriter.Factory;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
@@ -109,12 +108,12 @@ public class InMemBulkStorage implements DataAccessorFactory {
     }
   }
 
-  private static class BatchObservable extends AbstractStorage implements BatchLogObservable {
+  private static class BatchReader extends AbstractStorage implements BatchLogReader {
 
     private final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory;
     private transient ExecutorService executor;
 
-    private BatchObservable(
+    private BatchReader(
         EntityDescriptor entityDesc,
         URI uri,
         cz.o2.proxima.functional.Factory<ExecutorService> executorFactory) {
@@ -135,8 +134,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
         BatchLogObserver observer) {
 
       Preconditions.checkArgument(
-          partitions.size() == 1,
-          "This observable works on single partition only, got " + partitions);
+          partitions.size() == 1, "This reader works on single partition only, got " + partitions);
       int prefix = getUri().getPath().length() + 1;
       executor()
           .execute(
@@ -181,7 +179,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
       final URI uri = getUri();
       final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory =
           this.executorFactory;
-      return repo -> new BatchObservable(entity, uri, executorFactory);
+      return repo -> new BatchReader(entity, uri, executorFactory);
     }
 
     private Executor executor() {
@@ -210,8 +208,8 @@ public class InMemBulkStorage implements DataAccessorFactory {
     }
 
     @Override
-    public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-      return Optional.of(new BatchObservable(entityDesc, uri, () -> context.getExecutorService()));
+    public Optional<BatchLogReader> getBatchLogReader(Context context) {
+      return Optional.of(new BatchReader(entityDesc, uri, () -> context.getExecutorService()));
     }
   }
 

@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.direct.hadoop;
 
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.bulk.Reader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.Partition;
@@ -32,15 +32,15 @@ import java.util.stream.Stream;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-/** Observable of data stored in {@code SequenceFiles} in HDFS. */
+/** Reader of data stored in {@code SequenceFiles} in HDFS. */
 @Slf4j
-public class HadoopBatchLogObservable implements BatchLogObservable {
+public class HadoopBatchLogReader implements BatchLogReader {
 
   @Getter private final HadoopDataAccessor accessor;
   private final Context context;
   private final Executor executor;
 
-  public HadoopBatchLogObservable(HadoopDataAccessor accessor, Context context) {
+  public HadoopBatchLogReader(HadoopDataAccessor accessor, Context context) {
     this.accessor = accessor;
     this.context = context;
     this.executor = context.getExecutorService();
@@ -105,7 +105,7 @@ public class HadoopBatchLogObservable implements BatchLogObservable {
   public Factory<?> asFactory() {
     final HadoopDataAccessor accessor = this.accessor;
     final Context context = this.context;
-    return repo -> new HadoopBatchLogObservable(accessor, context);
+    return repo -> new HadoopBatchLogReader(accessor, context);
   }
 
   private boolean processPath(BatchLogObserver observer, HadoopPartition p, HadoopPath path) {

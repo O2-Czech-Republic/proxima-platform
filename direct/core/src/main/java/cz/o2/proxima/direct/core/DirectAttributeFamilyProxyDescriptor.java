@@ -16,8 +16,8 @@
 package cz.o2.proxima.direct.core;
 
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -156,7 +156,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
         desc,
         getWriter(lookup, context, desc),
         getCommitLogReader(lookup, context, desc),
-        getBatchObservable(lookup, context, desc),
+        getBatchReader(lookup, context, desc),
         getRandomAccess(lookup, context, desc),
         getPartitionedCachedView(lookup, context, desc));
   }
@@ -177,13 +177,13 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
     return Optional.of(new ProxyOnlineAttributeWriter(writer, lookup, uri));
   }
 
-  private static Optional<BatchLogObservable> getBatchObservable(
+  private static Optional<BatchLogReader> getBatchReader(
       AttrLookup lookup, Context context, AttributeFamilyProxyDescriptor desc) {
 
     return context
         .resolve(desc.getTargetFamilyRead())
-        .flatMap(DirectAttributeFamilyDescriptor::getBatchObservable)
-        .map(reader -> new ProxyBatchLogObservable(reader, lookup));
+        .flatMap(DirectAttributeFamilyDescriptor::getBatchReader)
+        .map(reader -> new ProxyBatchLogReader(reader, lookup));
   }
 
   @SuppressWarnings("unchecked")
@@ -623,12 +623,12 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
     }
   }
 
-  private static class ProxyBatchLogObservable implements BatchLogObservable {
+  private static class ProxyBatchLogReader implements BatchLogReader {
 
-    private final BatchLogObservable reader;
+    private final BatchLogReader reader;
     private final AttrLookup lookup;
 
-    public ProxyBatchLogObservable(BatchLogObservable reader, AttrLookup lookup) {
+    public ProxyBatchLogReader(BatchLogReader reader, AttrLookup lookup) {
       this.reader = reader;
       this.lookup = lookup;
     }
@@ -657,7 +657,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
     public Factory<?> asFactory() {
       final Factory<?> readerFactory = reader.asFactory();
       final AttrLookup lookup = this.lookup;
-      return repo -> new ProxyBatchLogObservable(readerFactory.apply(repo), lookup);
+      return repo -> new ProxyBatchLogReader(readerFactory.apply(repo), lookup);
     }
   }
 }

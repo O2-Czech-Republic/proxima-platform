@@ -16,8 +16,8 @@
 package cz.o2.proxima.direct.blob;
 
 import com.google.common.base.MoreObjects;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.bulk.FileFormat;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
@@ -40,10 +40,10 @@ import java.util.stream.Stream;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-/** {@link BatchLogObservable} for blob storages. */
+/** {@link BatchLogReader} for blob storages. */
 @Slf4j
-public abstract class BlobLogObservable<BlobT extends BlobBase, BlobPathT extends BlobPath<BlobT>>
-    implements BatchLogObservable {
+public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends BlobPath<BlobT>>
+    implements BatchLogReader {
 
   private static final long serialVersionUID = 1L;
 
@@ -130,7 +130,7 @@ public abstract class BlobLogObservable<BlobT extends BlobBase, BlobPathT extend
   @Getter private final Context context;
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  public BlobLogObservable(BlobStorageAccessor accessor, Context context) {
+  public BlobLogReader(BlobStorageAccessor accessor, Context context) {
     this.entity = accessor.getEntityDescriptor();
     this.fs = accessor.getTargetFileSystem();
     this.fileFormat = accessor.getFileFormat();

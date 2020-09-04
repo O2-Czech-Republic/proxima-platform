@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.blob;
 
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
@@ -166,7 +166,7 @@ public class TestBlobStorageAccessor extends BlobStorageAccessor {
     }
   }
 
-  class BlobReader extends BlobLogObservable<TestBlob, TestBlobPath> {
+  class BlobReader extends BlobLogReader<TestBlob, TestBlobPath> {
 
     public BlobReader(Context context) {
       super(TestBlobStorageAccessor.this, context);
@@ -219,7 +219,7 @@ public class TestBlobStorageAccessor extends BlobStorageAccessor {
   }
 
   @Override
-  public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
+  public Optional<BatchLogReader> getBatchLogReader(Context context) {
     return Optional.of(new BlobReader(context));
   }
 

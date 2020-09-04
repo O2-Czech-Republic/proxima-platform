@@ -16,10 +16,9 @@
 package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.direct.view.CachedView.Factory;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.Serializable;
 import java.net.URI;

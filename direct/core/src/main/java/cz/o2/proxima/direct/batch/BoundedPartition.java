@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.batch;
 
 import com.google.common.base.MoreObjects;
 import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.storage.Partition;
 
 /** Bounded implementation of {@code Partition}. */
 @Internal

@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.core;
+package cz.o2.proxima.storage;
 
 import com.google.common.base.MoreObjects;
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 
 /**
  * Interface representing a partition of the commit log. A partition is an element of parallelism,
@@ -80,7 +80,7 @@ public interface Partition extends Serializable {
    * @return collection of split partitions
    */
   default Collection<Partition> split(int desiredCount) {
-    return Arrays.asList(this);
+    return Collections.singletonList(this);
   }
 
   /**

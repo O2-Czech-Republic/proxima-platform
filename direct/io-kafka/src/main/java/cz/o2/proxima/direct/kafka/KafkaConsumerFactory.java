@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.kafka;
 
-import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.storage.Partition;
 import java.net.URI;
 import java.util.Collection;
 import java.util.Collections;

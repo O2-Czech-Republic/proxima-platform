@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.core;
 
 import static org.junit.Assert.*;
 
+import cz.o2.proxima.storage.Partition;
 import org.junit.Test;
 
 public class PartitionTest {

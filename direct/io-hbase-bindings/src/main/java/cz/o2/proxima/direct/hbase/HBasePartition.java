@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.hbase;
 
-import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.storage.Partition;
 import lombok.Getter;
 
 /** A {@code Partition} of data in HBase. */

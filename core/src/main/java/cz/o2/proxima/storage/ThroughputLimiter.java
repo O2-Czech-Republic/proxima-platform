@@ -30,6 +30,8 @@ public interface ThroughputLimiter extends Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    public static final ThroughputLimiter INSTANCE = new NoOpThroughputLimiter();
+
     @Override
     public Duration getPauseTime(Context context) {
       return Duration.ZERO;

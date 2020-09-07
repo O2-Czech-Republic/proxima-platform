@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.commitlog;
 
 import static org.junit.Assert.*;
 
+import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
@@ -24,6 +25,7 @@ import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.functional.BiFunction;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -39,6 +41,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -469,6 +472,56 @@ public class CommitLogReaderTest {
                 createLimitedObserver(onNext)));
   }
 
+  @Test
+  public void testThroughputLimitedCommitLogReaderAsFactory() {
+    ThroughputLimiter limiter = ThroughputLimiter.NoOpThroughputLimiter.INSTANCE;
+    CommitLogReader limitedReader =
+        ThroughputLimitedCommitLogReader.withThroughputLimit(reader, limiter);
+    CommitLogReader cloned = limitedReader.asFactory().apply(repo);
+    assertTrue(limitedReader.getClass().isAssignableFrom(cloned.getClass()));
+  }
+
+  @Test(timeout = 10000)
+  public void testThroughputLimitedCommitLogIdles() throws InterruptedException {
+    ThroughputLimiter limiter = ThroughputLimiter.NoOpThroughputLimiter.INSTANCE;
+    CommitLogReader limitedReader =
+        ThroughputLimitedCommitLogReader.withThroughputLimit(reader, limiter);
+    UnaryFunction<CountDownLatch, LogObserver> observerFactory =
+        myLatch ->
+            new LogObserver() {
+
+              @Override
+              public boolean onError(Throwable error) {
+                return false;
+              }
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                return false;
+              }
+
+              @Override
+              public void onIdle(OnIdleContext context) {
+                myLatch.countDown();
+              }
+            };
+    CountDownLatch latch = new CountDownLatch(1);
+    LogObserver observer = observerFactory.apply(latch);
+    long nanoTime = System.nanoTime();
+    ObserveHandle handle = limitedReader.observe("dummy", observer);
+    latch.await();
+    handle.close();
+    latch = new CountDownLatch(1);
+    observer = observerFactory.apply(latch);
+    long durationMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoTime);
+    handle.close();
+    limitedReader =
+        ThroughputLimitedCommitLogReader.withThroughputLimit(reader, withNumRecordsPerSec(1));
+    handle = limitedReader.observe("dummy", observer);
+    // no idle called this time
+    assertFalse(latch.await(2 * durationMillis, TimeUnit.MILLISECONDS));
+  }
+
   @Test(timeout = 5000)
   public void testObserveOffsetsThroughputLimitedCommitLog() throws InterruptedException {
     testThroughputLimitedCommitLogWithObserve(
@@ -559,7 +612,13 @@ public class CommitLogReaderTest {
 
   private static ThroughputLimiter withNumRecordsPerSec(int recordsPerSec) {
     final Duration pauseDuration = Duration.ofMillis(1000L / recordsPerSec);
-    return context -> pauseDuration;
+    return context -> {
+      assertEquals(1, context.getNumPartitions());
+      assertEquals(1, context.getConsumedPartitions().size());
+      assertEquals(0, Iterables.getOnlyElement(context.getConsumedPartitions()).getId());
+      assertTrue(context.getMinWatermark() < Long.MAX_VALUE);
+      return pauseDuration;
+    };
   }
 
   private OnNextContext asOnNextContext(long watermark) {

@@ -184,6 +184,15 @@ public class ThroughputLimitedCommitLogReader {
           .toString();
     }
 
+    @Override
+    public Factory<?> asFactory() {
+      final Factory<?> delegateFactory = super.asFactory();
+      final ThroughputLimiter limiter = this.limiter;
+      return repo ->
+          ThroughputLimitedCommitLogReader.withThroughputLimit(
+              delegateFactory.apply(repo), limiter);
+    }
+
     private LogObserver throughputLimited(LogObserver delegate) {
       return new ForwardingLogObserver(delegate) {
         @Override

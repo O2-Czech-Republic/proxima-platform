@@ -42,7 +42,7 @@ public interface ThroughputLimiter extends Serializable {
   interface Context {
 
     /**
-     * Get collection of {@link Partition Partitions} associated with reaeder reading with this
+     * Get collection of {@link Partition Partitions} associated with reader reading with this
      * limiter
      *
      * @return list of associated partitions

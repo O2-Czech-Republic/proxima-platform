@@ -475,8 +475,7 @@ public class CommitLogReaderTest {
   @Test
   public void testThroughputLimitedCommitLogReaderAsFactory() {
     ThroughputLimiter limiter = ThroughputLimiter.NoOpThroughputLimiter.INSTANCE;
-    CommitLogReader limitedReader =
-        ThroughputLimitedCommitLogReader.withThroughputLimit(reader, limiter);
+    CommitLogReader limitedReader = CommitLogReaders.withThroughputLimit(reader, limiter);
     CommitLogReader cloned = limitedReader.asFactory().apply(repo);
     assertTrue(limitedReader.getClass().isAssignableFrom(cloned.getClass()));
   }
@@ -484,8 +483,7 @@ public class CommitLogReaderTest {
   @Test(timeout = 10000)
   public void testThroughputLimitedCommitLogIdles() throws InterruptedException {
     ThroughputLimiter limiter = ThroughputLimiter.NoOpThroughputLimiter.INSTANCE;
-    CommitLogReader limitedReader =
-        ThroughputLimitedCommitLogReader.withThroughputLimit(reader, limiter);
+    CommitLogReader limitedReader = CommitLogReaders.withThroughputLimit(reader, limiter);
     UnaryFunction<CountDownLatch, LogObserver> observerFactory =
         myLatch ->
             new LogObserver() {
@@ -515,8 +513,7 @@ public class CommitLogReaderTest {
     observer = observerFactory.apply(latch);
     long durationMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanoTime);
     handle.close();
-    limitedReader =
-        ThroughputLimitedCommitLogReader.withThroughputLimit(reader, withNumRecordsPerSec(1));
+    limitedReader = CommitLogReaders.withThroughputLimit(reader, withNumRecordsPerSec(1));
     handle = limitedReader.observe("dummy", observer);
     // no idle called this time
     assertFalse(latch.await(2 * durationMillis, TimeUnit.MILLISECONDS));
@@ -570,8 +567,7 @@ public class CommitLogReaderTest {
       BiFunction<CommitLogReader, Runnable, ObserveHandle> observe) throws InterruptedException {
     final int numElements = 50;
     ThroughputLimiter limiter = withNumRecordsPerSec(2 * numElements);
-    CommitLogReader limitedReader =
-        ThroughputLimitedCommitLogReader.withThroughputLimit(reader, limiter);
+    CommitLogReader limitedReader = CommitLogReaders.withThroughputLimit(reader, limiter);
     assertEquals(limitedReader.getPartitions(), reader.getPartitions());
     assertEquals(limitedReader.getUri(), reader.getUri());
     CountDownLatch latch = new CountDownLatch(numElements);
@@ -610,7 +606,7 @@ public class CommitLogReaderTest {
     handle.close();
   }
 
-  private static ThroughputLimiter withNumRecordsPerSec(int recordsPerSec) {
+  public static ThroughputLimiter withNumRecordsPerSec(int recordsPerSec) {
     final Duration pauseDuration = Duration.ofMillis(1000L / recordsPerSec);
     return context -> {
       assertEquals(1, context.getNumPartitions());

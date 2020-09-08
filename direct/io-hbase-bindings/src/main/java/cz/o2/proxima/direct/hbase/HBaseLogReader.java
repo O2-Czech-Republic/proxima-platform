@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.hbase;
 import static cz.o2.proxima.direct.hbase.Util.cloneArray;
 
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -152,7 +153,8 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
 
     CellScanner scanner = r.cellScanner();
     while (scanner.advance()) {
-      if (!observer.onNext(toStreamElement(scanner.current(), attrs, hp), hp)) {
+      if (!observer.onNext(
+          toStreamElement(scanner.current(), attrs, hp), BatchLogObservers.defaultContext(hp))) {
         return false;
       }
     }

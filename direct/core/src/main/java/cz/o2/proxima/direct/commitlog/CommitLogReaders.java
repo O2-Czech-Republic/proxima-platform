@@ -27,16 +27,15 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.experimental.Delegate;
 
-/**
- * Utility class that exposes throughput limiting behavior for {@link CommitLogReader}
- * implementations.
- */
+/** Utility class that constructs various versions of {@link CommitLogReader CommitLogReaders}. */
 @Internal
-public class ThroughputLimitedCommitLogReader {
+public class CommitLogReaders {
 
   /**
    * Create throughput limited {@link CommitLogReader}.
@@ -55,15 +54,15 @@ public class ThroughputLimitedCommitLogReader {
 
   private static class ForwardingCommitLogReader implements CommitLogReader {
 
-    private final CommitLogReader delegate;
+    @Getter private final CommitLogReader delegate;
 
     private ForwardingCommitLogReader(CommitLogReader delegate) {
-      this.delegate = delegate;
+      this.delegate = Objects.requireNonNull(delegate);
     }
 
     @Override
     public String toString() {
-      return "ForwardingCommitLogReader{delegate=" + delegate + '}';
+      return delegate.toString();
     }
 
     @Override
@@ -132,7 +131,7 @@ public class ThroughputLimitedCommitLogReader {
 
     public LimitedCommitLogReader(CommitLogReader delegate, ThroughputLimiter limiter) {
       super(delegate);
-      this.limiter = limiter;
+      this.limiter = Objects.requireNonNull(limiter);
       this.partitions = new ArrayList<>(delegate.getPartitions());
       this.numPartitions = this.partitions.size();
     }
@@ -180,7 +179,7 @@ public class ThroughputLimitedCommitLogReader {
       return MoreObjects.toStringHelper(this)
           .add("limiter", limiter)
           .add("watermark", watermark)
-          .add("delegate", super.toString())
+          .add("delegate", getDelegate().toString())
           .toString();
     }
 
@@ -188,26 +187,28 @@ public class ThroughputLimitedCommitLogReader {
     public Factory<?> asFactory() {
       final Factory<?> delegateFactory = super.asFactory();
       final ThroughputLimiter limiter = this.limiter;
-      return repo ->
-          ThroughputLimitedCommitLogReader.withThroughputLimit(
-              delegateFactory.apply(repo), limiter);
+      return repo -> CommitLogReaders.withThroughputLimit(delegateFactory.apply(repo), limiter);
     }
 
     private LogObserver throughputLimited(LogObserver delegate) {
       return new ForwardingLogObserver(delegate) {
         @Override
         public boolean onNext(StreamElement ingest, OnNextContext context) {
-          Duration pauseTime = limiter.getPauseTime(getPauseTimeContext());
-          if (!pauseTime.equals(Duration.ZERO)) {
-            try {
-              TimeUnit.MILLISECONDS.sleep(pauseTime.toMillis());
-            } catch (InterruptedException ex) {
-              Thread.currentThread().interrupt();
-              return false;
-            }
+          try {
+            waitIfNecessary();
+          } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return false;
           }
           watermark = context.getWatermark();
           return super.onNext(ingest, context);
+        }
+
+        private void waitIfNecessary() throws InterruptedException {
+          Duration pauseTime = limiter.getPauseTime(getLimiterContext());
+          if (!pauseTime.equals(Duration.ZERO)) {
+            TimeUnit.MILLISECONDS.sleep(pauseTime.toMillis());
+          }
         }
 
         @Override
@@ -219,14 +220,14 @@ public class ThroughputLimitedCommitLogReader {
 
         @Override
         public void onIdle(OnIdleContext context) {
-          if (limiter.getPauseTime(getPauseTimeContext()).equals(Duration.ZERO)) {
+          if (limiter.getPauseTime(getLimiterContext()).isZero()) {
             super.onIdle(context);
           }
         }
       };
     }
 
-    private Context getPauseTimeContext() {
+    private Context getLimiterContext() {
       return new Context() {
 
         @Override
@@ -260,4 +261,6 @@ public class ThroughputLimitedCommitLogReader {
       return "ForwardingLogObserver{delegate=" + delegate + '}';
     }
   }
+
+  private CommitLogReaders() {}
 }

@@ -32,7 +32,6 @@ import cz.o2.proxima.direct.storage.InMemStorage.ConsumedOffset;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.WatermarkEstimator;
@@ -214,8 +213,8 @@ public class InMemStorageTest implements Serializable {
         new BatchLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, Partition partition) {
-            assertEquals(0, partition.getId());
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            assertEquals(0, context.getPartition().getId());
             assertEquals("key", ingest.getKey());
             latch.countDown();
             return false;
@@ -273,8 +272,8 @@ public class InMemStorageTest implements Serializable {
           }
 
           @Override
-          public boolean onNext(StreamElement ingest, Partition partition) {
-            assertEquals(0, partition.getId());
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            assertEquals(0, context.getPartition().getId());
             assertEquals("key", ingest.getKey());
             count.incrementAndGet();
             return true;

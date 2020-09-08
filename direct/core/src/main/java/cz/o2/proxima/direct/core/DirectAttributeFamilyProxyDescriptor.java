@@ -270,13 +270,13 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
     return new BatchLogObserver() {
 
       @Override
-      public boolean onNext(StreamElement ingest, Partition partition) {
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
 
         try {
           return lookup
               .lookupRead(ingest.getAttributeDescriptor().getName())
               .stream()
-              .map(attr -> observer.onNext(transformToProxy(ingest, attr), partition))
+              .map(attr -> observer.onNext(transformToProxy(ingest, attr), context))
               .filter(c -> !c)
               .findFirst()
               .orElse(true);

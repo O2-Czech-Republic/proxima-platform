@@ -22,6 +22,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext;
+import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
@@ -97,6 +99,7 @@ public class InMemStorage implements DataAccessorFactory {
   private static final long serialVersionUID = 1L;
 
   private static final Partition PARTITION = () -> 0;
+  private static final OnNextContext CONTEXT = BatchLogObservers.defaultContext(PARTITION);
   private static final long IDLE_FLUSH_TIME = 500L;
   private static final long BOUNDED_OUT_OF_ORDERNESS = 5000L;
 
@@ -782,7 +785,7 @@ public class InMemStorage implements DataAccessorFactory {
                                               attribute,
                                               v.getFirst(),
                                               v.getSecond()),
-                                          PARTITION))
+                                          CONTEXT))
                               .orElse(true);
                       if (!shouldContinue) {
                         break;

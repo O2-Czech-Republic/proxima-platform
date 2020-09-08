@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.storage;
 
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.AbstractBulkAttributeWriter;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
@@ -163,7 +164,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
                                           attribute,
                                           v.getFirst(),
                                           v.getSecond()),
-                                      Partition.of(0));
+                                      BatchLogObservers.defaultContext(Partition.of(0)));
                                 });
                       });
                   observer.onCompleted();

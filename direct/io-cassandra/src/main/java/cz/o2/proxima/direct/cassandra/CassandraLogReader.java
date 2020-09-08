@@ -19,6 +19,7 @@ import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.Partition;
@@ -114,7 +115,7 @@ class CassandraLogReader implements BatchLogReader {
                             attributeName,
                             System.currentTimeMillis(),
                             array),
-                        p)) {
+                        BatchLogObservers.defaultContext(p))) {
 
                       cont = false;
                       break;

@@ -36,6 +36,7 @@ import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
 import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.transform.EventDataToDummy;
 import cz.o2.proxima.util.DummyFilter;
@@ -44,6 +45,7 @@ import cz.o2.proxima.util.TransformationRunner;
 import java.io.IOException;
 import java.io.NotSerializableException;
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1691,6 +1693,26 @@ public class DirectDataOperatorTest {
     AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
 
     assertTrue(direct.getCachedView(armed).isPresent());
+  }
+
+  @Test
+  public void testDataAccessorFactoryClass() {
+    URI uri = URI.create("inmem://my-url");
+    Optional<DataAccessorFactory> maybeFactory = direct.getAccessorFactory(uri);
+    assertTrue(maybeFactory.isPresent());
+    DataAccessorFactory factory = maybeFactory.get();
+    assertEquals(DirectDataOperator.DelegateDataAccessorFactory.class, factory.getClass());
+    DataAccessorFactory delegate =
+        ((DirectDataOperator.DelegateDataAccessorFactory) factory).getDelegate();
+    assertEquals(Accept.ACCEPT, delegate.accepts(uri));
+    assertEquals(factory.accepts(uri), delegate.accepts(uri));
+    DataAccessor accessor =
+        factory.createAccessor(direct, repo.getEntity("gateway"), uri, Collections.emptyMap());
+    assertTrue(accessor.getWriter(direct.getContext()).isPresent());
+    assertTrue(accessor.getBatchLogReader(direct.getContext()).isPresent());
+    assertTrue(accessor.getCachedView(direct.getContext()).isPresent());
+    assertTrue(accessor.getCommitLogReader(direct.getContext()).isPresent());
+    assertTrue(accessor.getRandomAccessReader(direct.getContext()).isPresent());
   }
 
   // validate that given transformation transforms in the desired way

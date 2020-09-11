@@ -37,6 +37,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.time.Watermarks;
+import cz.o2.proxima.util.Optionals;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -493,5 +494,80 @@ public class InMemStorageTest implements Serializable {
           }
         });
     assertTrue(completed.await(1, TimeUnit.SECONDS));
+  }
+
+  @Test(timeout = 1000L)
+  public void testObserveError() throws InterruptedException {
+    final URI uri = URI.create("inmem:///inmemstoragetest");
+    final InMemStorage storage = new InMemStorage();
+    final DataAccessor accessor =
+        storage.createAccessor(direct, entity, uri, Collections.emptyMap());
+    final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+
+    final AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
+    final CountDownLatch failingObserverErrorReceived = new CountDownLatch(1);
+    final AtomicInteger failingObserverMessages = new AtomicInteger(0);
+    reader.observe(
+        "failing-observer",
+        new LogObserver() {
+
+          @Override
+          public void onCompleted() {
+            throw new UnsupportedOperationException("This should never happen.");
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            failingObserverErrorReceived.countDown();
+            return false;
+          }
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            failingObserverMessages.incrementAndGet();
+            throw new RuntimeException("Test exception.");
+          }
+        });
+
+    final int numElements = 100;
+    final CountDownLatch successObserverAllReceived = new CountDownLatch(numElements);
+    reader.observe(
+        "success-observer",
+        new LogObserver() {
+
+          @Override
+          public void onCompleted() {
+            throw new UnsupportedOperationException("This should never happen.");
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            return false;
+          }
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            successObserverAllReceived.countDown();
+            return true;
+          }
+        });
+
+    for (int i = 0; i < numElements; i++) {
+      writer
+          .online()
+          .write(
+              StreamElement.upsert(
+                  entity,
+                  data,
+                  UUID.randomUUID().toString(),
+                  "key_" + i,
+                  data.getName(),
+                  System.currentTimeMillis(),
+                  new byte[] {2}),
+              (success, error) -> {});
+    }
+    failingObserverErrorReceived.await();
+    successObserverAllReceived.await();
+    assertEquals(1, failingObserverMessages.get());
   }
 }

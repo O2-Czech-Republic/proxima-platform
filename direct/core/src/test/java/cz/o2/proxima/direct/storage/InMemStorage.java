@@ -453,7 +453,7 @@ public class InMemStorage implements DataAccessorFactory {
                   killSwitch.set(true);
                 }
               }
-            } catch (Throwable ex) {
+            } catch (Exception ex) {
               log.warn("Exception in onIdle", ex);
             }
           };
@@ -479,7 +479,7 @@ public class InMemStorage implements DataAccessorFactory {
               }
             } catch (Exception ex) {
               synchronized (observer) {
-                observer.onError(ex);
+                killSwitch.compareAndSet(false, !observer.onError(ex));
               }
             }
           };
@@ -792,7 +792,7 @@ public class InMemStorage implements DataAccessorFactory {
                     }
                   }
                   observer.onCompleted();
-                } catch (Throwable err) {
+                } catch (Exception err) {
                   observer.onError(err);
                 }
               });

@@ -17,50 +17,73 @@ package cz.o2.proxima.storage.watermark;
 
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.time.WatermarkSupplier;
+import java.io.Closeable;
 import java.time.Instant;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * A tracker of global progress among multiple (distributed) processes.
+ * A tracker of global watermark progress among multiple (distributed) processes.
  *
  * <p>A {@link GlobalWatermarkTracker} consists of the following:
- * <li>Name of the tracker. The name MUST uniquely identify the tracker among all possible global
- *     trackers. The name also serves as grouping identifier for calculation of the value of global
- *     watermark.
- * <li>Predefined list of <i>processes</i>.
+ *
+ * <ol>
+ *   <li>Name of the tracker. The name MUST uniquely identify the tracker among all possible global
+ *       trackers. The name also serves as grouping identifier for calculation of the value of
+ *       global watermark.
+ *   <li>Predefined list of <i>processes</i>.
+ * </ol>
  */
 @Evolving
-public interface GlobalWatermarkTracker extends WatermarkSupplier {
+public interface GlobalWatermarkTracker extends WatermarkSupplier, Closeable {
 
   /**
-   * Setup all parallel consumers. This MUST be used once when the tracker is constructed to setup
-   * initial names and watermarks of consumers. Note that consumers might be added during runtime,
-   * but <b>their added watermark cannot move the watermark back in time</b>. That is to say -
+   * Retrieve name of this tracker.
    *
-   * @param processes map of process name to watermark
+   * @return name of the tracker
    */
-  void setup(Map<String, Instant> processes);
+  String getName();
+
+  /**
+   * Configure the tracker using given configuration.
+   *
+   * @param cfg the configuration map
+   */
+  void configure(Map<String, Object> cfg);
+
+  /**
+   * Setup parallel consumers. This SHOULD be used once when the tracker is constructed to setup
+   * initial names and watermarks of consumers. Note that consumers might be added during runtime,
+   * but <b>their added watermark cannot move the watermark back in time</b>.
+   *
+   * @param initialWatermarks map of process name to the initial watermark
+   */
+  void initWatermarks(Map<String, Instant> initialWatermarks);
 
   /**
    * Update watermark of given process. This call MAY add a new process, which was not part of
-   * {@link #setup(Map)}.
+   * {@link #initWatermarks}. This is asynchronous operation. Users can wait for the completion
+   * using the returned {@link CompletableFuture}.
    *
-   * @param name name of the process
+   * @param processName name of the process
    * @param currentWatermark current processing watermark of the process
+   * @return {@link CompletableFuture} to be able to wait for result being persisted
    */
-  void update(String name, Instant currentWatermark);
+  CompletableFuture<Void> update(String processName, Instant currentWatermark);
 
   /**
    * Remove given process from the tracker. The watermark of the process (if any) will no longer
-   * hold the global watermark.
+   * hold the global watermark. This is asynchronous operation. Users can wait for the completion
+   * using the returned {@link CompletableFuture}.
    *
    * <p>Note that this is semantically equivalent to call to {@link #update}(name,
    * Instant.ofEpochMilli(Long.MAX_VALUE))
    *
    * @param name name of the process to remove
+   * @return {@link CompletableFuture} to be able to wait for result being persisted
    */
-  default void finished(String name) {
-    update(name, Instant.ofEpochMilli(Long.MAX_VALUE));
+  default CompletableFuture<Void> finished(String name) {
+    return update(name, Instant.ofEpochMilli(Long.MAX_VALUE));
   }
 
   /**

@@ -13,23 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.direct.core;
+package cz.o2.proxima.storage;
 
 import static org.junit.Assert.*;
 
-import cz.o2.proxima.storage.Partition;
+import java.util.Collections;
 import org.junit.Test;
 
+/** Test contract of {@link Partition} default methods. */
 public class PartitionTest {
 
   @Test
-  public void testDefaultPartitionImpl() {
-    Partition p = Partition.of(1);
-    Partition p2 = Partition.of(1);
-    Partition p3 = Partition.of(2);
-    assertEquals(1, p.getId());
-    assertFalse(p.isBounded());
-    assertEquals(Long.MIN_VALUE, p.getMinTimestamp());
-    assertEquals(Long.MAX_VALUE, p.getMaxTimestamp());
+  public void testDefaultMethods() {
+    Partition partition = Partition.of(1);
+    assertEquals(1, partition.getId());
+    assertEquals(Long.MIN_VALUE, partition.getMinTimestamp());
+    assertEquals(Long.MAX_VALUE, partition.getMaxTimestamp());
+    assertFalse(partition.isBounded());
+    assertEquals(-1L, partition.size());
+    assertEquals(Collections.singletonList(partition), partition.split(10));
   }
 }

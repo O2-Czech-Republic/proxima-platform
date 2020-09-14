@@ -20,17 +20,16 @@ import static org.junit.Assert.*;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.direct.io.DirectBatchUnboundedSource.Checkpoint;
-import cz.o2.proxima.beam.direct.io.DirectDataAccessorWrapper.ConfigReader;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
-import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.net.URI;
@@ -101,18 +100,6 @@ public class DirectBatchUnboundedSourceTest {
     testBatchUnboundedSourceWithCount(1000);
   }
 
-  @Test
-  public void testThroughputParsing() {
-    URI uri = URI.create("inmem://test");
-    long maxThroughput =
-        DirectDataAccessorWrapper.readThroughput(
-            uri,
-            ConfigFactory.parseString(
-                String.format("beam.unbounded-batch.first.uri = \"%s\"\n", uri.toASCIIString())
-                    + "beam.unbounded-batch.first.throughput = 1000"));
-    assertEquals(1000, maxThroughput);
-  }
-
   @Test(timeout = 30000)
   public void testDirectBatchUnboundedSourceWithManyAndThrottling() {
     Config config =
@@ -128,8 +115,7 @@ public class DirectBatchUnboundedSourceTest {
             .findFirst()
             .get();
     assertEquals(URI.create("inmem:///proxima_gateway"), readFamily.getStorageUri());
-    testBatchUnboundedSourceWithCountUsingRepository(
-        repo, DirectDataAccessorWrapper.getConfigProvider(readFamily.getStorageUri()), 100);
+    testBatchUnboundedSourceWithCountUsingRepository(repo, 100);
   }
 
   @Test(expected = IOException.class)
@@ -140,7 +126,6 @@ public class DirectBatchUnboundedSourceTest {
         DirectBatchUnboundedSource.of(
             repo.asFactory(),
             throwingReader(),
-            emptyConfigProvider(),
             Collections.singletonList(repo.getEntity("gateway").getAttribute("armed")),
             Long.MIN_VALUE,
             Long.MAX_VALUE);
@@ -150,8 +135,8 @@ public class DirectBatchUnboundedSourceTest {
     reader.advance();
   }
 
-  private BatchLogObservable throwingReader() {
-    return new BatchLogObservable() {
+  private BatchLogReader throwingReader() {
+    return new BatchLogReader() {
       @Override
       public List<Partition> getPartitions(long startStamp, long endStamp) {
         return Collections.singletonList(() -> 0);
@@ -174,24 +159,21 @@ public class DirectBatchUnboundedSourceTest {
 
   void testBatchUnboundedSourceWithCount(int count) {
     testBatchUnboundedSourceWithCountUsingRepository(
-        Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve()),
-        emptyConfigProvider(),
-        count);
+        Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve()), count);
   }
 
-  void testBatchUnboundedSourceWithCountUsingRepository(
-      Repository repo, ConfigReader configReader, int count) {
+  void testBatchUnboundedSourceWithCountUsingRepository(Repository repo, int count) {
     Pipeline pipeline = Pipeline.create();
     EntityDescriptor gateway = repo.getEntity("gateway");
     AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
     DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
-    BatchLogObservable observable =
+    BatchLogReader reader =
         direct
             .getFamiliesForAttribute(armed)
             .stream()
             .filter(af -> af.getDesc().getAccess().canReadBatchSnapshot())
             .findFirst()
-            .flatMap(DirectAttributeFamilyDescriptor::getBatchObservable)
+            .flatMap(DirectAttributeFamilyDescriptor::getBatchReader)
             .orElseThrow(() -> new IllegalArgumentException("Missing batch snapshot for armed"));
     try {
       PCollection<StreamElement> input =
@@ -199,8 +181,7 @@ public class DirectBatchUnboundedSourceTest {
               Read.from(
                   DirectBatchUnboundedSource.of(
                       repo.asFactory(),
-                      observable,
-                      configReader,
+                      reader,
                       Collections.singletonList(armed),
                       Long.MIN_VALUE,
                       Long.MAX_VALUE)));
@@ -238,10 +219,6 @@ public class DirectBatchUnboundedSourceTest {
       ex.printStackTrace(System.err);
       throw ex;
     }
-  }
-
-  private ConfigReader emptyConfigProvider() {
-    return repo -> -1L;
   }
 
   static Partition partition(int id, long minStamp, long maxStamp) {

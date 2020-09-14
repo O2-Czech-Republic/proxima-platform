@@ -16,9 +16,9 @@
 package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
-import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import java.time.Duration;

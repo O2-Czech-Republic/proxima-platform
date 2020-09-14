@@ -16,8 +16,9 @@
 package cz.o2.proxima.direct.batch;
 
 import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.time.WatermarkSupplier;
 
 /**
  * Batch observer of data. No commits needed.
@@ -26,6 +27,26 @@ import cz.o2.proxima.storage.StreamElement;
  */
 @Stable
 public interface BatchLogObserver {
+
+  /** Context passed to {@link #onNext}. */
+  @Stable
+  interface OnNextContext extends WatermarkSupplier {
+
+    /**
+     * Retrieve partition for currently processed record.
+     *
+     * @return partition of currently processed record
+     */
+    Partition getPartition();
+
+    /**
+     * Retrieve current watermark of the observe process
+     *
+     * @return watermark in milliseconds
+     */
+    @Override
+    long getWatermark();
+  }
 
   /**
    * Read next data from the batch storage.
@@ -41,10 +62,10 @@ public interface BatchLogObserver {
    * Read next data from the batch storage.
    *
    * @param element the retrieved data element
-   * @param partition the partition of the element
+   * @param context context of the data element
    * @return {@code true} to continue processing, {@code false} otherwise
    */
-  default boolean onNext(StreamElement element, Partition partition) {
+  default boolean onNext(StreamElement element, OnNextContext context) {
     return onNext(element);
   }
 

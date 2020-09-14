@@ -16,10 +16,13 @@
 package cz.o2.proxima.beam.direct.io;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.time.WatermarkSupplier;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import java.time.Instant;
@@ -40,6 +43,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
+  private static final long serialVersionUID = 1L;
+
   static BlockingQueueLogObserver create(String name, long startingWatermark) {
     return create(name, Long.MAX_VALUE, startingWatermark);
   }
@@ -48,13 +53,98 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return new BlockingQueueLogObserver(name, limit, startingWatermark);
   }
 
+  @Internal
+  interface UnifiedContext extends OffsetCommitter, WatermarkSupplier {
+
+    boolean isBounded();
+
+    @Nullable
+    Offset getOffset();
+  }
+
+  private static class LogObserverUnifiedContext implements UnifiedContext {
+
+    private static final long serialVersionUID = 1L;
+
+    private final LogObserver.OnNextContext context;
+
+    private LogObserverUnifiedContext(LogObserver.OnNextContext context) {
+      this.context = context;
+    }
+
+    @Override
+    public void commit(boolean success, Throwable error) {
+      context.commit(success, error);
+    }
+
+    @Override
+    public void nack() {
+      context.nack();
+    }
+
+    @Override
+    public long getWatermark() {
+      return context.getWatermark();
+    }
+
+    @Override
+    public boolean isBounded() {
+      return false;
+    }
+
+    @Nullable
+    @Override
+    public Offset getOffset() {
+      return context.getOffset();
+    }
+  }
+
+  private static class BatchLogObserverUnifiedContext implements UnifiedContext {
+
+    private static final long serialVersionUID = 1L;
+
+    private final BatchLogObserver.OnNextContext context;
+
+    private BatchLogObserverUnifiedContext(BatchLogObserver.OnNextContext context) {
+      this.context = context;
+    }
+
+    @Override
+    public void commit(boolean success, Throwable error) {
+      if (error != null) {
+        throw new RuntimeException(error);
+      }
+    }
+
+    @Override
+    public void nack() {
+      // nop
+    }
+
+    @Override
+    public long getWatermark() {
+      return context.getWatermark();
+    }
+
+    @Override
+    public boolean isBounded() {
+      return true;
+    }
+
+    @Nullable
+    @Override
+    public Offset getOffset() {
+      return null;
+    }
+  }
+
   @Getter private final String name;
   private final AtomicReference<Throwable> error = new AtomicReference<>();
   private final AtomicLong watermark;
-  private final BlockingQueue<Pair<StreamElement, OnNextContext>> queue;
+  private final BlockingQueue<Pair<StreamElement, UnifiedContext>> queue;
   private final AtomicBoolean stopped = new AtomicBoolean();
-  @Getter @Nullable private OnNextContext lastWrittenContext;
-  @Getter @Nullable private OnNextContext lastReadContext;
+  @Getter @Nullable private UnifiedContext lastWrittenContext;
+  @Getter @Nullable private UnifiedContext lastReadContext;
   private long limit;
   private boolean cancelled = false;
 
@@ -75,7 +165,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   }
 
   @Override
-  public boolean onNext(StreamElement ingest, OnNextContext context) {
+  public boolean onNext(StreamElement ingest, LogObserver.OnNextContext context) {
     if (log.isDebugEnabled()) {
       log.debug(
           "{}: Received next element {} at watermark {} offset {}",
@@ -84,17 +174,19 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
           context.getWatermark(),
           context.getOffset());
     }
-    return enqueue(ingest, context);
+    return enqueue(ingest, new LogObserverUnifiedContext(context));
   }
 
   @Override
-  public boolean onNext(StreamElement element, Partition partition) {
-    log.debug("{}: Received next element {} on partition {}", name, element, partition);
-    return enqueue(element, null);
+  public boolean onNext(StreamElement element, BatchLogObserver.OnNextContext context) {
+    log.debug(
+        "{}: Received next element {} on partition {}", name, element, context.getPartition());
+    return enqueue(element, new BatchLogObserverUnifiedContext(context));
   }
 
-  private boolean enqueue(StreamElement element, @Nullable OnNextContext context) {
+  private boolean enqueue(StreamElement element, @Nullable UnifiedContext context) {
     try {
+      Preconditions.checkArgument(element == null || context != null);
       lastWrittenContext = context;
       if (limit-- > 0) {
         return putToQueue(element, context);
@@ -125,10 +217,10 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     }
   }
 
-  private boolean putToQueue(@Nullable StreamElement element, @Nullable OnNextContext context)
+  private boolean putToQueue(@Nullable StreamElement element, @Nullable UnifiedContext context)
       throws InterruptedException {
 
-    Pair<StreamElement, OnNextContext> p = Pair.of(element, context);
+    Pair<StreamElement, UnifiedContext> p = Pair.of(element, context);
     while (!stopped.get()) {
       if (queue.offer(p, 50, TimeUnit.MILLISECONDS)) {
         return true;
@@ -152,7 +244,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
    */
   @Nullable
   StreamElement take() {
-    Pair<StreamElement, OnNextContext> taken = null;
+    Pair<StreamElement, UnifiedContext> taken = null;
     if (!stopped.get()) {
       taken = queue.poll();
     }
@@ -167,7 +259,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Nullable
   StreamElement takeBlocking() throws InterruptedException {
     while (!stopped.get()) {
-      Pair<StreamElement, OnNextContext> taken = queue.poll(50, TimeUnit.MILLISECONDS);
+      Pair<StreamElement, UnifiedContext> taken = queue.poll(50, TimeUnit.MILLISECONDS);
       if (taken != null) {
         return consumeTaken(taken);
       }
@@ -175,7 +267,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return null;
   }
 
-  private StreamElement consumeTaken(@Nullable Pair<StreamElement, OnNextContext> taken) {
+  private StreamElement consumeTaken(@Nullable Pair<StreamElement, UnifiedContext> taken) {
     if (taken != null && taken.getFirst() != null) {
       lastReadContext = taken.getSecond();
       if (lastReadContext != null) {
@@ -205,9 +297,9 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   void stop() {
     stopped.set(true);
-    List<Pair<StreamElement, OnNextContext>> drop = new ArrayList<>();
+    List<Pair<StreamElement, UnifiedContext>> drop = new ArrayList<>();
     queue.drainTo(drop);
-    drop.stream().map(Pair::getSecond).filter(Objects::nonNull).forEach(OnNextContext::nack);
+    drop.stream().map(Pair::getSecond).filter(Objects::nonNull).forEach(UnifiedContext::nack);
   }
 
   void clearIncomingQueue() {

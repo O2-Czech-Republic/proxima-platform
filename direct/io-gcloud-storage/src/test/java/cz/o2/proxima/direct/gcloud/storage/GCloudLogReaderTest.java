@@ -26,8 +26,8 @@ import com.google.api.client.http.HttpResponseException;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.StorageException;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.batch.BatchLogObservable.Factory;
-import cz.o2.proxima.direct.blob.BlobLogObservable.ThrowingRunnable;
+import cz.o2.proxima.direct.batch.BatchLogReader.Factory;
+import cz.o2.proxima.direct.blob.BlobLogReader.ThrowingRunnable;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.gcloud.storage.GCloudBlobPath.GCloudBlob;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -41,7 +41,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import org.junit.Test;
 
-public class GCloudLogObservableTest {
+public class GCloudLogReaderTest {
 
   final Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
   final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
@@ -58,21 +58,21 @@ public class GCloudLogObservableTest {
     };
   }
 
-  final GCloudLogObservable observable = new GCloudLogObservable(accessor, direct.getContext());
+  final GCloudLogReader reader = new GCloudLogReader(accessor, direct.getContext());
 
   @Test
   public void testRetries() {
     GCloudBlob blob = new GCloudBlob(mock(Blob.class));
-    observable.runHandlingErrors(blob, () -> {});
-    observable.runHandlingErrors(blob, throwTimes(() -> jsonResponse(404), 1));
+    reader.runHandlingErrors(blob, () -> {});
+    reader.runHandlingErrors(blob, throwTimes(() -> jsonResponse(404), 1));
     try {
-      observable.runHandlingErrors(blob, throwTimes(() -> jsonResponse(429), 20));
+      reader.runHandlingErrors(blob, throwTimes(() -> jsonResponse(429), 20));
       fail("Should have thrown exception");
     } catch (StorageException ex) {
       // pass
     }
     try {
-      observable.runHandlingErrors(blob, throwTimes(() -> new RuntimeException("fail"), 1));
+      reader.runHandlingErrors(blob, throwTimes(() -> new RuntimeException("fail"), 1));
       fail("Should have thrown exception");
     } catch (RuntimeException ex) {
       // pass
@@ -81,11 +81,11 @@ public class GCloudLogObservableTest {
 
   @Test
   public void testAsFactorySerializable() throws IOException, ClassNotFoundException {
-    byte[] bytes = TestUtils.serializeObject(observable.asFactory());
+    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
     Factory<?> factory = TestUtils.deserializeObject(bytes);
     assertEquals(
-        observable.getAccessor().getUri(),
-        ((GCloudLogObservable) factory.apply(repo)).getAccessor().getUri());
+        reader.getAccessor().getUri(),
+        ((GCloudLogReader) factory.apply(repo)).getAccessor().getUri());
   }
 
   private GoogleJsonResponseException jsonResponse(int code) {

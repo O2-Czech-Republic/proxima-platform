@@ -17,9 +17,9 @@ package cz.o2.proxima.direct.view;
 
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
-import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.functional.BiConsumer;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;

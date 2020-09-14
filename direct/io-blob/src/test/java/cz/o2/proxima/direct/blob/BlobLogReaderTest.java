@@ -19,16 +19,16 @@ import static org.junit.Assert.*;
 
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.batch.BatchLogObservable.Factory;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader.Factory;
 import cz.o2.proxima.direct.blob.TestBlobStorageAccessor.BlobReader;
 import cz.o2.proxima.direct.blob.TestBlobStorageAccessor.BlobWriter;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.util.TestUtils;
@@ -45,8 +45,8 @@ import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Test suite for {@link BlobLogObservableTest}. */
-public class BlobLogObservableTest {
+/** Test suite for {@link BlobLogReader}. */
+public class BlobLogReaderTest {
 
   private final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf"));
   private final EntityDescriptor gateway =
@@ -72,8 +72,8 @@ public class BlobLogObservableTest {
             Pair.of(1234566000000L + 3_600_000L, (1234566000000L + 2 * 3_600_000L)));
     writePartitions(
         stamps.stream().map(p -> (p.getSecond() + p.getFirst()) / 2).collect(Collectors.toList()));
-    BlobReader observable = accessor.new BlobReader(context);
-    List<Partition> partitions = observable.getPartitions();
+    BlobReader reader = accessor.new BlobReader(context);
+    List<Partition> partitions = reader.getPartitions();
     assertEquals("Expected single partitions, got " + partitions, 1, partitions.size());
     assertEquals((long) stamps.get(0).getFirst(), partitions.get(0).getMinTimestamp());
     assertEquals((long) stamps.get(1).getSecond(), partitions.get(0).getMaxTimestamp());
@@ -87,11 +87,11 @@ public class BlobLogObservableTest {
             Pair.of(1234566000000L + 3_600_000L, (1234566000000L + 2 * 3_600_000L)));
     writePartitions(
         stamps.stream().map(p -> (p.getSecond() + p.getFirst()) / 2).collect(Collectors.toList()));
-    BlobReader observable = accessor.new BlobReader(context);
+    BlobReader reader = accessor.new BlobReader(context);
     List<StreamElement> observed = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
-    observable.observe(
-        observable.getPartitions(),
+    reader.observe(
+        reader.getPartitions(),
         Lists.newArrayList(status),
         new BatchLogObserver() {
           @Override
@@ -112,10 +112,10 @@ public class BlobLogObservableTest {
   @Test
   public void testObservePartitionsReaderException() throws InterruptedException {
     writePartitions(Arrays.asList(0L, 1L, 2L));
-    final BlobReader observable = accessor.new BlobReader(context);
+    final BlobReader reader = accessor.new BlobReader(context);
     final CountDownLatch errorReceived = new CountDownLatch(1);
-    observable.observe(
-        observable.getPartitions(),
+    reader.observe(
+        reader.getPartitions(),
         Lists.newArrayList(status),
         new BatchLogObserver() {
 
@@ -141,10 +141,10 @@ public class BlobLogObservableTest {
   @Test
   public void testObservePartitionsReaderExceptionWithRetry() throws InterruptedException {
     writePartitions(Arrays.asList(0L, 1L, 2L));
-    final BlobReader observable = accessor.new BlobReader(context);
+    final BlobReader reader = accessor.new BlobReader(context);
     final CountDownLatch errorReceived = new CountDownLatch(10);
-    observable.observe(
-        observable.getPartitions(),
+    reader.observe(
+        reader.getPartitions(),
         Lists.newArrayList(status),
         new BatchLogObserver() {
 

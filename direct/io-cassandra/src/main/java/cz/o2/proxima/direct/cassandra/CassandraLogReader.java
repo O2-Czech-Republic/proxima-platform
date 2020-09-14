@@ -18,11 +18,11 @@ package cz.o2.proxima.direct.cassandra;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.direct.batch.BatchLogObservers;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
 import java.nio.ByteBuffer;
@@ -32,15 +32,15 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** A {@link BatchLogObservable} implementation for cassandra. */
-class CassandraLogObservable implements BatchLogObservable {
+/** A {@link BatchLogReader} implementation for cassandra. */
+class CassandraLogReader implements BatchLogReader {
 
   private final CassandraDBAccessor accessor;
   private final int parallelism;
   private final cz.o2.proxima.functional.Factory<Executor> executorFactory;
   private final Executor executor;
 
-  CassandraLogObservable(
+  CassandraLogReader(
       CassandraDBAccessor accessor, cz.o2.proxima.functional.Factory<Executor> executorFactory) {
     this.accessor = accessor;
     this.parallelism = accessor.getBatchParallelism();
@@ -115,7 +115,7 @@ class CassandraLogObservable implements BatchLogObservable {
                             attributeName,
                             System.currentTimeMillis(),
                             array),
-                        p)) {
+                        BatchLogObservers.defaultContext(p))) {
 
                       cont = false;
                       break;
@@ -131,7 +131,7 @@ class CassandraLogObservable implements BatchLogObservable {
         });
   }
 
-  /** Retrieve associated URI of this {@link BatchLogObservable}. */
+  /** Retrieve associated URI of this {@link BatchLogReader}. */
   public URI getUri() {
     return accessor.getUri();
   }
@@ -140,6 +140,6 @@ class CassandraLogObservable implements BatchLogObservable {
   public Factory<?> asFactory() {
     final CassandraDBAccessor accessor = this.accessor;
     final cz.o2.proxima.functional.Factory<Executor> executorFactory = this.executorFactory;
-    return repo -> new CassandraLogObservable(accessor, executorFactory);
+    return repo -> new CassandraLogReader(accessor, executorFactory);
   }
 }

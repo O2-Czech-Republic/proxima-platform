@@ -18,20 +18,20 @@ package cz.o2.proxima.direct.gcloud.storage;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.StorageException;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
-import cz.o2.proxima.direct.blob.BlobLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.blob.BlobLogReader;
 import cz.o2.proxima.direct.blob.BlobPath;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.gcloud.storage.GCloudBlobPath.GCloudBlob;
 import lombok.extern.slf4j.Slf4j;
 
-/** {@link BatchLogObservable} for gcloud storage. */
+/** {@link BatchLogReader} for gcloud storage. */
 @Slf4j
-public class GCloudLogObservable extends BlobLogObservable<GCloudBlob, GCloudBlobPath> {
+public class GCloudLogReader extends BlobLogReader<GCloudBlob, GCloudBlobPath> {
 
   private final GCloudFileSystem fs;
 
-  public GCloudLogObservable(GCloudStorageAccessor accessor, Context context) {
+  public GCloudLogReader(GCloudStorageAccessor accessor, Context context) {
     super(accessor, context);
     this.fs = new GCloudFileSystem(accessor);
   }
@@ -82,6 +82,6 @@ public class GCloudLogObservable extends BlobLogObservable<GCloudBlob, GCloudBlo
   public Factory<?> asFactory() {
     final GCloudStorageAccessor accessor = (GCloudStorageAccessor) getAccessor();
     final Context context = getContext();
-    return repo -> new GCloudLogObservable(accessor, context);
+    return repo -> new GCloudLogReader(accessor, context);
   }
 }

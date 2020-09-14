@@ -16,7 +16,7 @@
 package cz.o2.proxima.direct.core;
 
 import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.view.CachedView;
@@ -59,12 +59,12 @@ public interface DataAccessor extends AbstractDataAccessor {
   }
 
   /**
-   * Retrieve batch log observable.
+   * Retrieve batch log reader.
    *
    * @param context serializable context provided by repository
-   * @return optional {@link BatchLogObservable} of this accessor
+   * @return optional {@link BatchLogReader} of this accessor
    */
-  default Optional<BatchLogObservable> getBatchLogObservable(Context context) {
+  default Optional<BatchLogReader> getBatchLogReader(Context context) {
     return Optional.empty();
   }
 

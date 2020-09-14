@@ -22,7 +22,7 @@ import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
@@ -185,8 +185,8 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   }
 
   @Override
-  public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-    return Optional.of(newLogObservable(context));
+  public Optional<BatchLogReader> getBatchLogReader(Context context) {
+    return Optional.of(newBatchReader(context));
   }
 
   @VisibleForTesting
@@ -195,8 +195,8 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
   }
 
   @VisibleForTesting
-  CassandraLogObservable newLogObservable(Context context) {
-    return new CassandraLogObservable(this, context::getExecutorService);
+  CassandraLogReader newBatchReader(Context context) {
+    return new CassandraLogReader(this, context::getExecutorService);
   }
 
   @VisibleForTesting

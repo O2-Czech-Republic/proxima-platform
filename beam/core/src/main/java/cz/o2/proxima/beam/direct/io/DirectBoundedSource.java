@@ -16,8 +16,8 @@
 package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.repository.RepositoryFactory;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.util.Collections;

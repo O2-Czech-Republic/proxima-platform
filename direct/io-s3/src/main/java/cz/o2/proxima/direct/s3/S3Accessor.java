@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.s3;
 
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.blob.BlobStorageAccessor;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
@@ -49,9 +49,9 @@ class S3Accessor extends BlobStorageAccessor {
   }
 
   @Override
-  public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
+  public Optional<BatchLogReader> getBatchLogReader(Context context) {
     this.fs = initFs(context);
-    return Optional.of(new S3LogObservable(this, context));
+    return Optional.of(new S3LogReader(this, context));
   }
 
   S3FileSystem initFs(Context context) {

@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.core;
 
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.view.CachedView;
@@ -40,13 +40,13 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
   private final RepositoryFactory repositoryFactory;
   private final @Nullable AttributeWriterBase.Factory<?> writerFactory;
   private final @Nullable CommitLogReader.Factory<?> commitLogReaderFactory;
-  private final @Nullable BatchLogObservable.Factory<?> batchObservableFactory;
+  private final @Nullable BatchLogReader.Factory<?> batchReaderFactory;
   private final @Nullable RandomAccessReader.Factory<?> randomAccessReaderFactory;
   private final @Nullable CachedView.Factory cachedViewFactory;
 
   @Nullable private transient AttributeWriterBase writer;
   @Nullable private transient CommitLogReader commitLogReader;
-  @Nullable private transient BatchLogObservable batchObservable;
+  @Nullable private transient BatchLogReader batchReader;
   @Nullable private transient RandomAccessReader randomAccessReader;
   @Nullable private transient CachedView cachedView;
   private transient @Nullable Repository repo;
@@ -56,7 +56,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
       AttributeFamilyDescriptor desc,
       Optional<AttributeWriterBase> writer,
       Optional<CommitLogReader> commitLogReader,
-      Optional<BatchLogObservable> batchLogObservable,
+      Optional<BatchLogReader> batchLogReader,
       Optional<RandomAccessReader> randomAccessReader,
       Optional<CachedView> cachedView) {
 
@@ -64,8 +64,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
     this.desc = desc;
     this.writerFactory = writer.map(AttributeWriterBase::asFactory).orElse(null);
     this.commitLogReaderFactory = commitLogReader.map(CommitLogReader::asFactory).orElse(null);
-    this.batchObservableFactory =
-        batchLogObservable.map(BatchLogObservable::asFactory).orElse(null);
+    this.batchReaderFactory = batchLogReader.map(BatchLogReader::asFactory).orElse(null);
     this.randomAccessReaderFactory =
         randomAccessReader.map(RandomAccessReader::asFactory).orElse(null);
     this.cachedViewFactory = cachedView.map(CachedView::asFactory).orElse(null);
@@ -79,7 +78,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
         desc,
         accessor.getWriter(context),
         accessor.getCommitLogReader(context),
-        accessor.getBatchLogObservable(context),
+        accessor.getBatchLogReader(context),
         accessor.getRandomAccessReader(context),
         accessor.getCachedView(context));
   }
@@ -153,24 +152,23 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
   /**
    * Retrieve batch reader of this family.
    *
-   * @return optional {@link BatchLogObservable} of this family
+   * @return optional {@link BatchLogReader} of this family
    */
-  public Optional<BatchLogObservable> getBatchObservable() {
+  public Optional<BatchLogReader> getBatchReader() {
     if (desc.getAccess().canReadBatchSnapshot() || desc.getAccess().canReadBatchUpdates()) {
 
       return Optional.of(
           Objects.requireNonNull(
-              batchObservable(),
-              () -> "Family " + desc.getName() + " doesn't have batch observable"));
+              batchReader(), () -> "Family " + desc.getName() + " doesn't have batch reader"));
     }
     return Optional.empty();
   }
 
-  private BatchLogObservable batchObservable() {
-    if (batchObservable == null) {
-      batchObservable = batchObservableFactory.apply(repo());
+  private BatchLogReader batchReader() {
+    if (batchReader == null) {
+      batchReader = batchReaderFactory.apply(repo());
     }
-    return batchObservable;
+    return batchReader;
   }
 
   /**

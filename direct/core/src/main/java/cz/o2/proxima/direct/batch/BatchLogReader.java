@@ -16,26 +16,25 @@
 package cz.o2.proxima.direct.batch;
 
 import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.direct.commitlog.CommitLogReader.Factory;
-import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.Partition;
 import java.io.Serializable;
 import java.util.List;
 
-/** Observer of batch data stored in batch storage. */
+/** Reader of batch data stored in batch storage. */
 @Stable
-public interface BatchLogObservable {
+public interface BatchLogReader {
 
-  /** {@link Serializable} factory for {@link BatchLogObservable}. */
+  /** {@link Serializable} factory for {@link BatchLogReader}. */
   @FunctionalInterface
-  interface Factory<T extends BatchLogObservable> extends UnaryFunction<Repository, T> {}
+  interface Factory<T extends BatchLogReader> extends UnaryFunction<Repository, T> {}
 
   /**
    * Retrieve list of partitions of this batch observer.
    *
-   * @return list of partitions of this observable
+   * @return list of partitions of this reader
    */
   default List<Partition> getPartitions() {
     return getPartitions(Long.MIN_VALUE);

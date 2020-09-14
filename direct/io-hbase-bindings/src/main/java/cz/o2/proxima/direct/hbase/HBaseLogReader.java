@@ -17,12 +17,12 @@ package cz.o2.proxima.direct.hbase;
 
 import static cz.o2.proxima.direct.hbase.Util.cloneArray;
 
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.core.Partition;
-import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.direct.batch.BatchLogObservers;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.net.URI;
@@ -44,15 +44,15 @@ import org.apache.hadoop.hbase.filter.Filter;
 import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.QualifierFilter;
 
-/** A {@code BatchLogObservable} for HBase. */
+/** A {@link BatchLogReader} for HBase. */
 @Slf4j
-class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservable {
+class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
 
   private final EntityDescriptor entity;
   private final cz.o2.proxima.functional.Factory<Executor> executorFactory;
   private final Executor executor;
 
-  public HBaseLogObservable(
+  public HBaseLogReader(
       URI uri,
       Configuration conf,
       EntityDescriptor entity,
@@ -112,7 +112,7 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
     final cz.o2.proxima.functional.Factory<Executor> executorFactory = this.executorFactory;
     final byte[] serializedConf = this.serializedConf;
     return repo ->
-        new HBaseLogObservable(
+        new HBaseLogReader(
             uri, deserialize(serializedConf, new Configuration()), entity, executorFactory);
   }
 
@@ -153,7 +153,8 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
 
     CellScanner scanner = r.cellScanner();
     while (scanner.advance()) {
-      if (!observer.onNext(toStreamElement(scanner.current(), attrs, hp), hp)) {
+      if (!observer.onNext(
+          toStreamElement(scanner.current(), attrs, hp), BatchLogObservers.defaultContext(hp))) {
         return false;
       }
     }
@@ -211,8 +212,8 @@ class HBaseLogObservable extends HBaseClientWrapper implements BatchLogObservabl
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof HBaseLogObservable) {
-      HBaseLogObservable o = (HBaseLogObservable) obj;
+    if (obj instanceof HBaseLogReader) {
+      HBaseLogReader o = (HBaseLogReader) obj;
       return o.entity.equals(entity) && o.uri.equals(uri);
     }
     return false;

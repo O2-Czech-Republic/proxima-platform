@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.hbase;
 
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
@@ -67,9 +67,9 @@ public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
   }
 
   @Override
-  public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
+  public Optional<BatchLogReader> getBatchLogReader(Context context) {
     return Optional.of(
-        new HBaseLogObservable(
+        new HBaseLogReader(
             getUri(), getConf(), getEntityDescriptor(), context::getExecutorService));
   }
 

@@ -19,8 +19,8 @@ import static org.junit.Assert.*;
 
 import com.google.common.base.Preconditions;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -28,7 +28,6 @@ import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.core.Partition;
 import cz.o2.proxima.direct.storage.InMemStorage.ConsumedOffset;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -131,7 +130,7 @@ public class InMemStorageTest implements Serializable {
     CommitLogReader reader =
         accessor
             .getCommitLogReader(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing batch log observable"));
+            .orElseThrow(() -> new IllegalStateException("Missing batch log reader"));
     AttributeWriterBase writer =
         accessor
             .getWriter(direct.getContext())
@@ -188,10 +187,10 @@ public class InMemStorageTest implements Serializable {
     DataAccessor accessor =
         storage.createAccessor(
             direct, entity, URI.create("inmem:///inmemstoragetest"), Collections.emptyMap());
-    BatchLogObservable reader =
+    BatchLogReader reader =
         accessor
-            .getBatchLogObservable(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing batch log observable"));
+            .getBatchLogReader(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing batch log reader"));
     AttributeWriterBase writer =
         accessor
             .getWriter(direct.getContext())
@@ -215,8 +214,8 @@ public class InMemStorageTest implements Serializable {
         new BatchLogObserver() {
 
           @Override
-          public boolean onNext(StreamElement ingest, Partition partition) {
-            assertEquals(0, partition.getId());
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            assertEquals(0, context.getPartition().getId());
             assertEquals("key", ingest.getKey());
             latch.countDown();
             return false;
@@ -238,10 +237,10 @@ public class InMemStorageTest implements Serializable {
         storage.createAccessor(direct, entity, URI.create("inmem://test1"), Collections.emptyMap());
     DataAccessor accessor2 =
         storage.createAccessor(direct, entity, URI.create("inmem://test2"), Collections.emptyMap());
-    BatchLogObservable reader =
+    BatchLogReader reader =
         accessor
-            .getBatchLogObservable(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing batch log observable"));
+            .getBatchLogReader(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing batch log reader"));
     AttributeWriterBase writer =
         accessor
             .getWriter(direct.getContext())
@@ -274,8 +273,8 @@ public class InMemStorageTest implements Serializable {
           }
 
           @Override
-          public boolean onNext(StreamElement ingest, Partition partition) {
-            assertEquals(0, partition.getId());
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            assertEquals(0, context.getPartition().getId());
             assertEquals("key", ingest.getKey());
             count.incrementAndGet();
             return true;

@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.hadoop;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.bulk.FileFormat;
 import cz.o2.proxima.direct.bulk.FileFormatUtils;
 import cz.o2.proxima.direct.bulk.NamingConvention;
@@ -122,8 +122,8 @@ public class HadoopDataAccessor implements DataAccessor {
   }
 
   @Override
-  public Optional<BatchLogObservable> getBatchLogObservable(Context context) {
-    return Optional.of(new HadoopBatchLogObservable(this, context));
+  public Optional<BatchLogReader> getBatchLogReader(Context context) {
+    return Optional.of(new HadoopBatchLogReader(this, context));
   }
 
   private <T> T getCfg(

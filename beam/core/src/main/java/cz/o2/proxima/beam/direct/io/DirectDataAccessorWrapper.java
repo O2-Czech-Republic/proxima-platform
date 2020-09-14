@@ -15,28 +15,18 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigObject;
-import com.typesafe.config.ConfigValue;
-import com.typesafe.config.ConfigValueType;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
-import cz.o2.proxima.direct.batch.BatchLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
-import java.io.Serializable;
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import javax.annotation.Nullable;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
 import org.apache.beam.sdk.io.Read;
@@ -47,16 +37,6 @@ import org.apache.beam.sdk.values.TypeDescriptor;
 public class DirectDataAccessorWrapper implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
-  private static final String CONFIG_PREFIX = "beam.";
-  private static final String UNBOUNDED_BATCH_SOURCE_PREFIX = CONFIG_PREFIX + "unbounded-batch";
-
-  interface ConfigReader extends Serializable {
-    /**
-     * Return bytes per second allowed throughput to be read from {@link
-     * DirectBatchUnboundedSource}.
-     */
-    long getBytesPerSecThroughput(Repository repository);
-  }
 
   private final RepositoryFactory factory;
   private final cz.o2.proxima.direct.core.DataAccessor direct;
@@ -110,12 +90,11 @@ public class DirectDataAccessorWrapper implements DataAccessor {
   public PCollection<StreamElement> createBatch(
       Pipeline pipeline, List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp) {
 
-    BatchLogObservable reader =
+    BatchLogReader reader =
         direct
-            .getBatchLogObservable(context)
+            .getBatchLogReader(context)
             .orElseThrow(
-                () ->
-                    new IllegalArgumentException("Cannot create batch observable from " + direct));
+                () -> new IllegalArgumentException("Cannot create batch reader from " + direct));
 
     PCollection<StreamElement> ret =
         pipeline.apply(
@@ -140,51 +119,18 @@ public class DirectDataAccessorWrapper implements DataAccessor {
       long endStamp,
       long limit) {
 
-    BatchLogObservable reader =
+    BatchLogReader reader =
         direct
-            .getBatchLogObservable(context)
+            .getBatchLogReader(context)
             .orElseThrow(
-                () ->
-                    new IllegalArgumentException("Cannot create batch observable from " + direct));
+                () -> new IllegalArgumentException("Cannot create batch reader from " + direct));
 
     final PCollection<StreamElement> ret;
     ret =
         pipeline.apply(
             "ReadBatchUnbounded:" + uri,
-            Read.from(
-                DirectBatchUnboundedSource.of(
-                    factory, reader, getConfigProvider(uri), attrs, startStamp, endStamp)));
+            Read.from(DirectBatchUnboundedSource.of(factory, reader, attrs, startStamp, endStamp)));
     return ret.setCoder(StreamElementCoder.of(factory))
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
-  }
-
-  @VisibleForTesting
-  static ConfigReader getConfigProvider(URI uri) {
-    return repo -> {
-      Config config =
-          repo instanceof ConfigRepository ? ((ConfigRepository) repo).getConfig() : null;
-      return readThroughput(uri, config);
-    };
-  }
-
-  @VisibleForTesting
-  static long readThroughput(URI uri, @Nullable Config config) {
-    if (config != null && config.hasPath(UNBOUNDED_BATCH_SOURCE_PREFIX)) {
-      ConfigObject object = config.getObject(UNBOUNDED_BATCH_SOURCE_PREFIX);
-      String uriString = uri.toString();
-      for (Map.Entry<String, ConfigValue> entry : object.entrySet()) {
-        if (entry.getValue().valueType() == ConfigValueType.OBJECT) {
-          @SuppressWarnings({"unchecked", "rawtypes"})
-          Map<String, Object> obj = (Map) entry.getValue().unwrapped();
-          Object sourceUri = obj.get("uri");
-          if (sourceUri != null && uriString.equals(sourceUri.toString())) {
-            Object throughput =
-                Objects.requireNonNull(obj.get("throughput"), "Missing key `throughput` in " + obj);
-            return Long.parseLong(throughput.toString());
-          }
-        }
-      }
-    }
-    return -1L;
   }
 }

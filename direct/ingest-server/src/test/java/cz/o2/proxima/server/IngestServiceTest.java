@@ -19,6 +19,7 @@ import static org.junit.Assert.*;
 
 import com.google.protobuf.ByteString;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.storage.InMemBulkStorage;
 import cz.o2.proxima.direct.storage.InMemStorage;
 import cz.o2.proxima.proto.service.Rpc;
@@ -515,6 +516,7 @@ public class IngestServiceTest {
             server
                 .direct
                 .getAccessorFactory(new URI("inmem:///"))
+                .map(f -> ((DirectDataOperator.DelegateDataAccessorFactory) f).getDelegate())
                 .orElseThrow(() -> new IllegalStateException("Missing accessor for inmem:///"));
     return storage;
   }
@@ -525,6 +527,7 @@ public class IngestServiceTest {
             server
                 .direct
                 .getAccessorFactory(new URI("inmem-bulk:///"))
+                .map(f -> ((DirectDataOperator.DelegateDataAccessorFactory) f).getDelegate())
                 .orElseThrow(
                     () -> new IllegalStateException("Missing accessor for inmem-bulk:///"));
     return storage;

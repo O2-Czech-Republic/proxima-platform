@@ -15,21 +15,21 @@
  */
 package cz.o2.proxima.direct.s3;
 
-import cz.o2.proxima.direct.batch.BatchLogObservable;
-import cz.o2.proxima.direct.blob.BlobLogObservable;
+import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.blob.BlobLogReader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.s3.S3BlobPath.S3Blob;
 import cz.o2.proxima.util.ExceptionUtils;
 import lombok.extern.slf4j.Slf4j;
 
-/** {@link BatchLogObservable} for gcloud storage. */
+/** {@link BatchLogReader} for gcloud storage. */
 @Slf4j
-public class S3LogObservable extends BlobLogObservable<S3Blob, S3BlobPath> {
+public class S3LogReader extends BlobLogReader<S3Blob, S3BlobPath> {
 
   private final S3FileSystem fs;
   private final Context context;
 
-  public S3LogObservable(S3Accessor accessor, Context context) {
+  public S3LogReader(S3Accessor accessor, Context context) {
     super(accessor, context);
     this.fs = new S3FileSystem(accessor, context);
     this.context = context;
@@ -49,6 +49,6 @@ public class S3LogObservable extends BlobLogObservable<S3Blob, S3BlobPath> {
   public Factory<?> asFactory() {
     final S3Accessor accessor = (S3Accessor) getAccessor();
     final Context context = getContext();
-    return repo -> new S3LogObservable(accessor, context);
+    return repo -> new S3LogReader(accessor, context);
   }
 }

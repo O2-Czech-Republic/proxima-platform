@@ -16,7 +16,7 @@
 package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.time.WatermarkSupplier;
 import java.util.Collection;
 

@@ -15,9 +15,9 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
-import cz.o2.proxima.direct.batch.BatchLogObservable;
-import cz.o2.proxima.direct.core.Partition;
+import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.util.Arrays;
@@ -30,7 +30,7 @@ import org.apache.beam.sdk.io.BoundedSource.BoundedReader;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.joda.time.Instant;
 
-/** A {@link BoundedReader} reading from {@link BatchLogObservable}. */
+/** A {@link BoundedReader} reading from {@link BatchLogReader}. */
 @Slf4j
 class BeamBatchLogReader extends BoundedReader<StreamElement> {
 
@@ -39,7 +39,7 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
 
   static BeamBatchLogReader of(
       DirectBatchSource source,
-      BatchLogObservable reader,
+      BatchLogReader reader,
       List<AttributeDescriptor<?>> attrs,
       Partition split,
       long startStamp,
@@ -49,7 +49,7 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
   }
 
   private final DirectBatchSource source;
-  private final BatchLogObservable reader;
+  private final BatchLogReader reader;
   private final List<AttributeDescriptor<?>> attrs;
   private final Partition split;
   private final long startStamp;
@@ -61,7 +61,7 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
 
   private BeamBatchLogReader(
       DirectBatchSource source,
-      BatchLogObservable reader,
+      BatchLogReader reader,
       List<AttributeDescriptor<?>> attrs,
       Partition split,
       long startStamp,

@@ -35,6 +35,9 @@ import cz.o2.proxima.repository.Repository.Validate;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.internal.DataAccessorLoader;
+import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,6 +62,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DirectDataOperator implements DataOperator, ContextProvider {
 
+  private static final String THROUGHPUT_LIMITER_PREFIX = "direct.throughput-limiter.";
+  private static final String KW_CLASS = "class";
   private static final AtomicInteger threadId = new AtomicInteger();
 
   private static Factory<ExecutorService> createExecutorFactory() {
@@ -441,8 +446,27 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
 
       @Nullable
       private ThroughputLimiter configureLimiter(Map<String, Object> cfg) {
-        // FIXME: to be configured
-        return null;
+        Map<String, Object> prefixed =
+            cfg.entrySet()
+                .stream()
+                .filter(e -> e.getKey().startsWith(THROUGHPUT_LIMITER_PREFIX))
+                .map(
+                    e ->
+                        Pair.of(
+                            e.getKey().substring(THROUGHPUT_LIMITER_PREFIX.length()), e.getValue()))
+                .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+        return Optional.ofNullable(prefixed.get(KW_CLASS))
+            .map(Object::toString)
+            .map(
+                cls ->
+                    ExceptionUtils.uncheckedFactory(
+                        () -> Classpath.newInstance(cls, ThroughputLimiter.class)))
+            .map(
+                limiter -> {
+                  limiter.setup(prefixed);
+                  return limiter;
+                })
+            .orElse(null);
       }
 
       @Override

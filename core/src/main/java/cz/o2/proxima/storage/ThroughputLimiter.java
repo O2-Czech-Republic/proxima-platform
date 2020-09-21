@@ -20,6 +20,7 @@ import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Map;
 
 /** A limiter of data rate coming from various sources. */
 @Evolving
@@ -58,6 +59,15 @@ public interface ThroughputLimiter extends Serializable {
      * @return minimal watermark within partitions
      */
     long getMinWatermark();
+  }
+
+  /**
+   * Setup the limiter with given configuration.
+   *
+   * @param cfg configuration (scoped to a (operator) defined prefix)
+   */
+  default void setup(Map<String, Object> cfg) {
+    // nop
   }
 
   /**

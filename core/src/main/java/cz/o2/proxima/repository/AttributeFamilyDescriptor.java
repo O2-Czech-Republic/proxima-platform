@@ -41,7 +41,7 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 /** A family of attributes with the same storage. */
-@Evolving("Affected by #66")
+@Evolving
 @Slf4j
 public class AttributeFamilyDescriptor implements Serializable {
 
@@ -61,6 +61,7 @@ public class AttributeFamilyDescriptor implements Serializable {
   @Getter private final EntityDescriptor entity;
 
   @Getter private final URI storageUri;
+
   /** Access type allowed to this family. */
   @Getter private final AccessType access;
 

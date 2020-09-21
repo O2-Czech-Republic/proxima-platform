@@ -81,7 +81,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   @Override
-  public void configure(Map<String, Object> cfg) {
+  public void setup(Map<String, Object> cfg) {
     URI uri = getZkUri(cfg);
     zkConnectString = String.format("%s:%d", uri.getHost(), uri.getPort());
     sessionTimeout = getSessionTimeout(cfg);

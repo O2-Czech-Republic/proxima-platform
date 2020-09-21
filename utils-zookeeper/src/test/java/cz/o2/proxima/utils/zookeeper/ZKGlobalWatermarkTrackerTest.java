@@ -146,7 +146,7 @@ public class ZKGlobalWatermarkTrackerTest {
 
   private ZKGlobalWatermarkTracker newTracker(Map<String, Object> cfg) {
     ZKGlobalWatermarkTracker tracker = new ZKGlobalWatermarkTracker();
-    tracker.configure(cfg);
+    tracker.setup(cfg);
     return tracker;
   }
 
@@ -270,7 +270,7 @@ public class ZKGlobalWatermarkTrackerTest {
             return ret;
           }
         };
-    newTracker.configure(cfg(name));
+    newTracker.setup(cfg(name));
     return newTracker;
   }
 

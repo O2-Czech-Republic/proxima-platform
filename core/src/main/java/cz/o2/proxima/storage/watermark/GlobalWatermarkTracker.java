@@ -47,9 +47,9 @@ public interface GlobalWatermarkTracker extends WatermarkSupplier, Closeable {
   /**
    * Configure the tracker using given configuration.
    *
-   * @param cfg the configuration map
+   * @param cfg the (scoped) configuration map
    */
-  void configure(Map<String, Object> cfg);
+  void setup(Map<String, Object> cfg);
 
   /**
    * Setup parallel consumers. This SHOULD be used once when the tracker is constructed to setup

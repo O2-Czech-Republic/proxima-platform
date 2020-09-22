@@ -195,8 +195,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   }
 
   private DataAccessor findAccessorFor(AttributeFamilyDescriptor desc) {
-    return loader
-        .findForUri(desc.getStorageUri())
+    return getAccessorFactory(desc.getStorageUri())
         .map(f -> f.createAccessor(this, desc.getEntity(), desc.getStorageUri(), desc.getCfg()))
         .filter(f -> !repo.isShouldValidate(Validate.ACCESSES) || f.isAcceptable(desc))
         .orElseThrow(
@@ -283,10 +282,8 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional commit log reader
    */
   public Optional<CommitLogReader> getCommitLogReader(Collection<AttributeDescriptor<?>> attrs) {
-    return getAccessor(
-        attrs,
-        a -> a.getDesc().getAccess().canReadCommitLog(),
-        DirectAttributeFamilyDescriptor::getCommitLogReader);
+    return getFamilyForAttributes(attrs, a -> a.getDesc().getAccess().canReadCommitLog())
+        .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader);
   }
 
   /**
@@ -307,10 +304,8 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional cached view
    */
   public Optional<CachedView> getCachedView(Collection<AttributeDescriptor<?>> attrs) {
-    return getAccessor(
-        attrs,
-        a -> a.getDesc().getAccess().canCreateCachedView(),
-        DirectAttributeFamilyDescriptor::getCachedView);
+    return getFamilyForAttributes(attrs, a -> a.getDesc().getAccess().canCreateCachedView())
+        .flatMap(DirectAttributeFamilyDescriptor::getCachedView);
   }
 
   /**
@@ -331,10 +326,8 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional random access reader
    */
   public Optional<RandomAccessReader> getRandomAccess(Collection<AttributeDescriptor<?>> attrs) {
-    return getAccessor(
-        attrs,
-        a -> a.getDesc().getAccess().canRandomRead(),
-        DirectAttributeFamilyDescriptor::getRandomAccessReader);
+    return getFamilyForAttributes(attrs, a -> a.getDesc().getAccess().canRandomRead())
+        .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
   }
 
   /**
@@ -348,10 +341,9 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return getRandomAccess(Arrays.asList(attrs));
   }
 
-  private <T> Optional<T> getAccessor(
+  private Optional<DirectAttributeFamilyDescriptor> getFamilyForAttributes(
       Collection<AttributeDescriptor<?>> attrs,
-      UnaryFunction<DirectAttributeFamilyDescriptor, Boolean> mask,
-      UnaryFunction<DirectAttributeFamilyDescriptor, Optional<T>> extract) {
+      UnaryFunction<DirectAttributeFamilyDescriptor, Boolean> mask) {
 
     return attrs
         .stream()
@@ -359,8 +351,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
             a ->
                 getFamiliesForAttribute(a).stream().filter(mask::apply).collect(Collectors.toSet()))
         .reduce(Sets::intersection)
-        .flatMap(s -> s.stream().findAny())
-        .flatMap(extract::apply);
+        .flatMap(s -> s.stream().findAny());
   }
 
   /** Close the operator and release all allocated resources. */

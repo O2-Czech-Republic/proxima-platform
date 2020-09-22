@@ -105,6 +105,7 @@
     <apache.beam.version>2.24.0</apache.beam.version>
     <apache.beam.groupId.raw>org.apache.beam</apache.beam.groupId.raw>
     <apache.beam.version.raw>${apache.beam.version}</apache.beam.version.raw>
+    <zookeeper.version>3.6.2</zookeeper.version>
   </properties>
 
   <profiles>
@@ -572,6 +573,7 @@
     <module>maven</module>
     <module>scheme</module>
     <module>tools</module>
+    <module>utils-zookeeper</module>
   </modules>
 
 </project>

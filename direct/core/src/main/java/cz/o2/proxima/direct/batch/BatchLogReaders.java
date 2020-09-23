@@ -21,6 +21,7 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.ThroughputLimiter.Context;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -121,8 +122,20 @@ public class BatchLogReaders {
     }
 
     @Override
+    public void onCompleted() {
+      limiter.close();
+      super.onCompleted();
+    }
+
+    @Override
+    public boolean onError(Throwable error) {
+      limiter.close();
+      return super.onError(error);
+    }
+
+    @Override
     public boolean onNext(StreamElement element) {
-      if (throwsInterrupted(this::waitIfNecessary)) {
+      if (ExceptionUtils.ignoringInterrupted(this::waitIfNecessary)) {
         return false;
       }
       return super.onNext(element);
@@ -131,20 +144,10 @@ public class BatchLogReaders {
     @Override
     public boolean onNext(StreamElement element, OnNextContext context) {
       watermark = context.getWatermark();
-      if (throwsInterrupted(this::waitIfNecessary)) {
+      if (ExceptionUtils.ignoringInterrupted(this::waitIfNecessary)) {
         return false;
       }
       return super.onNext(element, context);
-    }
-
-    private boolean throwsInterrupted(InterruptibleRunnable cmd) {
-      try {
-        cmd.run();
-        return false;
-      } catch (InterruptedException ex) {
-        Thread.currentThread().interrupt();
-        return true;
-      }
     }
 
     private void waitIfNecessary() throws InterruptedException {
@@ -173,11 +176,6 @@ public class BatchLogReaders {
         }
       };
     }
-  }
-
-  @FunctionalInterface
-  private interface InterruptibleRunnable {
-    void run() throws InterruptedException;
   }
 
   private BatchLogReaders() {}

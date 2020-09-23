@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.core;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Sets;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.BatchLogReaders;
@@ -433,6 +434,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       public DelegateDataAccessor(DataAccessor delegate, Map<String, Object> cfg) {
         this.delegate = delegate;
         this.limiter = configureLimiter(cfg);
+        log.info("Created new {}", this);
       }
 
       @Nullable
@@ -492,6 +494,14 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       @Override
       public boolean isAcceptable(AttributeFamilyDescriptor familyDescriptor) {
         return delegate.isAcceptable(familyDescriptor);
+      }
+
+      @Override
+      public String toString() {
+        return MoreObjects.toStringHelper(this)
+            .add("delegate", delegate)
+            .add("limiter", limiter)
+            .toString();
       }
     }
   }

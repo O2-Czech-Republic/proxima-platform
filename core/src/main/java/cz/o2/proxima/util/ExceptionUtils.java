@@ -128,12 +128,15 @@ public class ExceptionUtils {
    * interrupted flag (if exception caught).
    *
    * @param runnable runnable throwing {@link InterruptedException}
+   * @return {@code true} if {@link InterruptedException} was caught
    */
-  public static void ignoringInterrupted(ThrowingRunnable runnable) {
+  public static boolean ignoringInterrupted(ThrowingRunnable runnable) {
     try {
       runnable.run();
+      return false;
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
+      return true;
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }

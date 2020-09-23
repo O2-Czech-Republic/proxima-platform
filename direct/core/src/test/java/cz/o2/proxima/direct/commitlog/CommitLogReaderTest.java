@@ -608,12 +608,19 @@ public class CommitLogReaderTest {
 
   public static ThroughputLimiter withNumRecordsPerSec(int recordsPerSec) {
     final Duration pauseDuration = Duration.ofMillis(1000L / recordsPerSec);
-    return context -> {
-      assertEquals(1, context.getNumPartitions());
-      assertEquals(1, context.getConsumedPartitions().size());
-      assertEquals(0, Iterables.getOnlyElement(context.getConsumedPartitions()).getId());
-      assertTrue(context.getMinWatermark() < Long.MAX_VALUE);
-      return pauseDuration;
+    return new ThroughputLimiter() {
+
+      @Override
+      public Duration getPauseTime(Context context) {
+        assertEquals(1, context.getNumPartitions());
+        assertEquals(1, context.getConsumedPartitions().size());
+        assertEquals(0, Iterables.getOnlyElement(context.getConsumedPartitions()).getId());
+        assertTrue(context.getMinWatermark() < Long.MAX_VALUE);
+        return pauseDuration;
+      }
+
+      @Override
+      public void close() {}
     };
   }
 

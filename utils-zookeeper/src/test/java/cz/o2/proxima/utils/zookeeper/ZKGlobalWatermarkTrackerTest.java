@@ -20,8 +20,8 @@ import static org.junit.Assert.*;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
+import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
-import cz.o2.proxima.storage.watermark.GlobalWatermarkTracker;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.TestUtils;
 import java.io.File;
@@ -46,11 +46,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.zookeeper.AddWatchMode;
 import org.apache.zookeeper.AsyncCallback.DataCallback;
 import org.apache.zookeeper.AsyncCallback.StatCallback;
 import org.apache.zookeeper.CreateMode;
@@ -75,7 +71,7 @@ public class ZKGlobalWatermarkTrackerTest {
   private static final File TMP =
       new File("/tmp/" + ZKGlobalWatermarkTracker.class.getSimpleName());
   private static final File WORK_DIR = new File(TMP, UUID.randomUUID().toString());
-  private static final URI zkURI = URI.create("zk://localhost:12181");
+  private static final URI zkURI = URI.create("zk://localhost:12181/my-path");
   private static final ExecutorService executor = Executors.newCachedThreadPool();
   static Future<?> serverFuture;
 
@@ -181,29 +177,62 @@ public class ZKGlobalWatermarkTrackerTest {
   public void testTrackerSerializable() throws IOException, ClassNotFoundException {
     ZKGlobalWatermarkTracker clone =
         TestUtils.deserializeObject(TestUtils.serializeObject(tracker));
-    assertNotNull(clone.updatedFutures);
+    assertNotNull(clone.pathToVersion);
   }
 
-  @Test(timeout = 60000)
+  @Test(timeout = 10000)
   public void testMultipleInstances() throws ExecutionException, InterruptedException {
     String name = tracker.getName();
     testMultipleInstancesWithTrackerFactory(() -> newTracker(cfg(name)), 10);
   }
 
-  @Test(timeout = 60000)
+  @Test(timeout = 10000)
   public void testConnectionLoss() throws ExecutionException, InterruptedException {
-    try {
-      String name = tracker.getName();
-      testMultipleInstancesWithTrackerFactory(() -> createConnectionLossyTracker(name), 2);
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
-    }
+    String name = tracker.getName();
+    testMultipleInstancesWithTrackerFactory(() -> createConnectionLossyTracker(name), 2, true);
+  }
+
+  @Test(timeout = 10000)
+  public void testContainerNodeUnsupported() throws ExecutionException, InterruptedException {
+    String name = tracker.getName();
+    testMultipleInstancesWithTrackerFactory(
+        () -> createUnimplementedContainerNodeTracker(name), 10);
+  }
+
+  @Test(timeout = 10000)
+  public void testParentNodeDelete() throws ExecutionException, InterruptedException {
+    String name = tracker.getName();
+    testMultipleInstancesWithTrackerFactory(
+        () ->
+            createConnectionLossyTracker(
+                name, keeper -> deleteRecursively(tracker.getParentNode(), keeper)),
+        2);
+  }
+
+  private void deleteRecursively(String node, ZooKeeper keeper) {
+    ExceptionUtils.unchecked(
+        () -> {
+          try {
+            List<String> children = keeper.getChildren(node, false);
+            children.forEach(
+                ch -> ExceptionUtils.unchecked(() -> keeper.delete(node + "/" + ch, -1)));
+            keeper.delete(node, -1);
+          } catch (KeeperException ex) {
+            // silently swallow this
+          }
+        });
   }
 
   private void testMultipleInstancesWithTrackerFactory(
       Factory<ZKGlobalWatermarkTracker> factory, int numInstances)
       throws ExecutionException, InterruptedException {
+    testMultipleInstancesWithTrackerFactory(factory, numInstances, false);
+  }
+
+  private void testMultipleInstancesWithTrackerFactory(
+      Factory<ZKGlobalWatermarkTracker> factory, int numInstances, boolean refreshChildrenBeforeGet)
+      throws ExecutionException, InterruptedException {
+
     String name = tracker.getName();
     List<ZKGlobalWatermarkTracker> trackers = Lists.newArrayList(tracker);
     while (trackers.size() < numInstances) {
@@ -211,25 +240,22 @@ public class ZKGlobalWatermarkTrackerTest {
     }
     long currentWatermark = Long.MIN_VALUE;
     long now = System.currentTimeMillis();
-    tracker.initWatermarks(
-        IntStream.range(0, numInstances)
-            .mapToObj(i -> "process" + i)
-            .collect(
-                Collectors.toMap(
-                    Function.identity(), tmp -> Instant.ofEpochMilli(Long.MIN_VALUE))));
+    Instant MIN_INSTANT = Instant.ofEpochMilli(Long.MIN_VALUE);
+    for (int i = 0; i < numInstances; i++) {
+      trackers.get(i).initWatermarks(Collections.singletonMap("process" + i, MIN_INSTANT));
+    }
     for (int i = 0; i < numInstances * 20; i++) {
       int id = i % numInstances;
-      GlobalWatermarkTracker instance = trackers.get(id);
-      long instanceWatermark = instance.getWatermark();
-      assertTrue(
-          String.format(
-              "Expected watermark at least %d, got %d", currentWatermark, instanceWatermark),
-          instanceWatermark >= currentWatermark);
-      instance.update("process" + id, Instant.ofEpochMilli(now + i)).get();
+      String process = "process" + id;
+      ZKGlobalWatermarkTracker instance = trackers.get(id);
+      if (refreshChildrenBeforeGet) {
+        instance.refreshChildren();
+      }
+      instance.update(process, Instant.ofEpochMilli(now + i)).get();
       currentWatermark = instance.getWatermark();
       if (i < numInstances - 1) {
         assertEquals(String.format("Error in round %d", i), Long.MIN_VALUE, currentWatermark);
-      } else {
+      } else if (i > 2 * numInstances) {
         assertTrue(
             String.format(
                 "Error in round %d, expected at least %d, got %d", i, now, currentWatermark),
@@ -255,17 +281,41 @@ public class ZKGlobalWatermarkTrackerTest {
   }
 
   private ZKGlobalWatermarkTracker createConnectionLossyTracker(String name) {
+    return createConnectionLossyTracker(name, keeper -> {});
+  }
+
+  private ZKGlobalWatermarkTracker createConnectionLossyTracker(
+      String name, Consumer<ZooKeeper> onClose) {
     Random stableRandom = new Random(0);
     ZKGlobalWatermarkTracker newTracker =
         new ZKGlobalWatermarkTracker() {
           @Override
           ZooKeeper createNewZooKeeper() {
             CountDownLatch latch = new CountDownLatch(1);
-            LossyZooKeeper ret =
+            ZooKeeper ret =
                 ExceptionUtils.uncheckedFactory(
                     () ->
                         new LossyZooKeeper(
-                            "localhost:12181", 60000, getWatcher(latch), stableRandom));
+                            "localhost:12181", 60000, getWatcher(latch), stableRandom, onClose));
+            ExceptionUtils.unchecked(latch::await);
+            return ret;
+          }
+        };
+    newTracker.setup(cfg(name));
+    return newTracker;
+  }
+
+  private ZKGlobalWatermarkTracker createUnimplementedContainerNodeTracker(String name) {
+    ZKGlobalWatermarkTracker newTracker =
+        new ZKGlobalWatermarkTracker() {
+          @Override
+          ZooKeeper createNewZooKeeper() {
+            CountDownLatch latch = new CountDownLatch(1);
+            ZooKeeper ret =
+                ExceptionUtils.uncheckedFactory(
+                    () ->
+                        new UnimplementedCreateContainerZooKeeper(
+                            "localhost:12181", 60000, getWatcher(latch)));
             ExceptionUtils.unchecked(latch::await);
             return ret;
           }
@@ -277,17 +327,30 @@ public class ZKGlobalWatermarkTrackerTest {
   private static class LossyZooKeeper extends ZooKeeper {
 
     private final Random random;
+    private final Consumer<ZooKeeper> onClose;
 
-    public LossyZooKeeper(String connectString, int sessionTimeout, Watcher watcher, Random random)
+    public LossyZooKeeper(
+        String connectString,
+        int sessionTimeout,
+        Watcher watcher,
+        Random random,
+        Consumer<ZooKeeper> onClose)
         throws IOException {
 
       super(connectString, sessionTimeout, watcher);
       this.random = random;
+      this.onClose = onClose;
+    }
+
+    @Override
+    public synchronized void close() throws InterruptedException {
+      onClose.accept(this);
+      super.close();
     }
 
     @Override
     public void setData(String path, byte[] data, int version, StatCallback cb, Object ctx) {
-      if (random.nextBoolean()) {
+      if (shouldLooseConnection()) {
         ExceptionUtils.unchecked(this::close);
         cb.processResult(Code.CONNECTIONLOSS.intValue(), path, ctx, null);
       } else {
@@ -297,8 +360,7 @@ public class ZKGlobalWatermarkTrackerTest {
 
     @Override
     public void getData(String path, boolean watch, DataCallback cb, Object ctx) {
-      if (random.nextBoolean()) {
-        ExceptionUtils.unchecked(this::close);
+      if (shouldLooseConnection()) {
         cb.processResult(Code.CONNECTIONLOSS.intValue(), path, ctx, null, null);
       } else {
         super.getData(path, watch, cb, ctx);
@@ -309,21 +371,32 @@ public class ZKGlobalWatermarkTrackerTest {
     public String create(String path, byte[] data, List<ACL> acl, CreateMode createMode)
         throws KeeperException, InterruptedException {
 
-      if (random.nextBoolean()) {
+      if (shouldLooseConnection()) {
         close();
         throw KeeperException.create(Code.CONNECTIONLOSS);
       }
       return super.create(path, data, acl, createMode);
     }
 
+    private boolean shouldLooseConnection() {
+      return random.nextDouble() < 0.3;
+    }
+  }
+
+  private class UnimplementedCreateContainerZooKeeper extends ZooKeeper {
+
     @Override
-    public void addWatch(String basePath, Watcher watcher, AddWatchMode mode)
+    public String create(String path, byte[] data, List<ACL> acl, CreateMode createMode)
         throws KeeperException, InterruptedException {
-      if (random.nextBoolean()) {
-        close();
-        throw KeeperException.create(Code.CONNECTIONLOSS);
+      if (createMode == CreateMode.CONTAINER) {
+        throw KeeperException.create(Code.UNIMPLEMENTED);
       }
-      super.addWatch(basePath, watcher, mode);
+      return super.create(path, data, acl, createMode);
+    }
+
+    public UnimplementedCreateContainerZooKeeper(
+        String connectString, int sessionTimeout, Watcher watcher) throws IOException {
+      super(connectString, sessionTimeout, watcher);
     }
   }
 }

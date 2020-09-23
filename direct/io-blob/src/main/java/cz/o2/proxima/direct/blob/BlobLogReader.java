@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.blob;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
@@ -112,6 +113,7 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
           .add("size", size())
           .add("minTimestamp", getMinTimestamp())
           .add("maxTimestamp", getMaxTimestamp())
+          .add("blobs.size()", blobs.size())
           .toString();
     }
   }
@@ -186,6 +188,10 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
+    Preconditions.checkArgument(
+        partitions.stream().map(Partition::getId).distinct().count() == partitions.size(),
+        "Passed partitions must be unique, got partitions %s",
+        partitions);
     executor.execute(
         () -> {
           try {
@@ -205,7 +211,8 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
                                   runHandlingErrors(
                                       blob,
                                       () -> {
-                                        log.info("Starting to observe partition {}", p);
+                                        log.info(
+                                            "Starting to observe {} from partition {}", blob, p);
                                         try (Reader reader =
                                             fileFormat.openReader(createPath(blob), entity)) {
                                           reader.forEach(

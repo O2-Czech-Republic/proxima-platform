@@ -22,6 +22,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.ThroughputLimiter.Context;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -192,12 +193,28 @@ public class CommitLogReaders {
 
     private LogObserver throughputLimited(LogObserver delegate) {
       return new ForwardingLogObserver(delegate) {
+
+        @Override
+        public void onCompleted() {
+          limiter.close();
+          super.onCompleted();
+        }
+
+        @Override
+        public void onCancelled() {
+          limiter.close();
+          super.onCancelled();
+        }
+
+        @Override
+        public boolean onError(Throwable error) {
+          limiter.close();
+          return super.onError(error);
+        }
+
         @Override
         public boolean onNext(StreamElement ingest, OnNextContext context) {
-          try {
-            waitIfNecessary();
-          } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
+          if (ExceptionUtils.ignoringInterrupted(this::waitIfNecessary)) {
             return false;
           }
           watermark = context.getWatermark();

@@ -16,6 +16,7 @@
 package cz.o2.proxima.beam.direct.io;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.batch.BatchLogReader;
@@ -276,6 +277,10 @@ public class DirectBatchUnboundedSource
       this.consumedFromCurrent = 0;
       this.skip = checkpointMark == null ? 0 : checkpointMark.skipFromFirst;
       log.info("Created {} reading from {}", getClass().getSimpleName(), reader);
+      Preconditions.checkArgument(
+          toProcess.stream().map(Partition::getId).distinct().count() == toProcess.size(),
+          "List of partitions to process must contain unique partitions, got %s",
+          toProcess);
     }
 
     @Override

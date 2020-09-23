@@ -17,6 +17,7 @@ package cz.o2.proxima.storage;
 
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.annotations.Internal;
+import java.io.Closeable;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.Collection;
@@ -24,7 +25,7 @@ import java.util.Map;
 
 /** A limiter of data rate coming from various sources. */
 @Evolving
-public interface ThroughputLimiter extends Serializable {
+public interface ThroughputLimiter extends Serializable, Closeable {
 
   @Internal
   class NoOpThroughputLimiter implements ThroughputLimiter {
@@ -36,6 +37,11 @@ public interface ThroughputLimiter extends Serializable {
     @Override
     public Duration getPauseTime(Context context) {
       return Duration.ZERO;
+    }
+
+    @Override
+    public void close() {
+      // nop
     }
   }
 
@@ -79,4 +85,7 @@ public interface ThroughputLimiter extends Serializable {
    * @return the amount of time to pause the source for.
    */
   Duration getPauseTime(Context context);
+
+  @Override
+  void close();
 }

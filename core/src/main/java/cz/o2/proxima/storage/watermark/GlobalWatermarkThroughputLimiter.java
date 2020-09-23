@@ -16,6 +16,7 @@
 package cz.o2.proxima.storage.watermark;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.ExceptionUtils;
@@ -28,11 +29,13 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * A {@link ThroughputLimiter} that synchronizes progress of global watermark among distributed
  * consumers.
  */
+@Slf4j
 public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
 
   private static final long serialVersionUID = 1L;
@@ -93,9 +96,28 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
   public Duration getPauseTime(Context context) {
     updateGlobalWatermarkIfNeeded(context);
     if (globalWatermark + maxAheadTimeFromGlobalMs < context.getMinWatermark()) {
+      log.info("ThroughputLimiter {} pausing processing for {} ms", this, defaultSleepTimeMs);
       return Duration.ofMillis(defaultSleepTimeMs);
     }
     return Duration.ZERO;
+  }
+
+  @Override
+  public void close() {
+    if (tracker != null) {
+      ExceptionUtils.unchecked(tracker::close);
+    }
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("tracker", tracker)
+        .add("maxAheadTimeFromGlobalMs", maxAheadTimeFromGlobalMs)
+        .add("globalWatermarkUpdatePeriodMs", globalWatermarkUpdatePeriodMs)
+        .add("processName", processName)
+        .add("defaultSleepTimeMs", defaultSleepTimeMs)
+        .toString();
   }
 
   private void updateGlobalWatermarkIfNeeded(Context context) {
@@ -104,6 +126,7 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
       tracker.update(processName, Instant.ofEpochMilli(context.getMinWatermark()));
       globalWatermark = tracker.getWatermark();
       lastGlobalWatermarkUpdate = now;
+      log.debug("Updated watermark of {} to {}", this, globalWatermark);
     }
   }
 

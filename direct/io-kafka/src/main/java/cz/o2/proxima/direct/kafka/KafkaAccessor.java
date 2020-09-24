@@ -73,6 +73,11 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   public static final String AUTO_COMMIT_INTERVAL_MS = "commit.auto-interval-ms";
   /** Log stale commit interval in milliseconds. */
   public static final String LOG_STALE_COMMIT_INTERVAL_MS = "commit.log-stale-interval-ms";
+  /**
+   * Timeout in milliseconds, that consumer should wait for group assignment before throwing an
+   * exception.
+   */
+  public static final String ASSIGNMENT_TIMEOUT_MS = "assignment-timeout-ms";
 
   /**
    * Minimal time poll() has to return empty records, before first moving watermark to processing
@@ -108,6 +113,9 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   @Getter(AccessLevel.PACKAGE)
   private long logStaleCommitIntervalNs = Long.MAX_VALUE;
+
+  @Getter(AccessLevel.PACKAGE)
+  private long assignmentTimeoutMillis = 10_000L;
 
   @Getter(AccessLevel.PACKAGE)
   private KafkaWatermarkConfiguration watermarkConfiguration;
@@ -165,6 +173,11 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
         Optional.ofNullable(cfg.get(LOG_STALE_COMMIT_INTERVAL_MS))
             .map(v -> Long.valueOf(v.toString()) * 1_000_000L)
             .orElse(logStaleCommitIntervalNs);
+
+    this.assignmentTimeoutMillis =
+        Optional.ofNullable(cfg.get(ASSIGNMENT_TIMEOUT_MS))
+            .map(v -> Long.parseLong(v.toString()))
+            .orElse(assignmentTimeoutMillis);
 
     @SuppressWarnings("unchecked")
     Class<ElementSerializer<?, ?>> serializer =

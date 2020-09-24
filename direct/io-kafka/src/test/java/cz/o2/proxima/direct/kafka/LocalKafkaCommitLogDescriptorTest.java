@@ -1021,7 +1021,11 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             direct,
             entity,
             storageUri,
-            and(partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
+            and(
+                partitionsCfg(3),
+                cfg(
+                    Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"),
+                    Pair.of(KafkaAccessor.ASSIGNMENT_TIMEOUT_MS, "1"))));
     int numObservers = 4;
 
     testPollFromNConsumersMovesWatermarkWithNoWrite(accessor, numObservers);
@@ -1029,7 +1033,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     testPollFromNConsumersMovesWatermark(accessor, numObservers);
   }
 
-  @Test(timeout = 100000)
+  @Test(timeout = 100_000)
   public void testPollFromManyMoreConsumersThanPartitionsMovesWatermark()
       throws InterruptedException {
 
@@ -1038,7 +1042,11 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             direct,
             entity,
             storageUri,
-            and(partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"))));
+            and(
+                partitionsCfg(3),
+                cfg(
+                    Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"),
+                    Pair.of(KafkaAccessor.ASSIGNMENT_TIMEOUT_MS, "1"))));
 
     int numObservers = 400;
     testPollFromNConsumersMovesWatermarkWithNoWrite(accessor, numObservers);
@@ -1078,7 +1086,6 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     Map<LogObserver, Long> observerWatermarks = new ConcurrentHashMap<>();
     AtomicInteger readyObservers = new AtomicInteger();
     for (int i = 0; i < numObservers; i++) {
-      int observerId = i;
       reader
           .observe(
               "test-" + expectMoved,

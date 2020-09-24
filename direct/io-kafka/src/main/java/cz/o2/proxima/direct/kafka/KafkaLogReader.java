@@ -620,7 +620,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
   /** Create kafka consumer for the data. */
   @VisibleForTesting
-  @SuppressWarnings("unchecked")
   KafkaConsumer<Object, Object> createConsumer(
       @Nullable String name,
       @Nullable Collection<Offset> offsets,
@@ -650,7 +649,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       // seek all partitions to oldest data
       if (offsets == null) {
         if (consumer.assignment().isEmpty()) {
-          consumer.poll(Duration.ZERO);
+          // If we don't find assignment within timeout, poll results in IllegalStateException.
+          // https://cwiki.apache.org/confluence/display/KAFKA/KIP-266%3A+Fix+consumer+indefinite+blocking+behavior
+          consumer.poll(Duration.ofMillis(accessor.getAssignmentTimeoutMillis()));
         }
         Set<TopicPartition> assignment = consumer.assignment();
         log.info("Seeking consumer name {} to beginning of partitions {}", name, assignment);

@@ -22,6 +22,10 @@ import cz.o2.proxima.annotations.Stable;
 @FunctionalInterface
 public interface CommitCallback {
 
+  static CommitCallback noop() {
+    return (success, error) -> {};
+  }
+
   /**
    * Commit the ingest process.
    *

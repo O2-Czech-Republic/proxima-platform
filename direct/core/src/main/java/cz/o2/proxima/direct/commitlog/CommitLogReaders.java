@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.storage.Partition;
@@ -123,9 +124,10 @@ public class CommitLogReaders {
     }
   }
 
-  private static class LimitedCommitLogReader extends ForwardingCommitLogReader {
+  @VisibleForTesting
+  public static class LimitedCommitLogReader extends ForwardingCommitLogReader {
 
-    private final ThroughputLimiter limiter;
+    @Getter private final ThroughputLimiter limiter;
     private final Collection<Partition> partitions;
     private final int numPartitions;
     private long watermark = Long.MIN_VALUE;
@@ -196,20 +198,21 @@ public class CommitLogReaders {
 
         @Override
         public void onCompleted() {
-          limiter.close();
           super.onCompleted();
+          limiter.close();
         }
 
         @Override
         public void onCancelled() {
-          limiter.close();
           super.onCancelled();
+          limiter.close();
         }
 
         @Override
         public boolean onError(Throwable error) {
+          boolean ret = super.onError(error);
           limiter.close();
-          return super.onError(error);
+          return ret;
         }
 
         @Override

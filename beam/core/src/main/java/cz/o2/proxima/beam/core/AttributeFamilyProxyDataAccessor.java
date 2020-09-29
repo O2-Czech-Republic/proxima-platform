@@ -22,6 +22,7 @@ import cz.o2.proxima.repository.AttributeProxyDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.transform.ProxyTransform;
+import java.net.URI;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +74,11 @@ public class AttributeFamilyProxyDataAccessor implements DataAccessor {
             .map(AttributeDescriptor::asProxy)
             .collect(
                 Collectors.toMap(Function.identity(), AttributeProxyDescriptor::getReadTarget));
+  }
+
+  @Override
+  public URI getUri() {
+    return proxy.getStorageUri();
   }
 
   @Override

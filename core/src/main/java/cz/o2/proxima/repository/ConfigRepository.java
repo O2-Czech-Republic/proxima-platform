@@ -2044,7 +2044,7 @@ public final class ConfigRepository extends Repository {
   }
 
   @Override
-  public Optional<AttributeFamilyDescriptor> getFamilyByName(String name) {
+  public Optional<AttributeFamilyDescriptor> findFamilyByName(String name) {
     return Optional.ofNullable(allCreatedFamilies.get(name));
   }
 

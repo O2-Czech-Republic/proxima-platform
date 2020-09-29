@@ -19,7 +19,6 @@ import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.DataAccessorFactory;
 import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Map;
 
@@ -37,7 +36,6 @@ public class PubSubDataAccessorFactory implements DataAccessorFactory {
   public DataAccessor createAccessor(
       BeamDataOperator operator, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
-    return new PubSubDataAccessor(
-        operator.getRepository(), entity, uri.getAuthority(), UriUtil.getPathNormalized(uri));
+    return new PubSubDataAccessor(operator.getRepository(), entity, uri);
   }
 }

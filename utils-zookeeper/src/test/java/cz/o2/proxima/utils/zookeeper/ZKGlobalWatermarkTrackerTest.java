@@ -159,18 +159,29 @@ public class ZKGlobalWatermarkTrackerTest {
 
   @Test(timeout = 10000)
   public void testGlobalWatermark() throws InterruptedException, ExecutionException {
-    Instant now = Instant.now();
-    assertEquals(Instant.ofEpochMilli(Long.MIN_VALUE), tracker.getGlobalWatermark());
+    long now = Instant.now().toEpochMilli();
+    assertEquals(Long.MIN_VALUE, tracker.getWatermark());
     tracker.initWatermarks(Collections.singletonMap("first", now));
-    assertEquals(now, tracker.getGlobalWatermark());
-    tracker.update("second", now.plusMillis(1)).get();
-    assertEquals(now, tracker.getGlobalWatermark());
-    tracker.update("first", now.plusMillis(2)).get();
-    assertEquals(now.plusMillis(1), tracker.getGlobalWatermark());
+    assertEquals(now, tracker.getWatermark());
+    tracker.update("second", now + 1).get();
+    assertEquals(now, tracker.getWatermark());
+    tracker.update("first", now + 2).get();
+    assertEquals(now + 1, tracker.getWatermark());
     tracker.finished("second").get();
-    assertEquals(now.plusMillis(2), tracker.getGlobalWatermark());
+    assertEquals(now + 2, tracker.getWatermark());
     tracker.finished("first").get();
-    assertEquals(Instant.ofEpochMilli(Long.MAX_VALUE), tracker.getGlobalWatermark());
+    assertEquals(Long.MAX_VALUE, tracker.getWatermark());
+  }
+
+  @Test
+  public void testGlobalWatermarkUpdate() throws ExecutionException, InterruptedException {
+    long now = Instant.now().toEpochMilli();
+    assertEquals(Long.MIN_VALUE, tracker.getWatermark());
+    tracker.initWatermarks(Collections.singletonMap("first", now));
+    assertEquals(now, tracker.getWatermark());
+    tracker.update("second", now + 1).get();
+    assertEquals(now, tracker.getWatermark());
+    assertEquals(now + 1, tracker.getGlobalWatermark("first", now + 1));
   }
 
   @Test
@@ -238,9 +249,9 @@ public class ZKGlobalWatermarkTrackerTest {
     while (trackers.size() < numInstances) {
       trackers.add(factory.apply());
     }
-    long currentWatermark = Long.MIN_VALUE;
+    long currentWatermark;
     long now = System.currentTimeMillis();
-    Instant MIN_INSTANT = Instant.ofEpochMilli(Long.MIN_VALUE);
+    long MIN_INSTANT = Long.MIN_VALUE;
     for (int i = 0; i < numInstances; i++) {
       trackers.get(i).initWatermarks(Collections.singletonMap("process" + i, MIN_INSTANT));
     }
@@ -251,7 +262,7 @@ public class ZKGlobalWatermarkTrackerTest {
       if (refreshChildrenBeforeGet) {
         instance.refreshChildren();
       }
-      instance.update(process, Instant.ofEpochMilli(now + i)).get();
+      instance.update(process, now + 1).get();
       currentWatermark = instance.getWatermark();
       if (i < numInstances - 1) {
         assertEquals(String.format("Error in round %d", i), Long.MIN_VALUE, currentWatermark);
@@ -263,15 +274,6 @@ public class ZKGlobalWatermarkTrackerTest {
       }
     }
     trackers.forEach(ZKGlobalWatermarkTracker::close);
-  }
-
-  @Test
-  public void testPathNormalization() {
-    assertEquals("/path/", ZKGlobalWatermarkTracker.normalize("path"));
-    assertEquals("/path/", ZKGlobalWatermarkTracker.normalize("/path//"));
-    assertEquals("/a/b/", ZKGlobalWatermarkTracker.normalize("/a/b/"));
-    assertEquals("/", ZKGlobalWatermarkTracker.normalize("/"));
-    assertEquals("/", ZKGlobalWatermarkTracker.normalize(""));
   }
 
   @Test

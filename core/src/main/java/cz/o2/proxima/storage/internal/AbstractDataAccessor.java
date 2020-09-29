@@ -17,7 +17,16 @@ package cz.o2.proxima.storage.internal;
 
 import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
+import java.net.URI;
 
 /** Interface for all modules data accessors to extend. */
 @Internal
-public interface AbstractDataAccessor extends Serializable {}
+public interface AbstractDataAccessor extends Serializable {
+
+  /**
+   * Retrieve URI associated with this {@link AbstractDataAccessor}.
+   *
+   * @return URI representing this accessor
+   */
+  URI getUri();
+}

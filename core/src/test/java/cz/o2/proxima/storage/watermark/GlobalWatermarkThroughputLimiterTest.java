@@ -29,7 +29,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import org.junit.Before;
@@ -42,8 +44,9 @@ public class GlobalWatermarkThroughputLimiterTest {
 
   public static class TestTracker implements GlobalWatermarkTracker {
 
-    @Getter private final Map<String, Instant> updates = new HashMap<>();
-    @Getter @Setter private Instant globalWatermark = Instant.ofEpochMilli(Long.MIN_VALUE);
+    @Getter private final Map<String, Long> updates = new HashMap<>();
+    @Setter private Instant globalWatermark = Instant.ofEpochMilli(Long.MIN_VALUE);
+    @Getter private int testConf = -1;
 
     @Override
     public String getName() {
@@ -51,17 +54,28 @@ public class GlobalWatermarkThroughputLimiterTest {
     }
 
     @Override
-    public void setup(Map<String, Object> cfg) {}
+    public void setup(Map<String, Object> cfg) {
+      testConf =
+          Optional.ofNullable(cfg.get("test-tracker-conf"))
+              .map(Object::toString)
+              .map(Integer::parseInt)
+              .orElse(-1);
+    }
 
     @Override
-    public void initWatermarks(Map<String, Instant> initialWatermarks) {
+    public void initWatermarks(Map<String, Long> initialWatermarks) {
       initialWatermarks.forEach(this::update);
     }
 
     @Override
-    public CompletableFuture<Void> update(String processName, Instant currentWatermark) {
+    public CompletableFuture<Void> update(String processName, long currentWatermark) {
       updates.put(processName, currentWatermark);
       return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public long getGlobalWatermark(@Nullable String processName, long currentWatermark) {
+      return globalWatermark.toEpochMilli();
     }
 
     @Override

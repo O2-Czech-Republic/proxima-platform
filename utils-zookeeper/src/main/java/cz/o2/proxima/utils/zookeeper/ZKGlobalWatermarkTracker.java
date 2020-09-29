@@ -16,15 +16,15 @@
 package cz.o2.proxima.utils.zookeeper;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.storage.watermark.GlobalWatermarkTracker;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.io.File;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.zookeeper.AsyncCallback.DataCallback;
@@ -55,7 +56,7 @@ import org.apache.zookeeper.data.Stat;
 public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   private static final long serialVersionUID = 1L;
-  private static final Instant MAX_WATERMARK = Instant.ofEpochMilli(Long.MAX_VALUE);
+  private static final long MAX_WATERMARK = Long.MAX_VALUE;
 
   static final String CFG_NAME = "name";
   static final String ZK_URI = "zk.url";
@@ -86,31 +87,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     zkConnectString = String.format("%s:%d", uri.getHost(), uri.getPort());
     sessionTimeout = getSessionTimeout(cfg);
     trackerName = getTrackerName(cfg);
-    parentNode = normalize(Strings.isNullOrEmpty(uri.getPath()) ? "/" : uri.getPath());
-  }
-
-  // Normalize path to meet requirements needed by ZK
-  // i.e. start with slash and end with slash to denote directory
-  @VisibleForTesting
-  static String normalize(String path) {
-    return normalize(path, true);
-  }
-
-  static String normalize(String path, boolean terminateSlash) {
-    if (path.equals("/")) {
-      return path;
-    }
-    String res = path;
-    if (!path.startsWith("/")) {
-      res = "/" + path;
-    }
-    while (!res.isEmpty() && res.endsWith("/")) {
-      res = res.substring(0, res.length() - 1);
-    }
-    if (terminateSlash) {
-      return res + "/";
-    }
-    return res;
+    parentNode = "/" + UriUtil.getPathNormalized(uri) + "/";
   }
 
   @Nonnull
@@ -139,31 +116,33 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   @Override
-  public void initWatermarks(Map<String, Instant> initialWatermarks) {
+  public void initWatermarks(Map<String, Long> initialWatermarks) {
     CountDownLatch latch = new CountDownLatch(initialWatermarks.size());
     initialWatermarks.forEach(
         (k, v) -> {
-          ExceptionUtils.ignoringInterrupted(
-              () -> persistPartialWatermark(k, v.toEpochMilli()).get());
+          ExceptionUtils.ignoringInterrupted(() -> persistPartialWatermark(k, v).get());
           latch.countDown();
         });
     ExceptionUtils.ignoringInterrupted(latch::await);
   }
 
   @Override
-  public CompletableFuture<Void> update(String processName, Instant currentWatermark) {
-    if (currentWatermark.isBefore(MAX_WATERMARK)) {
-      return persistPartialWatermark(processName, currentWatermark.toEpochMilli());
+  public CompletableFuture<Void> update(String processName, long currentWatermark) {
+    if (currentWatermark < MAX_WATERMARK) {
+      return persistPartialWatermark(processName, currentWatermark);
     }
     return deletePartialWatermark(processName);
   }
 
   @Override
-  public Instant getGlobalWatermark() {
+  public long getGlobalWatermark(@Nullable String processName, long currentWatermark) {
     if (!parentCreated) {
       ExceptionUtils.ignoringInterrupted(this::createParentIfNotExists);
     }
-    return Instant.ofEpochMilli(globalWatermark.get());
+    if (processName != null) {
+      updatePartialWatermark(processName, currentWatermark);
+    }
+    return globalWatermark.get();
   }
 
   @VisibleForTesting
@@ -185,6 +164,16 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
               ExceptionUtils.ignoringInterrupted(c::close);
             });
     parentCreated = false;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("trackerName", trackerName)
+        .add("zkConnectString", zkConnectString)
+        .add("parentNode", parentNode)
+        .add("sessionTimeout", sessionTimeout)
+        .toString();
   }
 
   private CompletableFuture<Void> persistPartialWatermark(String name, long watermark) {
@@ -418,7 +407,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
       } else if (ex.code() == Code.NONODE) {
         File f = new File(node);
         // create parent node
-        createNodeIfNotExists(normalize(f.getParent(), false));
+        createNodeIfNotExists("/" + UriUtil.getPathNormalized(f.getParentFile().toURI()));
         // create this node
         createNodeIfNotExists(node);
       } else if (ex.code() == Code.UNIMPLEMENTED && parentCreateMode == CreateMode.CONTAINER) {

@@ -391,6 +391,29 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return repo.getAllFamilies().map(this::resolveRequired);
   }
 
+  /**
+   * Retrieve family by given name.
+   *
+   * @param name name of the family to search for
+   * @return {@link DirectAttributeFamilyDescriptor} for given family
+   * @throws IllegalArgumentException when family not found
+   */
+  public DirectAttributeFamilyDescriptor getFamilyByName(String name) {
+    return findFamilyByName(name)
+        .orElseThrow(() -> new IllegalArgumentException("Family " + name + " not found"));
+  }
+
+  /**
+   * Retrieve family by given name.
+   *
+   * @param name name of the family to search for
+   * @return {@link Optional} of {@link DirectAttributeFamilyDescriptor} for given family of {@link
+   *     Optional#empty()}
+   */
+  public Optional<DirectAttributeFamilyDescriptor> findFamilyByName(String name) {
+    return repo.findFamilyByName(name).flatMap(f -> Optional.ofNullable(familyMap.get(f)));
+  }
+
   @Override
   public Repository getRepository() {
     return repo;
@@ -421,20 +444,20 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     public DataAccessor createAccessor(
         DirectDataOperator operator, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
-      return new DelegateDataAccessor(delegate.createAccessor(operator, entity, uri, cfg), cfg);
+      return new ForwardingDataAccessor(delegate.createAccessor(operator, entity, uri, cfg), cfg);
     }
 
-    private static class DelegateDataAccessor implements DataAccessor {
+    private static class ForwardingDataAccessor implements DataAccessor {
 
       private static final long serialVersionUID = 1L;
 
       private final DataAccessor delegate;
       @Nullable private final ThroughputLimiter limiter;
 
-      public DelegateDataAccessor(DataAccessor delegate, Map<String, Object> cfg) {
+      public ForwardingDataAccessor(DataAccessor delegate, Map<String, Object> cfg) {
         this.delegate = delegate;
         this.limiter = configureLimiter(cfg);
-        log.info("Created new {}", this);
+        log.info("Created new {} for {}", this, delegate.getUri());
       }
 
       @Nullable
@@ -460,6 +483,11 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
                   return limiter;
                 })
             .orElse(null);
+      }
+
+      @Override
+      public URI getUri() {
+        return delegate.getUri();
       }
 
       @Override

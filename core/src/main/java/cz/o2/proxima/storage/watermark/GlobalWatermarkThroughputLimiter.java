@@ -22,12 +22,10 @@ import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,13 +40,25 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
 
   static final String TRACKER_CFG_PREFIX = "tracker.";
   static final String KW_CLASS = "class";
-  static final String MAX_AHEAD_TIME_MS_CFG = "max-watermark-ahead-ms";
-  static final String GLOBAL_WATERMARK_UPDATE_MS_CFG = "global-watermark-update-ms";
-  static final String DEFAULT_SLEEP_TIME_CFG = "default-sleep-time-ms";
 
-  @VisibleForTesting
-  @Getter(AccessLevel.PACKAGE)
-  GlobalWatermarkTracker tracker;
+  /**
+   * Configuration key for maximum amount of time that a reader can be ahead of a global watermark
+   * in milliseconds.
+   */
+  public static final String MAX_AHEAD_TIME_MS_CFG = "max-watermark-ahead-ms";
+
+  /**
+   * Configuration key for number of milliseconds to pass between two updates of global watermark.
+   */
+  public static final String GLOBAL_WATERMARK_UPDATE_MS_CFG = "global-watermark-update-ms";
+
+  /**
+   * Configuration key for the amount of time to sleep when reader is too far ahead global watermark
+   * in milliseconds.
+   */
+  public static final String DEFAULT_SLEEP_TIME_CFG = "default-sleep-time-ms";
+
+  @VisibleForTesting @Getter GlobalWatermarkTracker tracker;
 
   private long maxAheadTimeFromGlobalMs = Long.MAX_VALUE;
   private long globalWatermarkUpdatePeriodMs = Duration.ofMinutes(1).toMillis();
@@ -56,7 +66,7 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
 
   private long lastGlobalWatermarkUpdate = Long.MIN_VALUE;
   private long globalWatermark = Long.MIN_VALUE;
-  private long defaultSleepTimeMs = globalWatermarkUpdatePeriodMs;
+  private long sleepTimeMs = globalWatermarkUpdatePeriodMs;
 
   @Override
   public void setup(Map<String, Object> cfg) {
@@ -82,10 +92,10 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
     this.maxAheadTimeFromGlobalMs = getLong(cfg, MAX_AHEAD_TIME_MS_CFG, maxAheadTimeFromGlobalMs);
     this.globalWatermarkUpdatePeriodMs =
         getLong(cfg, GLOBAL_WATERMARK_UPDATE_MS_CFG, globalWatermarkUpdatePeriodMs);
-    this.defaultSleepTimeMs = getLong(cfg, DEFAULT_SLEEP_TIME_CFG, defaultSleepTimeMs);
+    this.sleepTimeMs = getLong(cfg, DEFAULT_SLEEP_TIME_CFG, sleepTimeMs);
   }
 
-  private Long getLong(Map<String, Object> cfg, String key, long defVal) {
+  private static Long getLong(Map<String, Object> cfg, String key, long defVal) {
     return Optional.ofNullable(cfg.get(key))
         .map(Object::toString)
         .map(Long::valueOf)
@@ -96,8 +106,13 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
   public Duration getPauseTime(Context context) {
     updateGlobalWatermarkIfNeeded(context);
     if (globalWatermark + maxAheadTimeFromGlobalMs < context.getMinWatermark()) {
-      log.info("ThroughputLimiter {} pausing processing for {} ms", this, defaultSleepTimeMs);
-      return Duration.ofMillis(defaultSleepTimeMs);
+      log.info(
+          "ThroughputLimiter {} pausing processing for {} ms on global watermark {} and context.minWatermark {}",
+          this,
+          sleepTimeMs,
+          globalWatermark,
+          context.getMinWatermark());
+      return Duration.ofMillis(sleepTimeMs);
     }
     return Duration.ZERO;
   }
@@ -116,18 +131,18 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
         .add("maxAheadTimeFromGlobalMs", maxAheadTimeFromGlobalMs)
         .add("globalWatermarkUpdatePeriodMs", globalWatermarkUpdatePeriodMs)
         .add("processName", processName)
-        .add("defaultSleepTimeMs", defaultSleepTimeMs)
+        .add("sleepTimeMs", sleepTimeMs)
         .toString();
   }
 
   private void updateGlobalWatermarkIfNeeded(Context context) {
     long now = System.currentTimeMillis();
     if (now - globalWatermarkUpdatePeriodMs > lastGlobalWatermarkUpdate) {
-      tracker.update(processName, Instant.ofEpochMilli(context.getMinWatermark()));
-      globalWatermark = tracker.getWatermark();
+      tracker.update(processName, context.getMinWatermark());
       lastGlobalWatermarkUpdate = now;
       log.debug("Updated watermark of {} to {}", this, globalWatermark);
     }
+    globalWatermark = tracker.getGlobalWatermark(processName, context.getMinWatermark());
   }
 
   @VisibleForTesting

@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nullable;
 import lombok.experimental.Delegate;
 
 /** Class constructing various {@link BatchLogReader BatchLogReaders}. */
@@ -41,8 +42,11 @@ public class BatchLogReaders {
    * @return throughput limited {@link BatchLogReader}
    */
   public static BatchLogReader withLimitedThroughput(
-      BatchLogReader delegate, ThroughputLimiter limiter) {
-    return new ThroughputLimitedBatchLogReader(delegate, limiter);
+      BatchLogReader delegate, @Nullable ThroughputLimiter limiter) {
+    if (limiter != null) {
+      return new ThroughputLimitedBatchLogReader(delegate, limiter);
+    }
+    return delegate;
   }
 
   private static class ForwardingLimitedBatchLogReader implements BatchLogReader {
@@ -85,6 +89,13 @@ public class BatchLogReaders {
           .toString();
     }
 
+    @Override
+    public Factory<?> asFactory() {
+      final Factory<?> superFactory = super.asFactory();
+      final ThroughputLimiter limiter = this.limiter;
+      return repo -> new ThroughputLimitedBatchLogReader(superFactory.apply(repo), limiter);
+    }
+
     private BatchLogObserver throughputLimited(
         BatchLogObserver delegate, List<Partition> consumedPartitions) {
 
@@ -123,14 +134,15 @@ public class BatchLogReaders {
 
     @Override
     public void onCompleted() {
-      limiter.close();
       super.onCompleted();
+      limiter.close();
     }
 
     @Override
     public boolean onError(Throwable error) {
+      boolean ret = super.onError(error);
       limiter.close();
-      return super.onError(error);
+      return ret;
     }
 
     @Override

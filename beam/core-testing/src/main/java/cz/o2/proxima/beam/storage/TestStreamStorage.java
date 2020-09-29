@@ -111,6 +111,11 @@ public class TestStreamStorage implements DataAccessorFactory {
     return new DataAccessor() {
 
       @Override
+      public URI getUri() {
+        return uri;
+      }
+
+      @Override
       public PCollection<StreamElement> createStream(
           String name,
           Pipeline pipeline,

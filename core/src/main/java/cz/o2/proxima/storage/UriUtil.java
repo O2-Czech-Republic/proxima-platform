@@ -55,7 +55,12 @@ public class UriUtil {
   }
 
   /**
-   * Get normalized path from URI, which: * is not null * doesn't start or end with slash
+   * Get normalized path from URI, which:
+   *
+   * <ul>
+   *   <li>is not null
+   *   <li>doesn't start or end with slash
+   * </ul>
    *
    * @param uri the URI to extract path from
    * @return normalized path

@@ -16,7 +16,6 @@
 package cz.o2.proxima.storage;
 
 import cz.o2.proxima.annotations.Evolving;
-import cz.o2.proxima.annotations.Internal;
 import java.io.Closeable;
 import java.io.Serializable;
 import java.time.Duration;
@@ -27,7 +26,6 @@ import java.util.Map;
 @Evolving
 public interface ThroughputLimiter extends Serializable, Closeable {
 
-  @Internal
   class NoOpThroughputLimiter implements ThroughputLimiter {
 
     private static final long serialVersionUID = 1L;
@@ -56,7 +54,7 @@ public interface ThroughputLimiter extends Serializable, Closeable {
      */
     Collection<Partition> getConsumedPartitions();
 
-    /** Get count of all partitions in the reader. */
+    /** @return count of all partitions in the reader. */
     int getNumPartitions();
 
     /**

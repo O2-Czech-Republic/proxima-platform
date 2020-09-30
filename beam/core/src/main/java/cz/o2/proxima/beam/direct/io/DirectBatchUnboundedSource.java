@@ -191,7 +191,12 @@ public class DirectBatchUnboundedSource
 
     if (partitions.isEmpty()) {
       // round robin
-      List<Partition> parts = reader().getPartitions(startStamp, endStamp);
+      List<Partition> parts =
+          reader()
+              .getPartitions(startStamp, endStamp)
+              .stream()
+              .sorted(Comparator.comparing(Partition::getMinTimestamp))
+              .collect(Collectors.toList());
       List<List<Partition>> splits = new ArrayList<>();
       int current = 0;
       for (Partition p : parts) {
@@ -273,7 +278,11 @@ public class DirectBatchUnboundedSource
       this.source = Objects.requireNonNull(source);
       this.reader = Objects.requireNonNull(reader);
       this.attributes = new ArrayList<>(Objects.requireNonNull(attributes));
-      this.toProcess = new ArrayList<>(Objects.requireNonNull(toProcess));
+      this.toProcess =
+          toProcess
+              .stream()
+              .sorted(Comparator.comparing(Partition::getMinTimestamp))
+              .collect(Collectors.toList());
       this.consumedFromCurrent = 0;
       this.skip = checkpointMark == null ? 0 : checkpointMark.skipFromFirst;
       log.info("Created {} reading from {}", getClass().getSimpleName(), reader);
@@ -294,19 +303,15 @@ public class DirectBatchUnboundedSource
         if (observer == null && !startNewObserver()) {
           return false;
         }
-        try {
-          current = observer.takeBlocking();
-        } catch (InterruptedException ex) {
-          log.debug("Interrupted while reading data", ex);
-          observer.stop();
-          Thread.currentThread().interrupt();
-        }
+        current = observer.take();
         if (current == null) {
-          Throwable error = observer.getError();
-          if (error != null) {
-            throw new IOException(error);
+          if (observer.getWatermark() == Long.MAX_VALUE) {
+            Throwable error = observer.getError();
+            if (error != null) {
+              throw new IOException(error);
+            }
+            observer = null;
           }
-          observer = null;
           return false;
         }
         consumedFromCurrent++;

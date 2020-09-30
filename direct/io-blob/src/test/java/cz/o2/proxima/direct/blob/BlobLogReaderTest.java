@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader.Factory;
+import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.blob.TestBlobStorageAccessor.BlobReader;
 import cz.o2.proxima.direct.blob.TestBlobStorageAccessor.BlobWriter;
 import cz.o2.proxima.direct.core.Context;
@@ -110,7 +111,7 @@ public class BlobLogReaderTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
         reader.getPartitions(),
-        Lists.newArrayList(status),
+        Collections.singletonList(status),
         new BatchLogObserver() {
           @Override
           public boolean onNext(StreamElement element) {
@@ -125,6 +126,69 @@ public class BlobLogReaderTest {
         });
     assertTrue(latch.await(5, TimeUnit.SECONDS));
     assertEquals(2, observed.size());
+  }
+
+  @Test
+  public void testObservePartitionsOnNextReturnFalse() throws InterruptedException {
+    List<Pair<Long, Long>> stamps =
+        Lists.newArrayList(
+            Pair.of(1234566000000L, 1234566000000L + 3_600_000L),
+            Pair.of(1234566000000L + 3_600_000L, (1234566000000L + 2 * 3_600_000L)));
+    writePartitions(
+        stamps.stream().map(p -> (p.getSecond() + p.getFirst()) / 2).collect(Collectors.toList()));
+    BlobReader reader = accessor.new BlobReader(context);
+    List<StreamElement> observed = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    reader.observe(
+        reader.getPartitions(),
+        Collections.singletonList(status),
+        new BatchLogObserver() {
+          @Override
+          public boolean onNext(StreamElement element) {
+            observed.add(element);
+            return false;
+          }
+
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+        });
+    assertTrue(latch.await(5, TimeUnit.SECONDS));
+    assertEquals(1, observed.size());
+  }
+
+  @Test
+  public void testObservePartitionsCancelled() throws InterruptedException {
+    List<Pair<Long, Long>> stamps =
+        Lists.newArrayList(
+            Pair.of(1234566000000L, 1234566000000L + 3_600_000L),
+            Pair.of(1234566000000L + 3_600_000L, (1234566000000L + 2 * 3_600_000L)));
+    writePartitions(
+        stamps.stream().map(p -> (p.getSecond() + p.getFirst()) / 2).collect(Collectors.toList()));
+    BlobReader reader = accessor.new BlobReader(context);
+    CountDownLatch latch = new CountDownLatch(1);
+    ObserveHandle handle =
+        reader.observe(
+            reader.getPartitions(),
+            Collections.singletonList(status),
+            new BatchLogObserver() {
+              @Override
+              public boolean onNext(StreamElement element) {
+                return true;
+              }
+
+              @Override
+              public void onCancelled() {
+                latch.countDown();
+              }
+
+              @Override
+              public void onCompleted() {
+                fail("onCompleted should not have been called");
+              }
+            });
+    handle.close();
   }
 
   @Test

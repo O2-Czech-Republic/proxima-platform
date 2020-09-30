@@ -22,6 +22,7 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.direct.io.DirectBatchUnboundedSource.Checkpoint;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -132,11 +133,12 @@ public class DirectBatchUnboundedSourceTest {
       }
 
       @Override
-      public void observe(
+      public ObserveHandle observe(
           List<Partition> partitions,
           List<AttributeDescriptor<?>> attributes,
           BatchLogObserver observer) {
         observer.onError(new RuntimeException("fail"));
+        return ObserveHandle.noop();
       }
 
       @Override

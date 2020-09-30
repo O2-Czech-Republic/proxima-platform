@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.hadoop;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.bulk.Reader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -27,7 +28,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.Executor;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import lombok.Getter;
@@ -39,7 +42,7 @@ public class HadoopBatchLogReader implements BatchLogReader {
 
   @Getter private final HadoopDataAccessor accessor;
   private final Context context;
-  private final Executor executor;
+  private final ExecutorService executor;
 
   public HadoopBatchLogReader(HadoopDataAccessor accessor, Context context) {
     this.accessor = accessor;
@@ -73,12 +76,25 @@ public class HadoopBatchLogReader implements BatchLogReader {
   }
 
   @Override
-  public void observe(
+  public ObserveHandle observe(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor.execute(
+    AtomicBoolean killSwitch = new AtomicBoolean();
+    CountDownLatch terminateLatch = new CountDownLatch(1);
+    observeInternal(partitions, attributes, observer, killSwitch, terminateLatch);
+    return ObserveHandle.createFrom(killSwitch, terminateLatch, observer);
+  }
+
+  private void observeInternal(
+      List<Partition> partitions,
+      List<AttributeDescriptor<?>> attributes,
+      BatchLogObserver observer,
+      AtomicBoolean killSwitch,
+      CountDownLatch killedLatch) {
+
+    executor.submit(
         () -> {
           boolean run = true;
           try {
@@ -86,18 +102,21 @@ public class HadoopBatchLogReader implements BatchLogReader {
                 run && it.hasNext(); ) {
               HadoopPartition p = (HadoopPartition) it.next();
               for (HadoopPath path : p.getPaths()) {
-                if (!processPath(observer, p.getMinTimestamp(), p, path)) {
+                if (!processPath(observer, p.getMinTimestamp(), p, path, killSwitch)) {
                   run = false;
                   break;
                 }
               }
             }
-            observer.onCompleted();
+            if (!killSwitch.get()) {
+              observer.onCompleted();
+            }
+            killedLatch.countDown();
           } catch (Throwable ex) {
             log.warn("Failed to observe partitions {}", partitions, ex);
             if (observer.onError(ex)) {
               log.info("Restaring processing by request");
-              observe(partitions, attributes, observer);
+              observeInternal(partitions, attributes, observer, killSwitch, killedLatch);
             }
           }
         });
@@ -111,11 +130,17 @@ public class HadoopBatchLogReader implements BatchLogReader {
   }
 
   private boolean processPath(
-      BatchLogObserver observer, long watermark, HadoopPartition p, HadoopPath path) {
+      BatchLogObserver observer,
+      long watermark,
+      HadoopPartition p,
+      HadoopPath path,
+      AtomicBoolean killSwitch) {
+
     try {
       try (Reader reader = accessor.getFormat().openReader(path, accessor.getEntityDesc())) {
         for (StreamElement elem : reader) {
-          if (!observer.onNext(elem, BatchLogObservers.withWatermark(p, watermark))) {
+          if (killSwitch.get()
+              || !observer.onNext(elem, BatchLogObservers.withWatermark(p, watermark))) {
             return false;
           }
         }

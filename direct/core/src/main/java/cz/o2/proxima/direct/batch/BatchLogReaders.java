@@ -73,12 +73,12 @@ public class BatchLogReaders {
     }
 
     @Override
-    public void observe(
+    public ObserveHandle observe(
         List<Partition> partitions,
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer) {
 
-      super.observe(partitions, attributes, throughputLimited(observer, partitions));
+      return super.observe(partitions, attributes, throughputLimited(observer, partitions));
     }
 
     @Override
@@ -143,6 +143,12 @@ public class BatchLogReaders {
       boolean ret = super.onError(error);
       limiter.close();
       return ret;
+    }
+
+    @Override
+    public void onCancelled() {
+      limiter.close();
+      super.onCancelled();
     }
 
     @Override

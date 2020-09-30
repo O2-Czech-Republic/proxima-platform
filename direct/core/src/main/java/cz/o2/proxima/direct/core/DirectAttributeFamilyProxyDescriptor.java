@@ -295,6 +295,11 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
       public boolean onError(Throwable error) {
         return observer.onError(error);
       }
+
+      @Override
+      public void onCancelled() {
+        observer.onCancelled();
+      }
     };
   }
 
@@ -640,12 +645,12 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
     }
 
     @Override
-    public void observe(
+    public cz.o2.proxima.direct.batch.ObserveHandle observe(
         List<Partition> partitions,
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer) {
 
-      reader.observe(
+      return reader.observe(
           partitions,
           attributes
               .stream()

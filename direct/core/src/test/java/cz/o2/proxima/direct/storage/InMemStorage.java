@@ -71,6 +71,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.Optional;
@@ -80,7 +81,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -572,13 +573,13 @@ public class InMemStorage implements DataAccessorFactory {
 
   private final class Reader extends AbstractStorage implements RandomAccessReader, BatchLogReader {
 
-    private final cz.o2.proxima.functional.Factory<Executor> executorFactory;
-    private transient Executor executor;
+    private final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory;
+    private transient ExecutorService executor;
 
     private Reader(
         EntityDescriptor entityDesc,
         URI uri,
-        cz.o2.proxima.functional.Factory<Executor> executorFactory) {
+        cz.o2.proxima.functional.Factory<ExecutorService> executorFactory) {
       super(entityDesc, uri);
       this.executorFactory = executorFactory;
     }
@@ -719,7 +720,8 @@ public class InMemStorage implements DataAccessorFactory {
     public ReaderFactory asFactory() {
       final EntityDescriptor entity = getEntityDescriptor();
       final URI uri = getUri();
-      final cz.o2.proxima.functional.Factory<Executor> executorFactory = this.executorFactory;
+      final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory =
+          this.executorFactory;
       return repo -> {
         Reader reader = new Reader(entity, uri, executorFactory);
         return reader;
@@ -740,66 +742,91 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     @Override
-    public void observe(
+    public cz.o2.proxima.direct.batch.ObserveHandle observe(
         List<Partition> partitions,
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer) {
+
+      AtomicBoolean killSwitch = new AtomicBoolean();
+      CountDownLatch terminateLatch = new CountDownLatch(1);
+      observeInternal(partitions, attributes, observer, killSwitch, terminateLatch);
+      return cz.o2.proxima.direct.batch.ObserveHandle.createFrom(
+          killSwitch, terminateLatch, observer);
+    }
+
+    private void observeInternal(
+        List<Partition> partitions,
+        List<AttributeDescriptor<?>> attributes,
+        BatchLogObserver observer,
+        AtomicBoolean killSwitch,
+        CountDownLatch killedLatch) {
 
       log.debug(
           "Batch observing {} partitions {} for attributes {}", getUri(), partitions, attributes);
       Preconditions.checkArgument(
           partitions.size() == 1, "This reader works on single partition only, got " + partitions);
       String prefix = toStoragePrefix(getUri());
-      int prefixLength = prefix.length();
       executor()
-          .execute(
+          .submit(
               () -> {
                 try {
-                  Map<String, Pair<Long, byte[]>> data = getData().tailMap(prefix);
+                  final Map<String, Pair<Long, byte[]>> data = getData().tailMap(prefix);
                   synchronized (data) {
-                    for (Map.Entry<String, Pair<Long, byte[]>> e : data.entrySet()) {
-                      if (!e.getKey().startsWith(prefix)) {
-                        break;
-                      }
-                      String k = e.getKey();
-                      Pair<Long, byte[]> v = e.getValue();
-                      String[] parts = k.substring(prefixLength).split("#");
-                      String key = parts[0];
-                      String attribute = parts[1];
-                      boolean shouldContinue =
-                          getEntityDescriptor()
-                              .findAttribute(attribute, true)
-                              .flatMap(
-                                  desc ->
-                                      attributes.contains(desc)
-                                          ? Optional.of(desc)
-                                          : Optional.empty())
-                              .map(
-                                  desc ->
-                                      observer.onNext(
-                                          StreamElement.upsert(
-                                              getEntityDescriptor(),
-                                              desc,
-                                              UUID.randomUUID().toString(),
-                                              key,
-                                              attribute,
-                                              v.getFirst(),
-                                              v.getSecond()),
-                                          CONTEXT))
-                              .orElse(true);
-                      if (!shouldContinue) {
+                    for (Entry<String, Pair<Long, byte[]>> e : data.entrySet()) {
+                      if (!observeElement(attributes, observer, killSwitch, prefix, e)) {
                         break;
                       }
                     }
                   }
-                  observer.onCompleted();
-                } catch (Exception err) {
-                  observer.onError(err);
+                  if (!killSwitch.get()) {
+                    observer.onCompleted();
+                  }
+                  killedLatch.countDown();
+                } catch (Throwable err) {
+                  if (observer.onError(err)) {
+                    observeInternal(partitions, attributes, observer, killSwitch, killedLatch);
+                  }
                 }
               });
     }
 
-    private Executor executor() {
+    private boolean observeElement(
+        List<AttributeDescriptor<?>> attributes,
+        BatchLogObserver observer,
+        AtomicBoolean killSwitch,
+        String prefix,
+        Map.Entry<String, Pair<Long, byte[]>> e) {
+
+      if (killSwitch.get()) {
+        return false;
+      }
+      if (!e.getKey().startsWith(prefix)) {
+        return false;
+      }
+      String k = e.getKey();
+      Pair<Long, byte[]> v = e.getValue();
+      String[] parts = k.substring(prefix.length()).split("#");
+      String key = parts[0];
+      String attribute = parts[1];
+      return getEntityDescriptor()
+          .findAttribute(attribute, true)
+          .filter(attributes::contains)
+          .map(
+              desc ->
+                  observer.onNext(
+                      StreamElement.upsert(
+                          getEntityDescriptor(),
+                          desc,
+                          UUID.randomUUID().toString(),
+                          key,
+                          attribute,
+                          v.getFirst(),
+                          v.getSecond()),
+                      CONTEXT))
+          .orElse(true);
+    }
+
+    private ExecutorService executor() {
       if (executor == null) {
         executor = executorFactory.apply();
       }

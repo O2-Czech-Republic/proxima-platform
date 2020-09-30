@@ -25,7 +25,7 @@ import java.lang.annotation.Target;
  * Annotation used to mark type as intended for internal use with no backward compatibility
  * guarantees.
  */
-@Target(ElementType.TYPE)
+@Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.SOURCE)
 @Documented
 public @interface Internal {}

@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.Partition;
@@ -249,11 +250,12 @@ public class DirectBatchUnboundedSource
     private final List<Partition> toProcess;
     @Nullable private BlockingQueueLogObserver observer;
 
-    long consumedFromCurrent;
-    @Nullable StreamElement current = null;
-    long skip;
-    @Nullable Partition runningPartition = null;
-    long bytesConsumed = 0L;
+    private long consumedFromCurrent;
+    @Nullable private StreamElement current = null;
+    private long skip;
+    @Nullable private Partition runningPartition = null;
+    @Nullable private ObserveHandle runningHandle = null;
+    private long bytesConsumed = 0L;
     private long watermark = Long.MIN_VALUE;
 
     public StreamElementUnboundedReader(
@@ -314,7 +316,8 @@ public class DirectBatchUnboundedSource
         // read partitions one by one
         runningPartition = toProcess.get(0);
         observer = newObserver(runningPartition);
-        reader.observe(Collections.singletonList(runningPartition), attributes, observer);
+        runningHandle =
+            reader.observe(Collections.singletonList(runningPartition), attributes, observer);
         consumedFromCurrent = 0;
       } else {
         watermark = Long.MAX_VALUE;
@@ -366,6 +369,7 @@ public class DirectBatchUnboundedSource
     @Override
     public void close() {
       Optional.ofNullable(observer).ifPresent(BlockingQueueLogObserver::stop);
+      Optional.ofNullable(runningHandle).ifPresent(ObserveHandle::close);
     }
   }
 }

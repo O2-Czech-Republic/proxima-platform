@@ -66,7 +66,7 @@ public interface BatchLogReader {
    * @param attributes attribute descriptors to filter out
    * @param observer the observer by which to consume the data
    */
-  void observe(
+  ObserveHandle observe(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer);

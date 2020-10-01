@@ -25,6 +25,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -65,7 +66,6 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
   private transient String processName = UUID.randomUUID().toString();
 
   private long lastGlobalWatermarkUpdate = Long.MIN_VALUE;
-  private long globalWatermark = Long.MIN_VALUE;
   private long sleepTimeMs = globalWatermarkUpdatePeriodMs;
 
   @Override
@@ -105,6 +105,7 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
   @Override
   public Duration getPauseTime(Context context) {
     updateGlobalWatermarkIfNeeded(context);
+    long globalWatermark = tracker.getGlobalWatermark(processName, context.getMinWatermark());
     if (globalWatermark + maxAheadTimeFromGlobalMs < context.getMinWatermark()) {
       log.info(
           "ThroughputLimiter {} pausing processing for {} ms on global watermark {} and context.minWatermark {}",
@@ -122,6 +123,7 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
     if (tracker != null) {
       ExceptionUtils.unchecked(tracker::close);
     }
+    lastGlobalWatermarkUpdate = Long.MIN_VALUE;
   }
 
   @Override
@@ -138,16 +140,18 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
   private void updateGlobalWatermarkIfNeeded(Context context) {
     long now = System.currentTimeMillis();
     if (now - globalWatermarkUpdatePeriodMs > lastGlobalWatermarkUpdate) {
-      tracker.update(processName, context.getMinWatermark());
+      CompletableFuture<Void> update = tracker.update(processName, context.getMinWatermark());
+      if (lastGlobalWatermarkUpdate == Long.MIN_VALUE) {
+        // when there was no update yet, wait for the update to happen
+        ExceptionUtils.ignoringInterrupted(update::get);
+      }
       lastGlobalWatermarkUpdate = now;
-      log.debug("Updated watermark of {} to {}", this, globalWatermark);
     }
-    globalWatermark = tracker.getGlobalWatermark(processName, context.getMinWatermark());
   }
 
   @VisibleForTesting
   void forceUpdateGlobalWatermark() {
-    lastGlobalWatermarkUpdate = 0;
+    lastGlobalWatermarkUpdate = Long.MIN_VALUE;
   }
 
   protected Object readResolve() {

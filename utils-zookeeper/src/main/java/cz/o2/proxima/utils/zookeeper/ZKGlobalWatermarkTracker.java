@@ -163,6 +163,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
               this.client = null;
               ExceptionUtils.ignoringInterrupted(c::close);
             });
+    partialWatermarks.clear();
     parentCreated = false;
   }
 

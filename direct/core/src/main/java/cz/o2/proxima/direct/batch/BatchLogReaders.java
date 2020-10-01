@@ -147,8 +147,8 @@ public class BatchLogReaders {
 
     @Override
     public void onCancelled() {
-      limiter.close();
       super.onCancelled();
+      limiter.close();
     }
 
     @Override

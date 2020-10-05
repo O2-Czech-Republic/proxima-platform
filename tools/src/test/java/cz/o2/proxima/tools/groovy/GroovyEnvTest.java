@@ -25,6 +25,7 @@ import cz.o2.proxima.util.Pair;
 import groovy.lang.Script;
 import groovy.lang.Tuple;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +68,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             armed.getName(),
             System.currentTimeMillis(),
             new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }
@@ -84,7 +85,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             armed.getName(),
             System.currentTimeMillis(),
             new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }
@@ -95,7 +96,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }
@@ -112,7 +113,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             wildcard.toAttributePrefix() + "1",
             System.currentTimeMillis(),
             new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }
@@ -132,7 +133,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             wildcard.toAttributePrefix() + "1",
             System.currentTimeMillis(),
             new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }
@@ -153,7 +154,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             wildcard.toAttributePrefix() + "1",
             System.currentTimeMillis(),
             new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(2, result.size());
   }
@@ -171,7 +172,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             armed.getName(),
             System.currentTimeMillis(),
             new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }
@@ -188,7 +189,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
         StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }
@@ -204,7 +205,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
         StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
     assertEquals(dummy, result.get(0).getEntityDescriptor());
@@ -228,7 +229,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }
@@ -277,7 +278,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             device.toAttributePrefix() + "2",
             now + 1,
             new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }
@@ -307,7 +308,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             device.toAttributePrefix() + "2",
             now + 1,
             new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }
@@ -320,7 +321,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
         StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<StreamElement> result = (List) compiled.run();
     assertEquals(1, result.size());
   }
@@ -334,8 +335,8 @@ public abstract class GroovyEnvTest extends GroovyTest {
         StreamElement.upsert(
             batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
 
-    @SuppressWarnings("unchecked")
-    List<StreamElement> result = (List) compiled.run();
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    List<String> result = (List) compiled.run();
     assertEquals(Arrays.asList("key", data.getName()), result);
   }
 
@@ -385,12 +386,12 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<Pair<Object, List<Object>>> result = (List) compiled.run();
     Map<Object, List<Object>> resultMap =
         result.stream().collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
-    assertEquals((Integer) 2, resultMap.get("key1").get(1));
-    assertEquals((Integer) 1, resultMap.get("key2").get(1));
+    assertEquals(2, resultMap.get("key1").get(1));
+    assertEquals(1, resultMap.get("key2").get(1));
   }
 
   @Test
@@ -430,7 +431,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<Tuple> result = (List) compiled.run();
     Map<String, String> resultMap =
         result
@@ -479,7 +480,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<Pair<StreamElement, StreamElement>> result = (List) compiled.run();
     Map<String, String> resultMap =
         result
@@ -528,12 +529,12 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<Pair<Object, List<Object>>> result = (List) compiled.run();
     Map<Object, List<Object>> resultMap =
         result.stream().collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
-    assertEquals((Integer) 2, resultMap.get("key1").get(1));
-    assertEquals((Integer) 1, resultMap.get("key2").get(1));
+    assertEquals(2, resultMap.get("key1").get(1));
+    assertEquals(1, resultMap.get("key2").get(1));
   }
 
   @Test
@@ -572,7 +573,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<Pair<Object, Object>> result = (List) compiled.run();
     Map<Object, List<Object>> resultMap =
         result
@@ -581,7 +582,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 Collectors.groupingBy(
                     Pair::getFirst, Collectors.mapping(Pair::getSecond, Collectors.toList())));
     assertEquals(Arrays.asList(1, 2), resultMap.get("key1"));
-    assertEquals(Arrays.asList(1), resultMap.get("key2"));
+    assertEquals(Collections.singletonList(1), resultMap.get("key2"));
   }
 
   @Test
@@ -625,7 +626,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             System.currentTimeMillis(),
             new byte[] {}));
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<Pair<Object, Object>> result = (List) compiled.run();
     Map<Object, List<Object>> resultMap =
         result
@@ -634,7 +635,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
                 Collectors.groupingBy(
                     Pair::getFirst, Collectors.mapping(Pair::getSecond, Collectors.toList())));
     assertEquals(Arrays.asList(1, 2), resultMap.get("key1"));
-    assertEquals(Arrays.asList(2), resultMap.get("key2"));
+    assertEquals(Collections.singletonList(2), resultMap.get("key2"));
   }
 
   @Test
@@ -707,7 +708,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             now + 4,
             new byte[] {}));
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<Integer> result =
         (List)
             ((List) compiled.run())
@@ -786,8 +787,8 @@ public abstract class GroovyEnvTest extends GroovyTest {
             wildcard.toAttributePrefix() + "15",
             now + 4,
             new byte[] {}));
-    @SuppressWarnings("unchecked")
-    List<Pair<Integer, Long>> result = (List) ((List) compiled.run());
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    List<Pair<Integer, Long>> result = (List) compiled.run();
     assertUnorderedEquals(
         Arrays.asList(
             Pair.of(2, now), Pair.of(1, now),
@@ -880,7 +881,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             wildcard.toAttributePrefix() + "1",
             System.currentTimeMillis(),
             new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<Long> result = (List) compiled.run();
     assertEquals(2, result.size());
   }
@@ -903,7 +904,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             wildcard.toAttributePrefix() + "1",
             System.currentTimeMillis(),
             new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<Long> result = (List) compiled.run();
     assertEquals(2, result.size());
   }
@@ -933,8 +934,8 @@ public abstract class GroovyEnvTest extends GroovyTest {
             wildcard.toAttributePrefix() + "1",
             System.currentTimeMillis() + 2000,
             new byte[] {}));
-    @SuppressWarnings("unchecked")
-    List<Long> result = (List) compiled.run();
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    List<Pair<String, Long>> result = (List) compiled.run();
     assertEquals(2, result.size());
     assertEquals(Arrays.asList(Pair.of("", 1L), Pair.of("", 2L)), result);
   }
@@ -984,7 +985,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
             wildcard.toAttributePrefix() + "1",
             now + 800,
             new byte[] {}));
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     List<Long> result = (List) compiled.run();
     assertEquals(3, result.size());
     assertUnorderedEquals(Arrays.asList(2L, 3L, 2L), result);
@@ -1006,6 +1007,6 @@ public abstract class GroovyEnvTest extends GroovyTest {
         .collect(
             Collectors.groupingBy(
                 Function.identity(),
-                Collectors.mapping(a -> 1, Collectors.reducing(0, (a, b) -> a + b))));
+                Collectors.mapping(a -> 1, Collectors.reducing(0, Integer::sum))));
   }
 }

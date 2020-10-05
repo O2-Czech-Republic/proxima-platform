@@ -324,7 +324,7 @@ class BeamStream<T> implements Stream<T> {
         });
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "rawtypes"})
   static <T> PCollection<Pair<Object, T>> applyExtractWindow(
       @Nullable String name, PCollection<T> in, Pipeline pipeline) {
 
@@ -338,7 +338,7 @@ class BeamStream<T> implements Stream<T> {
     } else {
       ret = (PCollection) in.apply(ParDo.of(ExtractWindow.of()));
     }
-    return ret.setCoder((Coder) PairCoder.of(windowCoder, in.getCoder()));
+    return ret.setCoder(PairCoder.of(windowCoder, in.getCoder()));
   }
 
   private void forEach(@Nullable String name, Consumer<T> consumer) {
@@ -707,7 +707,6 @@ class BeamStream<T> implements Stream<T> {
     return windowed(collection::materialize, new GlobalWindows());
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public Stream<T> union(@Nullable String name, List<Stream<T>> others) {
     boolean allBounded = others.stream().allMatch(Stream::isBounded) && isBounded();
@@ -720,7 +719,7 @@ class BeamStream<T> implements Stream<T> {
     if (!allBounded) {
       // turn all inputs to reading in unbouded mode
       // this propagates to sources
-      others.stream().forEach(s -> ((BeamStream<T>) s).collection.asUnbounded());
+      others.forEach(s -> ((BeamStream<T>) s).collection.asUnbounded());
       collection.asUnbounded();
     }
     boolean sameWindows =
@@ -835,7 +834,6 @@ class BeamStream<T> implements Stream<T> {
           Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
           Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
           Coder<O> outputCoder = coderOf(pipeline, outputDehydrated);
-          @SuppressWarnings("unchecked")
           Coder<S> stateCoder = coderOf(pipeline, initialStateDehydrated);
           if (!in.getWindowingStrategy().equals(windowingStrategy)) {
             @SuppressWarnings("unchecked")
@@ -976,7 +974,6 @@ class BeamStream<T> implements Stream<T> {
     return Pipeline.create(opts);
   }
 
-  @VisibleForTesting
   <T> Coder<T> coderOf(Pipeline pipeline, Closure<T> closure) {
     return getCoder(pipeline, TypeDescriptor.of(Types.returnClass(closure)));
   }
@@ -992,7 +989,7 @@ class BeamStream<T> implements Stream<T> {
   <X> BeamWindowedStream<X> windowed(
       Function<Pipeline, PCollection<X>> factory, WindowFn<? super X, ?> window) {
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     WindowingStrategy<Object, ?> strategy =
         (WindowingStrategy)
             WindowingStrategy.of(window)
@@ -1118,7 +1115,7 @@ class BeamStream<T> implements Stream<T> {
     for (Field f : obj.getClass().getDeclaredFields()) {
       f.setAccessible(true);
       Object fieldVal = ExceptionUtils.uncheckedFactory(() -> f.get(obj));
-      if (fieldVal != null && !extracted.contains(fieldVal)) {
+      if (fieldVal != null && !extracted.contains(fieldVal.getClass())) {
         extractFieldsRecursivelyInto(fieldVal.getClass(), extracted);
       }
     }

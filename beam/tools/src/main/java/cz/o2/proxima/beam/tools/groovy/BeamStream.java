@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
-import static fi.iki.elonen.NanoHTTPD.newFixedLengthResponse;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -54,23 +52,14 @@ import cz.o2.proxima.tools.groovy.util.Types;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.util.SerializableScopedValue;
-import fi.iki.elonen.NanoHTTPD;
 import groovy.lang.Closure;
 import groovy.lang.Tuple;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.FromString;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
-import java.net.BindException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -81,7 +70,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -89,7 +77,6 @@ import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.beam.repackaged.core.org.apache.commons.compress.utils.IOUtils;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Kryo;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Serializer;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Input;
@@ -364,7 +351,7 @@ class BeamStream<T> implements Stream<T> {
     PCollection<T> pcoll = collection.materialize(pipeline);
     if (gatherLocally) {
       try (RemoteConsumer<T> remoteConsumer = createRemoteConsumer(pcoll.getCoder(), consumer)) {
-        forEachRemote(name, pcoll, remoteConsumer::add, pipeline);
+        forEachRemote(name, pcoll, remoteConsumer, pipeline);
       }
     } else {
       forEachRemote(name, pcoll, consumer, pipeline);
@@ -1227,6 +1214,13 @@ class BeamStream<T> implements Stream<T> {
     public void process(@Element T elem) {
       consumer.accept(elem);
     }
+
+    @Teardown
+    public void tearDown() {
+      if (consumer instanceof AutoCloseable) {
+        ExceptionUtils.unchecked(((AutoCloseable) consumer)::close);
+      }
+    }
   }
 
   private static class ExtractWindow<T> extends DoFn<T, Pair<BoundedWindow, T>> {
@@ -1463,119 +1457,6 @@ class BeamStream<T> implements Stream<T> {
       } catch (IOException ex) {
         log.warn("Failed to cancel pipeline", ex);
       }
-    }
-  }
-
-  // iterable that collects elements using HTTP
-  // this is first shot implementation with no optimizations
-  private static class RemoteConsumer<T> implements Serializable, AutoCloseable {
-
-    private static <T> RemoteConsumer<T> create(
-        Object seed, String hostname, int preferredPort, Consumer<T> consumer, Coder<T> coder) {
-
-      int retries = 3;
-      while (retries > 0) {
-        retries--;
-        int port = getPort(preferredPort, System.identityHashCode(seed));
-        try {
-          // start HTTP server and store host and port
-          RemoteConsumer<T> ret = new RemoteConsumer<>(hostname, port, consumer, coder);
-          ret.start();
-          return ret;
-        } catch (BindException ex) {
-          log.debug("Failed to bind on port {}", port, ex);
-        } catch (IOException ex) {
-          throw new RuntimeException(ex);
-        }
-      }
-      throw new RuntimeException("Retries exhausted trying to start server");
-    }
-
-    static int getPort(int preferredPort, int seed) {
-      return preferredPort > 0
-          ? preferredPort
-          : ((ThreadLocalRandom.current().nextInt() ^ seed) & Integer.MAX_VALUE) % 50000 + 10000;
-    }
-
-    private class Server extends NanoHTTPD {
-
-      Server(int port) {
-        super(port);
-      }
-
-      @Override
-      public NanoHTTPD.Response serve(NanoHTTPD.IHTTPSession session) {
-        synchronized (RemoteConsumer.this) {
-          try {
-            consumer.accept(deserialize(session.getInputStream()));
-            return newFixedLengthResponse("OK");
-          } catch (IOException ex) {
-            throw new RuntimeException(ex);
-          }
-        }
-      }
-    }
-
-    private final Coder<T> coder;
-    final URL url;
-    private final transient Consumer<T> consumer;
-    private final transient Server server;
-
-    private RemoteConsumer(String hostname, int port, Consumer<T> consumer, Coder<T> coder)
-        throws MalformedURLException {
-
-      this.server = new Server(port);
-      this.url = new URL("http://" + hostname + ":" + port);
-      this.consumer = consumer;
-      this.coder = coder;
-    }
-
-    public void add(T what) {
-      HttpURLConnection connection = null;
-      try {
-        connection = (HttpURLConnection) url.openConnection();
-        connection.setDoInput(true);
-        connection.setDoOutput(true);
-        connection.setRequestMethod("PUT");
-        connection.setRequestProperty("Connection", "close");
-        IOUtils.copy(serialize(what), connection.getOutputStream());
-        connection.connect();
-        String response =
-            new String(IOUtils.toByteArray(connection.getInputStream()), StandardCharsets.US_ASCII);
-        if (!"OK".equals(response)) {
-          throw new IllegalStateException("Server replied " + response);
-        }
-      } catch (IOException ex) {
-        throw new RuntimeException(ex);
-      } finally {
-        if (connection != null) {
-          connection.disconnect();
-        }
-      }
-    }
-
-    void stop() {
-      server.stop();
-    }
-
-    void start() throws IOException {
-      server.start(NanoHTTPD.SOCKET_READ_TIMEOUT, true);
-    }
-
-    InputStream serialize(T what) throws IOException {
-      try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-        coder.encode(what, baos);
-        return new ByteArrayInputStream(baos.toByteArray());
-      }
-    }
-
-    T deserialize(InputStream in) throws IOException {
-      return coder.decode(in);
-    }
-
-    @Override
-    public void close() {
-      stop();
     }
   }
 

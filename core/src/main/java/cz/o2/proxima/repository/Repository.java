@@ -171,14 +171,30 @@ public abstract class Repository implements Serializable {
   /**
    * Retrieve attribute family by name.
    *
-   * <p>Note that this returns all families that were specified in configuration. It might include
+   * <p>Note that this searched all families that were specified in configuration. It might include
    * families not listed in {@link #getAllFamilies()}, because some families might be removed for
    * various reasons (e.g. when proxying attributes).
    *
    * @param name name of the family
    * @return {@link Optional} {@link AttributeFamilyDescriptor} if family exists
    */
-  public abstract Optional<AttributeFamilyDescriptor> getFamilyByName(String name);
+  public abstract Optional<AttributeFamilyDescriptor> findFamilyByName(String name);
+
+  /**
+   * Retrieve attribute family by name.
+   *
+   * <p>Note that this searched all families that were specified in configuration. It might include
+   * families not listed in {@link #getAllFamilies()}, because some families might be removed for
+   * various reasons (e.g. when proxying attributes).
+   *
+   * @param name name of the family
+   * @return {@link AttributeFamilyDescriptor} if family exists
+   * @throws IllegalArgumentException when family doesn't exist
+   */
+  public AttributeFamilyDescriptor getFamilyByName(String name) {
+    return findFamilyByName(name)
+        .orElseThrow(() -> new IllegalArgumentException("Family " + name + " doesn't exist"));
+  }
 
   /**
    * Retrieve list of attribute families for attribute.

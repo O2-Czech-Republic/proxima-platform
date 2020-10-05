@@ -18,9 +18,9 @@ package cz.o2.proxima.storage.watermark;
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.time.WatermarkSupplier;
 import java.io.Closeable;
-import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 
 /**
  * A tracker of global watermark progress among multiple (distributed) processes.
@@ -47,9 +47,9 @@ public interface GlobalWatermarkTracker extends WatermarkSupplier, Closeable {
   /**
    * Configure the tracker using given configuration.
    *
-   * @param cfg the configuration map
+   * @param cfg the (scoped) configuration map
    */
-  void configure(Map<String, Object> cfg);
+  void setup(Map<String, Object> cfg);
 
   /**
    * Setup parallel consumers. This SHOULD be used once when the tracker is constructed to setup
@@ -58,7 +58,7 @@ public interface GlobalWatermarkTracker extends WatermarkSupplier, Closeable {
    *
    * @param initialWatermarks map of process name to the initial watermark
    */
-  void initWatermarks(Map<String, Instant> initialWatermarks);
+  void initWatermarks(Map<String, Long> initialWatermarks);
 
   /**
    * Update watermark of given process. This call MAY add a new process, which was not part of
@@ -69,7 +69,7 @@ public interface GlobalWatermarkTracker extends WatermarkSupplier, Closeable {
    * @param currentWatermark current processing watermark of the process
    * @return {@link CompletableFuture} to be able to wait for result being persisted
    */
-  CompletableFuture<Void> update(String processName, Instant currentWatermark);
+  CompletableFuture<Void> update(String processName, long currentWatermark);
 
   /**
    * Remove given process from the tracker. The watermark of the process (if any) will no longer
@@ -83,18 +83,20 @@ public interface GlobalWatermarkTracker extends WatermarkSupplier, Closeable {
    * @return {@link CompletableFuture} to be able to wait for result being persisted
    */
   default CompletableFuture<Void> finished(String name) {
-    return update(name, Instant.ofEpochMilli(Long.MAX_VALUE));
+    return update(name, Long.MAX_VALUE);
   }
 
   /**
    * Retrieve global watermark tracked by this tracker.
    *
+   * @param processName name of process querying the global watermark
+   * @param currentWatermark current watermark of process querying the watermark
    * @return the global watermark
    */
-  Instant getGlobalWatermark();
+  long getGlobalWatermark(@Nullable String processName, long currentWatermark);
 
   @Override
   default long getWatermark() {
-    return getGlobalWatermark().toEpochMilli();
+    return getGlobalWatermark(null, Long.MAX_VALUE);
   }
 }

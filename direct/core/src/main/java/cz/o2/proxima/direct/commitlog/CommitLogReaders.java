@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.storage.Partition;
@@ -22,6 +23,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.ThroughputLimiter.Context;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -122,9 +124,10 @@ public class CommitLogReaders {
     }
   }
 
-  private static class LimitedCommitLogReader extends ForwardingCommitLogReader {
+  @VisibleForTesting
+  public static class LimitedCommitLogReader extends ForwardingCommitLogReader {
 
-    private final ThroughputLimiter limiter;
+    @Getter private final ThroughputLimiter limiter;
     private final Collection<Partition> partitions;
     private final int numPartitions;
     private long watermark = Long.MIN_VALUE;
@@ -192,12 +195,29 @@ public class CommitLogReaders {
 
     private LogObserver throughputLimited(LogObserver delegate) {
       return new ForwardingLogObserver(delegate) {
+
+        @Override
+        public void onCompleted() {
+          super.onCompleted();
+          limiter.close();
+        }
+
+        @Override
+        public void onCancelled() {
+          super.onCancelled();
+          limiter.close();
+        }
+
+        @Override
+        public boolean onError(Throwable error) {
+          boolean ret = super.onError(error);
+          limiter.close();
+          return ret;
+        }
+
         @Override
         public boolean onNext(StreamElement ingest, OnNextContext context) {
-          try {
-            waitIfNecessary();
-          } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
+          if (ExceptionUtils.ignoringInterrupted(this::waitIfNecessary)) {
             return false;
           }
           watermark = context.getWatermark();

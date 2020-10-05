@@ -21,6 +21,7 @@ import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
+import lombok.Getter;
 
 /** Dummy storage printing data to stdout. */
 @Stable
@@ -32,7 +33,7 @@ public class StdoutStorage implements DataAccessorFactory {
 
     private static final long serialVersionUID = 1L;
     private final EntityDescriptor entity;
-    private final URI uri;
+    @Getter private final URI uri;
 
     public StdoutDataAccessor(EntityDescriptor entity, URI uri) {
       this.entity = entity;

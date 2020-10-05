@@ -38,18 +38,19 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
   @Getter private final AttributeFamilyDescriptor desc;
 
   private final RepositoryFactory repositoryFactory;
-  private final @Nullable AttributeWriterBase.Factory<?> writerFactory;
-  private final @Nullable CommitLogReader.Factory<?> commitLogReaderFactory;
-  private final @Nullable BatchLogReader.Factory<?> batchReaderFactory;
-  private final @Nullable RandomAccessReader.Factory<?> randomAccessReaderFactory;
-  private final @Nullable CachedView.Factory cachedViewFactory;
+
+  @Nullable private final AttributeWriterBase.Factory<?> writerFactory;
+  @Nullable private final CommitLogReader.Factory<?> commitLogReaderFactory;
+  @Nullable private final BatchLogReader.Factory<?> batchReaderFactory;
+  @Nullable private final RandomAccessReader.Factory<?> randomAccessReaderFactory;
+  @Nullable private final CachedView.Factory cachedViewFactory;
 
   @Nullable private transient AttributeWriterBase writer;
   @Nullable private transient CommitLogReader commitLogReader;
   @Nullable private transient BatchLogReader batchReader;
   @Nullable private transient RandomAccessReader randomAccessReader;
   @Nullable private transient CachedView cachedView;
-  private transient @Nullable Repository repo;
+  @Nullable private transient Repository repo;
 
   DirectAttributeFamilyDescriptor(
       Repository repository,

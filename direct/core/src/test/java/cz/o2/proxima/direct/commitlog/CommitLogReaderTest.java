@@ -19,6 +19,7 @@ import static org.junit.Assert.*;
 
 import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogReaders.LimitedCommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
@@ -42,6 +43,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -311,7 +313,7 @@ public class CommitLogReaderTest {
 
     assertEquals(100, received.size());
     assertEquals(
-        LongStream.range(0, 100).mapToObj(Long::valueOf).collect(Collectors.toList()),
+        LongStream.range(0, 100).boxed().collect(Collectors.toList()),
         received.stream().map(s -> s.getStamp() - now).collect(Collectors.toList()));
   }
 
@@ -373,7 +375,7 @@ public class CommitLogReaderTest {
 
     assertEquals(100, received.size());
     assertEquals(
-        LongStream.range(0, 100).mapToObj(Long::valueOf).collect(Collectors.toList()),
+        LongStream.range(0, 100).boxed().collect(Collectors.toList()),
         received.stream().map(s -> s.getStamp() - now).collect(Collectors.toList()));
   }
 
@@ -433,7 +435,7 @@ public class CommitLogReaderTest {
     assertEquals(0x7, mask.get());
     inner.onNext(update, asOnNextContext(0));
     assertEquals(0x0F, mask.get());
-    inner.onRepartition(() -> Collections.emptyList());
+    inner.onRepartition(Collections::emptyList);
     assertEquals(0x1F, mask.get());
     inner.onIdle(() -> 0);
     assertEquals(0x3F, mask.get());
@@ -547,6 +549,76 @@ public class CommitLogReaderTest {
         });
   }
 
+  @Test(timeout = 10000)
+  public void testThroughputLimitedCommitLogReader() {
+    LimitedCommitLogReader limited =
+        (LimitedCommitLogReader)
+            CommitLogReaders.withThroughputLimit(reader, withNumRecordsPerSec(100));
+    AtomicBoolean completed = new AtomicBoolean();
+    AtomicBoolean cancelled = new AtomicBoolean();
+    AtomicBoolean throwOnNext = new AtomicBoolean();
+    AtomicReference<Throwable> caught = new AtomicReference<>();
+
+    for (int i = 0; i < 10; i++) {
+      writer
+          .online()
+          .write(
+              StreamElement.upsert(
+                  entity,
+                  attr,
+                  UUID.randomUUID().toString(),
+                  "key" + i,
+                  attr.getName(),
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2}),
+              (succ, exc) -> {});
+    }
+
+    LogObserver observer =
+        new LogObserver() {
+
+          @Override
+          public void onCompleted() {
+            completed.set(true);
+          }
+
+          @Override
+          public void onCancelled() {
+            cancelled.set(true);
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            caught.set(error);
+            return false;
+          }
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            if (throwOnNext.get()) {
+              throw new RuntimeException("Fail");
+            }
+            return true;
+          }
+        };
+    limited.observeBulk("dummy", Position.OLDEST, true, observer);
+    while (!completed.get()) {
+      ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(50));
+    }
+
+    ObserveHandle handle = limited.observeBulk("dummy", Position.OLDEST, true, observer);
+    handle.close();
+    while (!cancelled.get()) {
+      ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(50));
+    }
+
+    throwOnNext.set(true);
+    limited.observeBulk("dummy", Position.OLDEST, true, observer);
+    while (caught.get() == null) {
+      ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(50));
+    }
+  }
+
   private LogObserver createLimitedObserver(Runnable onNext) {
     return new LogObserver() {
 
@@ -608,12 +680,19 @@ public class CommitLogReaderTest {
 
   public static ThroughputLimiter withNumRecordsPerSec(int recordsPerSec) {
     final Duration pauseDuration = Duration.ofMillis(1000L / recordsPerSec);
-    return context -> {
-      assertEquals(1, context.getNumPartitions());
-      assertEquals(1, context.getConsumedPartitions().size());
-      assertEquals(0, Iterables.getOnlyElement(context.getConsumedPartitions()).getId());
-      assertTrue(context.getMinWatermark() < Long.MAX_VALUE);
-      return pauseDuration;
+    return new ThroughputLimiter() {
+
+      @Override
+      public Duration getPauseTime(Context context) {
+        assertEquals(1, context.getNumPartitions());
+        assertEquals(1, context.getConsumedPartitions().size());
+        assertEquals(0, Iterables.getOnlyElement(context.getConsumedPartitions()).getId());
+        assertTrue(context.getMinWatermark() < Long.MAX_VALUE);
+        return pauseDuration;
+      }
+
+      @Override
+      public void close() {}
     };
   }
 

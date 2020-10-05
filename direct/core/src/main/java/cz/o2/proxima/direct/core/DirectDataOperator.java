@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.core;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.Sets;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.BatchLogReaders;
@@ -35,6 +36,9 @@ import cz.o2.proxima.repository.Repository.Validate;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.internal.DataAccessorLoader;
+import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,6 +63,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DirectDataOperator implements DataOperator, ContextProvider {
 
+  private static final String THROUGHPUT_LIMITER_PREFIX = "direct.throughput-limiter.";
+  private static final String KW_CLASS = "class";
   private static final AtomicInteger threadId = new AtomicInteger();
 
   private static Factory<ExecutorService> createExecutorFactory() {
@@ -190,8 +196,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   }
 
   private DataAccessor findAccessorFor(AttributeFamilyDescriptor desc) {
-    return loader
-        .findForUri(desc.getStorageUri())
+    return getAccessorFactory(desc.getStorageUri())
         .map(f -> f.createAccessor(this, desc.getEntity(), desc.getStorageUri(), desc.getCfg()))
         .filter(f -> !repo.isShouldValidate(Validate.ACCESSES) || f.isAcceptable(desc))
         .orElseThrow(
@@ -278,10 +283,8 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional commit log reader
    */
   public Optional<CommitLogReader> getCommitLogReader(Collection<AttributeDescriptor<?>> attrs) {
-    return getAccessor(
-        attrs,
-        a -> a.getDesc().getAccess().canReadCommitLog(),
-        DirectAttributeFamilyDescriptor::getCommitLogReader);
+    return getFamilyForAttributes(attrs, a -> a.getDesc().getAccess().canReadCommitLog())
+        .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader);
   }
 
   /**
@@ -302,10 +305,8 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional cached view
    */
   public Optional<CachedView> getCachedView(Collection<AttributeDescriptor<?>> attrs) {
-    return getAccessor(
-        attrs,
-        a -> a.getDesc().getAccess().canCreateCachedView(),
-        DirectAttributeFamilyDescriptor::getCachedView);
+    return getFamilyForAttributes(attrs, a -> a.getDesc().getAccess().canCreateCachedView())
+        .flatMap(DirectAttributeFamilyDescriptor::getCachedView);
   }
 
   /**
@@ -326,10 +327,8 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional random access reader
    */
   public Optional<RandomAccessReader> getRandomAccess(Collection<AttributeDescriptor<?>> attrs) {
-    return getAccessor(
-        attrs,
-        a -> a.getDesc().getAccess().canRandomRead(),
-        DirectAttributeFamilyDescriptor::getRandomAccessReader);
+    return getFamilyForAttributes(attrs, a -> a.getDesc().getAccess().canRandomRead())
+        .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
   }
 
   /**
@@ -343,10 +342,9 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return getRandomAccess(Arrays.asList(attrs));
   }
 
-  private <T> Optional<T> getAccessor(
+  private Optional<DirectAttributeFamilyDescriptor> getFamilyForAttributes(
       Collection<AttributeDescriptor<?>> attrs,
-      UnaryFunction<DirectAttributeFamilyDescriptor, Boolean> mask,
-      UnaryFunction<DirectAttributeFamilyDescriptor, Optional<T>> extract) {
+      UnaryFunction<DirectAttributeFamilyDescriptor, Boolean> mask) {
 
     return attrs
         .stream()
@@ -354,8 +352,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
             a ->
                 getFamiliesForAttribute(a).stream().filter(mask::apply).collect(Collectors.toSet()))
         .reduce(Sets::intersection)
-        .flatMap(s -> s.stream().findAny())
-        .flatMap(extract::apply);
+        .flatMap(s -> s.stream().findAny());
   }
 
   /** Close the operator and release all allocated resources. */
@@ -394,6 +391,29 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return repo.getAllFamilies().map(this::resolveRequired);
   }
 
+  /**
+   * Retrieve family by given name.
+   *
+   * @param name name of the family to search for
+   * @return {@link DirectAttributeFamilyDescriptor} for given family
+   * @throws IllegalArgumentException when family not found
+   */
+  public DirectAttributeFamilyDescriptor getFamilyByName(String name) {
+    return findFamilyByName(name)
+        .orElseThrow(() -> new IllegalArgumentException("Family " + name + " not found"));
+  }
+
+  /**
+   * Retrieve family by given name.
+   *
+   * @param name name of the family to search for
+   * @return {@link Optional} of {@link DirectAttributeFamilyDescriptor} for given family of {@link
+   *     Optional#empty()}
+   */
+  public Optional<DirectAttributeFamilyDescriptor> findFamilyByName(String name) {
+    return repo.findFamilyByName(name).flatMap(f -> Optional.ofNullable(familyMap.get(f)));
+  }
+
   @Override
   public Repository getRepository() {
     return repo;
@@ -424,25 +444,50 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     public DataAccessor createAccessor(
         DirectDataOperator operator, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
 
-      return new DelegateDataAccessor(delegate.createAccessor(operator, entity, uri, cfg), cfg);
+      return new ForwardingDataAccessor(delegate.createAccessor(operator, entity, uri, cfg), cfg);
     }
 
-    private static class DelegateDataAccessor implements DataAccessor {
+    private static class ForwardingDataAccessor implements DataAccessor {
 
       private static final long serialVersionUID = 1L;
 
       private final DataAccessor delegate;
       @Nullable private final ThroughputLimiter limiter;
 
-      public DelegateDataAccessor(DataAccessor delegate, Map<String, Object> cfg) {
+      public ForwardingDataAccessor(DataAccessor delegate, Map<String, Object> cfg) {
         this.delegate = delegate;
         this.limiter = configureLimiter(cfg);
+        log.info("Created new {} for {}", this, delegate.getUri());
       }
 
       @Nullable
       private ThroughputLimiter configureLimiter(Map<String, Object> cfg) {
-        // FIXME: to be configured
-        return null;
+        Map<String, Object> prefixed =
+            cfg.entrySet()
+                .stream()
+                .filter(e -> e.getKey().startsWith(THROUGHPUT_LIMITER_PREFIX))
+                .map(
+                    e ->
+                        Pair.of(
+                            e.getKey().substring(THROUGHPUT_LIMITER_PREFIX.length()), e.getValue()))
+                .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond));
+        return Optional.ofNullable(prefixed.get(KW_CLASS))
+            .map(Object::toString)
+            .map(
+                cls ->
+                    ExceptionUtils.uncheckedFactory(
+                        () -> Classpath.newInstance(cls, ThroughputLimiter.class)))
+            .map(
+                limiter -> {
+                  limiter.setup(prefixed);
+                  return limiter;
+                })
+            .orElse(null);
+      }
+
+      @Override
+      public URI getUri() {
+        return delegate.getUri();
       }
 
       @Override
@@ -477,6 +522,14 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       @Override
       public boolean isAcceptable(AttributeFamilyDescriptor familyDescriptor) {
         return delegate.isAcceptable(familyDescriptor);
+      }
+
+      @Override
+      public String toString() {
+        return MoreObjects.toStringHelper(this)
+            .add("delegate", delegate)
+            .add("limiter", limiter)
+            .toString();
       }
     }
   }

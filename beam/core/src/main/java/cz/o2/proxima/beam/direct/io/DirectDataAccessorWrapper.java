@@ -27,6 +27,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.net.URI;
 import java.util.List;
+import lombok.Getter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
 import org.apache.beam.sdk.io.Read;
@@ -40,7 +41,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
 
   private final RepositoryFactory factory;
   private final cz.o2.proxima.direct.core.DataAccessor direct;
-  private final URI uri;
+  @Getter private final URI uri;
   private final Context context;
 
   public DirectDataAccessorWrapper(

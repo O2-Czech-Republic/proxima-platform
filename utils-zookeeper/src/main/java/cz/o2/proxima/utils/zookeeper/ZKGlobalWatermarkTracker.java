@@ -16,28 +16,30 @@
 package cz.o2.proxima.utils.zookeeper;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
+import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.storage.watermark.GlobalWatermarkTracker;
 import cz.o2.proxima.util.ExceptionUtils;
+import java.io.File;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.zookeeper.AddWatchMode;
+import org.apache.zookeeper.AsyncCallback.DataCallback;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.KeeperException.Code;
@@ -47,13 +49,14 @@ import org.apache.zookeeper.Watcher.Event.EventType;
 import org.apache.zookeeper.Watcher.Event.KeeperState;
 import org.apache.zookeeper.ZooDefs.Ids;
 import org.apache.zookeeper.ZooKeeper;
+import org.apache.zookeeper.data.Stat;
 
 /** A {@link GlobalWatermarkTracker} that stores global information in Apache Zookeeper. */
 @Slf4j
 public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   private static final long serialVersionUID = 1L;
-  private static final Instant MAX_WATERMARK = Instant.ofEpochMilli(Long.MAX_VALUE);
+  private static final long MAX_WATERMARK = Long.MAX_VALUE;
 
   static final String CFG_NAME = "name";
   static final String ZK_URI = "zk.url";
@@ -68,12 +71,10 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   @GuardedBy("this")
   private final Map<String, Long> partialWatermarks = new HashMap<>();
 
-  @VisibleForTesting
-  transient Map<String, Set<CompletableFuture<Void>>> updatedFutures = new ConcurrentHashMap<>();
-
   private final AtomicLong globalWatermark = new AtomicLong(Long.MIN_VALUE);
-  private transient boolean parentCreated = false;
-  private transient volatile int updateVersion = 0;
+  private transient volatile CreateMode parentCreateMode = CreateMode.CONTAINER;
+  private transient volatile boolean parentCreated = false;
+  @VisibleForTesting transient Map<String, Integer> pathToVersion = new ConcurrentHashMap<>();
 
   @Override
   public String getName() {
@@ -81,29 +82,12 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   @Override
-  public void configure(Map<String, Object> cfg) {
+  public void setup(Map<String, Object> cfg) {
     URI uri = getZkUri(cfg);
     zkConnectString = String.format("%s:%d", uri.getHost(), uri.getPort());
     sessionTimeout = getSessionTimeout(cfg);
     trackerName = getTrackerName(cfg);
-    parentNode = normalize(Strings.isNullOrEmpty(uri.getPath()) ? "/" : uri.getPath());
-  }
-
-  // Normalize path to meet requirements needed by ZK
-  // i.e. start with / and end with / to denote directory
-  @VisibleForTesting
-  static String normalize(String path) {
-    if (path.equals("/")) {
-      return path;
-    }
-    String res = path;
-    if (!path.startsWith("/")) {
-      res = "/" + path;
-    }
-    while (!res.isEmpty() && res.endsWith("/")) {
-      res = res.substring(0, res.length() - 1);
-    }
-    return res + "/";
+    parentNode = "/" + UriUtil.getPathNormalized(uri) + "/";
   }
 
   @Nonnull
@@ -132,68 +116,33 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   @Override
-  public void initWatermarks(Map<String, Instant> initialWatermarks) {
+  public void initWatermarks(Map<String, Long> initialWatermarks) {
     CountDownLatch latch = new CountDownLatch(initialWatermarks.size());
     initialWatermarks.forEach(
         (k, v) -> {
-          ExceptionUtils.ignoringInterrupted(
-              () -> persistPartialWatermark(k, v.toEpochMilli()).get());
+          ExceptionUtils.ignoringInterrupted(() -> persistPartialWatermark(k, v).get());
           latch.countDown();
         });
     ExceptionUtils.ignoringInterrupted(latch::await);
   }
 
   @Override
-  public CompletableFuture<Void> update(String processName, Instant currentWatermark) {
-    if (currentWatermark.isBefore(MAX_WATERMARK)) {
-      return persistPartialWatermark(processName, currentWatermark.toEpochMilli());
+  public CompletableFuture<Void> update(String processName, long currentWatermark) {
+    if (currentWatermark < MAX_WATERMARK) {
+      return persistPartialWatermark(processName, currentWatermark);
     }
     return deletePartialWatermark(processName);
   }
 
   @Override
-  public Instant getGlobalWatermark() {
+  public long getGlobalWatermark(@Nullable String processName, long currentWatermark) {
     if (!parentCreated) {
-      ExceptionUtils.ignoringInterrupted(() -> createParentIfNotExists(getParentNode()));
+      ExceptionUtils.ignoringInterrupted(this::createParentIfNotExists);
     }
-    return Instant.ofEpochMilli(globalWatermark.get());
-  }
-
-  private void createWatchForParentNode(String parent) throws InterruptedException {
-    try {
-      client().addWatch(parent, this::watchParentNode, AddWatchMode.PERSISTENT_RECURSIVE);
-      for (String child : client().getChildren(parent, false)) {
-        byte[] data = client().getData(parent + "/" + child, false, null);
-        updatePartialWatermark(child, longFromBytes(data));
-      }
-    } catch (KeeperException ex) {
-      if (ex.code() == Code.CONNECTIONLOSS || ex.code() == Code.SESSIONEXPIRED) {
-        client = null;
-        createWatchForParentNode(parent);
-      } else {
-        throw new RuntimeException(ex);
-      }
+    if (processName != null) {
+      updatePartialWatermark(processName, currentWatermark);
     }
-  }
-
-  private void watchParentNode(WatchedEvent watchedEvent) {
-    String path = watchedEvent.getPath();
-    if (path != null && !path.equals(getParentNode())) {
-      String process = getNodeName(watchedEvent.getPath());
-      if (watchedEvent.getType() == EventType.NodeDeleted) {
-        updatePartialWatermark(process, Long.MAX_VALUE);
-      } else {
-        client()
-            .getData(
-                path,
-                false,
-                (code, p, ctx, data, stat) -> {
-                  long watermark = longFromBytes(data);
-                  updatePartialWatermark(process, watermark);
-                },
-                null);
-      }
-    }
+    return globalWatermark.get();
   }
 
   @VisibleForTesting
@@ -217,57 +166,59 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     parentCreated = false;
   }
 
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("trackerName", trackerName)
+        .add("zkConnectString", zkConnectString)
+        .add("parentNode", parentNode)
+        .add("sessionTimeout", sessionTimeout)
+        .toString();
+  }
+
   private CompletableFuture<Void> persistPartialWatermark(String name, long watermark) {
-    CompletableFuture<Void> updated = new CompletableFuture<>();
-    addToUpdatedFutures(name, updated);
     CompletableFuture<Void> persisted = new CompletableFuture<>();
+    byte[] bytes = longAsBytes(watermark);
+    persistPartialWatermarkIntoFuture(name, bytes, persisted);
+    return persisted;
+  }
+
+  private void persistPartialWatermarkIntoFuture(
+      String name, byte[] bytes, CompletableFuture<Void> res) {
+    if (!parentCreated) {
+      ExceptionUtils.ignoringInterrupted(this::createParentIfNotExists);
+    }
+    setNodeDataToFuture(name, bytes, res);
+  }
+
+  private void handleError(Throwable err, String logString, CompletableFuture<Void> future) {
+    log.warn(logString, err);
+    future.completeExceptionally(err);
+  }
+
+  private void handleNoParentNode(String name, byte[] bytes, CompletableFuture<Void> res) {
     try {
-      String parent = getParentNode();
-      createParentIfNotExists(parent);
-      String node = parent + "/" + name;
-      byte[] bytes = longAsBytes(watermark);
-      client()
-          .create(
-              node,
-              bytes,
-              Ids.OPEN_ACL_UNSAFE,
-              CreateMode.EPHEMERAL,
-              (code, path, ctx, s) -> {
-                if (code == Code.NODEEXISTS.intValue()) {
-                  setNodeDataToFuture(path, bytes, persisted);
-                } else if (code != Code.OK.intValue()) {
-                  Throwable err =
-                      new RuntimeException(
-                          String.format("Failed to update watermark of %s: %s", name, code));
-                  log.warn("Failed to update watermark", err);
-                  persisted.completeExceptionally(err);
-                } else {
-                  persisted.complete(null);
-                }
-              },
-              null);
+      parentCreated = false;
+      createParentIfNotExists();
+      persistPartialWatermarkIntoFuture(name, bytes, res);
     } catch (InterruptedException ex) {
       Thread.currentThread().interrupt();
-      persisted.completeExceptionally(ex);
+      res.completeExceptionally(ex);
     }
-    return CompletableFuture.allOf(persisted, updated);
   }
 
   private CompletableFuture<Void> deletePartialWatermark(String name) {
-    CompletableFuture<Void> updated = new CompletableFuture<>();
-    addToUpdatedFutures(name, updated);
     CompletableFuture<Void> persisted = new CompletableFuture<>();
     deleteNodeToFuture(name, persisted);
-    return CompletableFuture.allOf(persisted, updated);
+    return persisted;
   }
 
   private void deleteNodeToFuture(String name, CompletableFuture<Void> res) {
-    String parent = getParentNode();
-    String node = parent + "/" + name;
+    String node = getNodeFromName(name);
     client()
         .delete(
             node,
-            updateVersion,
+            updateVersion(node),
             (code, path, ctx) -> {
               if (code == Code.CONNECTIONLOSS.intValue()
                   || code == Code.SESSIONEXPIRED.intValue()) {
@@ -275,32 +226,27 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
               } else if (code == Code.BADVERSION.intValue()) {
                 handleBadVersion(path, res, () -> deleteNodeToFuture(name, res));
               } else if (code != Code.OK.intValue() && code != Code.NONODE.intValue()) {
-                Throwable err =
+                handleError(
                     new RuntimeException(
-                        String.format("Failed to delete watermark of %s: %s", name, code));
-                log.warn("Failed to delete watermark", err);
-                res.completeExceptionally(err);
+                        String.format(
+                            "Failed to delete watermark of %s: %s", name, Code.get(code))),
+                    "Failed to delete watermark",
+                    res);
               } else {
+                updatePartialWatermark(name, Long.MAX_VALUE);
                 res.complete(null);
               }
             },
             null);
   }
 
-  private void addToUpdatedFutures(String name, CompletableFuture<Void> whenUpdated) {
-    updatedFutures.compute(
-        name,
-        (k, v) -> {
-          if (v == null) {
-            v = new HashSet<>();
-          }
-          v.add(whenUpdated);
-          return v;
-        });
+  private String getNodeFromName(String name) {
+    return getParentNode() + "/" + name;
   }
 
-  private void setNodeDataToFuture(String path, byte[] bytes, CompletableFuture<Void> res) {
-    final int currentVersion = updateVersion;
+  private void setNodeDataToFuture(String name, byte[] bytes, CompletableFuture<Void> res) {
+    String path = getNodeFromName(name);
+    final int currentVersion = updateVersion(path);
     client()
         .setData(
             path,
@@ -309,18 +255,55 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
             (code, p, ctx, stat) -> {
               if (code == Code.CONNECTIONLOSS.intValue()
                   || code == Code.SESSIONEXPIRED.intValue()) {
-                handleConnectionLoss(() -> setNodeDataToFuture(path, bytes, res));
+                handleConnectionLoss(
+                    () -> persistPartialWatermarkIntoFuture(getNodeName(path), bytes, res));
+              } else if (code == Code.NONODE.intValue()) {
+                createNodeIntoFuture(name, bytes, res);
               } else if (code == Code.BADVERSION.intValue()) {
-                handleBadVersion(path, res, () -> setNodeDataToFuture(path, bytes, res));
+                handleBadVersion(path, res, () -> setNodeDataToFuture(name, bytes, res));
               } else if (code == Code.OK.intValue()) {
-                updateVersion = stat.getVersion();
+                updatePartialWatermark(name, longFromBytes(bytes));
+                setUpdateVersion(path, stat.getVersion());
                 res.complete(null);
               } else {
-                Throwable err =
+                handleError(
                     new RuntimeException(
-                        String.format("Failed to update watermark of %s: %s", path, code));
-                log.warn("Error updating watermark", err);
-                res.completeExceptionally(err);
+                        String.format(
+                            "Failed to update watermark of %s: %s", path, Code.get(code))),
+                    "Error updating watermark",
+                    res);
+              }
+            },
+            null);
+  }
+
+  private void createNodeIntoFuture(String name, byte[] bytes, CompletableFuture<Void> res) {
+    String node = getNodeFromName(name);
+    client()
+        .create(
+            node,
+            bytes,
+            Ids.OPEN_ACL_UNSAFE,
+            CreateMode.EPHEMERAL,
+            (code, path, ctx, stat) -> {
+              if (code == Code.SESSIONEXPIRED.intValue()
+                  || code == Code.CONNECTIONLOSS.intValue()) {
+                handleConnectionLoss(() -> persistPartialWatermarkIntoFuture(name, bytes, res));
+              } else if (code == Code.NODEEXISTS.intValue()) {
+                setNodeDataToFuture(name, bytes, res);
+              } else if (code == Code.NONODE.intValue()) {
+                handleNoParentNode(name, bytes, res);
+              } else if (code != Code.OK.intValue()) {
+                handleError(
+                    new RuntimeException(
+                        String.format(
+                            "Failed to update watermark of %s: %s", name, Code.get(code))),
+                    "Failed to update watermark",
+                    res);
+              } else {
+                updatePartialWatermark(name, longFromBytes(bytes));
+                setUpdateVersion(path, 0);
+                res.complete(null);
               }
             },
             null);
@@ -336,7 +319,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     client()
         .getData(
             path,
-            false,
+            true,
             (code, p, ctx, bytes, stat) -> {
               if (code == Code.CONNECTIONLOSS.intValue()
                   || code == Code.SESSIONEXPIRED.intValue()) {
@@ -353,7 +336,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   private void handleConnectionLoss(Runnable retry) {
-    client = null;
+    close();
     retry.run();
   }
 
@@ -364,27 +347,79 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
               if (exc != null) {
                 res.completeExceptionally(exc);
               } else {
-                updateVersion = v;
+                setUpdateVersion(path, v);
                 onSuccess.run();
               }
             });
   }
 
-  private synchronized void createParentIfNotExists(String node) throws InterruptedException {
-    try {
-      if (!parentCreated) {
-        client().create(node, new byte[] {}, Ids.OPEN_ACL_UNSAFE, CreateMode.CONTAINER);
-        createWatchForParentNode(node);
+  @VisibleForTesting
+  synchronized void createParentIfNotExists() throws InterruptedException {
+    String node = getParentNode();
+    if (!parentCreated) {
+      try {
+        createNodeIfNotExists(node);
+        createWatchForChildren(node);
         parentCreated = true;
+      } catch (KeeperException ex) {
+        if (ex.code() == Code.SESSIONEXPIRED || ex.code() == Code.CONNECTIONLOSS) {
+          close();
+          createParentIfNotExists();
+        } else if (ex.code() != Code.NODEEXISTS) {
+          throw new RuntimeException(ex);
+        }
+      }
+    }
+  }
+
+  @VisibleForTesting
+  void refreshChildren() throws InterruptedException {
+    createWatchForChildren(getParentNode());
+  }
+
+  private void createWatchForChildren(String node) throws InterruptedException {
+    try {
+      client()
+          .getChildren(getParentNode(), true)
+          .forEach(child -> handleWatchOnChildNode(node + "/" + child, false));
+    } catch (KeeperException ex) {
+      if (ex.code() == Code.SESSIONEXPIRED
+          || ex.code() == Code.CONNECTIONLOSS
+          || ex.code() == Code.NONODE) {
+        handleConnectionLoss(
+            () -> ExceptionUtils.ignoringInterrupted(this::createParentIfNotExists));
+      } else {
+        throw new RuntimeException(ex);
+      }
+    }
+  }
+
+  private void createNodeIfNotExists(String node) throws InterruptedException, KeeperException {
+    try {
+      Stat exists = client().exists(node, false);
+      if (exists == null) {
+        client().create(node, new byte[] {}, Ids.OPEN_ACL_UNSAFE, parentCreateMode);
       }
     } catch (KeeperException ex) {
       if (ex.code() == Code.CONNECTIONLOSS || ex.code() == Code.SESSIONEXPIRED) {
-        client = null;
-        createParentIfNotExists(node);
+        close();
+        createNodeIfNotExists(node);
+      } else if (ex.code() == Code.NONODE) {
+        File f = new File(node);
+        // create parent node
+        createNodeIfNotExists("/" + UriUtil.getPathNormalized(f.getParentFile().toURI()));
+        // create this node
+        createNodeIfNotExists(node);
+      } else if (ex.code() == Code.UNIMPLEMENTED && parentCreateMode == CreateMode.CONTAINER) {
+        parentCreateMode = CreateMode.PERSISTENT;
+        log.warn(
+            "Unimplemented error creating container node {}, fallback to {}",
+            node,
+            parentCreateMode,
+            ex);
+        createNodeIfNotExists(node);
       } else if (ex.code() != Code.NODEEXISTS) {
-        throw new RuntimeException(ex);
-      } else {
-        createWatchForParentNode(node);
+        throw ex;
       }
     }
   }
@@ -397,19 +432,15 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     return Long.parseLong(new String(bytes, StandardCharsets.UTF_8));
   }
 
-  private String getParentNode() {
+  @VisibleForTesting
+  String getParentNode() {
     return parentNode + this.trackerName;
   }
 
   private synchronized void updatePartialWatermark(String name, long watermark) {
-    partialWatermarks.compute(
-        name, (k, value) -> Math.max(value == null ? Long.MIN_VALUE : value, watermark));
-
+    partialWatermarks.compute(name, (k, value) -> watermark);
     globalWatermark.set(
         partialWatermarks.values().stream().min(Long::compare).orElse(Long.MIN_VALUE));
-
-    Optional.ofNullable(updatedFutures.remove(name))
-        .ifPresent(l -> l.forEach(f -> f.complete(null)));
   }
 
   private ZooKeeper client() {
@@ -444,17 +475,76 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   @VisibleForTesting
   Watcher getWatcher(CountDownLatch connectLatch) {
-    return event -> waitTillConnected(event, connectLatch::countDown);
+    return event -> {
+      if (event.getState() == KeeperState.SyncConnected && event.getType() == EventType.None) {
+        connectLatch.countDown();
+      } else {
+        watchParentNode(event);
+      }
+    };
   }
 
-  private static void waitTillConnected(WatchedEvent event, Runnable whenConnected) {
-    if (event.getState() == KeeperState.SyncConnected) {
-      whenConnected.run();
+  private void watchParentNode(WatchedEvent watchedEvent) {
+    String path = watchedEvent.getPath();
+    if (path != null) {
+      if (path.equals(getParentNode())) {
+        handleWatchOnParentNode();
+      } else if (path.length() > getParentNode().length()) {
+        handleWatchOnChildNode(path, watchedEvent.getType() == EventType.NodeDeleted);
+      }
     }
   }
 
+  private void handleWatchOnParentNode() {
+    ExceptionUtils.ignoringInterrupted(() -> createWatchForChildren(getParentNode()));
+  }
+
+  private void handleWatchOnChildNode(String path, boolean isDelete) {
+    String process = path.startsWith(getParentNode()) ? getNodeName(path) : "";
+    if (isDelete && !process.isEmpty()) {
+      updatePartialWatermark(process, Long.MAX_VALUE);
+    } else {
+      final AtomicReference<Runnable> retry = new AtomicReference<>();
+      final DataCallback dataCallback =
+          (code, p, ctx, data, stat) -> {
+            if (code == Code.OK.intValue()) {
+              long watermark = longFromBytes(data);
+              setUpdateVersion(p, stat.getVersion());
+              updatePartialWatermark(process, watermark);
+            } else if (code == Code.CONNECTIONLOSS.intValue()
+                || code == Code.SESSIONEXPIRED.intValue()) {
+              handleConnectionLoss(retry.get());
+            } else if (code != Code.NONODE.intValue()) {
+              log.warn("Unhandled error in getting node data {}", code);
+            }
+          };
+      retry.set(() -> client().getData(path, true, dataCallback, null));
+      retry.get().run();
+    }
+  }
+
+  int updateVersion(String path) {
+    return Optional.ofNullable(pathToVersion.get(path)).orElse(-1);
+  }
+
+  private void setUpdateVersion(String path, int version) {
+    setUpdateVersion(path, version, tmp -> {});
+  }
+
+  private void setUpdateVersion(String path, int version, Consumer<Integer> oldVersionConsumer) {
+    pathToVersion.compute(
+        path,
+        (k, v) -> {
+          if (v != null) {
+            oldVersionConsumer.accept(v);
+          }
+          return version;
+        });
+  }
+
   protected Object readResolve() {
-    updatedFutures = new ConcurrentHashMap<>();
+    pathToVersion = new ConcurrentHashMap<>();
+    parentCreateMode = CreateMode.CONTAINER;
     return this;
   }
 }

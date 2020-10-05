@@ -921,6 +921,11 @@ public class InMemStorage implements DataAccessorFactory {
       private transient @Nullable Repository repo = opRepo;
 
       @Override
+      public URI getUri() {
+        return uri;
+      }
+
+      @Override
       public Optional<AttributeWriterBase> getWriter(Context context) {
         Objects.requireNonNull(context);
         return Optional.of(writerFactory.apply(repo()));

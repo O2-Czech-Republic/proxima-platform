@@ -44,6 +44,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /** Storage acting as a bulk in memory storage. */
@@ -196,7 +197,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
     private static final long serialVersionUID = 1L;
 
     private final EntityDescriptor entityDesc;
-    private final URI uri;
+    @Getter private final URI uri;
 
     InMemBulkAccessor(EntityDescriptor entityDesc, URI uri) {
       this.entityDesc = entityDesc;

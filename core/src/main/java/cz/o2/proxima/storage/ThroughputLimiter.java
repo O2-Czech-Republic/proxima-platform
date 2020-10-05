@@ -16,16 +16,16 @@
 package cz.o2.proxima.storage;
 
 import cz.o2.proxima.annotations.Evolving;
-import cz.o2.proxima.annotations.Internal;
+import java.io.Closeable;
 import java.io.Serializable;
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Map;
 
 /** A limiter of data rate coming from various sources. */
 @Evolving
-public interface ThroughputLimiter extends Serializable {
+public interface ThroughputLimiter extends Serializable, Closeable {
 
-  @Internal
   class NoOpThroughputLimiter implements ThroughputLimiter {
 
     private static final long serialVersionUID = 1L;
@@ -35,6 +35,11 @@ public interface ThroughputLimiter extends Serializable {
     @Override
     public Duration getPauseTime(Context context) {
       return Duration.ZERO;
+    }
+
+    @Override
+    public void close() {
+      // nop
     }
   }
 
@@ -49,7 +54,7 @@ public interface ThroughputLimiter extends Serializable {
      */
     Collection<Partition> getConsumedPartitions();
 
-    /** Get count of all partitions in the reader. */
+    /** @return count of all partitions in the reader. */
     int getNumPartitions();
 
     /**
@@ -61,6 +66,15 @@ public interface ThroughputLimiter extends Serializable {
   }
 
   /**
+   * Setup the limiter with given configuration.
+   *
+   * @param cfg configuration (scoped to a (operator) defined prefix)
+   */
+  default void setup(Map<String, Object> cfg) {
+    // nop
+  }
+
+  /**
    * Retrieve the amount of time the source should pause processing for. If the reader should
    * proceed without pausing return {@link Duration#ZERO}. Note that this method is called for each
    * input element and {@code must} be therefore cheap.
@@ -69,4 +83,7 @@ public interface ThroughputLimiter extends Serializable {
    * @return the amount of time to pause the source for.
    */
   Duration getPauseTime(Context context);
+
+  @Override
+  void close();
 }

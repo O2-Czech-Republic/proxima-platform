@@ -13,20 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.storage.internal;
+package cz.o2.proxima.util;
 
-import cz.o2.proxima.annotations.Internal;
-import java.io.Serializable;
-import java.net.URI;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
-/** Interface for all modules data accessors to extend. */
-@Internal
-public interface AbstractDataAccessor extends Serializable {
+import org.junit.Test;
 
-  /**
-   * Retrieve URI associated with this {@link AbstractDataAccessor}.
-   *
-   * @return URI representing this accessor
-   */
-  URI getUri();
+/** Test {@link ExceptionUtils}. */
+public class ExceptionUtilsTest {
+
+  @Test
+  public void testIgnoringInterrupted() {
+    assertTrue(
+        ExceptionUtils.ignoringInterrupted(
+            () -> {
+              throw new InterruptedException();
+            }));
+    assertFalse(ExceptionUtils.ignoringInterrupted(() -> {}));
+  }
 }

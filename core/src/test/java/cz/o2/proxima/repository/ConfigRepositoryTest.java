@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.After;
 import org.junit.Test;
@@ -87,13 +88,13 @@ public class ConfigRepositoryTest {
 
     // check that we can query all families
     repo.getAllFamilies()
-        .forEach(family -> assertTrue(repo.getFamilyByName(family.getName()).isPresent()));
+        .forEach(family -> assertTrue(repo.findFamilyByName(family.getName()).isPresent()));
     assertFalse(
         repo.getAllFamilies()
             .filter(af -> af.getName().equals("proxy-event-storage"))
             .findAny()
             .isPresent());
-    assertTrue(repo.getFamilyByName("proxy-event-storage").isPresent());
+    assertTrue(repo.findFamilyByName("proxy-event-storage").isPresent());
   }
 
   @Test(expected = IllegalArgumentException.class)
@@ -556,12 +557,26 @@ public class ConfigRepositoryTest {
     assertNotSame(second, first);
   }
 
+  @Test
+  public void testFindFamilyByName() {
+    assertFalse(repo.findFamilyByName("not-found").isPresent());
+    assertTrue(repo.findFamilyByName("event-storage-stream").isPresent());
+    assertNotNull(repo.getFamilyByName("event-storage-stream"));
+    checkThrows(() -> repo.getFamilyByName("not-found"), IllegalArgumentException.class);
+  }
+
   private void checkThrows(Factory<?> factory) {
+    checkThrows(factory, null);
+  }
+
+  private void checkThrows(Factory<?> factory, @Nullable Class<? extends Throwable> cls) {
     try {
       factory.apply();
       fail("Expression should have thrown exception");
     } catch (Exception err) {
-      // pass
+      assertTrue(
+          "Exception " + err.getClass() + " is not " + cls,
+          cls == null || err.getClass().isAssignableFrom(cls));
     }
   }
 

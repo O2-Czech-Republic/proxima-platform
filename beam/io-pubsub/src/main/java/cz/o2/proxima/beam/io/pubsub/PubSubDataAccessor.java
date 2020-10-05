@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.io.pubsub;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.pubsub.proto.PubSub;
@@ -24,11 +25,14 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.storage.commitlog.Position;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.io.Collector;
@@ -48,12 +52,17 @@ public class PubSubDataAccessor implements DataAccessor {
 
   private final RepositoryFactory repoFactory;
   private final EntityDescriptor entity;
+  @Getter private final URI uri;
   private final String topic;
 
-  PubSubDataAccessor(Repository repo, EntityDescriptor entity, String project, String topic) {
-
+  PubSubDataAccessor(Repository repo, EntityDescriptor entity, URI uri) {
     this.repoFactory = repo.asFactory();
     this.entity = entity;
+    this.uri = uri;
+    String project = uri.getAuthority();
+    String topic = UriUtil.getPathNormalized(uri);
+    Preconditions.checkArgument(!project.isEmpty(), "Authority in URI %s must not be empty", uri);
+    Preconditions.checkArgument(!topic.isEmpty(), "Path in URI %s must specify topic", uri);
     this.topic = String.format("projects/%s/topics/%s", project, topic);
   }
 

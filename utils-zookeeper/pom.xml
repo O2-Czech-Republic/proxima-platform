@@ -31,6 +31,10 @@
 
   <name>${project.groupId}:${project.artifactId}</name>
 
+  <properties>
+    <shadePattern>cz.o2.proxima.utils.zookeeper</shadePattern>
+  </properties>
+
   <build>
     <plugins>
       <plugin>
@@ -49,6 +53,10 @@
             <relocation>
               <pattern>com.google.common.</pattern>
               <shadedPattern>${coreShade}.com.google.common.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>org.apache.zookeeper.</pattern>
+              <shadedPattern>${shadePattern}.org.apache.zookeeper.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>

@@ -47,6 +47,9 @@ import org.apache.beam.sdk.coders.Coder;
 @Slf4j
 class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
 
+  private static final int CONTINUE = 100;
+  private static final int OK = 200;
+
   static <T> RemoteConsumer<T> create(
       Object seed, String hostname, int preferredPort, Consumer<T> consumer, Coder<T> coder) {
 
@@ -94,6 +97,8 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
     public StreamObserver<Item> collect(StreamObserver<Response> responseObserver) {
       CompletableFuture<Void> terminateFuture = new CompletableFuture<>();
       unterminatedCalls.add(terminateFuture);
+      // send initial status to client
+      responseObserver.onNext(Response.newBuilder().setStatus(CONTINUE).build());
       return new StreamObserver<Item>() {
 
         List<Item> received = new ArrayList<>();
@@ -115,7 +120,7 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
         @Override
         public void onCompleted() {
           flush();
-          responseObserver.onNext(Response.newBuilder().setStatus(200).setStatusCode("OK").build());
+          responseObserver.onNext(Response.newBuilder().setStatus(OK).setStatusCode("OK").build());
           responseObserver.onCompleted();
           terminateFuture.complete(null);
         }
@@ -134,16 +139,19 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
     }
 
     public void awaitAllClosed() {
-      CountDownLatch latch = new CountDownLatch(unterminatedCalls.size());
-      unterminatedCalls.forEach(
-          f ->
-              f.whenComplete(
-                  (ign, exc) -> {
-                    if (exc != null) {
-                      log.warn("Error waiting for termination of ongoing call. Ignored.", exc);
-                    }
-                    latch.countDown();
-                  }));
+      final CountDownLatch latch;
+      synchronized (unterminatedCalls) {
+        latch = new CountDownLatch(unterminatedCalls.size());
+        unterminatedCalls.forEach(
+            f ->
+                f.whenComplete(
+                    (ign, exc) -> {
+                      if (exc != null) {
+                        log.warn("Error waiting for termination of ongoing call. Ignored.", exc);
+                      }
+                      latch.countDown();
+                    }));
+      }
       ExceptionUtils.ignoringInterrupted(latch::await);
     }
   }
@@ -207,13 +215,17 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
     }
     if (observer == null) {
       terminateFuture = new CompletableFuture<>();
+      CountDownLatch initLatch = new CountDownLatch(1);
       observer =
           stub.collect(
               new StreamObserver<Response>() {
                 @Override
                 public void onNext(Response response) {
-                  // the only observed response currently would be 200:OK
-                  // we'll wait just for the stream to close
+                  if (response.getStatus() == CONTINUE) {
+                    initLatch.countDown();
+                  } else if (response.getStatus() == OK) {
+                    terminateFuture.complete(null);
+                  }
                 }
 
                 @Override
@@ -223,10 +235,9 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
                 }
 
                 @Override
-                public void onCompleted() {
-                  terminateFuture.complete(null);
-                }
+                public void onCompleted() {}
               });
+      initLatch.countDown();
     }
     return observer;
   }
@@ -243,9 +254,22 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
 
   void stop() {
     if (channel != null) {
-      observer().onCompleted();
-      ExceptionUtils.ignoringInterrupted(() -> terminateFuture.get(1, TimeUnit.SECONDS));
+      Throwable errCaught = null;
+      if (observer != null) {
+        observer.onCompleted();
+        try {
+          terminateFuture.get();
+        } catch (Exception ex) {
+          log.error("Error waiting for observer to terminate.", ex);
+          errCaught = ex;
+        }
+        observer = null;
+      }
       channel.shutdown();
+      channel = null;
+      if (errCaught != null) {
+        throw new RuntimeException(errCaught);
+      }
     }
     if (server != null) {
       server.close();

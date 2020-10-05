@@ -19,23 +19,17 @@ syntax = "proto3";
 option java_package = "cz.o2.proxima.beam.tools.proto.service";
 
 message Item {
-
   bytes serialized = 1;
-
 }
 
 message Response {
-
   int32 status = 1;
   string statusCode = 2;
-
 }
 
 /**
  * Collect service collects data from remote producers into the console.
  */
 service CollectService {
-
-  rpc collect(stream Item) returns (Response);
-
+  rpc collect(stream Item) returns (stream Response);
 }

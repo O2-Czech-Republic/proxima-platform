@@ -96,10 +96,14 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
       unterminatedCalls.add(terminateFuture);
       return new StreamObserver<Item>() {
 
+        List<Item> received = new ArrayList<>();
+
         @Override
         public void onNext(Item item) {
-          consumer.accept(
-              ExceptionUtils.uncheckedFactory(() -> deserialize(item.getSerialized().newInput())));
+          received.add(item);
+          if (received.size() > 10) {
+            flush();
+          }
         }
 
         @Override
@@ -110,9 +114,21 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
 
         @Override
         public void onCompleted() {
+          flush();
           responseObserver.onNext(Response.newBuilder().setStatus(200).setStatusCode("OK").build());
           responseObserver.onCompleted();
           terminateFuture.complete(null);
+        }
+
+        private void flush() {
+          synchronized (RemoteConsumer.this) {
+            received.forEach(
+                i ->
+                    consumer.accept(
+                        ExceptionUtils.uncheckedFactory(
+                            () -> deserialize(i.getSerialized().newInput()))));
+            received.clear();
+          }
         }
       };
     }

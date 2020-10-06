@@ -255,7 +255,6 @@ public class DirectBatchUnboundedSource
     private long skip;
     @Nullable private Partition runningPartition = null;
     @Nullable private ObserveHandle runningHandle = null;
-    private long bytesConsumed = 0L;
     private long watermark = Long.MIN_VALUE;
 
     public StreamElementUnboundedReader(
@@ -302,7 +301,6 @@ public class DirectBatchUnboundedSource
         }
         consumedFromCurrent++;
       } while (skip-- > 0);
-      bytesConsumed += sizeOf(current);
       watermark = observer.getWatermark();
       return true;
     }

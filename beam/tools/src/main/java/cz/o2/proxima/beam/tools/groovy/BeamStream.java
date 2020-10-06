@@ -82,6 +82,8 @@ import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Serializer;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Input;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Output;
 import org.apache.beam.repackaged.kryo.org.objenesis.strategy.StdInstantiatorStrategy;
+import org.apache.beam.runners.direct.DirectRunner;
+import org.apache.beam.runners.flink.FlinkRunner;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
@@ -218,7 +220,8 @@ class BeamStream<T> implements Stream<T> {
   final PCollectionProvider<T> collection;
   final StreamProvider.TerminatePredicate terminateCheck;
   final Factory<Pipeline> pipelineFactory;
-  final List<RemoteConsumer<?>> remoteConsumers = new ArrayList<>();
+
+  private final List<RemoteConsumer<?>> remoteConsumers = new ArrayList<>();
 
   @Getter WindowingStrategy<Object, ?> windowingStrategy;
 
@@ -362,9 +365,9 @@ class BeamStream<T> implements Stream<T> {
       @Nullable String name, PCollection<T> pcoll, Consumer<T> consumer, Pipeline pipeline) {
 
     if (name != null) {
-      pcoll.apply(name, asWriteTransform(asDoFn(consumer)));
+      pcoll.apply(name, asWriteTransform(asDoFn(pcoll.getPipeline().getOptions(), consumer)));
     } else {
-      pcoll.apply(asWriteTransform(asDoFn(consumer)));
+      pcoll.apply(asWriteTransform(asDoFn(pcoll.getPipeline().getOptions(), consumer)));
     }
     runPipeline(pipeline);
   }
@@ -1220,6 +1223,20 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
+  private static class StableConsumeFn<T> extends ConsumeFn<T> {
+
+    StableConsumeFn(Consumer<T> consumer) {
+      super(consumer);
+    }
+
+    @Override
+    @ProcessElement
+    @RequiresStableInput
+    public void process(@Element T elem) {
+      super.process(elem);
+    }
+  }
+
   private static class ExtractWindow<T> extends DoFn<T, Pair<BoundedWindow, T>> {
 
     static <T> ExtractWindow<T> of() {
@@ -1408,8 +1425,16 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
-  private static <T> DoFn<T, Void> asDoFn(Consumer<T> consumer) {
+  private <T> DoFn<T, Void> asDoFn(PipelineOptions opts, Consumer<T> consumer) {
+    if (supportsStableInput(opts)) {
+      return new StableConsumeFn<>(consumer);
+    }
     return new ConsumeFn<>(consumer);
+  }
+
+  private boolean supportsStableInput(PipelineOptions opts) {
+    return DirectRunner.class.isAssignableFrom(opts.getRunner())
+        || FlinkRunner.class.isAssignableFrom(opts.getRunner());
   }
 
   private static <T> PTransform<PCollection<T>, PDone> asWriteTransform(DoFn<T, ?> doFn) {

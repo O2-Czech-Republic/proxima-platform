@@ -121,7 +121,7 @@ public abstract class BeamStreamProvider implements StreamProvider {
           remaining.add(arg);
         }
       }
-      return remaining.toArray(new String[remaining.size()]);
+      return remaining.toArray(new String[] {});
     }
   }
 

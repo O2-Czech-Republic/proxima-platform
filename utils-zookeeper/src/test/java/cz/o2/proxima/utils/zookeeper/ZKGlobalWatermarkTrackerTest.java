@@ -197,10 +197,10 @@ public class ZKGlobalWatermarkTrackerTest {
     testMultipleInstancesWithTrackerFactory(() -> newTracker(cfg(name)), 10);
   }
 
-  @Test(timeout = 10000)
+  @Test(timeout = 60000)
   public void testConnectionLoss() throws ExecutionException, InterruptedException {
     String name = tracker.getName();
-    testMultipleInstancesWithTrackerFactory(() -> createConnectionLossyTracker(name), 2, true);
+    testMultipleInstancesWithTrackerFactory(() -> createConnectionLossyTracker(name), 2);
   }
 
   @Test(timeout = 10000)
@@ -237,14 +237,7 @@ public class ZKGlobalWatermarkTrackerTest {
   private void testMultipleInstancesWithTrackerFactory(
       Factory<ZKGlobalWatermarkTracker> factory, int numInstances)
       throws ExecutionException, InterruptedException {
-    testMultipleInstancesWithTrackerFactory(factory, numInstances, false);
-  }
 
-  private void testMultipleInstancesWithTrackerFactory(
-      Factory<ZKGlobalWatermarkTracker> factory, int numInstances, boolean refreshChildrenBeforeGet)
-      throws ExecutionException, InterruptedException {
-
-    String name = tracker.getName();
     List<ZKGlobalWatermarkTracker> trackers = Lists.newArrayList(tracker);
     while (trackers.size() < numInstances) {
       trackers.add(factory.apply());
@@ -259,14 +252,9 @@ public class ZKGlobalWatermarkTrackerTest {
       int id = i % numInstances;
       String process = "process" + id;
       ZKGlobalWatermarkTracker instance = trackers.get(id);
-      if (refreshChildrenBeforeGet) {
-        instance.refreshChildren();
-      }
       instance.update(process, now + 1).get();
-      currentWatermark = instance.getWatermark();
-      if (i < numInstances - 1) {
-        assertEquals(String.format("Error in round %d", i), Long.MIN_VALUE, currentWatermark);
-      } else if (i > 2 * numInstances) {
+      currentWatermark = instance.getGlobalWatermark(process, now + 1);
+      if (i > 2 * numInstances) {
         assertTrue(
             String.format(
                 "Error in round %d, expected at least %d, got %d", i, now, currentWatermark),

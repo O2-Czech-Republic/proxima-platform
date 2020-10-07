@@ -25,6 +25,7 @@ import cz.o2.proxima.util.ExceptionUtils;
 import java.io.File;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.ConcurrentModificationException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -69,12 +70,25 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   private transient volatile ZooKeeper client;
 
   @GuardedBy("this")
-  private final Map<String, Long> partialWatermarks = new HashMap<>();
+  private transient Map<String, Long> partialWatermarks;
 
-  private final AtomicLong globalWatermark = new AtomicLong(Long.MIN_VALUE);
-  private transient volatile CreateMode parentCreateMode = CreateMode.CONTAINER;
-  private transient volatile boolean parentCreated = false;
-  @VisibleForTesting transient Map<String, Integer> pathToVersion = new ConcurrentHashMap<>();
+  private transient volatile boolean closed = false;
+  private transient AtomicLong globalWatermark;
+  private transient volatile CreateMode parentCreateMode;
+  private transient volatile boolean parentCreated;
+  @VisibleForTesting transient Map<String, Integer> pathToVersion;
+
+  public ZKGlobalWatermarkTracker() {
+    init();
+  }
+
+  private synchronized void init() {
+    partialWatermarks = new HashMap<>();
+    globalWatermark = new AtomicLong(Long.MIN_VALUE);
+    parentCreateMode = CreateMode.CONTAINER;
+    parentCreated = false;
+    pathToVersion = new ConcurrentHashMap<>();
+  }
 
   @Override
   public String getName() {
@@ -156,6 +170,11 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   @Override
   public synchronized void close() {
+    closed = true;
+    disconnect();
+  }
+
+  synchronized void disconnect() {
     Optional.ofNullable(client)
         .ifPresent(
             c -> {
@@ -163,8 +182,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
               this.client = null;
               ExceptionUtils.ignoringInterrupted(c::close);
             });
-    partialWatermarks.clear();
-    parentCreated = false;
+    init();
   }
 
   @Override
@@ -264,7 +282,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
                 handleBadVersion(path, res, () -> setNodeDataToFuture(name, bytes, res));
               } else if (code == Code.OK.intValue()) {
                 updatePartialWatermark(name, longFromBytes(bytes));
-                setUpdateVersion(path, stat.getVersion());
+                forceUpdateVersion(path, stat.getVersion());
                 res.complete(null);
               } else {
                 handleError(
@@ -303,7 +321,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
                     res);
               } else {
                 updatePartialWatermark(name, longFromBytes(bytes));
-                setUpdateVersion(path, 0);
+                forceUpdateVersion(path, 0);
                 res.complete(null);
               }
             },
@@ -325,6 +343,8 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
               if (code == Code.CONNECTIONLOSS.intValue()
                   || code == Code.SESSIONEXPIRED.intValue()) {
                 handleConnectionLoss(() -> getNodeVersionToFuture(path, res));
+              } else if (code == Code.NONODE.intValue()) {
+                res.complete(-1);
               } else if (code != Code.OK.intValue()) {
                 res.completeExceptionally(
                     new RuntimeException(
@@ -337,7 +357,8 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   private void handleConnectionLoss(Runnable retry) {
-    close();
+    disconnect();
+    ExceptionUtils.ignoringInterrupted(this::createParentIfNotExists);
     retry.run();
   }
 
@@ -348,7 +369,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
               if (exc != null) {
                 res.completeExceptionally(exc);
               } else {
-                setUpdateVersion(path, v);
+                forceUpdateVersion(path, v);
                 onSuccess.run();
               }
             });
@@ -364,18 +385,13 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
         parentCreated = true;
       } catch (KeeperException ex) {
         if (ex.code() == Code.SESSIONEXPIRED || ex.code() == Code.CONNECTIONLOSS) {
-          close();
+          disconnect();
           createParentIfNotExists();
         } else if (ex.code() != Code.NODEEXISTS) {
           throw new RuntimeException(ex);
         }
       }
     }
-  }
-
-  @VisibleForTesting
-  void refreshChildren() throws InterruptedException {
-    createWatchForChildren(getParentNode());
   }
 
   private void createWatchForChildren(String node) throws InterruptedException {
@@ -403,7 +419,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
       }
     } catch (KeeperException ex) {
       if (ex.code() == Code.CONNECTIONLOSS || ex.code() == Code.SESSIONEXPIRED) {
-        close();
+        disconnect();
         createNodeIfNotExists(node);
       } else if (ex.code() == Code.NONODE) {
         File f = new File(node);
@@ -439,20 +455,27 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   private synchronized void updatePartialWatermark(String name, long watermark) {
-    partialWatermarks.compute(name, (k, value) -> watermark);
-    globalWatermark.set(
-        partialWatermarks.values().stream().min(Long::compare).orElse(Long.MIN_VALUE));
+    if (watermark > Long.MIN_VALUE) {
+      partialWatermarks.compute(name, (k, value) -> watermark);
+      globalWatermark.set(
+          partialWatermarks.values().stream().min(Long::compare).orElse(Long.MIN_VALUE));
+    }
   }
 
   private ZooKeeper client() {
-    if (client == null) {
+    final ZooKeeper ret = client;
+    if (ret == null) {
       synchronized (this) {
-        if (client == null) {
-          client = createNewZooKeeper();
+        if (!closed) {
+          if (client == null) {
+            client = createNewZooKeeper();
+          }
+          return client;
         }
+        throw new ConcurrentModificationException("Tracker " + this + " has already been closed.");
       }
     }
-    return client;
+    return ret;
   }
 
   @VisibleForTesting
@@ -487,7 +510,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   private void watchParentNode(WatchedEvent watchedEvent) {
     String path = watchedEvent.getPath();
-    if (path != null) {
+    if (path != null && !closed) {
       if (path.equals(getParentNode())) {
         handleWatchOnParentNode();
       } else if (path.length() > getParentNode().length()) {
@@ -510,8 +533,9 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
           (code, p, ctx, data, stat) -> {
             if (code == Code.OK.intValue()) {
               long watermark = longFromBytes(data);
-              setUpdateVersion(p, stat.getVersion());
-              updatePartialWatermark(process, watermark);
+              if (maybeUpdateVersion(p, stat.getVersion()) == stat.getVersion()) {
+                updatePartialWatermark(process, watermark);
+              }
             } else if (code == Code.CONNECTIONLOSS.intValue()
                 || code == Code.SESSIONEXPIRED.intValue()) {
               handleConnectionLoss(retry.get());
@@ -528,24 +552,36 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
     return Optional.ofNullable(pathToVersion.get(path)).orElse(-1);
   }
 
-  private void setUpdateVersion(String path, int version) {
-    setUpdateVersion(path, version, tmp -> {});
+  int maybeUpdateVersion(String path, int version) {
+    return setUpdateVersion(path, version, false);
   }
 
-  private void setUpdateVersion(String path, int version, Consumer<Integer> oldVersionConsumer) {
-    pathToVersion.compute(
+  int forceUpdateVersion(String path, int version) {
+    return setUpdateVersion(path, version, true);
+  }
+
+  private int setUpdateVersion(String path, int version, boolean forceOverwrite) {
+    return setUpdateVersion(path, version, forceOverwrite, tmp -> {});
+  }
+
+  private int setUpdateVersion(
+      String path, int version, boolean forceOverwrite, Consumer<Integer> oldVersionConsumer) {
+
+    return pathToVersion.compute(
         path,
         (k, v) -> {
-          if (v != null) {
-            oldVersionConsumer.accept(v);
+          if (forceOverwrite || v == null || version > v) {
+            if (v != null) {
+              oldVersionConsumer.accept(v);
+            }
+            return version;
           }
-          return version;
+          return v;
         });
   }
 
   protected Object readResolve() {
-    pathToVersion = new ConcurrentHashMap<>();
-    parentCreateMode = CreateMode.CONTAINER;
+    init();
     return this;
   }
 }

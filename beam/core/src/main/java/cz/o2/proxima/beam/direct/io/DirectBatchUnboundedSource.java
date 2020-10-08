@@ -329,13 +329,6 @@ public class DirectBatchUnboundedSource
           "DirectBatchUnbounded:" + partition.getId(), Long.MIN_VALUE);
     }
 
-    private static int sizeOf(StreamElement element) {
-      return (element.isDelete() ? 0 : element.getValue().length)
-          + element.getKey().length()
-          + element.getAttribute().length()
-          + element.getUuid().length();
-    }
-
     @Override
     public Instant getWatermark() {
       return Instant.ofEpochMilli(watermark);

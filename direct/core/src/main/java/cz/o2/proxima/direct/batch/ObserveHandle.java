@@ -18,12 +18,28 @@ package cz.o2.proxima.direct.batch;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.util.ExceptionUtils;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** A interface for handling progress and control consumption of running observe process. */
 @Stable
 public interface ObserveHandle extends AutoCloseable {
+
+  @Internal
+  interface Cancellable {
+    static <T> Cancellable wrap(Future<T> future) {
+      return () -> future.cancel(true);
+    }
+
+    static Cancellable noop() {
+      return () -> {};
+    }
+
+    void cancel();
+  }
 
   /**
    * Return {@link ObserveHandle} that does nothing.
@@ -38,6 +54,8 @@ public interface ObserveHandle extends AutoCloseable {
   /**
    * Wrap given {@link AtomicBoolean} used as kill switch to {@link ObserveHandle}.
    *
+   * @param forceCancel a {@link Cancellable} that will force the running observe thread to be
+   *     terminated (interrupted)
    * @param killSwitch a {@link AtomicBoolean} to set to {@code true} on cancel to stop and to
    *     prevent restarting the observe thread
    * @param observer the observer that observes the reader
@@ -45,10 +63,14 @@ public interface ObserveHandle extends AutoCloseable {
    */
   @Internal
   static ObserveHandle createFrom(
-      AtomicBoolean killSwitch, CountDownLatch terminateLatch, BatchLogObserver observer) {
+      AtomicReference<Cancellable> forceCancel,
+      KillSwitch killSwitch,
+      CountDownLatch terminateLatch,
+      BatchLogObserver observer) {
 
     return () -> {
-      killSwitch.set(true);
+      killSwitch.fire();
+      Optional.ofNullable(forceCancel.get()).ifPresent(Cancellable::cancel);
       ExceptionUtils.ignoringInterrupted(terminateLatch::await);
       observer.onCancelled();
     };

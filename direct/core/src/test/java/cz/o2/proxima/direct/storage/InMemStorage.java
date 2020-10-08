@@ -25,6 +25,8 @@ import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.KillSwitch;
+import cz.o2.proxima.direct.batch.ObserveHandle.Cancellable;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
@@ -747,18 +749,18 @@ public class InMemStorage implements DataAccessorFactory {
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer) {
 
-      AtomicBoolean killSwitch = new AtomicBoolean();
+      KillSwitch killSwitch = new KillSwitch();
       CountDownLatch terminateLatch = new CountDownLatch(1);
       observeInternal(partitions, attributes, observer, killSwitch, terminateLatch);
       return cz.o2.proxima.direct.batch.ObserveHandle.createFrom(
-          killSwitch, terminateLatch, observer);
+          new AtomicReference<>(Cancellable.noop()), killSwitch, terminateLatch, observer);
     }
 
     private void observeInternal(
         List<Partition> partitions,
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer,
-        AtomicBoolean killSwitch,
+        KillSwitch killSwitch,
         CountDownLatch killedLatch) {
 
       log.debug(
@@ -778,7 +780,8 @@ public class InMemStorage implements DataAccessorFactory {
                       }
                     }
                   }
-                  if (!killSwitch.get()) {
+                  killSwitch.cancelIfInterrupted(observer);
+                  if (!killSwitch.isFired()) {
                     observer.onCompleted();
                   }
                   killedLatch.countDown();
@@ -793,11 +796,11 @@ public class InMemStorage implements DataAccessorFactory {
     private boolean observeElement(
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer,
-        AtomicBoolean killSwitch,
+        KillSwitch killSwitch,
         String prefix,
         Map.Entry<String, Pair<Long, byte[]>> e) {
 
-      if (killSwitch.get()) {
+      if (killSwitch.isFired()) {
         return false;
       }
       if (!e.getKey().startsWith(prefix)) {

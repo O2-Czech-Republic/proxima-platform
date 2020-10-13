@@ -38,8 +38,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,8 +47,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends BlobPath<BlobT>>
     implements BatchLogReader {
-
-  private static final long serialVersionUID = 1L;
 
   private static class BulkStoragePartition<BlobT extends BlobBase> implements Partition {
 
@@ -129,18 +127,19 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
   private final NamingConvention namingConvention;
   private final long partitionMinSize;
   private final int partitionMaxNumBlobs;
+  private final long partitionMaxTimeSpan;
   private final Executor executor;
   @Getter private final BlobStorageAccessor accessor;
   @Getter private final Context context;
 
-  @SuppressWarnings({"unchecked", "rawtypes"})
-  public BlobLogReader(BlobStorageAccessor accessor, Context context) {
+  protected BlobLogReader(BlobStorageAccessor accessor, Context context) {
     this.entity = accessor.getEntityDescriptor();
     this.fs = accessor.getTargetFileSystem();
     this.fileFormat = accessor.getFileFormat();
     this.namingConvention = accessor.getNamingConvention();
     this.partitionMinSize = accessor.getPartitionMinSize();
     this.partitionMaxNumBlobs = accessor.getPartitionMaxNumBlobs();
+    this.partitionMaxTimeSpan = accessor.getPartitionMaxTimeSpanMs();
     this.executor = context.getExecutorService();
     this.context = context;
     this.accessor = accessor;
@@ -151,35 +150,53 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
   public List<Partition> getPartitions(long startStamp, long endStamp) {
     List<Partition> ret = new ArrayList<>();
     AtomicInteger id = new AtomicInteger();
-    AtomicReference<BulkStoragePartition<BlobT>> current = new AtomicReference<>();
+    @Nullable BulkStoragePartition<BlobT> current = null;
     Stream<Path> paths = fs.list(startStamp, endStamp);
-    paths.forEach(
-        blob -> considerBlobForPartitionInclusion(((BlobPathT) blob).getBlob(), id, current, ret));
-    if (current.get() != null) {
-      ret.add(current.get());
+    for (Path path : (Iterable<Path>) paths::iterator) {
+      current = considerBlobForPartitionInclusion(((BlobPathT) path).getBlob(), id, current, ret);
+    }
+    if (current != null) {
+      ret.add(current);
     }
     return ret;
   }
 
-  private void considerBlobForPartitionInclusion(
+  @Nullable
+  private BulkStoragePartition<BlobT> considerBlobForPartitionInclusion(
       BlobT b,
       AtomicInteger partitionId,
-      AtomicReference<BulkStoragePartition<BlobT>> currentPartition,
+      @Nullable BulkStoragePartition<BlobT> currentPartition,
       List<Partition> resultingPartitions) {
 
     log.trace("Considering blob {} for partition inclusion", b.getName());
     Pair<Long, Long> minMaxStamp = namingConvention.parseMinMaxTimestamp(b.getName());
-    if (currentPartition.get() == null) {
-      currentPartition.set(
+    BulkStoragePartition<BlobT> res = currentPartition;
+    if (partitionMaxTimeSpan > 0
+        && currentPartition != null
+        && Math.max(
+                minMaxStamp.getSecond() - currentPartition.getMinTimestamp(),
+                currentPartition.getMaxTimestamp() - minMaxStamp.getFirst())
+            > partitionMaxTimeSpan) {
+      // close current partition
+      log.debug(
+          "Closing partition {} due to max time span {} reached",
+          currentPartition,
+          partitionMaxTimeSpan);
+      resultingPartitions.add(currentPartition);
+      res = null;
+    }
+    if (res == null) {
+      res =
           new BulkStoragePartition<>(
-              partitionId.getAndIncrement(), minMaxStamp.getFirst(), minMaxStamp.getSecond()));
+              partitionId.getAndIncrement(), minMaxStamp.getFirst(), minMaxStamp.getSecond());
     }
-    currentPartition.get().add(b, minMaxStamp.getFirst(), minMaxStamp.getSecond());
-    log.trace("Blob {} added to partition {}", b.getName(), currentPartition.get());
-    if (currentPartition.get().size() >= partitionMinSize
-        || currentPartition.get().getNumBlobs() >= partitionMaxNumBlobs) {
-      resultingPartitions.add(currentPartition.getAndSet(null));
+    res.add(b, minMaxStamp.getFirst(), minMaxStamp.getSecond());
+    log.trace("Blob {} added to partition {}", b.getName(), res);
+    if (res.size() >= partitionMinSize || res.getNumBlobs() >= partitionMaxNumBlobs) {
+      resultingPartitions.add(res);
+      return null;
     }
+    return res;
   }
 
   @Override

@@ -129,14 +129,12 @@ public class CommitLogReaders {
 
     @Getter private final ThroughputLimiter limiter;
     private final Collection<Partition> partitions;
-    private final int numPartitions;
     private long watermark = Long.MIN_VALUE;
 
     public LimitedCommitLogReader(CommitLogReader delegate, ThroughputLimiter limiter) {
       super(delegate);
       this.limiter = Objects.requireNonNull(limiter);
       this.partitions = new ArrayList<>(delegate.getPartitions());
-      this.numPartitions = this.partitions.size();
     }
 
     @Override
@@ -198,21 +196,29 @@ public class CommitLogReaders {
 
         @Override
         public void onCompleted() {
-          super.onCompleted();
-          limiter.close();
+          try {
+            super.onCompleted();
+          } finally {
+            limiter.close();
+          }
         }
 
         @Override
         public void onCancelled() {
-          super.onCancelled();
-          limiter.close();
+          try {
+            super.onCancelled();
+          } finally {
+            limiter.close();
+          }
         }
 
         @Override
         public boolean onError(Throwable error) {
-          boolean ret = super.onError(error);
-          limiter.close();
-          return ret;
+          try {
+            return super.onError(error);
+          } finally {
+            limiter.close();
+          }
         }
 
         @Override
@@ -253,11 +259,6 @@ public class CommitLogReaders {
         @Override
         public Collection<Partition> getConsumedPartitions() {
           return partitions;
-        }
-
-        @Override
-        public int getNumPartitions() {
-          return numPartitions;
         }
 
         @Override

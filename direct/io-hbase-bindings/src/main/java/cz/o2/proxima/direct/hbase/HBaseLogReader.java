@@ -20,9 +20,8 @@ import static cz.o2.proxima.direct.hbase.Util.cloneArray;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.KillSwitch;
 import cz.o2.proxima.direct.batch.ObserveHandle;
-import cz.o2.proxima.direct.batch.ObserveHandle.Cancellable;
+import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
@@ -33,10 +32,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
@@ -97,39 +93,33 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    AtomicReference<Cancellable> cancellable = new AtomicReference<>();
-    KillSwitch killSwitch = new KillSwitch();
-    CountDownLatch terminateLatch = new CountDownLatch(1);
-    observeInternal(partitions, attributes, observer, cancellable, killSwitch, terminateLatch);
-    return ObserveHandle.createFrom(cancellable, killSwitch, terminateLatch, observer);
+    TerminationContext terminationContext = new TerminationContext(observer);
+    observeInternal(partitions, attributes, observer, terminationContext);
+    return terminationContext.asObserveHandle();
   }
 
   public void observeInternal(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer,
-      AtomicReference<Cancellable> cancellable,
-      KillSwitch killSwitch,
-      CountDownLatch killedLatch) {
+      TerminationContext terminationContext) {
 
-    Future<?> submitted =
-        executor.submit(
-            () -> {
-              ensureClient();
-              try {
-                ExceptionUtils.ignoringInterrupted(
-                    () ->
-                        flushPartitions(partitions, attributes, killSwitch, killedLatch, observer));
-              } catch (Throwable ex) {
-                log.warn("Failed to observe partitions {}", partitions, ex);
-                if (observer.onError(ex)) {
+    executor.submit(
+        () -> {
+          terminationContext.setRunningThread();
+          ensureClient();
+          try {
+            ExceptionUtils.ignoringInterrupted(
+                () -> flushPartitions(partitions, attributes, terminationContext, observer));
+          } catch (Throwable ex) {
+            terminationContext.handleErrorCaught(
+                ex,
+                () -> {
                   log.info("Restarting processing by request");
-                  observeInternal(
-                      partitions, attributes, observer, cancellable, killSwitch, killedLatch);
-                }
-              }
-            });
-    cancellable.set(Cancellable.wrap(submitted));
+                  observeInternal(partitions, attributes, observer, terminationContext);
+                });
+          }
+        });
   }
 
   @Override
@@ -146,53 +136,29 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
   private void flushPartitions(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
-      KillSwitch killSwitch,
-      CountDownLatch killedLatch,
+      TerminationContext terminationContext,
       BatchLogObserver observer)
       throws IOException {
 
-    try {
-      for (Partition p : partitions) {
-        HBasePartition hp = (HBasePartition) p;
-        Scan scan = new Scan(hp.getStartKey(), hp.getEndKey());
-        scan.addFamily(family);
-        scan.setTimeRange(hp.getStartStamp(), hp.getEndStamp());
-        scan.setFilter(toFilter(attributes));
+    outer:
+    for (Partition p : partitions) {
+      HBasePartition hp = (HBasePartition) p;
+      Scan scan = new Scan(hp.getStartKey(), hp.getEndKey());
+      scan.addFamily(family);
+      scan.setTimeRange(hp.getStartStamp(), hp.getEndStamp());
+      scan.setFilter(toFilter(attributes));
 
-        boolean finish = false;
-        try (ResultScanner scanner = client.getScanner(scan)) {
-          Result next;
-          while (((next = scanner.next()) != null) && !killSwitch.isFired()) {
-            if (!consume(next, attributes, hp, observer)) {
-              finish = true;
-              break;
-            }
-            killSwitch.cancelIfInterrupted(observer);
+      try (ResultScanner scanner = client.getScanner(scan)) {
+        Result next = null;
+        do {
+          if (terminationContext.isCancelled()
+              || next != null && !consume(next, attributes, hp, observer)) {
+            break outer;
           }
-        }
-        if (finish || killSwitch.isFired()) {
-          break;
-        }
+        } while ((next = scanner.next()) != null);
       }
-      killSwitch.cancelIfInterrupted(observer);
-      if (!killSwitch.isFired()) {
-        observer.onCompleted();
-      }
-    } catch (Exception ex) {
-      if (isInterrupted(ex)) {
-        Thread.currentThread().interrupt();
-        killSwitch.cancelIfInterrupted(observer);
-      } else {
-        throw ex;
-      }
-    } finally {
-      killedLatch.countDown();
     }
-  }
-
-  private boolean isInterrupted(Throwable ex) {
-    return (ex instanceof InterruptedException
-        || ex.getCause() != null && isInterrupted(ex.getCause()));
+    terminationContext.finished();
   }
 
   private boolean consume(

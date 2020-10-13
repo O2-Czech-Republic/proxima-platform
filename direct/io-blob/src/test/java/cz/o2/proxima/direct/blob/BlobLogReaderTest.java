@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import org.junit.Before;
 import org.junit.Test;
@@ -168,13 +169,15 @@ public class BlobLogReaderTest {
         stamps.stream().map(p -> (p.getSecond() + p.getFirst()) / 2).collect(Collectors.toList()));
     BlobReader reader = accessor.new BlobReader(context);
     CountDownLatch latch = new CountDownLatch(1);
-    ObserveHandle handle =
+    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+    handle.set(
         reader.observe(
             reader.getPartitions(),
             Collections.singletonList(status),
             new BatchLogObserver() {
               @Override
               public boolean onNext(StreamElement element) {
+                handle.get().close();
                 return true;
               }
 
@@ -187,8 +190,8 @@ public class BlobLogReaderTest {
               public void onCompleted() {
                 fail("onCompleted should not have been called");
               }
-            });
-    handle.close();
+            }));
+    latch.await();
   }
 
   @Test

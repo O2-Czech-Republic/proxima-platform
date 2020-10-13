@@ -20,9 +20,8 @@ import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.KillSwitch;
 import cz.o2.proxima.direct.batch.ObserveHandle;
-import cz.o2.proxima.direct.batch.ObserveHandle.Cancellable;
+import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.direct.bulk.FileFormat;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
@@ -37,11 +36,10 @@ import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -158,8 +156,9 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
     AtomicInteger id = new AtomicInteger();
     @Nullable BulkStoragePartition<BlobT> current = null;
     Stream<Path> paths = fs.list(startStamp, endStamp).sorted();
-    for (Path path : (Iterable<Path>) paths::iterator) {
-      current = considerBlobForPartitionInclusion(((BlobPathT) path).getBlob(), id, current, ret);
+    for (Iterator<Path> it = paths.iterator(); it.hasNext(); ) {
+      current =
+          considerBlobForPartitionInclusion(((BlobPathT) it.next()).getBlob(), id, current, ret);
     }
     if (current != null) {
       ret.add(current);
@@ -211,73 +210,55 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    AtomicReference<Cancellable> cancellable = new AtomicReference<>();
-    KillSwitch killSwitch = new KillSwitch();
-    CountDownLatch terminateLatch = new CountDownLatch(1);
-    observeInternal(partitions, attributes, observer, cancellable, killSwitch, terminateLatch);
-    return ObserveHandle.createFrom(cancellable, killSwitch, terminateLatch, observer);
+    TerminationContext terminationContext = new TerminationContext(observer);
+    observeInternal(partitions, attributes, observer, terminationContext);
+    return terminationContext.asObserveHandle();
   }
 
   private void observeInternal(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer,
-      AtomicReference<Cancellable> cancellable,
-      KillSwitch killSwitch,
-      CountDownLatch killedLatch) {
+      TerminationContext terminationContext) {
 
     Preconditions.checkArgument(
         partitions.stream().map(Partition::getId).distinct().count() == partitions.size(),
         "Passed partitions must be unique, got partitions %s",
         partitions);
-    Future<?> submitted =
-        executor.submit(
-            () -> {
-              try {
-                Set<AttributeDescriptor<?>> attrs = new HashSet<>(attributes);
-                AtomicBoolean stopProcessing = new AtomicBoolean(false);
-                boolean allConsumed =
-                    partitions
-                        .stream()
-                        .sorted()
-                        .reduce(
-                            true,
-                            (current, p) -> {
-                              if (current) {
-                                return processSinglePartition(
-                                    p, attrs, killSwitch, stopProcessing, observer);
-                              }
-                              return false;
-                            },
-                            Boolean::logicalAnd);
-                killSwitch.cancelIfInterrupted(observer);
-                if (allConsumed && !killSwitch.isFired()) {
-                  observer.onCompleted();
-                }
-                killedLatch.countDown();
-              } catch (Throwable ex) {
-                log.error("Failed to observe partitions {}", partitions, ex);
-                if (observer.onError(ex)) {
+    executor.submit(
+        () -> {
+          terminationContext.setRunningThread();
+          try {
+            Set<AttributeDescriptor<?>> attrs = new HashSet<>(attributes);
+            AtomicBoolean stopProcessing = new AtomicBoolean(false);
+            Iterator<Partition> iterator = partitions.iterator();
+            while (iterator.hasNext() && !terminationContext.isCancelled()) {
+              Partition p = iterator.next();
+              processSinglePartition(p, attrs, terminationContext, stopProcessing, observer);
+            }
+            terminationContext.finished();
+          } catch (Throwable ex) {
+            terminationContext.handleErrorCaught(
+                ex,
+                () -> {
                   log.info("Restarting processing by request");
-                  observeInternal(
-                      partitions, attributes, observer, cancellable, killSwitch, killedLatch);
-                }
-              }
-            });
-    cancellable.set(Cancellable.wrap(submitted));
+                  observeInternal(partitions, attributes, observer, terminationContext);
+                });
+          }
+        });
   }
 
   private boolean processSinglePartition(
       Partition partition,
       Set<AttributeDescriptor<?>> attrs,
-      KillSwitch killSwitch,
+      TerminationContext terminationContext,
       AtomicBoolean stopProcessing,
       BatchLogObserver observer) {
 
     @SuppressWarnings("unchecked")
     BulkStoragePartition<BlobT> part = (BulkStoragePartition<BlobT>) partition;
     for (BlobT blob : part.getBlobs()) {
-      if (killSwitch.isFired()) {
+      if (terminationContext.isCancelled()) {
         return false;
       }
       if (stopProcessing.get()) {
@@ -290,8 +271,7 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
               log.info("Starting to observe {} from partition {}", blob, partition);
               try (Reader reader = fileFormat.openReader(createPath(blob), entity)) {
                 for (StreamElement e : reader) {
-                  killSwitch.cancelIfInterrupted(observer);
-                  if (stopProcessing.get() || killSwitch.isFired()) {
+                  if (stopProcessing.get() || terminationContext.isCancelled()) {
                     break;
                   }
                   if (attrs.contains(e.getAttributeDescriptor())) {

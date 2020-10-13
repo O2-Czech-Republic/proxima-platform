@@ -38,6 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.MiniHBaseCluster;
 import org.apache.hadoop.hbase.TableName;
@@ -163,7 +164,8 @@ public class HBaseLogReaderTest {
 
     List<Partition> partitions = reader.getPartitions();
     CountDownLatch latch = new CountDownLatch(1);
-    ObserveHandle handle =
+    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+    handle.set(
         reader.observe(
             partitions.subList(0, 1),
             Collections.singletonList(attr),
@@ -171,6 +173,7 @@ public class HBaseLogReaderTest {
 
               @Override
               public boolean onNext(StreamElement element) {
+                handle.get().close();
                 return true;
               }
 
@@ -183,8 +186,7 @@ public class HBaseLogReaderTest {
               public void onCompleted() {
                 fail("onCompleted should not heve been called");
               }
-            });
-    handle.close();
+            }));
     latch.await();
   }
 

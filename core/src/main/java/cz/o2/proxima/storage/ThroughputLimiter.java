@@ -54,9 +54,6 @@ public interface ThroughputLimiter extends Serializable, Closeable {
      */
     Collection<Partition> getConsumedPartitions();
 
-    /** @return count of all partitions in the reader. */
-    int getNumPartitions();
-
     /**
      * Retrieve current reader's watermark (minimum of all partitions).
      *

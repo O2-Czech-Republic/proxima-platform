@@ -17,7 +17,7 @@ install: true
 before_script:
   - wget https://github.com/sormuras/bach/raw/master/install-jdk.sh
 script:
-  - mvn spotless:check -B -V && mvn install -B -V -Pallow-snapshots,with-coverage,travis -Dorg.slf4j.simpleLogger.log.org.apache.maven.plugins.shade=error || exit 1
+  - mvn spotless:check -B -V && travis_wait mvn install -B -V -Pallow-snapshots,with-coverage,travis -Dorg.slf4j.simpleLogger.log.org.apache.maven.plugins.shade=error || exit 1
   - export JAVA_HOME=$HOME/openjdk11
   - chmod u+x $TRAVIS_BUILD_DIR/install-jdk.sh
   - $TRAVIS_BUILD_DIR/install-jdk.sh --feature 11 --target $JAVA_HOME

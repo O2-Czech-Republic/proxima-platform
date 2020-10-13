@@ -18,9 +18,8 @@ package cz.o2.proxima.direct.hadoop;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.KillSwitch;
 import cz.o2.proxima.direct.batch.ObserveHandle;
-import cz.o2.proxima.direct.batch.ObserveHandle.Cancellable;
+import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.direct.bulk.Reader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -30,9 +29,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 import lombok.Getter;
@@ -83,51 +80,40 @@ public class HadoopBatchLogReader implements BatchLogReader {
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    AtomicReference<Cancellable> cancellable = new AtomicReference<>();
-    KillSwitch killSwitch = new KillSwitch();
-    CountDownLatch terminateLatch = new CountDownLatch(1);
-    observeInternal(partitions, attributes, observer, cancellable, killSwitch, terminateLatch);
-    return ObserveHandle.createFrom(cancellable, killSwitch, terminateLatch, observer);
+    TerminationContext terminationContext = new TerminationContext(observer);
+    observeInternal(partitions, attributes, observer, terminationContext);
+    return terminationContext.asObserveHandle();
   }
 
   private void observeInternal(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer,
-      AtomicReference<Cancellable> cancellable,
-      KillSwitch killSwitch,
-      CountDownLatch killedLatch) {
+      TerminationContext terminationContext) {
 
-    Future<?> submitted =
-        executor.submit(
-            () -> {
-              boolean run = true;
-              try {
-                for (Iterator<Partition> it = partitions.stream().sorted().iterator();
-                    run && it.hasNext(); ) {
-                  HadoopPartition p = (HadoopPartition) it.next();
-                  for (HadoopPath path : p.getPaths()) {
-                    if (!processPath(observer, p.getMinTimestamp(), p, path, killSwitch)) {
-                      run = false;
-                      break;
-                    }
-                    killSwitch.cancelIfInterrupted(observer);
-                  }
-                }
-                if (!killSwitch.isFired()) {
-                  observer.onCompleted();
-                }
-                killedLatch.countDown();
-              } catch (Throwable ex) {
-                log.warn("Failed to observe partitions {}", partitions, ex);
-                if (observer.onError(ex)) {
-                  log.info("Restarting processing by request");
-                  observeInternal(
-                      partitions, attributes, observer, cancellable, killSwitch, killedLatch);
+    executor.submit(
+        () -> {
+          terminationContext.setRunningThread();
+          try {
+            outer:
+            for (Iterator<Partition> it = partitions.iterator(); it.hasNext(); ) {
+              HadoopPartition p = (HadoopPartition) it.next();
+              for (HadoopPath path : p.getPaths()) {
+                if (!processPath(observer, p.getMinTimestamp(), p, path, terminationContext)) {
+                  break outer;
                 }
               }
-            });
-    cancellable.set(Cancellable.wrap(submitted));
+            }
+            terminationContext.finished();
+          } catch (Throwable ex) {
+            terminationContext.handleErrorCaught(
+                ex,
+                () -> {
+                  log.info("Restarting processing by request");
+                  observeInternal(partitions, attributes, observer, terminationContext);
+                });
+          }
+        });
   }
 
   @Override
@@ -142,12 +128,12 @@ public class HadoopBatchLogReader implements BatchLogReader {
       long watermark,
       HadoopPartition p,
       HadoopPath path,
-      KillSwitch killSwitch) {
+      TerminationContext terminationContext) {
 
     try {
       try (Reader reader = accessor.getFormat().openReader(path, accessor.getEntityDesc())) {
         for (StreamElement elem : reader) {
-          if (killSwitch.isFired()
+          if (terminationContext.isCancelled()
               || !observer.onNext(elem, BatchLogObservers.withWatermark(p, watermark))) {
             return false;
           }

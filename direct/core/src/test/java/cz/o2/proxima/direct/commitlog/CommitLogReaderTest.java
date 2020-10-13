@@ -684,7 +684,6 @@ public class CommitLogReaderTest {
 
       @Override
       public Duration getPauseTime(Context context) {
-        assertEquals(1, context.getNumPartitions());
         assertEquals(1, context.getConsumedPartitions().size());
         assertEquals(0, Iterables.getOnlyElement(context.getConsumedPartitions()).getId());
         assertTrue(context.getMinWatermark() < Long.MAX_VALUE);

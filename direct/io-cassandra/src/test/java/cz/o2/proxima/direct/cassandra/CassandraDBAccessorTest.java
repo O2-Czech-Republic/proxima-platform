@@ -59,6 +59,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.Setter;
 import org.junit.Test;
@@ -618,18 +619,20 @@ public class CassandraDBAccessorTest {
             entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
     CassandraLogReader reader = new CassandraLogReader(accessor, Executors::newCachedThreadPool);
 
-    int numElements = 100;
+    int numElements = 2;
     ResultSet result = mockResultSet(numElements);
     accessor.setRes(result);
 
     CountDownLatch latch = new CountDownLatch(1);
-    ObserveHandle handle =
+    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+    handle.set(
         reader.observe(
             reader.getPartitions(),
             Collections.singletonList(attr),
             new BatchLogObserver() {
               @Override
               public boolean onNext(StreamElement element) {
+                handle.get().close();
                 return true;
               }
 
@@ -647,8 +650,7 @@ public class CassandraDBAccessorTest {
               public void onCompleted() {
                 fail("onCompleted should have not been called");
               }
-            });
-    handle.close();
+            }));
     latch.await();
   }
 

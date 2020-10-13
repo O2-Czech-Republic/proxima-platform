@@ -25,8 +25,7 @@ import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.KillSwitch;
-import cz.o2.proxima.direct.batch.ObserveHandle.Cancellable;
+import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
@@ -749,19 +748,16 @@ public class InMemStorage implements DataAccessorFactory {
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer) {
 
-      KillSwitch killSwitch = new KillSwitch();
-      CountDownLatch terminateLatch = new CountDownLatch(1);
-      observeInternal(partitions, attributes, observer, killSwitch, terminateLatch);
-      return cz.o2.proxima.direct.batch.ObserveHandle.createFrom(
-          new AtomicReference<>(Cancellable.noop()), killSwitch, terminateLatch, observer);
+      TerminationContext terminationContext = new TerminationContext(observer);
+      observeInternal(partitions, attributes, observer, terminationContext);
+      return terminationContext.asObserveHandle();
     }
 
     private void observeInternal(
         List<Partition> partitions,
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer,
-        KillSwitch killSwitch,
-        CountDownLatch killedLatch) {
+        TerminationContext terminationContext) {
 
       log.debug(
           "Batch observing {} partitions {} for attributes {}", getUri(), partitions, attributes);
@@ -775,20 +771,16 @@ public class InMemStorage implements DataAccessorFactory {
                   final Map<String, Pair<Long, byte[]>> data = getData().tailMap(prefix);
                   synchronized (data) {
                     for (Entry<String, Pair<Long, byte[]>> e : data.entrySet()) {
-                      if (!observeElement(attributes, observer, killSwitch, prefix, e)) {
+                      if (!observeElement(attributes, observer, terminationContext, prefix, e)) {
                         break;
                       }
                     }
                   }
-                  killSwitch.cancelIfInterrupted(observer);
-                  if (!killSwitch.isFired()) {
-                    observer.onCompleted();
-                  }
-                  killedLatch.countDown();
+                  terminationContext.finished();
                 } catch (Throwable err) {
-                  if (observer.onError(err)) {
-                    observeInternal(partitions, attributes, observer, killSwitch, killedLatch);
-                  }
+                  terminationContext.handleErrorCaught(
+                      err,
+                      () -> observeInternal(partitions, attributes, observer, terminationContext));
                 }
               });
     }
@@ -796,11 +788,11 @@ public class InMemStorage implements DataAccessorFactory {
     private boolean observeElement(
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer,
-        KillSwitch killSwitch,
+        TerminationContext terminationContext,
         String prefix,
         Map.Entry<String, Pair<Long, byte[]>> e) {
 
-      if (killSwitch.isFired()) {
+      if (terminationContext.isCancelled()) {
         return false;
       }
       if (!e.getKey().startsWith(prefix)) {

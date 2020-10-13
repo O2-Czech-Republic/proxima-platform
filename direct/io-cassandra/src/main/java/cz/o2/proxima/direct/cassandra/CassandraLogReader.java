@@ -21,22 +21,17 @@ import com.datastax.driver.core.Session;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.KillSwitch;
 import cz.o2.proxima.direct.batch.ObserveHandle;
-import cz.o2.proxima.direct.batch.ObserveHandle.Cancellable;
+import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 
 /** A {@link BatchLogReader} implementation for cassandra. */
 class CassandraLogReader implements BatchLogReader {
@@ -81,50 +76,39 @@ class CassandraLogReader implements BatchLogReader {
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    AtomicReference<Cancellable> cancellable = new AtomicReference<>();
-    KillSwitch killSwitch = new KillSwitch();
-    CountDownLatch terminateLatch = new CountDownLatch(1);
-    observeInternal(partitions, attributes, observer, cancellable, killSwitch, terminateLatch);
-    return ObserveHandle.createFrom(cancellable, killSwitch, terminateLatch, observer);
+    TerminationContext terminationContext = new TerminationContext(observer);
+    observeInternal(partitions, attributes, observer, terminationContext);
+    return terminationContext.asObserveHandle();
   }
 
   private void observeInternal(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer,
-      AtomicReference<Cancellable> cancellable,
-      KillSwitch killSwitch,
-      CountDownLatch killedLatch) {
+      TerminationContext terminationContext) {
 
-    Future<?> submitted =
-        executor.submit(
-            () -> {
-              boolean cont = true;
-              Iterator<Partition> it = partitions.iterator();
-              try {
-                while (cont && it.hasNext()) {
-                  CassandraPartition p = (CassandraPartition) it.next();
-                  cont = processSinglePartition(p, attributes, killSwitch, observer);
-                  killSwitch.cancelIfInterrupted(observer);
-                }
-                if (!killSwitch.isFired()) {
-                  observer.onCompleted();
-                }
-                killedLatch.countDown();
-              } catch (Throwable err) {
-                if (observer.onError(err)) {
-                  observeInternal(
-                      partitions, attributes, observer, cancellable, killSwitch, killedLatch);
-                }
+    executor.submit(
+        () -> {
+          terminationContext.setRunningThread();
+          try {
+            for (Partition p : partitions) {
+              if (!processSinglePartition(
+                  (CassandraPartition) p, attributes, terminationContext, observer)) {
+                break;
               }
-            });
-    cancellable.set(Cancellable.wrap(submitted));
+            }
+            terminationContext.finished();
+          } catch (Throwable err) {
+            terminationContext.handleErrorCaught(
+                err, () -> observeInternal(partitions, attributes, observer, terminationContext));
+          }
+        });
   }
 
   private boolean processSinglePartition(
       CassandraPartition partition,
       List<AttributeDescriptor<?>> attributes,
-      KillSwitch killSwitch,
+      TerminationContext terminationContext,
       BatchLogObserver observer) {
 
     ResultSet result;
@@ -133,7 +117,7 @@ class CassandraLogReader implements BatchLogReader {
         accessor.execute(accessor.getCqlFactory().scanPartition(attributes, partition, session));
     AtomicLong position = new AtomicLong();
     for (Row row : result) {
-      if (killSwitch.isFired()) {
+      if (terminationContext.isCancelled()) {
         return false;
       }
       String key = row.getString(0);

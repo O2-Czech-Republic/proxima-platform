@@ -107,7 +107,6 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
     }
   }
 
-  @VisibleForTesting
   ResultSet execute(Statement statement) {
     if (log.isDebugEnabled()) {
       if (statement instanceof BoundStatement) {

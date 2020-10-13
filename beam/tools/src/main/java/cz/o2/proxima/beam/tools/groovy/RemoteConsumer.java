@@ -235,7 +235,9 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
                 }
 
                 @Override
-                public void onCompleted() {}
+                public void onCompleted() {
+                  // nop
+                }
               });
       initLatch.countDown();
     }

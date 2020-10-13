@@ -19,9 +19,8 @@ import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
-import cz.o2.proxima.direct.batch.KillSwitch;
 import cz.o2.proxima.direct.batch.ObserveHandle;
-import cz.o2.proxima.direct.batch.ObserveHandle.Cancellable;
+import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.direct.core.AbstractBulkAttributeWriter;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
@@ -44,9 +43,7 @@ import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -138,19 +135,16 @@ public class InMemBulkStorage implements DataAccessorFactory {
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer) {
 
-      KillSwitch killSwitch = new KillSwitch();
-      CountDownLatch terminateLatch = new CountDownLatch(1);
-      observeInternal(partitions, attributes, observer, killSwitch, terminateLatch);
-      return ObserveHandle.createFrom(
-          new AtomicReference<>(Cancellable.noop()), killSwitch, terminateLatch, observer);
+      TerminationContext terminationContext = new TerminationContext(observer);
+      observeInternal(partitions, attributes, observer, terminationContext);
+      return terminationContext.asObserveHandle();
     }
 
     private void observeInternal(
         List<Partition> partitions,
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer,
-        KillSwitch killSwitch,
-        CountDownLatch killedLatch) {
+        TerminationContext terminationContext) {
 
       Preconditions.checkArgument(
           partitions.size() == 1, "This reader works on single partition only, got " + partitions);
@@ -160,19 +154,15 @@ public class InMemBulkStorage implements DataAccessorFactory {
               () -> {
                 try {
                   for (Map.Entry<String, Pair<Long, byte[]>> e : InMemBulkStorage.data.entrySet()) {
-                    if (!processRecord(attributes, observer, killSwitch, prefix, e)) {
+                    if (!processRecord(attributes, observer, terminationContext, prefix, e)) {
                       break;
                     }
-                    killSwitch.cancelIfInterrupted(observer);
                   }
-                  if (!killSwitch.isFired()) {
-                    observer.onCompleted();
-                  }
-                  killedLatch.countDown();
+                  terminationContext.finished();
                 } catch (Throwable err) {
-                  if (observer.onError(err)) {
-                    observeInternal(partitions, attributes, observer, killSwitch, killedLatch);
-                  }
+                  terminationContext.handleErrorCaught(
+                      err,
+                      () -> observeInternal(partitions, attributes, observer, terminationContext));
                 }
               });
     }
@@ -180,11 +170,11 @@ public class InMemBulkStorage implements DataAccessorFactory {
     private boolean processRecord(
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer,
-        KillSwitch killSwitch,
+        TerminationContext terminationContext,
         String prefix,
         Map.Entry<String, Pair<Long, byte[]>> e) {
 
-      if (killSwitch.isFired()) {
+      if (terminationContext.isCancelled()) {
         return false;
       }
       if (!e.getKey().startsWith(prefix)) {

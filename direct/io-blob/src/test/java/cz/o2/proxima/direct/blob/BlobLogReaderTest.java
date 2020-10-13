@@ -37,6 +37,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -77,6 +78,23 @@ public class BlobLogReaderTest {
     assertEquals("Expected single partitions, got " + partitions, 1, partitions.size());
     assertEquals((long) stamps.get(0).getFirst(), partitions.get(0).getMinTimestamp());
     assertEquals((long) stamps.get(1).getSecond(), partitions.get(0).getMaxTimestamp());
+  }
+
+  @Test
+  public void testListPartitionsWithMaxTimeSpan() throws InterruptedException {
+    accessor.setCfg(BlobStorageAccessor.PARTITION_MAX_TIME_SPAN_MS, 1000);
+    List<Pair<Long, Long>> stamps =
+        Lists.newArrayList(
+            Pair.of(1234566000000L, 1234566000000L + 3_600_000L),
+            Pair.of(1234566000000L + 3_600_000L, (1234566000000L + 2 * 3_600_000L)));
+    writePartitions(
+        stamps.stream().map(p -> (p.getSecond() + p.getFirst()) / 2).collect(Collectors.toList()));
+    BlobReader reader = accessor.new BlobReader(context);
+    List<Partition> partitions = reader.getPartitions();
+    partitions.sort(Comparator.comparing(Partition::getMaxTimestamp));
+    assertEquals("Expected two partitions, got " + partitions, 2, partitions.size());
+    assertEquals((long) stamps.get(0).getFirst(), partitions.get(0).getMinTimestamp());
+    assertEquals((long) stamps.get(1).getSecond(), partitions.get(1).getMaxTimestamp());
   }
 
   @Test

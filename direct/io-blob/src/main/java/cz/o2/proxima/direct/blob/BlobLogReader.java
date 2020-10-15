@@ -232,7 +232,9 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
             Set<AttributeDescriptor<?>> attrs = new HashSet<>(attributes);
             AtomicBoolean stopProcessing = new AtomicBoolean(false);
             Iterator<Partition> iterator = partitions.iterator();
-            while (iterator.hasNext() && !terminationContext.isCancelled()) {
+            while (iterator.hasNext()
+                && !terminationContext.isCancelled()
+                && !stopProcessing.get()) {
               Partition p = iterator.next();
               processSinglePartition(p, attrs, terminationContext, stopProcessing, observer);
             }
@@ -248,7 +250,7 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
         });
   }
 
-  private boolean processSinglePartition(
+  private void processSinglePartition(
       Partition partition,
       Set<AttributeDescriptor<?>> attrs,
       TerminationContext terminationContext,
@@ -258,10 +260,7 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
     @SuppressWarnings("unchecked")
     BulkStoragePartition<BlobT> part = (BulkStoragePartition<BlobT>) partition;
     for (BlobT blob : part.getBlobs()) {
-      if (terminationContext.isCancelled()) {
-        return false;
-      }
-      if (stopProcessing.get()) {
+      if (terminationContext.isCancelled() || stopProcessing.get()) {
         break;
       }
       try {
@@ -293,7 +292,6 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
         throw new IllegalStateException(String.format("Failed to read from %s", blob), ex);
       }
     }
-    return true;
   }
 
   protected abstract void runHandlingErrors(BlobT blob, ThrowingRunnable runnable) throws Exception;

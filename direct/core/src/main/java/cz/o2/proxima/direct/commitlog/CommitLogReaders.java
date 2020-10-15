@@ -24,6 +24,7 @@ import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.ThroughputLimiter.Context;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.util.SerializableUtils;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -133,7 +134,7 @@ public class CommitLogReaders {
 
     public LimitedCommitLogReader(CommitLogReader delegate, ThroughputLimiter limiter) {
       super(delegate);
-      this.limiter = Objects.requireNonNull(limiter);
+      this.limiter = SerializableUtils.clone(Objects.requireNonNull(limiter));
       this.partitions = new ArrayList<>(delegate.getPartitions());
     }
 

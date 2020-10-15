@@ -22,6 +22,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.ThroughputLimiter.Context;
 import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.util.SerializableUtils;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -125,7 +126,7 @@ public class BatchLogReaders {
 
       super(delegate);
       this.assignedPartitions = new ArrayList<>(assignedPartitions);
-      this.limiter = Objects.requireNonNull(limiter);
+      this.limiter = SerializableUtils.clone(Objects.requireNonNull(limiter));
     }
 
     @Override

@@ -65,6 +65,7 @@ public interface BatchLogReader {
    * @param partitions partitions to observe
    * @param attributes attribute descriptors to filter out
    * @param observer the observer by which to consume the data
+   * @return an {@link ObserveHandle} to control the consumption
    */
   ObserveHandle observe(
       List<Partition> partitions,

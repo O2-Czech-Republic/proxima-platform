@@ -122,8 +122,8 @@ public class GlobalWatermarkThroughputLimiter implements ThroughputLimiter {
   public void close() {
     if (tracker != null) {
       ExceptionUtils.unchecked(tracker::close);
+      tracker = null;
     }
-    lastGlobalWatermarkUpdate = Long.MIN_VALUE;
   }
 
   @Override

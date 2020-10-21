@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -104,7 +105,7 @@ class DirectUnboundedSource
   }
 
   private final RepositoryFactory factory;
-  private final String name;
+  private final @Nullable String name;
   private final CommitLogReader.Factory<?> readerFactory;
   private final Position position;
   private final boolean eventTime;
@@ -114,15 +115,15 @@ class DirectUnboundedSource
   private transient @Nullable CommitLogReader reader;
 
   DirectUnboundedSource(
-      RepositoryFactory factory,
-      String name,
-      CommitLogReader reader,
-      Position position,
+      @Nonnull RepositoryFactory factory,
+      @Nullable String name,
+      @Nonnull CommitLogReader reader,
+      @Nonnull Position position,
       boolean eventTime,
       long limit,
       @Nullable Partition partition) {
 
-    this.factory = factory;
+    this.factory = Objects.requireNonNull(factory);
     this.name = name;
     this.readerFactory = Objects.requireNonNull(reader).asFactory();
     this.position = position;

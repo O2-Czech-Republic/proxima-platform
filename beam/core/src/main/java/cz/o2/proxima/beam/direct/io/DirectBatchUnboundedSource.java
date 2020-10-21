@@ -114,8 +114,7 @@ public class DirectBatchUnboundedSource
     }
 
     @Override
-    public Checkpoint decode(InputStream inStream) throws CoderException, IOException {
-
+    public Checkpoint decode(InputStream inStream) throws IOException {
       DataInputStream dis = new DataInputStream(inStream);
       int length = dis.readInt();
       byte[] bytes = new byte[length];
@@ -143,10 +142,11 @@ public class DirectBatchUnboundedSource
   private final RepositoryFactory repositoryFactory;
   private final BatchLogReader.Factory<?> readerFactory;
   private final List<AttributeDescriptor<?>> attributes;
-  private final List<Partition> partitions;
   private final long startStamp;
   private final long endStamp;
   private transient @Nullable BatchLogReader reader;
+  // transient, (de)serialization handled outside of default(Read|Write)Object
+  private transient List<Partition> partitions;
 
   private DirectBatchUnboundedSource(
       RepositoryFactory repositoryFactory,
@@ -242,6 +242,32 @@ public class DirectBatchUnboundedSource
     return StreamElementCoder.of(repositoryFactory);
   }
 
+  private void writeObject(java.io.ObjectOutputStream stream) throws IOException {
+    stream.defaultWriteObject();
+    try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+      try (GZIPOutputStream gzip = new GZIPOutputStream(baos);
+          ObjectOutputStream oos = new ObjectOutputStream(gzip)) {
+        oos.writeObject(partitions);
+      }
+      byte[] bytes = baos.toByteArray();
+      stream.writeInt(bytes.length);
+      stream.write(bytes);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private void readObject(java.io.ObjectInputStream stream)
+      throws IOException, ClassNotFoundException {
+    stream.defaultReadObject();
+    byte[] bytes = new byte[stream.readInt()];
+    stream.readFully(bytes);
+    try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+        GZIPInputStream gzip = new GZIPInputStream(bais);
+        ObjectInputStream ois = new ObjectInputStream(gzip)) {
+      this.partitions = (List<Partition>) ois.readObject();
+    }
+  }
+
   private static class StreamElementUnboundedReader extends UnboundedReader<StreamElement> {
 
     private final DirectBatchUnboundedSource source;
@@ -288,6 +314,7 @@ public class DirectBatchUnboundedSource
         if (observer == null && !startNewObserver()) {
           return false;
         }
+        watermark = observer.getWatermark();
         current = observer.take();
         if (current == null) {
           if (observer.getWatermark() == Long.MAX_VALUE) {
@@ -301,7 +328,6 @@ public class DirectBatchUnboundedSource
         }
         consumedFromCurrent++;
       } while (skip-- > 0);
-      watermark = observer.getWatermark();
       return true;
     }
 

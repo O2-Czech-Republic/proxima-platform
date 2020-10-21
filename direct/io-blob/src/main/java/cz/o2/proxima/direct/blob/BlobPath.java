@@ -22,6 +22,7 @@ import cz.o2.proxima.direct.bulk.Path;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Objects;
+import javax.annotation.Nonnull;
 import lombok.ToString;
 
 /** A {@link Path} representation of a remote blob. */
@@ -59,6 +60,11 @@ public abstract class BlobPath<BlobT extends BlobBase> implements Path {
 
   public String getBlobName() {
     return blob.getName();
+  }
+
+  @Override
+  public int compareTo(@Nonnull Path other) {
+    return getBlobName().compareTo(((BlobPath<BlobT>) other).getBlobName());
   }
 
   @Override

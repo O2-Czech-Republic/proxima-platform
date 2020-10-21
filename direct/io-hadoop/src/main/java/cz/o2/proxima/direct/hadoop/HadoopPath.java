@@ -144,4 +144,9 @@ class HadoopPath implements Path {
     HadoopPath other = (HadoopPath) obj;
     return other.getPath().equals(getPath());
   }
+
+  @Override
+  public int compareTo(Path other) {
+    return path.compareTo(((HadoopPath) other).getPath());
+  }
 }

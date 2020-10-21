@@ -27,7 +27,7 @@ import java.util.Collections;
  */
 @Stable
 @FunctionalInterface
-public interface Partition extends Serializable {
+public interface Partition extends Serializable, Comparable<Partition> {
 
   /**
    * Retrieve id of the partition.
@@ -83,6 +83,14 @@ public interface Partition extends Serializable {
     return Collections.singletonList(this);
   }
 
+  default int compareTo(Partition other) {
+    int cmp = Long.compare(getMinTimestamp(), other.getMinTimestamp());
+    if (cmp != 0) {
+      return cmp;
+    }
+    return Integer.compare(getId(), other.getId());
+  }
+
   /**
    * Wrap numerical id to {@link Partition} object.
    *
@@ -99,6 +107,36 @@ public interface Partition extends Serializable {
       @Override
       public String toString() {
         return MoreObjects.toStringHelper(Partition.class).add("id", id).toString();
+      }
+    };
+  }
+
+  /**
+   * Wrap numerical id to {@link Partition} with given minimal timestamp.
+   *
+   * @param id if the ID of partition
+   * @param minTimestamp minimal timestamp of the partition
+   * @return partition
+   */
+  static Partition withMinimalTimestamp(int id, long minTimestamp) {
+    return new Partition() {
+
+      @Override
+      public int getId() {
+        return id;
+      }
+
+      @Override
+      public long getMinTimestamp() {
+        return minTimestamp;
+      }
+
+      @Override
+      public String toString() {
+        return MoreObjects.toStringHelper(Partition.class)
+            .add("id", id)
+            .add("minTimestamp", minTimestamp)
+            .toString();
       }
     };
   }

@@ -101,7 +101,7 @@ public class TestBlobStorageAccessor extends BlobStorageAccessor {
       this(null, new AtomicReference<>());
     }
 
-    TestBlobFileSystem(Runnable afterWrite, AtomicReference<Runnable> onWrite) {
+    TestBlobFileSystem(@Nullable Runnable afterWrite, AtomicReference<Runnable> onWrite) {
       this.afterWrite = afterWrite;
       this.preWrite = onWrite;
     }

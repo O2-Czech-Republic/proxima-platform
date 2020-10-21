@@ -33,4 +33,13 @@ public class PartitionTest {
     assertEquals(-1L, partition.size());
     assertEquals(Collections.singletonList(partition), partition.split(10));
   }
+
+  @Test
+  public void testDefaultCompareTo() {
+    assertEquals(0, Partition.of(1).compareTo(Partition.of(1)));
+    assertTrue(Partition.of(0).compareTo(Partition.of(1)) < 0);
+    assertTrue(Partition.of(1).compareTo(Partition.of(0)) > 0);
+    assertTrue(
+        Partition.withMinimalTimestamp(1, 0).compareTo(Partition.withMinimalTimestamp(0, 1)) < 0);
+  }
 }

@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -91,12 +90,10 @@ public class MockGCloudFileSystem implements FileSystem {
   }
 
   private final NamingConvention namingConvention;
-  private final long rollPeriod;
   private final Map<String, MockPath> paths = new LinkedHashMap<>();
 
-  MockGCloudFileSystem(NamingConvention namingConvention, long rollPeriod) {
+  MockGCloudFileSystem(NamingConvention namingConvention) {
     this.namingConvention = namingConvention;
-    this.rollPeriod = rollPeriod;
   }
 
   @Override
@@ -117,16 +114,5 @@ public class MockGCloudFileSystem implements FileSystem {
   public Path newPath(long ts) {
     String path = namingConvention.nameOf(ts);
     return paths.compute(path, (k, v) -> new MockPath(k));
-  }
-
-  public Map<String, Path> getPaths() {
-    return Collections.unmodifiableMap(paths);
-  }
-
-  public void put(long ts, byte[] contents, long mockSize) {
-    String name = namingConvention.nameOf(ts);
-    Blob blob = mockBlob(name, mockSize);
-    MockPath path = new MockPath(name, contents, blob);
-    paths.put(path.getName(), path);
   }
 }

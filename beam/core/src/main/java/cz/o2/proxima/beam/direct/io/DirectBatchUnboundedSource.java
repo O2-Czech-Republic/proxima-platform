@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
@@ -176,7 +175,7 @@ public class DirectBatchUnboundedSource
     this.startStamp = startStamp;
     this.endStamp = endStamp;
     List<Partition> parts = Lists.newArrayList(partitions);
-    parts.sort(partitionsComparator());
+    parts.sort(Comparator.naturalOrder());
     this.partitions = Collections.unmodifiableList(parts);
     if (log.isDebugEnabled()) {
       log.debug(
@@ -195,7 +194,7 @@ public class DirectBatchUnboundedSource
           reader()
               .getPartitions(startStamp, endStamp)
               .stream()
-              .sorted(Comparator.comparing(Partition::getMinTimestamp))
+              .sorted()
               .collect(Collectors.toList());
       List<List<Partition>> splits = new ArrayList<>();
       int current = 0;
@@ -242,17 +241,6 @@ public class DirectBatchUnboundedSource
     return StreamElementCoder.of(repositoryFactory);
   }
 
-  @VisibleForTesting
-  static Comparator<Partition> partitionsComparator() {
-    return (p1, p2) -> {
-      int cmp = Long.compare(p1.getMinTimestamp(), p2.getMinTimestamp());
-      if (cmp == 0) {
-        return Long.compare(p1.getMaxTimestamp(), p2.getMaxTimestamp());
-      }
-      return cmp;
-    };
-  }
-
   private static class StreamElementUnboundedReader extends UnboundedReader<StreamElement> {
 
     private final DirectBatchUnboundedSource source;
@@ -278,11 +266,7 @@ public class DirectBatchUnboundedSource
       this.source = Objects.requireNonNull(source);
       this.reader = Objects.requireNonNull(reader);
       this.attributes = new ArrayList<>(Objects.requireNonNull(attributes));
-      this.toProcess =
-          toProcess
-              .stream()
-              .sorted(Comparator.comparing(Partition::getMinTimestamp))
-              .collect(Collectors.toList());
+      this.toProcess = toProcess.stream().sorted().collect(Collectors.toList());
       this.consumedFromCurrent = 0;
       this.skip = checkpointMark == null ? 0 : checkpointMark.skipFromFirst;
       log.info("Created {} reading from {}", getClass().getSimpleName(), reader);

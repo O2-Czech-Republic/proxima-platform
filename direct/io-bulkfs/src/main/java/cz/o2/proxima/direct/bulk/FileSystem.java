@@ -57,7 +57,7 @@ public interface FileSystem extends Serializable {
       }
 
       @Override
-      public Path newPath(long ts) {
+      public LocalPath newPath(long ts) {
         String name = convention.nameOf(ts);
         return ExceptionUtils.uncheckedFactory(() -> Path.local(this, new File(parent, name)));
       }

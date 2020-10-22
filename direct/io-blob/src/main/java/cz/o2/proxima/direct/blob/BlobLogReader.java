@@ -32,7 +32,6 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -151,7 +150,7 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
     List<Partition> ret = new ArrayList<>();
     AtomicInteger id = new AtomicInteger();
     @Nullable BulkStoragePartition<BlobT> current = null;
-    Stream<Path> paths = fs.list(startStamp, endStamp);
+    Stream<Path> paths = fs.list(startStamp, endStamp).sorted();
     for (Path path : (Iterable<Path>) paths::iterator) {
       current = considerBlobForPartitionInclusion(((BlobPathT) path).getBlob(), id, current, ret);
     }
@@ -216,7 +215,7 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
 
             partitions
                 .stream()
-                .sorted(Comparator.comparing(Partition::getMinTimestamp))
+                .sorted()
                 .forEach(
                     p -> {
                       @SuppressWarnings("unchecked")

@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.apache.beam.sdk.Pipeline;
@@ -63,7 +64,7 @@ public class DirectBatchUnboundedSourceTest {
     coder = new DirectBatchUnboundedSource.CheckpointCoder();
     coder.verifyDeterministic();
     DirectBatchUnboundedSource.Checkpoint checkpoint;
-    checkpoint = new DirectBatchUnboundedSource.Checkpoint(Arrays.asList(() -> 0), 1);
+    checkpoint = new DirectBatchUnboundedSource.Checkpoint(Collections.singletonList(() -> 0), 1);
     DirectBatchUnboundedSource.Checkpoint cloned = CoderUtils.clone(coder, checkpoint);
     assertEquals(1, cloned.getPartitions().size());
     assertEquals(1L, cloned.getSkipFromFirst());
@@ -73,7 +74,7 @@ public class DirectBatchUnboundedSourceTest {
   public void testPartitionsSorted() {
     List<Partition> partitions =
         Arrays.asList(partition(0, 4, 5), partition(1, 3, 4), partition(2, 1, 2));
-    partitions.sort(DirectBatchUnboundedSource.partitionsComparator());
+    partitions.sort(Comparator.naturalOrder());
     assertEquals(
         Arrays.asList(partition(2, 1, 2), partition(1, 3, 4), partition(0, 4, 5)), partitions);
   }
@@ -210,35 +211,47 @@ public class DirectBatchUnboundedSourceTest {
   }
 
   static Partition partition(int id, long minStamp, long maxStamp) {
-    return new Partition() {
+    return new TestPartition(id, minStamp, maxStamp);
+  }
 
-      @Override
-      public int getId() {
-        return id;
-      }
+  private static class TestPartition implements Partition {
 
-      @Override
-      public long getMinTimestamp() {
-        return minStamp;
-      }
+    private final int id;
+    private final long minStamp;
+    private final long maxStamp;
 
-      @Override
-      public long getMaxTimestamp() {
-        return maxStamp;
-      }
+    public TestPartition(int id, long minStamp, long maxStamp) {
+      this.id = id;
+      this.minStamp = minStamp;
+      this.maxStamp = maxStamp;
+    }
 
-      @Override
-      public boolean equals(Object obj) {
-        if (!(obj instanceof Partition)) {
-          return false;
-        }
-        return ((Partition) obj).getId() == getId();
-      }
+    @Override
+    public int getId() {
+      return id;
+    }
 
-      @Override
-      public int hashCode() {
-        return id;
+    @Override
+    public long getMinTimestamp() {
+      return minStamp;
+    }
+
+    @Override
+    public long getMaxTimestamp() {
+      return maxStamp;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (!(obj instanceof Partition)) {
+        return false;
       }
-    };
+      return ((Partition) obj).getId() == getId();
+    }
+
+    @Override
+    public int hashCode() {
+      return id;
+    }
   }
 }

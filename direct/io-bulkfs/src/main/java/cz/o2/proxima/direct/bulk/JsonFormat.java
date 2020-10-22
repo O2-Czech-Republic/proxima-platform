@@ -39,6 +39,7 @@ import java.util.Iterator;
 import java.util.Optional;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 /** Format storing elements as JSON values, one per line. */
@@ -47,8 +48,8 @@ public class JsonFormat implements FileFormat {
 
   private static final long serialVersionUID = 1L;
 
-  private static Parser parser = com.google.protobuf.util.JsonFormat.parser();
-  private static Printer printer = com.google.protobuf.util.JsonFormat.printer();
+  private static final Parser parser = com.google.protobuf.util.JsonFormat.parser();
+  private static final Printer printer = com.google.protobuf.util.JsonFormat.printer();
 
   private static class JsonReader extends AbstractIterator<StreamElement> implements Reader {
 
@@ -102,6 +103,7 @@ public class JsonFormat implements FileFormat {
     }
 
     @Override
+    @Nonnull
     public Iterator<StreamElement> iterator() {
       this.close();
       return this;
@@ -154,12 +156,12 @@ public class JsonFormat implements FileFormat {
   }
 
   @Override
-  public Reader openReader(Path path, EntityDescriptor entity) throws IOException {
+  public Reader openReader(Path path, EntityDescriptor entity) {
     return new JsonReader(entity, path, gzip);
   }
 
   @Override
-  public Writer openWriter(Path path, EntityDescriptor entity) throws IOException {
+  public Writer openWriter(Path path, EntityDescriptor entity) {
     return new JsonWriter(path, gzip);
   }
 

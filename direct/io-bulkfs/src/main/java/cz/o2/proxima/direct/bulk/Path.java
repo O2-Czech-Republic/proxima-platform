@@ -17,8 +17,6 @@ package cz.o2.proxima.direct.bulk;
 
 import cz.o2.proxima.annotations.Internal;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -27,10 +25,11 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.time.Duration;
+import javax.annotation.Nonnull;
 
 /** Proxima's abstraction of path in {@link FileSystem}. */
 @Internal
-public interface Path extends Serializable {
+public interface Path extends Serializable, Comparable<Path> {
 
   /**
    * Create a Path representation of the given {@link File local file}.
@@ -39,50 +38,22 @@ public interface Path extends Serializable {
    * @param path the local file
    * @return Path representation of this local file
    */
-  static Path local(FileSystem fs, File path) {
-    return new Path() {
-
-      private static final long serialVersionUID = 1L;
-
-      @Override
-      public InputStream reader() throws IOException {
-        return new FileInputStream(path);
-      }
-
-      @Override
-      public OutputStream writer() throws IOException {
-        if (!path.getParentFile().exists() && !path.getParentFile().mkdirs()) {
-          throw new IOException("Failed to create dir " + path.getParentFile());
-        }
-        return new FileOutputStream(path);
-      }
-
-      @Override
-      public FileSystem getFileSystem() {
-        return fs;
-      }
-
-      @Override
-      public void delete() throws IOException {
-        if (path.exists() && !path.delete()) {
-          throw new IOException("Failed to delete " + path);
-        }
-      }
-
-      @Override
-      public String toString() {
-        return path.getAbsolutePath();
-      }
-    };
+  static LocalPath local(FileSystem fs, File path) {
+    return new LocalPath(path, fs);
   }
 
   static Path stdin(FileFormat format) {
     return new Path() {
 
+      @Override
+      public int compareTo(@Nonnull Path path) {
+        return 0;
+      }
+
       private static final long serialVersionUID = 1L;
 
       @Override
-      public InputStream reader() throws IOException {
+      public InputStream reader() {
         return System.in;
       }
 
@@ -99,7 +70,7 @@ public interface Path extends Serializable {
       }
 
       @Override
-      public void delete() throws IOException {
+      public void delete() {
         throw new UnsupportedOperationException("Cannot delete stdin.");
       }
     };

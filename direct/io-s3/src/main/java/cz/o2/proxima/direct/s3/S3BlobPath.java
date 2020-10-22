@@ -45,7 +45,7 @@ import lombok.extern.slf4j.Slf4j;
 @Internal
 @ToString
 @Slf4j
-public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> {
+public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> implements Path {
 
   private static final long serialVersionUID = 1L;
 

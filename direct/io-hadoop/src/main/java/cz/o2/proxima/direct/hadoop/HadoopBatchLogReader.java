@@ -25,7 +25,6 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -83,11 +82,7 @@ public class HadoopBatchLogReader implements BatchLogReader {
         () -> {
           boolean run = true;
           try {
-            for (Iterator<Partition> it =
-                    partitions
-                        .stream()
-                        .sorted(Comparator.comparing(Partition::getMinTimestamp))
-                        .iterator();
+            for (Iterator<Partition> it = partitions.stream().sorted().iterator();
                 run && it.hasNext(); ) {
               HadoopPartition p = (HadoopPartition) it.next();
               for (HadoopPath path : p.getPaths()) {

@@ -15,8 +15,7 @@
  */
 package cz.o2.proxima.direct.hadoop;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -94,5 +93,15 @@ public class HadoopPathTest {
     HadoopPath path1 = (HadoopPath) fs.newPath(System.currentTimeMillis());
     HadoopPath path2 = TestUtils.assertSerializable(path1);
     TestUtils.assertHashCodeAndEquals(path1, path2);
+  }
+
+  @Test
+  public void testPathCompare() {
+    HadoopFileSystem fs = new HadoopFileSystem(accessor);
+    long now = System.currentTimeMillis();
+    HadoopPath path1 = (HadoopPath) fs.newPath(now);
+    HadoopPath path2 = (HadoopPath) fs.newPath(now + 2 * accessor.getRollInterval());
+    assertTrue(path1.compareTo(path2) < 0);
+    assertTrue(path2.compareTo(path1) > 0);
   }
 }

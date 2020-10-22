@@ -56,6 +56,7 @@ class BeamCommitLogReader {
     private final DirectUnboundedSource source;
     @Getter private final BeamCommitLogReader reader;
 
+    private Instant previousWatermark = BoundedWindow.TIMESTAMP_MIN_VALUE;
     private boolean finished = false;
 
     UnboundedCommitLogReader(
@@ -105,7 +106,15 @@ class BeamCommitLogReader {
       if (finished) {
         return HIGHEST_INSTANT;
       }
-      return reader.getWatermark();
+      final Instant currentWatermark = reader.getWatermark();
+      if (currentWatermark.isBefore(previousWatermark)) {
+        log.warn(
+            "Watermark shifts back in time. Previous: [{}], Current: [{}].",
+            previousWatermark,
+            currentWatermark);
+      }
+      previousWatermark = currentWatermark;
+      return currentWatermark;
     }
 
     @Override

@@ -62,6 +62,7 @@ public abstract class BlobPath<BlobT extends BlobBase> implements Path {
     return blob.getName();
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public int compareTo(@Nonnull Path other) {
     return getBlobName().compareTo(((BlobPath<BlobT>) other).getBlobName());

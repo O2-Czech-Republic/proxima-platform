@@ -119,10 +119,10 @@ public abstract class BlobStorageAccessor extends AbstractStorage implements Dat
         .orElse(1000);
   }
 
-  public int getPartitionMaxTimeSpanMs() {
+  public long getPartitionMaxTimeSpanMs() {
     return Optional.ofNullable(cfg.get(PARTITION_MAX_TIME_SPAN_MS))
         .map(Object::toString)
-        .map(Integer::valueOf)
-        .orElse(-1);
+        .map(Long::valueOf)
+        .orElse(-1L);
   }
 }

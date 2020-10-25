@@ -13,25 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.time;
+package cz.o2.proxima.functional;
 
 import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.functional.TimeProvider;
+import java.io.Serializable;
 
-/** Supplies the current watermark to clients. */
+/**
+ * Provider of timestamp. Timestamp can be provided according to different timestamp policies (e.g.
+ * processing time, watermark, test timestamps, etc.).
+ */
 @Internal
 @FunctionalInterface
-public interface WatermarkSupplier extends TimeProvider {
+public interface TimeProvider extends Serializable {
 
-  /**
-   * Retrieve watermark.
-   *
-   * @return the current watermark.
-   */
-  long getWatermark();
-
-  @Override
-  default long getCurrentTime() {
-    return getWatermark();
+  /** @return {@link TimeProvider} using {@link System#currentTimeMillis()}. */
+  static TimeProvider processingTime() {
+    return System::currentTimeMillis;
   }
+
+  /** @return current epoch milli time according to this timestamp provider */
+  long getCurrentTime();
 }

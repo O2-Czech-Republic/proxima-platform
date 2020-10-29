@@ -354,20 +354,26 @@ class BeamStream<T> implements Stream<T> {
     PCollection<T> pcoll = collection.materialize(pipeline);
     if (gatherLocally) {
       try (RemoteConsumer<T> remoteConsumer = createRemoteConsumer(pcoll.getCoder(), consumer)) {
-        forEachRemote(name, pcoll, remoteConsumer, pipeline);
+        forEachRemote(name, pcoll, remoteConsumer, true, pipeline);
       }
     } else {
-      forEachRemote(name, pcoll, consumer, pipeline);
+      forEachRemote(name, pcoll, consumer, false, pipeline);
     }
   }
 
   private void forEachRemote(
-      @Nullable String name, PCollection<T> pcoll, Consumer<T> consumer, Pipeline pipeline) {
+      @Nullable String name,
+      PCollection<T> pcoll,
+      Consumer<T> consumer,
+      boolean allowStable,
+      Pipeline pipeline) {
 
     if (name != null) {
-      pcoll.apply(name, asWriteTransform(asDoFn(pcoll.getPipeline().getOptions(), consumer)));
+      pcoll.apply(
+          name, asWriteTransform(asDoFn(pcoll.getPipeline().getOptions(), allowStable, consumer)));
     } else {
-      pcoll.apply(asWriteTransform(asDoFn(pcoll.getPipeline().getOptions(), consumer)));
+      pcoll.apply(
+          asWriteTransform(asDoFn(pcoll.getPipeline().getOptions(), allowStable, consumer)));
     }
     runPipeline(pipeline);
   }
@@ -1425,8 +1431,9 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
-  private <T> DoFn<T, Void> asDoFn(PipelineOptions opts, Consumer<T> consumer) {
-    if (supportsStableInput(opts)) {
+  private <T> DoFn<T, Void> asDoFn(
+      PipelineOptions opts, boolean allowStable, Consumer<T> consumer) {
+    if (allowStable && supportsStableInput(opts)) {
       return new StableConsumeFn<>(consumer);
     }
     return new ConsumeFn<>(consumer);

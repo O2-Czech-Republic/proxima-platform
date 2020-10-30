@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader.Factory;
+import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -32,9 +33,12 @@ import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.MiniHBaseCluster;
 import org.apache.hadoop.hbase.TableName;
@@ -146,7 +150,44 @@ public class HBaseLogReaderTest {
         });
     latch.await();
 
-    assertEquals(Lists.newArrayList("a", "fir"), keys);
+    assertEquals(Arrays.asList("a", "fir"), keys);
+  }
+
+  @Test(timeout = 5000)
+  public void testObserveCancel() throws InterruptedException, IOException {
+
+    long now = 1500000000000L;
+    write("a", "dummy", "a", now);
+    write("firs", "wildcard.1", "firs", now);
+    write("fir", "dummy", "fir", now);
+    write("first", "dummy", "first", now);
+
+    List<Partition> partitions = reader.getPartitions();
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+    handle.set(
+        reader.observe(
+            partitions.subList(0, 1),
+            Collections.singletonList(attr),
+            new BatchLogObserver() {
+
+              @Override
+              public boolean onNext(StreamElement element) {
+                handle.get().close();
+                return true;
+              }
+
+              @Override
+              public void onCancelled() {
+                latch.countDown();
+              }
+
+              @Override
+              public void onCompleted() {
+                fail("onCompleted should not heve been called");
+              }
+            }));
+    latch.await();
   }
 
   @Test(timeout = 30000)

@@ -127,11 +127,6 @@ public class GlobalWatermarkThroughputLimiterTest {
       }
 
       @Override
-      public int getNumPartitions() {
-        return 1;
-      }
-
-      @Override
       public long getMinWatermark() {
         return watermark;
       }

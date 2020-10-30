@@ -24,6 +24,7 @@ import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.ThroughputLimiter.Context;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.util.SerializableUtils;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -129,19 +130,16 @@ public class CommitLogReaders {
 
     @Getter private final ThroughputLimiter limiter;
     private final Collection<Partition> partitions;
-    private final int numPartitions;
-    private long watermark = Long.MIN_VALUE;
 
     public LimitedCommitLogReader(CommitLogReader delegate, ThroughputLimiter limiter) {
       super(delegate);
-      this.limiter = Objects.requireNonNull(limiter);
+      this.limiter = SerializableUtils.clone(Objects.requireNonNull(limiter));
       this.partitions = new ArrayList<>(delegate.getPartitions());
-      this.numPartitions = this.partitions.size();
     }
 
     @Override
     public ObserveHandle observe(String name, Position position, LogObserver observer) {
-      return super.observe(name, position, throughputLimited(observer));
+      return super.observe(name, position, throughputLimited(limiter, partitions, observer));
     }
 
     @Override
@@ -152,13 +150,18 @@ public class CommitLogReaders {
         boolean stopAtCurrent,
         LogObserver observer) {
       return super.observePartitions(
-          name, partitions, position, stopAtCurrent, throughputLimited(observer));
+          name,
+          partitions,
+          position,
+          stopAtCurrent,
+          throughputLimited(limiter, partitions, observer));
     }
 
     @Override
     public ObserveHandle observeBulk(
         String name, Position position, boolean stopAtCurrent, LogObserver observer) {
-      return super.observeBulk(name, position, stopAtCurrent, throughputLimited(observer));
+      return super.observeBulk(
+          name, position, stopAtCurrent, throughputLimited(limiter, partitions, observer));
     }
 
     @Override
@@ -169,19 +172,22 @@ public class CommitLogReaders {
         boolean stopAtCurrent,
         LogObserver observer) {
       return super.observeBulkPartitions(
-          name, partitions, position, stopAtCurrent, throughputLimited(observer));
+          name,
+          partitions,
+          position,
+          stopAtCurrent,
+          throughputLimited(limiter, partitions, observer));
     }
 
     @Override
     public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
-      return super.observeBulkOffsets(offsets, throughputLimited(observer));
+      return super.observeBulkOffsets(offsets, throughputLimited(limiter, partitions, observer));
     }
 
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
           .add("limiter", limiter)
-          .add("watermark", watermark)
           .add("delegate", getDelegate().toString())
           .toString();
     }
@@ -193,26 +199,43 @@ public class CommitLogReaders {
       return repo -> CommitLogReaders.withThroughputLimit(delegateFactory.apply(repo), limiter);
     }
 
-    private LogObserver throughputLimited(LogObserver delegate) {
+    private static LogObserver throughputLimited(
+        ThroughputLimiter readerLimiter,
+        Collection<Partition> readerPartitions,
+        LogObserver delegate) {
+
+      final ThroughputLimiter limiter = SerializableUtils.clone(readerLimiter);
+      final List<Partition> partitions = new ArrayList<>(readerPartitions);
+
       return new ForwardingLogObserver(delegate) {
+
+        long watermark = Long.MIN_VALUE;
 
         @Override
         public void onCompleted() {
-          super.onCompleted();
-          limiter.close();
+          try {
+            super.onCompleted();
+          } finally {
+            limiter.close();
+          }
         }
 
         @Override
         public void onCancelled() {
-          super.onCancelled();
-          limiter.close();
+          try {
+            super.onCancelled();
+          } finally {
+            limiter.close();
+          }
         }
 
         @Override
         public boolean onError(Throwable error) {
-          boolean ret = super.onError(error);
-          limiter.close();
-          return ret;
+          try {
+            return super.onError(error);
+          } finally {
+            limiter.close();
+          }
         }
 
         @Override
@@ -244,25 +267,20 @@ public class CommitLogReaders {
             super.onIdle(context);
           }
         }
-      };
-    }
 
-    private Context getLimiterContext() {
-      return new Context() {
+        private Context getLimiterContext() {
+          return new Context() {
 
-        @Override
-        public Collection<Partition> getConsumedPartitions() {
-          return partitions;
-        }
+            @Override
+            public Collection<Partition> getConsumedPartitions() {
+              return partitions;
+            }
 
-        @Override
-        public int getNumPartitions() {
-          return numPartitions;
-        }
-
-        @Override
-        public long getMinWatermark() {
-          return watermark;
+            @Override
+            public long getMinWatermark() {
+              return watermark;
+            }
+          };
         }
       };
     }

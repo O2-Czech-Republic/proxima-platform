@@ -22,6 +22,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.ThroughputLimiter.Context;
 import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.util.SerializableUtils;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -73,12 +74,12 @@ public class BatchLogReaders {
     }
 
     @Override
-    public void observe(
+    public ObserveHandle observe(
         List<Partition> partitions,
         List<AttributeDescriptor<?>> attributes,
         BatchLogObserver observer) {
 
-      super.observe(partitions, attributes, throughputLimited(observer, partitions));
+      return super.observe(partitions, attributes, throughputLimited(observer, partitions));
     }
 
     @Override
@@ -99,8 +100,7 @@ public class BatchLogReaders {
     private BatchLogObserver throughputLimited(
         BatchLogObserver delegate, List<Partition> consumedPartitions) {
 
-      return new ThroughputLimitedBatchLogObserver(
-          delegate, getPartitions().size(), consumedPartitions, limiter);
+      return new ThroughputLimitedBatchLogObserver(delegate, consumedPartitions, limiter);
     }
   }
 
@@ -115,34 +115,45 @@ public class BatchLogReaders {
 
   private static class ThroughputLimitedBatchLogObserver extends ForwardingBatchLogObserver {
 
-    private final int numPartitions;
     private final Collection<Partition> assignedPartitions;
     private final ThroughputLimiter limiter;
     private long watermark = Long.MIN_VALUE;
 
     public ThroughputLimitedBatchLogObserver(
         BatchLogObserver delegate,
-        int numPartitions,
         Collection<Partition> assignedPartitions,
         ThroughputLimiter limiter) {
 
       super(delegate);
-      this.numPartitions = numPartitions;
       this.assignedPartitions = new ArrayList<>(assignedPartitions);
-      this.limiter = Objects.requireNonNull(limiter);
+      this.limiter = SerializableUtils.clone(Objects.requireNonNull(limiter));
     }
 
     @Override
     public void onCompleted() {
-      super.onCompleted();
-      limiter.close();
+      try {
+        super.onCompleted();
+      } finally {
+        limiter.close();
+      }
     }
 
     @Override
     public boolean onError(Throwable error) {
-      boolean ret = super.onError(error);
-      limiter.close();
-      return ret;
+      try {
+        return super.onError(error);
+      } finally {
+        limiter.close();
+      }
+    }
+
+    @Override
+    public void onCancelled() {
+      try {
+        super.onCancelled();
+      } finally {
+        limiter.close();
+      }
     }
 
     @Override
@@ -175,11 +186,6 @@ public class BatchLogReaders {
         @Override
         public Collection<Partition> getConsumedPartitions() {
           return assignedPartitions;
-        }
-
-        @Override
-        public int getNumPartitions() {
-          return numPartitions;
         }
 
         @Override

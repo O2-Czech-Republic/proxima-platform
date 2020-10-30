@@ -72,6 +72,9 @@ public interface BatchLogObserver {
   /** Signalled when the reading is finished. */
   default void onCompleted() {}
 
+  /** Signalled when the reading is cancelled. */
+  default void onCancelled() {}
+
   /**
    * Signaled when reading error occurs.
    *

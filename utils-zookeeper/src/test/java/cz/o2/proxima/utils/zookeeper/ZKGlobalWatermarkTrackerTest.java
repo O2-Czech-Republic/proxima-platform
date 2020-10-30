@@ -19,11 +19,15 @@ import static org.junit.Assert.*;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.functional.TimeProvider;
 import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.util.TestUtils;
+import cz.o2.proxima.utils.zookeeper.ZKGlobalWatermarkTracker.WatermarkWithUpdate;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -34,6 +38,7 @@ import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +51,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.zookeeper.AsyncCallback.DataCallback;
 import org.apache.zookeeper.AsyncCallback.StatCallback;
@@ -77,7 +84,6 @@ public class ZKGlobalWatermarkTrackerTest {
 
   @BeforeClass
   public static void setupGlobal() throws IOException, ConfigException, InterruptedException {
-
     Preconditions.checkArgument(WORK_DIR.mkdirs());
     Runtime.getRuntime().addShutdownHook(new Thread(ZKGlobalWatermarkTrackerTest::deleteTemp));
 
@@ -151,10 +157,24 @@ public class ZKGlobalWatermarkTrackerTest {
   }
 
   private Map<String, Object> cfg(String name) {
-    return ImmutableMap.<String, Object>builder()
-        .put(ZKGlobalWatermarkTracker.CFG_NAME, name)
-        .put(ZKGlobalWatermarkTracker.ZK_URI, zkURI.toASCIIString())
-        .build();
+    return cfg(
+        Pair.of(ZKGlobalWatermarkTracker.CFG_NAME, name),
+        Pair.of(ZKGlobalWatermarkTracker.ZK_URI, zkURI.toASCIIString()));
+  }
+
+  @SafeVarargs
+  private final Map<String, Object> cfg(Pair<String, String>... keyValues) {
+    Builder<String, Object> builder = ImmutableMap.<String, Object>builder();
+    Arrays.asList(keyValues).forEach(p -> builder.put(p.getFirst(), p.getSecond()));
+    return builder.build();
+  }
+
+  @Test
+  public void testPayloadParsing() {
+    byte[] bytes = ZKGlobalWatermarkTracker.toPayload(1L, 2L);
+    WatermarkWithUpdate payload = ZKGlobalWatermarkTracker.fromPayload(bytes);
+    assertEquals(1L, (long) payload.getWatermark());
+    assertEquals(2L, (long) payload.getTimestamp());
   }
 
   @Test(timeout = 10000)
@@ -171,6 +191,24 @@ public class ZKGlobalWatermarkTrackerTest {
     assertEquals(now + 2, tracker.getWatermark());
     tracker.finished("first").get();
     assertEquals(Long.MAX_VALUE, tracker.getWatermark());
+  }
+
+  @Test(timeout = 10000)
+  public void testGlobalWatermarkWithStaleNode() throws InterruptedException, ExecutionException {
+    tracker =
+        newTracker(
+            cfg(
+                Pair.of(ZKGlobalWatermarkTracker.ZK_URI, zkURI.toASCIIString()),
+                Pair.of(ZKGlobalWatermarkTracker.CFG_NAME, "name"),
+                Pair.of(
+                    ZKGlobalWatermarkTracker.CFG_TIME_PROVIDER, TestTimeProvider.class.getName()),
+                Pair.of(ZKGlobalWatermarkTracker.CFG_MAX_ACCEPTABLE_UPDATE_AGE_MS, "1800000")));
+    long now = Instant.now().toEpochMilli();
+    ((TestTimeProvider) tracker.timeProvider).setCurrentTime(now);
+    tracker.initWatermarks(Collections.singletonMap("first", now));
+    ((TestTimeProvider) tracker.timeProvider).setCurrentTime(now + 3600000);
+    long watermark = tracker.getGlobalWatermark("second", now + 1);
+    assertEquals(now + 1, watermark);
   }
 
   @Test
@@ -197,10 +235,10 @@ public class ZKGlobalWatermarkTrackerTest {
     testMultipleInstancesWithTrackerFactory(() -> newTracker(cfg(name)), 10);
   }
 
-  @Test(timeout = 10000)
+  @Test(timeout = 60000)
   public void testConnectionLoss() throws ExecutionException, InterruptedException {
     String name = tracker.getName();
-    testMultipleInstancesWithTrackerFactory(() -> createConnectionLossyTracker(name), 2, true);
+    testMultipleInstancesWithTrackerFactory(() -> createConnectionLossyTracker(name), 2);
   }
 
   @Test(timeout = 10000)
@@ -237,14 +275,7 @@ public class ZKGlobalWatermarkTrackerTest {
   private void testMultipleInstancesWithTrackerFactory(
       Factory<ZKGlobalWatermarkTracker> factory, int numInstances)
       throws ExecutionException, InterruptedException {
-    testMultipleInstancesWithTrackerFactory(factory, numInstances, false);
-  }
 
-  private void testMultipleInstancesWithTrackerFactory(
-      Factory<ZKGlobalWatermarkTracker> factory, int numInstances, boolean refreshChildrenBeforeGet)
-      throws ExecutionException, InterruptedException {
-
-    String name = tracker.getName();
     List<ZKGlobalWatermarkTracker> trackers = Lists.newArrayList(tracker);
     while (trackers.size() < numInstances) {
       trackers.add(factory.apply());
@@ -259,14 +290,9 @@ public class ZKGlobalWatermarkTrackerTest {
       int id = i % numInstances;
       String process = "process" + id;
       ZKGlobalWatermarkTracker instance = trackers.get(id);
-      if (refreshChildrenBeforeGet) {
-        instance.refreshChildren();
-      }
       instance.update(process, now + 1).get();
-      currentWatermark = instance.getWatermark();
-      if (i < numInstances - 1) {
-        assertEquals(String.format("Error in round %d", i), Long.MIN_VALUE, currentWatermark);
-      } else if (i > 2 * numInstances) {
+      currentWatermark = instance.getGlobalWatermark(process, now + 1);
+      if (i > 2 * numInstances) {
         assertTrue(
             String.format(
                 "Error in round %d, expected at least %d, got %d", i, now, currentWatermark),
@@ -400,5 +426,9 @@ public class ZKGlobalWatermarkTrackerTest {
         String connectString, int sessionTimeout, Watcher watcher) throws IOException {
       super(connectString, sessionTimeout, watcher);
     }
+  }
+
+  public static class TestTimeProvider implements TimeProvider {
+    @Setter @Getter long currentTime = Long.MIN_VALUE;
   }
 }

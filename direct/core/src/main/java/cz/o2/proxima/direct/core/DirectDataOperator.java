@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -66,13 +67,15 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   private static final String THROUGHPUT_LIMITER_PREFIX = "direct.throughput-limiter.";
   private static final String KW_CLASS = "class";
   private static final AtomicInteger threadId = new AtomicInteger();
+  private static final String ID = UUID.randomUUID().toString();
 
   private static Factory<ExecutorService> createExecutorFactory() {
     return () ->
         Executors.newCachedThreadPool(
             r -> {
               Thread t = new Thread(r);
-              t.setName(String.format("DirectDataOperatorThread-%d", threadId.incrementAndGet()));
+              t.setName(
+                  String.format("DirectDataOperatorThread-%s-%d", ID, threadId.incrementAndGet()));
               t.setUncaughtExceptionHandler(
                   (thr, exc) -> log.error("Error running task in thread {}", thr.getName(), exc));
               return t;

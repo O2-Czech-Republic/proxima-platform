@@ -41,12 +41,12 @@ public class RemoteConsumerTest {
 
   @Test
   public void testBindOnSpecificPort() {
-    testConsumeOkWithPort(12345);
+    testConsumeOkWithPort(43764);
   }
 
   @Test(expected = RuntimeException.class)
   public void testRebindOnSamePort() {
-    int port = 12345;
+    int port = 43764;
     try (RemoteConsumer<String> consumer1 =
         RemoteConsumer.create(this, "localhost", port, tmp -> {}, StringUtf8Coder.of())) {
       RemoteConsumer.create(this, "localhost", port, tmp -> {}, StringUtf8Coder.of());

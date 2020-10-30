@@ -16,12 +16,12 @@
 package cz.o2.proxima.time;
 
 import cz.o2.proxima.annotations.Internal;
-import java.io.Serializable;
+import cz.o2.proxima.functional.TimeProvider;
 
 /** Supplies the current watermark to clients. */
 @Internal
 @FunctionalInterface
-public interface WatermarkSupplier extends Serializable {
+public interface WatermarkSupplier extends TimeProvider {
 
   /**
    * Retrieve watermark.
@@ -29,4 +29,9 @@ public interface WatermarkSupplier extends Serializable {
    * @return the current watermark.
    */
   long getWatermark();
+
+  @Override
+  default long getCurrentTime() {
+    return getWatermark();
+  }
 }

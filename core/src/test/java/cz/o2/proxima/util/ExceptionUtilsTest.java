@@ -32,4 +32,11 @@ public class ExceptionUtilsTest {
             }));
     assertFalse(ExceptionUtils.ignoringInterrupted(() -> {}));
   }
+
+  @Test
+  public void testIsInterrupted() {
+    assertFalse(ExceptionUtils.isInterrupted(new RuntimeException()));
+    assertTrue(ExceptionUtils.isInterrupted(new InterruptedException()));
+    assertTrue(ExceptionUtils.isInterrupted(new RuntimeException(new InterruptedException())));
+  }
 }

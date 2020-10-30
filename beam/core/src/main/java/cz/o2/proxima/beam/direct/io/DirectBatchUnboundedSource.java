@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.Partition;
@@ -113,8 +114,7 @@ public class DirectBatchUnboundedSource
     }
 
     @Override
-    public Checkpoint decode(InputStream inStream) throws CoderException, IOException {
-
+    public Checkpoint decode(InputStream inStream) throws IOException {
       DataInputStream dis = new DataInputStream(inStream);
       int length = dis.readInt();
       byte[] bytes = new byte[length];
@@ -142,10 +142,11 @@ public class DirectBatchUnboundedSource
   private final RepositoryFactory repositoryFactory;
   private final BatchLogReader.Factory<?> readerFactory;
   private final List<AttributeDescriptor<?>> attributes;
-  private final List<Partition> partitions;
   private final long startStamp;
   private final long endStamp;
   private transient @Nullable BatchLogReader reader;
+  // transient, (de)serialization handled outside of default(Read|Write)Object
+  private transient List<Partition> partitions;
 
   private DirectBatchUnboundedSource(
       RepositoryFactory repositoryFactory,
@@ -241,6 +242,32 @@ public class DirectBatchUnboundedSource
     return StreamElementCoder.of(repositoryFactory);
   }
 
+  private void writeObject(java.io.ObjectOutputStream stream) throws IOException {
+    stream.defaultWriteObject();
+    try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+      try (GZIPOutputStream gzip = new GZIPOutputStream(baos);
+          ObjectOutputStream oos = new ObjectOutputStream(gzip)) {
+        oos.writeObject(partitions);
+      }
+      byte[] bytes = baos.toByteArray();
+      stream.writeInt(bytes.length);
+      stream.write(bytes);
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  private void readObject(java.io.ObjectInputStream stream)
+      throws IOException, ClassNotFoundException {
+    stream.defaultReadObject();
+    byte[] bytes = new byte[stream.readInt()];
+    stream.readFully(bytes);
+    try (ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+        GZIPInputStream gzip = new GZIPInputStream(bais);
+        ObjectInputStream ois = new ObjectInputStream(gzip)) {
+      this.partitions = (List<Partition>) ois.readObject();
+    }
+  }
+
   private static class StreamElementUnboundedReader extends UnboundedReader<StreamElement> {
 
     private final DirectBatchUnboundedSource source;
@@ -249,11 +276,11 @@ public class DirectBatchUnboundedSource
     private final List<Partition> toProcess;
     @Nullable private BlockingQueueLogObserver observer;
 
-    long consumedFromCurrent;
-    @Nullable StreamElement current = null;
-    long skip;
-    @Nullable Partition runningPartition = null;
-    long bytesConsumed = 0L;
+    private long consumedFromCurrent;
+    @Nullable private StreamElement current = null;
+    private long skip;
+    @Nullable private Partition runningPartition = null;
+    @Nullable private ObserveHandle runningHandle = null;
     private long watermark = Long.MIN_VALUE;
 
     public StreamElementUnboundedReader(
@@ -287,6 +314,7 @@ public class DirectBatchUnboundedSource
         if (observer == null && !startNewObserver()) {
           return false;
         }
+        watermark = observer.getWatermark();
         current = observer.take();
         if (current == null) {
           if (observer.getWatermark() == Long.MAX_VALUE) {
@@ -300,8 +328,6 @@ public class DirectBatchUnboundedSource
         }
         consumedFromCurrent++;
       } while (skip-- > 0);
-      bytesConsumed += sizeOf(current);
-      watermark = observer.getWatermark();
       return true;
     }
 
@@ -314,7 +340,8 @@ public class DirectBatchUnboundedSource
         // read partitions one by one
         runningPartition = toProcess.get(0);
         observer = newObserver(runningPartition);
-        reader.observe(Collections.singletonList(runningPartition), attributes, observer);
+        runningHandle =
+            reader.observe(Collections.singletonList(runningPartition), attributes, observer);
         consumedFromCurrent = 0;
       } else {
         watermark = Long.MAX_VALUE;
@@ -326,13 +353,6 @@ public class DirectBatchUnboundedSource
     private BlockingQueueLogObserver newObserver(Partition partition) {
       return BlockingQueueLogObserver.create(
           "DirectBatchUnbounded:" + partition.getId(), Long.MIN_VALUE);
-    }
-
-    private static int sizeOf(StreamElement element) {
-      return (element.isDelete() ? 0 : element.getValue().length)
-          + element.getKey().length()
-          + element.getAttribute().length()
-          + element.getUuid().length();
     }
 
     @Override
@@ -366,6 +386,7 @@ public class DirectBatchUnboundedSource
     @Override
     public void close() {
       Optional.ofNullable(observer).ifPresent(BlockingQueueLogObserver::stop);
+      Optional.ofNullable(runningHandle).ifPresent(ObserveHandle::close);
     }
   }
 }

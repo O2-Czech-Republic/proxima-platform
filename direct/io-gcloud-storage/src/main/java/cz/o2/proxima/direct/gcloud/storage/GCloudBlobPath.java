@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.gcloud.storage;
 import com.google.cloud.storage.Blob;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.blob.BlobBase;
@@ -54,6 +55,15 @@ public class GCloudBlobPath extends BlobPath<GCloudBlobPath.GCloudBlob> {
     @Override
     public String getName() {
       return blob.getName();
+    }
+
+    @Override
+    public String toString() {
+      ToStringHelper helper = MoreObjects.toStringHelper(this);
+      if (blob != null) {
+        return helper.add("blob", blob.getName()).toString();
+      }
+      return helper.toString();
     }
   }
 

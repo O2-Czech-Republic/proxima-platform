@@ -13,19 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.annotations;
+package cz.o2.proxima.direct.batch;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.annotations.Stable;
 
-/**
- * Annotation used to mark type as intended for internal use with no backward compatibility
- * guarantees.
- */
-@Target({ElementType.TYPE, ElementType.METHOD})
-@Retention(RetentionPolicy.SOURCE)
-@Documented
-public @interface Internal {}
+/** A interface for handling progress and control consumption of running observe process. */
+@Stable
+public interface ObserveHandle extends AutoCloseable {
+
+  /** @return an {@link ObserveHandle} which does nothing. */
+  @Internal
+  static ObserveHandle noop() {
+    return () -> {};
+  }
+
+  /** Stop the consumption. */
+  @Override
+  void close();
+}

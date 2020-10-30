@@ -20,16 +20,19 @@ import static cz.o2.proxima.direct.hbase.Util.cloneArray;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.ObserveHandle;
+import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
@@ -49,14 +52,14 @@ import org.apache.hadoop.hbase.filter.QualifierFilter;
 class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
 
   private final EntityDescriptor entity;
-  private final cz.o2.proxima.functional.Factory<Executor> executorFactory;
-  private final Executor executor;
+  private final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory;
+  private final ExecutorService executor;
 
   public HBaseLogReader(
       URI uri,
       Configuration conf,
       EntityDescriptor entity,
-      cz.o2.proxima.functional.Factory<Executor> executorFactory) {
+      cz.o2.proxima.functional.Factory<ExecutorService> executorFactory) {
 
     super(uri, conf);
     this.entity = entity;
@@ -85,22 +88,36 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
   }
 
   @Override
-  public void observe(
+  public ObserveHandle observe(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
 
-    executor.execute(
+    TerminationContext terminationContext = new TerminationContext(observer);
+    observeInternal(partitions, attributes, observer, terminationContext);
+    return terminationContext.asObserveHandle();
+  }
+
+  public void observeInternal(
+      List<Partition> partitions,
+      List<AttributeDescriptor<?>> attributes,
+      BatchLogObserver observer,
+      TerminationContext terminationContext) {
+
+    executor.submit(
         () -> {
+          terminationContext.setRunningThread();
           ensureClient();
           try {
-            flushPartitions(partitions, attributes, observer);
+            ExceptionUtils.ignoringInterrupted(
+                () -> flushPartitions(partitions, attributes, terminationContext, observer));
           } catch (Throwable ex) {
-            log.warn("Failed to observe partitions {}", partitions, ex);
-            if (observer.onError(ex)) {
-              log.info("Restaring processing by request");
-              observe(partitions, attributes, observer);
-            }
+            terminationContext.handleErrorCaught(
+                ex,
+                () -> {
+                  log.info("Restarting processing by request");
+                  observeInternal(partitions, attributes, observer, terminationContext);
+                });
           }
         });
   }
@@ -109,7 +126,7 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
   public Factory<?> asFactory() {
     final URI uri = getUri();
     final EntityDescriptor entity = this.entity;
-    final cz.o2.proxima.functional.Factory<Executor> executorFactory = this.executorFactory;
+    final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory = this.executorFactory;
     final byte[] serializedConf = this.serializedConf;
     return repo ->
         new HBaseLogReader(
@@ -119,9 +136,11 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
   private void flushPartitions(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
+      TerminationContext terminationContext,
       BatchLogObserver observer)
       throws IOException {
 
+    outer:
     for (Partition p : partitions) {
       HBasePartition hp = (HBasePartition) p;
       Scan scan = new Scan(hp.getStartKey(), hp.getEndKey());
@@ -129,22 +148,17 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
       scan.setTimeRange(hp.getStartStamp(), hp.getEndStamp());
       scan.setFilter(toFilter(attributes));
 
-      boolean finish = false;
       try (ResultScanner scanner = client.getScanner(scan)) {
-        Result next;
-        while (((next = scanner.next()) != null) && !Thread.currentThread().isInterrupted()) {
-
-          if (!consume(next, attributes, hp, observer)) {
-            finish = true;
-            break;
+        Result next = null;
+        do {
+          if (terminationContext.isCancelled()
+              || next != null && !consume(next, attributes, hp, observer)) {
+            break outer;
           }
-        }
-      }
-      if (finish) {
-        break;
+        } while ((next = scanner.next()) != null);
       }
     }
-    observer.onCompleted();
+    terminationContext.finished();
   }
 
   private boolean consume(

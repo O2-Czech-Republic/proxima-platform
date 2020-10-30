@@ -20,6 +20,8 @@ import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.ObserveHandle;
+import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.direct.bulk.FileFormat;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
@@ -29,13 +31,16 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
+import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -127,7 +132,7 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
   private final long partitionMinSize;
   private final int partitionMaxNumBlobs;
   private final long partitionMaxTimeSpan;
-  private final Executor executor;
+  private final ExecutorService executor;
   @Getter private final BlobStorageAccessor accessor;
   @Getter private final Context context;
 
@@ -151,8 +156,9 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
     AtomicInteger id = new AtomicInteger();
     @Nullable BulkStoragePartition<BlobT> current = null;
     Stream<Path> paths = fs.list(startStamp, endStamp).sorted();
-    for (Path path : (Iterable<Path>) paths::iterator) {
-      current = considerBlobForPartitionInclusion(((BlobPathT) path).getBlob(), id, current, ret);
+    for (Iterator<Path> it = paths.iterator(); it.hasNext(); ) {
+      current =
+          considerBlobForPartitionInclusion(((BlobPathT) it.next()).getBlob(), id, current, ret);
     }
     if (current != null) {
       ret.add(current);
@@ -199,64 +205,93 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
   }
 
   @Override
-  public void observe(
+  public ObserveHandle observe(
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer) {
+
+    TerminationContext terminationContext = new TerminationContext(observer);
+    observeInternal(partitions, attributes, observer, terminationContext);
+    return terminationContext.asObserveHandle();
+  }
+
+  private void observeInternal(
+      List<Partition> partitions,
+      List<AttributeDescriptor<?>> attributes,
+      BatchLogObserver observer,
+      TerminationContext terminationContext) {
 
     Preconditions.checkArgument(
         partitions.stream().map(Partition::getId).distinct().count() == partitions.size(),
         "Passed partitions must be unique, got partitions %s",
         partitions);
-    executor.execute(
+    executor.submit(
         () -> {
+          terminationContext.setRunningThread();
           try {
             Set<AttributeDescriptor<?>> attrs = new HashSet<>(attributes);
-
-            partitions
-                .stream()
-                .sorted()
-                .forEach(
-                    p -> {
-                      @SuppressWarnings("unchecked")
-                      BulkStoragePartition<BlobT> part = (BulkStoragePartition<BlobT>) p;
-                      part.getBlobs()
-                          .forEach(
-                              blob -> {
-                                try {
-                                  runHandlingErrors(
-                                      blob,
-                                      () -> {
-                                        log.info(
-                                            "Starting to observe {} from partition {}", blob, p);
-                                        try (Reader reader =
-                                            fileFormat.openReader(createPath(blob), entity)) {
-                                          reader.forEach(
-                                              e -> {
-                                                if (attrs.contains(e.getAttributeDescriptor())) {
-                                                  observer.onNext(
-                                                      e,
-                                                      BatchLogObservers.withWatermarkSupplier(
-                                                          p, p::getMinTimestamp));
-                                                }
-                                              });
-                                        }
-                                      });
-                                } catch (Exception ex) {
-                                  throw new IllegalStateException(
-                                      String.format("Failed to read from %s", blob), ex);
-                                }
-                              });
-                    });
-            observer.onCompleted();
-          } catch (Exception ex) {
-            log.error("Failed to observe partitions {}", partitions, ex);
-            if (observer.onError(ex)) {
-              log.info("Restarting processing by request");
-              observe(partitions, attributes, observer);
+            AtomicBoolean stopProcessing = new AtomicBoolean(false);
+            Iterator<Partition> iterator = partitions.iterator();
+            while (iterator.hasNext()
+                && !terminationContext.isCancelled()
+                && !stopProcessing.get()) {
+              Partition p = iterator.next();
+              processSinglePartition(p, attrs, terminationContext, stopProcessing, observer);
             }
+            terminationContext.finished();
+          } catch (Throwable ex) {
+            terminationContext.handleErrorCaught(
+                ex,
+                () -> {
+                  log.info("Restarting processing by request");
+                  observeInternal(partitions, attributes, observer, terminationContext);
+                });
           }
         });
+  }
+
+  private void processSinglePartition(
+      Partition partition,
+      Set<AttributeDescriptor<?>> attrs,
+      TerminationContext terminationContext,
+      AtomicBoolean stopProcessing,
+      BatchLogObserver observer) {
+
+    @SuppressWarnings("unchecked")
+    BulkStoragePartition<BlobT> part = (BulkStoragePartition<BlobT>) partition;
+    for (BlobT blob : part.getBlobs()) {
+      if (terminationContext.isCancelled() || stopProcessing.get()) {
+        break;
+      }
+      try {
+        runHandlingErrors(
+            blob,
+            () -> {
+              log.info("Starting to observe {} from partition {}", blob, partition);
+              try (Reader reader = fileFormat.openReader(createPath(blob), entity)) {
+                for (StreamElement e : reader) {
+                  if (stopProcessing.get() || terminationContext.isCancelled()) {
+                    break;
+                  }
+                  if (attrs.contains(e.getAttributeDescriptor())) {
+                    boolean cont =
+                        observer.onNext(
+                            e,
+                            BatchLogObservers.withWatermarkSupplier(
+                                partition, partition::getMinTimestamp));
+
+                    if (!cont) {
+                      stopProcessing.set(true);
+                      break;
+                    }
+                  }
+                }
+              }
+            });
+      } catch (Exception ex) {
+        throw new IllegalStateException(String.format("Failed to read from %s", blob), ex);
+      }
+    }
   }
 
   protected abstract void runHandlingErrors(BlobT blob, ThrowingRunnable runnable) throws Exception;

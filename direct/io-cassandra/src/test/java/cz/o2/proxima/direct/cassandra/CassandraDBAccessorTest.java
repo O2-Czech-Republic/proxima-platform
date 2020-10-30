@@ -31,6 +31,7 @@ import com.datastax.driver.core.Statement;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
@@ -58,6 +59,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.Getter;
 import lombok.Setter;
 import org.junit.Test;
@@ -535,18 +537,18 @@ public class CassandraDBAccessorTest {
     CassandraLogReader reader = new CassandraLogReader(accessor, Executors::newCachedThreadPool);
 
     int numElements = 100;
-    long now = System.currentTimeMillis();
     ResultSet result = mockResultSet(numElements);
     accessor.setRes(result);
 
-    CountDownLatch latch = new CountDownLatch(numElements + 1);
+    AtomicInteger numConsumed = new AtomicInteger();
+    CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
         reader.getPartitions(),
         Collections.singletonList(attr),
         new BatchLogObserver() {
           @Override
           public boolean onNext(StreamElement element) {
-            latch.countDown();
+            numConsumed.incrementAndGet();
             return true;
           }
 
@@ -565,9 +567,91 @@ public class CassandraDBAccessorTest {
         });
 
     latch.await();
-
+    assertEquals(numElements, numConsumed.get());
     List<Statement> executed = accessor.getExecuted();
     assertEquals(2, executed.size());
+  }
+
+  @Test(timeout = 10000)
+  public void testBatchReaderOnNextCancel() throws InterruptedException {
+
+    TestDBAccessor accessor =
+        new TestDBAccessor(
+            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+    CassandraLogReader reader = new CassandraLogReader(accessor, Executors::newCachedThreadPool);
+
+    int numElements = 100;
+    ResultSet result = mockResultSet(numElements);
+    accessor.setRes(result);
+
+    AtomicInteger numConsumed = new AtomicInteger();
+    CountDownLatch latch = new CountDownLatch(1);
+    reader.observe(
+        reader.getPartitions(),
+        Collections.singletonList(attr),
+        new BatchLogObserver() {
+          @Override
+          public boolean onNext(StreamElement element) {
+            numConsumed.incrementAndGet();
+            return false;
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+
+          @Override
+          public void onCompleted() {
+            latch.countDown();
+          }
+        });
+
+    latch.await();
+    assertEquals(1, numConsumed.get());
+  }
+
+  @Test(timeout = 10000)
+  public void testBatchReaderCancelled() throws InterruptedException {
+
+    TestDBAccessor accessor =
+        new TestDBAccessor(
+            entity, URI.create("cassandra://localhost/"), getCfg(TestCqlFactory.class, 2));
+    CassandraLogReader reader = new CassandraLogReader(accessor, Executors::newCachedThreadPool);
+
+    int numElements = 2;
+    ResultSet result = mockResultSet(numElements);
+    accessor.setRes(result);
+
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+    handle.set(
+        reader.observe(
+            reader.getPartitions(),
+            Collections.singletonList(attr),
+            new BatchLogObserver() {
+              @Override
+              public boolean onNext(StreamElement element) {
+                handle.get().close();
+                return true;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+
+              @Override
+              public void onCancelled() {
+                latch.countDown();
+              }
+
+              @Override
+              public void onCompleted() {
+                fail("onCompleted should have not been called");
+              }
+            }));
+    latch.await();
   }
 
   private ResultSet mockResultSet(int numElements) {

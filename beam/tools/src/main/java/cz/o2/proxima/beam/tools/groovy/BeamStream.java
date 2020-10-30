@@ -82,6 +82,8 @@ import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Serializer;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Input;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Output;
 import org.apache.beam.repackaged.kryo.org.objenesis.strategy.StdInstantiatorStrategy;
+import org.apache.beam.runners.direct.DirectRunner;
+import org.apache.beam.runners.flink.FlinkRunner;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
@@ -218,7 +220,8 @@ class BeamStream<T> implements Stream<T> {
   final PCollectionProvider<T> collection;
   final StreamProvider.TerminatePredicate terminateCheck;
   final Factory<Pipeline> pipelineFactory;
-  final List<RemoteConsumer<?>> remoteConsumers = new ArrayList<>();
+
+  private final List<RemoteConsumer<?>> remoteConsumers = new ArrayList<>();
 
   @Getter WindowingStrategy<Object, ?> windowingStrategy;
 
@@ -324,7 +327,7 @@ class BeamStream<T> implements Stream<T> {
         });
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "rawtypes"})
   static <T> PCollection<Pair<Object, T>> applyExtractWindow(
       @Nullable String name, PCollection<T> in, Pipeline pipeline) {
 
@@ -338,7 +341,7 @@ class BeamStream<T> implements Stream<T> {
     } else {
       ret = (PCollection) in.apply(ParDo.of(ExtractWindow.of()));
     }
-    return ret.setCoder((Coder) PairCoder.of(windowCoder, in.getCoder()));
+    return ret.setCoder(PairCoder.of(windowCoder, in.getCoder()));
   }
 
   private void forEach(@Nullable String name, Consumer<T> consumer) {
@@ -351,20 +354,26 @@ class BeamStream<T> implements Stream<T> {
     PCollection<T> pcoll = collection.materialize(pipeline);
     if (gatherLocally) {
       try (RemoteConsumer<T> remoteConsumer = createRemoteConsumer(pcoll.getCoder(), consumer)) {
-        forEachRemote(name, pcoll, remoteConsumer, pipeline);
+        forEachRemote(name, pcoll, remoteConsumer, true, pipeline);
       }
     } else {
-      forEachRemote(name, pcoll, consumer, pipeline);
+      forEachRemote(name, pcoll, consumer, false, pipeline);
     }
   }
 
   private void forEachRemote(
-      @Nullable String name, PCollection<T> pcoll, Consumer<T> consumer, Pipeline pipeline) {
+      @Nullable String name,
+      PCollection<T> pcoll,
+      Consumer<T> consumer,
+      boolean allowStable,
+      Pipeline pipeline) {
 
     if (name != null) {
-      pcoll.apply(name, asWriteTransform(asDoFn(consumer)));
+      pcoll.apply(
+          name, asWriteTransform(asDoFn(pcoll.getPipeline().getOptions(), allowStable, consumer)));
     } else {
-      pcoll.apply(asWriteTransform(asDoFn(consumer)));
+      pcoll.apply(
+          asWriteTransform(asDoFn(pcoll.getPipeline().getOptions(), allowStable, consumer)));
     }
     runPipeline(pipeline);
   }
@@ -707,7 +716,6 @@ class BeamStream<T> implements Stream<T> {
     return windowed(collection::materialize, new GlobalWindows());
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public Stream<T> union(@Nullable String name, List<Stream<T>> others) {
     boolean allBounded = others.stream().allMatch(Stream::isBounded) && isBounded();
@@ -720,7 +728,7 @@ class BeamStream<T> implements Stream<T> {
     if (!allBounded) {
       // turn all inputs to reading in unbouded mode
       // this propagates to sources
-      others.stream().forEach(s -> ((BeamStream<T>) s).collection.asUnbounded());
+      others.forEach(s -> ((BeamStream<T>) s).collection.asUnbounded());
       collection.asUnbounded();
     }
     boolean sameWindows =
@@ -835,7 +843,6 @@ class BeamStream<T> implements Stream<T> {
           Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
           Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
           Coder<O> outputCoder = coderOf(pipeline, outputDehydrated);
-          @SuppressWarnings("unchecked")
           Coder<S> stateCoder = coderOf(pipeline, initialStateDehydrated);
           if (!in.getWindowingStrategy().equals(windowingStrategy)) {
             @SuppressWarnings("unchecked")
@@ -976,7 +983,6 @@ class BeamStream<T> implements Stream<T> {
     return Pipeline.create(opts);
   }
 
-  @VisibleForTesting
   <T> Coder<T> coderOf(Pipeline pipeline, Closure<T> closure) {
     return getCoder(pipeline, TypeDescriptor.of(Types.returnClass(closure)));
   }
@@ -992,7 +998,7 @@ class BeamStream<T> implements Stream<T> {
   <X> BeamWindowedStream<X> windowed(
       Function<Pipeline, PCollection<X>> factory, WindowFn<? super X, ?> window) {
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "rawtypes"})
     WindowingStrategy<Object, ?> strategy =
         (WindowingStrategy)
             WindowingStrategy.of(window)
@@ -1118,7 +1124,7 @@ class BeamStream<T> implements Stream<T> {
     for (Field f : obj.getClass().getDeclaredFields()) {
       f.setAccessible(true);
       Object fieldVal = ExceptionUtils.uncheckedFactory(() -> f.get(obj));
-      if (fieldVal != null && !extracted.contains(fieldVal)) {
+      if (fieldVal != null && !extracted.contains(fieldVal.getClass())) {
         extractFieldsRecursivelyInto(fieldVal.getClass(), extracted);
       }
     }
@@ -1220,6 +1226,20 @@ class BeamStream<T> implements Stream<T> {
       if (consumer instanceof AutoCloseable) {
         ExceptionUtils.unchecked(((AutoCloseable) consumer)::close);
       }
+    }
+  }
+
+  private static class StableConsumeFn<T> extends ConsumeFn<T> {
+
+    StableConsumeFn(Consumer<T> consumer) {
+      super(consumer);
+    }
+
+    @Override
+    @ProcessElement
+    @RequiresStableInput
+    public void process(@Element T elem) {
+      super.process(elem);
     }
   }
 
@@ -1411,8 +1431,17 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
-  private static <T> DoFn<T, Void> asDoFn(Consumer<T> consumer) {
+  private <T> DoFn<T, Void> asDoFn(
+      PipelineOptions opts, boolean allowStable, Consumer<T> consumer) {
+    if (allowStable && supportsStableInput(opts)) {
+      return new StableConsumeFn<>(consumer);
+    }
     return new ConsumeFn<>(consumer);
+  }
+
+  private boolean supportsStableInput(PipelineOptions opts) {
+    return DirectRunner.class.isAssignableFrom(opts.getRunner())
+        || FlinkRunner.class.isAssignableFrom(opts.getRunner());
   }
 
   private static <T> PTransform<PCollection<T>, PDone> asWriteTransform(DoFn<T, ?> doFn) {

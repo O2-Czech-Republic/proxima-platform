@@ -16,12 +16,11 @@
 package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.annotations.Stable;
-import java.io.Serializable;
 import java.util.List;
 
 /** A interface for handling progress and control consumption of running observe process. */
 @Stable
-public interface ObserveHandle extends Serializable, AutoCloseable {
+public interface ObserveHandle extends AutoCloseable {
 
   /** Stop the consumption. */
   @Override
@@ -35,7 +34,7 @@ public interface ObserveHandle extends Serializable, AutoCloseable {
   List<Offset> getCommittedOffsets();
 
   /**
-   * Reset the consumption to given offsets. This will trigger onRestart when appropriate.
+   * Reset the consumption to given offsets.
    *
    * @param offsets the offsets to reset the processing to
    */

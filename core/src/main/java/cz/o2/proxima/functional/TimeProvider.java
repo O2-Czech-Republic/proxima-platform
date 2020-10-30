@@ -13,19 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.annotations;
+package cz.o2.proxima.functional;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import cz.o2.proxima.annotations.Internal;
+import java.io.Serializable;
 
 /**
- * Annotation used to mark type as intended for internal use with no backward compatibility
- * guarantees.
+ * Provider of timestamp. Timestamp can be provided according to different timestamp policies (e.g.
+ * processing time, watermark, test timestamps, etc.).
  */
-@Target({ElementType.TYPE, ElementType.METHOD})
-@Retention(RetentionPolicy.SOURCE)
-@Documented
-public @interface Internal {}
+@Internal
+@FunctionalInterface
+public interface TimeProvider extends Serializable {
+
+  /** @return {@link TimeProvider} using {@link System#currentTimeMillis()}. */
+  static TimeProvider processingTime() {
+    return System::currentTimeMillis;
+  }
+
+  /** @return current epoch milli time according to this timestamp provider */
+  long getCurrentTime();
+}

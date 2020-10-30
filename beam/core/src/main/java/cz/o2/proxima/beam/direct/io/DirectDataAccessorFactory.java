@@ -60,7 +60,7 @@ public class DirectDataAccessorFactory implements DataAccessorFactory {
               .orElseThrow(() -> new IllegalStateException("Missing directLoader?"))
               .createAccessor(op.getDirect(), entity, uri, cfg);
       return new DirectDataAccessorWrapper(
-          op.getRepository(), directAccessor, uri, op.getDirect().getContext());
+          op.getRepository(), directAccessor, uri, op.getDirect().getContext(), cfg);
     }
     throw new IllegalStateException("Missing direct operator. Cannot create accessor");
   }

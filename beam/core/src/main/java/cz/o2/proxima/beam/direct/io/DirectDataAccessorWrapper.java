@@ -27,6 +27,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
@@ -43,14 +44,20 @@ public class DirectDataAccessorWrapper implements DataAccessor {
   private final cz.o2.proxima.direct.core.DataAccessor direct;
   @Getter private final URI uri;
   private final Context context;
+  private final Map<String, Object> cfg;
 
   public DirectDataAccessorWrapper(
-      Repository repo, cz.o2.proxima.direct.core.DataAccessor direct, URI uri, Context context) {
+      Repository repo,
+      cz.o2.proxima.direct.core.DataAccessor direct,
+      URI uri,
+      Context context,
+      Map<String, Object> cfg) {
 
     this.factory = repo.asFactory();
     this.direct = direct;
     this.uri = uri;
     this.context = context;
+    this.cfg = cfg;
   }
 
   @Override
@@ -130,7 +137,8 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     ret =
         pipeline.apply(
             "ReadBatchUnbounded:" + uri,
-            Read.from(DirectBatchUnboundedSource.of(factory, reader, attrs, startStamp, endStamp)));
+            Read.from(
+                DirectBatchUnboundedSource.of(factory, reader, attrs, startStamp, endStamp, cfg)));
     return ret.setCoder(StreamElementCoder.of(factory))
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
   }

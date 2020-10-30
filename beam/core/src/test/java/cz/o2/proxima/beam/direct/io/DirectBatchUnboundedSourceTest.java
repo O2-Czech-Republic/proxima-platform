@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.direct.io;
 
 import static org.junit.Assert.*;
 
+import avro.shaded.com.google.common.collect.Lists;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.direct.io.DirectBatchUnboundedSource.Checkpoint;
@@ -38,7 +39,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.CoderException;
 import org.apache.beam.sdk.io.Read;
@@ -118,11 +121,39 @@ public class DirectBatchUnboundedSourceTest {
             throwingReader(),
             Collections.singletonList(repo.getEntity("gateway").getAttribute("armed")),
             Long.MIN_VALUE,
-            Long.MAX_VALUE);
+            Long.MAX_VALUE,
+            Collections.emptyMap());
     List<? extends UnboundedSource<StreamElement, Checkpoint>> split = source.split(1, opts);
     assertEquals(1, split.size());
     UnboundedReader<StreamElement> reader = split.get(0).createReader(opts, null);
     reader.advance();
+  }
+
+  @Test
+  public void testOwnAndCheckpointPartitionMerge() {
+    List<Partition> own =
+        Lists.newArrayList(Partition.of(3), Partition.of(2), Partition.of(0), Partition.of(1));
+    List<Partition> fromCheckpoint = Collections.singletonList(Partition.of(1));
+    List<Integer> merged =
+        DirectBatchUnboundedSource.merge(true, own, fromCheckpoint)
+            .stream()
+            .map(Partition::getId)
+            .collect(Collectors.toList());
+    assertEquals(Lists.newArrayList(1, 2, 3), merged);
+    assertEquals(fromCheckpoint, DirectBatchUnboundedSource.merge(false, own, fromCheckpoint));
+    Map<String, Object> cfg =
+        Collections.singletonMap(
+            DirectBatchUnboundedSource.CFG_ENABLE_CHECKPOINT_PARTITION_MERGE, "true");
+    assertTrue(DirectBatchUnboundedSource.isEnableCheckpointPartitionMerge(cfg));
+    assertFalse(
+        DirectBatchUnboundedSource.isEnableCheckpointPartitionMerge(Collections.emptyMap()));
+    List<Partition> emptyList = Collections.emptyList();
+    try {
+      DirectBatchUnboundedSource.merge(true, emptyList, emptyList);
+      fail("Should have thrown exception");
+    } catch (IllegalArgumentException ex) {
+      // pass
+    }
   }
 
   private BatchLogReader throwingReader() {
@@ -175,7 +206,8 @@ public class DirectBatchUnboundedSourceTest {
                       reader,
                       Collections.singletonList(armed),
                       Long.MIN_VALUE,
-                      Long.MAX_VALUE)));
+                      Long.MAX_VALUE,
+                      Collections.emptyMap())));
       PCollection<Long> res =
           input
               .apply(

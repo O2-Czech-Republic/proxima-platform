@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -62,14 +64,18 @@ public class DirectBatchUnboundedSource
 
   private static final long serialVersionUID = 1L;
 
+  public static final String CFG_ENABLE_CHECKPOINT_PARTITION_MERGE =
+      "checkpoint-partition-merge-enabled";
+
   public static DirectBatchUnboundedSource of(
       RepositoryFactory factory,
       BatchLogReader reader,
       List<AttributeDescriptor<?>> attrs,
       long startStamp,
-      long endStamp) {
+      long endStamp,
+      Map<String, Object> cfg) {
 
-    return new DirectBatchUnboundedSource(factory, reader, attrs, startStamp, endStamp);
+    return new DirectBatchUnboundedSource(factory, reader, attrs, startStamp, endStamp, cfg);
   }
 
   @ToString
@@ -144,6 +150,7 @@ public class DirectBatchUnboundedSource
   private final List<AttributeDescriptor<?>> attributes;
   private final long startStamp;
   private final long endStamp;
+  private final boolean enableCheckpointPartitionMerge;
   private transient @Nullable BatchLogReader reader;
   // transient, (de)serialization handled outside of default(Read|Write)Object
   private transient List<Partition> partitions;
@@ -153,7 +160,8 @@ public class DirectBatchUnboundedSource
       BatchLogReader reader,
       List<AttributeDescriptor<?>> attributes,
       long startStamp,
-      long endStamp) {
+      long endStamp,
+      Map<String, Object> cfg) {
 
     this.repositoryFactory = repositoryFactory;
     this.readerFactory = reader.asFactory();
@@ -162,6 +170,7 @@ public class DirectBatchUnboundedSource
     this.startStamp = startStamp;
     this.endStamp = endStamp;
     this.reader = reader;
+    this.enableCheckpointPartitionMerge = isEnableCheckpointPartitionMerge(cfg);
   }
 
   private DirectBatchUnboundedSource(
@@ -175,6 +184,7 @@ public class DirectBatchUnboundedSource
     this.attributes = parent.attributes;
     this.startStamp = startStamp;
     this.endStamp = endStamp;
+    this.enableCheckpointPartitionMerge = parent.enableCheckpointPartitionMerge;
     List<Partition> parts = Lists.newArrayList(partitions);
     parts.sort(Comparator.naturalOrder());
     this.partitions = Collections.unmodifiableList(parts);
@@ -183,6 +193,18 @@ public class DirectBatchUnboundedSource
           "Created source with partition min timestamps {}",
           parts.stream().map(Partition::getMinTimestamp).collect(Collectors.toList()));
     }
+  }
+
+  @VisibleForTesting
+  static boolean isEnableCheckpointPartitionMerge(Map<String, Object> cfg) {
+    return getBool(CFG_ENABLE_CHECKPOINT_PARTITION_MERGE, cfg);
+  }
+
+  private static boolean getBool(String name, Map<String, Object> cfg) {
+    return Optional.ofNullable(cfg.get(name))
+        .map(Object::toString)
+        .map(Boolean::valueOf)
+        .orElse(false);
   }
 
   @Override
@@ -220,9 +242,35 @@ public class DirectBatchUnboundedSource
 
     List<Partition> toProcess =
         Collections.synchronizedList(
-            new ArrayList<>(checkpointMark == null ? partitions : checkpointMark.partitions));
+            new ArrayList<>(
+                checkpointMark == null
+                    ? partitions
+                    : merge(
+                        enableCheckpointPartitionMerge, partitions, checkpointMark.partitions)));
     return new StreamElementUnboundedReader(
         DirectBatchUnboundedSource.this, reader(), attributes, checkpointMark, toProcess);
+  }
+
+  @VisibleForTesting
+  static List<Partition> merge(
+      boolean enabled, List<Partition> own, List<Partition> fromCheckpoint) {
+
+    if (enabled) {
+      List<Partition> ret = new ArrayList<>(fromCheckpoint);
+      Preconditions.checkArgument(
+          !fromCheckpoint.isEmpty(),
+          "Checkpoint partitions are already processed. "
+              + "This is unsupported for now, please use older checkpoint, if possible, or disable %s",
+          CFG_ENABLE_CHECKPOINT_PARTITION_MERGE);
+      fromCheckpoint
+          .stream()
+          .max(Comparator.naturalOrder())
+          .ifPresent(
+              partition ->
+                  own.stream().sorted().filter(p -> p.compareTo(partition) > 0).forEach(ret::add));
+      return ret;
+    }
+    return fromCheckpoint;
   }
 
   private BatchLogReader reader() {

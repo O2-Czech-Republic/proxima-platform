@@ -23,13 +23,17 @@
   <parent>
     <groupId>cz.o2.proxima</groupId>
     <artifactId>proxima-direct</artifactId>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
   </parent>
 
   <artifactId>proxima-direct-io-kafka</artifactId>
   <packaging>jar</packaging>
 
   <name>${project.groupId}:${project.artifactId}</name>
+
+  <properties>
+    <shadePattern>cz.o2.proxima.kafka.shaded</shadePattern>
+  </properties>
 
   <build>
     <plugins>
@@ -74,27 +78,27 @@
           <relocations>
             <relocation>
               <pattern>org.apache.kafka.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.org.apache.kafka.</shadedPattern>
+              <shadedPattern>${shadePattern}.org.apache.kafka.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>net.sf.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.net.sf.</shadedPattern>
+              <shadedPattern>${shadePattern}.net.sf.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.yammer.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.com.yammer.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.yammer.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>scala.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.scala.</shadedPattern>
+              <shadedPattern>${shadePattern}.scala.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.101tec.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.com.101tec.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.101tec.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>org.apache.zookeeper.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.org.apache.zookeeper.</shadedPattern>
+              <shadedPattern>${shadePattern}.org.apache.zookeeper.</shadedPattern>
             </relocation>
             <relocation>
               <pattern>com.google.common.</pattern>
@@ -102,7 +106,11 @@
             </relocation>
             <relocation>
               <pattern>com.google.protobuf.</pattern>
-              <shadedPattern>cz.o2.proxima.kafka.shaded.com.google.protobuf.</shadedPattern>
+              <shadedPattern>${shadePattern}.com.google.protobuf.</shadedPattern>
+            </relocation>
+            <relocation>
+              <pattern>com.fasterxml.</pattern>
+              <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>
           </relocations>
         </configuration>
@@ -157,6 +165,12 @@
       <version>${project.version}</version>
       <classifier>tests</classifier>
       <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.11.3</version>
     </dependency>
 
     <dependency>

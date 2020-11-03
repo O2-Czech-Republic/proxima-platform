@@ -20,4 +20,4 @@
 #
 
 COMMIT=$(git log --tags | head -1 | cut -d' ' -f2)
-git log $COMMIT..HEAD | grep "Merge pull request" | sed "s/ \+Merge pull request #\([0-9]\+\)/Merge pull request \[\#\1\](https:\/\/github.com\/datadrivencz\/proxima-platform\/pull\/\1)/"
+git log $COMMIT..HEAD | grep "Merge pull request" | sed "s/ \+Merge pull request #\([0-9]\+\)/ - Merge pull request \[\#\1\](https:\/\/github.com\/datadrivencz\/proxima-platform\/pull\/\1)/"

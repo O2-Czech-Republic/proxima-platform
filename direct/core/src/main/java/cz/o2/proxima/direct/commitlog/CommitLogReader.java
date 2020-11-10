@@ -181,7 +181,6 @@ public interface CommitLogReader {
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   default ObserveHandle observeBulk(String name, Position position, LogObserver observer) {
-
     return observeBulk(name, position, false, observer);
   }
 
@@ -195,7 +194,6 @@ public interface CommitLogReader {
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   default ObserveHandle observeBulk(String name, LogObserver observer) {
-
     return observeBulk(name, Position.NEWEST, observer);
   }
 

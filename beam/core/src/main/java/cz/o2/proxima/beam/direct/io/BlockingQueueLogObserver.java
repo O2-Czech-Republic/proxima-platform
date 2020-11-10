@@ -149,6 +149,8 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   private boolean cancelled = false;
 
   private BlockingQueueLogObserver(String name, long limit, long startingWatermark) {
+    Preconditions.checkArgument(limit >= 0, "Please provide non-negative limit");
+
     this.name = Objects.requireNonNull(name);
     this.watermark = new AtomicLong(startingWatermark);
     this.limit = limit;
@@ -296,10 +298,16 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   }
 
   void stop() {
+    stop(true);
+  }
+
+  void stop(boolean nack) {
     stopped.set(true);
-    List<Pair<StreamElement, UnifiedContext>> drop = new ArrayList<>();
-    queue.drainTo(drop);
-    drop.stream().map(Pair::getSecond).filter(Objects::nonNull).forEach(UnifiedContext::nack);
+    if (nack) {
+      List<Pair<StreamElement, UnifiedContext>> drop = new ArrayList<>();
+      queue.drainTo(drop);
+      drop.stream().map(Pair::getSecond).filter(Objects::nonNull).forEach(UnifiedContext::nack);
+    }
   }
 
   void clearIncomingQueue() {

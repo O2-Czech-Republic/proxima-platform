@@ -17,6 +17,8 @@ package cz.o2.proxima.direct.storage;
 
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
@@ -32,8 +34,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Getter;
 
 /**
@@ -49,10 +53,10 @@ public class ListCommitLog implements CommitLogReader {
 
     private static final long serialVersionUID = 1L;
 
-    @Getter final long offset;
+    @Getter final int offset;
     @Getter final long watermark;
 
-    public IntOffset(long offset, long watermark) {
+    public IntOffset(int offset, long watermark) {
       this.offset = offset;
       this.watermark = watermark;
     }
@@ -64,7 +68,10 @@ public class ListCommitLog implements CommitLogReader {
 
     @Override
     public String toString() {
-      return "IntOffset(" + "offset=" + offset + ", watermark=" + watermark + ")";
+      return MoreObjects.toStringHelper(this)
+          .add("offset", offset)
+          .add("watermark", watermark)
+          .toString();
     }
 
     @Override
@@ -97,7 +104,7 @@ public class ListCommitLog implements CommitLogReader {
 
     @Override
     public List<Offset> getCommittedOffsets() {
-      return Arrays.asList(new IntOffset(0L, Long.MIN_VALUE));
+      return Collections.singletonList(new IntOffset(0, Long.MIN_VALUE));
     }
 
     @Override
@@ -144,9 +151,17 @@ public class ListCommitLog implements CommitLogReader {
                         observer.onError(exc);
                       }
                     },
-                    new IntOffset(offset, System.currentTimeMillis()))),
+                    new IntOffset(offset, getWatermark(offset)))),
         observer::onCompleted);
     return new NopObserveHandle();
+  }
+
+  private long getWatermark(int offset) {
+    long watermark = Long.MAX_VALUE;
+    for (int i = offset; i < data.size(); i++) {
+      watermark = Math.min(watermark, data.get(i).getStamp() - 1);
+    }
+    return watermark;
   }
 
   @Override
@@ -164,20 +179,7 @@ public class ListCommitLog implements CommitLogReader {
   public ObserveHandle observeBulk(
       String name, Position position, boolean stopAtCurrent, LogObserver observer) {
 
-    observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION)));
-    pushTo(
-        (element, offset) ->
-            observer.onNext(
-                element,
-                asOnNextContext(
-                    (succ, exc) -> {
-                      if (!succ) {
-                        observer.onError(exc);
-                      }
-                    },
-                    new IntOffset(offset, System.currentTimeMillis()))),
-        observer::onCompleted);
-    return new NopObserveHandle();
+    return pushToObserver(0, observer);
   }
 
   @Override
@@ -193,8 +195,7 @@ public class ListCommitLog implements CommitLogReader {
 
   @Override
   public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
-
-    return observeBulk(null, null, observer);
+    return pushToObserver(((IntOffset) Iterables.getOnlyElement(offsets)).offset + 1, observer);
   }
 
   @Override
@@ -202,6 +203,32 @@ public class ListCommitLog implements CommitLogReader {
     final List<StreamElement> data = this.data;
     final Context context = this.context;
     return repo -> new ListCommitLog(data, context);
+  }
+
+  @Override
+  public boolean hasExternalizableOffsets() {
+    return true;
+  }
+
+  private ObserveHandle pushToObserver(int skip, LogObserver observer) {
+    observer.onRepartition(asRepartitionContext(Collections.singletonList(PARTITION)));
+    AtomicInteger skipCounter = new AtomicInteger(skip);
+    pushTo(
+        (element, offset) -> {
+          if (skipCounter.decrementAndGet() <= 0) {
+            observer.onNext(
+                element,
+                asOnNextContext(
+                    (succ, exc) -> {
+                      if (!succ) {
+                        observer.onError(exc);
+                      }
+                    },
+                    new IntOffset(offset, System.currentTimeMillis())));
+          }
+        },
+        observer::onCompleted);
+    return new NopObserveHandle();
   }
 
   private void pushTo(BiConsumer<StreamElement, Integer> consumer, Runnable finish) {

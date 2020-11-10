@@ -345,7 +345,7 @@ public class InMemStorageTest implements Serializable {
             (succ, exc) -> {});
     List<Offset> offsets = handle.getCurrentOffsets();
     assertEquals(1, offsets.size());
-    assertEquals(Arrays.asList((byte) 1), received);
+    assertEquals(Collections.singletonList((byte) 1), received);
     handle.close();
     writer
         .online()
@@ -359,7 +359,7 @@ public class InMemStorageTest implements Serializable {
                 System.currentTimeMillis(),
                 new byte[] {2}),
             (succ, exc) -> {});
-    assertEquals(Arrays.asList((byte) 1), received);
+    assertEquals(Collections.singletonList((byte) 1), received);
   }
 
   @Test(timeout = 10000)

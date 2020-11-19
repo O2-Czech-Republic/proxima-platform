@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import cz.o2.proxima.beam.direct.io.BlockingQueueLogObserver.UnifiedContext;
 import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetRange;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader.Factory;
@@ -31,6 +32,8 @@ import cz.o2.proxima.util.ExceptionUtils;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.SerializableCoder;
 import org.apache.beam.sdk.transforms.DoFn;
@@ -38,6 +41,7 @@ import org.apache.beam.sdk.transforms.Impulse;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
+import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.Instant;
@@ -89,7 +93,22 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
     @ProcessElement
     public ProcessContinuation process(
-        RestrictionTracker<OffsetRange, Offset> tracker, OutputReceiver<StreamElement> output) {
+        RestrictionTracker<OffsetRange, Offset> tracker,
+        OutputReceiver<StreamElement> output,
+        BundleFinalizer finalizer) {
+
+      AtomicReference<UnifiedContext> readContext = new AtomicReference<>();
+      AtomicReference<UnifiedContext> lastWrittenContext = new AtomicReference<>();
+      if (!externalizableOffsets) {
+        // we confirm only processing of CommitLogReaders with non-externalizable offsets
+        // externalizable offsets are persisted and reloaded during recovery
+        finalizer.afterBundleCommit(
+            BoundedWindow.TIMESTAMP_MAX_VALUE,
+            () -> {
+              Optional.ofNullable(readContext.get()).ifPresent(UnifiedContext::confirm);
+              Optional.ofNullable(lastWrittenContext.get()).ifPresent(UnifiedContext::nack);
+            });
+      }
 
       try (ObserveHandle handle = startObserve(tracker.currentRestriction())) {
         int i = 0;
@@ -114,7 +133,13 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
           output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
         }
       } finally {
+        lastWrittenContext.set(observer.getLastWrittenContext());
         observer.stop(false);
+        Optional.ofNullable(observer.getError())
+            .ifPresent(
+                ex -> {
+                  throw new IllegalStateException(ex);
+                });
       }
       boolean terminated = observer.getWatermark() >= Watermarks.MAX_WATERMARK;
       return terminated ? ProcessContinuation.stop() : ProcessContinuation.resume();
@@ -180,6 +205,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
   private CommitLogRead(
       String observeName, Position position, long limit, Repository repo, CommitLogReader reader) {
+
     this.observeName = observeName;
     this.position = position;
     this.limit = limit;

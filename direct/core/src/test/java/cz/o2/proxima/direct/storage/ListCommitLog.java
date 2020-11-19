@@ -32,13 +32,17 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import lombok.Getter;
+
+import javax.annotation.Nullable;
 
 /**
  * A bounded {@link CommitLogReader} containing predefined data.
@@ -93,18 +97,24 @@ public class ListCommitLog implements CommitLogReader {
     return new ListCommitLog(data, context);
   }
 
-  private final List<StreamElement> data;
-  private final Context context;
-  private transient ExecutorService executor;
+  public static ListCommitLog ofNonExternalizable(List<StreamElement> data, Context context) {
+    return new ListCommitLog(data, context, false);
+  }
 
-  private static final class NopObserveHandle implements ObserveHandle {
+  private final class ListObserveHandle implements ObserveHandle {
+
+    @Nullable private final String consumerName;
+
+    ListObserveHandle(Offset offset) {
+      this.offset = offset;
+    }
 
     @Override
     public void close() {}
 
     @Override
     public List<Offset> getCommittedOffsets() {
-      return Collections.singletonList(new IntOffset(0, Long.MIN_VALUE));
+      return Collections.singletonList(offset);
     }
 
     @Override
@@ -116,12 +126,23 @@ public class ListCommitLog implements CommitLogReader {
     }
 
     @Override
-    public void waitUntilReady() throws InterruptedException {}
+    public void waitUntilReady() {}
   }
 
+  private final List<StreamElement> data;
+  private final Context context;
+  private final boolean externalizableOffsets;
+  private final Map<String, Set<Integer>> committedOffsets = new ConcurrentHashMap<>();
+  private transient ExecutorService executor;
+
   private ListCommitLog(List<StreamElement> data, Context context) {
+    this(data, context, true);
+  }
+
+  private ListCommitLog(List<StreamElement> data, Context context, boolean externalizableOffsets) {
     this.data = Lists.newArrayList(data);
     this.context = context;
+    this.externalizableOffsets = externalizableOffsets;
   }
 
   @Override
@@ -135,25 +156,31 @@ public class ListCommitLog implements CommitLogReader {
 
   @Override
   public List<Partition> getPartitions() {
-    return Arrays.asList(PARTITION);
+    return Collections.singletonList(PARTITION);
   }
 
   @Override
   public ObserveHandle observe(String name, Position position, LogObserver observer) {
-
     pushTo(
         (element, offset) ->
             observer.onNext(
                 element,
                 asOnNextContext(
                     (succ, exc) -> {
-                      if (!succ) {
+                      if (!succ && exc != null) {
                         observer.onError(exc);
                       }
                     },
-                    new IntOffset(offset, getWatermark(offset)))),
+                    offsetFor(offset, getWatermark(offset)))),
         observer::onCompleted);
-    return new NopObserveHandle();
+    return new ListObserveHandle(offsetFor(0, Long.MIN_VALUE));
+  }
+
+  private Offset offsetFor(int offset, long watermark) {
+    if (externalizableOffsets) {
+      return new IntOffset(offset, watermark);
+    }
+    throw new UnsupportedOperationException();
   }
 
   private long getWatermark(int offset) {
@@ -199,7 +226,7 @@ public class ListCommitLog implements CommitLogReader {
   }
 
   @Override
-  public Factory asFactory() {
+  public Factory<?> asFactory() {
     final List<StreamElement> data = this.data;
     final Context context = this.context;
     return repo -> new ListCommitLog(data, context);
@@ -207,7 +234,7 @@ public class ListCommitLog implements CommitLogReader {
 
   @Override
   public boolean hasExternalizableOffsets() {
-    return true;
+    return externalizableOffsets;
   }
 
   private ObserveHandle pushToObserver(int skip, LogObserver observer) {
@@ -224,11 +251,11 @@ public class ListCommitLog implements CommitLogReader {
                         observer.onError(exc);
                       }
                     },
-                    new IntOffset(offset, System.currentTimeMillis())));
+                    offsetFor(offset, System.currentTimeMillis())));
           }
         },
         observer::onCompleted);
-    return new NopObserveHandle();
+    return new ListObserveHandle();
   }
 
   private void pushTo(BiConsumer<StreamElement, Integer> consumer, Runnable finish) {

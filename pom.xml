@@ -318,7 +318,8 @@
             <artifactId>maven-javadoc-plugin</artifactId>
             <version>${maven.javadoc.version}</version>
             <configuration>
-              <source>8</source>
+              <source>11</source>
+              <target>8</target>
               <!-- otherwise it fail with junit5 -->
               <show>private</show>
               <!-- hotfix for https://github.com/O2-Czech-Republic/proxima-platform/issues/185 -->

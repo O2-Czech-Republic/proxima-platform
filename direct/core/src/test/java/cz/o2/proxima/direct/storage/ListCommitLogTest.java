@@ -30,6 +30,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.time.WatermarkEstimator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -191,6 +192,7 @@ public class ListCommitLogTest {
   @Test(timeout = 10000)
   public void testObserveNonExternalizableUnnamedPauseContinueNoCommit()
       throws InterruptedException {
+
     CommitLogReader reader = ListCommitLog.ofNonExternalizable(data(10), direct.getContext());
     List<StreamElement> data = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
@@ -204,6 +206,43 @@ public class ListCommitLogTest {
     reader.observeBulkOffsets(handle.getCurrentOffsets(), toList(data, b -> nextLatch.countDown()));
     nextLatch.await();
     assertEquals(10, data.size());
+  }
+
+  @Test(timeout = 1000)
+  public void testObserveWithCustomWatemarkEstimator() throws InterruptedException {
+    long now = System.currentTimeMillis() - 1000;
+    int numElements = 10;
+    CommitLogReader reader =
+        ListCommitLog.of(data(numElements), new TestWatermarkEstimator(now), direct.getContext());
+
+    CountDownLatch latch = new CountDownLatch(1);
+    List<Long> watermarks = new ArrayList<>();
+    ObserveHandle handle =
+        reader.observe(
+            null,
+            new LogObserver() {
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                context.confirm();
+                watermarks.add(context.getWatermark());
+                return true;
+              }
+
+              @Override
+              public void onCompleted() {
+                latch.countDown();
+              }
+            });
+    latch.await();
+    assertEquals(numElements, watermarks.size());
+    List<Long> expected =
+        IntStream.range(0, numElements).mapToObj(i -> now + i).collect(Collectors.toList());
+    assertEquals(expected, watermarks);
   }
 
   private static LogObserver toList(List<StreamElement> list, Consumer<Boolean> onFinished) {
@@ -254,5 +293,29 @@ public class ListCommitLogTest {
                     now + i,
                     new byte[] {(byte) i}))
         .collect(Collectors.toList());
+  }
+
+  private static class TestWatermarkEstimator implements WatermarkEstimator {
+
+    long watermark;
+
+    public TestWatermarkEstimator(long now) {
+      watermark = now;
+    }
+
+    @Override
+    public long getWatermark() {
+      return watermark;
+    }
+
+    @Override
+    public void setMinWatermark(long minWatermark) {
+      // nop
+    }
+
+    @Override
+    public void update(StreamElement element) {
+      watermark++;
+    }
   }
 }

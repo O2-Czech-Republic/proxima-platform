@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.direct.io;
 
 import cz.o2.proxima.beam.direct.io.BlockingQueueLogObserver.UnifiedContext;
 import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetRange;
+import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetWatermarkEstimator;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader.Factory;
 import cz.o2.proxima.direct.commitlog.LogObserver;
@@ -33,9 +34,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.SerializableCoder;
+import org.apache.beam.sdk.coders.VoidCoder;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Impulse;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -62,7 +66,27 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
   public static CommitLogRead of(
       String observeName, Position position, long limit, Repository repo, CommitLogReader reader) {
 
-    return new CommitLogRead(observeName, position, limit, repo, reader);
+    return of(observeName, position, limit, repo.asFactory(), reader);
+  }
+
+  /**
+   * Create the {@link CommitLogRead} transform.
+   *
+   * @param observeName name of the observer
+   * @param position {@link Position} to read from
+   * @param limit limit (use {@link Long#MAX_VALUE} for unbounded
+   * @param repositoryFactory repository factory
+   * @param reader the reader
+   * @return {@link CommitLogRead} transform for the commit log
+   */
+  public static CommitLogRead of(
+      String observeName,
+      Position position,
+      long limit,
+      RepositoryFactory repositoryFactory,
+      CommitLogReader reader) {
+
+    return new CommitLogRead(observeName, position, limit, repositoryFactory, reader);
   }
 
   @DoFn.UnboundedPerElement
@@ -78,17 +102,21 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     private transient BlockingQueueLogObserver observer;
 
     private CommitLogReadFn(
-        String name,
+        @Nullable String name,
         Position position,
         long limit,
         RepositoryFactory repositoryFactory,
         CommitLogReader.Factory<?> readerFactory) {
 
-      this.name = name;
+      this.name = createObserverNameFrom(name);
       this.position = position;
       this.limit = limit;
       this.repositoryFactory = repositoryFactory;
       this.readerFactory = readerFactory;
+    }
+
+    private String createObserverNameFrom(@Nullable String observerName) {
+      return observerName == null ? UUID.randomUUID().toString() : observerName;
     }
 
     @ProcessElement
@@ -99,28 +127,27 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
       AtomicReference<UnifiedContext> readContext = new AtomicReference<>();
       AtomicReference<UnifiedContext> lastWrittenContext = new AtomicReference<>();
+      BundleFinalizer.Callback bundleFinalize =
+          () -> {
+            Optional.ofNullable(readContext.get()).ifPresent(UnifiedContext::confirm);
+            Optional.ofNullable(lastWrittenContext.get()).ifPresent(UnifiedContext::nack);
+          };
       if (!externalizableOffsets) {
         // we confirm only processing of CommitLogReaders with non-externalizable offsets
         // externalizable offsets are persisted and reloaded during recovery
-        finalizer.afterBundleCommit(
-            BoundedWindow.TIMESTAMP_MAX_VALUE,
-            () -> {
-              Optional.ofNullable(readContext.get()).ifPresent(UnifiedContext::confirm);
-              Optional.ofNullable(lastWrittenContext.get()).ifPresent(UnifiedContext::nack);
-            });
+        finalizer.afterBundleCommit(BoundedWindow.TIMESTAMP_MAX_VALUE, bundleFinalize);
       }
 
       try (ObserveHandle handle = startObserve(tracker.currentRestriction())) {
         int i = 0;
+        StreamElement element;
         while (!Thread.currentThread().isInterrupted()
-            && observer.getWatermark() < Watermarks.MAX_WATERMARK) {
+            && observer.getWatermark() < Watermarks.MAX_WATERMARK
+            && (element = observer.take()) != null) {
 
-          StreamElement element = observer.take();
-          if (element == null) {
-            break;
-          }
           boolean isFirst = i++ == 0;
-          Offset offset = Objects.requireNonNull(observer.getLastReadContext().getOffset());
+          UnifiedContext currentReadContext = Objects.requireNonNull(observer.getLastReadContext());
+          Offset offset = Objects.requireNonNull(currentReadContext.getOffset());
           if (externalizableOffsets
               && !tracker.currentRestriction().isStartInclusive()
               && isFirst) {
@@ -131,7 +158,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
             return ProcessContinuation.stop();
           }
           output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
-          readContext.set(observer.getLastReadContext());
+          readContext.set(currentReadContext);
         }
       } finally {
         // nack all buffered but unprocessed data iff we have not emitted any output
@@ -139,6 +166,9 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         boolean shouldNackAllUnread = readContext.get() == null;
         observer.stop(shouldNackAllUnread);
         lastWrittenContext.set(observer.getLastWrittenContext());
+        if (externalizableOffsets) {
+          ExceptionUtils.unchecked(bundleFinalize::onBundleSuccess);
+        }
       }
       Optional.ofNullable(observer.getError())
           .ifPresent(ExceptionUtils::rethrowAsIllegalStateException);
@@ -183,6 +213,16 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       return SerializableCoder.of(OffsetRange.class);
     }
 
+    @NewWatermarkEstimator
+    public OffsetWatermarkEstimator newWatermarkEstimator(@Restriction OffsetRange restriction) {
+      return new OffsetWatermarkEstimator(restriction);
+    }
+
+    @GetWatermarkEstimatorStateCoder
+    public Coder<Void> getWatermarkEstimatorStateCoder() {
+      return VoidCoder.of();
+    }
+
     private LogObserver noopObserver() {
       return new LogObserver() {
         @Override
@@ -206,12 +246,16 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
   private final Factory<?> readerFactory;
 
   private CommitLogRead(
-      String observeName, Position position, long limit, Repository repo, CommitLogReader reader) {
+      String observeName,
+      Position position,
+      long limit,
+      RepositoryFactory repoFactory,
+      CommitLogReader reader) {
 
     this.observeName = observeName;
     this.position = position;
     this.limit = limit;
-    this.repoFactory = repo.asFactory();
+    this.repoFactory = repoFactory;
     this.readerFactory = reader.asFactory();
   }
 

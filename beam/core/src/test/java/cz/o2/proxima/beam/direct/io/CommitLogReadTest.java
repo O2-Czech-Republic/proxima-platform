@@ -25,6 +25,8 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.time.WatermarkEstimator;
+import cz.o2.proxima.time.Watermarks;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -82,6 +84,15 @@ public class CommitLogReadTest {
     testReadingFromCommitLogMany(numElements, commitLog);
   }
 
+  @Test
+  public void testWatermarkEstimator() {
+    int numElements = 1000;
+    WatermarkEstimator estimator = new TestWatermarkEstimator(numElements);
+    List<StreamElement> input = createInput(numElements);
+    ListCommitLog commitLog = ListCommitLog.of(input, estimator, direct.getContext());
+    testReadingFromCommitLogMany(numElements, commitLog);
+  }
+
   private void testReadingFromCommitLogMany(int numElements, ListCommitLog commitLog) {
     Pipeline p = Pipeline.create();
     PCollection<Integer> count =
@@ -125,5 +136,31 @@ public class CommitLogReadTest {
               ByteBuffer.allocate(4).putInt(i).array()));
     }
     return ret;
+  }
+
+  private static class TestWatermarkEstimator implements WatermarkEstimator {
+
+    private final int numElements;
+    int consumed;
+
+    public TestWatermarkEstimator(int numElements) {
+      this.numElements = numElements;
+      consumed = 0;
+    }
+
+    @Override
+    public long getWatermark() {
+      return consumed < numElements ? Watermarks.MIN_WATERMARK : Watermarks.MAX_WATERMARK;
+    }
+
+    @Override
+    public void setMinWatermark(long minWatermark) {
+      // nop
+    }
+
+    @Override
+    public void update(StreamElement element) {
+      consumed++;
+    }
   }
 }

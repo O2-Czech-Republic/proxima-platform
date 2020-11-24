@@ -27,6 +27,9 @@ import lombok.ToString;
 import org.apache.beam.sdk.transforms.splittabledofn.HasDefaultTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.SplitResult;
+import org.apache.beam.sdk.transforms.splittabledofn.WatermarkEstimator;
+import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
+import org.joda.time.Instant;
 
 /**
  * A {@link RestrictionTracker} for {@link Offset Offsets} read from {@link
@@ -48,7 +51,7 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
       return new OffsetRange();
     }
 
-    /** @return restriction that reads from given offset (exclusive) */
+    /** @return restriction that reads from given offset (inclusive) */
     public static OffsetRange startingFrom(Offset start) {
       return new OffsetRange(start, true);
     }
@@ -155,6 +158,31 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     @Override
     public int hashCode() {
       return Objects.hash(startOffset, startInclusive, endOffsetInclusive, extensible, finished);
+    }
+  }
+
+  /** A {@link WatermarkEstimator} from {@link OffsetRange}. */
+  public static class OffsetWatermarkEstimator implements WatermarkEstimator<Void> {
+
+    private final OffsetRange processedRange;
+
+    OffsetWatermarkEstimator(OffsetRange offsetRange) {
+      this.processedRange = offsetRange;
+    }
+
+    @Override
+    public Instant currentWatermark() {
+      if (processedRange.getEndOffsetInclusive() != null) {
+        return Instant.ofEpochMilli(processedRange.getEndOffsetInclusive().getWatermark());
+      } else if (processedRange.getStartOffset() != null) {
+        return Instant.ofEpochMilli(processedRange.getStartOffset().getWatermark());
+      }
+      return BoundedWindow.TIMESTAMP_MIN_VALUE;
+    }
+
+    @Override
+    public Void getState() {
+      return null;
     }
   }
 

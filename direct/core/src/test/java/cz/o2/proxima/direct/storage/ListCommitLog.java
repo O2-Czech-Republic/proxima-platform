@@ -34,6 +34,7 @@ import cz.o2.proxima.functional.UnaryPredicate;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.time.WatermarkEstimator;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -120,7 +121,43 @@ public class ListCommitLog implements CommitLogReader {
    * @return the commit-log
    */
   public static ListCommitLog of(List<StreamElement> data, Context context) {
-    return new ListCommitLog(data, context);
+    return of(data, null, context);
+  }
+
+  /**
+   * Create the new {@link ListCommitLog}, with externalizable offsets (that are offsets that can be
+   * persisted in external system - e.g. a checkpoint - and be sure they represent the same element
+   * even upon recovery). Commit-logs with "externalizable offsets" (e.g. Apache Kafka) need not
+   * rely on ack() and nack() of elements, as offsets can be taken and recovered independently of
+   * the actual acknowledgements. Consumers are free to ack messages nevertheless.
+   *
+   * @param data the data to be present in the commit log
+   * @param watermarkEstimator {@link WatermarkEstimator} that will be used to generate watermarks
+   * @param context {@link Context} for direct consumption
+   * @return the commit-log
+   */
+  public static ListCommitLog of(
+      List<StreamElement> data, @Nullable WatermarkEstimator watermarkEstimator, Context context) {
+
+    return new ListCommitLog(data, watermarkEstimator, context);
+  }
+
+
+  /**
+   * Create the new {@link ListCommitLog}, which mimics non-externalizable offsets (that are offsets
+   * that cannot be persisted in external system - e.g. a checkpoint - and be sure they represent
+   * the same element even upon recovery). Commit-logs with "non-externalizable offsets" (e.g.
+   * Google PubSub) rely heavily on ack() and nack() of elements to ensure at-least-once semantics
+   * (typically not exactly-once-semantics, because when consumer consumes element and does neither
+   * ack() nor nack() it until timeout, the element is resend to another (or the same) consumer).
+   *
+   *
+   * @param data the data to be present in the commit log
+   * @param context {@link Context} for direct consumption
+   * @return the commit-log
+   */
+  public static ListCommitLog ofNonExternalizable(List<StreamElement> data, Context context) {
+    return ofNonExternalizable(data, null, context);
   }
 
   /**
@@ -132,11 +169,14 @@ public class ListCommitLog implements CommitLogReader {
    * ack() nor nack() it until timeout, the element is resend to another (or the same) consumer).
    *
    * @param data the data to be present in the commit log
+   * @param watermarkEstimator {@link WatermarkEstimator} that will be used to generate watermarks
    * @param context {@link Context} for direct consumption
    * @return the commit-log
    */
-  public static ListCommitLog ofNonExternalizable(List<StreamElement> data, Context context) {
-    return new ListCommitLog(data, context, false);
+  public static ListCommitLog ofNonExternalizable(
+      List<StreamElement> data, @Nullable WatermarkEstimator watermarkEstimator, Context context) {
+
+    return new ListCommitLog(data, false, watermarkEstimator, context);
   }
 
   @VisibleForTesting
@@ -198,15 +238,23 @@ public class ListCommitLog implements CommitLogReader {
 
     private final Map<Integer, OffsetCommitter> offsetToContext = new ConcurrentHashMap<>();
 
+    @Nullable private final WatermarkEstimator watermarkEstimator;
+
     /** Last offset pushed to consumer. */
     private int currentOffset = 0;
 
-    private Consumer(String logUuid, String consumerName) {
+    private Consumer(
+        String logUuid, String consumerName, @Nullable WatermarkEstimator watermarkEstimator) {
       this.logUuid = logUuid;
       this.consumerName = consumerName;
+      this.watermarkEstimator = watermarkEstimator;
     }
 
     public long getWatermark() {
+      return watermarkEstimator == null ? getWatermarkDefault() : watermarkEstimator.getWatermark();
+    }
+
+    private long getWatermarkDefault() {
       List<StreamElement> data = UUID_TO_DATA.get(logUuid);
       long watermark = Long.MAX_VALUE;
       for (int i = externalizableOffsets ? currentOffset : 0; i < data.size(); i++) {
@@ -239,6 +287,9 @@ public class ListCommitLog implements CommitLogReader {
     public void ack(int offset) {
       nack(offset);
       ackedOffsets.add(offset);
+      if (watermarkEstimator != null) {
+        watermarkEstimator.update(data().get(offset));
+      }
     }
 
     public void nack(int offset) {
@@ -265,7 +316,7 @@ public class ListCommitLog implements CommitLogReader {
                 // clone to prevent ConcurrentModificationException
                 new ArrayList<>(inflightOffsets)
                     .stream()
-                    .filter(o -> o <= offset)
+                    .filter(o -> o <= offset && !ackedOffsets.contains(o))
                     .map(offsetToContext::remove)
                     .filter(Objects::nonNull)
                     .forEach(p -> p.commit(succ, exc));
@@ -285,25 +336,40 @@ public class ListCommitLog implements CommitLogReader {
   }
 
   private final String uuid;
-  private final Context context;
   private final boolean externalizableOffsets;
+  @Nullable private final WatermarkEstimator watermarkEstimator;
+  private final Context context;
   private transient ExecutorService executor;
 
-  private ListCommitLog(List<StreamElement> data, Context context) {
-    this(data, context, true);
+  private ListCommitLog(
+      List<StreamElement> data, @Nullable WatermarkEstimator watermarkEstimator, Context context) {
+
+    this(data, true, watermarkEstimator, context);
   }
 
-  private ListCommitLog(List<StreamElement> data, Context context, boolean externalizableOffsets) {
+  private ListCommitLog(
+      List<StreamElement> data,
+      boolean externalizableOffsets,
+      @Nullable WatermarkEstimator watermarkEstimator,
+      Context context) {
+
     this.uuid = UUID.randomUUID().toString();
     UUID_TO_DATA.put(uuid, Collections.unmodifiableList(new ArrayList<>(data)));
-    this.context = context;
     this.externalizableOffsets = externalizableOffsets;
+    this.watermarkEstimator = watermarkEstimator;
+    this.context = context;
   }
 
-  private ListCommitLog(String uuid, Context context, boolean externalizableOffsets) {
+  private ListCommitLog(
+      String uuid,
+      boolean externalizableOffsets,
+      @Nullable WatermarkEstimator watermarkEstimator,
+      Context context) {
+
     this.uuid = uuid;
-    this.context = context;
     this.externalizableOffsets = externalizableOffsets;
+    this.watermarkEstimator = watermarkEstimator;
+    this.context = context;
   }
 
   @Override
@@ -324,7 +390,8 @@ public class ListCommitLog implements CommitLogReader {
   public ObserveHandle observe(@Nullable String name, Position position, LogObserver observer) {
     String consumerName = name == null ? UUID.randomUUID().toString() : name;
     Consumer consumer =
-        CONSUMERS.computeIfAbsent(consumerName, k -> new Consumer(uuid, consumerName));
+        CONSUMERS.computeIfAbsent(
+            consumerName, k -> new Consumer(uuid, consumerName, watermarkEstimator));
     ListObserveHandle handle = new ListObserveHandle(consumerName);
     pushTo(
         (element, offset) -> {
@@ -403,7 +470,8 @@ public class ListCommitLog implements CommitLogReader {
     final String uuid = this.uuid;
     final Context context = this.context;
     final boolean externalizableOffsets = this.externalizableOffsets;
-    return repo -> new ListCommitLog(uuid, context, externalizableOffsets);
+    final WatermarkEstimator watermarkEstimator = this.watermarkEstimator;
+    return repo -> new ListCommitLog(uuid, externalizableOffsets, watermarkEstimator, context);
   }
 
   @Override
@@ -425,7 +493,8 @@ public class ListCommitLog implements CommitLogReader {
       LogObserver observer) {
 
     observer.onRepartition(asRepartitionContext(Collections.singletonList(PARTITION)));
-    Consumer consumer = CONSUMERS.computeIfAbsent(name, k -> new Consumer(uuid, name));
+    Consumer consumer =
+        CONSUMERS.computeIfAbsent(name, k -> new Consumer(uuid, name, watermarkEstimator));
     ListObserveHandle handle = new ListObserveHandle(name);
     pushTo(
         (element, offset) -> {

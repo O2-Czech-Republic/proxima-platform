@@ -32,8 +32,7 @@ import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.net.URI;
 import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.beam.sdk.Pipeline;
@@ -108,45 +107,47 @@ public class BeamCommitLogReaderTest {
                     .discardingFiredPanes())
             .apply(Count.globally());
     PAssert.that(result).containsInAnyOrder(2L);
-    BlockingQueue<Boolean> err = new SynchronousQueue<>();
     AtomicReference<Throwable> caught = new AtomicReference<>();
-    direct
-        .getContext()
-        .getExecutorService()
-        .submit(
-            () -> {
-              try {
-                assertNotNull(p.run());
-                err.put(true);
-              } catch (Throwable ex) {
-                ExceptionUtils.unchecked(() -> err.put(false));
-                caught.set(ex);
-              }
-            });
     write("key1");
     write("key2");
+    Future<Boolean> future =
+        direct
+            .getContext()
+            .getExecutorService()
+            .submit(
+                () -> {
+                  try {
+                    assertNotNull(p.run());
+                    return true;
+                  } catch (Throwable ex) {
+                    caught.set(ex);
+                    return false;
+                  }
+                });
     if (!stopAtCurrent) {
       watermark.set(Watermarks.MAX_WATERMARK);
     }
-    if (!err.take()) {
+    if (!ExceptionUtils.uncheckedFactory(future::get)) {
       throw new AssertionError(caught.get());
     }
   }
 
   private void write(String key) {
+
+    StreamElement element =
+        StreamElement.upsert(
+            gateway,
+            status,
+            UUID.randomUUID().toString(),
+            key,
+            status.getName(),
+            System.currentTimeMillis(),
+            new byte[] {1});
+
     direct
         .getWriter(status)
         .orElseThrow(() -> new IllegalStateException("Missing writer for " + status))
-        .write(
-            StreamElement.upsert(
-                gateway,
-                status,
-                UUID.randomUUID().toString(),
-                key,
-                status.getName(),
-                System.currentTimeMillis(),
-                new byte[] {1}),
-            (succ, exc) -> {});
+        .write(element, (succ, exc) -> {});
   }
 
   private WatermarkEstimator asWatermarkEstimator(AtomicLong watermark) {

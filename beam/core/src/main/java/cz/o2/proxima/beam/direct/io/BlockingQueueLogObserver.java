@@ -43,7 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /** A {@link LogObserver} that caches data in {@link BlockingQueue}. */
 @Slf4j
-class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
+final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   private static final long serialVersionUID = 1L;
 

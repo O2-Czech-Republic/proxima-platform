@@ -1860,12 +1860,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     // each partitions has a record here
     assertEquals(3, currentOffsets.size());
     assertEquals(
-        1L,
-        (long)
-            currentOffsets
-                .values()
-                .stream()
-                .collect(Collectors.summingLong(o -> ((TopicOffset) o).getOffset())));
+        1L, currentOffsets.values().stream().mapToLong(o -> ((TopicOffset) o).getOffset()).sum());
 
     // restart from old offset
     final ObserveHandle handle2 =
@@ -1877,11 +1872,70 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     // committed offset 1 and 2
     assertEquals(
         2L,
-        (long)
-            handle2
-                .getCommittedOffsets()
-                .stream()
-                .collect(Collectors.summingLong(o -> ((TopicOffset) o).getOffset())));
+        handle2.getCommittedOffsets().stream().mapToLong(o -> ((TopicOffset) o).getOffset()).sum());
+  }
+
+  @Test(timeout = 10000)
+  public void testBulkObserveOffsets2() throws InterruptedException {
+    final Accessor accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(3));
+    final LocalKafkaWriter writer = accessor.newWriter();
+    final CommitLogReader reader =
+        accessor
+            .getCommitLogReader(context())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+
+    final List<KafkaStreamElement> input = new ArrayList<>();
+    final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(3));
+    final StreamElement update =
+        StreamElement.upsert(
+            entity,
+            attr,
+            UUID.randomUUID().toString(),
+            "key",
+            attr.getName(),
+            System.currentTimeMillis(),
+            new byte[] {1, 2});
+
+    final LogObserver observer =
+        new LogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            input.add((KafkaStreamElement) ingest);
+            latch.get().countDown();
+            // terminate after reading first record
+            return false;
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        };
+    final List<Offset> offsets;
+    try (final ObserveHandle handle =
+        reader.observeBulkPartitions(reader.getPartitions(), Position.NEWEST, observer)) {
+
+      // write two elements
+      for (int i = 0; i < 2; i++) {
+        writer.write(
+            update,
+            (succ, e) -> {
+              assertTrue(succ);
+              latch.get().countDown();
+            });
+      }
+      latch.get().await();
+      latch.set(new CountDownLatch(1));
+      offsets = handle.getCurrentOffsets();
+    }
+
+    // restart from old offset
+    final ObserveHandle handle2 = reader.observeBulkOffsets(Lists.newArrayList(offsets), observer);
+    latch.get().await();
+    assertEquals(2, input.size());
+    assertEquals(0, input.get(0).getOffset());
+    assertEquals(0, input.get(1).getOffset());
   }
 
   @Test(timeout = 10000)

@@ -112,7 +112,7 @@ class Consumers {
                     committed.compute(
                         tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
                     committer.confirm(tp, offset);
-                  } else {
+                  } else if (exc != null) {
                     errorHandler.accept(exc);
                   }
                 },
@@ -215,7 +215,7 @@ class Consumers {
                       committed.compute(
                           part, (k, v) -> Math.max(MoreObjects.firstNonNull(v, 0L), off + 1)));
               committed.forEach((p, o) -> commit.accept(new TopicPartition(tp.topic(), p), o));
-            } else {
+            } else if (err != null) {
               errorHandler.accept(err);
             }
           },

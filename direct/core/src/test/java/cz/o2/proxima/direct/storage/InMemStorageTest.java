@@ -363,7 +363,7 @@ public class InMemStorageTest implements Serializable {
   }
 
   @Test(timeout = 10000)
-  public void testObserveOffsets() {
+  public void testObserveOffsets() throws InterruptedException {
 
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
@@ -388,10 +388,7 @@ public class InMemStorageTest implements Serializable {
 
           @Override
           public boolean onNext(StreamElement ingest, LogObserver.OnNextContext context) {
-
             assertEquals(0, context.getPartition().getId());
-            assertEquals("key", ingest.getKey());
-            context.confirm();
             received.add(ingest.getValue()[0]);
             return false;
           }
@@ -401,6 +398,7 @@ public class InMemStorageTest implements Serializable {
             throw new RuntimeException(error);
           }
         };
+
     ObserveHandle handle = reader.observePartitions(reader.getPartitions(), observer);
 
     writer
@@ -415,12 +413,14 @@ public class InMemStorageTest implements Serializable {
                 System.currentTimeMillis(),
                 new byte[] {1}),
             (succ, exc) -> {});
+
     List<Offset> offsets = handle.getCurrentOffsets();
     assertEquals(1, offsets.size());
     assertTrue(offsets.get(0).getWatermark() > 0);
     assertEquals(Collections.singletonList((byte) 1), received);
     handle.close();
     handle = reader.observeBulkOffsets(offsets, observer);
+    handle.waitUntilReady();
     offsets = handle.getCurrentOffsets();
     assertEquals(1, offsets.size());
     assertTrue(
@@ -438,9 +438,11 @@ public class InMemStorageTest implements Serializable {
                 System.currentTimeMillis(),
                 new byte[] {2}),
             (succ, exc) -> {});
-    assertEquals(Arrays.asList((byte) 1, (byte) 2), received);
+
+    assertEquals(Arrays.asList((byte) 1, (byte) 1), received);
     assertEquals(
-        2, ((ConsumedOffset) handle.getCurrentOffsets().get(0)).getConsumedKeyAttr().size());
+        0, ((ConsumedOffset) handle.getCurrentOffsets().get(0)).getConsumedKeyAttr().size());
+    handle.close();
   }
 
   @Test

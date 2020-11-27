@@ -46,6 +46,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -648,14 +649,24 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     if (position == Position.OLDEST) {
       // seek all partitions to oldest data
       if (offsets == null) {
+        boolean emptyPoll = true;
         if (consumer.assignment().isEmpty()) {
           // If we don't find assignment within timeout, poll results in IllegalStateException.
           // https://cwiki.apache.org/confluence/display/KAFKA/KIP-266%3A+Fix+consumer+indefinite+blocking+behavior
-          consumer.poll(Duration.ofMillis(accessor.getAssignmentTimeoutMillis()));
+          emptyPoll =
+              consumer.poll(Duration.ofMillis(accessor.getAssignmentTimeoutMillis())).isEmpty();
         }
-        Set<TopicPartition> assignment = consumer.assignment();
-        log.info("Seeking consumer name {} to beginning of partitions {}", name, assignment);
-        consumer.seekToBeginning(assignment);
+        final Set<TopicPartition> assignment = consumer.assignment();
+        final Map<TopicPartition, OffsetAndMetadata> committed = consumer.committed(assignment);
+        if (committed.values().stream().noneMatch(Objects::nonNull)) {
+          log.info("Seeking consumer name {} to beginning of partitions {}", name, assignment);
+          consumer.seekToBeginning(assignment);
+        } else {
+          if (!emptyPoll) {
+            log.info("Seeking consumer name {} to committed offsets {}", name, committed);
+            committed.forEach(consumer::seek);
+          }
+        }
       } else {
         List<TopicPartition> tps =
             offsets

@@ -26,6 +26,7 @@ import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkSupplier;
+import cz.o2.proxima.time.Watermarks;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -102,7 +103,7 @@ class Consumers {
 
       processing.put(tp.partition(), offset);
       watermark = watermarkSupplier.getWatermark();
-      if (element != null) {
+      if (element != null && watermark < Watermarks.MAX_WATERMARK) {
         return observer.onNext(
             element,
             asOnNextContext(
@@ -119,7 +120,7 @@ class Consumers {
       }
       committed.compute(tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
       committer.confirm(tp, offset);
-      return true;
+      return watermark < Watermarks.MAX_WATERMARK;
     }
 
     @Override
@@ -191,7 +192,6 @@ class Consumers {
         long offset,
         WatermarkSupplier watermarkSupplier,
         Consumer<Throwable> errorHandler) {
-
       processing.put(tp.partition(), offset);
       watermark = watermarkSupplier.getWatermark();
       if (element != null) {

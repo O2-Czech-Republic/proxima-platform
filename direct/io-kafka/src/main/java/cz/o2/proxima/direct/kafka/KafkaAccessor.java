@@ -45,6 +45,7 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.Config;
 import org.apache.kafka.clients.admin.ConfigEntry;
 import org.apache.kafka.clients.admin.DescribeConfigsResult;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.config.ConfigResource;
 import org.apache.kafka.common.config.TopicConfig;
 
@@ -53,6 +54,8 @@ import org.apache.kafka.common.config.TopicConfig;
 public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
+
+  public static final String KAFKA_CONFIG_PREFIX = "kafka.";
 
   /** A poll interval in milliseconds. */
   public static final String POLL_INTERVAL_CFG = "poll.interval";
@@ -68,7 +71,8 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   /** Allowed timestamp skew between consumer and producer. */
   public static final String TIMESTAMP_SKEW = "timestamp-skew";
   /** Number of records per poll() */
-  public static final String MAX_POLL_RECORDS = "kafka.max.poll.records";
+  public static final String MAX_POLL_RECORDS =
+      KAFKA_CONFIG_PREFIX + ConsumerConfig.MAX_POLL_RECORDS_CONFIG;
   /** Auto commit interval in milliseconds. */
   public static final String AUTO_COMMIT_INTERVAL_MS = "commit.auto-interval-ms";
   /** Log stale commit interval in milliseconds. */
@@ -84,9 +88,6 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
    * time. This controls time needed to initialize kafka consumer.
    */
   public static final String EMPTY_POLL_TIME = "poll.allowed-empty-before-watermark-move";
-
-  public static final String WRITER_CONFIG_PREFIX = "kafka.";
-  private static final int PRODUCE_CONFIG_PREFIX_LENGTH = WRITER_CONFIG_PREFIX.length();
 
   @Getter private final String topic;
 
@@ -211,15 +212,13 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
         getUri());
   }
 
-  @SuppressWarnings("unchecked")
   Properties createProps() {
     Properties props = new Properties();
     for (Map.Entry<String, Object> e : cfg.entrySet()) {
-      if (e.getKey().startsWith(WRITER_CONFIG_PREFIX)) {
-        props.put(e.getKey().substring(PRODUCE_CONFIG_PREFIX_LENGTH), e.getValue().toString());
+      if (e.getKey().startsWith(KAFKA_CONFIG_PREFIX)) {
+        props.put(e.getKey().substring(KAFKA_CONFIG_PREFIX.length()), e.getValue().toString());
       }
     }
-    props.put(MAX_POLL_RECORDS, maxPollRecords);
     return props;
   }
 

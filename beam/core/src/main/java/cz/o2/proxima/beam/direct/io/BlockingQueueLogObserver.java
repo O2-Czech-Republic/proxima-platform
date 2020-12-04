@@ -23,6 +23,7 @@ import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkSupplier;
+import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
 import java.time.Instant;
@@ -31,12 +32,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 /** A {@link LogObserver} that caches data in {@link BlockingQueue}. */
@@ -62,6 +64,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     Offset getOffset();
   }
 
+  @ToString
   private static class LogObserverUnifiedContext implements UnifiedContext {
 
     private static final long serialVersionUID = 1L;
@@ -99,6 +102,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     }
   }
 
+  @ToString
   private static class BatchLogObserverUnifiedContext implements UnifiedContext {
 
     private static final long serialVersionUID = 1L;
@@ -142,11 +146,13 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   private final AtomicReference<Throwable> error = new AtomicReference<>();
   private final AtomicLong watermark;
   private final BlockingQueue<Pair<StreamElement, UnifiedContext>> queue;
-  private final AtomicBoolean stopped = new AtomicBoolean();
+  private volatile boolean stopped = false;
+  private volatile boolean nackAllIncoming = false;
   @Getter @Nullable private UnifiedContext lastWrittenContext;
   @Getter @Nullable private UnifiedContext lastReadContext;
   private long limit;
   private boolean cancelled = false;
+  private transient CountDownLatch cancelledLatch = new CountDownLatch(1);
 
   private BlockingQueueLogObserver(String name, long limit, long startingWatermark) {
     Preconditions.checkArgument(limit >= 0, "Please provide non-negative limit");
@@ -186,9 +192,9 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return enqueue(element, new BatchLogObserverUnifiedContext(context));
   }
 
-  private boolean enqueue(StreamElement element, @Nullable UnifiedContext context) {
+  private boolean enqueue(StreamElement element, UnifiedContext context) {
     try {
-      Preconditions.checkArgument(element == null || context != null);
+      Preconditions.checkArgument(element != null && context != null);
       lastWrittenContext = context;
       if (limit-- > 0) {
         return putToQueue(element, context);
@@ -198,6 +204,10 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     } catch (InterruptedException ex) {
       log.warn("Interrupted while putting element {} to queue", element, ex);
       Thread.currentThread().interrupt();
+    } finally {
+      if (nackAllIncoming && context != null) {
+        context.nack();
+      }
     }
     return false;
   }
@@ -205,6 +215,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Override
   public void onCancelled() {
     cancelled = true;
+    cancelledLatch.countDown();
     log.debug("{}: Cancelled consumption by request.", name);
   }
 
@@ -223,7 +234,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
       throws InterruptedException {
 
     Pair<StreamElement, UnifiedContext> p = Pair.of(element, context);
-    while (!stopped.get()) {
+    while (!stopped) {
       if (queue.offer(p, 50, TimeUnit.MILLISECONDS)) {
         return true;
       }
@@ -246,11 +257,10 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
    */
   @Nullable
   StreamElement take() {
-    Pair<StreamElement, UnifiedContext> taken = null;
-    if (!stopped.get()) {
-      taken = queue.poll();
+    if (!stopped) {
+      return consumeTaken(queue.poll());
     }
-    return consumeTaken(taken);
+    return null;
   }
 
   /**
@@ -260,7 +270,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
    */
   @Nullable
   StreamElement takeBlocking() throws InterruptedException {
-    while (!stopped.get()) {
+    while (!stopped) {
       Pair<StreamElement, UnifiedContext> taken = queue.poll(50, TimeUnit.MILLISECONDS);
       if (taken != null) {
         return consumeTaken(taken);
@@ -269,6 +279,7 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return null;
   }
 
+  @Nullable
   private StreamElement consumeTaken(@Nullable Pair<StreamElement, UnifiedContext> taken) {
     if (taken != null && taken.getFirst() != null) {
       lastReadContext = taken.getSecond();
@@ -302,11 +313,15 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   }
 
   void stop(boolean nack) {
-    stopped.set(true);
+    nackAllIncoming = nack;
+    stopped = true;
     if (nack) {
       List<Pair<StreamElement, UnifiedContext>> drop = new ArrayList<>();
       queue.drainTo(drop);
       drop.stream().map(Pair::getSecond).filter(Objects::nonNull).forEach(UnifiedContext::nack);
+    }
+    if (getWatermark() < Watermarks.MAX_WATERMARK) {
+      ExceptionUtils.ignoringInterrupted(() -> cancelledLatch.await(1, TimeUnit.SECONDS));
     }
   }
 
@@ -330,5 +345,10 @@ class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this).add("name", name).add("limit", limit).toString();
+  }
+
+  private Object readResolve() {
+    this.cancelledLatch = new CountDownLatch(1);
+    return this;
   }
 }

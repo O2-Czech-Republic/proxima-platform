@@ -153,5 +153,14 @@ public class ExceptionUtils {
         || ex.getCause() != null && isInterrupted(ex.getCause());
   }
 
+  /**
+   * Throw an {@link IllegalStateException} with given exception as cause.
+   *
+   * @param cause the cause of {@link IllegalStateException}.
+   */
+  public static void rethrowAsIllegalStateException(Throwable cause) {
+    throw new IllegalStateException(cause);
+  }
+
   private ExceptionUtils() {}
 }

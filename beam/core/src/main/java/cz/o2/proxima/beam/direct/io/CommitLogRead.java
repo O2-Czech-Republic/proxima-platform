@@ -131,16 +131,17 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
             return ProcessContinuation.stop();
           }
           output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
+          readContext.set(observer.getLastReadContext());
         }
       } finally {
+        // nack all buffered but unprocessed data iff we have not emitted any output
+        // otherwise, we have to wait till bundle finalization
+        boolean shouldNackAllUnread = readContext.get() == null;
+        observer.stop(shouldNackAllUnread);
         lastWrittenContext.set(observer.getLastWrittenContext());
-        observer.stop(false);
-        Optional.ofNullable(observer.getError())
-            .ifPresent(
-                ex -> {
-                  throw new IllegalStateException(ex);
-                });
       }
+      Optional.ofNullable(observer.getError())
+          .ifPresent(ExceptionUtils::rethrowAsIllegalStateException);
       boolean terminated = observer.getWatermark() >= Watermarks.MAX_WATERMARK;
       return terminated ? ProcessContinuation.stop() : ProcessContinuation.resume();
     }
@@ -191,6 +192,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
         @Override
         public boolean onNext(StreamElement ingest, OnNextContext context) {
+          context.nack();
           return false;
         }
       };

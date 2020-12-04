@@ -54,26 +54,36 @@ public class CommitLogReadTest {
 
   @Test(timeout = 30000)
   public void testReadingFromCommitLog() {
-    Pipeline p = Pipeline.create();
     List<StreamElement> data = createInput(1);
     ListCommitLog commitLog = ListCommitLog.of(data, direct.getContext());
-    PCollection<Long> count =
-        p.apply(CommitLogRead.of("name", Position.CURRENT, Long.MAX_VALUE, repo, commitLog))
-            .apply(
-                Window.<StreamElement>into(new GlobalWindows())
-                    .triggering(Repeatedly.forever(AfterWatermark.pastEndOfWindow()))
-                    .discardingFiredPanes())
-            .apply(Count.globally());
-    PAssert.that(count).containsInAnyOrder(1L);
-    assertNotNull(p.run().waitUntilFinish());
+    testReadingFromCommitLog(commitLog);
+  }
+
+  @Test(timeout = 30000)
+  public void testReadingFromCommitLogNonExternalizable() {
+    List<StreamElement> data = createInput(1);
+    ListCommitLog commitLog = ListCommitLog.ofNonExternalizable(data, direct.getContext());
+    testReadingFromCommitLog(commitLog);
   }
 
   @Test(timeout = 30000)
   public void testReadingFromCommitLogMany() {
     int numElements = 1000;
-    Pipeline p = Pipeline.create();
     List<StreamElement> input = createInput(numElements);
     ListCommitLog commitLog = ListCommitLog.of(input, direct.getContext());
+    testReadingFromCommitLogMany(numElements, commitLog);
+  }
+
+  @Test(timeout = 10000)
+  public void testReadingFromCommitLogManyNonExternalizable() {
+    int numElements = 1000;
+    List<StreamElement> input = createInput(numElements);
+    ListCommitLog commitLog = ListCommitLog.ofNonExternalizable(input, direct.getContext());
+    testReadingFromCommitLogMany(numElements, commitLog);
+  }
+
+  private void testReadingFromCommitLogMany(int numElements, ListCommitLog commitLog) {
+    Pipeline p = Pipeline.create();
     PCollection<Integer> count =
         p.apply(CommitLogRead.of("name", Position.CURRENT, Long.MAX_VALUE, repo, commitLog))
             .apply(
@@ -85,6 +95,19 @@ public class CommitLogReadTest {
                     .via(el -> ByteBuffer.wrap(el.getValue()).getInt()))
             .apply(Sum.integersGlobally());
     PAssert.that(count).containsInAnyOrder(numElements * (numElements - 1) / 2);
+    assertNotNull(p.run().waitUntilFinish());
+  }
+
+  private void testReadingFromCommitLog(ListCommitLog commitLog) {
+    Pipeline p = Pipeline.create();
+    PCollection<Long> count =
+        p.apply(CommitLogRead.of("name", Position.CURRENT, Long.MAX_VALUE, repo, commitLog))
+            .apply(
+                Window.<StreamElement>into(new GlobalWindows())
+                    .triggering(Repeatedly.forever(AfterWatermark.pastEndOfWindow()))
+                    .discardingFiredPanes())
+            .apply(Count.globally());
+    PAssert.that(count).containsInAnyOrder(1L);
     assertNotNull(p.run().waitUntilFinish());
   }
 

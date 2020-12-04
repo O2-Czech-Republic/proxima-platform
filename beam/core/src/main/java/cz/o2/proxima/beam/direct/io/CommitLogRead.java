@@ -94,9 +94,9 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
     private final String name;
     private final Position position;
-    private final long limit;
     private final RepositoryFactory repositoryFactory;
     private final CommitLogReader.Factory<?> readerFactory;
+    private final long limit;
 
     private transient boolean externalizableOffsets = false;
     private transient BlockingQueueLogObserver observer;
@@ -110,9 +110,9 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
       this.name = createObserverNameFrom(name);
       this.position = position;
-      this.limit = limit;
       this.repositoryFactory = repositoryFactory;
       this.readerFactory = readerFactory;
+      this.limit = limit;
     }
 
     private String createObserverNameFrom(@Nullable String observerName) {
@@ -172,21 +172,25 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       }
       Optional.ofNullable(observer.getError())
           .ifPresent(ExceptionUtils::rethrowAsIllegalStateException);
-      boolean terminated = observer.getWatermark() >= Watermarks.MAX_WATERMARK;
+      boolean terminated =
+          tracker.currentRestriction().isLimitConsumed()
+              || observer.getWatermark() >= Watermarks.MAX_WATERMARK;
       return terminated ? ProcessContinuation.stop() : ProcessContinuation.resume();
     }
 
     private ObserveHandle startObserve(OffsetRange restriction) {
       CommitLogReader reader = readerFactory.apply(repositoryFactory.apply());
       this.externalizableOffsets = reader.hasExternalizableOffsets();
-      observer = BlockingQueueLogObserver.create(name, limit, Watermarks.MIN_WATERMARK);
+      observer =
+          BlockingQueueLogObserver.create(
+              name, restriction.getTotalLimit(), Watermarks.MIN_WATERMARK);
       return reader.observeBulkOffsets(
           Collections.singletonList(restriction.getStartOffset()), observer);
     }
 
     @GetInitialRestriction
     public OffsetRange initialRestriction() {
-      return OffsetRange.initialRestriction();
+      return OffsetRange.initialRestriction(limit);
     }
 
     @SplitRestriction
@@ -201,7 +205,10 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         try (ObserveHandle handle =
             reader.observeBulkPartitions(partitions, position, noopObserver())) {
           ExceptionUtils.ignoringInterrupted(handle::waitUntilReady);
-          handle.getCurrentOffsets().forEach(o -> splits.output(OffsetRange.startingFrom(o)));
+          handle
+              .getCurrentOffsets()
+              .forEach(
+                  o -> splits.output(OffsetRange.startingFrom(o, restriction.getTotalLimit())));
         }
       } else {
         splits.output(restriction);

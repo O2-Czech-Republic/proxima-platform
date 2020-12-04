@@ -46,18 +46,26 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     /**
      * @return initial restriction for {@link
      *     org.apache.beam.sdk.transforms.DoFn.GetInitialRestriction}.
+     * @param limit total limit to read
      */
-    public static OffsetRange initialRestriction() {
-      return new OffsetRange();
+    public static OffsetRange initialRestriction(long limit) {
+      return new OffsetRange(limit);
     }
 
     /** @return restriction that reads from given offset (inclusive) */
-    public static OffsetRange startingFrom(Offset start) {
-      return new OffsetRange(start, true);
+    public static OffsetRange startingFrom(Offset start, long limit) {
+      return new OffsetRange(start, limit, 0, true);
     }
 
     @Getter @Nullable private final Offset startOffset;
     @Getter private final boolean startInclusive;
+
+    // maximal number of elements in all (split) ranges
+    @Getter private final long totalLimit;
+
+    // total elements consumed in this range
+    private long consumed;
+
     @Getter @Nullable private Offset endOffsetInclusive;
 
     // can a tryClaim modify the endOffset
@@ -67,25 +75,32 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     // true when the range has been all claimed
     private transient boolean finished = false;
 
-    private OffsetRange(@Nullable Offset start, boolean inclusive) {
+    private OffsetRange(@Nullable Offset start, long totalLimit, long consumed, boolean inclusive) {
+
       this.startOffset = start;
+      this.totalLimit = totalLimit;
+      this.consumed = consumed;
       this.startInclusive = inclusive;
       extensible = true;
     }
 
-    private OffsetRange() {
-      this(null, false);
+    private OffsetRange(long limit) {
+      this(null, limit, 0, false);
     }
 
-    private OffsetRange(Offset startExclusive) {
-      this(Objects.requireNonNull(startExclusive), false);
+    private OffsetRange(Offset startExclusive, long totalLimit, long consumed) {
+      this(Objects.requireNonNull(startExclusive), totalLimit, consumed, false);
     }
 
-    public OffsetRange(Offset startOffsetExclusive, Offset endOffsetInclusive) {
+    public OffsetRange(
+        Offset startOffsetExclusive, Offset endOffsetInclusive, long totalLimit, long consumed) {
+
       this.startOffset = Objects.requireNonNull(startOffsetExclusive);
       this.startInclusive = false;
       this.endOffsetInclusive = Objects.requireNonNull(endOffsetInclusive);
       this.extensible = false;
+      this.totalLimit = totalLimit;
+      this.consumed = consumed;
     }
 
     boolean claim(@Nonnull Offset offset) {
@@ -96,13 +111,21 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
         finished = offset.equals(endOffsetInclusive);
         return true;
       }
-      endOffsetInclusive = offset;
-      return true;
+      if (totalLimit > consumed) {
+        endOffsetInclusive = offset;
+        consumed++;
+        return true;
+      }
+      return false;
+    }
+
+    public boolean isLimitConsumed() {
+      return totalLimit <= consumed;
     }
 
     /** @return unmodifiable already processed split of the restriction */
     public OffsetRange asPrimary() {
-      return new OffsetRange(startOffset, endOffsetInclusive);
+      return new OffsetRange(startOffset, endOffsetInclusive, totalLimit, totalLimit - consumed);
     }
 
     /**
@@ -110,7 +133,7 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
      *     should be equivalent to the original (unsplit) range.
      */
     public OffsetRange asResidual() {
-      return new OffsetRange(endOffsetInclusive);
+      return new OffsetRange(endOffsetInclusive, totalLimit, consumed);
     }
 
     public boolean isInitial() {

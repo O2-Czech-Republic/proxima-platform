@@ -142,7 +142,6 @@ public class ListCommitLog implements CommitLogReader {
     return new ListCommitLog(data, watermarkEstimator, context);
   }
 
-
   /**
    * Create the new {@link ListCommitLog}, which mimics non-externalizable offsets (that are offsets
    * that cannot be persisted in external system - e.g. a checkpoint - and be sure they represent
@@ -150,7 +149,6 @@ public class ListCommitLog implements CommitLogReader {
    * Google PubSub) rely heavily on ack() and nack() of elements to ensure at-least-once semantics
    * (typically not exactly-once-semantics, because when consumer consumes element and does neither
    * ack() nor nack() it until timeout, the element is resend to another (or the same) consumer).
-   *
    *
    * @param data the data to be present in the commit log
    * @param context {@link Context} for direct consumption

@@ -36,11 +36,13 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.transforms.Count;
 import org.apache.beam.sdk.transforms.MapElements;
+import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.Sum;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
+import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptors;
 import org.junit.Test;
@@ -93,10 +95,26 @@ public class CommitLogReadTest {
     testReadingFromCommitLogMany(numElements, commitLog);
   }
 
+  @Test
+  public void testCommitLogReadWithLimit() {
+    int numElements = 1000;
+    List<StreamElement> input = createInput(numElements);
+    ListCommitLog commitLog = ListCommitLog.ofNonExternalizable(input, direct.getContext());
+    testReadingFromCommitLogMany(
+        50, CommitLogRead.of("name", Position.CURRENT, 50, repo, commitLog));
+  }
+
   private void testReadingFromCommitLogMany(int numElements, ListCommitLog commitLog) {
+    testReadingFromCommitLogMany(
+        numElements, CommitLogRead.of("name", Position.CURRENT, Long.MAX_VALUE, repo, commitLog));
+  }
+
+  private void testReadingFromCommitLogMany(
+      int numElements, PTransform<PBegin, PCollection<StreamElement>> readTransform) {
+
     Pipeline p = Pipeline.create();
     PCollection<Integer> count =
-        p.apply(CommitLogRead.of("name", Position.CURRENT, Long.MAX_VALUE, repo, commitLog))
+        p.apply(readTransform)
             .apply(
                 Window.<StreamElement>into(new GlobalWindows())
                     .triggering(Repeatedly.forever(AfterWatermark.pastEndOfWindow()))

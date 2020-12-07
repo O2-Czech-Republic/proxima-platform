@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.commitlog;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Suppliers;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
@@ -32,6 +33,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.experimental.Delegate;
@@ -129,17 +131,18 @@ public class CommitLogReaders {
   public static class LimitedCommitLogReader extends ForwardingCommitLogReader {
 
     @Getter private final ThroughputLimiter limiter;
+    private final Supplier<List<Partition>> availablePartitions;
 
     public LimitedCommitLogReader(CommitLogReader delegate, ThroughputLimiter limiter) {
       super(delegate);
       this.limiter = SerializableUtils.clone(Objects.requireNonNull(limiter));
+      this.availablePartitions = Suppliers.memoize(delegate::getPartitions);
     }
 
     @Override
     public ObserveHandle observe(String name, Position position, LogObserver observer) {
-      final List<Partition> availablePartitions = getDelegate().getPartitions();
       return super.observe(
-          name, position, throughputLimited(limiter, availablePartitions, observer));
+          name, position, throughputLimited(limiter, availablePartitions.get(), observer));
     }
 
     @Override
@@ -160,9 +163,11 @@ public class CommitLogReaders {
     @Override
     public ObserveHandle observeBulk(
         String name, Position position, boolean stopAtCurrent, LogObserver observer) {
-      final List<Partition> availablePartitions = getDelegate().getPartitions();
       return super.observeBulk(
-          name, position, stopAtCurrent, throughputLimited(limiter, availablePartitions, observer));
+          name,
+          position,
+          stopAtCurrent,
+          throughputLimited(limiter, availablePartitions.get(), observer));
     }
 
     @Override
@@ -182,9 +187,8 @@ public class CommitLogReaders {
 
     @Override
     public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
-      final List<Partition> availablePartitions = getDelegate().getPartitions();
       return super.observeBulkOffsets(
-          offsets, throughputLimited(limiter, availablePartitions, observer));
+          offsets, throughputLimited(limiter, availablePartitions.get(), observer));
     }
 
     @Override

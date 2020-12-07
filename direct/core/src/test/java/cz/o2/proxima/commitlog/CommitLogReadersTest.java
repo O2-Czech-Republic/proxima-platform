@@ -15,10 +15,7 @@
  */
 package cz.o2.proxima.commitlog;
 
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReaders;
@@ -29,7 +26,6 @@ import cz.o2.proxima.storage.commitlog.Position;
 import java.time.Duration;
 import java.util.Arrays;
 import org.junit.Test;
-import org.mockito.Mockito;
 
 public class CommitLogReadersTest {
   private static class NoOpThroughputLimiter implements ThroughputLimiter {
@@ -45,12 +41,12 @@ public class CommitLogReadersTest {
   }
 
   @Test
-  public void testLimitedReaderInstantiation() {
+  public void verifyGetPartitionsIsNotCalledDuringConstruction() {
     final CommitLogReader mockReader = mock(CommitLogReader.class);
     // Get Partitions may not be supported in test environment, because it may issue remote
     // fetches...
-    Mockito.doThrow(UnsupportedOperationException.class).when(mockReader).getPartitions();
     CommitLogReaders.withThroughputLimit(mockReader, new NoOpThroughputLimiter());
+    verify(mockReader, never()).getPartitions();
   }
 
   @Test

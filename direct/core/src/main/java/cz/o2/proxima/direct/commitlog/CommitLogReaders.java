@@ -129,17 +129,17 @@ public class CommitLogReaders {
   public static class LimitedCommitLogReader extends ForwardingCommitLogReader {
 
     @Getter private final ThroughputLimiter limiter;
-    private final Collection<Partition> partitions;
 
     public LimitedCommitLogReader(CommitLogReader delegate, ThroughputLimiter limiter) {
       super(delegate);
       this.limiter = SerializableUtils.clone(Objects.requireNonNull(limiter));
-      this.partitions = new ArrayList<>(delegate.getPartitions());
     }
 
     @Override
     public ObserveHandle observe(String name, Position position, LogObserver observer) {
-      return super.observe(name, position, throughputLimited(limiter, partitions, observer));
+      final List<Partition> availablePartitions = getDelegate().getPartitions();
+      return super.observe(
+          name, position, throughputLimited(limiter, availablePartitions, observer));
     }
 
     @Override
@@ -160,8 +160,9 @@ public class CommitLogReaders {
     @Override
     public ObserveHandle observeBulk(
         String name, Position position, boolean stopAtCurrent, LogObserver observer) {
+      final List<Partition> availablePartitions = getDelegate().getPartitions();
       return super.observeBulk(
-          name, position, stopAtCurrent, throughputLimited(limiter, partitions, observer));
+          name, position, stopAtCurrent, throughputLimited(limiter, availablePartitions, observer));
     }
 
     @Override
@@ -181,7 +182,9 @@ public class CommitLogReaders {
 
     @Override
     public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
-      return super.observeBulkOffsets(offsets, throughputLimited(limiter, partitions, observer));
+      final List<Partition> availablePartitions = getDelegate().getPartitions();
+      return super.observeBulkOffsets(
+          offsets, throughputLimited(limiter, availablePartitions, observer));
     }
 
     @Override

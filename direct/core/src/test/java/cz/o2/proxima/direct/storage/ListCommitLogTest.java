@@ -92,8 +92,7 @@ public class ListCommitLogTest {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
-                // do not confirm this
-                data.add(ingest);
+                context.nack();
                 return false;
               }
 

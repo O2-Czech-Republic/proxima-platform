@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
@@ -47,12 +48,19 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   private static final long serialVersionUID = 1L;
 
+  private static final int QUEUE_SIE = 100;
+
   static BlockingQueueLogObserver create(String name, long startingWatermark) {
     return create(name, Long.MAX_VALUE, startingWatermark);
   }
 
   static BlockingQueueLogObserver create(String name, long limit, long startingWatermark) {
     return new BlockingQueueLogObserver(name, limit, startingWatermark);
+  }
+
+  static BlockingQueueLogObserver create(
+      String name, long limit, long startingWatermark, int queueCapacity) {
+    return new BlockingQueueLogObserver(name, limit, startingWatermark, queueCapacity);
   }
 
   @Internal
@@ -65,13 +73,14 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   }
 
   @ToString
-  private static class LogObserverUnifiedContext implements UnifiedContext {
+  @VisibleForTesting
+  static class LogObserverUnifiedContext implements UnifiedContext {
 
     private static final long serialVersionUID = 1L;
 
     private final LogObserver.OnNextContext context;
 
-    private LogObserverUnifiedContext(LogObserver.OnNextContext context) {
+    LogObserverUnifiedContext(LogObserver.OnNextContext context) {
       this.context = context;
     }
 
@@ -145,22 +154,29 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   @Getter private final String name;
   private final AtomicReference<Throwable> error = new AtomicReference<>();
   private final AtomicLong watermark;
+
   private final BlockingQueue<Pair<StreamElement, UnifiedContext>> queue;
+
   private volatile boolean stopped = false;
   private volatile boolean nackAllIncoming = false;
   @Getter @Nullable private UnifiedContext lastWrittenContext;
   @Getter @Nullable private UnifiedContext lastReadContext;
+  @Nullable private Pair<StreamElement, UnifiedContext> peekElement = null;
   private long limit;
   private boolean cancelled = false;
   private transient CountDownLatch cancelledLatch = new CountDownLatch(1);
 
   private BlockingQueueLogObserver(String name, long limit, long startingWatermark) {
+    this(name, limit, startingWatermark, 100);
+  }
+
+  private BlockingQueueLogObserver(String name, long limit, long startingWatermark, int capacity) {
     Preconditions.checkArgument(limit >= 0, "Please provide non-negative limit");
 
     this.name = Objects.requireNonNull(name);
     this.watermark = new AtomicLong(startingWatermark);
     this.limit = limit;
-    queue = new ArrayBlockingQueue<>(100);
+    queue = new ArrayBlockingQueue<>(capacity);
     log.debug("Created {}", this);
   }
 
@@ -253,12 +269,26 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   /**
    * Take next element without blocking.
    *
-   * @return {@code} element that was taken without blocking or {@code null} otherwise
+   * @return element that was taken without blocking or {@code null} otherwise
    */
   @Nullable
   StreamElement take() {
     if (!stopped) {
-      return consumeTaken(queue.poll());
+      try {
+        if (peekElement(0, TimeUnit.MILLISECONDS)) {
+          return consumePeek();
+        }
+      } catch (InterruptedException ex) {
+        // cannot happen
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  public UnifiedContext getPeekContext() {
+    if (peekElement != null) {
+      return peekElement.getSecond();
     }
     return null;
   }
@@ -266,21 +296,63 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   /**
    * Take next element waiting for input if necessary.
    *
-   * @return {@code} element that was taken or {@code null} on end of input
+   * @return element that was taken or {@code null} on end of input
    */
   @Nullable
-  StreamElement takeBlocking() throws InterruptedException {
-    while (!stopped) {
-      Pair<StreamElement, UnifiedContext> taken = queue.poll(50, TimeUnit.MILLISECONDS);
-      if (taken != null) {
-        return consumeTaken(taken);
+  StreamElement takeBlocking(long timeout, TimeUnit unit) throws InterruptedException {
+    if (!stopped) {
+      if (peekElement(timeout, unit)) {
+        return consumePeek();
       }
     }
     return null;
   }
 
+  /**
+   * Take next element waiting for input if necessary.
+   *
+   * @return element that was taken or {@code null} on end of input
+   */
   @Nullable
-  private StreamElement consumeTaken(@Nullable Pair<StreamElement, UnifiedContext> taken) {
+  StreamElement takeBlocking() throws InterruptedException {
+    while (!stopped) {
+      if (peekElement(50, TimeUnit.MILLISECONDS)) {
+        return consumePeek();
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Peek element or return {@code null} if queue is empty.
+   *
+   * @return {@code true} if queue is not empty after the call
+   */
+  public boolean peekElement() {
+    try {
+      return peekElement(0, TimeUnit.MILLISECONDS);
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+    }
+    return false;
+  }
+
+  private boolean peekElement(long timeout, TimeUnit unit) throws InterruptedException {
+    if (peekElement == null) {
+      peekElement = queue.poll(timeout, unit);
+    }
+    if (peekElement != null && peekElement.getFirst() == null) {
+      // we have end of input mark
+      consumePeek();
+      return false;
+    }
+    return peekElement != null;
+  }
+
+  @Nullable
+  private StreamElement consumePeek() {
+    @Nullable Pair<StreamElement, UnifiedContext> taken = peekElement;
+    peekElement = null;
     if (taken != null && taken.getFirst() != null) {
       lastReadContext = taken.getSecond();
       if (lastReadContext != null) {
@@ -295,6 +367,7 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     } else if (taken != null) {
       // we have read the finalizing marker
       updateAndLogWatermark(Long.MAX_VALUE);
+      stopped = true;
     }
     return null;
   }
@@ -317,6 +390,10 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     stopped = true;
     if (nack) {
       List<Pair<StreamElement, UnifiedContext>> drop = new ArrayList<>();
+      if (peekElement != null) {
+        drop.add(peekElement);
+        peekElement = null;
+      }
       queue.drainTo(drop);
       drop.stream().map(Pair::getSecond).filter(Objects::nonNull).forEach(UnifiedContext::nack);
     }

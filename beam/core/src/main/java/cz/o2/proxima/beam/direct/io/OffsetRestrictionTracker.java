@@ -18,6 +18,7 @@ package cz.o2.proxima.beam.direct.io;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetRange;
 import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.time.Watermarks;
 import java.io.Serializable;
 import java.util.Objects;
 import javax.annotation.Nonnull;
@@ -27,9 +28,6 @@ import lombok.ToString;
 import org.apache.beam.sdk.transforms.splittabledofn.HasDefaultTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.SplitResult;
-import org.apache.beam.sdk.transforms.splittabledofn.WatermarkEstimator;
-import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
-import org.joda.time.Instant;
 
 /**
  * A {@link RestrictionTracker} for {@link Offset Offsets} read from {@link
@@ -162,6 +160,24 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
       return endOffsetInclusive != null;
     }
 
+    /**
+     * Verify that we have processed the whole restriction.
+     *
+     * @return {@code true} if watermark has arrived to final instant
+     */
+    public boolean isFinished() {
+      if (isLimitConsumed()) {
+        return true;
+      }
+      if (endOffsetInclusive != null) {
+        return endOffsetInclusive.getWatermark() >= Watermarks.MAX_WATERMARK;
+      }
+      if (startOffset != null) {
+        return startOffset.getWatermark() >= Watermarks.MAX_WATERMARK;
+      }
+      return false;
+    }
+
     @Override
     public boolean equals(Object o) {
       if (this == o) {
@@ -184,31 +200,6 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     }
   }
 
-  /** A {@link WatermarkEstimator} from {@link OffsetRange}. */
-  public static class OffsetWatermarkEstimator implements WatermarkEstimator<Void> {
-
-    private final OffsetRange processedRange;
-
-    OffsetWatermarkEstimator(OffsetRange offsetRange) {
-      this.processedRange = offsetRange;
-    }
-
-    @Override
-    public Instant currentWatermark() {
-      if (processedRange.getEndOffsetInclusive() != null) {
-        return Instant.ofEpochMilli(processedRange.getEndOffsetInclusive().getWatermark());
-      } else if (processedRange.getStartOffset() != null) {
-        return Instant.ofEpochMilli(processedRange.getStartOffset().getWatermark());
-      }
-      return BoundedWindow.TIMESTAMP_MIN_VALUE;
-    }
-
-    @Override
-    public Void getState() {
-      return null;
-    }
-  }
-
   private final OffsetRange currentRestriction;
 
   private OffsetRestrictionTracker(OffsetRange initial) {
@@ -227,7 +218,9 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
 
   @Override
   public @Nullable SplitResult<OffsetRange> trySplit(double fractionOfRemainder) {
-    if (currentRestriction.isSplittable()) {
+    if (currentRestriction.isFinished()) {
+      return null;
+    } else if (currentRestriction.isSplittable()) {
       currentRestriction.terminate();
       return SplitResult.of(currentRestriction.asPrimary(), currentRestriction.asResidual());
     }

@@ -15,9 +15,10 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.direct.io.BlockingQueueLogObserver.UnifiedContext;
 import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetRange;
-import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetWatermarkEstimator;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader.Factory;
 import cz.o2.proxima.direct.commitlog.LogObserver;
@@ -31,23 +32,28 @@ import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.apache.beam.sdk.coders.Coder;
+import org.apache.beam.sdk.coders.InstantCoder;
 import org.apache.beam.sdk.coders.SerializableCoder;
-import org.apache.beam.sdk.coders.VoidCoder;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Impulse;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.splittabledofn.ManualWatermarkEstimator;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
+import org.apache.beam.sdk.transforms.splittabledofn.WatermarkEstimators.Manual;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
+import org.joda.time.Duration;
 import org.joda.time.Instant;
 
 /** A {@link PTransform} that reads from a {@link CommitLogReader} using splittable DoFn. */
@@ -90,7 +96,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
   }
 
   @DoFn.UnboundedPerElement
-  private static class CommitLogReadFn extends DoFn<byte[], StreamElement> {
+  private class CommitLogReadFn extends DoFn<byte[], StreamElement> {
 
     private final String name;
     private final Position position;
@@ -99,7 +105,9 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     private final long limit;
 
     private transient boolean externalizableOffsets = false;
-    private transient BlockingQueueLogObserver observer;
+    private transient Map<Integer, ObserveHandle> runningObserves;
+    private transient Map<Integer, Offset> partitionToSeekedOffset;
+    private transient Map<Integer, BlockingQueueLogObserver> observers;
 
     private CommitLogReadFn(
         @Nullable String name,
@@ -119,73 +127,126 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       return observerName == null ? UUID.randomUUID().toString() : observerName;
     }
 
+    @Setup
+    public void setup() {
+      runningObserves = new HashMap<>();
+      partitionToSeekedOffset = new HashMap<>();
+      observers = new HashMap<>();
+    }
+
     @ProcessElement
     public ProcessContinuation process(
         RestrictionTracker<OffsetRange, Offset> tracker,
         OutputReceiver<StreamElement> output,
+        ManualWatermarkEstimator<?> watermarkEstimator,
         BundleFinalizer finalizer) {
 
-      AtomicReference<UnifiedContext> readContext = new AtomicReference<>();
-      AtomicReference<UnifiedContext> lastWrittenContext = new AtomicReference<>();
+      AtomicReference<UnifiedContext> ackContext = new AtomicReference<>();
       BundleFinalizer.Callback bundleFinalize =
-          () -> {
-            Optional.ofNullable(readContext.get()).ifPresent(UnifiedContext::confirm);
-            Optional.ofNullable(lastWrittenContext.get()).ifPresent(UnifiedContext::nack);
-          };
-      if (!externalizableOffsets) {
-        // we confirm only processing of CommitLogReaders with non-externalizable offsets
-        // externalizable offsets are persisted and reloaded during recovery
-        finalizer.afterBundleCommit(BoundedWindow.TIMESTAMP_MAX_VALUE, bundleFinalize);
+          () -> Optional.ofNullable(ackContext.getAndSet(null)).ifPresent(UnifiedContext::confirm);
+
+      finalizer.afterBundleCommit(BoundedWindow.TIMESTAMP_MAX_VALUE, bundleFinalize);
+
+      Partition part = tracker.currentRestriction().getStartOffset().getPartition();
+
+      BlockingQueueLogObserver currentObserver = observers.get(part.getId());
+
+      if (currentObserver != null && externalizableOffsets) {
+        closeHandleIfUnmatchingOffsets(tracker, part, currentObserver);
       }
 
-      try (ObserveHandle handle = startObserve(tracker.currentRestriction())) {
-        int i = 0;
-        StreamElement element;
-        while (!Thread.currentThread().isInterrupted()
-            && observer.getWatermark() < Watermarks.MAX_WATERMARK
-            && (element = observer.take()) != null) {
-
-          boolean isFirst = i++ == 0;
-          UnifiedContext currentReadContext = Objects.requireNonNull(observer.getLastReadContext());
-          Offset offset = Objects.requireNonNull(currentReadContext.getOffset());
-          if (externalizableOffsets
-              && !tracker.currentRestriction().isStartInclusive()
-              && isFirst) {
-            // skip the exclusive first offset
-            continue;
-          }
-          if (!tracker.tryClaim(offset)) {
-            return ProcessContinuation.stop();
-          }
-          output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
-          readContext.set(currentReadContext);
-        }
-      } finally {
-        // nack all buffered but unprocessed data iff we have not emitted any output
-        // otherwise, we have to wait till bundle finalization
-        boolean shouldNackAllUnread = readContext.get() == null;
-        observer.stop(shouldNackAllUnread);
-        lastWrittenContext.set(observer.getLastWrittenContext());
-        if (externalizableOffsets) {
-          ExceptionUtils.unchecked(bundleFinalize::onBundleSuccess);
-        }
+      if (runningObserves.get(part.getId()) == null) {
+        // start current restriction
+        startObserve(part, tracker.currentRestriction());
+        // start the consumption after the other restrictions are started
+        return ProcessContinuation.resume().withResumeDelay(Duration.millis(100));
       }
+
+      boolean canIgnoreFirstElement =
+          externalizableOffsets
+              && partitionToSeekedOffset
+                  .get(part.getId())
+                  .equals(tracker.currentRestriction().getStartOffset());
+
+      BlockingQueueLogObserver observer = Objects.requireNonNull(observers.get(part.getId()));
+
+      while (!Thread.currentThread().isInterrupted()
+          && observer.getWatermark() < Watermarks.MAX_WATERMARK
+          && observer.peekElement()) {
+
+        UnifiedContext currentPeekContext = Objects.requireNonNull(observer.getPeekContext());
+        Offset offset = Objects.requireNonNull(currentPeekContext.getOffset());
+        if (canIgnoreFirstElement && !tracker.currentRestriction().isStartInclusive()) {
+          canIgnoreFirstElement = false;
+          // discard the peeked element
+          observer.take();
+          // skip the exclusive first offset
+          continue;
+        }
+        if (!tracker.tryClaim(offset)) {
+          return ProcessContinuation.stop();
+        }
+        StreamElement element = Objects.requireNonNull(observer.take());
+        output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
+        ackContext.set(observer.getLastReadContext());
+        watermarkEstimator.setWatermark(
+            ensureInBounds(Instant.ofEpochMilli(observer.getWatermark())));
+      }
+
+      watermarkEstimator.setWatermark(
+          ensureInBounds(Instant.ofEpochMilli(observer.getWatermark())));
+
       Optional.ofNullable(observer.getError())
           .ifPresent(ExceptionUtils::rethrowAsIllegalStateException);
+
       boolean terminated =
           tracker.currentRestriction().isLimitConsumed()
               || observer.getWatermark() >= Watermarks.MAX_WATERMARK;
-      return terminated ? ProcessContinuation.stop() : ProcessContinuation.resume();
+      return terminated
+          ? ProcessContinuation.stop()
+          : ProcessContinuation.resume().withResumeDelay(Duration.millis(100));
     }
 
-    private ObserveHandle startObserve(OffsetRange restriction) {
+    private void closeHandleIfUnmatchingOffsets(
+        RestrictionTracker<OffsetRange, Offset> tracker,
+        Partition part,
+        BlockingQueueLogObserver observer) {
+
+      final Offset currentOffset;
+      if (observer.getLastReadContext() != null) {
+        currentOffset = observer.getLastReadContext().getOffset();
+      } else {
+        currentOffset = partitionToSeekedOffset.get(part.getId());
+      }
+      if (currentOffset != null
+          && !currentOffset.equals(tracker.currentRestriction().getStartOffset())) {
+        // there was existing handle with read context, which means we have already read some data
+        // and any commit (or nack) must wait till checkpoint
+        closeHandle(part.getId(), false);
+      }
+    }
+
+    @Teardown
+    public void tearDown() {
+      Lists.newArrayList(observers.keySet()).forEach(p -> closeHandle(p, true));
+    }
+
+    private void closeHandle(int part, boolean nack) {
+      Optional.ofNullable(observers.remove(part)).ifPresent(observer -> observer.stop(nack));
+      Optional.ofNullable(runningObserves.remove(part)).ifPresent(ObserveHandle::close);
+      partitionToSeekedOffset.remove(part);
+    }
+
+    private void startObserve(Partition partition, OffsetRange restriction) {
       CommitLogReader reader = readerFactory.apply(repositoryFactory.apply());
       this.externalizableOffsets = reader.hasExternalizableOffsets();
-      observer =
-          BlockingQueueLogObserver.create(
-              name, restriction.getTotalLimit(), Watermarks.MIN_WATERMARK);
-      return reader.observeBulkOffsets(
-          Collections.singletonList(restriction.getStartOffset()), observer);
+      BlockingQueueLogObserver observer = newObserver(name, restriction);
+      observers.put(partition.getId(), observer);
+      partitionToSeekedOffset.put(partition.getId(), restriction.getStartOffset());
+      runningObserves.put(
+          partition.getId(),
+          reader.observeBulkOffsets(
+              Collections.singletonList(restriction.getStartOffset()), observer));
     }
 
     @GetInitialRestriction
@@ -221,13 +282,28 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     }
 
     @NewWatermarkEstimator
-    public OffsetWatermarkEstimator newWatermarkEstimator(@Restriction OffsetRange restriction) {
-      return new OffsetWatermarkEstimator(restriction);
+    public Manual newWatermarkEstimator(@WatermarkEstimatorState Instant initialWatemark) {
+      return new Manual(ensureInBounds(initialWatemark));
+    }
+
+    private Instant ensureInBounds(Instant instant) {
+      if (instant.isBefore(BoundedWindow.TIMESTAMP_MIN_VALUE)) {
+        return BoundedWindow.TIMESTAMP_MIN_VALUE;
+      }
+      if (instant.isAfter(BoundedWindow.TIMESTAMP_MAX_VALUE)) {
+        return BoundedWindow.TIMESTAMP_MAX_VALUE;
+      }
+      return instant;
+    }
+
+    @GetInitialWatermarkEstimatorState
+    public Instant getInitialWatermarkEstimatorState() {
+      return BoundedWindow.TIMESTAMP_MIN_VALUE;
     }
 
     @GetWatermarkEstimatorStateCoder
-    public Coder<Void> getWatermarkEstimatorStateCoder() {
-      return VoidCoder.of();
+    public Coder<Instant> getWatermarkEstimatorStateCoder() {
+      return InstantCoder.of();
     }
 
     private LogObserver noopObserver() {
@@ -252,7 +328,8 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
   private final RepositoryFactory repoFactory;
   private final Factory<?> readerFactory;
 
-  private CommitLogRead(
+  @VisibleForTesting
+  CommitLogRead(
       String observeName,
       Position position,
       long limit,
@@ -273,5 +350,11 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         .apply(
             ParDo.of(
                 new CommitLogReadFn(observeName, position, limit, repoFactory, readerFactory)));
+  }
+
+  @VisibleForTesting
+  BlockingQueueLogObserver newObserver(String name, OffsetRange restriction) {
+    return BlockingQueueLogObserver.create(
+        name, restriction.getTotalLimit(), Watermarks.MIN_WATERMARK);
   }
 }

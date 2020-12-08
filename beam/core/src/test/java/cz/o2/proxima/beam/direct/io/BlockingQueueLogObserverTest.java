@@ -26,7 +26,17 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.ExceptionUtils;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 
 /** Test {@link BlockingQueueLogObserver}. */
@@ -44,18 +54,80 @@ public class BlockingQueueLogObserverTest {
   }
 
   @Test
-  public void testMaxWatermarkWhenOnCompleted() {
+  public void testMaxWatermarkWhenOnCompleted() throws InterruptedException {
     BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", Long.MIN_VALUE);
     assertEquals(Long.MIN_VALUE, observer.getWatermark());
     observer.onCompleted();
-    assertNull(observer.take());
+    assertFalse(observer.peekElement());
     assertEquals(Long.MAX_VALUE, observer.getWatermark());
+  }
+
+  @Test
+  public void testPeekBlocking() throws InterruptedException {
+    BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", Long.MIN_VALUE);
+    long now = System.currentTimeMillis();
+    assertFalse(observer.peekElement());
+    observer.onNext(newElement(now), newContext(now));
+    assertTrue(observer.peekElement());
+  }
+
+  @Test(timeout = 10000)
+  public void testCapacityFull() throws InterruptedException {
+    BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", Long.MIN_VALUE);
+    long now = System.currentTimeMillis();
+    int numElements = 1000;
+    CountDownLatch latch = new CountDownLatch(100);
+    Executor executor = Executors.newSingleThreadExecutor();
+    executor.execute(
+        () -> {
+          for (int i = 0; i < numElements; i++) {
+            latch.countDown();
+            observer.onNext(newElement(now + i), newContext(now));
+          }
+        });
+    latch.await();
+    List<StreamElement> result = new ArrayList<>();
+    while (result.size() != numElements) {
+      result.add(observer.takeBlocking());
+    }
+    assertEquals(numElements, result.size());
+  }
+
+  @Test(timeout = 10000)
+  public void testCapacityEmpty() throws InterruptedException, ExecutionException {
+    BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", Long.MIN_VALUE);
+    long now = System.currentTimeMillis();
+    int numElements = 1000;
+    CountDownLatch latch = new CountDownLatch(1);
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    Future<Void> future =
+        executor.submit(
+            () -> {
+              List<StreamElement> result = new ArrayList<>();
+              while (result.size() != numElements) {
+                ExceptionUtils.unchecked(
+                    () -> {
+                      StreamElement element = observer.takeBlocking(10, TimeUnit.MILLISECONDS);
+                      if (element != null) {
+                        result.add(element);
+                      }
+                      latch.countDown();
+                    });
+              }
+              assertEquals(numElements, result.size());
+              return null;
+            });
+    latch.await();
+    for (int i = 0; i < numElements; i++) {
+      observer.onNext(newElement(now + i), newContext(now));
+    }
+    assertNull(future.get());
   }
 
   void testWithStartingWatermark(long startingWatermark) throws InterruptedException {
     BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", startingWatermark);
     long now = System.currentTimeMillis();
-    observer.onNext(newIngest(now), newContext(now));
+    observer.onNext(newElement(now), newContext(now));
     assertEquals(startingWatermark, observer.getWatermark());
     StreamElement elem = observer.takeBlocking();
     assertEquals(now, observer.getWatermark());
@@ -85,7 +157,7 @@ public class BlockingQueueLogObserverTest {
     };
   }
 
-  private StreamElement newIngest(long stamp) {
+  private StreamElement newElement(long stamp) {
     return StreamElement.upsert(
         gateway,
         status,

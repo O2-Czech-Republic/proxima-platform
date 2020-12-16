@@ -115,10 +115,12 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   @Override
   public void setup(Map<String, Object> cfg) {
-    parseZkUri(cfg);
+    URI uri = getZkUri(cfg);
     timeProvider = getTimeProvider(cfg);
+    zkConnectString = uri.getAuthority();
     sessionTimeout = getSessionTimeout(cfg);
     trackerName = getTrackerName(cfg);
+    parentNode = "/" + UriUtil.getPathNormalized(uri) + "/";
     maxAcceptableUpdateMs = getMaxAcceptableUpdateAge(cfg);
   }
 
@@ -150,22 +152,15 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
         .orElse(60000);
   }
 
-  @VisibleForTesting
-  void parseZkUri(Map<String, Object> cfg) {
-    final String zkPrefix = "zk://";
-    String stringUri =
+  private URI getZkUri(Map<String, Object> cfg) {
+    URI uri =
         Optional.ofNullable(cfg.get(ZK_URI))
             .map(Object::toString)
+            .map(URI::create)
             .orElseThrow(() -> new IllegalArgumentException("Missing configuration " + ZK_URI));
     Preconditions.checkArgument(
-        stringUri.toLowerCase().startsWith(zkPrefix),
-        "Unexpected scheme in %s, expected zk://",
-        stringUri);
-
-    URI uri = URI.create(stringUri);
-
-    parentNode = "/" + UriUtil.getPathNormalized(uri) + "/";
-    zkConnectString = stringUri.substring(zkPrefix.length(), stringUri.indexOf(uri.getPath()));
+        uri.getScheme().equalsIgnoreCase("zk"), "Unexpected scheme in %s, expected zk://", uri);
+    return uri;
   }
 
   @Override

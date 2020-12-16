@@ -312,8 +312,9 @@ public class ZKGlobalWatermarkTrackerTest {
   @Test
   public void testZookeeperHostListParsing() {
     Map<String, Object> config = new HashMap<>();
-    config.put("zk.url", "zk://host1:2181,host2:2181,host3:2181/my/path");
-    tracker.parseZkUri(config);
+    config.put(ZKGlobalWatermarkTracker.ZK_URI, "zk://host1:2181,host2:2181,host3:2181/my/path");
+    config.put(ZKGlobalWatermarkTracker.CFG_NAME, "test");
+    tracker.setup(config);
 
     assertEquals("host1:2181,host2:2181,host3:2181", tracker.zkConnectString);
     assertEquals("/my/path/", tracker.parentNode);
@@ -322,8 +323,9 @@ public class ZKGlobalWatermarkTrackerTest {
   @Test
   public void testZookeeperSingleHostParsing() {
     Map<String, Object> config = new HashMap<>();
-    config.put("zk.url", "zk://host1:2181/my/other-path");
-    tracker.parseZkUri(config);
+    config.put(ZKGlobalWatermarkTracker.ZK_URI, "zk://host1:2181/my/other-path");
+    config.put(ZKGlobalWatermarkTracker.CFG_NAME, "test");
+    tracker.setup(config);
 
     assertEquals("host1:2181", tracker.zkConnectString);
     assertEquals("/my/other-path/", tracker.parentNode);

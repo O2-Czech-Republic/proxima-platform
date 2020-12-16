@@ -40,6 +40,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -306,6 +307,26 @@ public class ZKGlobalWatermarkTrackerTest {
   public void testGetNodeName() {
     assertEquals("node", ZKGlobalWatermarkTracker.getNodeName("parent/node"));
     assertEquals("node", ZKGlobalWatermarkTracker.getNodeName("node"));
+  }
+
+  @Test
+  public void testZookeeperHostListParsing() {
+    Map<String, Object> config = new HashMap<>();
+    config.put("zk.url", "zk://host1:2181,host2:2181,host3:2181/my/path");
+    tracker.parseZkUri(config);
+
+    assertEquals("host1:2181,host2:2181,host3:2181", tracker.zkConnectString);
+    assertEquals("/my/path/", tracker.parentNode);
+  }
+
+  @Test
+  public void testZookeeperSingleHostParsing() {
+    Map<String, Object> config = new HashMap<>();
+    config.put("zk.url", "zk://host1:2181/my/other-path");
+    tracker.parseZkUri(config);
+
+    assertEquals("host1:2181", tracker.zkConnectString);
+    assertEquals("/my/other-path/", tracker.parentNode);
   }
 
   private ZKGlobalWatermarkTracker createConnectionLossyTracker(String name) {

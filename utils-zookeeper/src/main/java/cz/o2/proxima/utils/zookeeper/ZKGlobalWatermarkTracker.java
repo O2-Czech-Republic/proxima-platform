@@ -77,9 +77,9 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   @VisibleForTesting TimeProvider timeProvider = TimeProvider.processingTime();
+  @VisibleForTesting String zkConnectString;
+  @VisibleForTesting String parentNode;
   private String trackerName;
-  private String zkConnectString;
-  private String parentNode;
   private int sessionTimeout;
   private long maxAcceptableUpdateMs;
   private transient volatile ZooKeeper client;
@@ -115,12 +115,10 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   @Override
   public void setup(Map<String, Object> cfg) {
-    URI uri = getZkUri(cfg);
+    parseZkUri(cfg);
     timeProvider = getTimeProvider(cfg);
-    zkConnectString = String.format("%s:%d", uri.getHost(), uri.getPort());
     sessionTimeout = getSessionTimeout(cfg);
     trackerName = getTrackerName(cfg);
-    parentNode = "/" + UriUtil.getPathNormalized(uri) + "/";
     maxAcceptableUpdateMs = getMaxAcceptableUpdateAge(cfg);
   }
 
@@ -152,15 +150,22 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
         .orElse(60000);
   }
 
-  private URI getZkUri(Map<String, Object> cfg) {
-    URI uri =
+  @VisibleForTesting
+  void parseZkUri(Map<String, Object> cfg) {
+    final String zkPrefix = "zk://";
+    String stringUri =
         Optional.ofNullable(cfg.get(ZK_URI))
             .map(Object::toString)
-            .map(URI::create)
             .orElseThrow(() -> new IllegalArgumentException("Missing configuration " + ZK_URI));
     Preconditions.checkArgument(
-        uri.getScheme().equalsIgnoreCase("zk"), "Unexpected scheme in %s, expected zk://", uri);
-    return uri;
+        stringUri.toLowerCase().startsWith(zkPrefix),
+        "Unexpected scheme in %s, expected zk://",
+        stringUri);
+
+    URI uri = URI.create(stringUri);
+
+    parentNode = "/" + UriUtil.getPathNormalized(uri) + "/";
+    zkConnectString = stringUri.substring(zkPrefix.length(), stringUri.indexOf(uri.getPath()));
   }
 
   @Override

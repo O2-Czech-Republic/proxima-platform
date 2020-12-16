@@ -77,9 +77,9 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   }
 
   @VisibleForTesting TimeProvider timeProvider = TimeProvider.processingTime();
+  @VisibleForTesting String zkConnectString;
+  @VisibleForTesting String parentNode;
   private String trackerName;
-  private String zkConnectString;
-  private String parentNode;
   private int sessionTimeout;
   private long maxAcceptableUpdateMs;
   private transient volatile ZooKeeper client;
@@ -117,7 +117,7 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
   public void setup(Map<String, Object> cfg) {
     URI uri = getZkUri(cfg);
     timeProvider = getTimeProvider(cfg);
-    zkConnectString = String.format("%s:%d", uri.getHost(), uri.getPort());
+    zkConnectString = uri.getAuthority();
     sessionTimeout = getSessionTimeout(cfg);
     trackerName = getTrackerName(cfg);
     parentNode = "/" + UriUtil.getPathNormalized(uri) + "/";

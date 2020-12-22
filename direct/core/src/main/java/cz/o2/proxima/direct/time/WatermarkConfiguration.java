@@ -30,6 +30,8 @@ public abstract class WatermarkConfiguration implements Serializable {
   private static final long serialVersionUID = 1L;
 
   public static final String CFG_PREFIX = "watermark.";
+  public static final String CFG_ESTIMATOR_FACTORY = "estimator-factory";
+  public static final String CFG_IDLE_POLICY_FACTORY = "idle-policy-factory";
 
   @Getter private final Map<String, Object> cfg;
   @Getter private WatermarkIdlePolicyFactory watermarkIdlePolicyFactory;
@@ -68,13 +70,13 @@ public abstract class WatermarkConfiguration implements Serializable {
 
   protected void configure() {
     watermarkIdlePolicyFactory =
-        Optional.ofNullable(cfg.get(prefixedKey("idle-policy-factory")))
+        Optional.ofNullable(cfg.get(prefixedKey(CFG_IDLE_POLICY_FACTORY)))
             .map(Object::toString)
             .map(cls -> Classpath.newInstance(cls, WatermarkIdlePolicyFactory.class))
             .orElse(getDefaultIdlePolicyFactory());
 
     watermarkEstimatorFactory =
-        Optional.ofNullable(cfg.get(prefixedKey("estimator-factory")))
+        Optional.ofNullable(cfg.get(prefixedKey(CFG_ESTIMATOR_FACTORY)))
             .map(Object::toString)
             .map(cls -> Classpath.newInstance(cls, WatermarkEstimatorFactory.class))
             .orElse(getDefaultEstimatorFactory());

@@ -18,6 +18,8 @@ package cz.o2.proxima.beam.direct.io;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetRange;
 import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.storage.Partition;
+import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.Watermarks;
 import java.io.Serializable;
 import java.util.Objects;
@@ -51,10 +53,12 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     }
 
     /** @return restriction that reads from given offset (inclusive) */
-    public static OffsetRange startingFrom(Offset start, long limit) {
-      return new OffsetRange(start, limit, 0, true);
+    public static OffsetRange startingFrom(Partition partition, Position position, long limit) {
+      return new OffsetRange(partition, position, limit);
     }
 
+    @Nullable private final Partition partition;
+    @Getter @Nullable private final Position position;
     @Getter @Nullable private final Offset startOffset;
     @Getter private final boolean startInclusive;
 
@@ -73,8 +77,19 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     // true when the range has been all claimed
     private transient boolean finished = false;
 
-    private OffsetRange(@Nullable Offset start, long totalLimit, long consumed, boolean inclusive) {
+    private OffsetRange(Partition partition, Position position, long totalLimit) {
+      this.partition = partition;
+      this.position = position;
+      this.totalLimit = totalLimit;
+      this.startOffset = null;
+      this.extensible = true;
+      // do not ignore any data when reading from this restriction
+      this.startInclusive = true;
+    }
 
+    private OffsetRange(@Nullable Offset start, long totalLimit, long consumed, boolean inclusive) {
+      this.partition = null;
+      this.position = null;
       this.startOffset = start;
       this.totalLimit = totalLimit;
       this.consumed = consumed;
@@ -93,7 +108,9 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     public OffsetRange(
         Offset startOffsetExclusive, Offset endOffsetInclusive, long totalLimit, long consumed) {
 
-      this.startOffset = Objects.requireNonNull(startOffsetExclusive);
+      this.partition = null;
+      this.position = null;
+      this.startOffset = startOffsetExclusive;
       this.startInclusive = false;
       this.endOffsetInclusive = Objects.requireNonNull(endOffsetInclusive);
       this.extensible = false;
@@ -115,6 +132,16 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
         return true;
       }
       return false;
+    }
+
+    public Partition getPartition() {
+      if (partition == null) {
+        if (startOffset != null) {
+          return startOffset.getPartition();
+        }
+        return null;
+      }
+      return partition;
     }
 
     public boolean isLimitConsumed() {

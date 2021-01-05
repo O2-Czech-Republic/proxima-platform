@@ -57,9 +57,17 @@ public interface ElementSerializer<K, V> extends Serializable {
    */
   Pair<K, V> write(StreamElement element);
 
-  /** Retrieve {@link Serde} for type K. */
+  /**
+   * Retrieve {@link Serde} for type K.
+   *
+   * @return {@link Serde} for key
+   */
   Serde<K> keySerde();
 
-  /** Retrieve {@link Serde} for type V. */
+  /**
+   * Retrieve {@link Serde} for type V.
+   *
+   * @return {@link Serde} for value
+   */
   Serde<V> valueSerde();
 }

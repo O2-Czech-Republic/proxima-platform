@@ -52,6 +52,7 @@ import cz.o2.proxima.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.time.WatermarkIdlePolicy;
 import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.time.Watermarks;
+import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
 import java.io.Serializable;
@@ -266,7 +267,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testWriteNull() {
     LocalKafkaCommitLogDescriptor.Accessor accessor;
     accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(2));
-    OnlineAttributeWriter writer = accessor.getWriter(context()).get().online();
+    OnlineAttributeWriter writer = Optionals.get(accessor.getWriter(context())).online();
     long now = 1234567890000L;
     KafkaConsumer<Object, Object> consumer = accessor.createConsumerFactory().create();
     writer.write(
@@ -441,7 +442,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final Accessor accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(2));
     final LocalKafkaWriter writer = accessor.newWriter();
     final KafkaConsumer<Object, Object> consumer =
-        accessor.createConsumerFactory().create(Arrays.asList((Partition) () -> 0));
+        accessor.createConsumerFactory().create(Collections.singletonList((Partition) () -> 0));
     final CountDownLatch latch = new CountDownLatch(2);
 
     writer.write(
@@ -527,7 +528,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         });
     latch.await();
     KafkaConsumer<Object, Object> consumer =
-        accessor.createConsumerFactory().create(Arrays.asList((Partition) () -> 0));
+        accessor.createConsumerFactory().create(Collections.singletonList((Partition) () -> 0));
 
     ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(100));
     assertTrue(polled.isEmpty());
@@ -568,7 +569,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         });
     latch.await();
     KafkaConsumer<Object, Object> consumer =
-        accessor.createConsumerFactory().create(Arrays.asList((Partition) () -> 0));
+        accessor.createConsumerFactory().create(Collections.singletonList((Partition) () -> 0));
     consumer.seek(new TopicPartition("topic", 0), 1);
 
     ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(100));
@@ -1780,7 +1781,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test
-  public void testObserveOnNonExistingTopic() throws InterruptedException {
+  public void testObserveOnNonExistingTopic() {
     Accessor accessor = kafka.createAccessor(direct, entity, storageUri, partitionsCfg(3));
     LocalKafkaLogReader reader = accessor.newReader(context());
     try {

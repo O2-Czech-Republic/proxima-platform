@@ -257,6 +257,7 @@ public abstract class Repository implements Serializable {
    * @return the data operator of given type
    */
   @SuppressWarnings("unchecked")
+  @SafeVarargs
   public final synchronized <T extends DataOperator> T getOrCreateOperator(
       Class<T> type, Consumer<T>... modifiers) {
 

@@ -142,7 +142,12 @@ public class ExceptionUtils {
     }
   }
 
-  /** Verify that given {@link Throwable} (or any of its causes) is {@link InterruptedException}. */
+  /**
+   * Verify that given {@link Throwable} (or any of its causes) is {@link InterruptedException}.
+   *
+   * @param ex Throwable
+   * @return {@code true} if ex is {@link InterruptedException}
+   */
   public static boolean isInterrupted(Throwable ex) {
     return ex instanceof InterruptedException
         || ex.getCause() != null && isInterrupted(ex.getCause());

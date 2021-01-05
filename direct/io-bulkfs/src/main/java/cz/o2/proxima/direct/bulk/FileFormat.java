@@ -36,7 +36,7 @@ public interface FileFormat extends Serializable {
    * Create json file format.
    *
    * @param gzip read/write gzipped data
-   * @return {@link }JsonFormat}
+   * @return {@link JsonFormat}
    */
   static FileFormat json(boolean gzip) {
     return new JsonFormat(gzip);
@@ -62,6 +62,10 @@ public interface FileFormat extends Serializable {
    */
   Writer openWriter(Path path, EntityDescriptor entity) throws IOException;
 
-  /** Retrieve suffix of file names. */
+  /**
+   * Retrieve suffix of file names.
+   *
+   * @return String suffix
+   */
   String fileSuffix();
 }

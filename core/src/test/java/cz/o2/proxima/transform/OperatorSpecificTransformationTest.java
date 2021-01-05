@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.transform;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
@@ -32,12 +33,11 @@ public class OperatorSpecificTransformationTest {
 
     @Override
     public void setup(Repository repo, TestDataOperator op, Map<String, Object> cfg) {
-      assertTrue(op != null);
-      assertTrue(op instanceof TestDataOperatorFactory.TestDataOperator);
+      assertNotNull(op);
     }
 
     @Override
-    public boolean isDelegateOf(DataOperatorFactory operatorFactory) {
+    public boolean isDelegateOf(DataOperatorFactory<?> operatorFactory) {
       return operatorFactory instanceof TestDataOperatorFactory;
     }
   }
@@ -49,7 +49,7 @@ public class OperatorSpecificTransformationTest {
     }
 
     @Override
-    public boolean isDelegateOf(DataOperatorFactory operatorFactory) {
+    public boolean isDelegateOf(DataOperatorFactory<?> operatorFactory) {
       return operatorFactory instanceof TestDataOperatorFactory;
     }
   }

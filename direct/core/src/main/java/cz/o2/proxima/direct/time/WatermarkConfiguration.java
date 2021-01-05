@@ -39,7 +39,12 @@ public abstract class WatermarkConfiguration implements Serializable {
     this.cfg = cfg;
   }
 
-  /** Returns configuration key with added watermark config prefix */
+  /**
+   * Returns configuration key with added watermark config prefix.
+   *
+   * @param cfgName config key name
+   * @return full key name
+   */
   public static String prefixedKey(String cfgName) {
     if (cfgName.startsWith(CFG_PREFIX)) {
       return cfgName;
@@ -47,10 +52,18 @@ public abstract class WatermarkConfiguration implements Serializable {
     return CFG_PREFIX + cfgName;
   }
 
-  /** Returns default idle policy factory when none user's factory is provided */
+  /**
+   * Returns default idle policy factory when none user's factory is provided.
+   *
+   * @return {@link WatermarkIdlePolicyFactory} default idle watermark policy
+   */
   protected abstract WatermarkIdlePolicyFactory getDefaultIdlePolicyFactory();
 
-  /** Returns default estimator factory when none user's factory is provided */
+  /**
+   * Returns default estimator factory when none user's factory is provided.
+   *
+   * @return {@link WatermarkEstimatorFactory} default watermark estimator factory.
+   */
   protected abstract WatermarkEstimatorFactory getDefaultEstimatorFactory();
 
   protected void configure() {

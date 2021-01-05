@@ -29,7 +29,15 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FileFormatUtils {
 
-  /** Retrieve {@link cz.o2.proxima.direct.bulk.NamingConvention} from configuration. */
+  /**
+   * Retrieve {@link cz.o2.proxima.direct.bulk.NamingConvention} from configuration.
+   *
+   * @param cfgPrefix config prefix
+   * @param cfg config
+   * @param rollPeriodMs roll period
+   * @param format {@link FileFormat} file format
+   * @return {@link NamingConvention} file naming convention
+   */
   public static NamingConvention getNamingConvention(
       String cfgPrefix, Map<String, Object> cfg, long rollPeriodMs, FileFormat format) {
 

@@ -13,30 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-CREATE KEYSPACE proxima WITH REPLICATION = { 'class': 'SimpleStrategy', 'replication_factor': 1 };
+package cz.o2.proxima.util;
 
-CREATE TABLE proxima.users (
-  user text PRIMARY KEY,
-  details blob,
-  preferences blob
-);
+import static org.junit.Assert.assertEquals;
 
-CREATE TABLE proxima.user_events (
-  user text,
-  stamp timestamp,
-  event blob,
-  PRIMARY KEY (user, stamp)
-) WITH CLUSTERING ORDER BY (stamp DESC);
+import org.junit.Test;
 
-CREATE TABLE proxima.products (
-  product text PRIMARY KEY,
-  price blob,
-  details blob
-);
+public class SerializableUtilsTest {
 
-CREATE TABLE proxima.product_categories (
-  product text,
-  category text,
-  data blob,
-  PRIMARY KEY(product, category)
-);
+  @Test
+  public void cloneTest() {
+    final String input = "foo";
+    assertEquals("foo", SerializableUtils.clone(input));
+  }
+}

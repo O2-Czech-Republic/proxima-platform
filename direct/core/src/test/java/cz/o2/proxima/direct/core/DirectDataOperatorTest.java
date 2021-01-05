@@ -826,11 +826,7 @@ public class DirectDataOperatorTest {
     TimeUnit.MILLISECONDS.sleep(300);
     CommitLogReader reader =
         direct
-            .getFamiliesForAttribute(armed)
-            .stream()
-            .filter(af -> af.getDesc().getAccess().canReadCommitLog())
-            .findAny()
-            .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
+            .getCommitLogReader(armed)
             .orElseThrow(() -> new IllegalStateException("Missing random access reader for armed"));
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
@@ -884,11 +880,7 @@ public class DirectDataOperatorTest {
     CountDownLatch latch = new CountDownLatch(2);
     CommitLogReader reader =
         direct
-            .getFamiliesForAttribute(data)
-            .stream()
-            .filter(af -> af.getDesc().getAccess().canReadCommitLog())
-            .findAny()
-            .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
+            .getCommitLogReader(data)
             .orElseThrow(() -> new IllegalStateException("Missing commit log reader for data"));
     reader.observe(
         "dummy",
@@ -1262,11 +1254,7 @@ public class DirectDataOperatorTest {
     TransformationRunner.runTransformations(repo, direct);
     CommitLogReader reader =
         direct
-            .getFamiliesForAttribute(data)
-            .stream()
-            .filter(af -> af.getDesc().getAccess().canReadCommitLog())
-            .findAny()
-            .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
+            .getCommitLogReader(data)
             .orElseThrow(
                 () -> new IllegalStateException("Missing commit log reader for " + data.getName()));
     CountDownLatch latch = new CountDownLatch(1);
@@ -1474,11 +1462,7 @@ public class DirectDataOperatorTest {
     TransformationRunner.runTransformations(repo, direct);
     CommitLogReader reader =
         direct
-            .getFamiliesForAttribute(status)
-            .stream()
-            .filter(af -> af.getDesc().getAccess().canReadCommitLog())
-            .findAny()
-            .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
+            .getCommitLogReader(status)
             .orElseThrow(
                 () ->
                     new IllegalStateException(
@@ -1625,6 +1609,15 @@ public class DirectDataOperatorTest {
     AttributeDescriptor<Object> status = gateway.getAttribute("status");
 
     assertTrue(direct.getCommitLogReader(armed, status).isPresent());
+  }
+
+  @Test
+  public void testGetBatchLogReader() {
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
+    AttributeDescriptor<Object> status = gateway.getAttribute("status");
+
+    assertTrue(direct.getBatchLogReader(armed, status).isPresent());
   }
 
   @Test

@@ -302,6 +302,28 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   }
 
   /**
+   * Retrieve {@link CommitLogReader} for given {@link AttributeDescriptor}s.
+   *
+   * @param attrs the attributes to find commit log reader for
+   * @return optional commit log reader
+   */
+  public Optional<BatchLogReader> getBatchLogReader(Collection<AttributeDescriptor<?>> attrs) {
+    return getFamilyForAttributes(attrs, a -> a.getDesc().getAccess().canReadCommitLog())
+        .flatMap(DirectAttributeFamilyDescriptor::getBatchReader);
+  }
+
+  /**
+   * Retrieve {@link CommitLogReader} for given {@link AttributeDescriptor}s.
+   *
+   * @param attrs the attributes to find commit log reader for
+   * @return optional commit log reader
+   */
+  @SafeVarargs
+  public final Optional<BatchLogReader> getBatchLogReader(AttributeDescriptor<?>... attrs) {
+    return getBatchLogReader(Arrays.asList(attrs));
+  }
+
+  /**
    * Retrieve {@link CachedView} for given {@link AttributeDescriptor}s.
    *
    * @param attrs the attributes to find cached view for

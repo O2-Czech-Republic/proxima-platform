@@ -49,7 +49,6 @@ import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -64,11 +63,11 @@ import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -83,12 +82,16 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -174,30 +177,28 @@ public class InMemStorage implements DataAccessorFactory {
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
       NavigableMap<Integer, InMemIngestWriter> writeObservers = getObservers(getUri());
-      if (log.isDebugEnabled()) {
-        synchronized (writeObservers) {
+      final ArrayList<InMemIngestWriter> currentWriters;
+      try (Locker lock = holder().lockWrite()) {
+        if (log.isDebugEnabled()) {
           log.debug(
               "Writing element {} to {} with {} observers", data, getUri(), writeObservers.size());
         }
+        String attr =
+            data.isDeleteWildcard()
+                ? data.getAttributeDescriptor().toAttributePrefix()
+                : data.getAttribute();
+        getData()
+            .compute(
+                toMapKey(getUri(), data.getKey(), attr),
+                (key, old) -> {
+                  if (old != null && old.getFirst() > data.getStamp()) {
+                    return old;
+                  }
+                  return Pair.of(data.getStamp(), data.getValue());
+                });
+        currentWriters = Lists.newArrayList(writeObservers.values());
       }
-      String attr =
-          data.isDeleteWildcard()
-              ? data.getAttributeDescriptor().toAttributePrefix()
-              : data.getAttribute();
-      getData()
-          .compute(
-              toMapKey(getUri(), data.getKey(), attr),
-              (key, old) -> {
-                if (old != null && old.getFirst() > data.getStamp()) {
-                  return old;
-                }
-                return Pair.of(data.getStamp(), data.getValue());
-              });
-      final List<InMemIngestWriter> observers;
-      synchronized (writeObservers) {
-        observers = Lists.newArrayList(writeObservers.values());
-      }
-      observers.forEach(
+      currentWriters.forEach(
           o -> {
             o.write(data);
             log.debug("Passed element {} to {}", data, o);
@@ -221,8 +222,24 @@ public class InMemStorage implements DataAccessorFactory {
 
   private class InMemCommitLogReader extends AbstractStorage implements CommitLogReader {
 
-    private InMemCommitLogReader(EntityDescriptor entityDesc, URI uri) {
+    private final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory;
+    private transient ExecutorService executor;
+
+    private InMemCommitLogReader(
+        EntityDescriptor entityDesc,
+        URI uri,
+        cz.o2.proxima.functional.Factory<ExecutorService> executorFactory) {
+
       super(entityDesc, uri);
+      this.executorFactory = executorFactory;
+      this.executor = executorFactory.apply();
+    }
+
+    private ExecutorService executor() {
+      if (executor == null) {
+        executor = executorFactory.apply();
+      }
+      return executor;
     }
 
     @Override
@@ -320,21 +337,21 @@ public class InMemStorage implements DataAccessorFactory {
 
       int id = createConsumerId(stopAtCurrent);
 
-      observer.onRepartition(asRepartitionContext(Arrays.asList(PARTITION)));
-      AtomicReference<Thread> threadInterrupt = new AtomicReference<>();
+      observer.onRepartition(asRepartitionContext(Collections.singletonList(PARTITION)));
+      AtomicReference<Future<?>> observeFuture = new AtomicReference<>();
       AtomicBoolean killSwitch = new AtomicBoolean();
       Supplier<ConsumedOffset> offsetSupplier =
           flushBasedOnPosition(
-              name, position, offset, id, stopAtCurrent, killSwitch, threadInterrupt, observer);
+              name, position, offset, id, stopAtCurrent, killSwitch, observeFuture, observer);
 
-      return createHandle(id, observer, offsetSupplier, killSwitch, threadInterrupt);
+      return createHandle(id, observer, offsetSupplier, killSwitch, observeFuture);
     }
 
     private int createConsumerId(boolean stopAtCurrent) {
       final int id;
       if (!stopAtCurrent) {
-        NavigableMap<Integer, InMemIngestWriter> uriObservers = getObservers(getUri());
-        synchronized (uriObservers) {
+        try (Locker l = holder().lockRead()) {
+          NavigableMap<Integer, InMemIngestWriter> uriObservers = getObservers(getUri());
           id = uriObservers.isEmpty() ? 0 : uriObservers.lastKey() + 1;
           // insert placeholder
           uriObservers.put(id, elem -> {});
@@ -355,7 +372,7 @@ public class InMemStorage implements DataAccessorFactory {
         LogObserver observer,
         Supplier<ConsumedOffset> offsetTracker,
         AtomicBoolean killSwitch,
-        AtomicReference<Thread> threadInterrupt) {
+        AtomicReference<Future<?>> observeFuture) {
 
       return new ObserveHandle() {
 
@@ -363,7 +380,7 @@ public class InMemStorage implements DataAccessorFactory {
         public void close() {
           getObservers(getUri()).remove(consumerId);
           killSwitch.set(true);
-          threadInterrupt.get().interrupt();
+          observeFuture.get().cancel(true);
           observer.onCancelled();
         }
 
@@ -397,7 +414,7 @@ public class InMemStorage implements DataAccessorFactory {
         int consumerId,
         boolean stopAtCurrent,
         AtomicBoolean killSwitch,
-        AtomicReference<Thread> observeThread,
+        AtomicReference<Future<?>> observeFuture,
         LogObserver observer) {
 
       Set<String> consumedOffsets =
@@ -409,20 +426,20 @@ public class InMemStorage implements DataAccessorFactory {
               MoreObjects.firstNonNull(name, "InMemConsumer@" + getUri() + ":" + consumerId),
               offset);
       CountDownLatch latch = new CountDownLatch(1);
-      observeThread.set(
-          new Thread(
-              () ->
-                  handleFlushDataBaseOnPosition(
-                      position,
-                      offset,
-                      consumerId,
-                      stopAtCurrent,
-                      killSwitch,
-                      consumedOffsets,
-                      watermark,
-                      latch,
-                      observer)));
-      observeThread.get().start();
+      observeFuture.set(
+          executor()
+              .submit(
+                  () ->
+                      handleFlushDataBaseOnPosition(
+                          position,
+                          offset,
+                          consumerId,
+                          stopAtCurrent,
+                          killSwitch,
+                          consumedOffsets,
+                          watermark,
+                          latch,
+                          observer)));
       try {
         latch.await();
       } catch (InterruptedException ex) {
@@ -491,7 +508,7 @@ public class InMemStorage implements DataAccessorFactory {
 
       NavigableMap<Integer, InMemIngestWriter> uriObservers = getObservers(getUri());
       if (position == Position.OLDEST) {
-        synchronized (getData()) {
+        try (Locker l = holder().lockRead()) {
           latch.countDown();
           String prefix = toStoragePrefix(getUri());
           int prefixLength = prefix.length();
@@ -565,7 +582,9 @@ public class InMemStorage implements DataAccessorFactory {
     public Factory asFactory() {
       final EntityDescriptor entity = getEntityDescriptor();
       final URI uri = getUri();
-      return repo -> new InMemCommitLogReader(entity, uri);
+      final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory =
+          this.executorFactory;
+      return repo -> new InMemCommitLogReader(entity, uri, executorFactory);
     }
   }
 
@@ -589,29 +608,31 @@ public class InMemStorage implements DataAccessorFactory {
     public <T> Optional<KeyValue<T>> get(
         String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
-      Optional<Pair<Long, byte[]>> wildcard =
-          desc.isWildcard() && !attribute.equals(desc.toAttributePrefix())
-              ? getMapKey(key, desc.toAttributePrefix())
-              : Optional.empty();
-      return getMapKey(key, attribute)
-          .filter(p -> p.getSecond() != null)
-          .filter(p -> !wildcard.isPresent() || wildcard.get().getFirst() < p.getFirst())
-          .map(
-              b -> {
-                try {
-                  return KeyValue.of(
-                      getEntityDescriptor(),
-                      desc,
-                      key,
-                      attribute,
-                      new RawOffset(attribute),
-                      desc.getValueSerializer().deserialize(b.getSecond()).get(),
-                      b.getSecond(),
-                      b.getFirst());
-                } catch (Exception ex) {
-                  throw new RuntimeException(ex);
-                }
-              });
+      try (Locker l = holder().lockRead()) {
+        Optional<Pair<Long, byte[]>> wildcard =
+            desc.isWildcard() && !attribute.equals(desc.toAttributePrefix())
+                ? getMapKey(key, desc.toAttributePrefix())
+                : Optional.empty();
+        return getMapKey(key, attribute)
+            .filter(p -> p.getSecond() != null)
+            .filter(p -> !wildcard.isPresent() || wildcard.get().getFirst() < p.getFirst())
+            .map(
+                b -> {
+                  try {
+                    return KeyValue.of(
+                        getEntityDescriptor(),
+                        desc,
+                        key,
+                        attribute,
+                        new RawOffset(attribute),
+                        desc.getValueSerializer().deserialize(b.getSecond()).get(),
+                        b.getSecond(),
+                        b.getFirst());
+                  } catch (Exception ex) {
+                    throw new RuntimeException(ex);
+                  }
+                });
+      }
     }
 
     private Optional<Pair<Long, byte[]>> getMapKey(String key, String attribute) {
@@ -656,44 +677,49 @@ public class InMemStorage implements DataAccessorFactory {
       String off = offset == null ? "" : ((RawOffset) offset).getOffset();
       String start = toMapKey(key, prefix);
       int count = 0;
-      SortedMap<String, Pair<Long, byte[]>> dataMap = getData().tailMap(start);
-      for (Map.Entry<String, Pair<Long, byte[]>> e : dataMap.entrySet()) {
-        log.trace("Scanning entry {} looking for prefix {}", e, start);
-        if (e.getValue().getFirst() <= stamp) {
-          if (e.getKey().startsWith(start)) {
-            int hash = e.getKey().lastIndexOf("#");
-            String attribute = e.getKey().substring(hash + 1);
-            if (attribute.equals(off) || e.getValue().getSecond() == null) {
-              continue;
-            }
-            Optional<AttributeDescriptor<Object>> attr;
-            attr = getEntityDescriptor().findAttribute(attribute, true);
-            if (attr.isPresent()) {
-              Optional<Pair<Long, byte[]>> wildcard =
-                  attr.get().isWildcard()
-                      ? getMapKey(key, attr.get().toAttributePrefix())
-                      : Optional.empty();
-              if (!wildcard.isPresent() || wildcard.get().getFirst() < e.getValue().getFirst()) {
+      try (Locker l = holder().lockRead()) {
+        SortedMap<String, Pair<Long, byte[]>> dataMap = getData().tailMap(start);
+        for (Map.Entry<String, Pair<Long, byte[]>> e : dataMap.entrySet()) {
+          log.trace("Scanning entry {} looking for prefix {}", e, start);
+          if (e.getValue().getFirst() <= stamp) {
+            if (e.getKey().startsWith(start)) {
+              int hash = e.getKey().lastIndexOf("#");
+              String attribute = e.getKey().substring(hash + 1);
+              if (attribute.equals(off) || e.getValue().getSecond() == null) {
+                continue;
+              }
+              Optional<AttributeDescriptor<Object>> attr;
+              attr = getEntityDescriptor().findAttribute(attribute, true);
+              if (attr.isPresent()) {
+                Optional<Pair<Long, byte[]>> wildcard =
+                    attr.get().isWildcard()
+                        ? getMapKey(key, attr.get().toAttributePrefix())
+                        : Optional.empty();
+                if (!wildcard.isPresent() || wildcard.get().getFirst() < e.getValue().getFirst()) {
 
-                consumer.accept(
-                    KeyValue.of(
-                        getEntityDescriptor(),
-                        (AttributeDescriptor) attr.get(),
-                        key,
-                        attribute,
-                        new RawOffset(attribute),
-                        attr.get().getValueSerializer().deserialize(e.getValue().getSecond()).get(),
-                        e.getValue().getSecond()));
+                  consumer.accept(
+                      KeyValue.of(
+                          getEntityDescriptor(),
+                          attr.get(),
+                          key,
+                          attribute,
+                          new RawOffset(attribute),
+                          attr.get()
+                              .getValueSerializer()
+                              .deserialize(e.getValue().getSecond())
+                              .get(),
+                          e.getValue().getSecond()));
 
-                if (++count == limit) {
-                  break;
+                  if (++count == limit) {
+                    break;
+                  }
                 }
+              } else {
+                log.warn("Unknown attribute {} in entity {}", attribute, getEntityDescriptor());
               }
             } else {
-              log.warn("Unknown attribute {} in entity {}", attribute, getEntityDescriptor());
+              break;
             }
-          } else {
-            break;
           }
         }
       }
@@ -704,14 +730,16 @@ public class InMemStorage implements DataAccessorFactory {
         RandomOffset offset, int limit, Consumer<Pair<RandomOffset, String>> consumer) {
 
       String off = offset == null ? "" : ((RawOffset) offset).getOffset();
-      for (String k : getData().tailMap(off).keySet()) {
-        if (k.compareTo(off) > 0) {
-          if (limit-- != 0) {
-            String substr = k.substring(k.lastIndexOf('/') + 1, k.indexOf('#'));
-            consumer.accept(Pair.of(new RawOffset(substr), substr));
-            off = substr;
-          } else {
-            break;
+      try (Locker l = holder().lockRead()) {
+        for (String k : getData().tailMap(off).keySet()) {
+          if (k.compareTo(off) > 0) {
+            if (limit-- != 0) {
+              String substr = k.substring(k.lastIndexOf('/') + 1, k.indexOf('#'));
+              consumer.accept(Pair.of(new RawOffset(substr), substr));
+              off = substr;
+            } else {
+              break;
+            }
           }
         }
       }
@@ -768,8 +796,8 @@ public class InMemStorage implements DataAccessorFactory {
           .submit(
               () -> {
                 try {
-                  final Map<String, Pair<Long, byte[]>> data = getData().tailMap(prefix);
-                  synchronized (data) {
+                  try (Locker l = holder().lockRead()) {
+                    final Map<String, Pair<Long, byte[]>> data = getData().tailMap(prefix);
                     for (Entry<String, Pair<Long, byte[]>> e : data.entrySet()) {
                       if (!observeElement(attributes, observer, terminationContext, prefix, e)) {
                         break;
@@ -866,13 +894,31 @@ public class InMemStorage implements DataAccessorFactory {
     }
   }
 
+  private interface Locker extends AutoCloseable {
+    void close();
+  }
+
   private static class DataHolder {
     final NavigableMap<String, Pair<Long, byte[]>> data;
     final Map<URI, NavigableMap<Integer, InMemIngestWriter>> observers;
+    final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     DataHolder() {
-      this.data = Collections.synchronizedNavigableMap(new TreeMap<>());
-      this.observers = Collections.synchronizedMap(new HashMap<>());
+      this.data = new TreeMap<>();
+      this.observers = new ConcurrentHashMap<>();
+    }
+
+    Locker lockRead() {
+      return locker(lock.readLock());
+    }
+
+    Locker lockWrite() {
+      return locker(lock.writeLock());
+    }
+
+    private Locker locker(Lock l) {
+      l.lock();
+      return l::unlock;
     }
   }
 
@@ -927,10 +973,10 @@ public class InMemStorage implements DataAccessorFactory {
     final RepositoryFactory repositoryFactory = opRepo.asFactory();
     final OnlineAttributeWriter.Factory<?> writerFactory = new Writer(entity, uri).asFactory();
     final CommitLogReader.Factory<?> commitLogReaderFactory =
-        new InMemCommitLogReader(entity, uri).asFactory();
+        new InMemCommitLogReader(entity, uri, op.getContext().getExecutorFactory()).asFactory();
     @SuppressWarnings({"unchecked", "rawtypes"})
     final ReaderFactory readerFactory =
-        new Reader(entity, uri, (Factory) op.getContext().getExecutorFactory()).asFactory();
+        new Reader(entity, uri, op.getContext().getExecutorFactory()).asFactory();
     final CachedView.Factory cachedViewFactory =
         new LocalCachedPartitionedView(
                 entity, commitLogReaderFactory.apply(opRepo), writerFactory.apply(opRepo))

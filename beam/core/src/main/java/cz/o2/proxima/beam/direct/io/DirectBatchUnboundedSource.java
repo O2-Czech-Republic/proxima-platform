@@ -17,6 +17,7 @@ package cz.o2.proxima.beam.direct.io;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.direct.batch.BatchLogReader;
@@ -25,6 +26,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.time.Watermarks;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -36,6 +38,7 @@ import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -94,6 +97,27 @@ public class DirectBatchUnboundedSource
     @Override
     public void finalizeCheckpoint() {
       // nop
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(partitions.stream().map(Partition::getId).sorted().toArray())
+          * (int) (skipFromFirst + 23);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (o == this) {
+        return true;
+      }
+      if (!(o instanceof Checkpoint)) {
+        return false;
+      }
+      Checkpoint other = (Checkpoint) o;
+      return Iterators.elementsEqual(
+              Iterators.transform(partitions.iterator(), Partition::getId),
+              Iterators.transform(other.partitions.iterator(), Partition::getId))
+          && skipFromFirst == other.skipFromFirst;
     }
   }
 
@@ -281,6 +305,28 @@ public class DirectBatchUnboundedSource
   }
 
   @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    DirectBatchUnboundedSource other = (DirectBatchUnboundedSource) o;
+    return startStamp == other.startStamp
+        && endStamp == other.endStamp
+        && enableCheckpointPartitionMerge == other.enableCheckpointPartitionMerge
+        && Objects.equals(attributes, other.attributes)
+        && Objects.equals(partitions, other.partitions);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(
+        attributes, startStamp, endStamp, enableCheckpointPartitionMerge, partitions);
+  }
+
+  @Override
   public Coder<Checkpoint> getCheckpointMarkCoder() {
     return new CheckpointCoder();
   }
@@ -324,6 +370,7 @@ public class DirectBatchUnboundedSource
     private final List<Partition> toProcess;
     @Nullable private BlockingQueueLogObserver observer;
 
+    private final long initialCheckpointSkip;
     private long consumedFromCurrent;
     @Nullable private StreamElement current = null;
     private long skip;
@@ -342,9 +389,14 @@ public class DirectBatchUnboundedSource
       this.reader = Objects.requireNonNull(reader);
       this.attributes = new ArrayList<>(Objects.requireNonNull(attributes));
       this.toProcess = toProcess.stream().sorted().collect(Collectors.toList());
-      this.consumedFromCurrent = 0;
       this.skip = checkpointMark == null ? 0 : checkpointMark.skipFromFirst;
-      log.info("Created {} reading from {}", getClass().getSimpleName(), reader);
+      this.initialCheckpointSkip = skip;
+      this.consumedFromCurrent = 0;
+      log.info(
+          "Created {} reading from {} with checkpoint {}",
+          getClass().getSimpleName(),
+          reader,
+          checkpointMark);
       Preconditions.checkArgument(
           toProcess.stream().map(Partition::getId).distinct().count() == toProcess.size(),
           "List of partitions to process must contain unique partitions, got %s",
@@ -365,7 +417,7 @@ public class DirectBatchUnboundedSource
         watermark = observer.getWatermark();
         current = observer.take();
         if (current == null) {
-          if (observer.getWatermark() == Long.MAX_VALUE) {
+          if (watermark == Watermarks.MAX_WATERMARK) {
             Throwable error = observer.getError();
             if (error != null) {
               throw new IOException(error);
@@ -374,8 +426,8 @@ public class DirectBatchUnboundedSource
           }
           return false;
         }
-        consumedFromCurrent++;
       } while (skip-- > 0);
+      consumedFromCurrent++;
       return true;
     }
 
@@ -392,7 +444,7 @@ public class DirectBatchUnboundedSource
             reader.observe(Collections.singletonList(runningPartition), attributes, observer);
         consumedFromCurrent = 0;
       } else {
-        watermark = Long.MAX_VALUE;
+        watermark = Watermarks.MAX_WATERMARK;
         return false;
       }
       return true;
@@ -405,12 +457,14 @@ public class DirectBatchUnboundedSource
 
     @Override
     public Instant getWatermark() {
-      return Instant.ofEpochMilli(watermark);
+      return watermark < Watermarks.MAX_WATERMARK
+          ? Instant.ofEpochMilli(watermark)
+          : BoundedWindow.TIMESTAMP_MAX_VALUE;
     }
 
     @Override
     public CheckpointMark getCheckpointMark() {
-      return new Checkpoint(toProcess, consumedFromCurrent);
+      return new Checkpoint(toProcess, consumedFromCurrent + initialCheckpointSkip);
     }
 
     @Override

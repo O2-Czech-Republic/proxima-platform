@@ -17,14 +17,13 @@ package cz.o2.proxima.beam.direct.io;
 
 import static org.junit.Assert.*;
 
-import avro.shaded.com.google.common.collect.Lists;
+import com.google.common.collect.Lists;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.direct.io.DirectBatchUnboundedSource.Checkpoint;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
-import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -33,6 +32,9 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.Optionals;
+import cz.o2.proxima.util.SerializableUtils;
+import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
@@ -41,6 +43,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.coders.CoderException;
@@ -58,9 +61,23 @@ import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.util.CoderUtils;
 import org.apache.beam.sdk.values.PCollection;
 import org.joda.time.Duration;
+import org.junit.Before;
 import org.junit.Test;
 
 public class DirectBatchUnboundedSourceTest {
+
+  Repository repo;
+  EntityDescriptor gateway;
+  AttributeDescriptor<Object> armed;
+  DirectDataOperator direct;
+
+  @Before
+  public void setUp() {
+    repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
+    gateway = repo.getEntity("gateway");
+    armed = gateway.getAttribute("armed");
+    direct = repo.getOrCreateOperator(DirectDataOperator.class);
+  }
 
   @Test
   public void testCheckpointCoder() throws CoderException {
@@ -103,16 +120,16 @@ public class DirectBatchUnboundedSourceTest {
             .resolve();
     Repository repo = Repository.ofTest(config);
     AttributeFamilyDescriptor readFamily =
-        repo.getAllFamilies()
-            .filter(af -> af.getName().equals("gateway-storage-stream"))
-            .findFirst()
-            .get();
+        Optionals.get(
+            repo.getAllFamilies()
+                .filter(af -> af.getName().equals("gateway-storage-stream"))
+                .findFirst());
     assertEquals(URI.create("inmem:///proxima_gateway"), readFamily.getStorageUri());
     testBatchUnboundedSourceWithCountUsingRepository(repo, 100);
   }
 
   @Test(expected = IOException.class)
-  public void testReadError() throws IOException {
+  public void testReadError() throws Exception {
     PipelineOptions opts = PipelineOptionsFactory.create();
     Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
     DirectBatchUnboundedSource source =
@@ -126,7 +143,64 @@ public class DirectBatchUnboundedSourceTest {
     List<? extends UnboundedSource<StreamElement, Checkpoint>> split = source.split(1, opts);
     assertEquals(1, split.size());
     UnboundedReader<StreamElement> reader = split.get(0).createReader(opts, null);
-    reader.advance();
+    while (!reader.advance()) {
+      TimeUnit.MILLISECONDS.sleep(10);
+    }
+  }
+
+  @Test
+  public void testOffsetWithNoAdvance() throws Exception {
+    PipelineOptions opts = PipelineOptionsFactory.create();
+    Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
+    DirectBatchUnboundedSource source =
+        DirectBatchUnboundedSource.of(
+            repo.asFactory(),
+            Optionals.get(direct.getBatchLogReader(armed)),
+            Collections.singletonList(repo.getEntity("gateway").getAttribute("armed")),
+            Long.MIN_VALUE,
+            Long.MAX_VALUE,
+            Collections.emptyMap());
+    List<? extends UnboundedSource<StreamElement, Checkpoint>> split = source.split(1, opts);
+    assertEquals(1, split.size());
+    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(armed));
+    long now = System.currentTimeMillis();
+    writer.write(
+        StreamElement.upsert(
+            gateway,
+            armed,
+            UUID.randomUUID().toString(),
+            "key",
+            armed.getName(),
+            now,
+            new byte[] {}),
+        (succ, exc) -> {});
+    UnboundedReader<StreamElement> reader = split.get(0).createReader(opts, null);
+    while (!reader.advance()) {
+      TimeUnit.MILLISECONDS.sleep(10);
+    }
+    Checkpoint checkpoint = (Checkpoint) reader.getCheckpointMark();
+    assertNotNull(checkpoint);
+    assertEquals(1, checkpoint.getSkipFromFirst());
+    reader = split.get(0).createReader(opts, checkpoint);
+    checkpoint = (Checkpoint) reader.getCheckpointMark();
+    TestUtils.assertSerializable(source);
+    TestUtils.assertHashCodeAndEquals(source, SerializableUtils.clone(source));
+    assertEquals(checkpoint, reader.getCheckpointMark());
+    TestUtils.assertSerializable(checkpoint);
+    TestUtils.assertHashCodeAndEquals(checkpoint, SerializableUtils.clone(checkpoint));
+  }
+
+  @Test
+  public void testCheckpointEquality() {
+    List<Partition> parts = Lists.newArrayList(() -> 0, () -> 1);
+    List<Partition> parts2 = Lists.newArrayList(() -> 0, () -> 1);
+    Checkpoint checkpoint = new Checkpoint(parts, 0);
+    assertEquals(checkpoint, checkpoint);
+    assertEquals(checkpoint, new Checkpoint(parts, 0));
+    assertEquals(checkpoint, new Checkpoint(parts2, 0));
+    assertNotEquals(checkpoint, new Checkpoint(parts, 1));
+    parts2.remove(1);
+    assertNotEquals(checkpoint, new Checkpoint(parts2, 0));
   }
 
   @Test
@@ -180,22 +254,14 @@ public class DirectBatchUnboundedSourceTest {
   }
 
   void testBatchUnboundedSourceWithCount(int count) {
-    testBatchUnboundedSourceWithCountUsingRepository(
-        Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve()), count);
+    testBatchUnboundedSourceWithCountUsingRepository(repo, count);
   }
 
   void testBatchUnboundedSourceWithCountUsingRepository(Repository repo, int count) {
     Pipeline pipeline = Pipeline.create();
-    EntityDescriptor gateway = repo.getEntity("gateway");
-    AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
-    DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
     BatchLogReader reader =
         direct
-            .getFamiliesForAttribute(armed)
-            .stream()
-            .filter(af -> af.getDesc().getAccess().canReadBatchSnapshot())
-            .findFirst()
-            .flatMap(DirectAttributeFamilyDescriptor::getBatchReader)
+            .getBatchLogReader(armed)
             .orElseThrow(() -> new IllegalArgumentException("Missing batch snapshot for armed"));
     try {
       PCollection<StreamElement> input =

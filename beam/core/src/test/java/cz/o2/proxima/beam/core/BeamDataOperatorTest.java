@@ -15,8 +15,7 @@
  */
 package cz.o2.proxima.beam.core;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -38,6 +37,7 @@ import org.apache.beam.sdk.Pipeline.PipelineVisitor;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
+import org.apache.beam.sdk.io.Read;
 import org.apache.beam.sdk.runners.TransformHierarchy.Node;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.transforms.Count;
@@ -165,14 +165,10 @@ public class BeamDataOperatorTest {
 
   @Test(timeout = 30000)
   public synchronized void testUnboundedCommitLogConsumptionWithWindowMany() {
-    for (int round = 0; round < 10; round++) {
-      setUp();
-      final long elements = 99L;
-      now += round * elements;
-      validatePCollectionWindowedRead(
-          () -> beam.getStream("", pipeline, Position.OLDEST, false, true, elements + 1, armed),
-          elements);
-    }
+    final long elements = 99L;
+    validatePCollectionWindowedRead(
+        () -> beam.getStream("", pipeline, Position.OLDEST, false, true, elements + 1, armed),
+        elements);
   }
 
   @Test(timeout = 180000)
@@ -427,12 +423,14 @@ public class BeamDataOperatorTest {
 
       @Override
       public void leavePipeline(Pipeline pipeline) {
-        assertTrue(roots.size() == 1);
+        assertEquals(String.format("Expected single root, got %s", roots), 1, roots.size());
         terminated.set(true);
       }
 
       void visitNode(Node node) {
-        if (node.getTransform() != null && node.getInputs().isEmpty()) {
+        if (node.getTransform() != null
+            && (node.getTransform() instanceof Read.Bounded
+                || node.getTransform() instanceof Read.Unbounded)) {
           roots.add(node);
         }
       }
@@ -456,7 +454,7 @@ public class BeamDataOperatorTest {
               "uuid",
               "key" + i,
               armed.getName(),
-              now - 2000 - i,
+              now - 20000 - i,
               new byte[] {1, 2, 3}),
           (succ, exc) -> {});
     }

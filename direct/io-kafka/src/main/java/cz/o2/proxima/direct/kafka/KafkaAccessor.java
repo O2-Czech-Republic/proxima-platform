@@ -232,6 +232,8 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   /**
    * Create kafka consumer with specific rebalance listener.
    *
+   * @param <K> key type
+   * @param <V> value type
    * @return {@link KafkaConsumerFactory} for creating consumers
    */
   public <K, V> KafkaConsumerFactory<K, V> createConsumerFactory() {

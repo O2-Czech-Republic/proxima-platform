@@ -75,8 +75,10 @@
   </distributionManagement>
 
   <properties>
-    <maven.shade.version>3.2.3</maven.shade.version>
+    <maven.shade.version>3.2.4</maven.shade.version>
     <maven.surefire.version>3.0.0-M5</maven.surefire.version>
+    <maven.javadoc.version>3.2.0</maven.javadoc.version>
+    <maven.jar.version>3.2.0</maven.jar.version>
     <groovy.version>2.5.13</groovy.version>
     <hadoop.version>2.10.0</hadoop.version>
     <hbase.version>1.5.0</hbase.version>
@@ -93,14 +95,14 @@
     <argLine></argLine>
     <surefire.forkCount>8</surefire.forkCount>
     <!-- sonar config -->
-    <jacoco.version>0.8.4</jacoco.version>
+    <jacoco.version>0.8.5</jacoco.version>
     <sonar.organization>datadriven</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <sonar.login>21787938b088389dc6edfdf1cf4008e91b81e70b</sonar.login>
-    <error-prone.version>2.3.3</error-prone.version>
+    <error-prone.version>2.4.0</error-prone.version>
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
-    <lombok.version>1.18.10</lombok.version>
-    <spotless.version>1.26.1</spotless.version>
+    <lombok.version>1.18.16</lombok.version>
+    <spotless.version>1.31.3</spotless.version>
     <!-- apache beam related properties -->
     <apache.beam.groupId>org.apache.beam</apache.beam.groupId>
     <apache.beam.version>2.24.0</apache.beam.version>
@@ -143,7 +145,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-source-plugin</artifactId>
-            <version>3.0.1</version>
+            <version>3.2.1</version>
             <configuration>
               <includePom>true</includePom>
             </configuration>
@@ -159,7 +161,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-gpg-plugin</artifactId>
-            <version>1.5</version>
+            <version>1.6</version>
             <executions>
               <execution>
                 <id>sign-artifacts</id>
@@ -173,7 +175,7 @@
           <plugin>
             <groupId>org.sonatype.plugins</groupId>
             <artifactId>nexus-staging-maven-plugin</artifactId>
-            <version>1.6.7</version>
+            <version>1.6.8</version>
             <extensions>true</extensions>
             <configuration>
               <serverId>ossrh</serverId>
@@ -291,7 +293,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-site-plugin</artifactId>
-            <version>3.7.1</version>
+            <version>3.9.1</version>
           </plugin>
         </plugins>
       </build>
@@ -300,7 +302,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-javadoc-plugin</artifactId>
-            <version>3.1.1</version>
+            <version>${maven.javadoc.version}</version>
             <configuration>
               <source>8</source>
             </configuration>
@@ -343,11 +345,10 @@
     </extensions>
 
     <plugins>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.0</version>
+        <version>3.8.1</version>
         <configuration>
           <source>8</source>
           <target>8</target>
@@ -415,6 +416,7 @@
             <Makefile>SCRIPT_STYLE</Makefile>
             <yaml>SCRIPT_STYLE</yaml>
             <conf>JAVADOC_STYLE</conf>
+            <cql>JAVADOC_STYLE</cql>
           </mapping>
           <excludes>
             <exclude>**/license-header.txt</exclude>
@@ -447,7 +449,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.1.1</version>
+        <version>${maven.javadoc.version}</version>
         <executions>
           <execution>
             <id>attach-javadocs</id>
@@ -575,7 +577,7 @@
       <dependency>
         <groupId>org.mockito</groupId>
         <artifactId>mockito-core</artifactId>
-        <version>3.3.3</version>
+        <version>3.6.28</version>
         <scope>test</scope>
       </dependency>
 

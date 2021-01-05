@@ -39,7 +39,7 @@ public class SerializableUtils {
       try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
           ObjectOutputStream oos = new ObjectOutputStream(baos)) {
         oos.writeObject(original);
-        oos.close();
+        oos.flush();
         serialized = baos.toByteArray();
       }
       try (ByteArrayInputStream bais = new ByteArrayInputStream(serialized);

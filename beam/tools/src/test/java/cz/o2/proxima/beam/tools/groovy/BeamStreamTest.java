@@ -15,7 +15,9 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
@@ -308,9 +310,10 @@ public class BeamStreamTest extends StreamTest {
           kvs.apply(
                   ParDo.of(
                       new IntegrateDoFn<>(
-                          (a, b) -> a + b, k -> 0, KvCoder.of(VarIntCoder.of(), VarIntCoder.of()))))
+                          Integer::sum, k -> 0, KvCoder.of(VarIntCoder.of(), VarIntCoder.of()))))
               .setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
-      PAssert.that(result).containsInAnyOrder(Pair.of(0, 3), Pair.of(0, 5), Pair.of(0, 6));
+      PAssert.that(result)
+          .containsInAnyOrder(Arrays.asList(Pair.of(0, 3), Pair.of(0, 5), Pair.of(0, 6)));
       assertNotNull(pipeline.run());
     }
   }
@@ -340,9 +343,10 @@ public class BeamStreamTest extends StreamTest {
           kvs.apply(
                   ParDo.of(
                       new IntegrateDoFn<>(
-                          (a, b) -> a + b, k -> k, KvCoder.of(VarIntCoder.of(), VarIntCoder.of()))))
+                          Integer::sum, k -> k, KvCoder.of(VarIntCoder.of(), VarIntCoder.of()))))
               .setCoder(PairCoder.of(VarIntCoder.of(), VarIntCoder.of()));
-      PAssert.that(result).containsInAnyOrder(Pair.of(0, 2), Pair.of(1, 4), Pair.of(1, 5));
+      PAssert.that(result)
+          .containsInAnyOrder(Arrays.asList(Pair.of(0, 2), Pair.of(1, 4), Pair.of(1, 5)));
       assertNotNull(pipeline.run());
     }
   }

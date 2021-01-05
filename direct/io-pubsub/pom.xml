@@ -48,7 +48,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-dependency-plugin</artifactId>
-            <version>3.0.2</version>
+            <version>3.1.2</version>
             <executions>
               <execution>
                 <id>unpack-dependencies</id>
@@ -70,21 +70,9 @@
         </plugins>
       </build>
     </profile>
-    <profile>
-      <id>site</id>
-      <build />
-    </profile>
   </profiles>
 
   <build>
-
-    <extensions>
-      <extension>
-        <groupId>kr.motd.maven</groupId>
-        <artifactId>os-maven-plugin</artifactId>
-        <version>1.4.1.Final</version>
-      </extension>
-    </extensions>
 
     <plugins>
       <!-- generate test-jar artifact -->
@@ -101,31 +89,10 @@
         </executions>
       </plugin>
 
-      <!-- compile protobuffers -->
-      <plugin>
-        <groupId>org.xolstice.maven.plugins</groupId>
-        <artifactId>protobuf-maven-plugin</artifactId>
-        <version>0.5.0</version>
-        <configuration>
-          <protocArtifact>com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}</protocArtifact>
-          <pluginId>grpc-java</pluginId>
-          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${grpc.version}:exe:${os.detected.classifier}</pluginArtifact>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>compile</goal>
-              <goal>test-compile</goal>
-              <goal>compile-custom</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-
       <plugin>
         <groupId>com.coderplus.maven.plugins</groupId>
         <artifactId>copy-rename-maven-plugin</artifactId>
-        <version>1.0</version>
+        <version>1.0.1</version>
         <executions>
           <execution>
             <id>copy-and-rename-tcnative</id>
@@ -224,10 +191,6 @@
               <pattern>com.fasterxml.</pattern>
               <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>
-            <relocation>
-              <pattern>cz.o2.proxima.storage.pubsub.proto.</pattern>
-              <shadedPattern>cz.o2.proxima.storage.pubsub.internal.proto.</shadedPattern>
-            </relocation>
           </relocations>
         </configuration>
         <executions>
@@ -244,6 +207,12 @@
   </build>
 
   <dependencies>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-io-pubsub</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>

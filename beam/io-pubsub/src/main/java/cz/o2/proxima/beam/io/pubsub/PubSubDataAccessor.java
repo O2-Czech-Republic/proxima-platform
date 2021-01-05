@@ -18,8 +18,7 @@ package cz.o2.proxima.beam.io.pubsub;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
-import cz.o2.proxima.direct.pubsub.proto.PubSub;
-import cz.o2.proxima.pubsub.shaded.com.google.protobuf.InvalidProtocolBufferException;
+import cz.o2.proxima.io.pubsub.util.PubSubUtils;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -28,10 +27,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.UriUtil;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.net.URI;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.Pipeline;
@@ -60,45 +56,10 @@ public class PubSubDataAccessor implements DataAccessor {
     this.entity = entity;
     this.uri = uri;
     String project = uri.getAuthority();
-    String topic = UriUtil.getPathNormalized(uri);
+    String topicName = UriUtil.getPathNormalized(uri);
     Preconditions.checkArgument(!project.isEmpty(), "Authority in URI %s must not be empty", uri);
-    Preconditions.checkArgument(!topic.isEmpty(), "Path in URI %s must specify topic", uri);
-    this.topic = String.format("projects/%s/topics/%s", project, topic);
-  }
-
-  static Optional<StreamElement> toElement(EntityDescriptor entity, byte[] payload) {
-
-    try {
-      String uuid = UUID.randomUUID().toString();
-      PubSub.KeyValue parsed = PubSub.KeyValue.parseFrom(payload);
-      long stamp = parsed.getStamp();
-      Optional<AttributeDescriptor<Object>> attribute =
-          entity.findAttribute(parsed.getAttribute(), true /* allow protected */);
-      if (attribute.isPresent()) {
-        if (parsed.getDelete()) {
-          return Optional.of(
-              StreamElement.delete(
-                  entity, attribute.get(), uuid, parsed.getKey(), parsed.getAttribute(), stamp));
-        } else if (parsed.getDeleteWildcard()) {
-          return Optional.of(
-              StreamElement.deleteWildcard(
-                  entity, attribute.get(), uuid, parsed.getKey(), parsed.getAttribute(), stamp));
-        }
-        return Optional.of(
-            StreamElement.upsert(
-                entity,
-                attribute.get(),
-                uuid,
-                parsed.getKey(),
-                parsed.getAttribute(),
-                stamp,
-                parsed.getValue().toByteArray()));
-      }
-      log.warn("Failed to find attribute {} in entity {}", parsed.getAttribute(), entity);
-    } catch (InvalidProtocolBufferException ex) {
-      log.warn("Failed to parse message {}", Arrays.toString(payload), ex);
-    }
-    return Optional.empty();
+    Preconditions.checkArgument(!topicName.isEmpty(), "Path in URI %s must specify topic", uri);
+    this.topic = String.format("projects/%s/topics/%s", project, topicName);
   }
 
   @Override
@@ -115,7 +76,8 @@ public class PubSubDataAccessor implements DataAccessor {
         FlatMap.of(input)
             .using(
                 (PubsubMessage in, Collector<StreamElement> ctx) ->
-                    toElement(entity, in.getPayload()).ifPresent(ctx::collect),
+                    PubSubUtils.toStreamElement(entity, in.getMessageId(), in.getPayload())
+                        .ifPresent(ctx::collect),
                 TypeDescriptor.of(StreamElement.class))
             .output()
             .setCoder(StreamElementCoder.of(repoFactory));

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.kafka;
 
+import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkSupplier;
 import java.util.Collection;
@@ -72,7 +73,7 @@ interface ElementConsumer<K, V> {
    * Called when processing throws error.
    *
    * @param err the error thrown
-   * @return result of {@link LogObserverBase#onError}
+   * @return result of {@link LogObserver#onError}
    */
   boolean onError(Throwable err);
 

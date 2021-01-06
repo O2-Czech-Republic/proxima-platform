@@ -25,8 +25,8 @@ import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Context;
-import cz.o2.proxima.direct.kafka.Consumers.BulkConsumer;
-import cz.o2.proxima.direct.kafka.Consumers.OnlineConsumer;
+import cz.o2.proxima.direct.kafka.ElementConsumers.BulkConsumer;
+import cz.o2.proxima.direct.kafka.ElementConsumers.OnlineConsumer;
 import cz.o2.proxima.direct.time.MinimalPartitionWatermarkEstimator;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.storage.AbstractStorage;
@@ -364,11 +364,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               log.debug("End offsets of current assignment {}: {}", kafka.assignment(), endOffsets);
             }
 
-            if (offsets != null) {
-              // when manual offsets are assigned, we need to ensure calling
-              // onAssign by hand
-              listener.onPartitionsAssigned(kafka.assignment());
-            }
+            listener.onPartitionsAssigned(kafka.assignment());
 
             latch.countDown();
 
@@ -658,7 +654,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
         }
         final Set<TopicPartition> assignment = consumer.assignment();
         final Map<TopicPartition, OffsetAndMetadata> committed = consumer.committed(assignment);
-        if (committed.values().stream().noneMatch(Objects::nonNull)) {
+        if (committed.values().stream().allMatch(Objects::isNull)) {
           log.info("Seeking consumer name {} to beginning of partitions {}", name, assignment);
           consumer.seekToBeginning(assignment);
         } else {
@@ -673,7 +669,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 .stream()
                 .map(p -> new TopicPartition(topic, p.getPartition().getId()))
                 .collect(Collectors.toList());
-        log.info("Seeking given partitions {} to beginning", tps);
+        log.info("Seeking given partitions {} to the beginning", tps);
         consumer.seekToBeginning(tps);
       }
     } else if (position == Position.CURRENT) {

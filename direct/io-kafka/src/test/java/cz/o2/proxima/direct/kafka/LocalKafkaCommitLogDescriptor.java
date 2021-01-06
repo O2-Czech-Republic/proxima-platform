@@ -264,7 +264,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
                     off = off >= 0 ? off : written.get(p.getId()).size();
                     return Pair.of(p.getId(), off);
                   })
-              .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
+              .collect(Collectors.toConcurrentMap(Pair::getFirst, Pair::getSecond)));
 
       doAnswer(
               invocation -> {
@@ -301,6 +301,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
                 Collection<TopicPartition> parts;
                 parts = (Collection<TopicPartition>) invocation.getArguments()[0];
                 seekConsumerToBeginning(consumerId, parts);
+                polled.set(true);
                 return null;
               })
           .when(mock)
@@ -311,6 +312,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
                 TopicPartition tp = (TopicPartition) invocation.getArguments()[0];
                 long offset = (long) invocation.getArguments()[1];
                 seekConsumerTo(consumerId, tp.partition(), offset);
+                polled.set(true);
                 return null;
               })
           .when(mock)
@@ -375,13 +377,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
               invocation -> {
                 TopicPartition tp = (TopicPartition) invocation.getArguments()[0];
                 return (long)
-                    consumerOffsets
-                        .get(consumerId)
-                        .entrySet()
-                        .stream()
-                        .filter(e -> e.getKey() == tp.partition())
-                        .findAny()
-                        .map(Map.Entry::getValue)
+                    Optional.ofNullable(consumerOffsets.get(consumerId).get(tp.partition()))
                         .orElse(-1);
               })
           .when(mock)
@@ -422,29 +418,25 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     private void seekConsumerTo(ConsumerId consumerId, int partition, long offset) {
-
       Preconditions.checkArgument(offset >= 0, "Cannot seek to negative offset %s", offset);
-
       Map<Integer, Integer> partOffsets;
-      partOffsets = consumerOffsets.computeIfAbsent(consumerId, c -> new HashMap<>());
+      partOffsets = consumerOffsets.get(consumerId);
       partOffsets.put(partition, (int) offset);
       log.debug("Consumer {} seeked to offset {} in partition {}", consumerId, offset, partition);
     }
 
     private void seekConsumerToBeginning(ConsumerId consumerId, Collection<TopicPartition> parts) {
-
-      consumerOffsets.put(
+      consumerOffsets.compute(
           consumerId,
-          parts
-              .stream()
-              .map(tp -> Pair.of(tp.partition(), 0))
-              .collect(Collectors.toMap(Pair::getFirst, Pair::getSecond)));
+          (k, offsets) -> {
+            parts.forEach(tp -> offsets.put(tp.partition(), 0));
+            return offsets;
+          });
 
       log.debug("Consumer {} seeked to beginning of {}", consumerId.getName(), parts);
     }
 
     private Map<TopicPartition, Long> getEndOffsets(String name, Collection<TopicPartition> tp) {
-
       Map<TopicPartition, Long> ends = new HashMap<>();
       for (TopicPartition p : tp) {
         ends.put(
@@ -463,75 +455,75 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         @Nullable ConsumerRebalanceListener listener)
         throws InterruptedException {
 
-      String name = consumerId.getName();
-      if (!consumerId.isAssigned()) {
-        log.debug(
-            "Initializing consumer {} after first time poll with listener {}", name, listener);
-        if (!group.rebalanceIfNeeded() && listener != null) {
-          listener.onPartitionsAssigned(
-              group
-                  .getAssignment(consumerId.getId())
-                  .stream()
-                  .map(p -> new TopicPartition(getTopic(), p.getId()))
-                  .collect(Collectors.toList()));
-        }
-        consumerId.setAssigned(true);
-      }
-      // need to sleep in order not to pollute the heap with
-      // unnecessary objects
-      // this is because mockito somehow creates lots of objects
-      // when it is invoked too often
-      log.debug("Sleeping {} ms before attempting to poll", period);
-      Thread.sleep(period);
-
-      Map<TopicPartition, List<ConsumerRecord<K, V>>> map;
-      map = new HashMap<>();
-      Collection<Partition> assignment =
-          Lists.newArrayList(group.getAssignment(consumerId.getId()));
-      Map<Integer, Integer> offsets = consumerOffsets.get(consumerId);
-
-      if (log.isDebugEnabled()) {
-        log.debug(
-            "Polling consumerId {}.{} with assignment {} and offsets {}",
-            descriptorId,
-            consumerId,
-            assignment.stream().map(Partition::getId).collect(Collectors.toList()),
-            offsets);
-      }
-      int maxToPoll = getMaxPollRecords();
-      for (Partition part : assignment) {
-        int partition = part.getId();
-        List<StreamElement> partitionData = written.get(partition);
-        int last = partitionData.size();
-        List<ConsumerRecord<K, V>> records = new ArrayList<>();
-        int off =
-            offsets
-                .entrySet()
-                .stream()
-                .filter(e -> e.getKey() == partition)
-                .map(Map.Entry::getValue)
-                .findAny()
-                .orElse(getCommittedOffset(name, part.getId()));
-        log.trace("Partition {} has last {}, reading from {}", partition, last, off);
-
-        while (off < last && maxToPoll-- > 0) {
-          if (off >= 0) {
-            records.add(toConsumerRecord(partitionData.get(off), serializer, part.getId(), off));
+      synchronized (consumerId) {
+        String name = consumerId.getName();
+        if (!consumerId.isAssigned()) {
+          log.debug(
+              "Initializing consumer {} after first time poll with listener {}", name, listener);
+          if (!group.rebalanceIfNeeded() && listener != null) {
+            listener.onPartitionsAssigned(
+                group
+                    .getAssignment(consumerId.getId())
+                    .stream()
+                    .map(p -> new TopicPartition(getTopic(), p.getId()))
+                    .collect(Collectors.toList()));
           }
-          off++;
+          consumerId.setAssigned(true);
         }
+        // need to sleep in order not to pollute the heap with
+        // unnecessary objects
+        // this is because mockito somehow creates lots of objects
+        // when it is invoked too often
+        log.debug("Sleeping {} ms before attempting to poll", period);
+        Thread.sleep(period);
 
-        // advance the offset
-        offsets.put(partition, off);
-        log.trace(
-            "Advanced offset of consumer ID {} on partition {} to {}", consumerId, partition, off);
-        if (!records.isEmpty()) {
-          map.put(new TopicPartition(getTopic(), partition), records);
+        Map<TopicPartition, List<ConsumerRecord<K, V>>> map;
+        map = new HashMap<>();
+        Collection<Partition> assignment =
+            Lists.newArrayList(group.getAssignment(consumerId.getId()));
+        Map<Integer, Integer> offsets = consumerOffsets.get(consumerId);
+
+        if (log.isDebugEnabled()) {
+          log.debug(
+              "Polling consumerId {}.{} with assignment {} and offsets {}",
+              descriptorId,
+              consumerId,
+              assignment.stream().map(Partition::getId).collect(Collectors.toList()),
+              offsets);
         }
+        int maxToPoll = getMaxPollRecords();
+        for (Partition part : assignment) {
+          int partition = part.getId();
+          List<StreamElement> partitionData = written.get(partition);
+          int last = partitionData.size();
+          List<ConsumerRecord<K, V>> records = new ArrayList<>();
+          int off =
+              Optional.ofNullable(offsets.get(partition))
+                  .orElse(getCommittedOffset(name, part.getId()));
+          log.trace("Partition {} has last {}, reading from {}", partition, last, off);
+
+          while (off < last && maxToPoll-- > 0) {
+            if (off >= 0) {
+              records.add(toConsumerRecord(partitionData.get(off), serializer, part.getId(), off));
+            }
+            off++;
+          }
+
+          // advance the offset
+          offsets.put(partition, off);
+          log.trace(
+              "Advanced offset of consumer ID {} on partition {} to {}",
+              consumerId,
+              partition,
+              off);
+          if (!records.isEmpty()) {
+            map.put(new TopicPartition(getTopic(), partition), records);
+          }
+        }
+        log.debug("Consumer {} id {} polled records {}", name, consumerId, map);
+
+        return new ConsumerRecords<>(map);
       }
-      log.debug("Consumer {} id {} polled records {}", name, consumerId, map);
-
-      return new ConsumerRecords<>(map);
     }
 
     private <K, V> ConsumerRecord<K, V> toConsumerRecord(

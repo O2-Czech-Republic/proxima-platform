@@ -429,7 +429,7 @@ class BeamCommitLogReader {
     return MoreObjects.toStringHelper(this)
         .add("name", name)
         .add("partition", partition)
-        .add("offset", startingOffset)
+        .add("startingOffset", startingOffset)
         .add("eventTime", eventTime)
         .add("stopAtCurrent", stopAtCurrent)
         .add("reader", reader)

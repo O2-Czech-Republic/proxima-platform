@@ -105,7 +105,7 @@
     <spotless.version>1.31.3</spotless.version>
     <!-- apache beam related properties -->
     <apache.beam.groupId>org.apache.beam</apache.beam.groupId>
-    <apache.beam.version>2.28.0-SNAPSHOT</apache.beam.version>
+    <apache.beam.version>2.27.0</apache.beam.version>
     <apache.beam.groupId.raw>org.apache.beam</apache.beam.groupId.raw>
     <apache.beam.version.raw>${apache.beam.version}</apache.beam.version.raw>
     <zookeeper.version>3.6.2</zookeeper.version>
@@ -200,6 +200,10 @@
           <url>https://repository.apache.org/content/repositories/snapshots</url>
           <releases><enabled>false</enabled></releases>
           <snapshots><enabled>true</enabled></snapshots>
+        </repository>
+        <repository>
+          <id>beam-rc</id>
+          <url>https://repository.apache.org/content/repositories/orgapachebeam-1149/</url>
         </repository>
       </repositories>
       <pluginRepositories>

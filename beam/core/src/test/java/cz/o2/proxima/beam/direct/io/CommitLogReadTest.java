@@ -119,7 +119,7 @@ public class CommitLogReadTest {
     testReadingFromCommitLogMany(numElements, commitLog);
   }
 
-  @Test(timeout = 30000)
+  @Test(timeout = 60000)
   public void testCommitLogReadWithLimit() {
     int numElements = 1000;
     List<StreamElement> input = createInput(numElements);

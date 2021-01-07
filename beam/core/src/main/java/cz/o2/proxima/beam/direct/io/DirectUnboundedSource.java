@@ -25,6 +25,7 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.Serializable;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -65,17 +66,19 @@ class DirectUnboundedSource
 
     @Getter @Nullable private final Offset offset;
     @Getter private final long limit;
+    private final URI uri;
     @Nullable private final transient OffsetCommitter committer;
     @Nullable private final transient OffsetCommitter nackCommitter;
-    @Nullable private final transient BeamCommitLogReader reader;
+    private final transient BeamCommitLogReader reader;
 
-    Checkpoint(BeamCommitLogReader reader) {
+    Checkpoint(@Nonnull BeamCommitLogReader reader) {
       this.offset = reader.getCurrentOffset();
       this.limit = reader.getLimit();
+      this.uri = reader.getUri();
       this.committer = reader.hasExternalizableOffsets() ? null : reader.getLastReadCommitter();
       this.nackCommitter =
           reader.hasExternalizableOffsets() ? null : reader.getLastWrittenCommitter();
-      this.reader = reader;
+      this.reader = Objects.requireNonNull(reader);
     }
 
     @Override
@@ -102,6 +105,25 @@ class DirectUnboundedSource
           .add("nackCommitter", nackCommitter)
           .toString();
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      Checkpoint other = (Checkpoint) o;
+      return limit == other.limit
+          && Objects.equals(offset, other.offset)
+          && Objects.equals(uri, other.uri);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(offset, limit, uri);
+    }
   }
 
   private final RepositoryFactory factory;
@@ -112,6 +134,7 @@ class DirectUnboundedSource
   private final List<Partition> partitions = new ArrayList<>();
   private final long limit;
   private final @Nullable Partition partition;
+  private final URI uri;
   private transient @Nullable CommitLogReader reader;
 
   DirectUnboundedSource(
@@ -130,6 +153,7 @@ class DirectUnboundedSource
     this.eventTime = eventTime;
     this.limit = limit;
     this.partition = partition;
+    this.uri = reader.getUri();
     this.reader = reader;
   }
 
@@ -200,5 +224,27 @@ class DirectUnboundedSource
     // when offsets are externalizable we have certainty that we can pause and
     // continue without duplicates
     return !reader().hasExternalizableOffsets() && eventTime;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    DirectUnboundedSource other = (DirectUnboundedSource) o;
+    return eventTime == other.eventTime
+        && limit == other.limit
+        && Objects.equals(name, other.name)
+        && position == other.position
+        && Objects.equals(partition, other.partition)
+        && Objects.equals(uri, other.uri);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(name, position, eventTime, limit, partition, uri);
   }
 }

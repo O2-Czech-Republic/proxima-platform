@@ -218,7 +218,7 @@ class BeamCommitLogReader {
   private final boolean stopAtCurrent;
   private boolean finished;
   @Getter private long limit;
-  @Nullable private final Offset offset;
+  @Nullable private final Offset startingOffset;
   private final long offsetWatermark;
   @Nullable private BlockingQueueLogObserver observer;
   private StreamElement current;
@@ -231,7 +231,7 @@ class BeamCommitLogReader {
       Position position,
       boolean eventTime,
       @Nullable Partition partition,
-      @Nullable Offset offset,
+      @Nullable Offset startingOffset,
       long limit,
       boolean stopAtCurrent) {
 
@@ -240,20 +240,22 @@ class BeamCommitLogReader {
     this.position = Objects.requireNonNull(position);
     this.eventTime = eventTime;
     this.partition = partition;
-    this.offset = offset;
-    this.offsetWatermark = offset == null ? LOWEST_INSTANT.getMillis() : offset.getWatermark();
+    this.startingOffset = startingOffset;
+    this.offsetWatermark =
+        startingOffset == null ? LOWEST_INSTANT.getMillis() : startingOffset.getWatermark();
     this.limit = limit;
     this.stopAtCurrent = stopAtCurrent;
     this.finished = limit <= 0;
 
     Preconditions.checkArgument(
-        partition != null || offset != null, "Either partition or offset has to be non-null");
+        partition != null || startingOffset != null,
+        "Either partition or offset has to be non-null");
 
     Preconditions.checkArgument(
-        offset == null || !stopAtCurrent, "Offset can be used only for streaming reader");
+        startingOffset == null || !stopAtCurrent, "Offset can be used only for streaming reader");
   }
 
-  private URI getUri() {
+  URI getUri() {
     return reader.getUri();
   }
 
@@ -264,10 +266,15 @@ class BeamCommitLogReader {
             limit,
             offsetWatermark);
     log.debug(
-        "Starting {}@{} with offset {} and partition {}", name, reader.getUri(), offset, partition);
+        "Starting {}@{} with offset {} and partition {}",
+        name,
+        reader.getUri(),
+        startingOffset,
+        partition);
     if (!finished) {
-      if (offset != null) {
-        this.handle = reader.observeBulkOffsets(Collections.singletonList(offset), observer);
+      if (startingOffset != null) {
+        this.handle =
+            reader.observeBulkOffsets(Collections.singletonList(startingOffset), observer);
       } else {
         this.handle =
             reader.observeBulkPartitions(
@@ -354,9 +361,14 @@ class BeamCommitLogReader {
 
   @Nullable
   Offset getCurrentOffset() {
-    return observer == null || observer.getLastReadContext() == null
-        ? null
-        : observer.getLastReadContext().getOffset();
+    Offset readOffset =
+        observer == null || observer.getLastReadContext() == null
+            ? null
+            : observer.getLastReadContext().getOffset();
+    if (readOffset != null) {
+      return readOffset;
+    }
+    return startingOffset;
   }
 
   boolean hasExternalizableOffsets() {
@@ -417,7 +429,7 @@ class BeamCommitLogReader {
     return MoreObjects.toStringHelper(this)
         .add("name", name)
         .add("partition", partition)
-        .add("offset", offset)
+        .add("startingOffset", startingOffset)
         .add("eventTime", eventTime)
         .add("stopAtCurrent", stopAtCurrent)
         .add("reader", reader)

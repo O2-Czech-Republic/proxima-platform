@@ -80,17 +80,17 @@ public class BeamCommitLogReaderTest {
     direct.close();
   }
 
-  @Test(timeout = 20000)
+  @Test
   public void testReadingFromCommitLogEventTime() throws InterruptedException {
     testReadingFromCommitLog(true, false);
   }
 
-  @Test(timeout = 20000)
+  @Test
   public void testReadingFromCommitLogEventTimeBounded() throws InterruptedException {
     testReadingFromCommitLog(true, true);
   }
 
-  @Test(timeout = 20000)
+  @Test
   public void testReadingFromCommitLogProcesingTimeBounded() throws InterruptedException {
     testReadingFromCommitLog(false, true);
   }

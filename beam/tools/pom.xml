@@ -89,7 +89,7 @@
           <parallel>suites</parallel>
           <useSystemClassLoader>true</useSystemClassLoader>
           <useManifestOnlyJar>false</useManifestOnlyJar>
-          <argLine>@{argLine} -Xmx700m -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true</argLine>
+          <argLine>@{argLine} -Xmx700m -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true ${surefire.cmdArgs}</argLine>
         </configuration>
       </plugin>
 

@@ -29,12 +29,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.FieldMask;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.ProjectTopicName;
-import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PushConfig;
 import com.google.pubsub.v1.Subscription;
 import com.google.pubsub.v1.UpdateSubscriptionRequest;
@@ -45,10 +42,8 @@ import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Context;
-import cz.o2.proxima.direct.pubsub.proto.PubSub;
 import cz.o2.proxima.functional.UnaryFunction;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.io.pubsub.util.PubSubUtils;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
@@ -597,7 +592,9 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
           c.nack();
           return;
         }
-        Optional<StreamElement> elem = toElement(getEntityDescriptor(), m);
+        Optional<StreamElement> elem =
+            PubSubUtils.toStreamElement(
+                getEntityDescriptor(), m.getMessageId(), m.getData().toByteArray());
         if (elem.isPresent()) {
           long current = watermarkEstimator.getWatermark();
           watermarkEstimator.update(elem.get());
@@ -649,41 +646,6 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       executor = context.getExecutorService();
     }
     return executor;
-  }
-
-  static Optional<StreamElement> toElement(EntityDescriptor entity, PubsubMessage m) {
-    try {
-      String uuid = m.getMessageId();
-      ByteString data = m.getData();
-      PubSub.KeyValue parsed = PubSub.KeyValue.parseFrom(data);
-      long stamp = parsed.getStamp();
-      Optional<AttributeDescriptor<Object>> attribute =
-          entity.findAttribute(parsed.getAttribute(), true /* allow protected */);
-      if (attribute.isPresent()) {
-        if (parsed.getDelete()) {
-          return Optional.of(
-              StreamElement.delete(
-                  entity, attribute.get(), uuid, parsed.getKey(), parsed.getAttribute(), stamp));
-        } else if (parsed.getDeleteWildcard()) {
-          return Optional.of(
-              StreamElement.deleteWildcard(
-                  entity, attribute.get(), uuid, parsed.getKey(), parsed.getAttribute(), stamp));
-        }
-        return Optional.of(
-            StreamElement.upsert(
-                entity,
-                attribute.get(),
-                uuid,
-                parsed.getKey(),
-                parsed.getAttribute(),
-                stamp,
-                parsed.getValue().toByteArray()));
-      }
-      log.warn("Failed to find attribute {} in entity {}", parsed.getAttribute(), entity);
-    } catch (InvalidProtocolBufferException ex) {
-      log.warn("Failed to parse message {}", m, ex);
-    }
-    return Optional.empty();
   }
 
   @Override

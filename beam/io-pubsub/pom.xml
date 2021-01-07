@@ -135,7 +135,7 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
-      <artifactId>proxima-direct-io-pubsub</artifactId>
+      <artifactId>proxima-io-pubsub</artifactId>
       <version>${project.version}</version>
     </dependency>
 

@@ -79,6 +79,8 @@
     <maven.surefire.version>3.0.0-M5</maven.surefire.version>
     <maven.javadoc.version>3.2.0</maven.javadoc.version>
     <maven.jar.version>3.2.0</maven.jar.version>
+    <maven.ext.os.version>1.6.2</maven.ext.os.version>
+    <maven.protobuf.version>0.6.1</maven.protobuf.version>
     <groovy.version>2.5.13</groovy.version>
     <hadoop.version>2.10.0</hadoop.version>
     <hbase.version>1.5.0</hbase.version>
@@ -296,6 +298,11 @@
         <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-project-info-reports-plugin</artifactId>
+            <version>3.1.0</version>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-site-plugin</artifactId>
             <version>3.9.1</version>
           </plugin>
@@ -309,6 +316,8 @@
             <version>${maven.javadoc.version}</version>
             <configuration>
               <source>8</source>
+              <!-- otherwise it fail with junit5 -->
+              <show>private</show>
             </configuration>
             <reportSets>
               <reportSet>
@@ -344,7 +353,7 @@
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>
-        <version>1.4.1.Final</version>
+        <version>${maven.ext.os.version}</version>
       </extension>
     </extensions>
 
@@ -598,6 +607,7 @@
     <module>scheme</module>
     <module>tools</module>
     <module>utils-zookeeper</module>
+    <module>io</module>
   </modules>
 
 </project>

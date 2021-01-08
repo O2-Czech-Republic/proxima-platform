@@ -756,6 +756,15 @@ public final class ConfigRepository extends Repository {
               toMap(ENTITIES + "." + entityName + "." + ATTRIBUTES + "." + key, value);
           if (settings.get(SCHEME) != null) {
             loadRegular(entityName, key, settings, entity);
+          } else if (!settings.containsKey(PROXY)) {
+            throw new IllegalStateException(
+                "Attribute "
+                    + key
+                    + " in entity "
+                    + entityName
+                    + " must be proxy or contains "
+                    + SCHEME
+                    + " definition.");
           }
         });
 
@@ -1730,7 +1739,7 @@ public final class ConfigRepository extends Repository {
               .getAllAttributes(includeProtected)
               .stream()
               .filter(a -> !((AttributeDescriptorBase<?>) a).isReplica() || allowReplicated)
-              .filter(a -> !((AttributeDescriptorBase<?>) a).isProxy() || allowProxies)
+              .filter(a -> !a.isProxy() || allowProxies)
               .collect(Collectors.toList());
     } else {
       attrDescs =

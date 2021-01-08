@@ -96,6 +96,7 @@
     <slf4j.version>1.7.30</slf4j.version>
     <argLine></argLine>
     <surefire.forkCount>8</surefire.forkCount>
+    <surefire.cmdArgs />
     <!-- sonar config -->
     <jacoco.version>0.8.5</jacoco.version>
     <sonar.organization>datadriven</sonar.organization>
@@ -248,6 +249,7 @@
       <id>travis</id>
       <properties>
         <surefire.forkCount>1</surefire.forkCount>
+        <surefire.cmdArgs>-DLOG_LEVEL=ERROR</surefire.cmdArgs>
       </properties>
     </profile>
 
@@ -400,7 +402,7 @@
           <parallel>suites</parallel>
           <useSystemClassLoader>true</useSystemClassLoader>
           <useManifestOnlyJar>false</useManifestOnlyJar>
-          <argLine>@{argLine} -Xmx1g -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true</argLine>
+          <argLine>@{argLine} -Xmx1g -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true ${surefire.cmdArgs}</argLine>
           <includes>
             <include>**/*Test.java</include>
             <include>**/*IT.java</include>

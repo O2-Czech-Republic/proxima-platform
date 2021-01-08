@@ -15,7 +15,13 @@
  */
 package cz.o2.proxima.repository;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
@@ -33,9 +39,9 @@ import cz.o2.proxima.transform.WriteProxy;
 import cz.o2.proxima.util.DummyFilter;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -83,17 +89,13 @@ public class ConfigRepositoryTest {
         Iterables.getOnlyElement(repo.getTransformations().values());
     assertEquals(PassthroughFilter.class, transform.getFilter().getClass());
     assertEquals(event, transform.getEntity());
-    assertEquals(Arrays.asList(event.getAttribute("data")), transform.getAttributes());
+    assertEquals(Collections.singletonList(event.getAttribute("data")), transform.getAttributes());
     assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
 
     // check that we can query all families
     repo.getAllFamilies()
         .forEach(family -> assertTrue(repo.findFamilyByName(family.getName()).isPresent()));
-    assertFalse(
-        repo.getAllFamilies()
-            .filter(af -> af.getName().equals("proxy-event-storage"))
-            .findAny()
-            .isPresent());
+    assertFalse(repo.getAllFamilies().anyMatch(af -> af.getName().equals("proxy-event-storage")));
     assertTrue(repo.findFamilyByName("proxy-event-storage").isPresent());
   }
 
@@ -126,13 +128,13 @@ public class ConfigRepositoryTest {
   public void testTestRepositorySerializable() throws Exception {
     Repository testRepo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
     Repository clone = TestUtils.assertSerializable(testRepo);
-    assertTrue(clone == testRepo);
+    assertSame(clone, testRepo);
   }
 
   @Test
   public void testRepositorySerializable() throws Exception {
     ConfigRepository clone = TestUtils.assertSerializable(repo);
-    assertTrue(clone == repo);
+    assertSame(clone, repo);
   }
 
   @Test
@@ -455,7 +457,7 @@ public class ConfigRepositoryTest {
   public void testConfigUpdateAfterSerialization() throws IOException, ClassNotFoundException {
     Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
     byte[] serialized = TestUtils.serializeObject(repo);
-    assertTrue(TestUtils.deserializeObject(serialized).equals(repo));
+    assertEquals(TestUtils.deserializeObject(serialized), repo);
     RepositoryFactory.VersionedCaching.drop();
     Repository repo2 = Repository.of(ConfigFactory.empty());
     byte[] serialized2 = TestUtils.serializeObject(repo2);
@@ -465,8 +467,8 @@ public class ConfigRepositoryTest {
     assertTrue(repo.findEntity("gateway").isPresent());
     repo2 = TestUtils.deserializeObject(serialized2);
     assertFalse(repo2.findEntity("gateway").isPresent());
-    assertTrue(repo != repo2);
-    assertTrue(TestUtils.deserializeObject(serialized) == repo2);
+    assertNotSame(repo, repo2);
+    assertSame(TestUtils.deserializeObject(serialized), repo2);
     RepositoryFactory.VersionedCaching.drop();
   }
 
@@ -475,7 +477,7 @@ public class ConfigRepositoryTest {
     AttributeProxyDescriptor<Object> proxy =
         repo.getEntity("proxied").getAttribute("asymmetric..*").asProxy();
     WriteProxy transform = (WriteProxy) proxy.getWriteTransform();
-    assertEquals("_e.", transform.getTarget());
+    assertEquals("_e.", Objects.requireNonNull(transform).getTarget());
   }
 
   @Test
@@ -563,6 +565,11 @@ public class ConfigRepositoryTest {
     assertTrue(repo.findFamilyByName("event-storage-stream").isPresent());
     assertNotNull(repo.getFamilyByName("event-storage-stream"));
     checkThrows(() -> repo.getFamilyByName("not-found"), IllegalArgumentException.class);
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testEntityAttributeWithoutSchemeThrowsException() {
+    Repository.of(ConfigFactory.parseString("entities.user.attributes.name:{schem: string}"));
   }
 
   private void checkThrows(Factory<?> factory) {

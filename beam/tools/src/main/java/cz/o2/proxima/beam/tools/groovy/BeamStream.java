@@ -62,6 +62,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -892,14 +893,15 @@ class BeamStream<T> implements Stream<T> {
   @VisibleForTesting
   static Duration extractEarlyEmitting(Trigger trigger) {
     Duration extracted = null;
-    if (trigger.subTriggers() != null) {
-      for (Trigger t : trigger.subTriggers()) {
-        extracted = tryExtractFromTrigger(t);
-        if (extracted != null) {
-          break;
-        }
+    List<Trigger> subTriggers =
+        MoreObjects.firstNonNull(trigger.subTriggers(), Collections.emptyList());
+    for (Trigger t : subTriggers) {
+      extracted = tryExtractFromTrigger(t);
+      if (extracted != null) {
+        break;
       }
-    } else {
+    }
+    if (extracted == null) {
       extracted = tryExtractFromTrigger(trigger);
     }
     return MoreObjects.firstNonNull(extracted, Duration.ZERO);

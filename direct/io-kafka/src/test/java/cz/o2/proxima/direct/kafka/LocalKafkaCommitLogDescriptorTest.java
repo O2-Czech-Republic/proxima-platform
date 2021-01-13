@@ -1014,7 +1014,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertTrue(watermark.get() < now * 10);
   }
 
-  @Test(timeout = 10000)
+  @Test(timeout = 100_000)
   public void testPollFromMoreConsumersThanPartitionsMovesWatermark() throws InterruptedException {
 
     Accessor accessor =

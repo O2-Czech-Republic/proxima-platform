@@ -48,6 +48,13 @@
         </executions>
         <configuration>
           <source>8</source>
+          <additionalDependencies>
+            <additionalDependency>
+              <groupId>${project.groupId}</groupId>
+              <artifactId>${project.artifactId}</artifactId>
+              <version>${project.version}</version>
+            </additionalDependency>
+          </additionalDependencies>
         </configuration>
       </plugin>
       <plugin>
@@ -79,13 +86,6 @@
           </execution>
         </executions>
       </plugin>
-
-      <!--plugin>
-        <groupId>org.codehaus.groovy</groupId>
-        <artifactId>groovy-eclipse-compiler</artifactId>
-        <version>3.6.0-03</version>
-        <extensions>true</extensions>
-      </plugin-->
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

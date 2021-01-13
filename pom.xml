@@ -75,19 +75,21 @@
   </distributionManagement>
 
   <properties>
+    <proxima.main.project.version>0.6-SNAPSHOT</proxima.main.project.version>
     <maven.shade.version>3.2.4</maven.shade.version>
     <maven.surefire.version>3.0.0-M5</maven.surefire.version>
     <maven.javadoc.version>3.2.0</maven.javadoc.version>
     <maven.jar.version>3.2.0</maven.jar.version>
     <maven.ext.os.version>1.6.2</maven.ext.os.version>
     <maven.protobuf.version>0.6.1</maven.protobuf.version>
-    <groovy.version>3.0.4</groovy.version>
+    <maven.compiler.plugin>3.8.1</maven.compiler.plugin>
+    <groovy.version>3.0.7</groovy.version>
     <hadoop.version>2.10.0</hadoop.version>
-    <hbase.version>1.5.0</hbase.version>
+    <hbase.version>1.6.0</hbase.version>
     <kafka.version>2.6.0</kafka.version>
     <proto.version>3.11.1</proto.version>
     <protoc.version>3.11.1</protoc.version>
-    <grpc.version>1.29.0</grpc.version>
+    <grpc.version>1.33.1</grpc.version>
     <gmaven.version>1.10.0</gmaven.version>
     <guava.version>28.1-jre</guava.version>
     <commons-io.version>2.6</commons-io.version>
@@ -97,7 +99,7 @@
     <slf4j.version>1.7.30</slf4j.version>
     <argLine></argLine>
     <surefire.forkCount>8</surefire.forkCount>
-    <surefire.cmdArgs />
+    <surefire.cmdArgs>-DLOG_LEVEL=WARN</surefire.cmdArgs>
     <!-- sonar config -->
     <jacoco.version>0.8.5</jacoco.version>
     <sonar.organization>datadriven</sonar.organization>
@@ -116,6 +118,7 @@
   </properties>
 
   <profiles>
+
     <profile>
       <id>release</id>
       <properties>
@@ -205,10 +208,6 @@
           <releases><enabled>false</enabled></releases>
           <snapshots><enabled>true</enabled></snapshots>
         </repository>
-        <repository>
-          <id>beam-rc</id>
-          <url>https://repository.apache.org/content/repositories/orgapachebeam-1149/</url>
-        </repository>
       </repositories>
       <pluginRepositories>
         <pluginRepository>
@@ -255,6 +254,13 @@
     </profile>
 
     <profile>
+      <id>debug</id>
+      <properties>
+        <surefire.cmdArgs>-DLOG_LEVEL=DEBUG</surefire.cmdArgs>
+      </properties>
+    </profile>
+
+    <profile>
       <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
       <id>jdk8</id>
       <activation>
@@ -262,21 +268,93 @@
       </activation>
       <properties>
         <javac.version>9+181-r4173-1</javac.version>
+        <javac.source>1.8</javac.source>
+        <javac.target>1.8</javac.target>
       </properties>
       <build>
         <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
+            <version>${maven.compiler.plugin}</version>
             <configuration>
               <fork>true</fork>
-              <compilerArgs combine.children="append">
-                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${javac.version}/javac-${javac.version}.jar</arg>
+              <source>8</source>
+              <target>8</target>
+              <compilerArgs>
+                <arg>-Xlint:all</arg>
               </compilerArgs>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>org.projectlombok</groupId>
+                  <artifactId>lombok</artifactId>
+                  <version>${lombok.version}</version>
+                </path>
+              </annotationProcessorPaths>
             </configuration>
           </plugin>
         </plugins>
       </build>
+      <modules>
+        <module>beam</module>
+        <module>core</module>
+        <module>direct</module>
+        <module>example</module>
+        <module>io</module>
+        <module>maven</module>
+        <module>scheme</module>
+        <module>tools</module>
+        <module>utils-zookeeper</module>
+      </modules>
+    </profile>
+
+    <profile>
+      <id>jdk11</id>
+      <activation>
+        <jdk>11</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>${maven.compiler.plugin}</version>
+            <configuration>
+              <fork>true</fork>
+              <source>11</source>
+              <target>11</target>
+              <compilerArgs>
+                <arg>-XDcompilePolicy=simple</arg>
+                <!-- workaround of https://github.com/google/error-prone/issues/1321 -->
+                <arg>-Xplugin:ErrorProne -Xep:ParameterName:OFF -Xep:UnusedVariable:OFF</arg>
+                <arg>-Xlint:all</arg>
+              </compilerArgs>
+              <annotationProcessorPaths>
+                <path>
+                  <groupId>com.google.errorprone</groupId>
+                  <artifactId>error_prone_core</artifactId>
+                  <version>${error-prone.version}</version>
+                </path>
+                <path>
+                  <groupId>org.projectlombok</groupId>
+                  <artifactId>lombok</artifactId>
+                  <version>${lombok.version}</version>
+                </path>
+              </annotationProcessorPaths>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+      <modules>
+        <module>beam</module>
+        <module>core</module>
+        <module>direct</module>
+        <module>io</module>
+        <module>maven</module>
+        <module>scheme</module>
+        <module>tools</module>
+        <module>utils-zookeeper</module>
+      </modules>
     </profile>
 
     <profile>
@@ -318,12 +396,13 @@
             <artifactId>maven-javadoc-plugin</artifactId>
             <version>${maven.javadoc.version}</version>
             <configuration>
-              <source>11</source>
+              <source>8</source>
               <target>8</target>
               <!-- otherwise it fail with junit5 -->
               <show>private</show>
               <!-- hotfix for https://github.com/O2-Czech-Republic/proxima-platform/issues/185 -->
               <doclint>none</doclint>
+              <detectJavaApiLink>false</detectJavaApiLink>
             </configuration>
             <reportSets>
               <reportSet>
@@ -366,34 +445,6 @@
     </extensions>
 
     <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.1</version>
-        <configuration>
-          <source>8</source>
-          <target>8</target>
-          <forceJavacCompilerUse>true</forceJavacCompilerUse>
-          <compilerArgs>
-            <arg>-XDcompilePolicy=simple</arg>
-            <!-- workaround of https://github.com/google/error-prone/issues/1321 -->
-            <arg>-Xplugin:ErrorProne -Xep:ParameterName:OFF -Xep:UnusedVariable:OFF</arg>
-            <arg>-Xlint:all</arg>
-          </compilerArgs>
-          <annotationProcessorPaths>
-            <path>
-              <groupId>com.google.errorprone</groupId>
-              <artifactId>error_prone_core</artifactId>
-              <version>${error-prone.version}</version>
-            </path>
-            <path>
-              <groupId>org.projectlombok</groupId>
-              <artifactId>lombok</artifactId>
-              <version>${lombok.version}</version>
-            </path>
-          </annotationProcessorPaths>
-        </configuration>
-      </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -481,7 +532,12 @@
         </executions>
         <configuration>
           <source>8</source>
+          <target>8</target>
+          <!-- otherwise it fail with junit5 -->
+          <show>private</show>
+          <!-- hotfix for https://github.com/O2-Czech-Republic/proxima-platform/issues/185 -->
           <doclint>none</doclint>
+          <detectJavaApiLink>false</detectJavaApiLink>
         </configuration>
       </plugin>
 
@@ -607,17 +663,6 @@
 
   </dependencyManagement>
 
-  <modules>
-    <module>beam</module>
-    <module>core</module>
-    <module>direct</module>
-    <module>example</module>
-    <module>maven</module>
-    <module>scheme</module>
-    <module>tools</module>
-    <module>utils-zookeeper</module>
-    <module>io</module>
-  </modules>
 
 </project>
 

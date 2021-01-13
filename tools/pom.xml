@@ -31,28 +31,8 @@
 
   <name>${project.groupId}:${project.artifactId}</name>
 
-  <properties>
-    <!-- @TODO: there is something weird in classpath for javadoc plugin and it always failed with
-    error: package cz.o2.proxima.tools.groovy.internal does not exist
-    temporally disabled for this module and should be fixed later
-    -->
-    <maven.javadoc.skip>true</maven.javadoc.skip>
-  </properties>
   <build>
     <plugins>
-      <!-- error prone not working with gmaven -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.8.0</version>
-        <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
-          <compilerArgs>
-            <arg>-Xlint:all</arg>
-          </compilerArgs>
-        </configuration>
-      </plugin>
       <!-- javadoc -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

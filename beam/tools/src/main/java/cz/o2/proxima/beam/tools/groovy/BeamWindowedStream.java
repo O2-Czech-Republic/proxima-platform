@@ -18,7 +18,9 @@ package cz.o2.proxima.beam.tools.groovy;
 import cz.o2.proxima.beam.core.PCollectionTools;
 import cz.o2.proxima.beam.core.io.PairCoder;
 import cz.o2.proxima.functional.Factory;
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.tools.groovy.RepositoryProvider;
 import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.tools.groovy.util.Types;
@@ -55,7 +57,6 @@ import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Trigger;
 import org.apache.beam.sdk.transforms.windowing.Window;
-import org.apache.beam.sdk.transforms.windowing.WindowFn;
 import org.apache.beam.sdk.values.KV;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TupleTag;
@@ -96,7 +97,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
           Coder<V> valueCoder = coderOf(pipeline, valueDehydrated);
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           PCollection<KV<K, V>> kvs =
               ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
                   .of(input)
@@ -126,7 +127,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyDehydrated);
           Coder<V> valueCoder = coderOf(pipeline, reducerDehydrated);
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
               ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
@@ -157,7 +158,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     return descendant(
         pipeline ->
             PCollectionTools.reduceAsSnapshot(
-                name, (PCollection) collection.materialize(pipeline)));
+                name, (PCollection) getCollection().materialize(pipeline)));
   }
 
   @Override
@@ -173,7 +174,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
           // FIXME: need a way to retrieve inner type of the list
           @SuppressWarnings("unchecked")
           final Coder<V> valueCoder = (Coder) getCoder(pipeline, TypeDescriptor.of(Object.class));
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           if (!input.getWindowingStrategy().equals(windowingStrategy)) {
             if (name != null) {
               input = input.apply(name + ".windowFn", createWindowFn());
@@ -234,7 +235,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     return in.apply(ParDo.of(new GroupReduce<>(reducer)));
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "rawtypes"})
   private Window<T> createWindowFn() {
     return createWindowFn((WindowingStrategy) windowingStrategy, getTrigger());
   }
@@ -286,7 +287,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
           Coder<V> valueCoder = coderOf(pipeline, valueExtractor);
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
               ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
@@ -316,7 +317,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
           Coder<T> valueCoder = coderOf(pipeline, combine);
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
               ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
@@ -342,7 +343,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
           Coder<Long> valueCoder = getCoder(pipeline, TypeDescriptors.longs());
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
               ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
@@ -364,7 +365,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<Double> valueDehydrated = dehydrate(valueExtractor);
     return descendant(
         pipeline -> {
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           PCollection<KV<Double, Long>> intermediate =
               ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
                   .of(input)
@@ -404,7 +405,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
               getCoder(
                   pipeline,
                   TypeDescriptors.kvs(TypeDescriptors.doubles(), TypeDescriptors.longs()));
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           PCollection<KV<K, KV<Double, Long>>> intermediate =
               ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
                   .of(input)
@@ -496,7 +497,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<Integer> dehydrated = dehydrate(compareFn);
     return descendant(
         pipeline -> {
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           return ReduceByKey.named(name)
               .of(input)
               .keyBy(e -> null, TypeDescriptors.nulls())
@@ -514,7 +515,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     return (WindowedStream)
         descendant(
             pipeline -> {
-              PCollection<T> input = collection.materialize(pipeline);
+              PCollection<T> input = getCollection().materialize(pipeline);
               return ReduceByKey.named(name)
                   .of((PCollection<Comparable<T>>) input)
                   .keyBy(e -> null, TypeDescriptors.nulls())
@@ -530,7 +531,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   public WindowedStream<Long> count(@Nullable String name) {
     return descendant(
         pipeline -> {
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           return ReduceByKey.named(name)
               .of(input)
               .keyBy(e -> null, TypeDescriptors.nulls())
@@ -548,7 +549,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<Double> valueDehydrated = dehydrate(valueExtractor);
     return descendant(
         pipeline -> {
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           return ReduceByKey.named(name)
               .of(input)
               .keyBy(e -> null, TypeDescriptors.nulls())
@@ -570,7 +571,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         pipeline -> {
           Coder<K> keyCoder = coderOf(pipeline, keyExtractor);
           Coder<Double> valueCoder = getCoder(pipeline, TypeDescriptors.doubles());
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           return asPairs(
               withSuffix(name, ".asPairs"),
               ReduceByKey.named(withSuffix(name, REDUCE_SUFFIX))
@@ -591,7 +592,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
   public WindowedStream<T> distinct(@Nullable String name) {
     return descendant(
         pipeline -> {
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           return Distinct.named(name)
               .of(input)
               .applyIf(
@@ -607,7 +608,7 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     Closure<Object> dehydrated = (Closure) dehydrate(mapper);
     return descendant(
         pipeline -> {
-          PCollection<T> input = collection.materialize(pipeline);
+          PCollection<T> input = getCollection().materialize(pipeline);
           return Distinct.named(name)
               .of(input)
               .projected(dehydrated::call, Distinct.SelectionPolicy.NEWEST)
@@ -636,38 +637,28 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
     return this;
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   <X> BeamWindowedStream<X> descendant(Function<Pipeline, PCollection<X>> factory) {
-    return new BeamWindowedStream<>(
+    return new BeamWindowedStream<X>(
         config,
         bounded,
-        PCollectionProvider.withParents(factory, collection),
+        PCollectionProvider.withParents(factory, getCollection()),
         windowingStrategy,
-        terminateCheck,
-        pipelineFactory);
+        getTerminateCheck(),
+        getPipelineFactory()) {};
   }
 
   BeamWindowedStream<T> intoGlobalWindow() {
-    return new BeamWindowedStream<>(
+    return new BeamWindowedStream<T>(
         config,
         bounded,
         PCollectionProvider.withParents(
-            pipeline -> collection.materialize(pipeline).apply(Window.into(new GlobalWindows())),
-            collection),
+            pipeline ->
+                getCollection().materialize(pipeline).apply(Window.into(new GlobalWindows())),
+            getCollection()),
         WindowingStrategy.globalDefault(),
-        terminateCheck,
-        pipelineFactory);
-  }
-
-  @Override
-  WindowFn<Object, ? extends BoundedWindow> getWindowFn() {
-    return this.windowingStrategy.getWindowFn();
-  }
-
-  @Override
-  Trigger getTrigger() {
-    return windowingStrategy.getTrigger();
+        getTerminateCheck(),
+        getPipelineFactory()) {};
   }
 
   @Override
@@ -741,8 +732,8 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
         Supplier<Trigger> triggerSupplier,
         Pipeline pipeline) {
 
-      PCollection<LEFT> leftTmp = left.collection.materialize(pipeline);
-      PCollection<RIGHT> rightTmp = right.collection.materialize(pipeline);
+      PCollection<LEFT> leftTmp = left.getCollection().materialize(pipeline);
+      PCollection<RIGHT> rightTmp = right.getCollection().materialize(pipeline);
       if (!windowingStrategy.equals(leftTmp.getWindowingStrategy())) {
         leftTmp =
             leftTmp.apply(
@@ -771,5 +762,55 @@ class BeamWindowedStream<T> extends BeamStream<T> implements WindowedStream<T> {
       this.leftCoder = leftTmp.getCoder();
       this.rightCoder = rightTmp.getCoder();
     }
+  }
+
+  // type-safety for methods not modifying windowfn
+
+  @Override
+  public <X> WindowedStream<X> flatMap(@Nullable String name, Closure<Iterable<X>> mapper) {
+    return (WindowedStream<X>) super.flatMap(name, mapper);
+  }
+
+  @Override
+  public <X> WindowedStream<X> map(@Nullable String name, Closure<X> mapper) {
+    return (WindowedStream<X>) super.map(name, mapper);
+  }
+
+  @Override
+  public WindowedStream<T> filter(@Nullable String name, Closure<Boolean> predicate) {
+    return (WindowedStream<T>) super.filter(name, predicate);
+  }
+
+  @Override
+  public WindowedStream<T> assignEventTime(@Nullable String name, Closure<Long> assigner) {
+    return (WindowedStream<T>) super.assignEventTime(name, assigner);
+  }
+
+  @Override
+  public WindowedStream<Pair<Object, T>> withWindow(@Nullable String name) {
+    return (WindowedStream<Pair<Object, T>>) super.withWindow(name);
+  }
+
+  @Override
+  public WindowedStream<Pair<T, Long>> withTimestamp(@Nullable String name) {
+    return (WindowedStream<Pair<T, Long>>) super.withTimestamp(name);
+  }
+
+  @Override
+  public WindowedStream<T> asUnbounded() {
+    return (WindowedStream<T>) super.asUnbounded();
+  }
+
+  @Override
+  public <V> BeamWindowedStream<StreamElement> asStreamElements(
+      RepositoryProvider repoProvider,
+      EntityDescriptor entity,
+      Closure<CharSequence> keyExtractor,
+      Closure<CharSequence> attributeExtractor,
+      Closure<V> valueExtractor,
+      Closure<Long> timeExtractor) {
+    return (BeamWindowedStream<StreamElement>)
+        super.asStreamElements(
+            repoProvider, entity, keyExtractor, attributeExtractor, valueExtractor, timeExtractor);
   }
 }

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
@@ -536,4 +537,68 @@ public interface WindowedStream<T> extends Stream<T> {
    * @return stream with allowed lateness specified
    */
   WindowedStream<T> withAllowedLateness(long lateness);
+
+  // overrides of Stream methods with fixed return types
+
+  @Override
+  default <X> WindowedStream<X> flatMap(Closure<Iterable<X>> mapper) {
+    return flatMap(null, mapper);
+  }
+
+  @Override
+  <X> WindowedStream<X> flatMap(@Nullable String name, Closure<Iterable<X>> mapper);
+
+  @Override
+  default <X> WindowedStream<X> map(Closure<X> mapper) {
+    return map(null, mapper);
+  }
+
+  @Override
+  <X> WindowedStream<X> map(@Nullable String name, Closure<X> mapper);
+
+  @Override
+  default WindowedStream<T> filter(Closure<Boolean> predicate) {
+    return filter(null, predicate);
+  }
+
+  @Override
+  WindowedStream<T> filter(@Nullable String name, Closure<Boolean> predicate);
+
+  @Override
+  default WindowedStream<T> assignEventTime(Closure<Long> assigner) {
+    return assignEventTime(null, assigner);
+  }
+
+  @Override
+  WindowedStream<T> assignEventTime(@Nullable String name, Closure<Long> assigner);
+
+  @Override
+  default WindowedStream<Pair<Object, T>> withWindow() {
+    return withWindow(null);
+  }
+
+  @Override
+  WindowedStream<Pair<Object, T>> withWindow(@Nullable String name);
+
+  @Override
+  default WindowedStream<Pair<T, Long>> withTimestamp() {
+    return withTimestamp(null);
+  }
+
+  @Override
+  WindowedStream<Pair<T, Long>> withTimestamp(@Nullable String name);
+
+  @Override
+  default WindowedStream<T> asUnbounded() {
+    return this;
+  }
+
+  @Override
+  <V> WindowedStream<StreamElement> asStreamElements(
+      RepositoryProvider repoProvider,
+      EntityDescriptor entity,
+      Closure<CharSequence> keyExtractor,
+      Closure<CharSequence> attributeExtractor,
+      Closure<V> valueExtractor,
+      Closure<Long> timeExtractor);
 }

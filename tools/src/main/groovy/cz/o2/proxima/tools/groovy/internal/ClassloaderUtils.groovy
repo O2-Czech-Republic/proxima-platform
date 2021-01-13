@@ -17,9 +17,15 @@ package cz.o2.proxima.tools.groovy.internal
 
 import groovy.transform.CompileStatic
 import groovy.transform.TypeChecked
+import org.codehaus.groovy.ast.ModuleNode
+import org.codehaus.groovy.control.CompilationFailedException
 import org.codehaus.groovy.control.CompilerConfiguration
+import org.codehaus.groovy.control.ParserPlugin
+import org.codehaus.groovy.control.ParserPluginFactory
+import org.codehaus.groovy.control.SourceUnit
 import org.codehaus.groovy.control.customizers.ASTTransformationCustomizer
-import org.codehaus.groovy.control.customizers.builder.CompilerCustomizationBuilder;
+import org.codehaus.groovy.syntax.ParserException
+import org.codehaus.groovy.syntax.Reduction
 
 /**
  * Various utilities related to Classloading.
@@ -28,7 +34,15 @@ import org.codehaus.groovy.control.customizers.builder.CompilerCustomizationBuil
 class ClassloaderUtils {
 
   static CompilerConfiguration createConfiguration() {
-    return CompilerConfiguration.DEFAULT;
+    def ret = new CompilerConfiguration(CompilerConfiguration.DEFAULT)
+    /*
+    ret = ret.addCompilationCustomizers(
+        new ASTTransformationCustomizer(TypeChecked),
+        new ASTTransformationCustomizer(CompileStatic))
+     */
+    ret.setTargetBytecode("1.11")
+    ret.setDebug(true)
+    return ret
   }
 
 }

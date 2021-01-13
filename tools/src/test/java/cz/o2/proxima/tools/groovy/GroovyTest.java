@@ -22,6 +22,7 @@ import cz.o2.proxima.util.Classpath;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.Script;
+import org.junit.After;
 import org.junit.Before;
 
 /** Base class for all tests compiling groovy source. */
@@ -34,7 +35,7 @@ public class GroovyTest {
   Console console;
 
   @Before
-  public void setUp() throws Exception {
+  public void setUp() {
     conf = new Configuration(Configuration.VERSION_2_3_23);
     conf.setDefaultEncoding("utf-8");
     conf.setClassForTemplateLoading(getClass(), "/");
@@ -43,6 +44,11 @@ public class GroovyTest {
     console = Console.create(cfg, repo);
 
     loader = (ToolsClassLoader) Thread.currentThread().getContextClassLoader();
+  }
+
+  @After
+  public void tearDown() {
+    console.close();
   }
 
   @SuppressWarnings(value = "unchecked")

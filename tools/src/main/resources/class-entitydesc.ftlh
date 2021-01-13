@@ -23,7 +23,7 @@ import cz.o2.proxima.tools.groovy.WindowedStream
 import cz.o2.proxima.tools.io.ConsoleRandomReader
 import cz.o2.proxima.util.Pair
 
-@groovy.transform.TypeChecked
+@groovy.transform.CompileStatic
 class Environment implements RepositoryProvider {
 
   private final Console console = Console.get()

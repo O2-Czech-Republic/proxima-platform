@@ -21,6 +21,7 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.Repository;
 import java.io.File;
 import java.io.IOException;
+import java.net.URLClassLoader;
 import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.junit.Test;
@@ -60,10 +61,33 @@ public class BeamStreamProviderTest {
   }
 
   @Test
+  public void testRunnerUnknownRunnerJarInject() {
+    try (BeamStreamProvider.Default provider = new BeamStreamProvider.Default()) {
+      provider.init(
+          repo,
+          new String[] {
+            "--runner=TestFlinkRunner",
+            "--runnerRegistrar=" + Registrar.class.getName(),
+            "--checkpointingInterval=10000"
+          });
+      provider.createUdfJarAndRegisterToPipeline(provider.getPipelineOptionsFactory().get());
+      assertTrue(Thread.currentThread().getContextClassLoader() instanceof URLClassLoader);
+    }
+  }
+
+  @Test
   public void testInjectPathToClassloader() throws IOException {
     File f = File.createTempFile("dummy", ".tmp");
-    BeamStreamProvider.injectJarIntoContextClassLoader(f.toURI().toURL());
-    // must not throw any exceptions
-    assertTrue(true);
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+    boolean isURLClassLoader = loader instanceof URLClassLoader;
+    BeamStreamProvider.injectJarIntoContextClassLoader(f);
+    if (isURLClassLoader) {
+      assertSame(loader, Thread.currentThread().getContextClassLoader());
+    } else {
+      loader = Thread.currentThread().getContextClassLoader();
+      assertTrue(loader instanceof URLClassLoader);
+    }
+    BeamStreamProvider.injectJarIntoContextClassLoader(f);
+    assertSame(loader, Thread.currentThread().getContextClassLoader());
   }
 }

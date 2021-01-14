@@ -315,7 +315,9 @@ public abstract class GroovyEnvTest extends GroovyTest {
 
   @Test
   public void testMap() throws Exception {
-    Script compiled = compile("env.batch.data.batchUpdates().map({ \"\" }).collect()");
+    Script compiled =
+        compile(
+            "env.batch.data.batchUpdates().map({ StreamElement it -> (String) it.key }).collect()");
 
     write(
         StreamElement.upsert(

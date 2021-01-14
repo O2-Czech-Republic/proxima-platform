@@ -47,6 +47,7 @@ import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.tools.groovy.RepositoryProvider;
 import cz.o2.proxima.tools.groovy.Stream;
 import cz.o2.proxima.tools.groovy.StreamProvider;
+import cz.o2.proxima.tools.groovy.StreamProvider.TerminatePredicate;
 import cz.o2.proxima.tools.groovy.WindowedStream;
 import cz.o2.proxima.tools.groovy.util.Types;
 import cz.o2.proxima.util.ExceptionUtils;
@@ -82,6 +83,7 @@ import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Kryo;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.Serializer;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Input;
 import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.io.Output;
+import org.apache.beam.repackaged.kryo.com.esotericsoftware.kryo.serializers.DefaultSerializers.KryoSerializableSerializer;
 import org.apache.beam.repackaged.kryo.org.objenesis.strategy.StdInstantiatorStrategy;
 import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.runners.flink.FlinkRunner;
@@ -91,6 +93,7 @@ import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderRegistry;
 import org.apache.beam.sdk.coders.KvCoder;
+import org.apache.beam.sdk.coders.SerializableCoder;
 import org.apache.beam.sdk.coders.VarLongCoder;
 import org.apache.beam.sdk.extensions.euphoria.core.client.io.Collector;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
@@ -98,6 +101,8 @@ import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.FlatMap;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.MapElements;
 import org.apache.beam.sdk.extensions.kryo.KryoCoder;
+import org.apache.beam.sdk.io.BoundedSource;
+import org.apache.beam.sdk.io.UnboundedSource;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.state.StateSpec;
@@ -143,13 +148,13 @@ class BeamStream<T> implements Stream<T> {
 
   @SuppressWarnings("unchecked")
   static <T> BeamStream<T> wrap(PCollection<T> collection) {
-    return new BeamStream<>(
+    return new BeamStream<T>(
         StreamConfig.empty(),
         collection.isBounded() == IsBounded.BOUNDED,
         PCollectionProvider.wrap(collection),
         (WindowingStrategy<Object, ?>) collection.getWindowingStrategy(),
         () -> false,
-        collection::getPipeline);
+        collection::getPipeline) {};
   }
 
   @SafeVarargs
@@ -162,14 +167,14 @@ class BeamStream<T> implements Stream<T> {
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>... attrs) {
 
-    return new BeamStream<>(
+    return new BeamStream<StreamElement>(
         asConfig(beam),
         stopAtCurrent,
         PCollectionProvider.fixedType(
             pipeline -> beam.getStream(pipeline, position, stopAtCurrent, eventTime, attrs)),
         WindowingStrategy.globalDefault(),
         terminateCheck,
-        pipelineFactory);
+        pipelineFactory) {};
   }
 
   static WindowedStream<StreamElement> batchUpdates(
@@ -180,17 +185,16 @@ class BeamStream<T> implements Stream<T> {
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
-    return new BeamStream<>(
-            asConfig(beam),
-            true,
-            PCollectionProvider.boundedOrUnbounded(
-                pipeline -> beam.getBatchUpdates(pipeline, startStamp, endStamp, attrs),
-                pipeline -> beam.getBatchUpdates(pipeline, startStamp, endStamp, true, attrs),
-                true),
-            WindowingStrategy.globalDefault(),
-            terminateCheck,
-            pipelineFactory)
-        .windowAll();
+    return new BeamStream<StreamElement>(
+        asConfig(beam),
+        true,
+        PCollectionProvider.boundedOrUnbounded(
+            pipeline -> beam.getBatchUpdates(pipeline, startStamp, endStamp, attrs),
+            pipeline -> beam.getBatchUpdates(pipeline, startStamp, endStamp, true, attrs),
+            true),
+        WindowingStrategy.globalDefault(),
+        terminateCheck,
+        pipelineFactory) {}.windowAll();
   }
 
   static WindowedStream<StreamElement> batchSnapshot(
@@ -201,15 +205,14 @@ class BeamStream<T> implements Stream<T> {
       Factory<Pipeline> pipelineFactory,
       AttributeDescriptor<?>[] attrs) {
 
-    return new BeamStream<>(
-            asConfig(beam),
-            true,
-            PCollectionProvider.fixedType(
-                pipeline -> beam.getBatchSnapshot(pipeline, fromStamp, toStamp, attrs)),
-            WindowingStrategy.globalDefault(),
-            terminateCheck,
-            pipelineFactory)
-        .windowAll();
+    return new BeamStream<StreamElement>(
+        asConfig(beam),
+        true,
+        PCollectionProvider.fixedType(
+            pipeline -> beam.getBatchSnapshot(pipeline, fromStamp, toStamp, attrs)),
+        WindowingStrategy.globalDefault(),
+        terminateCheck,
+        pipelineFactory) {}.windowAll();
   }
 
   private static StreamConfig asConfig(BeamDataOperator beam) {
@@ -258,6 +261,18 @@ class BeamStream<T> implements Stream<T> {
     this.windowingStrategy = windowingStrategy;
   }
 
+  PCollectionProvider<T> getCollection() {
+    return collection;
+  }
+
+  TerminatePredicate getTerminateCheck() {
+    return terminateCheck;
+  }
+
+  Factory<Pipeline> getPipelineFactory() {
+    return pipelineFactory;
+  }
+
   @Override
   public <X> Stream<X> flatMap(@Nullable String name, Closure<Iterable<X>> mapper) {
 
@@ -279,7 +294,10 @@ class BeamStream<T> implements Stream<T> {
   }
 
   @Override
-  public <X> Stream<X> map(@Nullable String name, Closure<X> mapper) {
+  public <X> Stream<X> map(
+      @Nullable String name,
+      @ClosureParams(value = FromString.class, options = "T") Closure<X> mapper) {
+
     Closure<X> dehydrated = dehydrate(mapper);
     return descendant(
         pipeline -> {
@@ -675,7 +693,7 @@ class BeamStream<T> implements Stream<T> {
     Pipeline pipeline = createPipeline();
     @SuppressWarnings("unchecked")
     PCollection<StreamElement> elements =
-        (PCollection<StreamElement>) windowAll().collection.materialize(pipeline);
+        (PCollection<StreamElement>) windowAll().getCollection().materialize(pipeline);
     Preconditions.checkArgument(
         elements.isBounded() == IsBounded.BOUNDED,
         "Persisting into bulk families is currently supported in batch mode only.");
@@ -735,7 +753,7 @@ class BeamStream<T> implements Stream<T> {
     boolean sameWindows =
         java.util.stream.Stream.concat(java.util.stream.Stream.of(this), others.stream())
                 .map(s -> (BeamStream<T>) s)
-                .map(s -> Pair.of(s.getWindowFn(), s.getTrigger()))
+                .map(BeamStream::getWindowingStrategy)
                 .distinct()
                 .count()
             == 1;
@@ -965,13 +983,13 @@ class BeamStream<T> implements Stream<T> {
       Function<Pipeline, PCollection<X>> factory,
       PCollectionProvider<?>... parents) {
 
-    return new BeamStream<>(
+    return new BeamStream<X>(
         config,
         bounded,
         PCollectionProvider.withParents(factory, parents),
         windowingStrategy,
         terminateCheck,
-        pipelineFactory);
+        pipelineFactory) {};
   }
 
   Pipeline createPipeline() {
@@ -985,18 +1003,6 @@ class BeamStream<T> implements Stream<T> {
     return Pipeline.create(opts);
   }
 
-  <T> Coder<T> coderOf(Pipeline pipeline, Closure<T> closure) {
-    return getCoder(pipeline, TypeDescriptor.of(Types.returnClass(closure)));
-  }
-
-  static <T> Coder<T> getCoder(Pipeline pipeline, TypeDescriptor<T> type) {
-    try {
-      return pipeline.getCoderRegistry().getCoder(type);
-    } catch (CannotProvideCoderException ex) {
-      throw new IllegalArgumentException(ex);
-    }
-  }
-
   <X> BeamWindowedStream<X> windowed(
       Function<Pipeline, PCollection<X>> factory, WindowFn<? super X, ?> window) {
 
@@ -1007,21 +1013,21 @@ class BeamStream<T> implements Stream<T> {
                 .withMode(WindowingStrategy.AccumulationMode.ACCUMULATING_FIRED_PANES)
                 .fixDefaults();
 
-    return new BeamWindowedStream<>(
+    return new BeamWindowedStream<X>(
         config,
         bounded,
         PCollectionProvider.withParents(factory, collection),
         strategy,
         terminateCheck,
-        pipelineFactory);
+        pipelineFactory) {};
   }
 
   WindowFn<Object, ? extends BoundedWindow> getWindowFn() {
-    return new GlobalWindows();
+    return windowingStrategy.getWindowFn();
   }
 
   Trigger getTrigger() {
-    return DefaultTrigger.of();
+    return windowingStrategy.getTrigger();
   }
 
   @SuppressWarnings("unchecked")
@@ -1032,10 +1038,17 @@ class BeamStream<T> implements Stream<T> {
             kryo ->
                 kryo.setInstantiatorStrategy(
                     new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())),
-            kryo -> kryo.addDefaultSerializer(Tuple.class, (Class) TupleSerializer.class),
+            kryo ->
+                kryo.addDefaultSerializer(UnboundedSource.class, KryoSerializableSerializer.class),
+            kryo ->
+                kryo.addDefaultSerializer(BoundedSource.class, KryoSerializableSerializer.class),
+            kryo -> kryo.addDefaultSerializer(Tuple.class, TupleSerializer.class),
             kryo -> BeamStream.registerCodersForSchemes(kryo, repo),
             kryo -> BeamStream.registerCommonTypes(kryo, repo),
             kryo -> kryo.setRegistrationRequired(true));
+    registry.registerCoderForClass(
+        UnboundedSource.class, SerializableCoder.of(UnboundedSource.class));
+    registry.registerCoderForClass(BoundedSource.class, SerializableCoder.of(BoundedSource.class));
     registry.registerCoderForClass(Object.class, coder);
     registry.registerCoderForClass(Tuple.class, TupleCoder.of(coder));
     registry.registerCoderForClass(Pair.class, PairCoder.of(coder, coder));
@@ -1133,16 +1146,25 @@ class BeamStream<T> implements Stream<T> {
     return extracted.stream();
   }
 
+  private static boolean isJDKInternal(Class<?> cls) {
+    return cls.getName().startsWith("jdk.internal.")
+        || cls.getName().startsWith("sun.")
+        || cls.getName().startsWith("java.lang.reflect.")
+        || cls.getName().startsWith("java.lang.module.");
+  }
+
   private static void extractFieldsRecursivelyInto(Class<?> cls, Set<Class<?>> extracted) {
     extracted.add(cls);
     Arrays.stream(cls.getDeclaredFields())
         .filter(f -> !Modifier.isStatic(f.getModifiers()))
         .map(Field::getType)
+        .filter(type -> !isJDKInternal(type))
         .filter(f -> !extracted.contains(f))
         .forEach(t -> extractFieldsRecursivelyInto(t, extracted));
     Arrays.stream(cls.getDeclaredFields())
         .filter(f -> !Modifier.isStatic(f.getModifiers()))
         .map(Field::getType)
+        .filter(type -> !isJDKInternal(type))
         .forEach(extracted::add);
     if (cls.getSuperclass() != null
         && cls.getSuperclass() != Object.class
@@ -1162,13 +1184,13 @@ class BeamStream<T> implements Stream<T> {
 
   private BeamStream<T> asUnwindowed() {
     if (getWindowFn().equals(new GlobalWindows()) && getTrigger().equals(DefaultTrigger.of())) {
-      return new BeamStream<>(
+      return new BeamStream<T>(
           this.config,
           this.bounded,
           this.collection,
           this.windowingStrategy,
           this.terminateCheck,
-          this.pipelineFactory);
+          this.pipelineFactory) {};
     } else {
       return child(
           pipeline -> {
@@ -1491,11 +1513,23 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
-  <X> Closure<X> dehydrate(Closure<X> closure) {
+  static <X> Closure<X> dehydrate(Closure<X> closure) {
     if (closure.getOwner() instanceof Serializable) {
       return closure;
     }
     return closure.dehydrate();
+  }
+
+  <T> Coder<T> coderOf(Pipeline pipeline, Closure<T> closure) {
+    return getCoder(pipeline, TypeDescriptor.of(Types.returnClass(closure)));
+  }
+
+  static <T> Coder<T> getCoder(Pipeline pipeline, TypeDescriptor<T> type) {
+    try {
+      return pipeline.getCoderRegistry().getCoder(type);
+    } catch (CannotProvideCoderException ex) {
+      throw new IllegalArgumentException(ex);
+    }
   }
 
   static @Nullable String withSuffix(@Nullable String prefix, String suffix) {

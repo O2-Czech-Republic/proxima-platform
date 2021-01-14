@@ -34,11 +34,11 @@ import org.junit.runners.Parameterized.Parameters;
 public class BeamGroovyEnvTest extends GroovyEnvTest {
 
   @Parameters
-  public static Collection<Class<? extends PipelineRunner>> parameters() {
+  public static Collection<Class<? extends PipelineRunner<?>>> parameters() {
     return Arrays.asList(DirectRunner.class, FlinkRunner.class, SparkRunner.class);
   }
 
-  public BeamGroovyEnvTest(Class<? extends PipelineRunner> runner) {
+  public BeamGroovyEnvTest(Class<? extends PipelineRunner<?>> runner) {
     TestBeamStreamProvider.runner = runner;
   }
 

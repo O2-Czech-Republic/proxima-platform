@@ -66,27 +66,61 @@
 
   </dependencyManagement>
 
-  <modules>
-    <module>compiler</module>
-    <module>core</module>
-    <module>core-testing</module>
-    <module>ingest-client</module>
-    <module>ingest-server</module>
-    <module>io-bigtable</module>
-    <module>io-blob</module>
-    <module>io-bulkfs</module>
-    <module>io-cassandra</module>
-    <module>io-gcloud-storage</module>
-    <module>io-hadoop</module>
-    <module>io-hbase</module>
-    <module>io-hbase-bindings</module>
-    <module>io-hdfs</module>
-    <module>io-http</module>
-    <module>io-kafka</module>
-    <module>io-pubsub</module>
-    <module>io-s3</module>
-    <module>rpc</module>
-  </modules>
+  <profiles>
+    <profile>
+      <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
+      <id>jdk8</id>
+      <activation>
+        <jdk>1.8</jdk>
+      </activation>
+      <modules>
+        <module>compiler</module>
+        <module>core</module>
+        <module>core-testing</module>
+        <module>ingest-client</module>
+        <module>ingest-server</module>
+        <module>io-bigtable</module>
+        <module>io-blob</module>
+        <module>io-bulkfs</module>
+        <module>io-cassandra</module>
+        <module>io-gcloud-storage</module>
+        <module>io-hadoop</module>
+        <module>io-hbase</module>
+        <module>io-hbase-bindings</module>
+        <module>io-hdfs</module>
+        <module>io-http</module>
+        <module>io-kafka</module>
+        <module>io-pubsub</module>
+        <module>io-s3</module>
+        <module>rpc</module>
+      </modules>
+    </profile>
+
+    <profile>
+      <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
+      <id>jdk11</id>
+      <activation>
+        <jdk>11</jdk>
+      </activation>
+      <modules>
+        <module>compiler</module>
+        <module>core</module>
+        <module>core-testing</module>
+        <module>ingest-client</module>
+        <module>ingest-server</module>
+        <module>io-blob</module>
+        <module>io-bigtable</module>
+        <module>io-bulkfs</module>
+        <module>io-cassandra</module>
+        <module>io-gcloud-storage</module>
+        <module>io-http</module>
+        <module>io-kafka</module>
+        <module>io-pubsub</module>
+        <module>io-s3</module>
+        <module>rpc</module>
+      </modules>
+    </profile>
+  </profiles>
 
 </project>
 

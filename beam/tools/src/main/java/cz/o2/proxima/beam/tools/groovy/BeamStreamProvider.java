@@ -37,7 +37,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
-import java.net.URI;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
@@ -55,7 +55,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.repackaged.core.org.apache.commons.compress.utils.IOUtils;
-import org.apache.beam.runners.core.construction.resources.PipelineResources;
+import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.runners.spark.SparkCommonPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineRunner;
@@ -234,36 +234,28 @@ public abstract class BeamStreamProvider implements StreamProvider {
    *
    * @param opts the pipeline to register jar for
    */
+  @VisibleForTesting
   void createUdfJarAndRegisterToPipeline(PipelineOptions opts) {
     String runnerName = opts.getRunner().getSimpleName();
     try {
       File path = createJarFromUdfs();
-      URL url = new URL("file://" + path.getAbsolutePath());
       log.info("Injecting generated jar at {} into {}", path, runnerName);
-      injectJarIntoContextClassLoader(url);
-      if (opts.getRunner().getClassLoader() instanceof URLClassLoader) {
-        // this is fallback
-        injectUrlIntoClassloader((URLClassLoader) opts.getRunner().getClassLoader(), url);
-      }
-      if (runnerName.equals("SparkRunner")) {
-        List<String> filesToStage =
-            PipelineResources.detectClassPathResourcesToStage(
-                Thread.currentThread().getContextClassLoader(), opts);
-        log.info("Injecting generated jar {} into SparkRunner.filesToStage", url.toExternalForm());
+      List<String> filesToStage = Collections.singletonList(path.getAbsolutePath());
+      if (runnerName.equals("FlinkRunner")) {
+        FlinkPipelineOptions flinkOpts = opts.as(FlinkPipelineOptions.class);
+        flinkOpts.setFilesToStage(filesToStage);
+      } else if (runnerName.equals("SparkRunner")) {
         SparkCommonPipelineOptions sparkOpts = opts.as(SparkCommonPipelineOptions.class);
-        filesToStage.add(url.toExternalForm());
-        sparkOpts.setFilesToStage(
-            filesToStage
-                .stream()
-                .filter(
-                    f -> {
-                      URI uri = URI.create(f);
-                      if (!uri.isAbsolute()) {
-                        uri = URI.create("file:///" + f);
-                      }
-                      return !new File(uri).isDirectory();
-                    })
-                .collect(Collectors.toList()));
+        sparkOpts.setFilesToStage(filesToStage);
+      } else {
+        if (!runnerName.equals("DirectRunner")) {
+          log.warn(
+              "Injecting jar into unknown runner {}. It might not work as expected. "
+                  + "If you are experiencing issues with sub run and/or submission, "
+                  + "please fill github issue reporting the name of the runner.",
+              runnerName);
+        }
+        injectJarIntoContextClassLoader(path);
       }
     } catch (IOException ex) {
       throw new RuntimeException(ex);
@@ -293,16 +285,26 @@ public abstract class BeamStreamProvider implements StreamProvider {
   }
 
   @VisibleForTesting
-  static void injectJarIntoContextClassLoader(URL url) {
-    ClassLoader loader = Thread.currentThread().getContextClassLoader();
-    Thread.currentThread().setContextClassLoader(new URLClassLoader(new URL[] {url}, loader));
+  static void injectJarIntoContextClassLoader(File path) {
+    try {
+      URL url = new URL("file://" + path.getAbsolutePath());
+      ClassLoader loader = Thread.currentThread().getContextClassLoader();
+      if (loader instanceof URLClassLoader) {
+        // this is fallback
+        injectUrlIntoClassloader((URLClassLoader) loader, path);
+      } else {
+        Thread.currentThread().setContextClassLoader(new URLClassLoader(new URL[] {url}, loader));
+      }
+    } catch (MalformedURLException ex) {
+      log.warn("Exception trying to inject JAR {} into context classloader. Ignoring.", path, ex);
+    }
   }
 
-  private void injectUrlIntoClassloader(URLClassLoader loader, URL url) {
+  private static void injectUrlIntoClassloader(URLClassLoader loader, File path) {
     try {
       Method addUrl = URLClassLoader.class.getDeclaredMethod("addURL", URL.class);
       addUrl.setAccessible(true);
-      addUrl.invoke(loader, url);
+      addUrl.invoke(loader, new URL("file://" + path.getAbsolutePath()));
     } catch (Exception ex) {
       throw new RuntimeException(ex);
     }

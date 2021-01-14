@@ -15,12 +15,15 @@
  */
 package cz.o2.proxima.tools.groovy.util;
 
+import com.google.common.base.MoreObjects;
 import groovy.lang.Closure;
+import lombok.extern.slf4j.Slf4j;
 import org.codehaus.groovy.reflection.CachedClass;
 import org.codehaus.groovy.reflection.CachedMethod;
 import org.codehaus.groovy.reflection.ReflectionCache;
 
 /** Various type-related utilities. */
+@Slf4j
 public class Types {
 
   /**
@@ -33,17 +36,18 @@ public class Types {
   @SuppressWarnings("unchecked")
   public static <T> Class<T> returnClass(Closure<T> closure) {
     CachedClass cachedClass = ReflectionCache.getCachedClass(closure.getClass());
-    for (CachedMethod m : cachedClass.getMethods()) {
-      if ("doCall".equals(m.getName())) {
-        return m.getReturnType();
-      }
-    }
+    Class<T> res = null;
     for (CachedMethod m : cachedClass.getMethods()) {
       if ("call".equals(m.getName())) {
-        return m.getReturnType();
+        res = MoreObjects.firstNonNull(res, m.getReturnType());
       }
     }
-    throw new IllegalStateException("Cannot find doCall/call method of " + closure);
+    for (CachedMethod m : cachedClass.getMethods()) {
+      if ("doCall".equals(m.getName())) {
+        res = MoreObjects.firstNonNull(res, m.getReturnType());
+      }
+    }
+    return (Class) Object.class;
   }
 
   private Types() {}

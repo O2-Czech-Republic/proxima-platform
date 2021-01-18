@@ -69,7 +69,7 @@ public class Console implements AutoCloseable {
 
   private static AtomicReference<Console> INSTANCE = new AtomicReference<>();
 
-  public static final String INITIAL_STATEMENT = "def env = new Environment()";
+  public static final String INITIAL_STATEMENT = "env = new Environment()";
 
   /**
    * This is supposed to be called only from the groovysh initialized in this main method.

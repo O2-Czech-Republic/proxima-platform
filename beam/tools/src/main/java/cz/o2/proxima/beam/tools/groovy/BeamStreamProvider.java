@@ -50,6 +50,7 @@ import java.util.function.Supplier;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -243,10 +244,10 @@ public abstract class BeamStreamProvider implements StreamProvider {
       List<String> filesToStage = Collections.singletonList(path.getAbsolutePath());
       if (runnerName.equals("FlinkRunner")) {
         FlinkPipelineOptions flinkOpts = opts.as(FlinkPipelineOptions.class);
-        flinkOpts.setFilesToStage(filesToStage);
+        flinkOpts.setFilesToStage(addToList(filesToStage, flinkOpts.getFilesToStage()));
       } else if (runnerName.equals("SparkRunner")) {
         SparkCommonPipelineOptions sparkOpts = opts.as(SparkCommonPipelineOptions.class);
-        sparkOpts.setFilesToStage(filesToStage);
+        sparkOpts.setFilesToStage(addToList(filesToStage, sparkOpts.getFilesToStage()));
       } else {
         if (!runnerName.equals("DirectRunner")) {
           log.warn(
@@ -260,6 +261,14 @@ public abstract class BeamStreamProvider implements StreamProvider {
     } catch (IOException ex) {
       throw new RuntimeException(ex);
     }
+  }
+
+  private List<String> addToList(@Nonnull List<String> first, @Nullable List<String> second) {
+    List<String> res = Lists.newArrayList(first);
+    if (second != null) {
+      res.addAll(second);
+    }
+    return res;
   }
 
   private File createJarFromUdfs() throws IOException {

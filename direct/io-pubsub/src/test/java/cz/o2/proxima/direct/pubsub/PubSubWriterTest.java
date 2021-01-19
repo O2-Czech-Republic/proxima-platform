@@ -18,7 +18,10 @@ package cz.o2.proxima.direct.pubsub;
 import static cz.o2.proxima.direct.pubsub.Util.delete;
 import static cz.o2.proxima.direct.pubsub.Util.deleteWildcard;
 import static cz.o2.proxima.direct.pubsub.Util.update;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.pubsub.v1.PubsubMessage;
@@ -26,11 +29,13 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.io.pubsub.util.PubSubUtils;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorImpl;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
@@ -38,6 +43,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
@@ -136,19 +142,31 @@ public class PubSubWriterTest {
     writer.setConsumer(written::add);
     CountDownLatch latch = new CountDownLatch(3);
     writer.write(
-        PubSubReader.toElement(entity, update("key1", "attr", new byte[] {1, 2}, now)).get(),
+        Optionals.get(
+            PubSubUtils.toStreamElement(
+                entity,
+                UUID.randomUUID().toString(),
+                update("key1", "attr", new byte[] {1, 2}, now).getData().toByteArray())),
         (succ, exc) -> {
           assertTrue(succ);
           latch.countDown();
         });
     writer.write(
-        PubSubReader.toElement(entity, delete("key2", "attr", now + 1000)).get(),
+        Optionals.get(
+            PubSubUtils.toStreamElement(
+                entity,
+                UUID.randomUUID().toString(),
+                delete("key2", "attr", now + 1000).getData().toByteArray())),
         (succ, exc) -> {
           assertTrue(succ);
           latch.countDown();
         });
     writer.write(
-        PubSubReader.toElement(entity, deleteWildcard("key3", wildcard, now)).get(),
+        Optionals.get(
+            PubSubUtils.toStreamElement(
+                entity,
+                UUID.randomUUID().toString(),
+                deleteWildcard("key3", wildcard, now).getData().toByteArray())),
         (succ, exc) -> {
           assertTrue(succ);
           latch.countDown();
@@ -156,20 +174,29 @@ public class PubSubWriterTest {
     latch.await();
     assertEquals(3, written.size());
 
-    StreamElement elem = PubSubReader.toElement(entity, written.get(0)).get();
+    StreamElement elem =
+        Optionals.get(
+            PubSubUtils.toStreamElement(
+                entity, UUID.randomUUID().toString(), written.get(0).getData().toByteArray()));
     assertEquals("key1", elem.getKey());
     assertEquals("attr", elem.getAttribute());
     assertFalse(elem.isDelete());
     assertFalse(elem.isDeleteWildcard());
     assertArrayEquals(new byte[] {1, 2}, elem.getValue());
     assertEquals(now, elem.getStamp());
-    elem = PubSubReader.toElement(entity, written.get(1)).get();
+    elem =
+        Optionals.get(
+            PubSubUtils.toStreamElement(
+                entity, UUID.randomUUID().toString(), written.get(1).getData().toByteArray()));
     assertEquals("key2", elem.getKey());
     assertEquals("attr", elem.getAttribute());
     assertTrue(elem.isDelete());
     assertFalse(elem.isDeleteWildcard());
     assertEquals(now + 1000L, elem.getStamp());
-    elem = PubSubReader.toElement(entity, written.get(2)).get();
+    elem =
+        Optionals.get(
+            PubSubUtils.toStreamElement(
+                entity, UUID.randomUUID().toString(), written.get(2).getData().toByteArray()));
     assertEquals("key3", elem.getKey());
     assertEquals(wildcard.toAttributePrefix() + "*", elem.getAttribute());
     assertTrue(elem.isDelete());
@@ -186,21 +213,33 @@ public class PubSubWriterTest {
         });
     CountDownLatch latch = new CountDownLatch(3);
     writer.write(
-        PubSubReader.toElement(entity, update("key1", "attr", new byte[] {1, 2}, now)).get(),
+        Optionals.get(
+            PubSubUtils.toStreamElement(
+                entity,
+                UUID.randomUUID().toString(),
+                update("key1", "attr", new byte[] {1, 2}, now).getData().toByteArray())),
         (succ, exc) -> {
           assertFalse(succ);
           assertEquals("Fail", exc.getMessage());
           latch.countDown();
         });
     writer.write(
-        PubSubReader.toElement(entity, delete("key2", "attr", now + 1000)).get(),
+        Optionals.get(
+            PubSubUtils.toStreamElement(
+                entity,
+                UUID.randomUUID().toString(),
+                delete("key2", "attr", now + 1000).getData().toByteArray())),
         (succ, exc) -> {
           assertFalse(succ);
           assertEquals("Fail", exc.getMessage());
           latch.countDown();
         });
     writer.write(
-        PubSubReader.toElement(entity, deleteWildcard("key3", wildcard, now)).get(),
+        Optionals.get(
+            PubSubUtils.toStreamElement(
+                entity,
+                UUID.randomUUID().toString(),
+                deleteWildcard("key3", wildcard, now).getData().toByteArray())),
         (succ, exc) -> {
           assertFalse(succ);
           assertEquals("Fail", exc.getMessage());

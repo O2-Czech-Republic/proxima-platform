@@ -21,6 +21,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import groovy.lang.Closure;
+import groovy.transform.CompileStatic;
 import groovy.transform.stc.ClosureParams;
 import groovy.transform.stc.FromString;
 import java.util.Arrays;
@@ -28,6 +29,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** A stream abstraction with fluent style methods. */
+@CompileStatic
 public interface Stream<T> {
 
   /**

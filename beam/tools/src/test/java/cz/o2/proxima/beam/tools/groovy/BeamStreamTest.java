@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import static cz.o2.proxima.beam.tools.groovy.BeamStream.getCoder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -209,10 +210,10 @@ public class BeamStreamTest extends StreamTest {
     return new BeamWindowedStream<T>(
         StreamConfig.empty(),
         delegate.isBounded(),
-        delegate.collection,
+        delegate.getCollection(),
         delegate.getWindowingStrategy(),
-        delegate.terminateCheck,
-        delegate.pipelineFactory) {
+        delegate.getTerminateCheck(),
+        delegate.getPipelineFactory()) {
 
       @SuppressWarnings("unchecked")
       @Override

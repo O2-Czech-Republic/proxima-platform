@@ -34,7 +34,7 @@ public interface AbstractDataAccessorFactory<
     extends Serializable {
 
   /** Marker for acceptance of given URI to this factory. */
-  public enum Accept {
+  enum Accept {
 
     /** The URI is accepted. */
     ACCEPT,

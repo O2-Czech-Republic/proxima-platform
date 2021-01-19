@@ -89,7 +89,7 @@
           <parallel>suites</parallel>
           <useSystemClassLoader>true</useSystemClassLoader>
           <useManifestOnlyJar>false</useManifestOnlyJar>
-          <argLine>@{argLine} -Xmx700m -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true</argLine>
+          <argLine>@{argLine} -XX:MaxDirectMemorySize=1g -Xmx1g -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true ${surefire.cmdArgs}</argLine>
         </configuration>
       </plugin>
 
@@ -224,7 +224,7 @@
 
     <dependency>
       <groupId>${apache.beam.groupId}</groupId>
-      <artifactId>beam-runners-flink-1.10</artifactId>
+      <artifactId>beam-runners-flink-1.11</artifactId>
     </dependency>
 
     <dependency>

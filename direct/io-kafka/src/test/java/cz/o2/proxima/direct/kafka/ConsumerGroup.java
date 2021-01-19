@@ -29,6 +29,7 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.common.TopicPartition;
@@ -42,6 +43,7 @@ public class ConsumerGroup implements Serializable {
   private static final long serialVersionUID = 1L;
 
   /** Assignment of partitions of single consumer. */
+  @ToString
   class Assignment implements Serializable {
 
     private static final long serialVersionUID = 1L;

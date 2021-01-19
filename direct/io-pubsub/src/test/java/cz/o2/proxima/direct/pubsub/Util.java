@@ -18,14 +18,20 @@ package cz.o2.proxima.direct.pubsub;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.v1.PubsubMessage;
-import cz.o2.proxima.direct.pubsub.proto.PubSub;
+import cz.o2.proxima.io.pubsub.proto.PubSub;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import java.util.UUID;
 
 /** Various utilities. */
 class Util {
 
+  private Util() {
+    // no-op
+  }
+
   static PubsubMessage update(String key, String attribute, byte[] value, long stamp) {
     return PubsubMessage.newBuilder()
+        .setMessageId(UUID.randomUUID().toString())
         .setPublishTime(
             Timestamp.newBuilder()
                 .setSeconds((int) (stamp / 1000))
@@ -43,6 +49,7 @@ class Util {
 
   static PubsubMessage delete(String key, String attribute, long stamp) {
     return PubsubMessage.newBuilder()
+        .setMessageId(UUID.randomUUID().toString())
         .setPublishTime(
             Timestamp.newBuilder()
                 .setSeconds((int) (stamp / 1000))
@@ -61,6 +68,7 @@ class Util {
   static PubsubMessage deleteWildcard(String key, AttributeDescriptor<?> attribute, long stamp) {
 
     return PubsubMessage.newBuilder()
+        .setMessageId(UUID.randomUUID().toString())
         .setPublishTime(
             Timestamp.newBuilder()
                 .setSeconds((int) (stamp / 1000))

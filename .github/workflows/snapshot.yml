@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-name: Deploy snapshot
+name: Deploy snapshot JDK 8
 
 on:
   push:
@@ -34,4 +34,4 @@ jobs:
       env:
         MAVEN_SETTINGS: ${{ secrets.MAVEN_SETTINGS }}
         GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
-      run: ./.github/workflows/deploy-snapshot.sh
+      run: ./.github/workflows/deploy-snapshot.sh 8

@@ -477,8 +477,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         log.debug("Sleeping {} ms before attempting to poll", period);
         Thread.sleep(period);
 
-        Map<TopicPartition, List<ConsumerRecord<K, V>>> map;
-        map = new HashMap<>();
+        Map<TopicPartition, List<ConsumerRecord<K, V>>> map = new HashMap<>();
         Collection<Partition> assignment =
             Lists.newArrayList(group.getAssignment(consumerId.getId()));
         Map<Integer, Integer> offsets = consumerOffsets.get(consumerId);
@@ -494,6 +493,9 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         int maxToPoll = getMaxPollRecords();
         for (Partition part : assignment) {
           int partition = part.getId();
+          if (partition >= written.size()) {
+            continue;
+          }
           List<StreamElement> partitionData = written.get(partition);
           int last = partitionData.size();
           List<ConsumerRecord<K, V>> records = new ArrayList<>();
@@ -603,6 +605,13 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       this.consumerGroups = original.consumerGroups;
       this.consumerOffsets = original.consumerOffsets;
       this.written = original.written;
+    }
+
+    public void clear() {
+      this.consumerOffsets.clear();
+      this.written.clear();
+      this.consumerGroups.clear();
+      this.committedOffsets.clear();
     }
   }
 

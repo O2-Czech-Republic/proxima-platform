@@ -16,32 +16,70 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.util.ExceptionUtils;
+import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.runners.direct.DirectRunner;
+import org.apache.beam.runners.flink.FlinkPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineRunner;
-import org.apache.beam.sdk.extensions.kryo.KryoCoder;
 import org.apache.beam.sdk.options.PipelineOptions;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.minicluster.MiniCluster;
+import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
+import org.apache.flink.runtime.minicluster.MiniClusterConfiguration.Builder;
 
+@Slf4j
 public class TestBeamStreamProvider extends BeamStreamProvider {
 
-  static Class<? extends PipelineRunner> runner = DirectRunner.class;
+  static Class<? extends PipelineRunner<?>> runner = DirectRunner.class;
+
+  private Runnable onClose = null;
+  private boolean clusterRunning = false;
 
   /**
    * Create factory to be used for pipeline creation.
    *
    * @return the factory
    */
-  @SuppressWarnings("unchecked")
   @Override
   protected UnaryFunction<PipelineOptions, Pipeline> getCreatePipelineFromOpts() {
     return opts -> {
-      opts.setRunner((Class) runner);
-      Pipeline ret = Pipeline.create(opts);
-      // register kryo for object
-      // remove this as soon as we figure out how to correctly
-      // pass type information around in groovy DSL
-      ret.getCoderRegistry().registerCoderForClass(Object.class, KryoCoder.of());
-      return ret;
+      opts.setRunner(runner);
+      if (runner.getSimpleName().equals("FlinkRunner")) {
+        prepareFlinkEnvironment(opts.as(FlinkPipelineOptions.class));
+      }
+      return Pipeline.create(opts);
     };
+  }
+
+  @Override
+  public void close() {
+    super.close();
+    Optional.ofNullable(onClose).ifPresent(Runnable::run);
+  }
+
+  private void prepareFlinkEnvironment(FlinkPipelineOptions opts) {
+    if (!clusterRunning) {
+      Configuration conf = new Configuration();
+      conf.setLong("taskmanager.memory.process.size", 10 * 1024 * 1024L);
+      MiniClusterConfiguration clusterConf =
+          new Builder()
+              .setNumTaskManagers(1)
+              .setNumSlotsPerTaskManager(1)
+              .setConfiguration(conf)
+              .build();
+      MiniCluster cluster = new MiniCluster(clusterConf);
+      clusterRunning = true;
+      ExceptionUtils.unchecked(cluster::start);
+      opts.setFlinkMaster(
+          ExceptionUtils.uncheckedFactory(cluster.getRestAddress()::get).toString());
+      onClose =
+          () -> {
+            log.info("Closing Flink MiniCluster");
+            ExceptionUtils.unchecked(cluster::close);
+            clusterRunning = false;
+          };
+    }
   }
 }

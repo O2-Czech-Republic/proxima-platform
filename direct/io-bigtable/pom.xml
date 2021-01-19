@@ -48,7 +48,7 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-dependency-plugin</artifactId>
-            <version>3.0.2</version>
+            <version>3.1.2</version>
             <executions>
               <execution>
                 <id>unpack-dependencies</id>
@@ -81,7 +81,7 @@
       <extension>
         <groupId>kr.motd.maven</groupId>
         <artifactId>os-maven-plugin</artifactId>
-        <version>1.4.1.Final</version>
+        <version>${maven.ext.os.version}</version>
       </extension>
     </extensions>
 
@@ -214,7 +214,7 @@
     <dependency>
       <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-direct-io-hbase-bindings</artifactId>
-      <version>${project.version}</version>
+      <version>${proxima.main.project.version}</version>
     </dependency>
 
     <dependency>

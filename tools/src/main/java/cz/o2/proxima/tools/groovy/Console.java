@@ -65,11 +65,11 @@ import org.codehaus.groovy.tools.shell.IO;
 
 /** This is the groovysh based console. */
 @Slf4j
-public class Console {
+public class Console implements AutoCloseable {
 
   private static AtomicReference<Console> INSTANCE = new AtomicReference<>();
 
-  public static final String INITIAL_STATEMENT = "env = new Environment()";
+  public static final String INITIAL_STATEMENT = "def env = new Environment()";
 
   /**
    * This is supposed to be called only from the groovysh initialized in this main method.
@@ -182,13 +182,13 @@ public class Console {
 
   private void initializeStreamProvider() {
     ServiceLoader<StreamProvider> loader = ServiceLoader.load(StreamProvider.class);
+    // sort possible test implementations on top
     streamProvider =
         Streams.stream(loader)
-            // sort possible test implementations on top
-            .sorted(
+            .min(
                 (a, b) -> {
                   String cls1 = a.getClass().getSimpleName();
-                  String cls2 = a.getClass().getSimpleName();
+                  String cls2 = b.getClass().getSimpleName();
                   if (cls1.startsWith("Test") ^ cls2.startsWith("Test")) {
                     if (cls1.startsWith("Test")) {
                       return -1;
@@ -197,7 +197,6 @@ public class Console {
                   }
                   return cls1.compareTo(cls2);
                 })
-            .findFirst()
             .orElseThrow(
                 () ->
                     new IllegalArgumentException(
@@ -463,7 +462,8 @@ public class Console {
             .build());
   }
 
-  private void close() {
+  @Override
+  public void close() {
     readers.forEach(ConsoleRandomReader::close);
     if (streamProvider != null) {
       streamProvider.close();

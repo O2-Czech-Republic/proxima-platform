@@ -1014,7 +1014,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertTrue(watermark.get() < now * 10);
   }
 
-  @Test(timeout = 10000)
+  @Test(timeout = 100_000)
   public void testPollFromMoreConsumersThanPartitionsMovesWatermark() throws InterruptedException {
 
     Accessor accessor =
@@ -1037,7 +1037,6 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   @Test(timeout = 100_000)
   public void testPollFromManyMoreConsumersThanPartitionsMovesWatermark()
       throws InterruptedException {
-
     Accessor accessor =
         kafka.createAccessor(
             direct,
@@ -1049,10 +1048,11 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                     Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000"),
                     Pair.of(KafkaAccessor.ASSIGNMENT_TIMEOUT_MS, "1"))));
 
-    int numObservers = 400;
+    int numObservers = 40;
     testPollFromNConsumersMovesWatermarkWithNoWrite(accessor, numObservers);
     writeData(accessor);
     testPollFromNConsumersMovesWatermark(accessor, numObservers);
+    accessor.clear();
   }
 
   void writeData(Accessor accessor) {
@@ -1124,7 +1124,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
       readyObservers.incrementAndGet();
     }
 
-    latch.await();
+    assertTrue(latch.await(10, TimeUnit.SECONDS));
 
     assertEquals(numObservers, observerWatermarks.size());
     long watermark = observerWatermarks.values().stream().min(Long::compare).orElse(Long.MIN_VALUE);

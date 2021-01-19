@@ -48,8 +48,6 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
   private static final long serialVersionUID = 1L;
 
-  private static final int QUEUE_SIE = 100;
-
   static BlockingQueueLogObserver create(String name, long startingWatermark) {
     return create(name, Long.MAX_VALUE, startingWatermark);
   }
@@ -279,7 +277,7 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
           return consumePeek();
         }
       } catch (InterruptedException ex) {
-        // cannot happen
+        Thread.currentThread().interrupt();
       }
     }
     return null;
@@ -300,10 +298,8 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
    */
   @Nullable
   StreamElement takeBlocking(long timeout, TimeUnit unit) throws InterruptedException {
-    if (!stopped) {
-      if (peekElement(timeout, unit)) {
-        return consumePeek();
-      }
+    if (!stopped && peekElement(timeout, unit)) {
+      return consumePeek();
     }
     return null;
   }

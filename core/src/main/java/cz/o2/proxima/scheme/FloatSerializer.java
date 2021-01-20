@@ -16,6 +16,7 @@
 package cz.o2.proxima.scheme;
 
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -73,6 +74,11 @@ public class FloatSerializer implements ValueSerializerFactory {
           @Override
           public Float fromJsonValue(String json) {
             return Float.valueOf(json);
+          }
+
+          @Override
+          public SchemaTypeDescriptor<Float> getValueSchemaDescriptor() {
+            return SchemaDescriptors.floats().toTypeDescriptor();
           }
         };
   }

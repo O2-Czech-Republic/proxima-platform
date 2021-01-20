@@ -20,6 +20,8 @@ import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.DefaultConsumerNameFactory.DefaultReplicationConsumerNameFactory;
+import cz.o2.proxima.scheme.AttributeValueType;
+import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.util.TestUtils;
@@ -142,5 +144,12 @@ public class AttributeFamilyDescriptorTest {
             .setStorageUri(URI.create("inmem:///proxima_events"))
             .build();
     assertTrue(true); // make sonar happy : )
+  }
+
+  @Test
+  public void testGetValueDescriptor() {
+    SchemaTypeDescriptor<byte[]> descriptor = attribute.getSchemaTypeDescriptor();
+    assertEquals(AttributeValueType.ARRAY, descriptor.getType());
+    assertEquals(AttributeValueType.BYTE, descriptor.getArrayTypeDescriptor().getValueType());
   }
 }

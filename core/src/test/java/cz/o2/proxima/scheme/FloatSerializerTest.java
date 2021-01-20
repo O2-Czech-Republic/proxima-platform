@@ -15,8 +15,11 @@
  */
 package cz.o2.proxima.scheme;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
+import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import org.junit.Test;
 
 /** Test {@link FloatSerializer}. */
@@ -62,5 +65,13 @@ public class FloatSerializerTest {
   public void testDefaultValue() {
     ValueSerializer<Float> s = serializer.getValueSerializer(null);
     assertEquals(0.0f, s.getDefault(), 0.0001);
+  }
+
+  @Test
+  public void testValueDescriptor() {
+    SchemaTypeDescriptor<Float> descriptor =
+        serializer.<Float>getValueSerializer(null).getValueSchemaDescriptor();
+    assertTrue(descriptor.isPrimitiveType());
+    assertEquals(AttributeValueType.FLOAT, descriptor.getPrimitiveTypeDescriptor().getType());
   }
 }

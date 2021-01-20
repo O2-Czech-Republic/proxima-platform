@@ -19,6 +19,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.ByteString;
+import cz.o2.proxima.scheme.AttributeValueType;
+import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
@@ -75,5 +77,11 @@ public class ProtoSerializerFactoryTest {
         serializer.asJsonValue(message));
     assertEquals(
         "gateway", serializer.fromJsonValue(serializer.asJsonValue(message)).getGatewayId());
+  }
+
+  @Test
+  public void testGetSchemaDescriptor() {
+    SchemaTypeDescriptor<Event> descriptor = serializer.getValueSchemaDescriptor();
+    assertEquals(AttributeValueType.STRUCTURE, descriptor.getType());
   }
 }

@@ -16,6 +16,7 @@
 package cz.o2.proxima.scheme;
 
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -73,6 +74,11 @@ public class IntSerializer implements ValueSerializerFactory {
           @Override
           public Integer fromJsonValue(String json) {
             return Integer.valueOf(json);
+          }
+
+          @Override
+          public SchemaTypeDescriptor<Integer> getValueSchemaDescriptor() {
+            return SchemaDescriptors.integers().toTypeDescriptor();
           }
         };
   }

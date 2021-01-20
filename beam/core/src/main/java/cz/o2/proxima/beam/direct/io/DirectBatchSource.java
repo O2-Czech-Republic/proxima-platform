@@ -79,7 +79,7 @@ public class DirectBatchSource extends AbstractDirectBoundedSource {
 
   @Override
   public List<? extends BoundedSource<StreamElement>> split(
-      long desiredBundleSizeBytes, PipelineOptions arg1) {
+      long desiredBundleSizeBytes, PipelineOptions opts) {
 
     if (split != null) {
       return Collections.singletonList(this);

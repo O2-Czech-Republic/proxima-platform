@@ -333,7 +333,14 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return false;
   }
 
-  private boolean peekElement(long timeout, TimeUnit unit) throws InterruptedException {
+  /**
+   * Peek element or return {@code null} if queue is empty within given timeout
+   *
+   * @param timeout the timeout
+   * @param unit time unit of timeout
+   * @throws InterruptedException when interrupted
+   */
+  public boolean peekElement(long timeout, TimeUnit unit) throws InterruptedException {
     if (peekElement == null) {
       peekElement = queue.poll(timeout, unit);
     }

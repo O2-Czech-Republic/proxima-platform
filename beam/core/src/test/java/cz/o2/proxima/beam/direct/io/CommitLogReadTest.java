@@ -338,6 +338,7 @@ public class CommitLogReadTest {
         final Map<Integer, Boolean> selfElements =
             CONSUMED_ELEMENTS.computeIfAbsent(name, k -> new ConcurrentHashMap<>());
         final AtomicInteger numIdles = new AtomicInteger();
+        long firstIdle = System.currentTimeMillis();
 
         @Override
         public long getWatermark() {
@@ -358,7 +359,12 @@ public class CommitLogReadTest {
 
         @Override
         public void idle() {
-          if (numIdles.incrementAndGet() >= 10 && selfElements.size() == numElements) {
+          if (numIdles.getAndIncrement() == 0) {
+            firstIdle = System.currentTimeMillis();
+          } else if (System.currentTimeMillis() > firstIdle + 2_000) {
+            watermark = Watermarks.MAX_WATERMARK;
+          }
+          if (numIdles.get() >= 10 && selfElements.size() == numElements) {
             watermark = Watermarks.MAX_WATERMARK;
           }
         }

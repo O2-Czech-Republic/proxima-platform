@@ -455,6 +455,7 @@
           <reuseForks>false</reuseForks>
           <threadCount>1</threadCount>
           <parallel>suites</parallel>
+          <perCoreThreadCount>false</perCoreThreadCount>
           <useSystemClassLoader>true</useSystemClassLoader>
           <useManifestOnlyJar>false</useManifestOnlyJar>
           <argLine>@{argLine} -Xmx1g -XX:+HeapDumpOnOutOfMemoryError -XX:-OmitStackTraceInFastThrow -Dsun.io.serialization.extendedDebugInfo=true ${surefire.cmdArgs}</argLine>

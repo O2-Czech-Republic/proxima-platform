@@ -32,9 +32,13 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkEstimator;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.Test;
@@ -186,6 +190,36 @@ public class ListCommitLogTest {
     reader.observeBulkOffsets(handle.getCurrentOffsets(), toList(data, b -> nextLatch.countDown()));
     nextLatch.await();
     assertEquals(10, data.size());
+  }
+
+  @Test(timeout = 10000)
+  public void testObserveNonExternalizableMultipleConsumers() throws InterruptedException {
+    int numElements = 1000;
+    CommitLogReader reader =
+        ListCommitLog.ofNonExternalizable(data(numElements), direct.getContext());
+    ExecutorService executor = Executors.newCachedThreadPool();
+    String name = "name" + UUID.randomUUID().toString();
+    List<StreamElement> list = Collections.synchronizedList(new ArrayList<>());
+    int numThreads = 10;
+    CountDownLatch latch = new CountDownLatch(numThreads);
+    for (int i = 0; i < numThreads; i++) {
+      executor.submit(
+          () -> {
+            reader.observe(name, toList(list, ign -> latch.countDown()));
+          });
+    }
+    latch.await();
+    assertEquals(
+        "Duplicate: "
+            + list.stream()
+                .collect(Collectors.toMap(Function.identity(), e -> 1, Integer::sum))
+                .entrySet()
+                .stream()
+                .filter(e -> e.getValue() > 1)
+                .collect(Collectors.toList())
+                .toString(),
+        numElements,
+        list.size());
   }
 
   @Test(timeout = 10000)

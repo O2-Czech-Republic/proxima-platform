@@ -21,7 +21,6 @@ import cz.o2.proxima.beam.direct.io.BlockingQueueLogObserver.UnifiedContext;
 import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetRange;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader.Factory;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.repository.Repository;
@@ -147,7 +146,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
       finalizer.afterBundleCommit(BoundedWindow.TIMESTAMP_MAX_VALUE, bundleFinalize);
 
-      Partition part = tracker.currentRestriction().getStartOffset().getPartition();
+      Partition part = tracker.currentRestriction().getPartition();
 
       BlockingQueueLogObserver currentObserver = observers.get(part.getId());
 
@@ -157,18 +156,22 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
       if (runningObserves.get(part.getId()) == null) {
         // start current restriction
-        startObserve(part, tracker.currentRestriction());
+        startObserve(this.name, part, tracker.currentRestriction());
         // start the consumption after the other restrictions are started
         return ProcessContinuation.resume().withResumeDelay(Duration.millis(100));
       }
 
       boolean canIgnoreFirstElement =
           externalizableOffsets
-              && partitionToSeekedOffset
-                  .get(part.getId())
-                  .equals(tracker.currentRestriction().getStartOffset());
+              && !tracker.currentRestriction().isStartInclusive()
+              && Objects.equals(
+                  partitionToSeekedOffset.get(part.getId()),
+                  tracker.currentRestriction().getStartOffset());
 
       BlockingQueueLogObserver observer = Objects.requireNonNull(observers.get(part.getId()));
+
+      watermarkEstimator.setWatermark(
+          ensureInBounds(Instant.ofEpochMilli(observer.getWatermark())));
 
       while (!Thread.currentThread().isInterrupted()
           && observer.getWatermark() < Watermarks.MAX_WATERMARK
@@ -176,7 +179,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
         UnifiedContext currentPeekContext = Objects.requireNonNull(observer.getPeekContext());
         Offset offset = Objects.requireNonNull(currentPeekContext.getOffset());
-        if (canIgnoreFirstElement && !tracker.currentRestriction().isStartInclusive()) {
+        if (canIgnoreFirstElement) {
           canIgnoreFirstElement = false;
           // discard the peeked element
           observer.take();
@@ -188,13 +191,10 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         }
         StreamElement element = Objects.requireNonNull(observer.take());
         output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
-        ackContext.set(observer.getLastReadContext());
+        ackContext.set(currentPeekContext);
         watermarkEstimator.setWatermark(
             ensureInBounds(Instant.ofEpochMilli(observer.getWatermark())));
       }
-
-      watermarkEstimator.setWatermark(
-          ensureInBounds(Instant.ofEpochMilli(observer.getWatermark())));
 
       Optional.ofNullable(observer.getError())
           .ifPresent(ExceptionUtils::rethrowAsIllegalStateException);
@@ -218,8 +218,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       } else {
         currentOffset = partitionToSeekedOffset.get(part.getId());
       }
-      if (currentOffset != null
-          && !currentOffset.equals(tracker.currentRestriction().getStartOffset())) {
+      if (!Objects.equals(currentOffset, tracker.currentRestriction().getStartOffset())) {
         // there was existing handle with read context, which means we have already read some data
         // and any commit (or nack) must wait till checkpoint
         closeHandle(part.getId(), false);
@@ -237,16 +236,26 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       partitionToSeekedOffset.remove(part);
     }
 
-    private void startObserve(Partition partition, OffsetRange restriction) {
+    private void startObserve(String name, Partition partition, OffsetRange restriction) {
       CommitLogReader reader = readerFactory.apply(repositoryFactory.apply());
       this.externalizableOffsets = reader.hasExternalizableOffsets();
       BlockingQueueLogObserver observer = newObserver(name, restriction);
       observers.put(partition.getId(), observer);
-      partitionToSeekedOffset.put(partition.getId(), restriction.getStartOffset());
-      runningObserves.put(
-          partition.getId(),
-          reader.observeBulkOffsets(
-              Collections.singletonList(restriction.getStartOffset()), observer));
+      final ObserveHandle handle;
+      if (restriction.getStartOffset() != null) {
+        handle =
+            reader.observeBulkOffsets(
+                Collections.singletonList(restriction.getStartOffset()), observer);
+        partitionToSeekedOffset.put(partition.getId(), restriction.getStartOffset());
+      } else {
+        handle =
+            reader.observeBulkPartitions(
+                name,
+                Collections.singletonList(restriction.getPartition()),
+                restriction.getPosition(),
+                observer);
+      }
+      runningObserves.put(partition.getId(), handle);
     }
 
     @GetInitialRestriction
@@ -262,15 +271,8 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         CommitLogReader reader = readerFactory.apply(repositoryFactory.apply());
         // compute starting offsets from commit log reader
         List<Partition> partitions = reader.getPartitions();
-        // create a no-op observer, just start observing to fetch offsets
-        try (ObserveHandle handle =
-            reader.observeBulkPartitions(partitions, position, noopObserver())) {
-          ExceptionUtils.ignoringInterrupted(handle::waitUntilReady);
-          handle
-              .getCurrentOffsets()
-              .forEach(
-                  o -> splits.output(OffsetRange.startingFrom(o, restriction.getTotalLimit())));
-        }
+        partitions.forEach(
+            p -> splits.output(OffsetRange.startingFrom(p, position, restriction.getTotalLimit())));
       } else {
         splits.output(restriction);
       }
@@ -304,21 +306,6 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     @GetWatermarkEstimatorStateCoder
     public Coder<Instant> getWatermarkEstimatorStateCoder() {
       return InstantCoder.of();
-    }
-
-    private LogObserver noopObserver() {
-      return new LogObserver() {
-        @Override
-        public boolean onError(Throwable error) {
-          return false;
-        }
-
-        @Override
-        public boolean onNext(StreamElement ingest, OnNextContext context) {
-          context.nack();
-          return false;
-        }
-      };
     }
   }
 

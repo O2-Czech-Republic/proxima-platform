@@ -15,8 +15,7 @@
  */
 package cz.o2.proxima.util;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import org.junit.Test;
 
@@ -38,5 +37,15 @@ public class ExceptionUtilsTest {
     assertFalse(ExceptionUtils.isInterrupted(new RuntimeException()));
     assertTrue(ExceptionUtils.isInterrupted(new InterruptedException()));
     assertTrue(ExceptionUtils.isInterrupted(new RuntimeException(new InterruptedException())));
+  }
+
+  @Test
+  public void testRethrowIllegalStateException() {
+    try {
+      ExceptionUtils.rethrowAsIllegalStateException(new RuntimeException("ex"));
+      fail("Should have thrown");
+    } catch (IllegalStateException ex) {
+      assertEquals("ex", ex.getCause().getMessage());
+    }
   }
 }

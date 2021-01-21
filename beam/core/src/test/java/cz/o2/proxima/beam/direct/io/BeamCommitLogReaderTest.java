@@ -31,9 +31,11 @@ import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.net.URI;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.beam.sdk.Pipeline;
@@ -62,16 +64,19 @@ public class BeamCommitLogReaderTest {
   private final AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
 
   private AtomicLong watermark;
+  private AtomicInteger elementsWritten;
 
   @Before
   public void setUp() {
     watermark = new AtomicLong();
+    elementsWritten = new AtomicInteger();
     repo.getAllFamilies()
         .filter(af -> af.getStorageUri().getScheme().equals("inmem"))
         .forEach(
             af ->
                 InMemStorage.setWatermarkEstimatorFactory(
-                    af.getStorageUri(), (stamp, name, offset) -> asWatermarkEstimator(watermark)));
+                    af.getStorageUri(),
+                    (stamp, name, offset) -> asWatermarkEstimator(elementsWritten, watermark)));
   }
 
   @After
@@ -95,8 +100,7 @@ public class BeamCommitLogReaderTest {
     testReadingFromCommitLog(false, true);
   }
 
-  private void testReadingFromCommitLog(boolean eventTime, boolean stopAtCurrent)
-      throws InterruptedException {
+  private void testReadingFromCommitLog(boolean eventTime, boolean stopAtCurrent) {
     Pipeline p = Pipeline.create();
     PCollection<StreamElement> stream =
         beam.getStream(p, Position.OLDEST, stopAtCurrent, eventTime, status);
@@ -108,52 +112,64 @@ public class BeamCommitLogReaderTest {
                     .discardingFiredPanes())
             .apply(Count.globally());
     PAssert.that(result).containsInAnyOrder(2L);
-    BlockingQueue<Boolean> err = new SynchronousQueue<>();
     AtomicReference<Throwable> caught = new AtomicReference<>();
-    direct
-        .getContext()
-        .getExecutorService()
-        .submit(
-            () -> {
-              try {
-                assertNotNull(p.run());
-                err.put(true);
-              } catch (Throwable ex) {
-                ExceptionUtils.unchecked(() -> err.put(false));
-                caught.set(ex);
-              }
-            });
     write("key1");
     write("key2");
+    Future<Boolean> future =
+        direct
+            .getContext()
+            .getExecutorService()
+            .submit(
+                () -> {
+                  try {
+                    assertNotNull(p.run());
+                    return true;
+                  } catch (Throwable ex) {
+                    caught.set(ex);
+                    return false;
+                  }
+                });
     if (!stopAtCurrent) {
       watermark.set(Watermarks.MAX_WATERMARK);
     }
-    if (!err.take()) {
+    if (!ExceptionUtils.uncheckedFactory(future::get)) {
       throw new AssertionError(caught.get());
     }
   }
 
   private void write(String key) {
+
+    StreamElement element =
+        StreamElement.upsert(
+            gateway,
+            status,
+            UUID.randomUUID().toString(),
+            key,
+            status.getName(),
+            System.currentTimeMillis(),
+            new byte[] {1});
+
+    elementsWritten.incrementAndGet();
     direct
         .getWriter(status)
         .orElseThrow(() -> new IllegalStateException("Missing writer for " + status))
-        .write(
-            StreamElement.upsert(
-                gateway,
-                status,
-                UUID.randomUUID().toString(),
-                key,
-                status.getName(),
-                System.currentTimeMillis(),
-                new byte[] {1}),
-            (succ, exc) -> {});
+        .write(element, (succ, exc) -> {});
   }
 
-  private WatermarkEstimator asWatermarkEstimator(AtomicLong watermark) {
+  private static WatermarkEstimator asWatermarkEstimator(
+      AtomicInteger elementsWritten, AtomicLong watermark) {
     return new WatermarkEstimator() {
+
+      Set<StreamElement> updated = new HashSet<>();
+
+      @Override
+      public void update(StreamElement element) {
+        updated.add(element);
+      }
+
       @Override
       public long getWatermark() {
-        return watermark.get();
+        return updated.size() >= elementsWritten.get() ? watermark.get() : Watermarks.MIN_WATERMARK;
       }
 
       @Override

@@ -40,9 +40,9 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 
-/** Placeholder class for consumers. */
+/** Placeholder class for {@link ElementConsumer ElementConsumers}. */
 @Slf4j
-class Consumers {
+class ElementConsumers {
 
   private abstract static class ConsumerBase<K, V> implements ElementConsumer<K, V> {
 
@@ -72,6 +72,18 @@ class Consumers {
           offsets
               .stream()
               .collect(Collectors.toMap(o -> o.getPartition().getId(), TopicOffset::getOffset)));
+      processing.clear();
+      offsets.forEach(tp -> processing.put(tp.getPartition().getId(), tp.getOffset() - 1));
+    }
+
+    @Override
+    public List<TopicOffset> getCurrentOffsets() {
+      return TopicOffset.fromMap(processing, watermark);
+    }
+
+    @Override
+    public List<TopicOffset> getCommittedOffsets() {
+      return TopicOffset.fromMap(committed, watermark);
     }
 
     abstract LogObserver observer();
@@ -112,7 +124,7 @@ class Consumers {
                     committed.compute(
                         tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
                     committer.confirm(tp, offset);
-                  } else {
+                  } else if (exc != null) {
                     errorHandler.accept(exc);
                   }
                 },
@@ -121,16 +133,6 @@ class Consumers {
       committed.compute(tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
       committer.confirm(tp, offset);
       return watermark < Watermarks.MAX_WATERMARK;
-    }
-
-    @Override
-    public List<TopicOffset> getCurrentOffsets() {
-      return TopicOffset.fromMap(processing, watermark);
-    }
-
-    @Override
-    public List<TopicOffset> getCommittedOffsets() {
-      return TopicOffset.fromMap(committed, watermark);
     }
 
     @Override
@@ -215,21 +217,11 @@ class Consumers {
                       committed.compute(
                           part, (k, v) -> Math.max(MoreObjects.firstNonNull(v, 0L), off + 1)));
               committed.forEach((p, o) -> commit.accept(new TopicPartition(tp.topic(), p), o));
-            } else {
+            } else if (err != null) {
               errorHandler.accept(err);
             }
           },
           new TopicOffset(tp.partition(), offset, watermarkSupplier.getWatermark()));
-    }
-
-    @Override
-    public List<TopicOffset> getCurrentOffsets() {
-      return TopicOffset.fromMap(processing, watermark);
-    }
-
-    @Override
-    public List<TopicOffset> getCommittedOffsets() {
-      return TopicOffset.fromMap(committed, watermark);
     }
 
     @Override
@@ -264,7 +256,7 @@ class Consumers {
     }
   }
 
-  private Consumers() {
+  private ElementConsumers() {
     // nop
   }
 }

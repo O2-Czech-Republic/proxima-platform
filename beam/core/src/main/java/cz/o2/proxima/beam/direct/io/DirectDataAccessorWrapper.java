@@ -87,8 +87,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
       ret =
           pipeline.apply(
               "ReadUnbounded:" + uri,
-              Read.from(
-                  DirectUnboundedSource.of(factory, name, reader, position, eventTime, limit)));
+              CommitLogRead.of(name, position, limit, factory.apply(), reader));
     }
     return ret.setCoder(StreamElementCoder.of(factory))
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));

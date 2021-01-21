@@ -170,7 +170,7 @@ public class CommitLogReadTest {
         numElements, CommitLogRead.of("name", Position.OLDEST, Long.MAX_VALUE, repo, reader));
   }
 
-  @Test(timeout = 60000)
+  @Test(timeout = 120000)
   public void testWithMultiplePartitionsMany() throws InterruptedException {
     int numPartitions = 3;
     int numElements = 1000;
@@ -358,7 +358,7 @@ public class CommitLogReadTest {
 
         @Override
         public void idle() {
-          if (numIdles.incrementAndGet() >= 5 && selfElements.size() == numElements) {
+          if (numIdles.incrementAndGet() >= 10 && selfElements.size() == numElements) {
             watermark = Watermarks.MAX_WATERMARK;
           }
         }

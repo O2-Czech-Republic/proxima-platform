@@ -102,13 +102,12 @@ public class AvroSerializerFactory implements ValueSerializerFactory {
           Class<? extends SpecificRecord> avroClass =
               Classpath.findClass(avroClassName, SpecificRecord.class);
           Method method = avroClass.getMethod("getSchema");
-          return (Schema) method.invoke(avroClass.newInstance());
+          return (Schema) method.invoke(Classpath.newInstance(avroClass));
         } catch (IllegalAccessException
             | IllegalArgumentException
-            | NoSuchMethodException
             | SecurityException
             | InvocationTargetException
-            | InstantiationException ex) {
+            | NoSuchMethodException ex) {
 
           throw new IllegalArgumentException("Cannot get schema from class " + avroClassName, ex);
         }

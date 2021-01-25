@@ -15,8 +15,10 @@
  */
 package cz.o2.proxima.scheme;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
+import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import org.junit.Test;
 
 /** Test suite for {@link StringUtf8Serializer}. */
@@ -60,5 +62,13 @@ public class StringUtf8SerializerTest {
   public void testDefaultValue() {
     ValueSerializer<String> s = serializer.getValueSerializer(null);
     assertEquals("", s.getDefault());
+  }
+
+  @Test
+  public void testValueDescriptor() {
+    SchemaTypeDescriptor<String> descriptor =
+        serializer.<String>getValueSerializer(null).getValueSchemaDescriptor();
+    assertTrue(descriptor.isPrimitiveType());
+    assertEquals(AttributeValueType.STRING, descriptor.getType());
   }
 }

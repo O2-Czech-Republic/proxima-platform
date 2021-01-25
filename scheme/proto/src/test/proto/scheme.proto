@@ -43,3 +43,28 @@ message Device {
 message RuleConfig {
   bytes payload = 1;
 }
+
+message ValueSchemeMessage {
+  enum Directions {
+    NONE = 0;
+    LEFT = 1;
+    RIGHT = 2;
+  }
+  message SecondInnerMessage {
+    float inner_float_type = 1;
+  }
+  message InnerMessage {
+    repeated string repeated_inner_string = 1;
+    Directions inner_enum = 2;
+    double inner_double_type = 3;
+    SecondInnerMessage inner_inner_message = 4;
+  }
+  repeated string repeated_string = 1;
+  repeated InnerMessage repeated_inner_message = 2;
+  InnerMessage inner_message = 3;
+  string string_type = 4;
+  bool boolean_type = 5;
+  uint64 long_type = 6;
+  uint32 int_type = 7;
+
+}

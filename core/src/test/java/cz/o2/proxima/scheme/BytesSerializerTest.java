@@ -17,6 +17,7 @@ package cz.o2.proxima.scheme;
 
 import static org.junit.Assert.*;
 
+import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Optional;
@@ -65,5 +66,11 @@ public class BytesSerializerTest {
   public void testJsonValue() {
     byte[] value = new byte[] {1, 2};
     assertArrayEquals(value, serializer.fromJsonValue(serializer.asJsonValue(value)));
+  }
+
+  @Test
+  public void testGetValueSchemaDescriptor() {
+    SchemaTypeDescriptor<byte[]> descriptor = serializer.getValueSchemaDescriptor();
+    assertEquals(AttributeValueType.BYTE, descriptor.getArrayTypeDescriptor().getValueType());
   }
 }

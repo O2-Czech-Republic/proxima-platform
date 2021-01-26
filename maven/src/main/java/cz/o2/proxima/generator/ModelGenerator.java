@@ -214,8 +214,8 @@ public class ModelGenerator {
   }
 
   private String readFileToString(File path) {
-    try {
-      return IOUtils.readLines(new FileInputStream(path), StandardCharsets.UTF_8)
+    try (FileInputStream in = new FileInputStream(path)) {
+      return IOUtils.readLines(in, StandardCharsets.UTF_8)
           .stream()
           .map(s -> "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\\n\"")
           .collect(Collectors.joining("\n + "));

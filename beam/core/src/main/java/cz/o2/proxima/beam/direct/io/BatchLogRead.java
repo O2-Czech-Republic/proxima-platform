@@ -64,7 +64,29 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
   public static BatchLogRead of(
       List<AttributeDescriptor<?>> attributes, long limit, Repository repo, BatchLogReader reader) {
 
-    return of(attributes, limit, repo.asFactory(), reader);
+    return of(attributes, limit, repo, reader, Long.MIN_VALUE, Long.MAX_VALUE);
+  }
+
+  /**
+   * Create the {@link BatchLogRead} transform.
+   *
+   * @param attributes the attributes to read
+   * @param limit limit (use {@link Long#MAX_VALUE} for unbounded
+   * @param repo repository
+   * @param reader the reader
+   * @param startStamp starting stamp (inclusive)
+   * @param endStamp ending stamp (exclusive)
+   * @return {@link BatchLogRead} transform for the commit log
+   */
+  public static BatchLogRead of(
+      List<AttributeDescriptor<?>> attributes,
+      long limit,
+      Repository repo,
+      BatchLogReader reader,
+      long startStamp,
+      long endStamp) {
+
+    return of(attributes, limit, repo.asFactory(), reader, startStamp, endStamp);
   }
 
   /**
@@ -74,15 +96,19 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
    * @param limit limit (use {@link Long#MAX_VALUE} for unbounded
    * @param repositoryFactory repository factory
    * @param reader the reader
+   * @param startStamp starting stamp (inclusive)
+   * @param endStamp ending stamp (exclusive)
    * @return {@link CommitLogRead} transform for the commit log
    */
   public static BatchLogRead of(
       List<AttributeDescriptor<?>> attributes,
       long limit,
       RepositoryFactory repositoryFactory,
-      BatchLogReader reader) {
+      BatchLogReader reader,
+      long startStamp,
+      long endStamp) {
 
-    return new BatchLogRead(attributes, limit, repositoryFactory, reader);
+    return new BatchLogRead(attributes, limit, repositoryFactory, reader, startStamp, endStamp);
   }
 
   @DoFn.BoundedPerElement
@@ -157,7 +183,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
     @GetInitialRestriction
     public PartitionList initialRestriction() {
       BatchLogReader reader = readerFactory.apply(repoFactory.apply());
-      return PartitionList.initialRestriction(reader.getPartitions(), limit);
+      return PartitionList.initialRestriction(reader.getPartitions(startStamp, endStamp), limit);
     }
 
     @SplitRestriction
@@ -182,17 +208,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
 
     @NewWatermarkEstimator
     public Manual newWatermarkEstimator(@WatermarkEstimatorState Instant initialWatemark) {
-      return new Manual(ensureInBounds(initialWatemark));
-    }
-
-    private Instant ensureInBounds(Instant instant) {
-      if (instant.isBefore(BoundedWindow.TIMESTAMP_MIN_VALUE)) {
-        return BoundedWindow.TIMESTAMP_MIN_VALUE;
-      }
-      if (instant.isAfter(BoundedWindow.TIMESTAMP_MAX_VALUE)) {
-        return BoundedWindow.TIMESTAMP_MAX_VALUE;
-      }
-      return instant;
+      return SDFUtils.rangeCheckedManualEstimator(initialWatemark);
     }
 
     @GetInitialWatermarkEstimatorState
@@ -210,18 +226,24 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
   private final long limit;
   private final RepositoryFactory repoFactory;
   private final Factory<?> readerFactory;
+  private final long startStamp;
+  private final long endStamp;
 
   @VisibleForTesting
   BatchLogRead(
       List<AttributeDescriptor<?>> attributes,
       long limit,
       RepositoryFactory repoFactory,
-      BatchLogReader reader) {
+      BatchLogReader reader,
+      long startStamp,
+      long endStamp) {
 
     this.attributes = Lists.newArrayList(Objects.requireNonNull(attributes));
     this.limit = limit;
     this.repoFactory = repoFactory;
     this.readerFactory = reader.asFactory();
+    this.startStamp = startStamp;
+    this.endStamp = endStamp;
   }
 
   @Override

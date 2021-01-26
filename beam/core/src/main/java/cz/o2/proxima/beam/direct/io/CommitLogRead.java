@@ -170,8 +170,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
       BlockingQueueLogObserver observer = Objects.requireNonNull(observers.get(part.getId()));
 
-      watermarkEstimator.setWatermark(
-          ensureInBounds(Instant.ofEpochMilli(observer.getWatermark())));
+      watermarkEstimator.setWatermark(Instant.ofEpochMilli(observer.getWatermark()));
 
       while (!Thread.currentThread().isInterrupted()
           && observer.getWatermark() < Watermarks.MAX_WATERMARK
@@ -192,8 +191,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         StreamElement element = Objects.requireNonNull(observer.take());
         output.outputWithTimestamp(element, Instant.ofEpochMilli(element.getStamp()));
         ackContext.set(currentPeekContext);
-        watermarkEstimator.setWatermark(
-            ensureInBounds(Instant.ofEpochMilli(observer.getWatermark())));
+        watermarkEstimator.setWatermark(Instant.ofEpochMilli(observer.getWatermark()));
       }
 
       Optional.ofNullable(observer.getError())
@@ -285,17 +283,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
     @NewWatermarkEstimator
     public Manual newWatermarkEstimator(@WatermarkEstimatorState Instant initialWatemark) {
-      return new Manual(ensureInBounds(initialWatemark));
-    }
-
-    private Instant ensureInBounds(Instant instant) {
-      if (instant.isBefore(BoundedWindow.TIMESTAMP_MIN_VALUE)) {
-        return BoundedWindow.TIMESTAMP_MIN_VALUE;
-      }
-      if (instant.isAfter(BoundedWindow.TIMESTAMP_MAX_VALUE)) {
-        return BoundedWindow.TIMESTAMP_MAX_VALUE;
-      }
-      return instant;
+      return SDFUtils.rangeCheckedManualEstimator(initialWatemark);
     }
 
     @GetInitialWatermarkEstimatorState

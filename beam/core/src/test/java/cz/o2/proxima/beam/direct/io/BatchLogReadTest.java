@@ -131,7 +131,7 @@ public class BatchLogReadTest {
   private void testReadingFromBatchLogMany(
       List<AttributeDescriptor<?>> attrs, int numElements, ListBatchReader reader) {
 
-    testReadingFromBatchLogMany(numElements, getBatchLogRead(attrs, reader, repo));
+    testReadingFromBatchLogMany(numElements, BatchLogRead.of(attrs, Long.MAX_VALUE, repo, reader));
   }
 
   private void testReadingFromBatchLogMany(
@@ -160,7 +160,7 @@ public class BatchLogReadTest {
   private void testReadingFromBatchLog(List<AttributeDescriptor<?>> attrs, BatchLogReader reader) {
     Pipeline p = createPipeline();
     PCollection<Long> count =
-        p.apply(getBatchLogRead(attrs, reader, repo))
+        p.apply(BatchLogRead.of(attrs, Long.MAX_VALUE, repo, reader))
             .apply(
                 Window.<StreamElement>into(new GlobalWindows())
                     .triggering(Repeatedly.forever(AfterWatermark.pastEndOfWindow()))
@@ -207,11 +207,5 @@ public class BatchLogReadTest {
               ByteBuffer.allocate(4).putInt(i).array()));
     }
     return ret;
-  }
-
-  private static BatchLogRead getBatchLogRead(
-      List<AttributeDescriptor<?>> attrs, BatchLogReader reader, Repository repo) {
-
-    return BatchLogRead.of(attrs, Long.MAX_VALUE, repo.asFactory(), reader);
   }
 }

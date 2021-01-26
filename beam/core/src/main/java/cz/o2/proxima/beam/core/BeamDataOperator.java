@@ -70,13 +70,13 @@ public class BeamDataOperator implements DataOperator {
   private interface PCollectionDescriptor {}
 
   @Value
-  private final class StreamDescriptor implements PCollectionDescriptor {
-    private final Pipeline pipeline;
-    private final DataAccessor dataAccessor;
-    private final @Nullable String name;
-    private final Position position;
-    private final boolean stopAtCurrent;
-    private final boolean useEventTime;
+  private class StreamDescriptor implements PCollectionDescriptor {
+    Pipeline pipeline;
+    DataAccessor dataAccessor;
+    @Nullable String name;
+    Position position;
+    boolean stopAtCurrent;
+    boolean useEventTime;
 
     PCollection<StreamElement> createStream(long limit) {
       return dataAccessor
@@ -86,12 +86,12 @@ public class BeamDataOperator implements DataOperator {
   }
 
   @Value
-  private final class BatchUpdatesDescriptor implements PCollectionDescriptor {
-    private final Pipeline pipeline;
-    private final DataAccessor dataAccessor;
-    private final long startStamp;
-    private final long endStamp;
-    private final boolean asStream;
+  private class BatchUpdatesDescriptor implements PCollectionDescriptor {
+    Pipeline pipeline;
+    DataAccessor dataAccessor;
+    long startStamp;
+    long endStamp;
+    boolean asStream;
 
     PCollection<StreamElement> createBatchUpdates(List<AttributeDescriptor<?>> attrList) {
       return asStream
@@ -280,8 +280,7 @@ public class BeamDataOperator implements DataOperator {
             .flatMap(d -> d.getAttributes().stream())
             .distinct()
             .collect(Collectors.toList());
-    AttributeDescriptor<?>[] closureAsArray =
-        attrClosure.toArray(new AttributeDescriptor[attrClosure.size()]);
+    AttributeDescriptor<?>[] closureAsArray = attrClosure.toArray(new AttributeDescriptor[0]);
 
     return findSuitableAccessors(
             af -> af.getAccess().canReadBatchUpdates(), "batch-updates", closureAsArray)

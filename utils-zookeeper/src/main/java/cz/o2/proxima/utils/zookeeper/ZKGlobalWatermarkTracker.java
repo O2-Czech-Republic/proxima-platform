@@ -564,11 +564,13 @@ public class ZKGlobalWatermarkTracker implements GlobalWatermarkTracker {
 
   private void watchParentNode(WatchedEvent watchedEvent) {
     String path = watchedEvent.getPath();
-    if (path != null && !closed) {
-      if (path.equals(getParentNode())) {
-        handleWatchOnParentNode();
-      } else if (path.length() > getParentNode().length()) {
-        handleWatchOnChildNode(path, watchedEvent.getType() == EventType.NodeDeleted);
+    synchronized (this) {
+      if (path != null && !closed) {
+        if (path.equals(getParentNode())) {
+          handleWatchOnParentNode();
+        } else if (path.length() > getParentNode().length()) {
+          handleWatchOnChildNode(path, watchedEvent.getType() == EventType.NodeDeleted);
+        }
       }
     }
   }

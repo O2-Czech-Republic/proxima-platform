@@ -44,23 +44,27 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     private static final long serialVersionUID = 1L;
 
     /**
-     * @return initial restriction for {@link
-     *     org.apache.beam.sdk.transforms.DoFn.GetInitialRestriction}.
      * @param limit total limit to read
+     * @param bounded {@code true} if this is bounded restriction
+     * @return initial restriction for {@link
+     *     org.apache.beam.sdk.transforms.DoFn.GetInitialRestriction}.*
      */
-    public static OffsetRange initialRestriction(long limit) {
-      return new OffsetRange(limit);
+    public static OffsetRange initialRestriction(long limit, boolean bounded) {
+      return new OffsetRange(limit, bounded);
     }
 
     /** @return restriction that reads from given offset (inclusive) */
-    public static OffsetRange startingFrom(Partition partition, Position position, long limit) {
-      return new OffsetRange(partition, position, limit);
+    public static OffsetRange startingFrom(
+        Partition partition, Position position, OffsetRange initialRestriction) {
+      return new OffsetRange(
+          partition, position, initialRestriction.getTotalLimit(), initialRestriction.isBounded());
     }
 
     @Nullable private final Partition partition;
     @Getter @Nullable private final Position position;
     @Getter @Nullable private final Offset startOffset;
     @Getter private final boolean startInclusive;
+    @Getter private final boolean bounded;
 
     // maximal number of elements in all (split) ranges
     @Getter private final long totalLimit;
@@ -77,7 +81,7 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
     // true when the range has been all claimed
     private transient boolean finished = false;
 
-    private OffsetRange(Partition partition, Position position, long totalLimit) {
+    private OffsetRange(Partition partition, Position position, long totalLimit, boolean bounded) {
       this.partition = partition;
       this.position = position;
       this.totalLimit = totalLimit;
@@ -85,28 +89,40 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
       this.extensible = true;
       // do not ignore any data when reading from this restriction
       this.startInclusive = true;
+      this.bounded = bounded;
     }
 
-    private OffsetRange(@Nullable Offset start, long totalLimit, long consumed, boolean inclusive) {
+    private OffsetRange(
+        @Nullable Offset start,
+        long totalLimit,
+        boolean bounded,
+        long consumed,
+        boolean inclusive) {
+
       this.partition = null;
       this.position = null;
       this.startOffset = start;
       this.totalLimit = totalLimit;
+      this.bounded = bounded;
       this.consumed = consumed;
       this.startInclusive = inclusive;
       extensible = true;
     }
 
-    private OffsetRange(long limit) {
-      this(null, limit, 0, false);
+    private OffsetRange(long limit, boolean bounded) {
+      this(null, limit, bounded, 0, false);
     }
 
-    private OffsetRange(Offset startExclusive, long totalLimit, long consumed) {
-      this(Objects.requireNonNull(startExclusive), totalLimit, consumed, false);
+    private OffsetRange(Offset startExclusive, long totalLimit, boolean bounded, long consumed) {
+      this(Objects.requireNonNull(startExclusive), totalLimit, bounded, consumed, false);
     }
 
     public OffsetRange(
-        Offset startOffsetExclusive, Offset endOffsetInclusive, long totalLimit, long consumed) {
+        Offset startOffsetExclusive,
+        Offset endOffsetInclusive,
+        long totalLimit,
+        boolean bounded,
+        long consumed) {
 
       this.partition = null;
       this.position = null;
@@ -115,6 +131,7 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
       this.endOffsetInclusive = Objects.requireNonNull(endOffsetInclusive);
       this.extensible = false;
       this.totalLimit = totalLimit;
+      this.bounded = bounded;
       this.consumed = consumed;
     }
 
@@ -150,7 +167,8 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
 
     /** @return unmodifiable already processed split of the restriction */
     public OffsetRange asPrimary() {
-      return new OffsetRange(startOffset, endOffsetInclusive, totalLimit, totalLimit - consumed);
+      return new OffsetRange(
+          startOffset, endOffsetInclusive, totalLimit, bounded, totalLimit - consumed);
     }
 
     /**
@@ -158,7 +176,7 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
      *     should be equivalent to the original (unsplit) range.
      */
     public OffsetRange asResidual() {
-      return new OffsetRange(endOffsetInclusive, totalLimit, consumed);
+      return new OffsetRange(endOffsetInclusive, totalLimit, bounded, consumed);
     }
 
     public boolean isInitial() {

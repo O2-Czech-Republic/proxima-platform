@@ -79,6 +79,10 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     final PCollection<StreamElement> ret;
     if (stopAtCurrent) {
       // bounded
+      // FIXME: this should be converted to SDF
+      // we need to support CommitLogReader#fetchOffsets() for that
+      // see https://github.com/O2-Czech-Republic/proxima-platform/issues/191
+      // once that is resolved, we can proceed
       ret =
           pipeline.apply(
               "ReadBounded:" + uri,
@@ -87,8 +91,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
       // unbounded
       ret =
           pipeline.apply(
-              "ReadUnbounded:" + uri,
-              CommitLogRead.of(name, position, limit, factory.apply(), reader));
+              "ReadUnbounded:" + uri, CommitLogRead.of(name, position, limit, factory, reader));
     }
     return ret.setCoder(StreamElementCoder.of(factory))
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
@@ -139,8 +142,7 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     ret =
         pipeline.apply(
             "ReadBatchUnbounded:" + uri,
-            Read.from(
-                DirectBatchUnboundedSource.of(factory, reader, attrs, startStamp, endStamp, cfg)));
+            BatchLogRead.of(attrs, Long.MAX_VALUE, factory, reader, startStamp, endStamp));
     return ret.setCoder(StreamElementCoder.of(factory))
         .setTypeDescriptor(TypeDescriptor.of(StreamElement.class));
   }

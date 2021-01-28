@@ -41,6 +41,7 @@ import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.Impulse;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.splittabledofn.ManualWatermarkEstimator;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.WatermarkEstimators.Manual;
 import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
@@ -53,7 +54,8 @@ import org.joda.time.Instant;
 public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>> {
 
   /**
-   * Create the {@link BatchLogRead} transform.
+   * Create the {@link BatchLogRead} transform that reads from {@link BatchLogReader} in batch
+   * manner.
    *
    * @param attributes the attributes to read
    * @param limit limit (use {@link Long#MAX_VALUE} for unbounded
@@ -68,7 +70,8 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
   }
 
   /**
-   * Create the {@link BatchLogRead} transform.
+   * Create the {@link BatchLogRead} transform that reads from {@link BatchLogReader} in batch
+   * manner.
    *
    * @param attributes the attributes to read
    * @param limit limit (use {@link Long#MAX_VALUE} for unbounded
@@ -90,7 +93,8 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
   }
 
   /**
-   * Create the {@link BatchLogRead} transform.
+   * Create the {@link BatchLogRead} transform that reads from {@link BatchLogReader} in batch
+   * manner.
    *
    * @param attributes the attributes to read
    * @param limit limit (use {@link Long#MAX_VALUE} for unbounded
@@ -108,7 +112,8 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       long startStamp,
       long endStamp) {
 
-    return new BatchLogRead(attributes, limit, repositoryFactory, reader, startStamp, endStamp);
+    return new BatchLogRead(
+        attributes, limit, repositoryFactory, reader.asFactory(), startStamp, endStamp);
   }
 
   @DoFn.BoundedPerElement
@@ -134,11 +139,14 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
     @ProcessElement
     public ProcessContinuation process(
         RestrictionTracker<PartitionList, Partition> tracker,
-        OutputReceiver<StreamElement> output) {
+        OutputReceiver<StreamElement> output,
+        ManualWatermarkEstimator<Instant> watermarkEstimator) {
 
       if (tracker.currentRestriction().isEmpty()) {
         return ProcessContinuation.stop();
       }
+
+      watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
 
       while (!tracker.currentRestriction().isFinished()) {
 
@@ -167,6 +175,8 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
           Thread.currentThread().interrupt();
           break;
         }
+
+        watermarkEstimator.setWatermark(tracker.currentRestriction().getMinTimestamp());
       }
 
       boolean terminated = tracker.currentRestriction().isFinished();
@@ -234,14 +244,14 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
       List<AttributeDescriptor<?>> attributes,
       long limit,
       RepositoryFactory repoFactory,
-      BatchLogReader reader,
+      BatchLogReader.Factory<?> readerFactory,
       long startStamp,
       long endStamp) {
 
     this.attributes = Lists.newArrayList(Objects.requireNonNull(attributes));
     this.limit = limit;
     this.repoFactory = repoFactory;
-    this.readerFactory = reader.asFactory();
+    this.readerFactory = readerFactory;
     this.startStamp = startStamp;
     this.endStamp = endStamp;
   }

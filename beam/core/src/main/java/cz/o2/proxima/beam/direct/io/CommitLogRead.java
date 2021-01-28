@@ -16,6 +16,7 @@
 package cz.o2.proxima.beam.direct.io;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.direct.io.BlockingQueueLogObserver.UnifiedContext;
 import cz.o2.proxima.beam.direct.io.OffsetRestrictionTracker.OffsetRange;
@@ -43,6 +44,8 @@ import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.InstantCoder;
 import org.apache.beam.sdk.coders.SerializableCoder;
 import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.DoFn.BoundedPerElement;
+import org.apache.beam.sdk.transforms.DoFn.UnboundedPerElement;
 import org.apache.beam.sdk.transforms.Impulse;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.transforms.ParDo;
@@ -91,24 +94,231 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       RepositoryFactory repositoryFactory,
       CommitLogReader reader) {
 
-    return new CommitLogRead(observeName, position, limit, repositoryFactory, reader);
+    return new CommitLogRead(observeName, position, limit, false, repositoryFactory, reader);
   }
 
-  @DoFn.UnboundedPerElement
-  private class CommitLogReadFn extends DoFn<byte[], StreamElement> {
+  /**
+   * Create the {@link CommitLogRead} transform.
+   *
+   * @param observeName name of the observer
+   * @param limit limit (use {@link Long#MAX_VALUE} for unbounded
+   * @param repositoryFactory repository factory
+   * @param reader the reader
+   * @return {@link CommitLogRead} transform for the commit log
+   */
+  public static CommitLogRead ofBounded(
+      String observeName, long limit, RepositoryFactory repositoryFactory, CommitLogReader reader) {
 
-    private final String name;
-    private final Position position;
-    private final RepositoryFactory repositoryFactory;
-    private final CommitLogReader.Factory<?> readerFactory;
-    private final long limit;
+    return new CommitLogRead(observeName, Position.OLDEST, limit, true, repositoryFactory, reader);
+  }
 
+  @BoundedPerElement
+  private class BoundedCommitLogReadFn extends AbstractCommitLogReadFn {
+
+    private BoundedCommitLogReadFn(
+        @Nullable String name,
+        Position position,
+        long limit,
+        RepositoryFactory repositoryFactory,
+        CommitLogReader.Factory<?> readerFactory) {
+
+      super(name, position, limit, repositoryFactory, readerFactory);
+    }
+
+    @ProcessElement
+    public void processBounded(
+        RestrictionTracker<OffsetRange, Offset> tracker,
+        OutputReceiver<StreamElement> output,
+        ManualWatermarkEstimator<?> watermarkEstimator,
+        BundleFinalizer finalizer) {
+
+      ProcessContinuation continuation;
+      do {
+        continuation = process(tracker, output, watermarkEstimator, finalizer);
+      } while (continuation.shouldResume());
+      Preconditions.checkState(
+          !continuation.shouldResume(),
+          "Should have terminated processing of the whole restriction, got %s",
+          continuation);
+    }
+
+    @Setup
+    @Override
+    public void setup() {
+      super.setup();
+    }
+
+    @Teardown
+    @Override
+    public void tearDown() {
+      super.tearDown();
+    }
+
+    @GetInitialRestriction
+    public OffsetRange initialRestriction() {
+      return OffsetRange.initialRestriction(limit, true);
+    }
+
+    @SplitRestriction
+    @Override
+    public void splitRestriction(
+        @Restriction OffsetRange restriction, OutputReceiver<OffsetRange> splits) {
+
+      super.splitRestriction(restriction, splits);
+    }
+
+    @GetRestrictionCoder
+    @Override
+    public Coder<OffsetRange> getRestrictionCoder() {
+      return super.getRestrictionCoder();
+    }
+
+    @NewWatermarkEstimator
+    @Override
+    public Manual newWatermarkEstimator(@WatermarkEstimatorState Instant initialWatemark) {
+      return super.newWatermarkEstimator(initialWatemark);
+    }
+
+    @GetInitialWatermarkEstimatorState
+    @Override
+    public Instant getInitialWatermarkEstimatorState() {
+      return super.getInitialWatermarkEstimatorState();
+    }
+
+    @GetWatermarkEstimatorStateCoder
+    @Override
+    public Coder<Instant> getWatermarkEstimatorStateCoder() {
+      return super.getWatermarkEstimatorStateCoder();
+    }
+
+    ObserveHandle observeBulkOffsets(
+        OffsetRange restriction, CommitLogReader reader, BlockingQueueLogObserver observer) {
+
+      return reader.observeBulkOffsets(
+          Collections.singletonList(restriction.getStartOffset()), true, observer);
+    }
+
+    ObserveHandle observeBulkPartitions(
+        String name,
+        OffsetRange restriction,
+        CommitLogReader reader,
+        BlockingQueueLogObserver observer) {
+
+      return reader.observeBulkPartitions(
+          name,
+          Collections.singletonList(restriction.getPartition()),
+          restriction.getPosition(),
+          true,
+          observer);
+    }
+  }
+
+  @UnboundedPerElement
+  private class UnboundedCommitLogReadFn extends AbstractCommitLogReadFn {
+
+    private UnboundedCommitLogReadFn(
+        @Nullable String name,
+        Position position,
+        long limit,
+        RepositoryFactory repositoryFactory,
+        CommitLogReader.Factory<?> readerFactory) {
+
+      super(name, position, limit, repositoryFactory, readerFactory);
+    }
+
+    @ProcessElement
+    public ProcessContinuation processUnbounded(
+        RestrictionTracker<OffsetRange, Offset> tracker,
+        OutputReceiver<StreamElement> output,
+        ManualWatermarkEstimator<?> watermarkEstimator,
+        BundleFinalizer finalizer) {
+
+      return process(tracker, output, watermarkEstimator, finalizer);
+    }
+
+    @Setup
+    @Override
+    public void setup() {
+      super.setup();
+    }
+
+    @Teardown
+    @Override
+    public void tearDown() {
+      super.tearDown();
+    }
+
+    @GetInitialRestriction
+    public OffsetRange initialRestriction() {
+      return OffsetRange.initialRestriction(limit, false);
+    }
+
+    @SplitRestriction
+    @Override
+    public void splitRestriction(
+        @Restriction OffsetRange restriction, OutputReceiver<OffsetRange> splits) {
+
+      super.splitRestriction(restriction, splits);
+    }
+
+    @GetRestrictionCoder
+    @Override
+    public Coder<OffsetRange> getRestrictionCoder() {
+      return super.getRestrictionCoder();
+    }
+
+    @NewWatermarkEstimator
+    @Override
+    public Manual newWatermarkEstimator(@WatermarkEstimatorState Instant initialWatemark) {
+      return super.newWatermarkEstimator(initialWatemark);
+    }
+
+    @GetInitialWatermarkEstimatorState
+    @Override
+    public Instant getInitialWatermarkEstimatorState() {
+      return super.getInitialWatermarkEstimatorState();
+    }
+
+    @GetWatermarkEstimatorStateCoder
+    @Override
+    public Coder<Instant> getWatermarkEstimatorStateCoder() {
+      return super.getWatermarkEstimatorStateCoder();
+    }
+
+    ObserveHandle observeBulkOffsets(
+        OffsetRange restriction, CommitLogReader reader, BlockingQueueLogObserver observer) {
+
+      return reader.observeBulkOffsets(
+          Collections.singletonList(restriction.getStartOffset()), observer);
+    }
+
+    ObserveHandle observeBulkPartitions(
+        String name,
+        OffsetRange restriction,
+        CommitLogReader reader,
+        BlockingQueueLogObserver observer) {
+
+      return reader.observeBulkPartitions(
+          name,
+          Collections.singletonList(restriction.getPartition()),
+          restriction.getPosition(),
+          observer);
+    }
+  }
+
+  private abstract class AbstractCommitLogReadFn extends DoFn<byte[], StreamElement> {
+
+    protected final String name;
+    protected final Position position;
+    protected final RepositoryFactory repositoryFactory;
+    protected final Factory<?> readerFactory;
+    protected final long limit;
+    protected transient Map<Integer, ObserveHandle> runningObserves;
+    protected transient Map<Integer, Offset> partitionToSeekedOffset;
+    protected transient Map<Integer, BlockingQueueLogObserver> observers;
     private transient boolean externalizableOffsets = false;
-    private transient Map<Integer, ObserveHandle> runningObserves;
-    private transient Map<Integer, Offset> partitionToSeekedOffset;
-    private transient Map<Integer, BlockingQueueLogObserver> observers;
 
-    private CommitLogReadFn(
+    public AbstractCommitLogReadFn(
         @Nullable String name,
         Position position,
         long limit,
@@ -117,23 +327,15 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
       this.name = createObserverNameFrom(name);
       this.position = position;
+      this.limit = limit;
       this.repositoryFactory = repositoryFactory;
       this.readerFactory = readerFactory;
-      this.limit = limit;
     }
 
-    private String createObserverNameFrom(@Nullable String observerName) {
+    protected String createObserverNameFrom(@Nullable String observerName) {
       return observerName == null ? UUID.randomUUID().toString() : observerName;
     }
 
-    @Setup
-    public void setup() {
-      runningObserves = new HashMap<>();
-      partitionToSeekedOffset = new HashMap<>();
-      observers = new HashMap<>();
-    }
-
-    @ProcessElement
     public ProcessContinuation process(
         RestrictionTracker<OffsetRange, Offset> tracker,
         OutputReceiver<StreamElement> output,
@@ -223,12 +425,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       }
     }
 
-    @Teardown
-    public void tearDown() {
-      Lists.newArrayList(observers.keySet()).forEach(p -> closeHandle(p, true));
-    }
-
-    private void closeHandle(int part, boolean nack) {
+    protected void closeHandle(int part, boolean nack) {
       Optional.ofNullable(observers.remove(part)).ifPresent(observer -> observer.stop(nack));
       Optional.ofNullable(runningObserves.remove(part)).ifPresent(ObserveHandle::close);
       partitionToSeekedOffset.remove(part);
@@ -241,57 +438,56 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       observers.put(partition.getId(), observer);
       final ObserveHandle handle;
       if (restriction.getStartOffset() != null) {
-        handle =
-            reader.observeBulkOffsets(
-                Collections.singletonList(restriction.getStartOffset()), observer);
+        handle = observeBulkOffsets(restriction, reader, observer);
         partitionToSeekedOffset.put(partition.getId(), restriction.getStartOffset());
       } else {
-        handle =
-            reader.observeBulkPartitions(
-                name,
-                Collections.singletonList(restriction.getPartition()),
-                restriction.getPosition(),
-                observer);
+        handle = observeBulkPartitions(name, restriction, reader, observer);
       }
       runningObserves.put(partition.getId(), handle);
     }
 
-    @GetInitialRestriction
-    public OffsetRange initialRestriction() {
-      return OffsetRange.initialRestriction(limit);
+    abstract ObserveHandle observeBulkOffsets(
+        OffsetRange restriction, CommitLogReader reader, BlockingQueueLogObserver observer);
+
+    abstract ObserveHandle observeBulkPartitions(
+        String name,
+        OffsetRange restriction,
+        CommitLogReader reader,
+        BlockingQueueLogObserver observer);
+
+    public void setup() {
+      runningObserves = new HashMap<>();
+      partitionToSeekedOffset = new HashMap<>();
+      observers = new HashMap<>();
     }
 
-    @SplitRestriction
-    public void splitRestriction(
-        @Restriction OffsetRange restriction, OutputReceiver<OffsetRange> splits) {
+    public void tearDown() {
+      Lists.newArrayList(observers.keySet()).forEach(p -> closeHandle(p, true));
+    }
 
+    void splitRestriction(OffsetRange restriction, OutputReceiver<OffsetRange> splits) {
       if (restriction.isInitial()) {
         CommitLogReader reader = readerFactory.apply(repositoryFactory.apply());
         // compute starting offsets from commit log reader
         List<Partition> partitions = reader.getPartitions();
-        partitions.forEach(
-            p -> splits.output(OffsetRange.startingFrom(p, position, restriction.getTotalLimit())));
+        partitions.forEach(p -> splits.output(OffsetRange.startingFrom(p, position, restriction)));
       } else {
         splits.output(restriction);
       }
     }
 
-    @GetRestrictionCoder
     public Coder<OffsetRange> getRestrictionCoder() {
       return SerializableCoder.of(OffsetRange.class);
     }
 
-    @NewWatermarkEstimator
-    public Manual newWatermarkEstimator(@WatermarkEstimatorState Instant initialWatemark) {
+    public Manual newWatermarkEstimator(Instant initialWatemark) {
       return SDFUtils.rangeCheckedManualEstimator(initialWatemark);
     }
 
-    @GetInitialWatermarkEstimatorState
     public Instant getInitialWatermarkEstimatorState() {
       return BoundedWindow.TIMESTAMP_MIN_VALUE;
     }
 
-    @GetWatermarkEstimatorStateCoder
     public Coder<Instant> getWatermarkEstimatorStateCoder() {
       return InstantCoder.of();
     }
@@ -300,6 +496,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
   private final String observeName;
   private final Position position;
   private final long limit;
+  private final boolean bounded;
   private final RepositoryFactory repoFactory;
   private final Factory<?> readerFactory;
 
@@ -308,12 +505,14 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       String observeName,
       Position position,
       long limit,
+      boolean bounded,
       RepositoryFactory repoFactory,
       CommitLogReader reader) {
 
     this.observeName = observeName;
     this.position = position;
     this.limit = limit;
+    this.bounded = bounded;
     this.repoFactory = repoFactory;
     this.readerFactory = reader.asFactory();
   }
@@ -324,7 +523,11 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         .apply(Impulse.create())
         .apply(
             ParDo.of(
-                new CommitLogReadFn(observeName, position, limit, repoFactory, readerFactory)));
+                bounded
+                    ? new BoundedCommitLogReadFn(
+                        observeName, position, limit, repoFactory, readerFactory)
+                    : new UnboundedCommitLogReadFn(
+                        observeName, position, limit, repoFactory, readerFactory)));
   }
 
   @VisibleForTesting

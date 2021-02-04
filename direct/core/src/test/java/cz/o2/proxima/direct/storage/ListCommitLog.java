@@ -484,7 +484,9 @@ public class ListCommitLog implements CommitLogReader {
   }
 
   @Override
-  public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
+  public ObserveHandle observeBulkOffsets(
+      Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
+
     Set<String> consumers =
         offsets.stream().map(o -> ((ListOffset) o).getConsumerName()).collect(Collectors.toSet());
     final String name = Iterables.getOnlyElement(consumers);

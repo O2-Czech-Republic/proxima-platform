@@ -138,9 +138,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   }
 
   @Override
-  public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
+  public ObserveHandle observeBulkOffsets(
+      Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
 
-    return observeKafkaBulk(null, offsets, Position.CURRENT, false, observer);
+    return observeKafkaBulk(null, offsets, Position.CURRENT, stopAtCurrent, observer);
   }
 
   @Override
@@ -600,9 +601,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       final KafkaConsumer<Object, Object> kafka) {
 
     Set<TopicPartition> assignment = kafka.assignment();
-    Map<TopicPartition, Long> beginning;
-
-    beginning = kafka.beginningOffsets(assignment);
+    Map<TopicPartition, Long> beginning = kafka.beginningOffsets(assignment);
     return kafka
         .endOffsets(assignment)
         .entrySet()

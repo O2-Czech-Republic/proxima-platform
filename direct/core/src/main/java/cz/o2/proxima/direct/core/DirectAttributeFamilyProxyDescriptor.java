@@ -510,9 +510,10 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
     }
 
     @Override
-    public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
+    public ObserveHandle observeBulkOffsets(
+        Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
 
-      return reader.observeBulkOffsets(offsets, wrapTransformed(lookup, observer));
+      return reader.observeBulkOffsets(offsets, stopAtCurrent, wrapTransformed(lookup, observer));
     }
 
     @Override

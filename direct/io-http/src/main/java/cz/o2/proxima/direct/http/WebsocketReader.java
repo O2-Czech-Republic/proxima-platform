@@ -216,9 +216,10 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   }
 
   @Override
-  public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
+  public ObserveHandle observeBulkOffsets(
+      Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
 
-    return observeBulk(null, Position.NEWEST, observer);
+    return observeBulk(null, Position.NEWEST, stopAtCurrent, observer);
   }
 
   @Override

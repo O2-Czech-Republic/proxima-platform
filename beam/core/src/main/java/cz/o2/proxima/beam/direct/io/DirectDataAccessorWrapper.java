@@ -32,6 +32,7 @@ import lombok.Getter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
 import org.apache.beam.sdk.io.Read;
+import org.apache.beam.sdk.transforms.Filter;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptor;
 
@@ -106,10 +107,12 @@ public class DirectDataAccessorWrapper implements DataAccessor {
     PCollection<StreamElement> ret =
         pipeline.apply(
             "ReadBoundedBatch:" + uri,
-            Read.from(DirectBatchSource.of(factory, reader, attrs, startStamp, endStamp)));
+            BatchLogRead.of(attrs, Long.MAX_VALUE, factory, reader, startStamp, endStamp));
 
-    ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class))
-        .setCoder(StreamElementCoder.of(factory));
+    ret =
+        ret.setTypeDescriptor(TypeDescriptor.of(StreamElement.class))
+            .setCoder(StreamElementCoder.of(factory))
+            .apply(Filter.by(el -> el.getStamp() >= startStamp && el.getStamp() < endStamp));
 
     return AssignEventTime.of(ret)
         .using(StreamElement::getStamp)

@@ -37,7 +37,6 @@ import org.apache.beam.sdk.Pipeline.PipelineVisitor;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.CountByKey;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Filter;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.Union;
-import org.apache.beam.sdk.io.Read;
 import org.apache.beam.sdk.runners.TransformHierarchy.Node;
 import org.apache.beam.sdk.testing.PAssert;
 import org.apache.beam.sdk.transforms.Count;
@@ -406,7 +405,6 @@ public class BeamDataOperatorTest {
 
       @Override
       public CompositeBehavior enterCompositeTransform(Node node) {
-        visitNode(node);
         return CompositeBehavior.ENTER_TRANSFORM;
       }
 
@@ -428,9 +426,7 @@ public class BeamDataOperatorTest {
       }
 
       void visitNode(Node node) {
-        if (node.getTransform() != null
-            && (node.getTransform() instanceof Read.Bounded
-                || node.getTransform() instanceof Read.Unbounded)) {
+        if (node.getTransform() != null && node.getInputs().isEmpty()) {
           roots.add(node);
         }
       }

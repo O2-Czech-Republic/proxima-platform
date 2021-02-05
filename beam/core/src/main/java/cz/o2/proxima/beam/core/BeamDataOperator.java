@@ -434,7 +434,7 @@ public class BeamDataOperator implements DataOperator {
     URI uri = family.getStorageUri();
     return loader
         .findForUri(uri)
-        .map(f -> f.createAccessor(this, family.getEntity(), uri, family.getCfg()))
+        .map(f -> f.createAccessor(this, family))
         .orElseThrow(
             () -> new IllegalStateException("No accessor for URI " + family.getStorageUri()));
   }

@@ -57,6 +57,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -217,8 +218,7 @@ public class DirectDataOperatorTest {
                   fail("Missing _e.raw-abc stored");
                   return null;
                 });
-
-    assertEquals("test", new String((byte[]) kv.getValue()));
+    assertEquals("test", new String(Objects.requireNonNull(kv.getValue())));
   }
 
   @Test

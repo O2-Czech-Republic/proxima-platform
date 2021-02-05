@@ -976,7 +976,6 @@ public class InMemStorage implements DataAccessorFactory {
     final OnlineAttributeWriter.Factory<?> writerFactory = new Writer(entity, uri).asFactory();
     final CommitLogReader.Factory<?> commitLogReaderFactory =
         new InMemCommitLogReader(entity, uri, op.getContext().getExecutorFactory()).asFactory();
-    @SuppressWarnings({"unchecked", "rawtypes"})
     final ReaderFactory readerFactory =
         new Reader(entity, uri, op.getContext().getExecutorFactory()).asFactory();
     final CachedView.Factory cachedViewFactory =

@@ -16,6 +16,7 @@
 package cz.o2.proxima.storage.internal;
 
 import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -69,6 +70,29 @@ public interface AbstractDataAccessorFactory<
    * @param uri the URI to create accessor for
    * @param cfg optional additional configuration
    * @return {@link AbstractDataAccessor} for given operator and family
+   * @deprecated replaced with {@link AbstractDataAccessorFactory#createAccessor(DataOperator,
+   *     AttributeFamilyDescriptor)}
    */
-  T createAccessor(OP operator, EntityDescriptor entity, URI uri, Map<String, Object> cfg);
+  @Deprecated
+  default T createAccessor(OP operator, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
+    throw new IllegalStateException(getClass() + " must override createAccessor method.");
+  }
+
+  /**
+   * Create the accessor for give {@link AttributeFamilyDescriptor}.
+   *
+   * <p>Default implementation calls {@link AbstractDataAccessorFactory#createAccessor(DataOperator,
+   * EntityDescriptor, URI, Map)} to keep backward compatibility.
+   *
+   * @param operator operator to create the accessor for
+   * @param familyDescriptor attribute family descriptor
+   * @return {@link AbstractDataAccessor} for given operator and family
+   */
+  default T createAccessor(OP operator, AttributeFamilyDescriptor familyDescriptor) {
+    return createAccessor(
+        operator,
+        familyDescriptor.getEntity(),
+        familyDescriptor.getStorageUri(),
+        familyDescriptor.getCfg());
+  }
 }

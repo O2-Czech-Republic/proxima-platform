@@ -1126,7 +1126,7 @@ class BeamStream<T> implements Stream<T> {
         repo.getAllEntities()
             .flatMap(d -> d.getAllAttributes().stream())
             .filter(d -> Objects.nonNull(d.getValueSerializer().getDefault()))
-            .flatMap(d -> fieldsRecursively(d.getValueSerializer().getDefault().getClass()))
+            .flatMap(d -> fieldsRecursively(d.getValueSerializer().getDefault()))
             .distinct();
 
     Streams.concat(basicClasses, serializerClasses).distinct().forEach(kryo::register);
@@ -1173,8 +1173,7 @@ class BeamStream<T> implements Stream<T> {
     }
   }
 
-  private <T> RemoteConsumer<T> createRemoteConsumer(Coder<T> coder, Consumer<T> consumer) {
-
+  private RemoteConsumer<T> createRemoteConsumer(Coder<T> coder, Consumer<T> consumer) {
     RemoteConsumer<T> ret =
         RemoteConsumer.create(
             this, config.getCollectHostname(), config.getCollectPort(), consumer, coder);

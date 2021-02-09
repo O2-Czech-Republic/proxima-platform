@@ -171,7 +171,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
                     .map(AttributeFamilyDescriptor::getName)
                     .collect(Collectors.toList()));
       }
-      add.forEach(toResolve::add);
+      toResolve.addAll(add);
       remove.forEach(toResolve::remove);
     }
     return resolved;
@@ -200,7 +200,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
 
   private DataAccessor findAccessorFor(AttributeFamilyDescriptor desc) {
     return getAccessorFactory(desc.getStorageUri())
-        .map(f -> f.createAccessor(this, desc.getEntity(), desc.getStorageUri(), desc.getCfg()))
+        .map(f -> f.createAccessor(this, desc))
         .filter(f -> !repo.isShouldValidate(Validate.ACCESSES) || f.isAcceptable(desc))
         .orElseThrow(
             () ->
@@ -384,12 +384,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   @Override
   public void close() {
     synchronized (writers) {
-      writers
-          .entrySet()
-          .stream()
-          .map(Map.Entry::getValue)
-          .distinct()
-          .forEach(OnlineAttributeWriter::close);
+      writers.values().stream().distinct().forEach(OnlineAttributeWriter::close);
       writers.clear();
     }
   }
@@ -472,6 +467,13 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       return new ForwardingDataAccessor(delegate.createAccessor(operator, entity, uri, cfg), cfg);
     }
 
+    @Override
+    public DataAccessor createAccessor(
+        DirectDataOperator operator, AttributeFamilyDescriptor familyDescriptor) {
+      return new ForwardingDataAccessor(
+          delegate.createAccessor(operator, familyDescriptor), familyDescriptor.getCfg());
+    }
+
     private static class ForwardingDataAccessor implements DataAccessor {
 
       private static final long serialVersionUID = 1L;
@@ -503,9 +505,9 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
                     ExceptionUtils.uncheckedFactory(
                         () -> Classpath.newInstance(cls, ThroughputLimiter.class)))
             .map(
-                limiter -> {
-                  limiter.setup(prefixed);
-                  return limiter;
+                l -> {
+                  l.setup(prefixed);
+                  return l;
                 })
             .orElse(null);
       }

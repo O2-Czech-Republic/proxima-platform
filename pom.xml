@@ -101,7 +101,7 @@
     <surefire.forkCount>8</surefire.forkCount>
     <surefire.cmdArgs>-DLOG_LEVEL=WARN</surefire.cmdArgs>
     <!-- sonar config -->
-    <jacoco.version>0.8.5</jacoco.version>
+    <jacoco.version>0.8.6</jacoco.version>
     <sonar.organization>datadriven</sonar.organization>
     <sonar.host.url>https://sonarcloud.io</sonar.host.url>
     <sonar.login>21787938b088389dc6edfdf1cf4008e91b81e70b</sonar.login>

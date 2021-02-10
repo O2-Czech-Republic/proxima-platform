@@ -15,17 +15,18 @@
  */
 package cz.o2.proxima.tools.groovy;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.mock;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.tools.io.ConsoleRandomReader;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -35,14 +36,17 @@ public class ConsoleTest {
 
   private final Config config = ConfigFactory.load("test-reference.conf").resolve();
   private final Repository repo = Repository.ofTest(config);
+  private final EntityDescriptor gateway = repo.getEntity("gateway");
+  private final AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
 
   @Test(timeout = 20000)
   public void testClosureLoading() throws Exception {
-    ToolsClassLoader toolsLoader = new ToolsClassLoader();
+    final ToolsClassLoader toolsLoader;
     String script = "a = { it } \n";
-    try (ClassLoaderFence fence = new ClassLoaderFence(toolsLoader);
+    try (ClassLoaderFence fence = new ClassLoaderFence();
         Console console = newConsole(script)) {
-      console.run(toolsLoader);
+      console.run();
+      toolsLoader = console.getToolsClassLoader();
     }
     List<String> definedClosures =
         toolsLoader
@@ -55,17 +59,30 @@ public class ConsoleTest {
 
   @Test
   public void testGetAccessors() {
-    ToolsClassLoader toolsLoader = new ToolsClassLoader();
-    String script = "a = { it } \n";
-    EntityDescriptor gateway = repo.getEntity("gateway");
-    AttributeDescriptor<byte[]> state = gateway.getAttribute("status");
-    try (ClassLoaderFence fence = new ClassLoaderFence(toolsLoader);
-        Console console = newConsole(script)) {
-
+    try (ClassLoaderFence fence = new ClassLoaderFence();
+        Console console = newConsole()) {
       assertNotNull(console.getRandomAccessReader("gateway"));
-      assertNotNull(console.getBatchSnapshot(state));
-      assertNotNull(console.getStream(state, Position.OLDEST, false, true));
+      assertNotNull(console.getBatchSnapshot(status));
+      assertNotNull(console.getStream(status, Position.OLDEST, false, true));
     }
+  }
+
+  @Test
+  public void testPut() throws InterruptedException {
+    try (ClassLoaderFence fence = new ClassLoaderFence();
+        Console console = newConsole()) {
+      assertTrue(console.getDirect().isPresent());
+      console.put(gateway, status, "key", status.getName(), "\"\"");
+      ConsoleRandomReader reader = console.getRandomAccessReader(gateway.getName());
+      KeyValue<Object> kv = reader.get("key", status.getName());
+      assertArrayEquals(new byte[] {}, kv.getValue());
+      console.delete(gateway, status, kv.getKey(), kv.getAttribute(), kv.getStamp());
+      assertNull(reader.get("key", status.getName()));
+    }
+  }
+
+  private Console newConsole() {
+    return newConsole("");
   }
 
   private Console newConsole(String script) {
@@ -124,9 +141,8 @@ public class ConsoleTest {
 
     private final ClassLoader original;
 
-    ClassLoaderFence(ClassLoader newLoader) {
+    ClassLoaderFence() {
       original = Thread.currentThread().getContextClassLoader();
-      Thread.currentThread().setContextClassLoader(newLoader);
     }
 
     @Override

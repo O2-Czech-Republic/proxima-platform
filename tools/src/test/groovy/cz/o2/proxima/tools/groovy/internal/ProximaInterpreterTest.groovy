@@ -19,13 +19,14 @@ import org.junit.Test
 import groovy.transform.CompileStatic
 
 @CompileStatic
-public class ProximaInterpreterTest {
+class ProximaInterpreterTest {
 
   @Test
-  public void testInterpreter() {
+  void testInterpreter() {
     ProximaInterpreter interpreter = new ProximaInterpreter(
         Thread.currentThread().contextClassLoader,
-        new Binding())
+        new Binding(),
+        ClassloaderUtils.createConfiguration())
     def result = interpreter.evaluate(["def closure = { 1 }", "closure"])
     assert result.class.name == 'groovysh_evaluate1$_run_closure1'
     result = interpreter.evaluate(["def closure = { 1 }", "closure"])

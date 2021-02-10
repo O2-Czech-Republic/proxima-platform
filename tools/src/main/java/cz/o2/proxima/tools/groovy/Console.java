@@ -15,11 +15,9 @@
  */
 package cz.o2.proxima.tools.groovy;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Streams;
-import com.google.protobuf.AbstractMessage;
-import com.google.protobuf.AbstractMessage.Builder;
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.TextFormat;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -30,12 +28,12 @@ import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.scheme.ValueSerializerFactory;
+import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.tools.groovy.internal.ProximaInterpreter;
 import cz.o2.proxima.tools.io.ConsoleRandomReader;
-import cz.o2.proxima.util.Classpath;
+import cz.o2.proxima.util.Optionals;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateExceptionHandler;
 import groovy.lang.Binding;
@@ -43,8 +41,6 @@ import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -58,6 +54,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.codehaus.groovy.tools.shell.Groovysh;
@@ -102,28 +99,33 @@ public class Console implements AutoCloseable {
   }
 
   public static void main(String[] args) throws Exception {
-    ClassLoader loader = new ToolsClassLoader();
+    try (Console console = Console.get(args)) {
+      console.run();
+      System.out.println();
+    }
+  }
+
+  @VisibleForTesting
+  void run() throws Exception {
+    ToolsClassLoader loader = new ToolsClassLoader();
     Thread.currentThread().setContextClassLoader(loader);
-    Console console = Console.get(args);
     Binding binding = new Binding();
-    console.runInputForwarding();
-    console.setShell(
+    runInputForwarding();
+    setShell(
         new Groovysh(
             loader,
             binding,
-            new IO(console.getInputStream(), System.out, System.err),
+            new IO(getInputStream(), System.out, System.err),
             null,
-            null,
-            new ProximaInterpreter(loader, binding)));
-    Runtime.getRuntime().addShutdownHook(new Thread(console::close));
-    console.createWrapperClass();
-    console.runShell(INITIAL_STATEMENT);
-    System.out.println();
-    console.close();
+            loader.getConfiguration(),
+            new ProximaInterpreter(loader, binding, loader.getConfiguration())));
+    Runtime.getRuntime().addShutdownHook(new Thread(this::close));
+    createWrapperClass();
+    runShell(INITIAL_STATEMENT);
   }
 
   final String[] args;
-  final BlockingQueue<Byte> input = new LinkedBlockingDeque<>();
+  final BlockingQueue<Integer> input = new LinkedBlockingDeque<>();
   @Getter final Repository repo;
   final List<ConsoleRandomReader> readers = new ArrayList<>();
   final Configuration conf;
@@ -139,7 +141,7 @@ public class Console implements AutoCloseable {
             return t;
           });
   StreamProvider streamProvider;
-  @Getter final Optional<DirectDataOperator> direct;
+  @Nullable private final DirectDataOperator direct;
   Groovysh shell;
 
   Console(String[] args) {
@@ -150,14 +152,13 @@ public class Console implements AutoCloseable {
     this(config, Repository.of(config), args);
   }
 
-  private Console(Config config, Repository repo, String[] args) {
+  @VisibleForTesting
+  Console(Config config, Repository repo, String[] args) {
     this.args = args;
     this.config = config;
     this.repo = repo;
     this.direct =
-        repo.hasOperator("direct")
-            ? Optional.of(repo.getOrCreateOperator(DirectDataOperator.class))
-            : Optional.empty();
+        repo.hasOperator("direct") ? repo.getOrCreateOperator(DirectDataOperator.class) : null;
     conf = new Configuration(Configuration.VERSION_2_3_23);
     conf.setDefaultEncoding("utf-8");
     conf.setClassForTemplateLoading(getClass(), "/");
@@ -166,6 +167,10 @@ public class Console implements AutoCloseable {
 
     initializeStreamProvider();
     updateClassLoader();
+
+    if (INSTANCE.get() == null) {
+      INSTANCE.set(this);
+    }
   }
 
   private void setShell(Groovysh shell) {
@@ -180,7 +185,8 @@ public class Console implements AutoCloseable {
     GroovyEnv.createWrapperInLoader(conf, repo, classLoader);
   }
 
-  private void initializeStreamProvider() {
+  @VisibleForTesting
+  void initializeStreamProvider() {
     ServiceLoader<StreamProvider> loader = ServiceLoader.load(StreamProvider.class);
     // sort possible test implementations on top
     streamProvider =
@@ -283,89 +289,57 @@ public class Console implements AutoCloseable {
   }
 
   public ConsoleRandomReader getRandomAccessReader(String entity) {
-    if (!direct.isPresent()) {
-      throw new IllegalStateException(
-          "Can create random access reader with direct operator only. "
-              + "Add runtime dependency.");
-    }
+    Preconditions.checkState(
+        direct != null,
+        "Can create random access reader with direct operator only. Add runtime dependency.");
     EntityDescriptor entityDesc = findEntityDescriptor(entity);
-    ConsoleRandomReader reader = new ConsoleRandomReader(entityDesc, repo, direct.get());
+    ConsoleRandomReader reader = new ConsoleRandomReader(entityDesc, repo, direct);
     readers.add(reader);
     return reader;
   }
 
   public void put(
       EntityDescriptor entityDesc,
-      AttributeDescriptor attrDesc,
+      AttributeDescriptor<?> attrDesc,
       String key,
       String attribute,
       String textFormat)
-      throws NoSuchMethodException, IllegalAccessException, InvocationTargetException,
-          ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
-          TextFormat.ParseException {
+      throws InterruptedException {
 
     put(entityDesc, attrDesc, key, attribute, System.currentTimeMillis(), textFormat);
   }
 
   public void put(
       EntityDescriptor entityDesc,
-      AttributeDescriptor attrDesc,
+      AttributeDescriptor<?> attrDesc,
       String key,
       String attribute,
       long stamp,
       String textFormat)
-      throws NoSuchMethodException, IllegalAccessException, InvocationTargetException,
-          ClassNotFoundException, InvalidProtocolBufferException, InterruptedException,
-          TextFormat.ParseException {
+      throws InterruptedException {
 
-    if (!direct.isPresent()) {
-      throw new IllegalStateException(
-          "Can write with direct operator only. Add runtime dependecncy");
-    }
-    if (attrDesc.getSchemeUri().getScheme().equals("proto")) {
-      ValueSerializerFactory factory =
-          repo.getValueSerializerFactory(attrDesc.getSchemeUri().getScheme())
-              .orElseThrow(
-                  () ->
-                      new IllegalStateException(
-                          "Unable to get ValueSerializerFactory for attribute "
-                              + attrDesc.getName()
-                              + " with scheme "
-                              + attrDesc.getSchemeUri().toString()
-                              + "."));
+    Preconditions.checkState(
+        direct != null, "Can write with direct operator only. Add runtime dependency");
 
-      String protoClass = factory.getClassName(attrDesc.getSchemeUri());
-      Class<? extends AbstractMessage> cls = Classpath.findClass(protoClass, AbstractMessage.class);
-      byte[] payload = null;
-      if (textFormat != null) {
-        Method newBuilder = cls.getDeclaredMethod("newBuilder");
-        Builder builder = (Builder) newBuilder.invoke(null);
-        TextFormat.merge(textFormat, builder);
-        payload = builder.build().toByteArray();
-      }
-      OnlineAttributeWriter writer =
-          direct
-              .get()
-              .getWriter(attrDesc)
-              .orElseThrow(() -> new IllegalArgumentException("Missing writer for " + attrDesc));
-      CountDownLatch latch = new CountDownLatch(1);
-      AtomicReference<Throwable> exc = new AtomicReference<>();
-      writer.write(
-          StreamElement.upsert(
-              entityDesc, attrDesc, UUID.randomUUID().toString(), key, attribute, stamp, payload),
-          (success, ex) -> {
-            if (!success) {
-              exc.set(ex);
-            }
-            latch.countDown();
-          });
-      latch.await();
-      if (exc.get() != null) {
-        throw new RuntimeException(exc.get());
-      }
-    } else {
-      throw new IllegalArgumentException(
-          "Don't know how to make builder for " + attrDesc.getSchemeUri());
+    @SuppressWarnings("unchecked")
+    ValueSerializer<Object> valueSerializer =
+        (ValueSerializer<Object>) attrDesc.getValueSerializer();
+    byte[] payload = valueSerializer.serialize(valueSerializer.fromJsonValue(textFormat));
+    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(attrDesc));
+    CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Throwable> exc = new AtomicReference<>();
+    writer.write(
+        StreamElement.upsert(
+            entityDesc, attrDesc, UUID.randomUUID().toString(), key, attribute, stamp, payload),
+        (success, ex) -> {
+          if (!success) {
+            exc.set(ex);
+          }
+          latch.countDown();
+        });
+    latch.await();
+    if (exc.get() != null) {
+      throw new RuntimeException(exc.get());
     }
   }
 
@@ -384,15 +358,9 @@ public class Console implements AutoCloseable {
       long stamp)
       throws InterruptedException {
 
-    if (!direct.isPresent()) {
-      throw new IllegalStateException(
-          "Can write with direct operator only. Add runtime dependency");
-    }
-    OnlineAttributeWriter writer =
-        direct
-            .get()
-            .getWriter(attrDesc)
-            .orElseThrow(() -> new IllegalArgumentException("Missing writer for " + attrDesc));
+    Preconditions.checkState(
+        direct != null, "Can write with direct operator only. Add runtime dependency");
+    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(attrDesc));
     CountDownLatch latch = new CountDownLatch(1);
     AtomicReference<Throwable> exc = new AtomicReference<>();
     final StreamElement delete;
@@ -419,9 +387,12 @@ public class Console implements AutoCloseable {
     }
   }
 
+  public Optional<DirectDataOperator> getDirect() {
+    return Optional.ofNullable(direct);
+  }
+
   public EntityDescriptor findEntityDescriptor(String entity) {
-    return repo.findEntity(entity)
-        .orElseThrow(() -> new IllegalArgumentException("Entity " + entity + " not found"));
+    return repo.getEntity(entity);
   }
 
   public Rpc.ListResponse rpcList(
@@ -485,9 +456,10 @@ public class Console implements AutoCloseable {
         () -> {
           while (!Thread.currentThread().isInterrupted()) {
             try {
-              byte next = (byte) System.in.read();
-              while (!input.offer(next)) {
-                input.remove();
+              int next = nextInputByte();
+              Preconditions.checkState(input.offer(next));
+              if (next < 0) {
+                break;
               }
             } catch (IOException ex) {
               throw new RuntimeException(ex);
@@ -496,15 +468,30 @@ public class Console implements AutoCloseable {
         });
   }
 
+  @VisibleForTesting
+  int nextInputByte() throws IOException {
+    return System.in.read();
+  }
+
   private InputStream getInputStream() {
     return new InputStream() {
 
+      boolean finished = false;
+
       @Override
-      public int read() throws IOException {
+      public int read() {
         try {
-          return input.take();
+          if (finished) {
+            return -1;
+          }
+          int next = input.take();
+          if (next < 0) {
+            finished = true;
+          }
+          return next;
         } catch (InterruptedException ex) {
           Thread.currentThread().interrupt();
+          finished = true;
           return -1;
         }
       }
@@ -517,5 +504,12 @@ public class Console implements AutoCloseable {
 
   private void runShell(String script) {
     this.shell.run(script);
+  }
+
+  @VisibleForTesting
+  ToolsClassLoader getToolsClassLoader() {
+    ClassLoader loader = Thread.currentThread().getContextClassLoader();
+    Preconditions.checkState(loader instanceof ToolsClassLoader);
+    return (ToolsClassLoader) loader;
   }
 }

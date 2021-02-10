@@ -34,16 +34,7 @@ import org.codehaus.groovy.syntax.Reduction
 class ClassloaderUtils {
 
   static CompilerConfiguration createConfiguration() {
-    def ret = new CompilerConfiguration(CompilerConfiguration.DEFAULT)
-    /*
-    ret = ret.addCompilationCustomizers(
-        new ASTTransformationCustomizer(TypeChecked),
-        new ASTTransformationCustomizer(CompileStatic))
-     */
-    ret.setTargetBytecode("1.11")
-    ret.setDebug(true)
-    return ret
+    CompilerConfiguration.DEFAULT
   }
-
 }
 

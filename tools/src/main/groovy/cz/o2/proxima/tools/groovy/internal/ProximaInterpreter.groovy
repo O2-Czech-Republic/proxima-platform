@@ -19,9 +19,7 @@ package cz.o2.proxima.tools.groovy.internal
 import java.lang.reflect.Method
 import java.util.concurrent.atomic.AtomicInteger
 import org.codehaus.groovy.control.CompilerConfiguration
-import org.codehaus.groovy.runtime.InvokerHelper
 import org.codehaus.groovy.runtime.MethodClosure
-import org.codehaus.groovy.tools.shell.Groovysh
 import org.codehaus.groovy.tools.shell.Interpreter
 import org.codehaus.groovy.tools.shell.Parser
 
@@ -35,11 +33,12 @@ public class ProximaInterpreter extends Interpreter {
 
   private final AtomicInteger scriptNo = new AtomicInteger()
 
-  public ProximaInterpreter(
+  ProximaInterpreter(
       final ClassLoader classLoader,
-      final Binding binding) {
+      final Binding binding,
+      final CompilerConfiguration configuration) {
 
-    super(classLoader, binding, null);
+    super(classLoader, binding, configuration);
   }
 
   @Override
@@ -52,7 +51,7 @@ public class ProximaInterpreter extends Interpreter {
 
     Class type
 
-    Script script = super.getShell().parse(source, generateNewName())
+    Script script = getShell().parse(source, generateNewName())
     type = script.getClass()
 
     if (type.declaredMethods.any {Method it -> it.name == 'main' }) {

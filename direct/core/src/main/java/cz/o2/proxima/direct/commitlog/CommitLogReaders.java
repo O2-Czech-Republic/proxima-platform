@@ -112,8 +112,10 @@ public class CommitLogReaders {
     }
 
     @Override
-    public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
-      return delegate.observeBulkOffsets(offsets, observer);
+    public ObserveHandle observeBulkOffsets(
+        Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
+
+      return delegate.observeBulkOffsets(offsets, stopAtCurrent, observer);
     }
 
     @Override
@@ -186,9 +188,11 @@ public class CommitLogReaders {
     }
 
     @Override
-    public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
+    public ObserveHandle observeBulkOffsets(
+        Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
+
       return super.observeBulkOffsets(
-          offsets, throughputLimited(limiter, availablePartitions.get(), observer));
+          offsets, stopAtCurrent, throughputLimited(limiter, availablePartitions.get(), observer));
     }
 
     @Override

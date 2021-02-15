@@ -308,12 +308,13 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     @Override
-    public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
+    public ObserveHandle observeBulkOffsets(
+        Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
 
       return doObserve(
           Position.OLDEST,
           ((ConsumedOffset) Iterables.getOnlyElement(offsets)),
-          false,
+          stopAtCurrent,
           observer,
           null);
     }

@@ -98,6 +98,19 @@ public class CommitLogReadTest {
   }
 
   @Test(timeout = 30000)
+  public void testReadingFromCommitLogBounded() {
+    // FIXME: need https://github.com/O2-Czech-Republic/proxima-platform/issues/191
+    // to be able to support Flink runner
+    if (runner.getSimpleName().equals("DirectRunner")) {
+      List<StreamElement> data = createInput(1);
+      ListCommitLog commitLog = ListCommitLog.of(data, direct.getContext());
+      CommitLogRead read =
+          CommitLogRead.ofBounded("name", Long.MAX_VALUE, repo.asFactory(), commitLog);
+      testReadingFromCommitLog(commitLog, read);
+    }
+  }
+
+  @Test(timeout = 30000)
   public void testReadingFromCommitLogNonExternalizable() {
     if (isDirect()) {
       List<StreamElement> data = createInput(1);
@@ -245,9 +258,15 @@ public class CommitLogReadTest {
   }
 
   private void testReadingFromCommitLog(ListCommitLog commitLog) {
+    CommitLogRead read = getCommitLogReadTransform(commitLog, repo);
+    testReadingFromCommitLog(commitLog, read);
+  }
+
+  private void testReadingFromCommitLog(
+      ListCommitLog commitLog, PTransform<PBegin, PCollection<StreamElement>> read) {
     Pipeline p = createPipeline();
     PCollection<Long> count =
-        p.apply(getCommitLogReadTransform(commitLog, repo))
+        p.apply(read)
             .apply(
                 Window.<StreamElement>into(new GlobalWindows())
                     .triggering(Repeatedly.forever(AfterWatermark.pastEndOfWindow()))
@@ -363,7 +382,7 @@ public class CommitLogReadTest {
 
         @Override
         public void idle() {
-          if (System.currentTimeMillis() > lastUpdateStamp + 1_000) {
+          if (System.currentTimeMillis() > lastUpdateStamp + 2_000) {
             watermark = Watermarks.MAX_WATERMARK;
           }
           if (numIdles.get() >= 10 && selfElements.size() == numElements) {

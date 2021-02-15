@@ -16,15 +16,16 @@
 package cz.o2.proxima.beam.direct.io;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.direct.io.BatchRestrictionTracker.PartitionList;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.Partition;
 import java.io.Serializable;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -32,6 +33,8 @@ import lombok.ToString;
 import org.apache.beam.sdk.transforms.splittabledofn.HasDefaultTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.RestrictionTracker;
 import org.apache.beam.sdk.transforms.splittabledofn.SplitResult;
+import org.apache.beam.sdk.transforms.windowing.BoundedWindow;
+import org.joda.time.Instant;
 
 /**
  * A {@link RestrictionTracker} for {@link Offset Offsets} read from {@link
@@ -71,7 +74,11 @@ public class BatchRestrictionTracker extends RestrictionTracker<PartitionList, P
     @Getter private long totalLimit;
 
     private PartitionList(List<Partition> partition, long totalLimit) {
-      this.partitions = Lists.newArrayList(partition);
+      this.partitions =
+          partition
+              .stream()
+              .sorted(Comparator.comparing(Partition::getMinTimestamp))
+              .collect(Collectors.toList());
       this.totalLimit = totalLimit;
     }
 
@@ -127,6 +134,13 @@ public class BatchRestrictionTracker extends RestrictionTracker<PartitionList, P
 
     public boolean isFinished() {
       return partitions.isEmpty() || isLimitConsumed();
+    }
+
+    public Instant getMinTimestamp() {
+      if (!isEmpty()) {
+        return Instant.ofEpochMilli(getFirstPartition().getMinTimestamp());
+      }
+      return BoundedWindow.TIMESTAMP_MAX_VALUE;
     }
   }
 

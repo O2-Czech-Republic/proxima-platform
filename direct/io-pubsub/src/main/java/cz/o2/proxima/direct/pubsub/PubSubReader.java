@@ -380,7 +380,8 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   }
 
   @Override
-  public ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
+  public ObserveHandle observeBulkOffsets(
+      Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
 
     List<String> names =
         offsets
@@ -398,7 +399,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
             .min()
             .orElse(Long.MIN_VALUE);
     return observeBulkWithMinWatermark(
-        asConsumerName(name), Position.NEWEST, false, watermark, observer);
+        asConsumerName(name), Position.NEWEST, stopAtCurrent, watermark, observer);
   }
 
   @VisibleForTesting

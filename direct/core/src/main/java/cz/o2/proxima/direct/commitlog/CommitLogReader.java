@@ -278,7 +278,23 @@ public interface CommitLogReader {
    * @param observer the observer to subscribe to the offsets
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer);
+  default ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
+    return observeBulkOffsets(offsets, false, observer);
+  }
+
+  /**
+   * Consume from given offsets in a bulk fashion. A typical use-case for this type of consumption
+   * is to first use {@link CommitLogReader#observeBulkPartitions}, observe for some time, than
+   * interrupt the consumption, store associated offsets and resume the consumption from these
+   * offsets later
+   *
+   * @param offsets the @{link Offset}s to subscribe to
+   * @param stopAtCurrent {@code true} if the processing should stop at current offsets
+   * @param observer the observer to subscribe to the offsets
+   * @return {@link ObserveHandle} to asynchronously cancel the observation
+   */
+  ObserveHandle observeBulkOffsets(
+      Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer);
 
   /**
    * Signals the user that offsets used by this reader can be externalized and reused later.

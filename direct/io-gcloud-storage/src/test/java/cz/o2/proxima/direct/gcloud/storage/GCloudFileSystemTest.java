@@ -28,9 +28,9 @@ import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.TestUtils;
 import java.net.URI;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +44,7 @@ public class GCloudFileSystemTest {
       Repository.of(ConfigFactory.load("test-reference.conf").resolve());
   private final EntityDescriptor entity = repo.getEntity("gateway");
   private final GCloudStorageAccessor accessor =
-      new GCloudStorageAccessor(entity, URI.create("gs://bucket/path"), Collections.emptyMap());
+      new GCloudStorageAccessor(TestUtils.createTestFamily(entity, URI.create("gs://bucket/path")));
   private final Map<String, Blob> blobs = new HashMap<>();
   private final FileFormat format = FileFormat.blob(true);
   private final NamingConvention naming =
@@ -67,14 +67,12 @@ public class GCloudFileSystemTest {
               String tmp = option.toString();
               int valueIndex = tmp.indexOf("value=");
               String prefix = valueIndex > 0 ? tmp.substring(valueIndex + 6, tmp.length() - 1) : "";
-              Page<Blob> page =
-                  asPage(
-                      blobs
-                          .entrySet()
-                          .stream()
-                          .filter(entry -> entry.getKey().startsWith(prefix))
-                          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
-              return page;
+              return asPage(
+                  blobs
+                      .entrySet()
+                      .stream()
+                      .filter(entry -> entry.getKey().startsWith(prefix))
+                      .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
             })
         .when(ret)
         .list(anyString(), any());
@@ -98,7 +96,7 @@ public class GCloudFileSystemTest {
   public void testList() {
     long now = System.currentTimeMillis();
     for (int i = 0; i < 100; i++) {
-      String name = "path" + naming.nameOf(now + 86400000 * i);
+      String name = "path" + naming.nameOf(now + 86400000L * i);
       Blob blob = mockBlob(name);
       blobs.put(name, blob);
     }
@@ -110,7 +108,7 @@ public class GCloudFileSystemTest {
   public void testListRange() {
     long now = 1500000000000L;
     for (int i = 0; i < 100; i++) {
-      String name = "path" + naming.nameOf(now + 86400000 * i);
+      String name = "path" + naming.nameOf(now + 86400000L * i);
       Blob blob = mockBlob(name);
       blobs.put(name, blob);
     }

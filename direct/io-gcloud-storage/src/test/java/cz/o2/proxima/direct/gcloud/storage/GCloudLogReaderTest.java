@@ -47,7 +47,8 @@ public class GCloudLogReaderTest {
   final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   final EntityDescriptor gateway = repo.getEntity("gateway");
   final GCloudStorageAccessor accessor =
-      new GCloudStorageAccessor(gateway, URI.create("gs://bucket/path"), cfg());
+      new GCloudStorageAccessor(
+          TestUtils.createTestFamily(gateway, URI.create("gs://bucket/path"), cfg()));
 
   private static Map<String, Object> cfg() {
     return new HashMap<String, Object>() {

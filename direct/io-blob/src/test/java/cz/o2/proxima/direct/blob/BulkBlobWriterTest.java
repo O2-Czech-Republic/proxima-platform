@@ -15,8 +15,11 @@
  */
 package cz.o2.proxima.direct.blob;
 
-import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.blob.TestBlobStorageAccessor.BlobWriter;
@@ -37,7 +40,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -117,9 +119,7 @@ public class BulkBlobWriterTest implements Serializable {
   void initWriter(Map<String, Object> cfg) {
     accessor =
         new TestBlobStorageAccessor(
-            entity,
-            URI.create("blob-test://bucket/path"),
-            cfg,
+            TestUtils.createTestFamily(entity, URI.create("blob-test://bucket/path"), cfg),
             () -> Optional.ofNullable(latch.get()).ifPresent(CountDownLatch::countDown),
             onFlushToBlob) {
           @Override
@@ -365,9 +365,7 @@ public class BulkBlobWriterTest implements Serializable {
   public void testAsFactorySerializable() throws IOException, ClassNotFoundException {
     accessor =
         new TestBlobStorageAccessor(
-            entity,
-            URI.create("blob-test://bucket/path"),
-            Collections.emptyMap(),
+            TestUtils.createTestFamily(entity, URI.create("blob-test://bucket/path")),
             () -> {},
             new AtomicReference<>());
     BlobWriter writer = accessor.new BlobWriter(direct.getContext());

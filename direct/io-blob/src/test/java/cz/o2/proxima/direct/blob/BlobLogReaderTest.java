@@ -15,7 +15,9 @@
  */
 package cz.o2.proxima.direct.blob;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
@@ -64,7 +66,7 @@ public class BlobLogReaderTest {
   public void setUp() {
     accessor =
         new TestBlobStorageAccessor(
-            gateway, URI.create("blob-test://bucket/path"), Collections.emptyMap());
+            TestUtils.createTestFamily(gateway, URI.create("blob-test://bucket/path")));
   }
 
   @Test

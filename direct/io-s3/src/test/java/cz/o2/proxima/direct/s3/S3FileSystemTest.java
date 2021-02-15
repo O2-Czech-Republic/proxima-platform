@@ -33,6 +33,7 @@ import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
@@ -72,7 +73,8 @@ public class S3FileSystemTest {
   @Before
   public void setUp() {
     Map<String, Blob> blobs = new HashMap<>();
-    S3Accessor accessor = new S3Accessor(gateway, URI.create("s3://bucket/path"), cfg());
+    S3Accessor accessor =
+        new S3Accessor(TestUtils.createTestFamily(gateway, URI.create("s3://bucket/path"), cfg()));
     fs =
         new S3FileSystem(accessor, direct.getContext()) {
           @Override

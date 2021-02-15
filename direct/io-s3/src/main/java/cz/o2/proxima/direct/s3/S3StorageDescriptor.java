@@ -18,9 +18,8 @@ package cz.o2.proxima.direct.s3;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.net.URI;
-import java.util.Map;
 
 /** A {@link DataAccessorFactory} for gcloud storage. */
 public class S3StorageDescriptor implements DataAccessorFactory {
@@ -29,9 +28,8 @@ public class S3StorageDescriptor implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-
-    return new S3Accessor(entityDesc, uri, cfg);
+      DirectDataOperator operator, AttributeFamilyDescriptor familyDescriptor) {
+    return new S3Accessor(familyDescriptor);
   }
 
   @Override

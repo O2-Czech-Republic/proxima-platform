@@ -74,6 +74,10 @@
               <pattern>org.joda.time.</pattern>
               <shadedPattern>${shadePattern}.org.joda.time.</shadedPattern>
             </relocation>
+            <relocation>
+              <pattern>org.apache.http.</pattern>
+              <shadedPattern>${shadePattern}.org.apache.http</shadedPattern>
+            </relocation>
           </relocations>
         </configuration>
         <executions>

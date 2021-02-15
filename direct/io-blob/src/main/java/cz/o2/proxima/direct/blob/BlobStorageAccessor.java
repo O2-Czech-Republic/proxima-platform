@@ -22,10 +22,9 @@ import cz.o2.proxima.direct.bulk.FileFormatUtils;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.core.DataAccessor;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import java.io.File;
-import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -56,11 +55,14 @@ public abstract class BlobStorageAccessor extends AbstractStorage implements Dat
   /** Maximal amount of time (in milliseconds) a partition containing multiple blobs can span. */
   public static final String PARTITION_MAX_TIME_SPAN_MS = "partition.max-time-span-ms";
 
+  final AttributeFamilyDescriptor familyDescriptor;
+
   final Map<String, Object> cfg;
 
-  protected BlobStorageAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-    super(entityDesc, uri);
-    this.cfg = new HashMap<>(cfg);
+  protected BlobStorageAccessor(AttributeFamilyDescriptor family) {
+    super(family.getEntity(), family.getStorageUri());
+    this.familyDescriptor = family;
+    this.cfg = new HashMap<>(family.getCfg());
   }
 
   public Map<String, Object> getCfg() {
@@ -75,7 +77,9 @@ public abstract class BlobStorageAccessor extends AbstractStorage implements Dat
   public abstract FileSystem getTargetFileSystem();
 
   FileFormat getFileFormat() {
-    return FileFormatUtils.getFileFormat("", getCfg());
+    FileFormat format = FileFormatUtils.getFileFormat("", getCfg());
+    format.setup(familyDescriptor);
+    return format;
   }
 
   public NamingConvention getNamingConvention() {
@@ -84,7 +88,7 @@ public abstract class BlobStorageAccessor extends AbstractStorage implements Dat
 
   public File getTmpDir() {
     File parent =
-        Optional.ofNullable(cfg.get("tmp.dir"))
+        Optional.ofNullable(getCfg().get("tmp.dir"))
             .map(Object::toString)
             .map(File::new)
             .orElse(new File(System.getProperty("java.io.tmpdir")));
@@ -92,35 +96,35 @@ public abstract class BlobStorageAccessor extends AbstractStorage implements Dat
   }
 
   public long getRollPeriod() {
-    return Optional.ofNullable(cfg.get(LOG_ROLL_INTERVAL))
+    return Optional.ofNullable(getCfg().get(LOG_ROLL_INTERVAL))
         .map(Object::toString)
         .map(Long::valueOf)
         .orElse(3600000L);
   }
 
   public long getAllowedLateness() {
-    return Optional.ofNullable(cfg.get(ALLOWED_LATENESS_MS))
+    return Optional.ofNullable(getCfg().get(ALLOWED_LATENESS_MS))
         .map(Object::toString)
         .map(Long::valueOf)
         .orElse(5 * 60000L);
   }
 
   public long getPartitionMinSize() {
-    return Optional.ofNullable(cfg.get(PARTITION_SIZE))
+    return Optional.ofNullable(getCfg().get(PARTITION_SIZE))
         .map(Object::toString)
         .map(Long::valueOf)
         .orElse(100 * 1024 * 1024L);
   }
 
   public int getPartitionMaxNumBlobs() {
-    return Optional.ofNullable(cfg.get(PARTITION_MAX_BLOBS))
+    return Optional.ofNullable(getCfg().get(PARTITION_MAX_BLOBS))
         .map(Object::toString)
         .map(Integer::valueOf)
         .orElse(1000);
   }
 
   public long getPartitionMaxTimeSpanMs() {
-    return Optional.ofNullable(cfg.get(PARTITION_MAX_TIME_SPAN_MS))
+    return Optional.ofNullable(getCfg().get(PARTITION_MAX_TIME_SPAN_MS))
         .map(Object::toString)
         .map(Long::valueOf)
         .orElse(-1L);

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.bulk;
 
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.io.IOException;
 import java.io.Serializable;
@@ -40,6 +41,15 @@ public interface FileFormat extends Serializable {
    */
   static FileFormat json(boolean gzip) {
     return new JsonFormat(gzip);
+  }
+
+  /**
+   * Setup FileFormat for given {@link AttributeFamilyDescriptor}.
+   *
+   * @param family attribute family
+   */
+  default void setup(AttributeFamilyDescriptor family) {
+    // no-op
   }
 
   /**

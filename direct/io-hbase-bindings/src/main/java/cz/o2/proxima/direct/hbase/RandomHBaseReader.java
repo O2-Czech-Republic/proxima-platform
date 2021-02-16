@@ -42,6 +42,8 @@ import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.filter.ColumnPaginationFilter;
 import org.apache.hadoop.hbase.filter.ColumnPrefixFilter;
+import org.apache.hadoop.hbase.filter.Filter;
+import org.apache.hadoop.hbase.filter.FilterList;
 import org.apache.hadoop.hbase.filter.KeyOnlyFilter;
 
 /** {@code RandomAccessReader} for HBase. */
@@ -107,19 +109,21 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
       final RawOffset stroff = (RawOffset) offset;
       final Get get = new Get(key.getBytes(StandardCharsets.UTF_8));
       get.addFamily(family);
-      get.setFilter(
-          new ColumnPrefixFilter((wildcard.toAttributePrefix()).getBytes(StandardCharsets.UTF_8)));
+      Filter filter =
+          new ColumnPrefixFilter((wildcard.toAttributePrefix()).getBytes(StandardCharsets.UTF_8));
       final Scan scan = new Scan(get);
       if (limit <= 0) {
         limit = Integer.MAX_VALUE;
       }
       scan.setBatch(limit);
       if (stroff != null) {
-        scan.setFilter(
-            new ColumnPaginationFilter(
-                limit, (stroff.getOffset() + '\00').getBytes(StandardCharsets.UTF_8)));
+        filter =
+            new FilterList(
+                filter,
+                new ColumnPaginationFilter(
+                    limit, (stroff.getOffset() + '\00').getBytes(StandardCharsets.UTF_8)));
       }
-
+      scan.setFilter(filter);
       int accepted = 0;
       try (ResultScanner scanner = client.getScanner(scan)) {
         Result next;

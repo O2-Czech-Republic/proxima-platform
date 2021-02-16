@@ -196,6 +196,7 @@ public class RandomHBaseReaderTest {
     // include some "garbage"
     write("key", "dummy", "blah", now + 6);
     write("key2", "wildcard.1", "blah", now + 7);
+    write("key", "wildcard2.0", "blah", now + 8);
 
     List<KeyValue<?>> res = new ArrayList<>();
     reader.scanWildcard("key", wildcard, null, 1, res::add);
@@ -204,8 +205,8 @@ public class RandomHBaseReaderTest {
 
     RandomOffset offset = res.get(0).getOffset();
     res.clear();
-    reader.scanWildcard("key", wildcard, offset, 3, res::add);
-    assertEquals(3, res.size());
+    reader.scanWildcard("key", wildcard, offset, -1, res::add);
+    assertEquals(5, res.size());
 
     // all results are from the same key
     assertEquals(
@@ -219,12 +220,13 @@ public class RandomHBaseReaderTest {
 
     // check the attributes, including ordering
     assertEquals(
-        Arrays.asList("value5", "value4", "value3"),
+        Arrays.asList("value5", "value4", "value3", "value2", "value1"),
         res.stream().map(k -> new String(k.getValue())).collect(Collectors.toList()));
 
     // check values
     assertEquals(
-        Arrays.asList("wildcard.1", "wildcard.12", "wildcard.123"),
+        Arrays.asList(
+            "wildcard.1", "wildcard.12", "wildcard.123", "wildcard.1234", "wildcard.12345"),
         res.stream().map(KeyValue::getAttribute).collect(Collectors.toList()));
 
     res.stream().map(KeyValue::getStamp).forEach(ts -> assertTrue(ts >= now));

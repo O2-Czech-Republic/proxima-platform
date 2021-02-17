@@ -38,6 +38,16 @@ public interface EntityDescriptor extends Serializable {
     private final Map<String, AttributeDescriptor<?>> attributes = new HashMap<>();
 
     public Builder addAttribute(AttributeDescriptor<?> attr) {
+      String nameToCheck = attr.toAttributePrefix(false);
+      if (!attr.isWildcard()) {
+        nameToCheck = String.format("%s.*", attr.getName());
+      }
+      if (attributes.containsKey(nameToCheck)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Attribute name [%s] must be unique in entity [%s]. Duplicated with [%s] or [%s.*].",
+                attr.getName(), attr.getEntity(), nameToCheck, attr.toAttributePrefix(false)));
+      }
       attributes.put(attr.getName(), attr);
       return this;
     }

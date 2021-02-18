@@ -81,7 +81,7 @@ public class ValueAsBytesSerializerTest {
   }
 
   @Test
-  public void tsetParseValue() {
+  public void testParseValue() {
     ValueAsBytesSerializer serializer = new ValueAsBytesSerializer("data");
     serializer.setup(event);
     ConsumerRecord<byte[], byte[]> record =
@@ -104,7 +104,7 @@ public class ValueAsBytesSerializerTest {
   }
 
   @Test
-  public void tsetParseValueWildcard() {
+  public void testParseValueWildcard() {
     ValueAsBytesSerializer serializer = new ValueAsBytesSerializer("device.*");
     serializer.setup(gateway);
     ConsumerRecord<byte[], byte[]> record =

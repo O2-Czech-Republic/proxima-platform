@@ -164,4 +164,14 @@ public class KafkaAccessorTest implements Serializable {
     AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
     assertEquals(writer.getUri(), ((KafkaWriter) factory.apply(repo)).getUri());
   }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testInvalidURIPatternParsing() {
+    Utils.topicPattern(URI.create("kafka://broker/?topicPattern=("));
+  }
+
+  @Test
+  public void testValidURIPatternParsing() {
+    assertEquals("pattern", Utils.topicPattern(URI.create("kafka://broker/?topicPattern=pattern")));
+  }
 }

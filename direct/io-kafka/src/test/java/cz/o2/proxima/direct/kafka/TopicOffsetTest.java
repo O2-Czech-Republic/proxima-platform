@@ -22,8 +22,8 @@ public class TopicOffsetTest {
 
   @Test
   public void testHashCodeEquals() {
-    TopicOffset off1 = new TopicOffset(0, 1, 2);
-    TopicOffset off2 = new TopicOffset(0, 1, 2);
+    TopicOffset off1 = new TopicOffset(new PartitionWithTopic("topic", 0), 1, 2);
+    TopicOffset off2 = new TopicOffset(new PartitionWithTopic("topic", 0), 1, 2);
     TestUtils.assertHashCodeAndEquals(off1, off2);
   }
 }

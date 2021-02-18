@@ -28,6 +28,7 @@ import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
@@ -225,7 +226,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           List<Partition> ret = new ArrayList<>();
           for (int i = 0; i < numPartitions; i++) {
             int id = i;
-            ret.add(Partition.of(id));
+            ret.add(new PartitionWithTopic(getTopic(), id));
           }
           return ret;
         }
@@ -762,14 +763,13 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
   }
 
   @Override
-  public Accessor createAccessor(
-      DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public Accessor createAccessor(DirectDataOperator direct, AttributeFamilyDescriptor family) {
 
     Map<URI, Accessor> accessorsForId = ACCESSORS.get(id);
     return accessorsForId.computeIfAbsent(
-        uri,
+        family.getStorageUri(),
         u -> {
-          Accessor newAccessor = new Accessor(entityDesc, u, cfg, id);
+          Accessor newAccessor = new Accessor(family.getEntity(), u, family.getCfg(), id);
           return accessorModifier.apply(newAccessor);
         });
   }

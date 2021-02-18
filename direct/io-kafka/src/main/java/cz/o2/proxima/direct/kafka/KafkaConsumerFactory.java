@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +39,10 @@ public class KafkaConsumerFactory<K, V> {
   private final URI uri;
 
   /** Our assigned topic from the URI. */
-  private final String topic;
+  @Nullable private final String topic;
+
+  /** A topic pattern from the URI. */
+  @Nullable private final String topicPattern;
 
   /** Properties. */
   private final Properties props;
@@ -53,6 +57,7 @@ public class KafkaConsumerFactory<K, V> {
     this.uri = uri;
     this.props = props;
     this.topic = Utils.topic(uri);
+    this.topicPattern = Utils.topicPattern(uri);
     this.keySerde = keySerde;
     this.valueSerde = valueSerde;
   }
@@ -69,10 +74,19 @@ public class KafkaConsumerFactory<K, V> {
     cloned.put(
         ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueSerde.deserializer().getClass());
     KafkaConsumer<K, V> ret = new KafkaConsumer<>(cloned);
-    if (listener == null) {
-      ret.subscribe(Collections.singletonList(topic));
+    if (topic == null) {
+      Pattern pattern = Pattern.compile(topicPattern);
+      if (listener == null) {
+        ret.subscribe(pattern);
+      } else {
+        ret.subscribe(pattern, listener);
+      }
     } else {
-      ret.subscribe(Collections.singletonList(topic), listener);
+      if (listener == null) {
+        ret.subscribe(Collections.singletonList(topic));
+      } else {
+        ret.subscribe(Collections.singletonList(topic), listener);
+      }
     }
     return ret;
   }

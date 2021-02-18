@@ -19,11 +19,14 @@ import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Collection;
+import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.TopicPartition;
 
 /** Various utilities. */
 class Utils {
+
+  static final String TOPIC_PATTERN_QUERY = "topicPattern";
 
   /**
    * Retrieve topic from given URI.
@@ -31,24 +34,40 @@ class Utils {
    * @param uri the URL
    * @return topic name
    */
+  @Nullable
   static String topic(URI uri) {
     String topic = UriUtil.getPathNormalized(uri);
     if (topic.isEmpty()) {
-      throw new IllegalArgumentException("Invalid path in URI " + uri);
+      return null;
     }
     return topic;
   }
 
-  static void seekToOffsets(
-      String topic, Collection<Offset> offsets, final KafkaConsumer<?, ?> consumer) {
+  @Nullable
+  static String topicPattern(URI uri) {
+    String pattern = UriUtil.parseQuery(uri).get(TOPIC_PATTERN_QUERY);
+    if (pattern != null) {
+      try {
+        Pattern.compile(pattern);
+      } catch (Exception ex) {
+        throw new IllegalArgumentException(
+            String.format("Cannot parse topic pattern %s from URI %s", pattern, uri), ex);
+      }
+    }
+    return pattern;
+  }
 
+  static void seekToOffsets(
+      Collection<? extends Offset> offsets, final KafkaConsumer<?, ?> consumer) {
     // seek to given offsets
     offsets.forEach(
         o -> {
           TopicOffset to = (TopicOffset) o;
-          TopicPartition tp = new TopicPartition(topic, o.getPartition().getId());
           if (to.getOffset() >= 0) {
-            consumer.seek(tp, to.getOffset());
+            consumer.seek(
+                new org.apache.kafka.common.TopicPartition(
+                    to.getPartition().getTopic(), to.getPartition().getPartition()),
+                to.getOffset());
           }
         });
   }

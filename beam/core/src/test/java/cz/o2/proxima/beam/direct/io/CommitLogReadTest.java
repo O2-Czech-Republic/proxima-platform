@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import static cz.o2.proxima.util.TestUtils.createTestFamily;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -165,17 +166,19 @@ public class CommitLogReadTest {
       KafkaAccessor accessor =
           kafka.createAccessor(
               direct,
-              event,
-              URI.create("kafka-test://brokers/topic-" + UUID.randomUUID().toString()),
-              ImmutableMap.of(
-                  LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS,
-                  numPartitions,
-                  WatermarkConfiguration.prefixedKey(WatermarkConfiguration.CFG_ESTIMATOR_FACTORY),
-                  FiniteElementsWatermarkEstimatorFactory.class.getName(),
-                  WatermarkConfiguration.prefixedKey("numElements"),
-                  numElements,
-                  WatermarkConfiguration.prefixedKey("name"),
-                  UUID.randomUUID().toString()));
+              createTestFamily(
+                  event,
+                  URI.create("kafka-test://brokers/topic-" + UUID.randomUUID().toString()),
+                  ImmutableMap.of(
+                      LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS,
+                      numPartitions,
+                      WatermarkConfiguration.prefixedKey(
+                          WatermarkConfiguration.CFG_ESTIMATOR_FACTORY),
+                      FiniteElementsWatermarkEstimatorFactory.class.getName(),
+                      WatermarkConfiguration.prefixedKey("numElements"),
+                      numElements,
+                      WatermarkConfiguration.prefixedKey("name"),
+                      UUID.randomUUID().toString())));
 
       writeElementsToKafka(numElements, accessor);
 
@@ -194,17 +197,19 @@ public class CommitLogReadTest {
     KafkaAccessor accessor =
         kafka.createAccessor(
             direct,
-            event,
-            URI.create("kafka-test://brokers/topic-" + UUID.randomUUID().toString()),
-            ImmutableMap.of(
-                LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS,
-                numPartitions,
-                WatermarkConfiguration.prefixedKey(WatermarkConfiguration.CFG_ESTIMATOR_FACTORY),
-                FiniteElementsWatermarkEstimatorFactory.class.getName(),
-                WatermarkConfiguration.prefixedKey("numElements"),
-                numElements,
-                WatermarkConfiguration.prefixedKey("name"),
-                UUID.randomUUID().toString()));
+            createTestFamily(
+                event,
+                URI.create("kafka-test://brokers/topic-" + UUID.randomUUID().toString()),
+                ImmutableMap.of(
+                    LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS,
+                    numPartitions,
+                    WatermarkConfiguration.prefixedKey(
+                        WatermarkConfiguration.CFG_ESTIMATOR_FACTORY),
+                    FiniteElementsWatermarkEstimatorFactory.class.getName(),
+                    WatermarkConfiguration.prefixedKey("numElements"),
+                    numElements,
+                    WatermarkConfiguration.prefixedKey("name"),
+                    UUID.randomUUID().toString())));
 
     writeElementsToKafka(numElements, accessor);
 

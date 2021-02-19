@@ -15,19 +15,22 @@
  */
 package cz.o2.proxima.direct.gcloud.storage;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.bulk.NamingConvention;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
+import cz.o2.proxima.direct.core.DataAccessor;
+import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Collections;
+import java.util.Optional;
 import org.junit.Test;
 
 public class GCloudStorageAccessorTest {
@@ -40,7 +43,8 @@ public class GCloudStorageAccessorTest {
   @Test
   public void testNamingConventionWithBucket() {
     GCloudStorageAccessor accessor =
-        new GCloudStorageAccessor(entity, URI.create("gs://bucket/path"), Collections.emptyMap());
+        new GCloudStorageAccessor(
+            TestUtils.createTestFamily(entity, URI.create("gs://bucket/path")));
     NamingConvention convention = accessor.getNamingConvention();
     assertTrue(convention.nameOf(1500000000000L).startsWith("/2017/07/"));
   }
@@ -48,7 +52,7 @@ public class GCloudStorageAccessorTest {
   @Test
   public void testNamingConventionWithBucketAndNoPath() {
     GCloudStorageAccessor accessor =
-        new GCloudStorageAccessor(entity, URI.create("gs://bucket"), Collections.emptyMap());
+        new GCloudStorageAccessor(TestUtils.createTestFamily(entity, URI.create("gs://bucket")));
     NamingConvention convention = accessor.getNamingConvention();
     assertTrue(convention.nameOf(1500000000000L).startsWith("/2017/07/"));
   }
@@ -56,19 +60,23 @@ public class GCloudStorageAccessorTest {
   @Test
   public void testWriterAsFactorySerializable() throws IOException, ClassNotFoundException {
     GCloudStorageAccessor accessor =
-        new GCloudStorageAccessor(entity, URI.create("gs://bucket"), Collections.emptyMap());
-    BulkGCloudStorageWriter writer = new BulkGCloudStorageWriter(accessor, direct.getContext());
-    byte[] bytes = TestUtils.serializeObject(writer.asFactory());
+        new GCloudStorageAccessor(TestUtils.createTestFamily(entity, URI.create("gs://bucket")));
+    Optional<AttributeWriterBase> writer = accessor.getWriter(direct.getContext());
+    assertTrue(writer.isPresent());
+    byte[] bytes = TestUtils.serializeObject(writer.get().asFactory());
     AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
-    assertEquals(writer.getUri(), factory.apply(repo).getUri());
+    assertEquals(writer.get().getUri(), factory.apply(repo).getUri());
   }
 
   @Test
   public void testReaderAsFactorySerializable() throws IOException, ClassNotFoundException {
-    GCloudStorageAccessor accessor =
-        new GCloudStorageAccessor(entity, URI.create("gs://bucket"), Collections.emptyMap());
-    GCloudLogReader reader = new GCloudLogReader(accessor, direct.getContext());
-    byte[] bytes = TestUtils.serializeObject(reader.asFactory());
+    DataAccessorFactory descriptor = new GCloudStorageDescriptor();
+    DataAccessor accessor =
+        descriptor.createAccessor(
+            direct, TestUtils.createTestFamily(entity, URI.create("gs://bucket")));
+    Optional<BatchLogReader> reader = accessor.getBatchLogReader(direct.getContext());
+    assertTrue(reader.isPresent());
+    byte[] bytes = TestUtils.serializeObject(reader.get().asFactory());
     BatchLogReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
     assertEquals(accessor.getUri(), ((GCloudLogReader) factory.apply(repo)).getAccessor().getUri());
   }

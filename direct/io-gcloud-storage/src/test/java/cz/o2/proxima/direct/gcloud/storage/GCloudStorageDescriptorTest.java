@@ -15,34 +15,32 @@
  */
 package cz.o2.proxima.direct.gcloud.storage;
 
-import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
+import static org.junit.Assert.assertEquals;
+
+import cz.o2.proxima.direct.core.DataAccessorFactory;
+import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
-import java.io.Serializable;
 import java.net.URI;
 import org.junit.Test;
 
-public class GCloudBlobPathTest implements Serializable {
+public class GCloudStorageDescriptorTest {
 
-  Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
-  EntityDescriptor entity = repo.getEntity("gateway");
+  private final DataAccessorFactory factory = new GCloudStorageDescriptor();
 
   @Test
   public void testSerializable() throws IOException, ClassNotFoundException {
-    GCloudFileSystem fs =
-        new GCloudFileSystem(
-            new GCloudStorageAccessor(
-                TestUtils.createTestFamily(entity, URI.create("gs://bucket"))));
-    GCloudBlobPath path =
-        new GCloudBlobPath(fs, null) {
-          @Override
-          public String getBlobName() {
-            return "name";
-          }
-        };
-    GCloudBlobPath path2 = TestUtils.assertSerializable(path);
-    TestUtils.assertHashCodeAndEquals(path, path2);
+    TestUtils.assertSerializable(factory);
+  }
+
+  @Test
+  public void testHashCodeAndEquals() {
+    TestUtils.assertHashCodeAndEquals(factory, new GCloudStorageDescriptor());
+  }
+
+  @Test
+  public void testAcceptSchema() {
+    assertEquals(Accept.ACCEPT, factory.accepts(URI.create("gs://bucket/path")));
+    assertEquals(Accept.REJECT, factory.accepts(URI.create("file:///")));
   }
 }

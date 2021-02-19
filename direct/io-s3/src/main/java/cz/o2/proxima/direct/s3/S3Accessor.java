@@ -21,9 +21,7 @@ import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import java.net.URI;
-import java.util.Map;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.util.Optional;
 
 /** A {@link DataAccessor} for gcloud storage. */
@@ -33,8 +31,8 @@ class S3Accessor extends BlobStorageAccessor {
 
   private S3FileSystem fs;
 
-  public S3Accessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-    super(entityDesc, uri, cfg);
+  public S3Accessor(AttributeFamilyDescriptor family) {
+    super(family);
   }
 
   @Override

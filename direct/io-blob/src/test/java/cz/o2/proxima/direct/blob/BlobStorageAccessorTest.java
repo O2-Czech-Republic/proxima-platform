@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.blob;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.blob.TestBlobStorageAccessor.TestBlob;
@@ -27,7 +27,6 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Collections;
 import org.junit.Test;
 
 public class BlobStorageAccessorTest {
@@ -40,7 +39,7 @@ public class BlobStorageAccessorTest {
   public void testNamingConventionWithBucket() {
     BlobStorageAccessor accessor =
         new TestBlobStorageAccessor(
-            entity, URI.create("blob-test://bucket/path"), Collections.emptyMap());
+            TestUtils.createTestFamily(entity, URI.create("blob-test://bucket/path")));
     NamingConvention convention = accessor.getNamingConvention();
     assertTrue(convention.nameOf(1500000000000L).startsWith("/2017/07/"));
   }
@@ -49,7 +48,7 @@ public class BlobStorageAccessorTest {
   public void testNamingConventionWithBucketAndNoPath() {
     BlobStorageAccessor accessor =
         new TestBlobStorageAccessor(
-            entity, URI.create("blob-test://bucket"), Collections.emptyMap());
+            TestUtils.createTestFamily(entity, URI.create("blob-test://bucket")));
     NamingConvention convention = accessor.getNamingConvention();
     assertTrue(convention.nameOf(1500000000000L).startsWith("/2017/07/"));
   }
@@ -58,7 +57,7 @@ public class BlobStorageAccessorTest {
   public void testBlobPathSerializable() throws IOException, ClassNotFoundException {
     TestBlobStorageAccessor accessor =
         new TestBlobStorageAccessor(
-            entity, URI.create("blob-test://bucket"), Collections.emptyMap());
+            TestUtils.createTestFamily(entity, URI.create("blob-test://bucket")));
 
     FileSystem fs = accessor.new TestBlobFileSystem();
     TestBlob blob = accessor.new TestBlob("test");

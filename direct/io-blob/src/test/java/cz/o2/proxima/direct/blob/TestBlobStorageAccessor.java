@@ -20,7 +20,7 @@ import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.Path;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.io.ByteArrayInputStream;
@@ -114,14 +114,14 @@ public class TestBlobStorageAccessor extends BlobStorageAccessor {
     @Override
     public Stream<Path> list(long minTs, long maxTs) {
       return outputStreams
-          .entrySet()
+          .keySet()
           .stream()
           .filter(
-              e ->
+              byteArrayOutputStream ->
                   TestBlobStorageAccessor.this
                       .getNamingConvention()
-                      .isInRange(e.getKey(), minTs, maxTs))
-          .map(e -> new TestBlobPath(fs, new TestBlob(e.getKey())));
+                      .isInRange(byteArrayOutputStream, minTs, maxTs))
+          .map(byteArrayOutputStream -> new TestBlobPath(fs, new TestBlob(byteArrayOutputStream)));
     }
 
     @Override
@@ -193,18 +193,16 @@ public class TestBlobStorageAccessor extends BlobStorageAccessor {
   private final Map<String, ByteArrayOutputStream> outputStreams = new ConcurrentHashMap<>();
   private final TestBlobFileSystem fs;
 
-  public TestBlobStorageAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-    this(entityDesc, uri, cfg, null, new AtomicReference<>());
+  public TestBlobStorageAccessor(AttributeFamilyDescriptor family) {
+    this(family, null, new AtomicReference<>());
   }
 
   public TestBlobStorageAccessor(
-      EntityDescriptor entityDesc,
-      URI uri,
-      Map<String, Object> cfg,
+      AttributeFamilyDescriptor family,
       @Nullable Runnable afterWrite,
       AtomicReference<Runnable> preWrite) {
 
-    super(entityDesc, uri, cfg);
+    super(family);
     fs = new TestBlobFileSystem(afterWrite, preWrite);
   }
 

@@ -19,11 +19,21 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
+import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor.Builder;
+import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.storage.AccessType;
+import cz.o2.proxima.storage.StorageType;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.URI;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 public class TestUtils {
 
@@ -94,5 +104,55 @@ public class TestUtils {
     assertEquals(first, second);
     assertEquals("Hashcode should be same.", first.hashCode(), second.hashCode());
     assertNotEquals(first, new Object());
+  }
+
+  /**
+   * Create {@link AttributeFamilyDescriptor} for test purpose.
+   *
+   * @param entity entity
+   * @param uri storage URI
+   * @return attribute family descriptor
+   */
+  public static AttributeFamilyDescriptor createTestFamily(EntityDescriptor entity, URI uri) {
+    return createTestFamily(entity, uri, Collections.emptyList(), Collections.emptyMap());
+  }
+
+  /**
+   * Create {@link AttributeFamilyDescriptor} for test purpose.
+   *
+   * @param entity entity
+   * @param uri storage URI
+   * @param cfg configuration
+   * @return attribute family descriptor
+   */
+  public static AttributeFamilyDescriptor createTestFamily(
+      EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
+    return createTestFamily(entity, uri, Collections.emptyList(), cfg);
+  }
+
+  /**
+   * Create {@link AttributeFamilyDescriptor} for test purpose.
+   *
+   * @param entity entity
+   * @param uri storage URI
+   * @param attr attributes
+   * @param cfg configuration
+   * @return attribute family descriptor
+   */
+  public static AttributeFamilyDescriptor createTestFamily(
+      EntityDescriptor entity,
+      URI uri,
+      List<AttributeDescriptor<?>> attr,
+      Map<String, Object> cfg) {
+    Builder builder =
+        AttributeFamilyDescriptor.newBuilder()
+            .setName("test-family")
+            .setEntity(entity)
+            .setStorageUri(uri)
+            .setType(StorageType.PRIMARY)
+            .setAccess(AccessType.from("read-only"))
+            .setCfg(cfg);
+    attr.forEach(builder::addAttribute);
+    return builder.build();
   }
 }

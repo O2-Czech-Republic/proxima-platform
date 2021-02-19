@@ -95,7 +95,10 @@ public class S3BlobPathTest implements Serializable {
     Context context = op.getContext();
     S3FileSystem fs =
         new S3FileSystem(
-            new S3Accessor(entity, URI.create("gs://bucket"), S3FileSystemTest.cfg()), context);
+            new S3Accessor(
+                TestUtils.createTestFamily(
+                    entity, URI.create("s3://bucket"), S3FileSystemTest.cfg())),
+            context);
     S3BlobPath path = new S3BlobPath(context, fs, new S3Blob("name", fs));
     S3BlobPath path2 = TestUtils.assertSerializable(path);
     TestUtils.assertHashCodeAndEquals(path, path2);

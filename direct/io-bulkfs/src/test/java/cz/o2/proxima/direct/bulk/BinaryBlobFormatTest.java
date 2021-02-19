@@ -24,7 +24,6 @@ import cz.o2.proxima.direct.bulk.BinaryBlobFormat.BinaryBlobReader;
 import cz.o2.proxima.direct.bulk.BinaryBlobFormat.BinaryBlobWriter;
 import cz.o2.proxima.gcloud.storage.proto.Serialization.Header;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.AttributeDescriptorBase;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
@@ -86,8 +85,8 @@ public class BinaryBlobFormatTest {
     this.entity =
         EntityDescriptor.newBuilder()
             .setName("dummy")
-            .addAttribute((AttributeDescriptorBase<?>) attr)
-            .addAttribute((AttributeDescriptorBase<?>) wildcard)
+            .addAttribute(attr)
+            .addAttribute(wildcard)
             .build();
   }
 

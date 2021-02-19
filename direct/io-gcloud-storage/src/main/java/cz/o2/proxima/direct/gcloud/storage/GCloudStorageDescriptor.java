@@ -18,20 +18,20 @@ package cz.o2.proxima.direct.gcloud.storage;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.net.URI;
-import java.util.Map;
+import lombok.EqualsAndHashCode;
 
 /** A {@link DataAccessorFactory} for gcloud storage. */
+@EqualsAndHashCode
 public class GCloudStorageDescriptor implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-
-    return new GCloudStorageAccessor(entityDesc, uri, cfg);
+      DirectDataOperator operator, AttributeFamilyDescriptor familyDescriptor) {
+    return new GCloudStorageAccessor(familyDescriptor);
   }
 
   @Override

@@ -16,7 +16,9 @@
 package cz.o2.proxima.direct.s3;
 
 import static cz.o2.proxima.direct.s3.S3FileSystemTest.cfg;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogReader;
@@ -28,7 +30,6 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.net.URI;
-import java.util.Collections;
 import org.junit.Test;
 
 public class S3AccessorTest {
@@ -39,23 +40,33 @@ public class S3AccessorTest {
   private final EntityDescriptor entity = repo.getEntity("gateway");
 
   @Test
+  public void testCreateAccessorFromDescriptor() {
+    S3StorageDescriptor descriptor = new S3StorageDescriptor();
+    assertNotNull(
+        descriptor.createAccessor(
+            direct, TestUtils.createTestFamily(entity, URI.create("s3://bucket/path"))));
+  }
+
+  @Test
   public void testNamingConventionWithBucket() {
     S3Accessor accessor =
-        new S3Accessor(entity, URI.create("gs://bucket/path"), Collections.emptyMap());
+        new S3Accessor(TestUtils.createTestFamily(entity, URI.create("s3://bucket/path")));
     NamingConvention convention = accessor.getNamingConvention();
     assertTrue(convention.nameOf(1500000000000L).startsWith("/2017/07/"));
   }
 
   @Test
   public void testNamingConventionWithBucketAndNoPath() {
-    S3Accessor accessor = new S3Accessor(entity, URI.create("gs://bucket"), Collections.emptyMap());
+    S3Accessor accessor =
+        new S3Accessor(TestUtils.createTestFamily(entity, URI.create("s3://bucket/path")));
     NamingConvention convention = accessor.getNamingConvention();
     assertTrue(convention.nameOf(1500000000000L).startsWith("/2017/07/"));
   }
 
   @Test
   public void testWriterAsFactorySerializable() throws IOException, ClassNotFoundException {
-    S3Accessor accessor = new S3Accessor(entity, URI.create("s3://bucket"), cfg());
+    S3Accessor accessor =
+        new S3Accessor(TestUtils.createTestFamily(entity, URI.create("s3://bucket/path"), cfg()));
     BulkS3Writer writer = new BulkS3Writer(accessor, direct.getContext());
     byte[] bytes = TestUtils.serializeObject(writer.asFactory());
     AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
@@ -64,7 +75,8 @@ public class S3AccessorTest {
 
   @Test
   public void testReaderAsFactorySerializable() throws IOException, ClassNotFoundException {
-    S3Accessor accessor = new S3Accessor(entity, URI.create("s3://bucket"), cfg());
+    S3Accessor accessor =
+        new S3Accessor(TestUtils.createTestFamily(entity, URI.create("s3://bucket/path"), cfg()));
     S3LogReader reader = new S3LogReader(accessor, direct.getContext());
     byte[] bytes = TestUtils.serializeObject(reader.asFactory());
     BatchLogReader.Factory<?> factory = TestUtils.deserializeObject(bytes);

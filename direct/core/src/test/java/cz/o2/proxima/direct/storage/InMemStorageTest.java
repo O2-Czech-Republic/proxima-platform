@@ -26,12 +26,17 @@ import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
+import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.storage.InMemStorage.ConsumedOffset;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.AccessType;
+import cz.o2.proxima.storage.Partition;
+import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.WatermarkEstimator;
@@ -42,8 +47,12 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,20 +64,15 @@ public class InMemStorageTest implements Serializable {
 
   final Repository repo = Repository.of(ConfigFactory.load("test-reference.conf").resolve());
   final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
-  final EntityDescriptor entity =
-      repo.findEntity("dummy").orElseThrow(() -> new IllegalStateException("Missing entity dummy"));
-  final AttributeDescriptor<?> data =
-      entity
-          .findAttribute("data")
-          .orElseThrow(() -> new IllegalStateException("Missing attribute data"));
+  final EntityDescriptor entity = repo.getEntity("dummy");
+  final AttributeDescriptor<?> data = entity.getAttribute("data");
 
   @Test(timeout = 10000)
   public void testObservePartitions() throws InterruptedException {
-
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
         storage.createAccessor(
-            direct, entity, URI.create("inmem:///inmemstoragetest"), Collections.emptyMap());
+            direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
     CommitLogReader reader =
         accessor
             .getCommitLogReader(direct.getContext())
@@ -124,9 +128,9 @@ public class InMemStorageTest implements Serializable {
   public void testObservePartionsWithSamePath() throws InterruptedException {
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
-        storage.createAccessor(direct, entity, URI.create("inmem://test1"), Collections.emptyMap());
+        storage.createAccessor(direct, createFamilyDescriptor(URI.create("inmem://test1")));
     DataAccessor accessor2 =
-        storage.createAccessor(direct, entity, URI.create("inmem://test2"), Collections.emptyMap());
+        storage.createAccessor(direct, createFamilyDescriptor(URI.create("inmem://test2")));
     CommitLogReader reader =
         accessor
             .getCommitLogReader(direct.getContext())
@@ -186,7 +190,7 @@ public class InMemStorageTest implements Serializable {
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
         storage.createAccessor(
-            direct, entity, URI.create("inmem:///inmemstoragetest"), Collections.emptyMap());
+            direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
     BatchLogReader reader =
         accessor
             .getBatchLogReader(direct.getContext())
@@ -210,7 +214,7 @@ public class InMemStorageTest implements Serializable {
             (succ, exc) -> {});
     reader.observe(
         reader.getPartitions(),
-        Arrays.asList(data),
+        Collections.singletonList(data),
         new BatchLogObserver() {
 
           @Override
@@ -234,9 +238,9 @@ public class InMemStorageTest implements Serializable {
 
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
-        storage.createAccessor(direct, entity, URI.create("inmem://test1"), Collections.emptyMap());
+        storage.createAccessor(direct, createFamilyDescriptor(URI.create("inmem://test1")));
     DataAccessor accessor2 =
-        storage.createAccessor(direct, entity, URI.create("inmem://test2"), Collections.emptyMap());
+        storage.createAccessor(direct, createFamilyDescriptor(URI.create("inmem://test2")));
     BatchLogReader reader =
         accessor
             .getBatchLogReader(direct.getContext())
@@ -291,11 +295,10 @@ public class InMemStorageTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testObserveCancel() {
-
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
         storage.createAccessor(
-            direct, entity, URI.create("inmem:///inmemstoragetest"), Collections.emptyMap());
+            direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
     CommitLogReader reader =
         accessor
             .getCommitLogReader(direct.getContext())
@@ -364,11 +367,10 @@ public class InMemStorageTest implements Serializable {
 
   @Test(timeout = 10000)
   public void testObserveOffsets() throws InterruptedException {
-
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
         storage.createAccessor(
-            direct, entity, URI.create("inmem:///inmemstoragetest"), Collections.emptyMap());
+            direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
     CommitLogReader reader =
         accessor
             .getCommitLogReader(direct.getContext())
@@ -469,7 +471,7 @@ public class InMemStorageTest implements Serializable {
               @Override
               public void setMinWatermark(long minWatermark) {}
             });
-    DataAccessor accessor = storage.createAccessor(direct, entity, uri, Collections.emptyMap());
+    DataAccessor accessor = storage.createAccessor(direct, createFamilyDescriptor(uri));
     CommitLogReader reader =
         accessor
             .getCommitLogReader(direct.getContext())
@@ -501,8 +503,7 @@ public class InMemStorageTest implements Serializable {
   public void testObserveError() throws InterruptedException {
     final URI uri = URI.create("inmem:///inmemstoragetest");
     final InMemStorage storage = new InMemStorage();
-    final DataAccessor accessor =
-        storage.createAccessor(direct, entity, uri, Collections.emptyMap());
+    final DataAccessor accessor = storage.createAccessor(direct, createFamilyDescriptor(uri));
     final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
 
     final AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
@@ -570,5 +571,82 @@ public class InMemStorageTest implements Serializable {
     failingObserverErrorReceived.await();
     successObserverAllReceived.await();
     assertEquals(1, failingObserverMessages.get());
+  }
+
+  @Test
+  public void testObserveMultiplePartitions() throws InterruptedException {
+    final int numPartitions = 3;
+    final InMemStorage storage = new InMemStorage();
+    final DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///test"), numPartitions));
+    final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    final AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
+    final int numElements = 1_000;
+    final ConcurrentMap<Partition, Long> partitionHistogram = new ConcurrentHashMap<>();
+    final CountDownLatch elementsReceived = new CountDownLatch(numElements);
+    // Start observer.
+    final ObserveHandle observeHandle =
+        reader.observePartitions(
+            reader.getPartitions(),
+            new LogObserver() {
+
+              @Override
+              public void onRepartition(OnRepartitionContext context) {
+                assertEquals(numPartitions, context.partitions().size());
+              }
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                partitionHistogram.merge(context.getPartition(), 1L, Long::sum);
+                context.confirm();
+                elementsReceived.countDown();
+                return elementsReceived.getCount() > 0;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
+    // Write data.
+    for (int i = 0; i < numElements; i++) {
+      writer
+          .online()
+          .write(
+              StreamElement.upsert(
+                  entity,
+                  data,
+                  UUID.randomUUID().toString(),
+                  "key_" + i,
+                  data.getName(),
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2, 3}),
+              CommitCallback.noop());
+    }
+    // Wait for all elements to be received.
+    elementsReceived.await();
+
+    assertEquals(3, partitionHistogram.size());
+    assertEquals(3, observeHandle.getCurrentOffsets().size());
+  }
+
+  private AttributeFamilyDescriptor createFamilyDescriptor(URI storageUri) {
+    return createFamilyDescriptor(storageUri, 1);
+  }
+
+  private AttributeFamilyDescriptor createFamilyDescriptor(URI storageUri, int numPartitions) {
+    final Map<String, Object> config = new HashMap<>();
+    if (numPartitions > 1) {
+      config.put(InMemStorage.NUM_PARTITIONS, 3);
+    }
+    return AttributeFamilyDescriptor.newBuilder()
+        .setName("test")
+        .setEntity(entity)
+        .setType(StorageType.PRIMARY)
+        .setAccess(AccessType.from("commit-log"))
+        .setStorageUri(storageUri)
+        .setCfg(config)
+        .build();
   }
 }

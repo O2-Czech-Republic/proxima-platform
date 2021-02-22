@@ -20,6 +20,7 @@ import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
+import lombok.Value;
 
 /**
  * Interface representing a partition of the commit log. A partition is an element of parallelism,
@@ -28,6 +29,13 @@ import java.util.Collections;
 @Stable
 @FunctionalInterface
 public interface Partition extends Serializable, Comparable<Partition> {
+
+  @Value
+  class IntegerPartition implements Partition {
+
+    /** Numerical identifier of the partition. */
+    int id;
+  }
 
   /**
    * Retrieve id of the partition.
@@ -98,17 +106,7 @@ public interface Partition extends Serializable, Comparable<Partition> {
    * @return partition
    */
   static Partition of(int id) {
-    return new Partition() {
-      @Override
-      public int getId() {
-        return id;
-      }
-
-      @Override
-      public String toString() {
-        return MoreObjects.toStringHelper(Partition.class).add("id", id).toString();
-      }
-    };
+    return new IntegerPartition(id);
   }
 
   /**

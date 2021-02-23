@@ -39,7 +39,7 @@ import org.joda.time.Duration;
 class ReadMe {
 
   private Model createModel() {
-    return Model.of(ConfigFactory.defaultApplication());
+    return Model.of(ConfigFactory.load("test-readme.conf").resolve());
   }
 
   private void createStream() {

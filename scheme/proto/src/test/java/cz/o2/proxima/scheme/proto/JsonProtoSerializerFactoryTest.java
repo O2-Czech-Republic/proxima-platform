@@ -25,14 +25,14 @@ import cz.o2.proxima.scheme.proto.test.Scheme.Event;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import org.junit.Test;
 
 /** Test {@link JsonProtoSerializerFactory}. */
-@SuppressWarnings("unchecked")
 public class JsonProtoSerializerFactoryTest {
 
-  private static final Charset UTF8 = Charset.forName("UTF-8");
+  private static final Charset UTF8 = StandardCharsets.UTF_8;
 
   ValueSerializerFactory factory = new JsonProtoSerializerFactory();
 
@@ -43,7 +43,7 @@ public class JsonProtoSerializerFactoryTest {
             .setGatewayId("gateway")
             .setPayload(ByteString.copyFrom(new byte[] {1, 2, 3}))
             .build();
-    ValueSerializer serializer =
+    ValueSerializer<Event> serializer =
         factory.getValueSerializer(new URI("json-proto:" + Event.class.getName()));
     String json = new String(serializer.serialize(event), UTF8);
     assertEquals("{\n  \"gatewayId\": \"gateway\",\n  \"payload\": \"AQID\"\n}", json);
@@ -57,7 +57,7 @@ public class JsonProtoSerializerFactoryTest {
             .setGatewayId("gateway")
             .setPayload(ByteString.copyFrom(new byte[] {1, 2, 3}))
             .build();
-    ValueSerializer serializer =
+    ValueSerializer<Event> serializer =
         factory.getValueSerializer(new URI("json-proto:" + Event.class.getName()));
     Optional<Event> deserialized = serializer.deserialize(json.getBytes(UTF8));
     assertTrue(deserialized.isPresent());
@@ -68,7 +68,7 @@ public class JsonProtoSerializerFactoryTest {
   public void testDeserializationWithMissingField() throws URISyntaxException {
     String json = "{\"gatewayId\": \"gateway\"}";
     Event event = Event.newBuilder().setGatewayId("gateway").build();
-    ValueSerializer serializer =
+    ValueSerializer<Event> serializer =
         factory.getValueSerializer(new URI("json-proto:" + Event.class.getName()));
     Optional<Event> deserialized = serializer.deserialize(json.getBytes(UTF8));
     assertTrue(deserialized.isPresent());
@@ -79,7 +79,7 @@ public class JsonProtoSerializerFactoryTest {
   public void testDeserializationWithUnknownField() throws URISyntaxException {
     String json = "{\"gatewayId\": \"gateway\", \"unknown\": 1}";
     Event event = Event.newBuilder().setGatewayId("gateway").build();
-    ValueSerializer serializer =
+    ValueSerializer<Event> serializer =
         factory.getValueSerializer(new URI("json-proto:" + Event.class.getName()));
     Optional<Event> deserialized = serializer.deserialize(json.getBytes(UTF8));
     assertTrue(deserialized.isPresent());
@@ -88,7 +88,7 @@ public class JsonProtoSerializerFactoryTest {
 
   @Test
   public void testIsUsable() throws URISyntaxException {
-    ValueSerializer serializer =
+    ValueSerializer<Event> serializer =
         factory.getValueSerializer(new URI("json-proto:" + Event.class.getName()));
     assertTrue(serializer.isUsable());
   }

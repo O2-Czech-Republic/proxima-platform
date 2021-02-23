@@ -308,7 +308,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
   private abstract class AbstractCommitLogReadFn extends DoFn<byte[], StreamElement> {
 
-    protected final String name;
+    @Nullable protected final String name;
     protected final Position position;
     protected final RepositoryFactory repositoryFactory;
     protected final Factory<?> readerFactory;
@@ -325,15 +325,11 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         RepositoryFactory repositoryFactory,
         CommitLogReader.Factory<?> readerFactory) {
 
-      this.name = createObserverNameFrom(name);
+      this.name = name;
       this.position = position;
       this.limit = limit;
       this.repositoryFactory = repositoryFactory;
       this.readerFactory = readerFactory;
-    }
-
-    protected String createObserverNameFrom(@Nullable String observerName) {
-      return observerName == null ? UUID.randomUUID().toString() : observerName;
     }
 
     public ProcessContinuation process(
@@ -431,7 +427,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
       partitionToSeekedOffset.remove(part);
     }
 
-    private void startObserve(String name, Partition partition, OffsetRange restriction) {
+    private void startObserve(@Nullable String name, Partition partition, OffsetRange restriction) {
       CommitLogReader reader = readerFactory.apply(repositoryFactory.apply());
       this.externalizableOffsets = reader.hasExternalizableOffsets();
       BlockingQueueLogObserver observer = newObserver(name, restriction);
@@ -450,7 +446,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         OffsetRange restriction, CommitLogReader reader, BlockingQueueLogObserver observer);
 
     abstract ObserveHandle observeBulkPartitions(
-        String name,
+        @Nullable String name,
         OffsetRange restriction,
         CommitLogReader reader,
         BlockingQueueLogObserver observer);
@@ -531,8 +527,10 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
   }
 
   @VisibleForTesting
-  BlockingQueueLogObserver newObserver(String name, OffsetRange restriction) {
+  BlockingQueueLogObserver newObserver(@Nullable String name, OffsetRange restriction) {
     return BlockingQueueLogObserver.create(
-        name, restriction.getTotalLimit(), Watermarks.MIN_WATERMARK);
+        name != null ? name : UUID.randomUUID().toString(),
+        restriction.getTotalLimit(),
+        Watermarks.MIN_WATERMARK);
   }
 }

@@ -15,7 +15,11 @@
  */
 package cz.o2.proxima.server;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.ByteString;
 import com.typesafe.config.ConfigFactory;
@@ -52,7 +56,10 @@ public class IngestServiceTest {
   public void setup() throws InterruptedException {
     server =
         new IngestServer(
-            ConfigFactory.load().withFallback(ConfigFactory.load("test-reference.conf")).resolve(),
+            ConfigFactory.load("test-ingest-server.conf")
+                .withFallback(ConfigFactory.load("test-proto.conf"))
+                .withFallback(ConfigFactory.load("test-reference.conf"))
+                .resolve(),
             true);
     ingest = new IngestService(server.repo, server.direct, server.scheduler);
     final ReplicationController controller = ReplicationController.of(server.repo);
@@ -66,9 +73,7 @@ public class IngestServiceTest {
 
           @Override
           public void onNext(Rpc.StatusBulk status) {
-            for (Rpc.Status s : status.getStatusList()) {
-              responses.add(s);
-            }
+            responses.addAll(status.getStatusList());
           }
 
           @Override
@@ -440,10 +445,10 @@ public class IngestServiceTest {
     Map<String, Pair<Long, byte[]>> data = storage.getData();
     assertEquals(2, data.size());
     byte[] value = data.get("/test_inmem/my-dummy-entity#data").getSecond();
-    assertTrue(value != null);
+    assertNotNull(value);
     assertEquals(payload, ExtendedMessage.parseFrom(value));
     value = data.get("/test_inmem/random/my-dummy-entity#data").getSecond();
-    assertTrue(value != null);
+    assertNotNull(value);
     assertEquals(payload, ExtendedMessage.parseFrom(value));
   }
 
@@ -470,7 +475,7 @@ public class IngestServiceTest {
     InMemStorage storage = getInMemStorage();
     Map<String, Pair<Long, byte[]>> data = storage.getData();
     byte[] value = data.get("/proxima/dummy/my-dummy-entity#wildcard." + now).getSecond();
-    assertTrue(value != null);
+    assertNotNull(value);
   }
 
   @Test
@@ -511,25 +516,20 @@ public class IngestServiceTest {
   }
 
   private InMemStorage getInMemStorage() throws URISyntaxException {
-    InMemStorage storage =
-        (InMemStorage)
-            server
-                .direct
-                .getAccessorFactory(new URI("inmem:///"))
-                .map(f -> ((DirectDataOperator.DelegateDataAccessorFactory) f).getDelegate())
-                .orElseThrow(() -> new IllegalStateException("Missing accessor for inmem:///"));
-    return storage;
+    return (InMemStorage)
+        server
+            .direct
+            .getAccessorFactory(new URI("inmem:///"))
+            .map(f -> ((DirectDataOperator.DelegateDataAccessorFactory) f).getDelegate())
+            .orElseThrow(() -> new IllegalStateException("Missing accessor for inmem:///"));
   }
 
   private InMemBulkStorage getInMemBulkStorage() throws URISyntaxException {
-    InMemBulkStorage storage =
-        (InMemBulkStorage)
-            server
-                .direct
-                .getAccessorFactory(new URI("inmem-bulk:///"))
-                .map(f -> ((DirectDataOperator.DelegateDataAccessorFactory) f).getDelegate())
-                .orElseThrow(
-                    () -> new IllegalStateException("Missing accessor for inmem-bulk:///"));
-    return storage;
+    return (InMemBulkStorage)
+        server
+            .direct
+            .getAccessorFactory(new URI("inmem-bulk:///"))
+            .map(f -> ((DirectDataOperator.DelegateDataAccessorFactory) f).getDelegate())
+            .orElseThrow(() -> new IllegalStateException("Missing accessor for inmem-bulk:///"));
   }
 }

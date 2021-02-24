@@ -15,7 +15,9 @@
  */
 package cz.o2.proxima.server;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.typesafe.config.ConfigFactory;
@@ -24,6 +26,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.server.test.Test.ExtendedMessage;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.Optionals;
 import io.grpc.stub.StreamObserver;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,7 +45,9 @@ public class RetrieveServiceTest {
   public void setup() throws InterruptedException {
     server =
         new IngestServer(
-            ConfigFactory.load("test-reference.conf").withFallback(ConfigFactory.load()).resolve());
+            ConfigFactory.load("test-reference.conf")
+                .withFallback(ConfigFactory.load("test-ingest-server.conf"))
+                .resolve());
     retrieve = new RetrieveService(server.repo, server.direct);
     server.runReplications();
   }
@@ -119,10 +124,7 @@ public class RetrieveServiceTest {
     EntityDescriptor entity = server.repo.getEntity("dummy");
     AttributeDescriptor<?> attribute = entity.getAttribute("data");
     String key = "my-fancy-entity-key";
-    server
-        .direct
-        .getWriter(attribute)
-        .get()
+    Optionals.get(server.direct.getWriter(attribute))
         .write(
             StreamElement.upsert(
                 entity,
@@ -216,10 +218,7 @@ public class RetrieveServiceTest {
     AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
     String key = "my-fancy-entity-key";
 
-    server
-        .direct
-        .getWriter(attribute)
-        .get()
+    Optionals.get(server.direct.getWriter(attribute))
         .write(
             StreamElement.upsert(
                 entity,
@@ -230,10 +229,7 @@ public class RetrieveServiceTest {
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3}),
             (s, err) -> {});
-    server
-        .direct
-        .getWriter(attribute)
-        .get()
+    Optionals.get(server.direct.getWriter(attribute))
         .write(
             StreamElement.upsert(
                 entity,
@@ -292,10 +288,7 @@ public class RetrieveServiceTest {
     AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
     String key = "my-fancy-entity-key";
 
-    server
-        .direct
-        .getWriter(attribute)
-        .get()
+    Optionals.get(server.direct.getWriter(attribute))
         .write(
             StreamElement.upsert(
                 entity,
@@ -306,10 +299,7 @@ public class RetrieveServiceTest {
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3}),
             (s, err) -> {});
-    server
-        .direct
-        .getWriter(attribute)
-        .get()
+    Optionals.get(server.direct.getWriter(attribute))
         .write(
             StreamElement.upsert(
                 entity,
@@ -367,10 +357,7 @@ public class RetrieveServiceTest {
     AttributeDescriptor<?> attribute = entity.getAttribute("wildcard.*");
     String key = "my-fancy-entity-key";
 
-    server
-        .direct
-        .getWriter(attribute)
-        .get()
+    Optionals.get(server.direct.getWriter(attribute))
         .write(
             StreamElement.upsert(
                 entity,
@@ -381,10 +368,7 @@ public class RetrieveServiceTest {
                 System.currentTimeMillis(),
                 new byte[] {1, 2, 3}),
             (s, err) -> {});
-    server
-        .direct
-        .getWriter(attribute)
-        .get()
+    Optionals.get(server.direct.getWriter(attribute))
         .write(
             StreamElement.upsert(
                 entity,
@@ -445,10 +429,7 @@ public class RetrieveServiceTest {
     String key = "my-fancy-entity-key";
     ExtendedMessage payload = ExtendedMessage.newBuilder().setFirst(1).setSecond(2).build();
 
-    server
-        .direct
-        .getWriter(attribute)
-        .get()
+    Optionals.get(server.direct.getWriter(attribute))
         .write(
             StreamElement.upsert(
                 entity,

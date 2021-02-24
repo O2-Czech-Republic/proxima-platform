@@ -24,7 +24,7 @@ import org.junit.Test;
 /** Test suite for {@link PubSubStorage}. */
 public class PubSubStorageTest {
 
-  private final Repository repo = Repository.of(ConfigFactory.load().resolve());
+  private final Repository repo = Repository.of(ConfigFactory.load("test-pubsub.conf").resolve());
 
   @Test
   public void testDefaultValuesOverrides() {

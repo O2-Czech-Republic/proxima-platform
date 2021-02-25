@@ -764,7 +764,6 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
   @Override
   public Accessor createAccessor(DirectDataOperator direct, AttributeFamilyDescriptor family) {
-
     Map<URI, Accessor> accessorsForId = ACCESSORS.get(id);
     return accessorsForId.computeIfAbsent(
         family.getStorageUri(),

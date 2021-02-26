@@ -18,7 +18,6 @@ package cz.o2.proxima.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.AbstractRetryableLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
@@ -392,7 +391,7 @@ public class ReplicationController {
         writerBase.getType(),
         writerBase.getUri(),
         commitLog.getUri());
-    final AbstractRetryableLogObserver observer;
+    final RetryableLogObserver observer;
     switch (writerBase.getType()) {
       case ONLINE:
         observer =
@@ -422,7 +421,7 @@ public class ReplicationController {
    * @return Log observer.
    */
   @VisibleForTesting
-  AbstractRetryableLogObserver createBulkObserver(
+  RetryableLogObserver createBulkObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,
@@ -475,7 +474,7 @@ public class ReplicationController {
    * @return Log observer.
    */
   @VisibleForTesting
-  AbstractRetryableLogObserver createOnlineObserver(
+  RetryableLogObserver createOnlineObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,

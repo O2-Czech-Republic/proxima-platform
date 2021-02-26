@@ -19,11 +19,11 @@ import static org.junit.Assert.*;
 
 import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.AbstractRetryableLogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -88,7 +88,7 @@ public class ReplicationControllerTest {
   @Test(timeout = 5000)
   public void testSimpleEventReplication() throws InterruptedException {
     List<StreamElement> written = new ArrayList<>();
-    AbstractRetryableLogObserver observer =
+    RetryableLogObserver observer =
         controller.createOnlineObserver(
             "consumer",
             direct
@@ -109,7 +109,7 @@ public class ReplicationControllerTest {
   @Test
   public void testSimpleEventReplicationWithFilter() {
     List<StreamElement> written = new ArrayList<>();
-    AbstractRetryableLogObserver observer =
+    RetryableLogObserver observer =
         controller.createOnlineObserver(
             "consumer",
             direct
@@ -131,7 +131,7 @@ public class ReplicationControllerTest {
     EntityDescriptor gateway = repo.getEntity("gateway");
     AttributeDescriptor<byte[]> armed = gateway.getAttribute("armed");
     AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
-    AbstractRetryableLogObserver observer =
+    RetryableLogObserver observer =
         controller.createOnlineObserver(
             "consumer",
             direct
@@ -175,7 +175,7 @@ public class ReplicationControllerTest {
     EntityDescriptor gateway = repo.getEntity("gateway");
     AttributeDescriptor<byte[]> armed = gateway.getAttribute("armed");
     AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
-    AbstractRetryableLogObserver observer =
+    RetryableLogObserver observer =
         controller.createBulkObserver(
             "consumer",
             direct
@@ -219,7 +219,7 @@ public class ReplicationControllerTest {
   @Test
   public void testBulkReplication() throws InterruptedException {
     List<StreamElement> written = new ArrayList<>();
-    AbstractRetryableLogObserver observer =
+    RetryableLogObserver observer =
         controller.createBulkObserver(
             "consumer",
             direct

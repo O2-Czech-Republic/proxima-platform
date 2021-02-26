@@ -91,13 +91,13 @@ public class RetryableLogObserver implements LogObserver {
     if (delegate.onError(throwable)) {
       numFailures++;
       log.error(
-          "Error in observing commit log {} by {}, retries so far {}, maxRetries {}",
+          "Error in observing commit log {} by {}, retry {} out of {}",
           commitLog.getUri(),
           name,
           numFailures,
           maxRetries,
           throwable);
-      return numFailures < maxRetries;
+      return numFailures <= maxRetries;
     }
     log.error(
         "Error in observing commit log {} by {} (non-retryable)",

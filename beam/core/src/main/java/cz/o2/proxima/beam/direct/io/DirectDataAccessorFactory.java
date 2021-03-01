@@ -19,10 +19,9 @@ import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.Repository;
 import java.net.URI;
-import java.util.Map;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,17 +49,19 @@ public class DirectDataAccessorFactory implements DataAccessorFactory {
   }
 
   @Override
-  public DataAccessor createAccessor(
-      BeamDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
-
+  public DataAccessor createAccessor(BeamDataOperator op, AttributeFamilyDescriptor family) {
     if (op.hasDirect()) {
       cz.o2.proxima.direct.core.DataAccessor directAccessor =
           op.getDirect()
-              .getAccessorFactory(uri)
+              .getAccessorFactory(family.getStorageUri())
               .orElseThrow(() -> new IllegalStateException("Missing directLoader?"))
-              .createAccessor(op.getDirect(), entity, uri, cfg);
+              .createAccessor(op.getDirect(), family);
       return new DirectDataAccessorWrapper(
-          op.getRepository(), directAccessor, uri, op.getDirect().getContext(), cfg);
+          op.getRepository(),
+          directAccessor,
+          family.getStorageUri(),
+          op.getDirect().getContext(),
+          family.getCfg());
     }
     throw new IllegalStateException("Missing direct operator. Cannot create accessor");
   }

@@ -15,6 +15,10 @@
  */
 package cz.o2.proxima.direct.kafka;
 
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+import com.google.common.collect.Lists;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigResolveOptions;
@@ -24,6 +28,7 @@ import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.kafka.KafkaStreamElement.KafkaStreamElementSerializer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -32,16 +37,23 @@ import cz.o2.proxima.storage.commitlog.KeyPartitioner;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.Optionals;
+import cz.o2.proxima.util.Pair;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Properties;
+import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -55,7 +67,7 @@ public class KafkaLogReaderIT {
 
   private static final long AWAIT_TIMEOUT_MS = 5_000;
 
-  private static final String CONFIG =
+  private static final String CONFIG_FORMAT =
       "entities {\n"
           + "  entity {\n"
           + "    attributes {\n"
@@ -67,9 +79,9 @@ public class KafkaLogReaderIT {
           + "  scalar-primary {\n"
           + "    entity: entity\n"
           + "    attributes: [\"foo\"]\n"
-          + "    storage: \"kafka://\"${broker}\"/foo\"\n"
+          + "    storage: \"%s\"\n"
           + "    type: primary\n"
-          + "    access: commit-log\n"
+          + "    access: %s\n"
           + "    watermark {\n"
           + "      idle-policy-factory: cz.o2.proxima.direct.time.NotProgressingWatermarkIdlePolicy.Factory\n"
           + "    }\n"
@@ -78,7 +90,7 @@ public class KafkaLogReaderIT {
           + "}\n";
 
   private static void await(CountDownLatch latch) throws InterruptedException {
-    Assert.assertTrue(latch.await(AWAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
+    assertTrue(latch.await(AWAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
   }
 
   private static class TestLogObserver implements LogObserver {
@@ -122,7 +134,11 @@ public class KafkaLogReaderIT {
 
   @Before
   public void setup() {
-    final Repository repository = Repository.ofTest(createConfig());
+    initializeTestWithUri("kafka://\"${broker}\"/foo", "commit-log");
+  }
+
+  private void initializeTestWithUri(String uri, String access) {
+    final Repository repository = Repository.ofTest(createConfig(uri, access));
     entity = repository.getEntity("entity");
     fooDescriptor = entity.getAttribute("foo");
     operator = repository.getOrCreateOperator(DirectDataOperator.class);
@@ -177,6 +193,32 @@ public class KafkaLogReaderIT {
     Assert.assertEquals(numElements + 2 * numPartitions, numCommittedElements(secondHandle));
   }
 
+  @Test(timeout = 30_000L)
+  public void testReadFromRegexTopics() throws InterruptedException {
+    Pattern pattern = Pattern.compile("(foo|bar)");
+    Assert.assertTrue(pattern.matcher("foo").find());
+    initializeTestWithUri(
+        "kafka://\"${broker}\"/?topicPattern=(foo%7Cbar)", "[commit-log, read-only]");
+    final EmbeddedKafkaBroker embeddedKafka = rule.getEmbeddedKafka();
+    final int numPartitions = 3;
+    embeddedKafka.addTopics(
+        new NewTopic("foo", numPartitions, (short) 1),
+        new NewTopic("bar", numPartitions, (short) 1));
+    final CommitLogReader commitLogReader =
+        Optionals.get(operator.getCommitLogReader(fooDescriptor));
+    final TestLogObserver observer = new TestLogObserver();
+    final ObserveHandle handle = commitLogReader.observe("test-reader", Position.NEWEST, observer);
+    handle.waitUntilReady();
+    final int numElements = 100;
+    writeUsingPublisher(numElements, Lists.newArrayList("foo", "bar"));
+    while (observer.getNumReceivedElements() < numElements) {
+      TimeUnit.MILLISECONDS.sleep(100);
+    }
+    handle.close();
+    Assert.assertEquals(numElements, observer.getNumReceivedElements());
+    Assert.assertEquals(numElements, numCommittedElements(handle));
+  }
+
   // --------------------------------------------------------------------------
   // HELPER METHODS
   // --------------------------------------------------------------------------
@@ -190,7 +232,7 @@ public class KafkaLogReaderIT {
   }
 
   private CountDownLatch writeElements(int numElements) {
-    final OnlineAttributeWriter writer = Optionals.get(operator.getWriter(fooDescriptor));
+    OnlineAttributeWriter writer = Optionals.get(operator.getWriter(fooDescriptor));
     final CountDownLatch done = new CountDownLatch(numElements);
     for (int i = 0; i < numElements; i++) {
       final StreamElement element =
@@ -209,6 +251,37 @@ public class KafkaLogReaderIT {
               done.countDown();
             }
           }));
+    }
+    return done;
+  }
+
+  private CountDownLatch writeUsingPublisher(int numElements, List<String> topics) {
+    final CountDownLatch done = new CountDownLatch(numElements);
+    KafkaStreamElementSerializer serializer = new KafkaStreamElementSerializer();
+    Properties props = new Properties();
+    props.put("bootstrap.servers", getConnectString(rule.getEmbeddedKafka()));
+    KafkaProducer<String, byte[]> producer =
+        new KafkaProducer<>(
+            props, serializer.keySerde().serializer(), serializer.valueSerde().serializer());
+    Random r = new Random();
+    for (int i = 0; i < numElements; i++) {
+      final StreamElement element =
+          StreamElement.upsert(
+              entity,
+              fooDescriptor,
+              UUID.randomUUID().toString(),
+              String.format("element-%d", i),
+              fooDescriptor.getName(),
+              i,
+              "value".getBytes(StandardCharsets.UTF_8));
+      Pair<String, byte[]> toWrite = serializer.write(element);
+      String topic = topics.get(r.nextInt(topics.size()));
+      producer.send(
+          new ProducerRecord<>(topic, toWrite.getFirst(), toWrite.getSecond()),
+          (meta, exc) -> {
+            assertNull(exc);
+            done.countDown();
+          });
     }
     return done;
   }
@@ -251,16 +324,19 @@ public class KafkaLogReaderIT {
     return done;
   }
 
-  private Config createConfig() {
+  private Config createConfig(String uri, String access) {
     final EmbeddedKafkaBroker embeddedKafka = rule.getEmbeddedKafka();
-    final String connectionString =
-        Arrays.stream(embeddedKafka.getBrokerAddresses())
-            .map(ba -> ba.getHost() + ":" + ba.getPort())
-            .collect(Collectors.joining(","));
-    return ConfigFactory.parseString(CONFIG)
+    final String connectionString = getConnectString(embeddedKafka);
+    return ConfigFactory.parseString(String.format(CONFIG_FORMAT, uri, access))
         .resolveWith(
             ConfigFactory.empty()
                 .withValue("broker", ConfigValueFactory.fromAnyRef(connectionString)),
             ConfigResolveOptions.noSystem());
+  }
+
+  private String getConnectString(EmbeddedKafkaBroker embeddedKafka) {
+    return Arrays.stream(embeddedKafka.getBrokerAddresses())
+        .map(ba -> ba.getHost() + ":" + ba.getPort())
+        .collect(Collectors.joining(","));
   }
 }

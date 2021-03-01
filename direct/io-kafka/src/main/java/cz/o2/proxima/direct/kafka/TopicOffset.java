@@ -17,25 +17,24 @@ package cz.o2.proxima.direct.kafka;
 
 import com.google.common.base.MoreObjects;
 import cz.o2.proxima.direct.commitlog.Offset;
-import cz.o2.proxima.storage.Partition;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Getter;
+import org.apache.kafka.common.TopicPartition;
 
 /** Offset used in bulk consumption. */
 class TopicOffset implements Offset {
 
   private static final long serialVersionUID = 1L;
 
-  // map of partitionId -> committed offset
-  private final int partition;
+  private final PartitionWithTopic partition;
   // offset to kafka partition, < 0 means undefined (or default)
   @Getter private final long offset;
   @Getter private final long watermark;
 
-  TopicOffset(int partition, long offset, long watermark) {
+  TopicOffset(PartitionWithTopic partition, long offset, long watermark) {
     this.partition = partition;
     this.offset = offset;
     this.watermark = watermark;
@@ -51,15 +50,17 @@ class TopicOffset implements Offset {
   }
 
   @Override
-  public Partition getPartition() {
-    return Partition.of(partition);
+  public PartitionWithTopic getPartition() {
+    return partition;
   }
 
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof TopicOffset) {
       TopicOffset other = (TopicOffset) obj;
-      return other.partition == partition && other.offset == offset && other.watermark == watermark;
+      return other.partition.equals(partition)
+          && other.offset == offset
+          && other.watermark == watermark;
     }
     return false;
   }
@@ -69,11 +70,16 @@ class TopicOffset implements Offset {
     return Objects.hash(partition, offset, watermark);
   }
 
-  static List<TopicOffset> fromMap(Map<Integer, Long> offsetMap, long watermark) {
+  static List<TopicOffset> fromMap(Map<TopicPartition, Long> offsetMap, long watermark) {
     return offsetMap
         .entrySet()
         .stream()
-        .map(e -> new TopicOffset(e.getKey(), e.getValue(), watermark))
+        .map(
+            e ->
+                new TopicOffset(
+                    new PartitionWithTopic(e.getKey().topic(), e.getKey().partition()),
+                    e.getValue(),
+                    watermark))
         .collect(Collectors.toList());
   }
 }

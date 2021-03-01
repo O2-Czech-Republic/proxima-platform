@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.kafka;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
@@ -37,6 +38,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import javax.annotation.Nullable;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -89,7 +91,9 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
    */
   public static final String EMPTY_POLL_TIME = "poll.allowed-empty-before-watermark-move";
 
-  @Getter private final String topic;
+  @Getter @Nullable private final String topic;
+
+  @Getter @Nullable private final String topicPattern;
 
   @Getter(AccessLevel.PACKAGE)
   private final Map<String, Object> cfg;
@@ -127,15 +131,20 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
 
     super(entity, uri);
 
-    if (uri.getPath().length() <= 1) {
-      throw new IllegalArgumentException("Specify topic by path in URI");
-    }
     if (Strings.isNullOrEmpty(uri.getAuthority())) {
       throw new IllegalArgumentException("Specify brokers by authority in URI");
     }
 
     this.cfg = cfg;
     this.topic = Utils.topic(uri);
+    this.topicPattern = Utils.topicPattern(uri);
+
+    Preconditions.checkArgument(
+        topic == null ^ topicPattern == null,
+        "Please specify EITHER topic directly as path OR specify topic regex pattern via %s in URI %s",
+        Utils.TOPIC_PATTERN_QUERY,
+        uri);
+
     configure(cfg);
   }
 
@@ -314,5 +323,9 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
     ElementSerializer<K, V> res = (ElementSerializer<K, V>) Classpath.newInstance(serializerClass);
     res.setup(getEntityDescriptor());
     return res;
+  }
+
+  boolean isTopicRegex() {
+    return topicPattern != null;
   }
 }

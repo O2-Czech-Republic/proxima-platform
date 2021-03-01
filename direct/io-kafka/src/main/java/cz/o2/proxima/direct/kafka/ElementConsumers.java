@@ -46,8 +46,8 @@ class ElementConsumers {
 
   private abstract static class ConsumerBase<K, V> implements ElementConsumer<K, V> {
 
-    final Map<Integer, Long> committed = Collections.synchronizedMap(new HashMap<>());
-    final Map<Integer, Long> processing = Collections.synchronizedMap(new HashMap<>());
+    final Map<TopicPartition, Long> committed = Collections.synchronizedMap(new HashMap<>());
+    final Map<TopicPartition, Long> processing = Collections.synchronizedMap(new HashMap<>());
     long watermark;
 
     @Override
@@ -71,9 +71,17 @@ class ElementConsumers {
       committed.putAll(
           offsets
               .stream()
-              .collect(Collectors.toMap(o -> o.getPartition().getId(), TopicOffset::getOffset)));
+              .collect(
+                  Collectors.toMap(
+                      o ->
+                          new TopicPartition(o.getPartition().getTopic(), o.getPartition().getId()),
+                      TopicOffset::getOffset)));
       processing.clear();
-      offsets.forEach(tp -> processing.put(tp.getPartition().getId(), tp.getOffset() - 1));
+      offsets.forEach(
+          tp ->
+              processing.put(
+                  new TopicPartition(tp.getPartition().getTopic(), tp.getPartition().getId()),
+                  tp.getOffset() - 1));
     }
 
     @Override
@@ -113,7 +121,7 @@ class ElementConsumers {
         WatermarkSupplier watermarkSupplier,
         Consumer<Throwable> errorHandler) {
 
-      processing.put(tp.partition(), offset);
+      processing.put(tp, offset);
       watermark = watermarkSupplier.getWatermark();
       if (element != null && watermark < Watermarks.MAX_WATERMARK) {
         return observer.onNext(
@@ -121,16 +129,16 @@ class ElementConsumers {
             asOnNextContext(
                 (succ, exc) -> {
                   if (succ) {
-                    committed.compute(
-                        tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
+                    committed.compute(tp, (k, v) -> v == null || v <= offset ? offset + 1 : v);
                     committer.confirm(tp, offset);
                   } else if (exc != null) {
                     errorHandler.accept(exc);
                   }
                 },
-                new TopicOffset(tp.partition(), offset, watermark)));
+                new TopicOffset(
+                    new PartitionWithTopic(tp.topic(), tp.partition()), offset, watermark)));
       }
-      committed.compute(tp.partition(), (k, v) -> v == null || v <= offset ? offset + 1 : v);
+      committed.compute(tp, (k, v) -> v == null || v <= offset ? offset + 1 : v);
       committer.confirm(tp, offset);
       return watermark < Watermarks.MAX_WATERMARK;
     }
@@ -167,20 +175,17 @@ class ElementConsumers {
 
   static final class BulkConsumer<K, V> extends ConsumerBase<K, V> {
 
-    private final String topic;
     private final LogObserver observer;
     private final BiConsumer<TopicPartition, Long> commit;
     private final Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit;
     private final Runnable onStart;
 
     BulkConsumer(
-        String topic,
         LogObserver observer,
         BiConsumer<TopicPartition, Long> commit,
         Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit,
         Runnable onStart) {
 
-      this.topic = topic;
       this.observer = observer;
       this.commit = commit;
       this.prepareCommit = prepareCommit;
@@ -194,7 +199,7 @@ class ElementConsumers {
         long offset,
         WatermarkSupplier watermarkSupplier,
         Consumer<Throwable> errorHandler) {
-      processing.put(tp.partition(), offset);
+      processing.put(tp, offset);
       watermark = watermarkSupplier.getWatermark();
       if (element != null) {
         return observer.onNext(element, context(tp, offset, watermarkSupplier, errorHandler));
@@ -208,7 +213,7 @@ class ElementConsumers {
         WatermarkSupplier watermarkSupplier,
         Consumer<Throwable> errorHandler) {
 
-      Map<Integer, Long> toCommit = new HashMap<>(this.processing);
+      Map<TopicPartition, Long> toCommit = new HashMap<>(this.processing);
       return asOnNextContext(
           (succ, err) -> {
             if (succ) {
@@ -216,12 +221,15 @@ class ElementConsumers {
                   (part, off) ->
                       committed.compute(
                           part, (k, v) -> Math.max(MoreObjects.firstNonNull(v, 0L), off + 1)));
-              committed.forEach((p, o) -> commit.accept(new TopicPartition(tp.topic(), p), o));
+              committed.forEach(commit::accept);
             } else if (err != null) {
               errorHandler.accept(err);
             }
           },
-          new TopicOffset(tp.partition(), offset, watermarkSupplier.getWatermark()));
+          new TopicOffset(
+              new PartitionWithTopic(tp.topic(), tp.partition()),
+              offset,
+              watermarkSupplier.getWatermark()));
     }
 
     @Override
@@ -242,7 +250,7 @@ class ElementConsumers {
           asRepartitionContext(
               offsets.stream().map(TopicOffset::getPartition).collect(Collectors.toList())));
 
-      Utils.seekToOffsets(topic, (List) offsets, consumer);
+      Utils.seekToOffsets(offsets, consumer);
     }
 
     @Override

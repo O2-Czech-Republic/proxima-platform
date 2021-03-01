@@ -15,11 +15,12 @@
  */
 package cz.o2.proxima.direct.kafka;
 
+import com.google.common.base.Preconditions;
+import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.net.URI;
-import java.util.Map;
 
 /** Storage using {@code KafkaProducer}. */
 public class KafkaStorage implements DataAccessorFactory {
@@ -27,10 +28,22 @@ public class KafkaStorage implements DataAccessorFactory {
   private static final long serialVersionUID = 1L;
 
   @Override
-  public KafkaAccessor createAccessor(
-      DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
+  public DataAccessor createAccessor(
+      DirectDataOperator operator, AttributeFamilyDescriptor familyDescriptor) {
 
-    return new KafkaAccessor(entityDesc, uri, cfg);
+    KafkaAccessor accessor =
+        new KafkaAccessor(
+            familyDescriptor.getEntity(),
+            familyDescriptor.getStorageUri(),
+            familyDescriptor.getCfg());
+    if (accessor.isTopicRegex()) {
+      Preconditions.checkArgument(
+          familyDescriptor.getAccess().isReadonly(),
+          "URI %s specifies topic regex. Associated family %s MUST be read-only",
+          familyDescriptor.getStorageUri(),
+          familyDescriptor.getName());
+    }
+    return accessor;
   }
 
   @Override

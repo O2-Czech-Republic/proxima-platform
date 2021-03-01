@@ -1467,10 +1467,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final int numRetries = 3;
     final CountDownLatch latch = new CountDownLatch(numRetries);
     final RetryableLogObserver observer =
-        RetryableLogObserver.bulk(
-            numRetries,
+        RetryableLogObserver.of(
             "test",
-            reader,
+            numRetries,
             new LogObserver() {
 
               @Override
@@ -1485,7 +1484,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 throw new RuntimeException("FAIL!");
               }
             });
-    observer.start();
+    reader.observe("test", observer);
     Executors.newCachedThreadPool()
         .execute(
             () -> {

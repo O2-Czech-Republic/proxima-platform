@@ -367,17 +367,17 @@ public class ReplicationController {
   }
 
   private void startTransformationObserver(
-      String consumer,
+      String consumerName,
       CommitLogReader reader,
       ElementWiseTransformation transformation,
       StorageFilter filter,
       String name) {
-    RetryableLogObserver.online(
+    reader.observe(
+        consumerName,
+        RetryableLogObserver.of(
+            consumerName,
             3,
-            consumer,
-            reader,
-            new TransformationObserver(dataOperator, name, transformation, filter))
-        .start();
+            new TransformationObserver(dataOperator, name, transformation, filter)));
   }
 
   private void registerWriterTo(
@@ -391,23 +391,27 @@ public class ReplicationController {
         writerBase.getType(),
         writerBase.getUri(),
         commitLog.getUri());
-    final RetryableLogObserver observer;
     switch (writerBase.getType()) {
       case ONLINE:
-        observer =
-            createOnlineObserver(
-                consumerName, commitLog, allowedAttributes, filter, writerBase.online());
-        break;
+        {
+          final RetryableLogObserver observer =
+              createOnlineObserver(
+                  consumerName, commitLog, allowedAttributes, filter, writerBase.online());
+          commitLog.observe(consumerName, observer);
+          break;
+        }
       case BULK:
-        observer =
-            createBulkObserver(
-                consumerName, commitLog, allowedAttributes, filter, writerBase.bulk());
-        break;
+        {
+          final RetryableLogObserver observer =
+              createBulkObserver(
+                  consumerName, commitLog, allowedAttributes, filter, writerBase.bulk());
+          commitLog.observeBulk(consumerName, observer);
+          break;
+        }
       default:
         throw new IllegalStateException(
             String.format("Unknown writer type %s.", writerBase.getType()));
     }
-    observer.start();
   }
 
   /**
@@ -460,7 +464,7 @@ public class ReplicationController {
             writer.updateWatermark(context.getWatermark());
           }
         };
-    return RetryableLogObserver.bulk(3, consumerName, commitLog, logObserver);
+    return RetryableLogObserver.of(consumerName, 3, logObserver);
   }
 
   /**
@@ -506,7 +510,7 @@ public class ReplicationController {
             context.confirm();
           }
         };
-    return RetryableLogObserver.online(3, consumerName, commitLog, logObserver);
+    return RetryableLogObserver.of(consumerName, 3, logObserver);
   }
 
   private void confirmWrite(

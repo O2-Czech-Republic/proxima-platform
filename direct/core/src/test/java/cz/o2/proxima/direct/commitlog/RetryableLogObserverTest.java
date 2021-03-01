@@ -16,22 +16,18 @@
 package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Position;
 import org.junit.Assert;
 import org.junit.Test;
-import org.mockito.Mockito;
 
 public class RetryableLogObserverTest {
 
   @Test
   public void testRetryableError() {
     final int numRetries = 10;
-    final CommitLogReader reader = Mockito.mock(CommitLogReader.class);
     final RetryableLogObserver observer =
-        RetryableLogObserver.online(
-            numRetries,
+        RetryableLogObserver.of(
             "test",
-            reader,
+            numRetries,
             new LogObserver() {
 
               @Override
@@ -69,12 +65,10 @@ public class RetryableLogObserverTest {
   @Test
   public void testNonRetryableError() {
     final int numRetries = 10;
-    final CommitLogReader reader = Mockito.mock(CommitLogReader.class);
     final RetryableLogObserver observer =
-        RetryableLogObserver.online(
-            numRetries,
+        RetryableLogObserver.of(
             "test",
-            reader,
+            numRetries,
             new LogObserver() {
 
               @Override
@@ -89,29 +83,5 @@ public class RetryableLogObserverTest {
               }
             });
     Assert.assertFalse(observer.onError(new Exception("Test.")));
-  }
-
-  @Test
-  public void testStartOnline() {
-    final int numRetries = 10;
-    final CommitLogReader reader = Mockito.mock(CommitLogReader.class);
-    final RetryableLogObserver observer =
-        RetryableLogObserver.online(
-            numRetries, "test", reader, (LogObserver) (ingest, context) -> true);
-    observer.start();
-    Mockito.verify(reader, Mockito.times(1))
-        .observe(Mockito.eq("test"), Mockito.eq(Position.NEWEST), Mockito.eq(observer));
-  }
-
-  @Test
-  public void testStartBulk() {
-    final int numRetries = 10;
-    final CommitLogReader reader = Mockito.mock(CommitLogReader.class);
-    final RetryableLogObserver observer =
-        RetryableLogObserver.bulk(
-            numRetries, "test", reader, (LogObserver) (ingest, context) -> true);
-    observer.start();
-    Mockito.verify(reader, Mockito.times(1))
-        .observeBulk(Mockito.eq("test"), Mockito.eq(Position.NEWEST), Mockito.eq(observer));
   }
 }

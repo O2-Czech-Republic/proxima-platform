@@ -150,7 +150,7 @@ public interface LogObserver extends Serializable {
    *     processing
    */
   default boolean onException(Exception exception) {
-    throw new RuntimeException("Unhandled exception.", exception);
+    throw new IllegalStateException("Unhandled exception.", exception);
   }
 
   /**

@@ -58,6 +58,7 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.KeyAttributePartitioner;
 import cz.o2.proxima.storage.commitlog.Partitioner;
+import cz.o2.proxima.storage.commitlog.Partitioners;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.PartitionedWatermarkEstimator;
 import cz.o2.proxima.time.WatermarkEstimator;
@@ -109,7 +110,7 @@ public class InMemStorage implements DataAccessorFactory {
 
   @VisibleForTesting static final String NUM_PARTITIONS = "num-partitions";
 
-  private static final Partition SINGLE_PARTITION = () -> 0;
+  private static final Partition SINGLE_PARTITION = Partition.of(0);
   private static final OnNextContext CONTEXT = BatchLogObservers.defaultContext(SINGLE_PARTITION);
   private static final long IDLE_FLUSH_TIME = 500L;
   private static final long BOUNDED_OUT_OF_ORDERNESS = 5000L;
@@ -216,7 +217,8 @@ public class InMemStorage implements DataAccessorFactory {
       }
       currentWriters.forEach(
           o -> {
-            final int partitionId = partitioner.getTruncatedPartitionId(data, numPartitions);
+            final int partitionId =
+                Partitioners.getTruncatedPartitionId(partitioner, data, numPartitions);
             o.write(Partition.of(partitionId), data);
             log.debug("Passed element {} to {}-{}", data, o, partitionId);
           });
@@ -600,14 +602,16 @@ public class InMemStorage implements DataAccessorFactory {
                             stamp,
                             e.getValue().getSecond());
                     final int partitionId =
-                        partitioner.getTruncatedPartitionId(element, numPartitions);
+                        Partitioners.getTruncatedPartitionId(partitioner, element, numPartitions);
                     if (consumedOffsets.contains(partitionId + "-" + keyAttr + ":" + stamp)) {
                       // this record has already been consumed in previous offset, so skip it
                       log.debug("Discarding element {} due to being already consumed.", keyAttr);
                       return;
                     }
                     consumer.accept(
-                        Partition.of(partitioner.getTruncatedPartitionId(element, numPartitions)),
+                        Partition.of(
+                            Partitioners.getTruncatedPartitionId(
+                                partitioner, element, numPartitions)),
                         element,
                         (succ, exc) -> {
                           if (!succ && exc != null) {
@@ -1063,12 +1067,37 @@ public class InMemStorage implements DataAccessorFactory {
         new InMemCommitLogReader(
                 entity, uri, op.getContext().getExecutorFactory(), partitioner, numPartitions)
             .asFactory();
-    final ReaderFactory readerFactory =
-        new Reader(entity, uri, op.getContext().getExecutorFactory()).asFactory();
-    final CachedView.Factory cachedViewFactory =
-        new LocalCachedPartitionedView(
-                entity, commitLogReaderFactory.apply(opRepo), writerFactory.apply(opRepo))
-            .asFactory();
+
+    final RandomAccessReader.Factory<Reader> randomAccessReaderFactory;
+    final BatchLogReader.Factory<Reader> batchLogReaderFactory;
+    final CachedView.Factory cachedViewFactory;
+    if (numPartitions > 1) {
+      final UnsupportedOperationException exception =
+          new UnsupportedOperationException(
+              "Reader currently does not support multiple partitions.");
+      randomAccessReaderFactory =
+          (ignore) -> {
+            throw exception;
+          };
+      batchLogReaderFactory =
+          (ignore) -> {
+            throw exception;
+          };
+      cachedViewFactory =
+          (ignore) -> {
+            throw exception;
+          };
+
+    } else {
+      final ReaderFactory readerFactory =
+          new Reader(entity, uri, op.getContext().getExecutorFactory()).asFactory();
+      randomAccessReaderFactory = readerFactory;
+      batchLogReaderFactory = readerFactory;
+      cachedViewFactory =
+          new LocalCachedPartitionedView(
+                  entity, commitLogReaderFactory.apply(opRepo), writerFactory.apply(opRepo))
+              .asFactory();
+    }
 
     return new DataAccessor() {
 
@@ -1096,7 +1125,7 @@ public class InMemStorage implements DataAccessorFactory {
       @Override
       public Optional<RandomAccessReader> getRandomAccessReader(Context context) {
         Objects.requireNonNull(context);
-        return Optional.of(readerFactory.apply(repo()));
+        return Optional.of(randomAccessReaderFactory.apply(repo()));
       }
 
       @Override
@@ -1108,8 +1137,7 @@ public class InMemStorage implements DataAccessorFactory {
       @Override
       public Optional<BatchLogReader> getBatchLogReader(Context context) {
         Objects.requireNonNull(context);
-        Reader createdReader = readerFactory.apply(repo());
-        return Optional.of(createdReader);
+        return Optional.of(batchLogReaderFactory.apply(repo()));
       }
 
       private Repository repo() {

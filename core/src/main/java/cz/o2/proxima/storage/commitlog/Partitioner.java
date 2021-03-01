@@ -35,10 +35,6 @@ public interface Partitioner extends Serializable {
    */
   int getPartitionId(StreamElement element);
 
-  default int getTruncatedPartitionId(StreamElement element, int numPartitions) {
-    return (getPartitionId(element) & Integer.MAX_VALUE) % numPartitions;
-  }
-
   /**
    * Setup the partitioner (if needed).
    *

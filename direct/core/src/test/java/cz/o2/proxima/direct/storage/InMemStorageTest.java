@@ -631,6 +631,36 @@ public class InMemStorageTest implements Serializable {
     assertEquals(3, observeHandle.getCurrentOffsets().size());
   }
 
+  @Test(expected = UnsupportedOperationException.class)
+  public void testRandomAccessReaderWithMultiplePartitions() {
+    final int numPartitions = 3;
+    final InMemStorage storage = new InMemStorage();
+    final DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///test"), numPartitions));
+    accessor.getRandomAccessReader(direct.getContext());
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testBatchLogReaderWithMultiplePartitions() {
+    final int numPartitions = 3;
+    final InMemStorage storage = new InMemStorage();
+    final DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///test"), numPartitions));
+    accessor.getBatchLogReader(direct.getContext());
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testCachedViewWithMultiplePartitions() {
+    final int numPartitions = 3;
+    final InMemStorage storage = new InMemStorage();
+    final DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///test"), numPartitions));
+    accessor.getCachedView(direct.getContext());
+  }
+
   private AttributeFamilyDescriptor createFamilyDescriptor(URI storageUri) {
     return createFamilyDescriptor(storageUri, 1);
   }

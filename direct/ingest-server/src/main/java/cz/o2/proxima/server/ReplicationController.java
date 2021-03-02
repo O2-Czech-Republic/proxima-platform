@@ -18,7 +18,6 @@ package cz.o2.proxima.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.AbstractRetryableLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
@@ -368,17 +367,17 @@ public class ReplicationController {
   }
 
   private void startTransformationObserver(
-      String consumer,
+      String consumerName,
       CommitLogReader reader,
       ElementWiseTransformation transformation,
       StorageFilter filter,
       String name) {
-    RetryableLogObserver.online(
+    reader.observe(
+        consumerName,
+        RetryableLogObserver.of(
+            consumerName,
             3,
-            consumer,
-            reader,
-            new TransformationObserver(dataOperator, name, transformation, filter))
-        .start();
+            new TransformationObserver(dataOperator, name, transformation, filter)));
   }
 
   private void registerWriterTo(
@@ -392,23 +391,27 @@ public class ReplicationController {
         writerBase.getType(),
         writerBase.getUri(),
         commitLog.getUri());
-    final AbstractRetryableLogObserver observer;
     switch (writerBase.getType()) {
       case ONLINE:
-        observer =
-            createOnlineObserver(
-                consumerName, commitLog, allowedAttributes, filter, writerBase.online());
-        break;
+        {
+          final RetryableLogObserver observer =
+              createOnlineObserver(
+                  consumerName, commitLog, allowedAttributes, filter, writerBase.online());
+          commitLog.observe(consumerName, observer);
+          break;
+        }
       case BULK:
-        observer =
-            createBulkObserver(
-                consumerName, commitLog, allowedAttributes, filter, writerBase.bulk());
-        break;
+        {
+          final RetryableLogObserver observer =
+              createBulkObserver(
+                  consumerName, commitLog, allowedAttributes, filter, writerBase.bulk());
+          commitLog.observeBulk(consumerName, observer);
+          break;
+        }
       default:
         throw new IllegalStateException(
             String.format("Unknown writer type %s.", writerBase.getType()));
     }
-    observer.start();
   }
 
   /**
@@ -422,7 +425,7 @@ public class ReplicationController {
    * @return Log observer.
    */
   @VisibleForTesting
-  AbstractRetryableLogObserver createBulkObserver(
+  RetryableLogObserver createBulkObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,
@@ -461,7 +464,7 @@ public class ReplicationController {
             writer.updateWatermark(context.getWatermark());
           }
         };
-    return RetryableLogObserver.bulk(3, consumerName, commitLog, logObserver);
+    return RetryableLogObserver.of(consumerName, 3, logObserver);
   }
 
   /**
@@ -475,7 +478,7 @@ public class ReplicationController {
    * @return Log observer.
    */
   @VisibleForTesting
-  AbstractRetryableLogObserver createOnlineObserver(
+  RetryableLogObserver createOnlineObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,
@@ -507,7 +510,7 @@ public class ReplicationController {
             context.confirm();
           }
         };
-    return RetryableLogObserver.online(3, consumerName, commitLog, logObserver);
+    return RetryableLogObserver.of(consumerName, 3, logObserver);
   }
 
   private void confirmWrite(

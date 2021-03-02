@@ -73,11 +73,15 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     return () ->
         Executors.newCachedThreadPool(
             r -> {
-              Thread t = new Thread(r);
+              final Thread t = new Thread(r);
               t.setName(
                   String.format("DirectDataOperatorThread-%s-%d", ID, threadId.incrementAndGet()));
               t.setUncaughtExceptionHandler(
-                  (thr, exc) -> log.error("Error running task in thread {}", thr.getName(), exc));
+                  (thr, exc) -> {
+                    log.error(
+                        "Error running task in thread {}, bailing out...", thr.getName(), exc);
+                    Runtime.getRuntime().exit(1);
+                  });
               return t;
             });
   }

@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Position;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -26,92 +26,71 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Stable
 @Slf4j
-public class RetryableLogObserver extends AbstractRetryableLogObserver implements LogObserver {
+public class RetryableLogObserver implements LogObserver {
 
   /**
    * Create online retryable log observer.
    *
-   * @param numRetries number of allowed successive failures
    * @param name name of the consumer
-   * @param reader the {@link CommitLogReader}
+   * @param numRetries number of allowed successive failures
    * @param observer observer of data
    * @return the observer
    */
-  public static RetryableLogObserver online(
-      int numRetries, String name, CommitLogReader reader, LogObserver observer) {
-
-    return new RetryableLogObserver(numRetries, name, reader, false, observer);
+  public static RetryableLogObserver of(String name, int numRetries, LogObserver observer) {
+    return new RetryableLogObserver(name, numRetries, observer);
   }
 
-  /**
-   * Create bulk retryable log observer.
-   *
-   * @param numRetries number of allowed successive failures
-   * @param name name of the consumer
-   * @param reader the {@link CommitLogReader}
-   * @param observer consumer of data
-   * @return the observer
-   */
-  public static RetryableLogObserver bulk(
-      int numRetries, String name, CommitLogReader reader, LogObserver observer) {
+  /** Maximal number of retries. */
+  @Getter private final int maxRetries;
+  /** Name of the consumer. */
+  @Getter private final String name;
+  /** Current number of failures in a row. */
+  private int numFailures;
+  /** Underlying log observer. */
+  private final LogObserver delegate;
 
-    return new RetryableLogObserver(numRetries, name, reader, true, observer);
-  }
-
-  private final LogObserver observer;
-  private final boolean bulk;
-
-  private RetryableLogObserver(
-      int maxRetries, String name, CommitLogReader commitLog, boolean bulk, LogObserver observer) {
-
-    super(maxRetries, name, commitLog);
-    this.bulk = bulk;
-    this.observer = observer;
+  private RetryableLogObserver(String name, int maxRetries, LogObserver delegate) {
+    this.maxRetries = maxRetries;
+    this.name = name;
+    this.delegate = delegate;
   }
 
   @Override
   public final boolean onNext(StreamElement ingest, OnNextContext context) {
-
-    boolean ret = observer.onNext(ingest, context);
-    success();
+    boolean ret = delegate.onNext(ingest, context);
+    numFailures = 0;
     return ret;
   }
 
   @Override
-  protected final ObserveHandle startInternal(Position position) {
-    log.info(
-        "Starting to process commitlog {} as {} from {}",
-        getCommitLog().getUri(),
-        getName(),
-        position);
-    if (bulk) {
-      return getCommitLog().observeBulk(getName(), position, this);
+  public boolean onError(Throwable throwable) {
+    if (delegate.onError(throwable)) {
+      numFailures++;
+      log.error(
+          "Error in observer {}, retry {} out of {}", name, numFailures, maxRetries, throwable);
+      return numFailures <= maxRetries;
     }
-    return getCommitLog().observe(getName(), position, this);
-  }
-
-  @Override
-  protected final void failure(Throwable error) {
-    observer.onError(error);
+    log.error("Error in observer {} (non-retryable)", name, throwable);
+    return false;
   }
 
   @Override
   public void onCompleted() {
-    observer.onCompleted();
+    delegate.onCompleted();
   }
 
   @Override
   public void onCancelled() {
-    observer.onCancelled();
+    delegate.onCancelled();
   }
 
   @Override
   public void onRepartition(OnRepartitionContext context) {
-    observer.onRepartition(context);
+    delegate.onRepartition(context);
   }
 
   @Override
   public void onIdle(OnIdleContext context) {
-    observer.onIdle(context);
+    delegate.onIdle(context);
   }
 }

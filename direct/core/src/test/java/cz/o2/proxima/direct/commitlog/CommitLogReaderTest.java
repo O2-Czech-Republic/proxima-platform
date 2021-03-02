@@ -169,11 +169,10 @@ public class CommitLogReaderTest {
     List<StreamElement> received = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
     AtomicInteger count = new AtomicInteger();
-    RetryableLogObserver observer =
-        RetryableLogObserver.online(
-            2,
+    final RetryableLogObserver observer =
+        RetryableLogObserver.of(
             "test",
-            reader,
+            2,
             new LogObserver() {
 
               @Override
@@ -191,8 +190,7 @@ public class CommitLogReaderTest {
                 return false;
               }
             });
-
-    observer.start();
+    reader.observe("test", observer);
     writer
         .online()
         .write(

@@ -124,13 +124,46 @@ public interface LogObserver extends Serializable {
   default void onCancelled() {}
 
   /**
-   * Called to notify there was an error in the commit reader.
+   * Called to notify there was an {@link Throwable error) in the commit reader.
    *
    * @param error error caught during processing
    * @return {@code true} to restart processing from last committed position, {@code false} to stop
    *     processing
    */
-  boolean onError(Throwable error);
+  default boolean onError(Throwable error) {
+    if (error instanceof Error) {
+      return onFatalError((Error) error);
+    }
+    if (error instanceof Exception) {
+      return onException((Exception) error);
+    }
+    throw new UnsupportedOperationException(
+        String.format("Unknown throwable implementation [%s].", error.getClass()));
+  }
+
+  /**
+   * Called to notify there was an {@link Exception exception} in the commit reader. There is no
+   * guarantee this method gets called, if {@link #onError(Throwable)} is overridden.
+   *
+   * @param exception exception caught during processing
+   * @return {@code true} to restart processing from last committed position, {@code false} to stop
+   *     processing
+   */
+  default boolean onException(Exception exception) {
+    throw new IllegalStateException("Unhandled exception.", exception);
+  }
+
+  /**
+   * Called to notify there was an {@link Error error} in the commit reader. There is no guarantee
+   * this method gets called, if {@link #onError(Throwable)} is overridden.
+   *
+   * @param error error caught during processing
+   * @return {@code true} to restart processing from last committed position, {@code false} to stop
+   *     processing
+   */
+  default boolean onFatalError(Error error) {
+    throw error;
+  }
 
   /**
    * Process next record in the commit log.

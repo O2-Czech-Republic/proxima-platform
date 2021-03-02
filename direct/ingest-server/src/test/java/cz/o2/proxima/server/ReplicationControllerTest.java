@@ -19,11 +19,12 @@ import static org.junit.Assert.*;
 
 import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.AbstractRetryableLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -37,6 +38,7 @@ import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.Optionals;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -88,7 +90,8 @@ public class ReplicationControllerTest {
   @Test(timeout = 5000)
   public void testSimpleEventReplication() throws InterruptedException {
     List<StreamElement> written = new ArrayList<>();
-    AbstractRetryableLogObserver observer =
+    final CommitLogReader reader = Optionals.get(direct.getCommitLogReader(data));
+    final RetryableLogObserver observer =
         controller.createOnlineObserver(
             "consumer",
             direct
@@ -98,7 +101,7 @@ public class ReplicationControllerTest {
             Sets.newHashSet(data),
             new PassthroughFilter(),
             fakeOnlineWriter(written));
-    try (ObserveHandle handle = observer.start()) {
+    try (ObserveHandle ignored = reader.observe("consumer", observer)) {
       writeEvent();
       assertEquals(1, written.size());
     }
@@ -108,8 +111,9 @@ public class ReplicationControllerTest {
 
   @Test
   public void testSimpleEventReplicationWithFilter() {
-    List<StreamElement> written = new ArrayList<>();
-    AbstractRetryableLogObserver observer =
+    final List<StreamElement> written = new ArrayList<>();
+    final CommitLogReader reader = Optionals.get(direct.getCommitLogReader(data));
+    final RetryableLogObserver observer =
         controller.createOnlineObserver(
             "consumer",
             direct
@@ -119,7 +123,7 @@ public class ReplicationControllerTest {
             Sets.newHashSet(data),
             ingest -> false,
             fakeOnlineWriter(written));
-    try (ObserveHandle handle = observer.start()) {
+    try (ObserveHandle ignored = reader.observe("consumer", observer)) {
       writeEvent();
       assertEquals(0, written.size());
     }
@@ -131,7 +135,7 @@ public class ReplicationControllerTest {
     EntityDescriptor gateway = repo.getEntity("gateway");
     AttributeDescriptor<byte[]> armed = gateway.getAttribute("armed");
     AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
-    AbstractRetryableLogObserver observer =
+    RetryableLogObserver observer =
         controller.createOnlineObserver(
             "consumer",
             direct
@@ -175,7 +179,7 @@ public class ReplicationControllerTest {
     EntityDescriptor gateway = repo.getEntity("gateway");
     AttributeDescriptor<byte[]> armed = gateway.getAttribute("armed");
     AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
-    AbstractRetryableLogObserver observer =
+    RetryableLogObserver observer =
         controller.createBulkObserver(
             "consumer",
             direct
@@ -218,19 +222,17 @@ public class ReplicationControllerTest {
 
   @Test
   public void testBulkReplication() throws InterruptedException {
-    List<StreamElement> written = new ArrayList<>();
-    AbstractRetryableLogObserver observer =
+    final List<StreamElement> written = new ArrayList<>();
+    final CommitLogReader reader = Optionals.get(direct.getCommitLogReader(data));
+    final RetryableLogObserver observer =
         controller.createBulkObserver(
             "consumer",
-            direct
-                .getCommitLogReader(data)
-                .orElseThrow(
-                    () -> new IllegalArgumentException("Missing commit log reader for data")),
+            reader,
             Sets.newHashSet(data),
             new PassthroughFilter(),
             fakeBulkWriter(
                 written, stamp -> stamp == now - InMemStorage.getBoundedOutOfOrderness() + 100));
-    try (ObserveHandle handle = observer.start()) {
+    try (ObserveHandle ignored = reader.observeBulk("consumer", observer)) {
       for (int i = 0; i < 10; i++) {
         writeEvent(now + 20 * i);
       }

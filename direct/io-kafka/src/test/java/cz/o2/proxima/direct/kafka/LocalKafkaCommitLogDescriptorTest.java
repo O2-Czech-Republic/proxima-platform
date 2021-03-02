@@ -1478,7 +1478,6 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         accessor
             .getCommitLogReader(context())
             .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-    CountDownLatch latch = new CountDownLatch(1);
     AtomicInteger restarts = new AtomicInteger();
     StreamElement update =
         StreamElement.upsert(
@@ -1490,17 +1489,18 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             System.currentTimeMillis(),
             new byte[] {1, 2});
 
-    RetryableLogObserver observer =
-        RetryableLogObserver.bulk(
-            3,
+    final int numRetries = 3;
+    final CountDownLatch latch = new CountDownLatch(numRetries);
+    final RetryableLogObserver observer =
+        RetryableLogObserver.of(
             "test",
-            reader,
+            numRetries,
             new LogObserver() {
 
               @Override
               public boolean onError(Throwable error) {
                 latch.countDown();
-                return false;
+                return true;
               }
 
               @Override
@@ -1509,7 +1509,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 throw new RuntimeException("FAIL!");
               }
             });
-    observer.start();
+    reader.observe("test", observer);
     Executors.newCachedThreadPool()
         .execute(
             () -> {

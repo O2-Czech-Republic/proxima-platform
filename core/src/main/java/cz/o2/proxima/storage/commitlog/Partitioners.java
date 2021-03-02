@@ -20,6 +20,10 @@ import cz.o2.proxima.storage.StreamElement;
 /** Helper methods for {@link Partitioner partitioners}. */
 public class Partitioners {
 
+  private Partitioners() {
+    // No-op.
+  }
+
   public static int getTruncatedPartitionId(
       Partitioner partitioner, StreamElement element, int numPartitions) {
     return (partitioner.getPartitionId(element) & Integer.MAX_VALUE) % numPartitions;

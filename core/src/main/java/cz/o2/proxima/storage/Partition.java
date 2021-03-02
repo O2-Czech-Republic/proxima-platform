@@ -33,6 +33,8 @@ public interface Partition extends Serializable, Comparable<Partition> {
   @Value
   class IntegerPartition implements Partition {
 
+    private static final long serialVersionUID = 1L;
+
     /** Numerical identifier of the partition. */
     int id;
   }

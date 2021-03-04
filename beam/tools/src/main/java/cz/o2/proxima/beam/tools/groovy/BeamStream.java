@@ -400,6 +400,7 @@ class BeamStream<T> implements Stream<T> {
   private void runPipeline(Pipeline pipeline) {
     AtomicReference<PipelineResult> result = new AtomicReference<>();
     CountDownLatch latch = new CountDownLatch(1);
+    AtomicReference<Throwable> errorCaught = new AtomicReference<>();
     Thread running =
         runThread(
             "pipeline-start-thread",
@@ -411,9 +412,9 @@ class BeamStream<T> implements Stream<T> {
                     pipeline.getClass().getClassLoader());
                 result.set(pipeline.run());
                 result.get().waitUntilFinish();
-              } catch (Exception ex) {
+              } catch (Throwable ex) {
                 if (!(ex.getCause() instanceof InterruptedException)) {
-                  throw ex;
+                  errorCaught.set(ex);
                 } else {
                   log.debug("Swallowing interrupted exception.", ex);
                 }
@@ -440,6 +441,18 @@ class BeamStream<T> implements Stream<T> {
     if (!watchTerminating.get()) {
       watch.interrupt();
     }
+    Optional.ofNullable(errorCaught.getAndSet(null)).ifPresent(BeamStream::rethrow);
+  }
+
+  @VisibleForTesting
+  static void rethrow(Throwable err) {
+    if (err instanceof Error) {
+      throw (Error) err;
+    }
+    if (err instanceof RuntimeException) {
+      throw (RuntimeException) err;
+    }
+    throw new IllegalStateException("Failed to execute pipeline", err);
   }
 
   private void stopRemoteConsumers() {

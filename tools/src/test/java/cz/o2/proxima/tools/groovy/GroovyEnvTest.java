@@ -993,6 +993,21 @@ public abstract class GroovyEnvTest extends GroovyTest {
     assertUnorderedEquals(Arrays.asList(2L, 3L, 2L), result);
   }
 
+  @Test
+  public void testUdfErrorFailIsPropagated() throws Exception {
+    final Script compiled =
+        compile("env.batch.data.batchUpdates().map({ it.not_existing_property }).collect()");
+    write(
+        StreamElement.upsert(
+            batch, data, "uuid", "key", data.getName(), System.currentTimeMillis(), new byte[] {}));
+    try {
+      compiled.run();
+      fail("Should have thrown exception");
+    } catch (Exception ex) {
+      assertTrue(ex instanceof RuntimeException);
+    }
+  }
+
   protected abstract void write(StreamElement element);
 
   protected Repository getRepo() {

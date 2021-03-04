@@ -44,6 +44,7 @@ import cz.o2.proxima.tools.groovy.util.Closures;
 import cz.o2.proxima.util.Pair;
 import cz.o2.proxima.util.SerializableScopedValue;
 import groovy.lang.Closure;
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.ArrayList;
@@ -605,6 +606,21 @@ public class BeamStreamTest extends StreamTest {
                 Number.class,
                 List.class,
                 ArrayList.class)));
+  }
+
+  @Test
+  public void testExceptionRethrow() {
+    expectThrow(() -> BeamStream.rethrow(new OutOfMemoryError()), OutOfMemoryError.class);
+    expectThrow(() -> BeamStream.rethrow(new RuntimeException("exc")), RuntimeException.class);
+    expectThrow(() -> BeamStream.rethrow(new IOException()), IllegalStateException.class);
+  }
+
+  private void expectThrow(Runnable r, Class<? extends Throwable> errorClass) {
+    try {
+      r.run();
+    } catch (Throwable e) {
+      assertTrue(errorClass.isAssignableFrom(e.getClass()));
+    }
   }
 
   private StreamElement upsertRandom(

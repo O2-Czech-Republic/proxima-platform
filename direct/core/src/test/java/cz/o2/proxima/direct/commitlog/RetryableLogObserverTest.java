@@ -22,7 +22,7 @@ import org.junit.Test;
 public class RetryableLogObserverTest {
 
   @Test
-  public void testRetryableError() {
+  public void testRetryableContract() {
     final int numRetries = 10;
     final RetryableLogObserver observer =
         RetryableLogObserver.of(
@@ -32,8 +32,7 @@ public class RetryableLogObserverTest {
 
               @Override
               public boolean onError(Throwable error) {
-                // Retryable.
-                return true;
+                return false;
               }
 
               @Override
@@ -59,29 +58,6 @@ public class RetryableLogObserverTest {
     }
 
     // Out of retries.
-    Assert.assertFalse(observer.onError(new Exception("Test.")));
-  }
-
-  @Test
-  public void testNonRetryableError() {
-    final int numRetries = 10;
-    final RetryableLogObserver observer =
-        RetryableLogObserver.of(
-            "test",
-            numRetries,
-            new LogObserver() {
-
-              @Override
-              public boolean onError(Throwable error) {
-                // Non-Retryable.
-                return false;
-              }
-
-              @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
-                throw new UnsupportedOperationException("Not implemented.");
-              }
-            });
     Assert.assertFalse(observer.onError(new Exception("Test.")));
   }
 }

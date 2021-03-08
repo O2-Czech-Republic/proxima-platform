@@ -64,14 +64,12 @@ public class RetryableLogObserver implements LogObserver {
 
   @Override
   public boolean onError(Throwable throwable) {
-    if (delegate.onError(throwable)) {
-      numFailures++;
-      log.error(
-          "Error in observer {}, retry {} out of {}", name, numFailures, maxRetries, throwable);
-      return numFailures <= maxRetries;
+    log.error("Error in observer {}, retry {} out of {}", name, numFailures, maxRetries, throwable);
+    if (++numFailures <= maxRetries) {
+      return true;
     }
     log.error("Error in observer {} (non-retryable)", name, throwable);
-    return false;
+    return delegate.onError(throwable);
   }
 
   @Override

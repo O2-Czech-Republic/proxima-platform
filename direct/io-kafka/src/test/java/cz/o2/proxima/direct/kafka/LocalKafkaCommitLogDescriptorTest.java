@@ -53,6 +53,7 @@ import cz.o2.proxima.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.time.WatermarkIdlePolicy;
 import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.time.Watermarks;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import java.io.IOException;
@@ -1490,7 +1491,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new byte[] {1, 2});
 
     final int numRetries = 3;
-    final CountDownLatch latch = new CountDownLatch(numRetries);
+    final CountDownLatch latch = new CountDownLatch(1);
     final RetryableLogObserver observer =
         RetryableLogObserver.of(
             "test",
@@ -1500,7 +1501,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               @Override
               public boolean onError(Throwable error) {
                 latch.countDown();
-                return true;
+                return false;
               }
 
               @Override
@@ -1513,12 +1514,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     Executors.newCachedThreadPool()
         .execute(
             () -> {
-              while (true) {
-                try {
-                  TimeUnit.MILLISECONDS.sleep(100);
-                } catch (InterruptedException ex) {
-                  break;
-                }
+              while (!ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(100))) {
                 writer.write(
                     update,
                     (succ, e) -> {
@@ -1527,7 +1523,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               }
             });
     latch.await();
-    assertEquals(3, restarts.get());
+    assertEquals(numRetries + 1, restarts.get());
   }
 
   @Test(timeout = 10000)

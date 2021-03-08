@@ -188,6 +188,10 @@
               <shadedPattern>${shadePattern}.com.google.protobuf.</shadedPattern>
             </relocation>
             <relocation>
+              <pattern>com.google.gson.</pattern>
+              <shadedPattern>${shadePattern}.com.google.gson.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>com.fasterxml.</pattern>
               <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>

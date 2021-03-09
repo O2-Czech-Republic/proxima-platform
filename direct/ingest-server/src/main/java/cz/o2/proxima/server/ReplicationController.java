@@ -20,7 +20,8 @@ import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.RetryableLogObserver;
+import cz.o2.proxima.direct.commitlog.LogObservers;
+import cz.o2.proxima.direct.commitlog.LogObservers.TerminationStrategy;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
@@ -87,8 +88,9 @@ public class ReplicationController {
     return new ReplicationController(repository);
   }
 
+  @VisibleForTesting
   @AllArgsConstructor
-  private abstract class ReplicationLogObserver implements LogObserver {
+  abstract class ReplicationLogObserver implements LogObserver {
 
     private final String consumerName;
     private final CommitLogReader commitLog;
@@ -127,12 +129,17 @@ public class ReplicationController {
 
     @Override
     public boolean onError(Throwable error) {
+      return true;
+    }
+
+    public TerminationStrategy onFatalError(Throwable error) {
       onReplicationError(
           new IllegalStateException(
               String.format(
                   "Consumer %s: too many errors retrying the consumption of commit log %s.",
-                  consumerName, commitLog.getUri())));
-      return false;
+                  consumerName, commitLog.getUri()),
+              error));
+      return TerminationStrategy.RETHROW;
     }
 
     @Override
@@ -372,12 +379,12 @@ public class ReplicationController {
       ElementWiseTransformation transformation,
       StorageFilter filter,
       String name) {
+
+    TransformationObserver observer =
+        new TransformationObserver(dataOperator, name, transformation, filter);
     reader.observe(
         consumerName,
-        RetryableLogObserver.of(
-            consumerName,
-            3,
-            new TransformationObserver(dataOperator, name, transformation, filter)));
+        LogObservers.withNumRetriedExceptions(consumerName, 3, observer::onFatalError, observer));
   }
 
   private void registerWriterTo(
@@ -394,7 +401,7 @@ public class ReplicationController {
     switch (writerBase.getType()) {
       case ONLINE:
         {
-          final RetryableLogObserver observer =
+          final LogObserver observer =
               createOnlineObserver(
                   consumerName, commitLog, allowedAttributes, filter, writerBase.online());
           commitLog.observe(consumerName, observer);
@@ -402,7 +409,7 @@ public class ReplicationController {
         }
       case BULK:
         {
-          final RetryableLogObserver observer =
+          final LogObserver observer =
               createBulkObserver(
                   consumerName, commitLog, allowedAttributes, filter, writerBase.bulk());
           commitLog.observeBulk(consumerName, observer);
@@ -425,14 +432,14 @@ public class ReplicationController {
    * @return Log observer.
    */
   @VisibleForTesting
-  RetryableLogObserver createBulkObserver(
+  LogObserver createBulkObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,
       StorageFilter filter,
       BulkAttributeWriter writer) {
 
-    final LogObserver logObserver =
+    final ReplicationLogObserver observer =
         new ReplicationLogObserver(consumerName, commitLog, allowedAttributes, filter, writer) {
 
           @Override
@@ -464,7 +471,7 @@ public class ReplicationController {
             writer.updateWatermark(context.getWatermark());
           }
         };
-    return RetryableLogObserver.of(consumerName, 3, logObserver);
+    return LogObservers.withNumRetriedExceptions(consumerName, 3, observer::onFatalError, observer);
   }
 
   /**
@@ -478,13 +485,14 @@ public class ReplicationController {
    * @return Log observer.
    */
   @VisibleForTesting
-  RetryableLogObserver createOnlineObserver(
+  LogObserver createOnlineObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,
       StorageFilter filter,
       OnlineAttributeWriter writer) {
-    final LogObserver logObserver =
+
+    final ReplicationLogObserver observer =
         new ReplicationLogObserver(consumerName, commitLog, allowedAttributes, filter, writer) {
 
           @Override
@@ -510,7 +518,7 @@ public class ReplicationController {
             context.confirm();
           }
         };
-    return RetryableLogObserver.of(consumerName, 3, logObserver);
+    return LogObservers.withNumRetriedExceptions(consumerName, 3, observer::onFatalError, observer);
   }
 
   private void confirmWrite(

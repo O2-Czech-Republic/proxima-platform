@@ -18,6 +18,7 @@ package cz.o2.proxima.server;
 import static cz.o2.proxima.server.IngestServer.ingestRequest;
 
 import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.LogObservers.TerminationStrategy;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.server.metrics.Metrics;
@@ -52,8 +53,12 @@ public class TransformationObserver implements LogObserver {
 
   @Override
   public boolean onError(Throwable error) {
+    return true;
+  }
+
+  public TerminationStrategy onFatalError(Throwable error) {
     Utils.die(String.format("Failed to transform using %s. Bailing out.", transformation));
-    return false;
+    return TerminationStrategy.RETHROW;
   }
 
   @Override

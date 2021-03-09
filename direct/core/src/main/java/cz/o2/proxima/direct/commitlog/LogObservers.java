@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.commitlog;
 import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
@@ -33,6 +34,71 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class LogObservers {
+
+  /** A strategy to use when maximal error count is reached. */
+  public enum TerminationStrategy {
+    /** Halt processing. The application's responsibility is to recover from the situation. */
+    STOP_PROCESSING,
+    /** Exception is rethrown an handled by exception handler. */
+    RETHROW,
+    /** Immediately call {@link System#exit} */
+    EXIT
+  }
+
+  /**
+   * Create a {@link LogObserver} that handles retries on {@link Exception Exceptions} thrown during
+   * processing. If retries are exhausted, the last caught Exception is rethrown.
+   *
+   * @param name name of the consumer
+   * @param numRetries number of retries that should be attempted
+   * @param delegate the {@link LogObserver} to handle to processing
+   * @return {@link LogObserver} that will retry processing
+   */
+  public static LogObserver withNumRetriedExceptions(
+      String name, int numRetries, LogObserver delegate) {
+    return withNumRetriedExceptions(
+        name, numRetries, throwable -> TerminationStrategy.RETHROW, delegate);
+  }
+
+  /**
+   * Create a {@link LogObserver} that handles retries on {@link Exception Exceptions} thrown during
+   * processing. If retries are exhausted, the last caught Exception is rethrown.
+   *
+   * @param name name of the consumer
+   * @param numRetries number of retries that should be attempted
+   * @param onRetriesExhausted handler for {@link Throwable} caught during processing and not
+   *     retried
+   * @param delegate the {@link LogObserver} to handle to processing
+   * @return {@link LogObserver} that will retry processing
+   */
+  public static LogObserver withNumRetriedExceptions(
+      String name,
+      int numRetries,
+      UnaryFunction<Throwable, TerminationStrategy> onRetriesExhausted,
+      LogObserver delegate) {
+
+    return new RetryableLogObserver(name, numRetries, onRetriesExhausted, false, delegate);
+  }
+
+  /**
+   * Create a {@link LogObserver} that handles retries on {@link Throwable Throwables} thrown during
+   * processing. If retries are exhausted, the last caught Throwable is rethrown.
+   *
+   * @param name name of the consumer
+   * @param numRetries number of retries that should be attempted
+   * @param onRetriesExhausted handler for {@link Throwable} caught during processing and not
+   *     retried
+   * @param delegate the {@link LogObserver} to handle to processing
+   * @return {@link LogObserver} that will retry processing
+   */
+  public static LogObserver withNumRetriedThrowables(
+      String name,
+      int numRetries,
+      UnaryFunction<Throwable, TerminationStrategy> onRetriesExhausted,
+      LogObserver delegate) {
+
+    return new RetryableLogObserver(name, numRetries, onRetriesExhausted, true, delegate);
+  }
 
   /**
    * Create {@link LogObserver} that observes data in event time order.

@@ -15,7 +15,10 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
-import cz.o2.proxima.annotations.Stable;
+import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.annotations.Internal;
+import cz.o2.proxima.direct.commitlog.LogObservers.TerminationStrategy;
+import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -24,34 +27,34 @@ import lombok.extern.slf4j.Slf4j;
  * {@code LogObserver} which is able to retry the observation on error. The number of retries is
  * configurable.
  */
-@Stable
+@Internal
 @Slf4j
-public class RetryableLogObserver implements LogObserver {
-
-  /**
-   * Create online retryable log observer.
-   *
-   * @param name name of the consumer
-   * @param numRetries number of allowed successive failures
-   * @param observer observer of data
-   * @return the observer
-   */
-  public static RetryableLogObserver of(String name, int numRetries, LogObserver observer) {
-    return new RetryableLogObserver(name, numRetries, observer);
-  }
+class RetryableLogObserver implements LogObserver {
 
   /** Maximal number of retries. */
   @Getter private final int maxRetries;
   /** Name of the consumer. */
   @Getter private final String name;
+  /** Consumer of error when retries exhausted. */
+  UnaryFunction<Throwable, TerminationStrategy> onRetriesExhausted;
+  /** {@code true} is we should retry {@link Error Errors}. */
+  final boolean retryErrors;
   /** Current number of failures in a row. */
   private int numFailures;
   /** Underlying log observer. */
   private final LogObserver delegate;
 
-  private RetryableLogObserver(String name, int maxRetries, LogObserver delegate) {
+  RetryableLogObserver(
+      String name,
+      int maxRetries,
+      UnaryFunction<Throwable, TerminationStrategy> onRetriesExhausted,
+      boolean retryErrors,
+      LogObserver delegate) {
+
     this.maxRetries = maxRetries;
     this.name = name;
+    this.onRetriesExhausted = onRetriesExhausted;
+    this.retryErrors = retryErrors;
     this.delegate = delegate;
   }
 
@@ -64,14 +67,44 @@ public class RetryableLogObserver implements LogObserver {
 
   @Override
   public boolean onError(Throwable throwable) {
-    if (delegate.onError(throwable)) {
-      numFailures++;
+    if (delegate.onError(throwable)
+        && (retryErrors || !(throwable instanceof Error))
+        && ++numFailures <= maxRetries) {
+
       log.error(
           "Error in observer {}, retry {} out of {}", name, numFailures, maxRetries, throwable);
-      return numFailures <= maxRetries;
+      return true;
     }
     log.error("Error in observer {} (non-retryable)", name, throwable);
-    return false;
+    TerminationStrategy strategy = onRetriesExhausted.apply(throwable);
+    return handleThrowableWithStrategy(name, throwable, strategy);
+  }
+
+  @VisibleForTesting
+  static boolean handleThrowableWithStrategy(
+      String name, Throwable throwable, TerminationStrategy strategy) {
+
+    switch (strategy) {
+      case EXIT:
+        log.error("Exception caught processing {}. Exiting.", name, throwable);
+        System.exit(1);
+      case STOP_PROCESSING:
+        log.error(
+            "Exception caught processing {}. Terminating consumption as requested.",
+            name,
+            throwable);
+        return false;
+      case RETHROW:
+        if (throwable instanceof Error) {
+          throw (Error) throwable;
+        }
+        if (throwable instanceof RuntimeException) {
+          throw (RuntimeException) throwable;
+        }
+        throw new IllegalStateException("Retries exhausted retrying observer " + name, throwable);
+    }
+    throw new IllegalStateException(
+        String.format("Unknown TerminationStrategy %s in %s", strategy, name), throwable);
   }
 
   @Override

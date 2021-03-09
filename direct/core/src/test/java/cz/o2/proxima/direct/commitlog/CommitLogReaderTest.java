@@ -169,8 +169,8 @@ public class CommitLogReaderTest {
     List<StreamElement> received = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
     AtomicInteger count = new AtomicInteger();
-    final RetryableLogObserver observer =
-        RetryableLogObserver.of(
+    final LogObserver observer =
+        LogObservers.withNumRetriedExceptions(
             "test",
             2,
             new LogObserver() {

@@ -490,6 +490,7 @@
             <conf>JAVADOC_STYLE</conf>
             <cql>JAVADOC_STYLE</cql>
           </mapping>
+
           <excludes>
             <exclude>**/license-header.txt</exclude>
             <exclude>**/license-header-spotless.txt</exclude>
@@ -499,6 +500,7 @@
             <exclude>**/src/test/resources/**</exclude>
             <exclude>**/src/main/resources/**</exclude>
             <exclude>install-jdk.sh</exclude>
+            <exclude>**/*.odg</exclude>
           </excludes>
         </configuration>
         <executions>

@@ -20,11 +20,10 @@ import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
-import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import java.net.URI;
-import java.util.Map;
 import lombok.AccessLevel;
 import lombok.Getter;
 
@@ -83,9 +82,8 @@ public class PubSubStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-
-    return new PubSubAccessor(this, entityDesc, uri, cfg);
+      DirectDataOperator operator, AttributeFamilyDescriptor family) {
+    return new PubSubAccessor(this, family.getEntity(), family.getStorageUri(), family.getCfg());
   }
 
   @Override

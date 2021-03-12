@@ -16,11 +16,11 @@
 package cz.o2.proxima.direct.http;
 
 import com.google.common.collect.Sets;
+import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.net.URI;
-import java.util.Map;
 
 /** Storage via HTTP(S) requests. */
 public class HttpStorage implements DataAccessorFactory {
@@ -28,10 +28,9 @@ public class HttpStorage implements DataAccessorFactory {
   private static final long serialVersionUID = 1L;
 
   @Override
-  public HttpAccessor createAccessor(
-      DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-
-    return new HttpAccessor(entityDesc, uri, cfg);
+  public DataAccessor createAccessor(
+      DirectDataOperator operator, AttributeFamilyDescriptor family) {
+    return new HttpAccessor(family.getEntity(), family.getStorageUri(), family.getCfg());
   }
 
   @Override

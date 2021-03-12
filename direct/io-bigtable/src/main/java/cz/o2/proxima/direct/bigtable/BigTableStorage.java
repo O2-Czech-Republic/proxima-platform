@@ -20,9 +20,8 @@ import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.hbase.HBaseDataAccessor;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.net.URI;
-import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.client.Connection;
 
@@ -33,12 +32,11 @@ public class BigTableStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-
+      DirectDataOperator operator, AttributeFamilyDescriptor familyDescriptor) {
     return new HBaseDataAccessor(
-        entityDesc,
-        uri,
-        cfg,
+        familyDescriptor.getEntity(),
+        familyDescriptor.getStorageUri(),
+        familyDescriptor.getCfg(),
         (m, u) -> {
           Configuration ret = new Configuration();
           ret.setClass("hbase.client.connection.impl", BigtableConnection.class, Connection.class);

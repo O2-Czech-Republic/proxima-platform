@@ -16,10 +16,10 @@
 package cz.o2.proxima.direct.core;
 
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
-import java.util.Map;
 import java.util.Optional;
 import lombok.Getter;
 
@@ -71,8 +71,7 @@ public class StdoutStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
-
-    return new StdoutDataAccessor(entity, uri);
+      DirectDataOperator operator, AttributeFamilyDescriptor familyDescriptor) {
+    return new StdoutDataAccessor(familyDescriptor.getEntity(), familyDescriptor.getStorageUri());
   }
 }

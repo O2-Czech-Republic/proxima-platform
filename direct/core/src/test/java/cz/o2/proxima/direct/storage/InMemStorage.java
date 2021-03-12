@@ -50,6 +50,7 @@ import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
@@ -1046,7 +1047,11 @@ public class InMemStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
+      DirectDataOperator op, AttributeFamilyDescriptor familyDescriptor) {
+    final EntityDescriptor entity = familyDescriptor.getEntity();
+    final URI uri = familyDescriptor.getStorageUri();
+    final Map<String, Object> cfg = familyDescriptor.getCfg();
+
     log.info("Creating accessor {} for URI {}", getClass(), uri);
     holder()
         .observers

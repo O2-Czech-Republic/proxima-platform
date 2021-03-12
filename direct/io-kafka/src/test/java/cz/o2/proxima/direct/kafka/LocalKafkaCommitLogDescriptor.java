@@ -171,7 +171,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         written.add(Collections.synchronizedList(new ArrayList<>()));
       }
 
-      @SuppressWarnings("unchecked")
+      @SuppressWarnings({"unchecked", "rawtypes"})
       Class<ElementSerializer<?, ?>> cls =
           Optional.ofNullable(cfg.get(KafkaAccessor.SERIALIZER_CLASS))
               .map(Object::toString)
@@ -397,22 +397,20 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
     private void commitConsumer(String name, Map<TopicPartition, OffsetAndMetadata> commitMap) {
       synchronized (committedOffsets) {
-        commitMap
-            .entrySet()
-            .forEach(
-                entry -> {
-                  int partition = entry.getKey().partition();
-                  long offset = entry.getValue().offset();
-                  committedOffsets.compute(
-                      Pair.of(name, partition),
-                      (tmp, old) -> {
-                        if (old == null) {
-                          return new AtomicInteger((int) offset);
-                        }
-                        old.set((int) offset);
-                        return old;
-                      });
-                });
+        commitMap.forEach(
+            (key, value) -> {
+              int partition = key.partition();
+              long offset = value.offset();
+              committedOffsets.compute(
+                  Pair.of(name, partition),
+                  (tmp, old) -> {
+                    if (old == null) {
+                      return new AtomicInteger((int) offset);
+                    }
+                    old.set((int) offset);
+                    return old;
+                  });
+            });
       }
       log.debug(
           "Consumer {} committed offsets {}, offsets now {}", name, commitMap, committedOffsets);

@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.beam.io.pubsub;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
@@ -25,6 +25,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.util.TestUtils;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -48,7 +49,11 @@ public class PubSubDataAccessorTest {
   @Before
   public void setUp() {
     operator = repo.getOrCreateOperator(BeamDataOperator.class);
-    accessor = new PubSubDataAccessorFactory().createAccessor(operator, gateway, uri(), cfg());
+    accessor =
+        new PubSubDataAccessorFactory()
+            .createAccessor(
+                operator,
+                TestUtils.createTestFamily(gateway, uri(), gateway.getAllAttributes(), cfg()));
   }
 
   @Test

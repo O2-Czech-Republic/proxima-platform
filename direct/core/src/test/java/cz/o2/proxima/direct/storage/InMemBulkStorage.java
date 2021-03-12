@@ -30,6 +30,7 @@ import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.Partition;
@@ -85,7 +86,6 @@ public class InMemBulkStorage implements DataAccessorFactory {
       }
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public BulkAttributeWriter.Factory<?> asFactory() {
       final EntityDescriptor entity = getEntityDescriptor();
@@ -239,7 +239,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
 
     @Override
     public Optional<BatchLogReader> getBatchLogReader(Context context) {
-      return Optional.of(new BatchReader(entityDesc, uri, () -> context.getExecutorService()));
+      return Optional.of(new BatchReader(entityDesc, uri, context::getExecutorService));
     }
   }
 
@@ -253,9 +253,8 @@ public class InMemBulkStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator op, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
-
-    return new InMemBulkAccessor(entity, uri);
+      DirectDataOperator operator, AttributeFamilyDescriptor familyDescriptor) {
+    return new InMemBulkAccessor(familyDescriptor.getEntity(), familyDescriptor.getStorageUri());
   }
 
   public NavigableMap<String, Pair<Long, byte[]>> getData(String prefix) {

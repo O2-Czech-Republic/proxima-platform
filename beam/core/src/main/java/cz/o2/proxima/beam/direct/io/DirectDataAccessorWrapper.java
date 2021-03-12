@@ -21,13 +21,13 @@ import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.net.URI;
 import java.util.List;
-import java.util.Map;
 import lombok.Getter;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.euphoria.core.client.operator.AssignEventTime;
@@ -45,20 +45,17 @@ public class DirectDataAccessorWrapper implements DataAccessor {
   private final cz.o2.proxima.direct.core.DataAccessor direct;
   @Getter private final URI uri;
   private final Context context;
-  private final Map<String, Object> cfg;
 
   public DirectDataAccessorWrapper(
       Repository repo,
       cz.o2.proxima.direct.core.DataAccessor direct,
-      URI uri,
-      Context context,
-      Map<String, Object> cfg) {
+      AttributeFamilyDescriptor familyDescriptor,
+      Context context) {
 
     this.factory = repo.asFactory();
     this.direct = direct;
-    this.uri = uri;
+    this.uri = familyDescriptor.getStorageUri();
     this.context = context;
-    this.cfg = cfg;
   }
 
   @Override

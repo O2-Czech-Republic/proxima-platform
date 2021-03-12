@@ -41,6 +41,9 @@ public class BigTableStorage implements DataAccessorFactory {
           Configuration ret = new Configuration();
           ret.setClass("hbase.client.connection.impl", BigtableConnection.class, Connection.class);
           String authority = u.getAuthority();
+          if (authority == null) {
+            throw new IllegalArgumentException("Missing authority in URI " + u);
+          }
           String[] parts = authority.split(":");
           if (parts.length != 2) {
             throw new IllegalArgumentException(

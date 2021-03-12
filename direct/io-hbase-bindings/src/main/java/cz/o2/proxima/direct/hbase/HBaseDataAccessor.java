@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.hbase;
 
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
@@ -54,6 +55,16 @@ public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
     super(entity, uri);
     this.cfg = cfg;
     this.confFactory = confFactory;
+  }
+
+  /**
+   * Just for test purpose!
+   *
+   * @return configuration factory
+   */
+  @VisibleForTesting
+  public ConfFactory getConfFactory() {
+    return confFactory;
   }
 
   @Override

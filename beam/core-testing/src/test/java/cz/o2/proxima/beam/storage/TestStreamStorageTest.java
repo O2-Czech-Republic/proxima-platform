@@ -15,10 +15,12 @@
  */
 package cz.o2.proxima.beam.storage;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.beam.core.BeamDataOperator;
+import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
@@ -26,9 +28,11 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
+import java.net.URI;
 import java.util.UUID;
-import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.testing.PAssert;
+import org.apache.beam.sdk.testing.TestPipeline;
 import org.apache.beam.sdk.testing.TestStream;
 import org.apache.beam.sdk.transforms.Count;
 import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
@@ -37,6 +41,7 @@ import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.PCollection;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 
 /** Test {@link TestStreamStorage}. */
@@ -55,6 +60,8 @@ public class TestStreamStorageTest {
           .orElseThrow(() -> new IllegalStateException("Missing commit log for " + status));
   private final long now = System.currentTimeMillis();
 
+  @Rule public TestPipeline pipeline = TestPipeline.create();
+
   private BeamDataOperator beam;
 
   @Before
@@ -69,13 +76,35 @@ public class TestStreamStorageTest {
 
   @Test
   public void testReadingFromTestStream() {
+    validatePipelineRun(() -> beam.getStream(pipeline, Position.OLDEST, false, false, status));
+  }
+
+  @FunctionalInterface
+  private interface DoFnProvider {
+    PCollection<StreamElement> apply();
+  }
+
+  @Test
+  public void testReadingBatchSnapshotFromStream() {
+    validatePipelineRun(() -> beam.getBatchSnapshot(pipeline, status));
+  }
+
+  @Test
+  public void testFactory() {
+    final TestStreamStorage factory = new TestStreamStorage();
+    assertEquals(Accept.ACCEPT, factory.accepts(URI.create("test-stream:///")));
+    assertEquals(Accept.REJECT, factory.accepts(URI.create("file:///")));
+    final DataAccessor accessor = factory.createAccessor(beam, family);
+    assertEquals(family.getStorageUri(), accessor.getUri());
+  }
+
+  private void validatePipelineRun(DoFnProvider stream) {
     TestStream<StreamElement> input =
         TestStream.create(StreamElementCoder.of(repo))
             .addElements(newUpsert(), newUpsert())
             .advanceWatermarkToInfinity();
     TestStreamStorage.putStream(repo, family, input);
-    Pipeline p = Pipeline.create();
-    PCollection<StreamElement> data = beam.getStream(p, Position.OLDEST, false, false, status);
+    PCollection<StreamElement> data = stream.apply();
     PCollection<Long> count =
         data.apply(
                 Window.<StreamElement>into(new GlobalWindows())
@@ -83,7 +112,7 @@ public class TestStreamStorageTest {
                     .discardingFiredPanes())
             .apply(Count.globally());
     PAssert.that(count).containsInAnyOrder(2L);
-    assertNotNull(p.run());
+    assertNotNull(pipeline.run());
   }
 
   private StreamElement newUpsert() {

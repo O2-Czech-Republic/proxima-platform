@@ -89,6 +89,7 @@ import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.runners.flink.FlinkRunner;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
+import org.apache.beam.sdk.PipelineResult.State;
 import org.apache.beam.sdk.coders.CannotProvideCoderException;
 import org.apache.beam.sdk.coders.Coder;
 import org.apache.beam.sdk.coders.CoderRegistry;
@@ -442,6 +443,10 @@ class BeamStream<T> implements Stream<T> {
       watch.interrupt();
     }
     Optional.ofNullable(errorCaught.getAndSet(null)).ifPresent(BeamStream::rethrow);
+    Preconditions.checkState(
+        Optional.ofNullable(result.get()).map(res -> res.getState() == State.DONE).orElse(true),
+        "Expected the Pipeline to be in DONE state after finishing, got %s",
+        result.get());
   }
 
   @VisibleForTesting

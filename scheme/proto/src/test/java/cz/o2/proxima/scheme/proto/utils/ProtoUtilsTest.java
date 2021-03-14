@@ -19,40 +19,34 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import cz.o2.proxima.scheme.AttributeValueType;
-import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.scheme.SchemaDescriptors.StructureTypeDescriptor;
 import cz.o2.proxima.scheme.proto.test.Scheme.Device;
+import cz.o2.proxima.scheme.proto.test.Scheme.RecursiveMessage;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage;
+import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
+@Slf4j
 public class ProtoUtilsTest {
 
   @Test
   public void testConvertSimpleProtoToSchema() {
-    SchemaTypeDescriptor<Device> schema = ProtoUtils.convertProtoToSchema(Device.getDescriptor());
+    StructureTypeDescriptor<Device> schema =
+        ProtoUtils.convertProtoToSchema(Device.getDescriptor());
     assertEquals(AttributeValueType.STRUCTURE, schema.getType());
-    assertEquals(2, schema.getStructureTypeDescriptor().getFields().size());
+    assertEquals(2, schema.getFields().size());
+    assertEquals(AttributeValueType.STRING, schema.getField("type").getType());
+    assertEquals(AttributeValueType.ARRAY, schema.getField("payload").getType());
     assertEquals(
-        AttributeValueType.STRING, schema.getStructureTypeDescriptor().getField("type").getType());
-    assertEquals(
-        AttributeValueType.ARRAY,
-        schema.getStructureTypeDescriptor().getField("payload").getType());
-    assertEquals(
-        AttributeValueType.BYTE,
-        schema
-            .getStructureTypeDescriptor()
-            .getField("payload")
-            .getArrayTypeDescriptor()
-            .getValueType());
+        AttributeValueType.BYTE, schema.getField("payload").asArrayTypeDescriptor().getValueType());
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   public void testConvertComplexProtoToSchema() {
-    SchemaTypeDescriptor<ValueSchemeMessage> schema =
+    StructureTypeDescriptor<ValueSchemeMessage> descriptor =
         ProtoUtils.convertProtoToSchema(ValueSchemeMessage.getDescriptor());
-    assertEquals(AttributeValueType.STRUCTURE, schema.getType());
-    StructureTypeDescriptor<ValueSchemeMessage> descriptor = schema.getStructureTypeDescriptor();
+    log.debug("Schema: {}", descriptor);
+    assertEquals(AttributeValueType.STRUCTURE, descriptor.getType());
     assertEquals(ValueSchemeMessage.getDescriptor().getName(), descriptor.getName());
     assertTrue(descriptor.hasField("repeated_inner_message"));
     assertEquals(AttributeValueType.ARRAY, descriptor.getField("repeated_inner_message").getType());
@@ -60,12 +54,19 @@ public class ProtoUtilsTest {
         AttributeValueType.ENUM,
         descriptor
             .getField("inner_message")
-            .getStructureTypeDescriptor()
+            .asStructureTypeDescriptor()
             .getField("inner_enum")
             .getType());
 
     assertEquals(
         AttributeValueType.STRUCTURE,
-        descriptor.getField("repeated_inner_message").getArrayTypeDescriptor().getValueType());
+        descriptor.getField("repeated_inner_message").asArrayTypeDescriptor().getValueType());
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testConvertMessageWithRecursion() {
+    StructureTypeDescriptor<RecursiveMessage> descriptor =
+        ProtoUtils.convertProtoToSchema(RecursiveMessage.getDescriptor());
+    log.debug("Schema: {}", descriptor);
   }
 }

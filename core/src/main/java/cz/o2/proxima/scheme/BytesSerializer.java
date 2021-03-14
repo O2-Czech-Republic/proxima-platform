@@ -76,7 +76,7 @@ public class BytesSerializer implements ValueSerializerFactory {
 
           @Override
           public SchemaTypeDescriptor<byte[]> getValueSchemaDescriptor() {
-            return SchemaDescriptors.bytes().toTypeDescriptor();
+            return SchemaDescriptors.bytes();
           }
         };
   }

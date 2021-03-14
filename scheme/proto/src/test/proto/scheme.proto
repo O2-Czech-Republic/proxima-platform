@@ -50,6 +50,10 @@ message ValueSchemeMessage {
     LEFT = 1;
     RIGHT = 2;
   }
+  enum SecondEnum {
+    VALUE1 = 0;
+    VALUE2 = 1;
+  }
   message SecondInnerMessage {
     float inner_float_type = 1;
   }
@@ -66,5 +70,9 @@ message ValueSchemeMessage {
   bool boolean_type = 5;
   uint64 long_type = 6;
   uint32 int_type = 7;
+  repeated bytes repeated_bytes = 8;
+}
 
+message RecursiveMessage {
+  RecursiveMessage recursion = 1;
 }

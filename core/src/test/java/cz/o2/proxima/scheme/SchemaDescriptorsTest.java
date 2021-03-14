@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 
 public class SchemaDescriptorsTest {
@@ -43,6 +44,11 @@ public class SchemaDescriptorsTest {
   @Test
   public void assertSerializableArrayType() throws IOException, ClassNotFoundException {
     TestUtils.assertSerializable(SchemaDescriptors.bytes());
+  }
+
+  @Test
+  public void assertSerializableEnumType() throws IOException, ClassNotFoundException {
+    TestUtils.assertSerializable(SchemaDescriptors.enums(Arrays.asList("FIRST", "SECOND")));
   }
 
   @Test
@@ -79,11 +85,12 @@ public class SchemaDescriptorsTest {
   public void testStringDescriptor() {
     PrimitiveTypeDescriptor<String> string = SchemaDescriptors.strings();
     assertEquals(AttributeValueType.STRING, string.getType());
-    SchemaTypeDescriptor<String> descriptor = string.toTypeDescriptor();
-    assertEquals(string, descriptor.getPrimitiveTypeDescriptor());
-    assertThrows(IllegalStateException.class, descriptor::getArrayTypeDescriptor);
-    assertThrows(IllegalStateException.class, descriptor::getStructureTypeDescriptor);
-    assertThrows(IllegalStateException.class, descriptor::getEnumTypeDescriptor);
+    assertEquals("STRING", string.toString());
+    assertTrue(string.isPrimitiveType());
+    assertEquals(string, string.asPrimitiveTypeDescriptor());
+    assertThrows(UnsupportedOperationException.class, string::asArrayTypeDescriptor);
+    assertThrows(UnsupportedOperationException.class, string::asStructureTypeDescriptor);
+    assertThrows(UnsupportedOperationException.class, string::asEnumTypeDescriptor);
   }
 
   @Test
@@ -91,27 +98,33 @@ public class SchemaDescriptorsTest {
     ArrayTypeDescriptor<String> desc = SchemaDescriptors.arrays(SchemaDescriptors.strings());
     assertEquals(AttributeValueType.ARRAY, desc.getType());
     assertEquals(AttributeValueType.STRING, desc.getValueType());
-    SchemaTypeDescriptor<String> d = desc.toTypeDescriptor();
-    assertThrows(IllegalStateException.class, d::getPrimitiveTypeDescriptor);
-    assertThrows(IllegalStateException.class, d::getStructureTypeDescriptor);
-    assertThrows(IllegalStateException.class, d::getEnumTypeDescriptor);
+    assertEquals("ARRAY[STRING]", desc.toString());
+    assertThrows(UnsupportedOperationException.class, desc::asStructureTypeDescriptor);
+    assertThrows(UnsupportedOperationException.class, desc::asEnumTypeDescriptor);
   }
 
   @Test
   public void testStructureDescriptorWithoutFields() {
-    StructureTypeDescriptor<Object> s = SchemaDescriptors.structures("structure");
-    assertEquals("structure", s.getName());
-    assertTrue(s.getFields().isEmpty());
-    SchemaTypeDescriptor<Object> desc = s.toTypeDescriptor();
-    assertEquals(s, desc.getStructureTypeDescriptor());
-    assertThrows(IllegalArgumentException.class, () -> s.getField("something"));
-    assertFalse(s.hasField("something"));
+    StructureTypeDescriptor<Map<String, Object>> desc = SchemaDescriptors.structures("structure");
+    assertEquals("structure", desc.getName());
+    Map<String, SchemaTypeDescriptor<?>> fields = desc.getFields();
+    assertTrue(fields.isEmpty());
+    assertEquals("STRUCTURE structure", desc.toString());
+    assertThrows(IllegalArgumentException.class, () -> desc.getField("something"));
+    assertFalse(desc.hasField("something"));
+    PrimitiveTypeDescriptor<String> stringTypeDescriptor = SchemaDescriptors.strings();
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> {
+          // Fields should be immutable
+          fields.put("field", stringTypeDescriptor);
+        });
     assertFalse(desc.isArrayType());
     assertFalse(desc.isPrimitiveType());
     assertTrue(desc.isStructureType());
-    assertThrows(IllegalStateException.class, desc::getArrayTypeDescriptor);
-    assertThrows(IllegalStateException.class, desc::getPrimitiveTypeDescriptor);
-    assertThrows(IllegalStateException.class, desc::getEnumTypeDescriptor);
+    assertThrows(UnsupportedOperationException.class, desc::asArrayTypeDescriptor);
+    assertThrows(UnsupportedOperationException.class, desc::asPrimitiveTypeDescriptor);
+    assertThrows(UnsupportedOperationException.class, desc::asEnumTypeDescriptor);
   }
 
   @Test
@@ -137,51 +150,81 @@ public class SchemaDescriptorsTest {
     assertEquals(AttributeValueType.ARRAY, s.getField("array_of_string_field").getType());
     assertEquals(
         AttributeValueType.STRING,
-        s.getField("array_of_string_field").getArrayTypeDescriptor().getValueType());
+        s.getField("array_of_string_field").asArrayTypeDescriptor().getValueType());
     assertEquals(AttributeValueType.STRUCTURE, s.getField("inner_structure").getType());
     assertEquals(
         AttributeValueType.STRUCTURE,
-        s.getField("inner_structure").toTypeDescriptor().getStructureTypeDescriptor().getType());
+        s.getField("inner_structure").asStructureTypeDescriptor().getType());
 
     assertEquals(
-        "inner_message",
-        s.getField("inner_structure").toTypeDescriptor().getStructureTypeDescriptor().getName());
+        "inner_message", s.getField("inner_structure").asStructureTypeDescriptor().getName());
 
     assertEquals(
         AttributeValueType.ARRAY,
-        s.getField("inner_structure")
-            .getStructureTypeDescriptor()
-            .getField("byte_array")
-            .getType());
+        s.getField("inner_structure").asStructureTypeDescriptor().getField("byte_array").getType());
     assertEquals(
         AttributeValueType.BYTE,
         s.getField("inner_structure")
-            .getStructureTypeDescriptor()
+            .asStructureTypeDescriptor()
             .getField("byte_array")
-            .getArrayTypeDescriptor()
+            .asArrayTypeDescriptor()
             .getValueType());
   }
 
   @Test
   public void testArrayTypeWithPrimitiveValue() {
-    ArrayTypeDescriptor<Long> d = SchemaDescriptors.arrays(SchemaDescriptors.longs());
-    assertEquals(AttributeValueType.ARRAY, d.getType());
-    assertEquals(AttributeValueType.LONG, d.getValueType());
+    final ArrayTypeDescriptor<Long> desc = SchemaDescriptors.arrays(SchemaDescriptors.longs());
+    assertEquals(AttributeValueType.ARRAY, desc.getType());
+    assertEquals(AttributeValueType.LONG, desc.getValueType());
+  }
+
+  @Test
+  public void testBytes() {
+    final ArrayTypeDescriptor<byte[]> bytes = SchemaDescriptors.bytes();
+    assertEquals(AttributeValueType.ARRAY, bytes.getType());
+    assertEquals(AttributeValueType.BYTE, bytes.getValueType());
+    assertTrue(bytes.isPrimitiveType());
+    assertEquals(AttributeValueType.BYTE, bytes.asPrimitiveTypeDescriptor().getType());
   }
 
   @Test
   public void testArrayTypeWithStructValue() {
-    ArrayTypeDescriptor<Object> d =
+    ArrayTypeDescriptor<Object> desc =
         SchemaDescriptors.arrays(
             SchemaDescriptors.structures("structure")
                 .addField("field1", SchemaDescriptors.strings())
                 .addField("field2", SchemaDescriptors.longs()));
-    assertEquals(AttributeValueType.ARRAY, d.getType());
-    assertEquals(AttributeValueType.STRUCTURE, d.getValueType());
-    assertEquals(AttributeValueType.ARRAY, d.toTypeDescriptor().getType());
-    assertEquals(AttributeValueType.STRUCTURE, d.getValueDescriptor().getType());
-    assertEquals("structure", d.getValueDescriptor().getStructureTypeDescriptor().getName());
-    assertEquals(2, d.getValueDescriptor().getStructureTypeDescriptor().getFields().size());
+    assertEquals(AttributeValueType.ARRAY, desc.getType());
+    assertEquals(AttributeValueType.STRUCTURE, desc.getValueType());
+    assertEquals(AttributeValueType.STRUCTURE, desc.getValueDescriptor().getType());
+    assertFalse(desc.isPrimitiveType());
+    final StructureTypeDescriptor<Object> structureTypeDescriptor =
+        desc.getValueDescriptor().asStructureTypeDescriptor();
+    assertEquals("structure", structureTypeDescriptor.getName());
+    final Map<String, SchemaTypeDescriptor<?>> fields = structureTypeDescriptor.getFields();
+    assertEquals(2, fields.size());
+    final PrimitiveTypeDescriptor<String> string = SchemaDescriptors.strings();
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> {
+          // fields should be always immutable
+          fields.put("foo", string);
+        });
+  }
+
+  @Test
+  public void testArrayOfEnum() {
+    final List<String> enumValues = Arrays.asList("FIRST", "SECOND");
+    final ArrayTypeDescriptor<String> desc =
+        SchemaDescriptors.arrays(SchemaDescriptors.enums(enumValues));
+    assertEquals(AttributeValueType.ENUM, desc.getValueType());
+    assertEquals(enumValues, desc.getValueDescriptor().asEnumTypeDescriptor().getValues());
+  }
+
+  @Test
+  public void testLongType() {
+    PrimitiveTypeDescriptor<Long> desc = SchemaDescriptors.longs();
+    assertEquals(AttributeValueType.LONG, desc.getType());
   }
 
   @Test
@@ -203,15 +246,24 @@ public class SchemaDescriptorsTest {
   }
 
   @Test
+  public void testArrayOfBytes() {
+    final ArrayTypeDescriptor<byte[]> descriptor =
+        SchemaDescriptors.arrays(SchemaDescriptors.bytes());
+    assertEquals(AttributeValueType.ARRAY, descriptor.getType());
+    assertEquals(AttributeValueType.ARRAY, descriptor.getValueType());
+  }
+
+  @Test
   public void testEnumType() {
-    List<String> values = Arrays.asList("LEFT", "RIGHT");
-    EnumTypeDescriptor<String> desc = SchemaDescriptors.enums(values);
+    final List<String> values = Arrays.asList("LEFT", "RIGHT");
+    final EnumTypeDescriptor<String> desc = SchemaDescriptors.enums(values);
+    assertTrue(desc.isEnumType());
+    assertEquals(desc, desc.asEnumTypeDescriptor());
     assertEquals(AttributeValueType.ENUM, desc.getType());
     assertEquals(values, desc.getValues());
+    assertEquals("ENUM[LEFT, RIGHT]", desc.toString());
 
-    assertEquals(desc, desc.toTypeDescriptor().getEnumTypeDescriptor());
-
-    assertEquals(desc, SchemaDescriptors.enums(new String[] {"LEFT", "RIGHT"}));
     assertEquals(desc, SchemaDescriptors.enums(values));
+    assertNotEquals(desc, SchemaDescriptors.enums(Collections.emptyList()));
   }
 }

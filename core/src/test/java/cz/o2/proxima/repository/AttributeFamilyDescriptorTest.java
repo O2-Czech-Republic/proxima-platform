@@ -16,7 +16,6 @@
 package cz.o2.proxima.repository;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.DefaultConsumerNameFactory.DefaultReplicationConsumerNameFactory;
@@ -143,13 +142,17 @@ public class AttributeFamilyDescriptorTest {
                     DefaultReplicationConsumerNameFactory.class.getName()))
             .setStorageUri(URI.create("inmem:///proxima_events"))
             .build();
-    assertTrue(true); // make sonar happy : )
+    assertEquals(
+        DefaultReplicationConsumerNameFactory.class.getName(),
+        familyDescriptor
+            .getCfg()
+            .get(AttributeFamilyDescriptor.CFG_REPLICATION_CONSUMER_NAME_GENERATOR));
   }
 
   @Test
   public void testGetValueDescriptor() {
     SchemaTypeDescriptor<byte[]> descriptor = attribute.getSchemaTypeDescriptor();
     assertEquals(AttributeValueType.ARRAY, descriptor.getType());
-    assertEquals(AttributeValueType.BYTE, descriptor.getArrayTypeDescriptor().getValueType());
+    assertEquals(AttributeValueType.BYTE, descriptor.asArrayTypeDescriptor().getValueType());
   }
 }

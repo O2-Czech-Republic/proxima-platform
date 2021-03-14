@@ -156,25 +156,25 @@ public class SchemaDescriptors {
    *
    * @param <T> value type
    */
-  public abstract static class SchemaTypeDescriptor<T> implements Serializable {
+  public interface SchemaTypeDescriptor<T> extends Serializable {
 
-    private static final String TYPE_CHECK_ERROR_MESSAGE_TEMPLATE =
+    String TYPE_CHECK_ERROR_MESSAGE_TEMPLATE =
         "Conversion to type %s is not supported. Given type: %s";
 
-    /** Value type */
-    @Getter protected final AttributeValueType type;
-
-    protected SchemaTypeDescriptor(AttributeValueType type) {
-      this.type = type;
-    }
+    /**
+     * Return attribute value type
+     *
+     * @return type
+     */
+    AttributeValueType getType();
 
     /**
-     * Return {@code true} if type is primitive. Default implementation returns false.
+     * Return {@code true} if type is primitive.
      *
      * @return boolean
      */
-    public boolean isPrimitiveType() {
-      return false;
+    default boolean isPrimitiveType() {
+      return !(isArrayType() || isStructureType() || isEnumType());
     }
 
     /**
@@ -182,7 +182,7 @@ public class SchemaDescriptors {
      *
      * @return primitive type descriptor
      */
-    public PrimitiveTypeDescriptor<T> asPrimitiveTypeDescriptor() {
+    default PrimitiveTypeDescriptor<T> asPrimitiveTypeDescriptor() {
       throw new UnsupportedOperationException(
           String.format(
               TYPE_CHECK_ERROR_MESSAGE_TEMPLATE,
@@ -195,7 +195,7 @@ public class SchemaDescriptors {
      *
      * @return boolean
      */
-    public boolean isArrayType() {
+    default boolean isArrayType() {
       return getType().equals(AttributeValueType.ARRAY);
     }
 
@@ -204,7 +204,7 @@ public class SchemaDescriptors {
      *
      * @return array type descriptor
      */
-    public ArrayTypeDescriptor<T> asArrayTypeDescriptor() {
+    default ArrayTypeDescriptor<T> asArrayTypeDescriptor() {
       throw new UnsupportedOperationException(
           String.format(TYPE_CHECK_ERROR_MESSAGE_TEMPLATE, AttributeValueType.ARRAY, getType()));
     }
@@ -214,7 +214,7 @@ public class SchemaDescriptors {
      *
      * @return boolean
      */
-    public boolean isStructureType() {
+    default boolean isStructureType() {
       return getType().equals(AttributeValueType.STRUCTURE);
     }
 
@@ -223,7 +223,7 @@ public class SchemaDescriptors {
      *
      * @return Structure type descriptor
      */
-    public StructureTypeDescriptor<T> asStructureTypeDescriptor() {
+    default StructureTypeDescriptor<T> asStructureTypeDescriptor() {
       throw new UnsupportedOperationException(
           String.format(
               TYPE_CHECK_ERROR_MESSAGE_TEMPLATE, AttributeValueType.STRUCTURE, getType()));
@@ -234,7 +234,7 @@ public class SchemaDescriptors {
      *
      * @return boolean
      */
-    public boolean isEnumType() {
+    default boolean isEnumType() {
       return getType().equals(AttributeValueType.ENUM);
     }
 
@@ -243,25 +243,9 @@ public class SchemaDescriptors {
      *
      * @return enum type descriptor
      */
-    public EnumTypeDescriptor<T> asEnumTypeDescriptor() {
+    default EnumTypeDescriptor<T> asEnumTypeDescriptor() {
       throw new UnsupportedOperationException(
           String.format(TYPE_CHECK_ERROR_MESSAGE_TEMPLATE, AttributeValueType.ENUM, getType()));
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o instanceof SchemaTypeDescriptor) {
-        return type.equals(((SchemaTypeDescriptor<?>) o).getType());
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(type);
     }
   }
 
@@ -270,10 +254,12 @@ public class SchemaDescriptors {
    *
    * @param <T> value type
    */
-  public static class PrimitiveTypeDescriptor<T> extends SchemaTypeDescriptor<T> {
+  public static class PrimitiveTypeDescriptor<T> implements SchemaTypeDescriptor<T> {
+
+    @Getter private final AttributeValueType type;
 
     public PrimitiveTypeDescriptor(AttributeValueType type) {
-      super(type);
+      this.type = type;
     }
 
     @Override
@@ -288,7 +274,14 @@ public class SchemaDescriptors {
 
     @Override
     public boolean equals(Object o) {
-      return super.equals(o);
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      PrimitiveTypeDescriptor<?> that = (PrimitiveTypeDescriptor<?>) o;
+      return type == that.type;
     }
 
     @Override
@@ -307,12 +300,13 @@ public class SchemaDescriptors {
    *
    * @param <T> value type
    */
-  public static class ArrayTypeDescriptor<T> extends SchemaTypeDescriptor<T> {
+  public static class ArrayTypeDescriptor<T> implements SchemaTypeDescriptor<T> {
 
+    @Getter final AttributeValueType type;
     @Getter final SchemaTypeDescriptor<T> valueDescriptor;
 
     public ArrayTypeDescriptor(SchemaTypeDescriptor<T> valueDescriptor) {
-      super(AttributeValueType.ARRAY);
+      this.type = AttributeValueType.ARRAY;
       this.valueDescriptor = valueDescriptor;
     }
 
@@ -345,11 +339,11 @@ public class SchemaDescriptors {
       if (this == o) {
         return true;
       }
-      if (o instanceof ArrayTypeDescriptor) {
-        return super.equals(o)
-            && getValueType().equals(((ArrayTypeDescriptor<?>) o).getValueType());
+      if (o == null || getClass() != o.getClass()) {
+        return false;
       }
-      return false;
+      ArrayTypeDescriptor<?> that = (ArrayTypeDescriptor<?>) o;
+      return type == that.type && valueDescriptor.equals(that.valueDescriptor);
     }
 
     @Override
@@ -368,13 +362,14 @@ public class SchemaDescriptors {
    *
    * @param <T> structure type
    */
-  public static class StructureTypeDescriptor<T> extends SchemaTypeDescriptor<T> {
+  public static class StructureTypeDescriptor<T> implements SchemaTypeDescriptor<T> {
 
-    @Getter final String name;
+    @Getter private final AttributeValueType type;
+    @Getter private final String name;
     private final Map<String, SchemaTypeDescriptor<?>> fields = new HashMap<>();
 
     public StructureTypeDescriptor(String name, Map<String, SchemaTypeDescriptor<?>> fields) {
-      super(AttributeValueType.STRUCTURE);
+      this.type = AttributeValueType.STRUCTURE;
       this.name = name;
       fields.forEach(this::addField);
     }
@@ -437,14 +432,11 @@ public class SchemaDescriptors {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
+      if (o instanceof StructureTypeDescriptor) {
+        StructureTypeDescriptor<?> that = (StructureTypeDescriptor<?>) o;
+        return name.equals(that.name) && fields.equals(that.fields);
       }
-      if (!super.equals(o)) {
-        return false;
-      }
-      StructureTypeDescriptor<?> that = (StructureTypeDescriptor<?>) o;
-      return name.equals(that.name) && fields.equals(that.fields);
+      return false;
     }
 
     @Override
@@ -458,20 +450,21 @@ public class SchemaDescriptors {
           new StringBuilder(String.format("%s %s", getType().name(), getName()));
       getFields()
           .forEach(
-              (field, type) ->
+              (field, fType) ->
                   builder.append(
-                      String.format("%n\t%s: %s", field, type.toString().replace("\t", "\t\t"))));
+                      String.format("%n\t%s: %s", field, fType.toString().replace("\t", "\t\t"))));
       return builder.toString();
     }
   }
 
   /** Enum type descriptor. */
-  public static class EnumTypeDescriptor<T> extends SchemaTypeDescriptor<T> {
+  public static class EnumTypeDescriptor<T> implements SchemaTypeDescriptor<T> {
 
+    @Getter private final AttributeValueType type;
     private final List<String> values;
 
     public EnumTypeDescriptor(List<String> values) {
-      super(AttributeValueType.ENUM);
+      this.type = AttributeValueType.ENUM;
       this.values = values;
     }
 
@@ -492,16 +485,13 @@ public class SchemaDescriptors {
       if (o == null || getClass() != o.getClass()) {
         return false;
       }
-      if (!super.equals(o)) {
-        return false;
-      }
       EnumTypeDescriptor<?> that = (EnumTypeDescriptor<?>) o;
-      return values.equals(that.values);
+      return type == that.type && values.equals(that.values);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(super.hashCode(), values);
+      return Objects.hash(getType(), values);
     }
 
     @Override

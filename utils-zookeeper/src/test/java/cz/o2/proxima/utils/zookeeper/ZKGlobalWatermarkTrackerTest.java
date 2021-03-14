@@ -91,6 +91,7 @@ public class ZKGlobalWatermarkTrackerTest {
     Properties props = new Properties();
     props.setProperty("clientPort", String.valueOf(zkURI.getPort()));
     props.setProperty("dataDir", WORK_DIR.getAbsolutePath());
+    props.setProperty("admin.enableServer", String.valueOf(false));
     QuorumPeerConfig peerCfg = new QuorumPeerConfig();
     peerCfg.parseProperties(props);
     ServerConfig serverConfig = new ServerConfig();

@@ -30,6 +30,14 @@ public class ConfigConstants {
   public static final String SOURCE = "source";
   public static final String TARGETS = "targets";
   public static final String READ_ONLY = "read-only";
+  public static final String COMMIT_LOG = "commit-log";
+  public static final String STATE_COMMIT_LOG = "state-commit-log";
+  public static final String WRITE_ONLY = "write-only";
+  public static final String BATCH_UPDATES = "batch-updates";
+  public static final String BATCH_SNAPSHOT = "batch-snapshot";
+  public static final String RANDOM_ACCESS = "random-access";
+  public static final String LIST_PRIMARY_KEY = "list-primary-key";
+  public static final String CACHED_VIEW = "cached-view";
   public static final String REPLICATIONS = "replications";
   public static final String DISABLED = "disabled";
   public static final String ENTITIES = "entities";
@@ -41,6 +49,7 @@ public class ConfigConstants {
   public static final String TYPE = "type";
   public static final String FILTER = "filter";
   public static final String ATTRIBUTE_FAMILIES = "attributeFamilies";
+  public static final String TRANSACTIONAL = "transactional";
 
   private ConfigConstants() {
     // nop

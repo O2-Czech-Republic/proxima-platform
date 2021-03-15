@@ -31,9 +31,10 @@ public class AttributeDescriptorImpl<T> extends AttributeDescriptorBase<T> {
       String entity,
       URI schemeUri,
       @Nullable ValueSerializer<T> serializer,
-      boolean replica) {
+      boolean replica,
+      TransactionMode transactionMode) {
 
-    super(name, entity, schemeUri, serializer, replica);
+    super(name, entity, schemeUri, serializer, replica, transactionMode);
   }
 
   @Override

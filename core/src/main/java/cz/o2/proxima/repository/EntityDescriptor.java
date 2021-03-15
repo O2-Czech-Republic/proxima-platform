@@ -114,6 +114,21 @@ public interface EntityDescriptor extends Serializable {
                 String.format("Unable to find attribute [%s] of entity [%s].", name, getName())));
   }
 
+  /** @return {@code true} if the entity contains any attribute that has transactions enabled. */
+  default boolean isTransactional() {
+    return getAllAttributes()
+        .stream()
+        .anyMatch(attr -> attr.getTransactionMode() != TransactionMode.NONE);
+  }
+
+  /**
+   * @return {@code true} if this is system entity. System entities are created by the platform
+   *     itself and should be (directly) accessed by users.
+   */
+  default boolean isSystemEntity() {
+    return getName().startsWith("_");
+  }
+
   /**
    * Get attribute by name.
    *

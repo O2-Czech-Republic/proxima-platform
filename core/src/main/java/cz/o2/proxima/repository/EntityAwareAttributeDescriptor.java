@@ -390,6 +390,11 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
   }
 
   @Override
+  public TransactionMode getTransactionMode() {
+    return wrapped.getTransactionMode();
+  }
+
+  @Override
   public AttributeProxyDescriptor<T> asProxy() throws ClassCastException {
     return wrapped.asProxy();
   }

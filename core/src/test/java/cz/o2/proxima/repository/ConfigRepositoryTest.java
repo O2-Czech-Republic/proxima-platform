@@ -572,6 +572,18 @@ public class ConfigRepositoryTest {
     Repository.of(ConfigFactory.parseString("entities.user.attributes.name:{schem: string}"));
   }
 
+  @Test
+  public void testTransactionConfigParsing() {
+    Repository repo = Repository.ofTest(ConfigFactory.load("test-transactions.conf").resolve());
+    assertNotNull(repo);
+    assertFalse(repo.getAllEntities().anyMatch(EntityDescriptor::isSystemEntity));
+    assertFalse(repo.getAllFamilies().anyMatch(af -> af.getEntity().isSystemEntity()));
+    assertTrue(repo.getEntity("_transaction").isSystemEntity());
+    assertTrue(repo.getEntity("gateway").isTransactional());
+    assertTrue(repo.findFamilyByName("gateway-transaction-commit-log").isPresent());
+    assertTrue(repo.findFamilyByName("user-transaction-commit-log-request").isPresent());
+  }
+
   private void checkThrows(Factory<?> factory) {
     checkThrows(factory, null);
   }

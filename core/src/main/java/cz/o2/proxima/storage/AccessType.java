@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.storage;
 
+import static cz.o2.proxima.repository.ConfigConstants.*;
+
 import com.google.common.collect.Streams;
 import cz.o2.proxima.annotations.Stable;
 import java.io.Serializable;
@@ -46,15 +48,15 @@ public interface AccessType extends Serializable {
       throw new IllegalArgumentException("Unknown specifier type " + spec.getClass());
     }
 
-    boolean isReadOnly = specifiers.remove("read-only");
-    boolean isWriteOnly = specifiers.remove("write-only");
-    boolean isReadBatchUpdates = specifiers.remove("batch-updates");
-    boolean isReadBatchSnapshot = specifiers.remove("batch-snapshot");
-    boolean isReadRandom = specifiers.remove("random-access");
-    boolean isReadCommit = specifiers.remove("commit-log");
-    boolean isStateCommitLog = specifiers.remove("state-commit-log");
-    boolean isListPrimaryKey = specifiers.remove("list-primary-key");
-    boolean canCreateCachedView = specifiers.remove("cached-view");
+    boolean isReadOnly = specifiers.remove(READ_ONLY);
+    boolean isWriteOnly = specifiers.remove(WRITE_ONLY);
+    boolean isReadBatchUpdates = specifiers.remove(BATCH_UPDATES);
+    boolean isReadBatchSnapshot = specifiers.remove(BATCH_SNAPSHOT);
+    boolean isReadRandom = specifiers.remove(RANDOM_ACCESS);
+    boolean isReadCommit = specifiers.remove(COMMIT_LOG);
+    boolean isStateCommitLog = specifiers.remove(STATE_COMMIT_LOG);
+    boolean isListPrimaryKey = specifiers.remove(LIST_PRIMARY_KEY);
+    boolean canCreateCachedView = specifiers.remove(CACHED_VIEW);
 
     if (!specifiers.isEmpty()) {
       throw new IllegalArgumentException("Unknown storage tags: " + specifiers);

@@ -20,6 +20,7 @@ import static cz.o2.proxima.repository.ConfigConstants.*;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigObject;
@@ -56,10 +57,12 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -79,6 +82,7 @@ public final class ConfigRepository extends Repository {
   private static final Pattern ENTITY_NAME_PATTERN = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
   private static final Pattern ATTRIBUTE_NAME_PATTERN =
       Pattern.compile("[a-zA-Z_][a-zA-Z0-9_\\-$]*(\\.\\*)?");
+  private static final String TRANSACTION = "_transaction";
 
   private static Config cachedConfigConstructed;
 
@@ -294,7 +298,7 @@ public final class ConfigRepository extends Repository {
    * @param cachingEnabled can we cache the Repository per JVM
    * @param isReadonly true in client applications where you want to use repository specifications
    *     to read from the datalake.
-   * @param validateFlags validation {@link cz.o2.proxima.repository.Repository.Validate} flags
+   * @param validateFlags validation {@link Validate} flags
    * @param loadFamilies should we load attribute families? This is needed only during runtime, for
    *     maven plugin it is set to false
    */
@@ -356,6 +360,12 @@ public final class ConfigRepository extends Repository {
     // Read the config and store entity descriptors
     readEntityDescriptors(config);
 
+    boolean hasTransactions = getAllEntities().anyMatch(EntityDescriptor::isTransactional);
+
+    if (hasTransactions) {
+      createEntityTransaction();
+    }
+
     if (loadFamilies) {
       // Read attribute families and map them to storages by attribute. */
       readAttributeFamilies(config);
@@ -380,6 +390,15 @@ public final class ConfigRepository extends Repository {
     }
 
     operators.forEach(DataOperator::reload);
+  }
+
+  private void createEntityTransaction() {
+    EntityDescriptor.Builder builder = EntityDescriptor.newBuilder().setName(TRANSACTION);
+    // FIXME: scheme
+    loadRegular(TRANSACTION, "request.*", Collections.singletonMap(SCHEME, "bytes"), builder);
+    loadRegular(TRANSACTION, "response.*", Collections.singletonMap(SCHEME, "bytes"), builder);
+    loadRegular(TRANSACTION, "state", Collections.singletonMap(SCHEME, "bytes"), builder);
+    entitiesByName.put(TRANSACTION, builder.build());
   }
 
   private void setupTransforms() {
@@ -441,7 +460,7 @@ public final class ConfigRepository extends Repository {
 
     Map<String, Object> entitiesCfg = toMap(ENTITIES, entities.unwrapped());
     List<Pair<String, String>> clonedEntities = new ArrayList<>();
-    for (Map.Entry<String, Object> e : entitiesCfg.entrySet()) {
+    for (Entry<String, Object> e : entitiesCfg.entrySet()) {
       String entityName = validateEntityName(e.getKey());
       Map<String, Object> cfgMap = toMap("entities." + entityName, e.getValue());
       Object attributes = cfgMap.get(ATTRIBUTES);
@@ -626,7 +645,7 @@ public final class ConfigRepository extends Repository {
 
   @SuppressWarnings("unchecked")
   private void readEntityReplications(Map<String, Replication> replications) {
-    for (Map.Entry<String, Replication> e : replications.entrySet()) {
+    for (Entry<String, Replication> e : replications.entrySet()) {
       Replication repl = e.getValue();
       boolean readOnly = repl.isReadOnly();
       EntityDescriptorImpl entity = repl.getEntity();
@@ -938,6 +957,8 @@ public final class ConfigRepository extends Repository {
             settings.get(SCHEME),
             "Missing key entities." + entityName + ".attributes." + attrName + ".scheme");
 
+    TransactionMode transactionMode = readTransactionMode(settings);
+
     URI schemeUri = asSchemeUri(scheme.toString());
     validateSerializerFactory(schemeUri);
     entityBuilder.addAttribute(
@@ -945,7 +966,14 @@ public final class ConfigRepository extends Repository {
             .setEntity(entityName)
             .setName(attrName)
             .setSchemeUri(schemeUri)
+            .setTransactionMode(transactionMode)
             .build());
+  }
+
+  private TransactionMode readTransactionMode(Map<String, Object> settings) {
+    return Optional.ofNullable(settings.get(TRANSACTIONAL))
+        .map(s -> TransactionMode.valueOf(s.toString().toUpperCase()))
+        .orElse(TransactionMode.NONE);
   }
 
   private URI asSchemeUri(String scheme) {
@@ -1055,7 +1083,7 @@ public final class ConfigRepository extends Repository {
                     String.format("Missing required [%s] setting", ATTRIBUTE_FAMILIES))
                 .unwrapped());
 
-    for (Map.Entry<String, Object> e : attributeFamilyMap.entrySet()) {
+    for (Entry<String, Object> e : attributeFamilyMap.entrySet()) {
       String name = e.getKey();
       Map<String, Object> storage = toMap(ATTRIBUTE_FAMILIES + "." + name, e.getValue());
 
@@ -1083,13 +1111,9 @@ public final class ConfigRepository extends Repository {
     }
     final String entity = Objects.requireNonNull(cfg.get(ENTITY)).toString();
     final String filter = toString(cfg.get(FILTER));
-    // type is one of the following:
-    // * commit (stream commit log)
-    // * append (append-only stream or batch)
-    // * random-access (random-access read-write)
-    final StorageType type = StorageType.of((String) cfg.get(TYPE));
-    final AccessType access =
-        AccessType.from(Optional.ofNullable(cfg.get(ACCESS)).orElse(READ_ONLY));
+    final boolean isTransactional = entity.equals(TRANSACTION);
+    final StorageType type = getStorageType(cfg, isTransactional);
+    final AccessType access = getAccessType(cfg, isTransactional);
     final List<String> attributes =
         toList(
             Objects.requireNonNull(
@@ -1129,6 +1153,24 @@ public final class ConfigRepository extends Repository {
     insertFamily(family.build(), overwrite);
   }
 
+  private StorageType getStorageType(Map<String, Object> cfg, boolean isTransactional) {
+    StorageType type =
+        Optional.ofNullable((String) cfg.get(TYPE))
+            .map(StorageType::of)
+            .orElse(isTransactional ? StorageType.PRIMARY : null);
+    Preconditions.checkArgument(type != null, "Missing required setting %s", TYPE);
+    return type;
+  }
+
+  private AccessType getAccessType(Map<String, Object> cfg, boolean isTransactional) {
+    return AccessType.from(
+        Optional.ofNullable(cfg.get(ACCESS))
+            .orElse(
+                isTransactional
+                    ? Lists.newArrayList(COMMIT_LOG, STATE_COMMIT_LOG, CACHED_VIEW)
+                    : READ_ONLY));
+  }
+
   private void insertFilterIfPossible(
       Collection<AttributeDescriptor<?>> allAttributes,
       StorageType type,
@@ -1158,6 +1200,10 @@ public final class ConfigRepository extends Repository {
   }
 
   private void insertFamily(AttributeFamilyDescriptor family, boolean overwrite) {
+    if (family.getEntity().isSystemEntity()) {
+      insertSystemFamily(family);
+      return;
+    }
     family
         .getAttributes()
         .forEach(
@@ -1194,12 +1240,23 @@ public final class ConfigRepository extends Repository {
         "Added family {} of type {} and access {}", family, family.getType(), family.getAccess());
   }
 
+  private void insertSystemFamily(AttributeFamilyDescriptor family) {
+    if (family.getEntity().getName().equals(TRANSACTION)) {
+      Preconditions.checkState(
+          allCreatedFamilies.put(family.getName(), family) == null,
+          "Multiple definitions of family %s",
+          family.getName());
+    } else {
+      throw new UnsupportedOperationException("Unknown system entity " + family.getEntity());
+    }
+  }
+
   void removeFamily(AttributeFamilyDescriptor family) {
     family.getAttributes().forEach(attr -> getFamiliesForAttribute(attr).remove(family));
   }
 
   private void createReplicationFamilies(Map<String, Replication> replications) {
-    for (Map.Entry<String, Replication> e : replications.entrySet()) {
+    for (Entry<String, Replication> e : replications.entrySet()) {
       String replicationName = e.getKey();
       Replication repl = e.getValue();
       boolean readOnly = repl.isReadOnly();
@@ -1335,7 +1392,7 @@ public final class ConfigRepository extends Repository {
     }
     if (!readOnly) {
       createLocalWriteCommitLog(entity, name, cfgMapTemplate, via, attrList);
-      for (Map.Entry<String, Object> tgt : targets.entrySet()) {
+      for (Entry<String, Object> tgt : targets.entrySet()) {
         Map<String, Object> cfg = new HashMap<>(cfgMapTemplate);
         cfg.putAll(toMap(tgt.getKey(), tgt.getValue()));
         cfg.put(ACCESS, "write-only");
@@ -2086,7 +2143,10 @@ public final class ConfigRepository extends Repository {
 
   @Override
   public Stream<EntityDescriptor> getAllEntities() {
-    return entitiesByName.values().stream();
+    return entitiesByName
+        .values()
+        .stream()
+        .filter(((Predicate<EntityDescriptor>) EntityDescriptor::isSystemEntity).negate());
   }
 
   @Override

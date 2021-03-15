@@ -49,6 +49,8 @@ public interface AttributeDescriptor<T> extends Serializable {
 
     @Setter private boolean replica = false;
 
+    @Setter private TransactionMode transactionMode = TransactionMode.NONE;
+
     @SuppressWarnings("unchecked")
     public <T> AttributeDescriptorImpl<T> build() {
       Objects.requireNonNull(name, "Please specify name");
@@ -63,7 +65,8 @@ public interface AttributeDescriptor<T> extends Serializable {
           entity,
           schemeUri,
           factory.map(f -> (ValueSerializer<T>) f.getValueSerializer(schemeUri)).orElse(null),
-          replica);
+          replica,
+          transactionMode);
     }
   }
 
@@ -189,6 +192,13 @@ public interface AttributeDescriptor<T> extends Serializable {
   default boolean isProxy() {
     return false;
   }
+
+  /**
+   * Reetrieve type of transactional support of this attribute.
+   *
+   * @return {@link TransactionMode} of the attribute.
+   */
+  TransactionMode getTransactionMode();
 
   /**
    * Convert this object to {@link AttributeProxyDescriptor} iff {@link #isProxy} returns {@code

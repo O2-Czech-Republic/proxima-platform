@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import cz.o2.proxima.functional.BiFunction;
@@ -33,6 +34,7 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
+import cz.o2.proxima.transaction.TransactionSerializerSchemeProvider;
 import cz.o2.proxima.transform.DataOperatorAware;
 import cz.o2.proxima.transform.ElementWiseProxyTransform;
 import cz.o2.proxima.transform.ElementWiseProxyTransform.ProxySetupContext;
@@ -356,6 +358,7 @@ public final class ConfigRepository extends Repository {
     this.attributeToFamily.clear();
     this.entitiesByName.clear();
     this.transformations.clear();
+    this.allCreatedFamilies.clear();
 
     // Read the config and store entity descriptors
     readEntityDescriptors(config);
@@ -363,7 +366,9 @@ public final class ConfigRepository extends Repository {
     boolean hasTransactions = getAllEntities().anyMatch(EntityDescriptor::isTransactional);
 
     if (hasTransactions) {
-      createEntityTransaction();
+      Config transactionConfig =
+          conf.hasPath(TRANSACTIONS) ? conf.getConfig(TRANSACTIONS) : ConfigFactory.empty();
+      createEntityTransaction(transactionConfig);
     }
 
     if (loadFamilies) {
@@ -392,12 +397,36 @@ public final class ConfigRepository extends Repository {
     operators.forEach(DataOperator::reload);
   }
 
-  private void createEntityTransaction() {
+  private void createEntityTransaction(Config transactionsConfig) {
+    String schemeProviderScheme = "java";
+    if (transactionsConfig.hasPath(SCHEME_PROVIDER)) {
+      schemeProviderScheme = transactionsConfig.getString(SCHEME_PROVIDER);
+    }
+    Optional<ValueSerializerFactory> factory = getValueSerializerFactory(schemeProviderScheme);
+    if (!factory.isPresent() || !factory.get().canProvideTransactionSerializer()) {
+      throw new IllegalArgumentException(
+          "Scheme provider for transactions "
+              + schemeProviderScheme
+              + ", is either missing or unable to provide transaction schemes.");
+    }
+    TransactionSerializerSchemeProvider schemeProvider =
+        factory.get().createTransactionSerializerSchemeProvider();
     EntityDescriptor.Builder builder = EntityDescriptor.newBuilder().setName(TRANSACTION);
-    // FIXME: scheme
-    loadRegular(TRANSACTION, "request.*", Collections.singletonMap(SCHEME, "bytes"), builder);
-    loadRegular(TRANSACTION, "response.*", Collections.singletonMap(SCHEME, "bytes"), builder);
-    loadRegular(TRANSACTION, "state", Collections.singletonMap(SCHEME, "bytes"), builder);
+    loadRegular(
+        TRANSACTION,
+        "request.*",
+        Collections.singletonMap(SCHEME, schemeProvider.getRequestScheme()),
+        builder);
+    loadRegular(
+        TRANSACTION,
+        "response.*",
+        Collections.singletonMap(SCHEME, schemeProvider.getResponseScheme()),
+        builder);
+    loadRegular(
+        TRANSACTION,
+        "state",
+        Collections.singletonMap(SCHEME, schemeProvider.getStateScheme()),
+        builder);
     entitiesByName.put(TRANSACTION, builder.build());
   }
 
@@ -2063,12 +2092,12 @@ public final class ConfigRepository extends Repository {
         .values()
         .stream()
         .flatMap(d -> d.getAllAttributes(true).stream())
-        .filter(a -> !((AttributeDescriptorBase<?>) a).isProxy())
+        .filter(a -> !a.isProxy())
         .filter(
-            a -> {
-              Set<AttributeFamilyDescriptor> families = attributeToFamily.get(a);
-              return families == null || families.isEmpty();
-            })
+            a ->
+                getAllFamilies(true)
+                    .filter(af -> af.getType() == StorageType.PRIMARY)
+                    .noneMatch(af -> af.getAttributes().stream().anyMatch(fa -> fa.equals(a))))
         .findAny()
         .ifPresent(
             a -> {

@@ -16,6 +16,10 @@
 package cz.o2.proxima.scheme;
 
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.transaction.Request;
+import cz.o2.proxima.transaction.Response;
+import cz.o2.proxima.transaction.State;
+import cz.o2.proxima.transaction.TransactionSerializerSchemeProvider;
 import cz.o2.proxima.util.Classpath;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -24,7 +28,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.net.URI;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,7 +48,7 @@ public class JavaSerializer implements ValueSerializerFactory {
   private static final long serialVersionUID = 1L;
 
   private final Map<URI, ValueSerializer<?>> cache = new ConcurrentHashMap<>();
-  private static final List<String> javaPackages = Arrays.asList("java.lang");
+  private static final List<String> javaPackages = Collections.singletonList("java.lang");
 
   @Override
   public String getAcceptableScheme() {
@@ -55,6 +59,19 @@ public class JavaSerializer implements ValueSerializerFactory {
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
     return (ValueSerializer<T>) cache.computeIfAbsent(specifier, JavaSerializer::createSerializer);
+  }
+
+  @Override
+  public boolean canProvideTransactionSerializer() {
+    return true;
+  }
+
+  @Override
+  public TransactionSerializerSchemeProvider createTransactionSerializerSchemeProvider() {
+    return TransactionSerializerSchemeProvider.of(
+        "java:" + Request.class.getName(),
+        "java:" + Response.class.getName(),
+        "java:" + State.class.getName());
   }
 
   private static <T> ValueSerializer<T> createSerializer(URI scheme) {

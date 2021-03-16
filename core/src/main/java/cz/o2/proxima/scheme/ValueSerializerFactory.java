@@ -16,6 +16,7 @@
 package cz.o2.proxima.scheme;
 
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.transaction.TransactionSerializerSchemeProvider;
 import java.io.Serializable;
 import java.net.URI;
 
@@ -52,5 +53,17 @@ public interface ValueSerializerFactory extends Serializable {
       throw new IllegalArgumentException("Invalid specifier " + specifier.toString() + ".");
     }
     return type;
+  }
+
+  /**
+   * @return {@code true} if this serializer can provide {@link
+   *     TransactionSerializerSchemeProvider}.
+   */
+  default boolean canProvideTransactionSerializer() {
+    return false;
+  }
+
+  default TransactionSerializerSchemeProvider createTransactionSerializerSchemeProvider() {
+    throw new UnsupportedOperationException();
   }
 }

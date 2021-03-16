@@ -32,6 +32,7 @@ import cz.o2.proxima.repository.Repository.Validate;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transform.ElementWiseProxyTransform.ProxySetupContext;
 import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.transform.EventDataToDummy;
@@ -574,7 +575,8 @@ public class ConfigRepositoryTest {
 
   @Test
   public void testTransactionConfigParsing() {
-    Repository repo = Repository.ofTest(ConfigFactory.load("test-transactions.conf").resolve());
+    ConfigRepository.dropCached();
+    Repository repo = Repository.of(ConfigFactory.load("test-transactions.conf").resolve());
     assertNotNull(repo);
     assertFalse(repo.getAllEntities().anyMatch(EntityDescriptor::isSystemEntity));
     assertFalse(repo.getAllFamilies().anyMatch(af -> af.getEntity().isSystemEntity()));
@@ -582,6 +584,12 @@ public class ConfigRepositoryTest {
     assertTrue(repo.getEntity("gateway").isTransactional());
     assertTrue(repo.findFamilyByName("gateway-transaction-commit-log").isPresent());
     assertTrue(repo.findFamilyByName("user-transaction-commit-log-request").isPresent());
+
+    EntityDescriptor transaction = repo.getEntity("_transaction");
+    AttributeDescriptor<Request> request = transaction.getAttribute("request.*");
+    byte[] serialized = request.getValueSerializer().serialize(Request.of());
+    assertNotNull(serialized);
+    assertTrue(request.getValueSerializer().deserialize(serialized).isPresent());
   }
 
   private void checkThrows(Factory<?> factory) {

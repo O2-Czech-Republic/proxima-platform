@@ -15,17 +15,24 @@
  */
 package cz.o2.proxima.scheme.proto;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import com.google.protobuf.ByteString;
+import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.scheme.AttributeValueAccessor;
 import cz.o2.proxima.scheme.AttributeValueAccessors.StructureValue;
 import cz.o2.proxima.scheme.AttributeValueType;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
+import cz.o2.proxima.scheme.proto.ProtoSerializerFactory.TransactionProtoSerializer;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
+import cz.o2.proxima.transaction.Request;
+import cz.o2.proxima.transaction.Response;
+import cz.o2.proxima.transaction.State;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -103,5 +110,35 @@ public class ProtoSerializerFactoryTest {
                 }));
     assertEquals("gatewayId value", created.getGatewayId());
     assertEquals("payload value", created.getPayload().toStringUtf8());
+  }
+
+  @Test
+  public void testTransactionSchemeProvider() {
+    Repository repo =
+        Repository.ofTest(
+            ConfigFactory.load("test-transactions-proto.conf")
+                .withFallback(ConfigFactory.load("test-transactions.conf"))
+                .resolve());
+    EntityDescriptor transaction = repo.getEntity("_transaction");
+    AttributeDescriptor<Request> request = transaction.getAttribute("request.*");
+    assertTrue(request.getValueSerializer() instanceof TransactionProtoSerializer);
+    assertTrue(request.getValueSerializer().isUsable());
+    byte[] bytes = request.getValueSerializer().serialize(Request.of());
+    assertNotNull(bytes);
+    assertTrue(request.getValueSerializer().deserialize(bytes).isPresent());
+
+    AttributeDescriptor<Response> response = transaction.getAttribute("response.*");
+    assertTrue(response.getValueSerializer() instanceof TransactionProtoSerializer);
+    assertTrue(request.getValueSerializer().isUsable());
+    bytes = response.getValueSerializer().serialize(Response.of());
+    assertNotNull(bytes);
+    assertTrue(response.getValueSerializer().deserialize(bytes).isPresent());
+
+    AttributeDescriptor<State> state = transaction.getAttribute("state");
+    assertTrue(state.getValueSerializer() instanceof TransactionProtoSerializer);
+    assertTrue(state.getValueSerializer().isUsable());
+    bytes = state.getValueSerializer().serialize(State.of());
+    assertNotNull(bytes);
+    assertTrue(state.getValueSerializer().deserialize(bytes).isPresent());
   }
 }

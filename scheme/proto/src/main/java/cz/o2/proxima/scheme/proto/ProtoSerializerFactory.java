@@ -20,6 +20,7 @@ import com.google.protobuf.Message.Builder;
 import com.google.protobuf.Parser;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.util.JsonFormat;
+import cz.o2.proxima.scheme.AttributeValueAccessor;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
@@ -72,17 +73,19 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
         parsers.computeIfAbsent(scheme, ProtoSerializerFactory::createSerializer);
   }
 
-  private static class ProtoValueSerializer<M extends AbstractMessage>
-      implements ValueSerializer<M> {
+  private static class ProtoValueSerializer<MessageT extends AbstractMessage>
+      implements ValueSerializer<MessageT> {
 
     private static final long serialVersionUID = 1L;
 
     final String protoClass;
-    @Nullable transient M defVal = null;
+    @Nullable transient MessageT defVal = null;
 
     transient Parser<?> parser = null;
 
-    @Nullable private transient SchemaTypeDescriptor<M> valueSchemaDescriptor;
+    @Nullable private transient SchemaTypeDescriptor<MessageT> valueSchemaDescriptor;
+
+    @Nullable private transient ProtoMessageValueAccessor<MessageT> accessor;
 
     ProtoValueSerializer(String protoClass) {
       this.protoClass = protoClass;
@@ -90,12 +93,12 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
 
     @SuppressWarnings("unchecked")
     @Override
-    public Optional<M> deserialize(byte[] input) {
+    public Optional<MessageT> deserialize(byte[] input) {
       if (parser == null) {
         parser = getParserForClass(protoClass);
       }
       try {
-        return Optional.of((M) parser.parseFrom(input));
+        return Optional.of((MessageT) parser.parseFrom(input));
       } catch (Exception ex) {
         log.debug("Failed to parse input bytes", ex);
       }
@@ -103,7 +106,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     }
 
     @Override
-    public M getDefault() {
+    public MessageT getDefault() {
       if (defVal == null) {
         defVal = getDefaultInstance(protoClass);
       }
@@ -111,7 +114,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     }
 
     @Override
-    public byte[] serialize(M value) {
+    public byte[] serialize(MessageT value) {
       return value.toByteArray();
     }
 
@@ -133,30 +136,39 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     }
 
     @Override
-    public String getLogString(M value) {
+    public String getLogString(MessageT value) {
       return TextFormat.shortDebugString(value);
     }
 
     @Override
-    public String asJsonValue(M value) {
+    public String asJsonValue(MessageT value) {
       return ExceptionUtils.uncheckedFactory(() -> JsonFormat.printer().print(value));
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public M fromJsonValue(String json) {
+    public MessageT fromJsonValue(String json) {
       Builder builder = getDefault().toBuilder();
       ExceptionUtils.unchecked(() -> JsonFormat.parser().merge(json, builder));
-      return (M) builder.build();
+      return (MessageT) builder.build();
     }
 
     @Override
-    public SchemaTypeDescriptor<M> getValueSchemaDescriptor() {
+    public SchemaTypeDescriptor<MessageT> getValueSchemaDescriptor() {
       if (valueSchemaDescriptor == null) {
         valueSchemaDescriptor =
             ProtoUtils.convertProtoToSchema(getDefault().getDescriptorForType());
       }
       return valueSchemaDescriptor;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <OutputT> AttributeValueAccessor<MessageT, OutputT> getValueAccessor() {
+      if (accessor == null) {
+        accessor = new ProtoMessageValueAccessor<>(this::getDefault);
+      }
+      return (AttributeValueAccessor<MessageT, OutputT>) accessor;
     }
   }
 }

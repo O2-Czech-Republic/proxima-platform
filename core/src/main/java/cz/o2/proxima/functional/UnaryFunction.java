@@ -29,7 +29,7 @@ public interface UnaryFunction<IN, OUT> extends Serializable {
    * @param <T> the type of input
    * @return the identity function
    */
-  public static <T> UnaryFunction<T, T> identity() {
+  static <T> UnaryFunction<T, T> identity() {
     return e -> e;
   }
 

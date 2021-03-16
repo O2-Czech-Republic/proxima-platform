@@ -15,11 +15,14 @@
  */
 package cz.o2.proxima.scheme;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
@@ -70,7 +73,18 @@ public class BytesSerializerTest {
 
   @Test
   public void testGetValueSchemaDescriptor() {
-    SchemaTypeDescriptor<byte[]> descriptor = serializer.getValueSchemaDescriptor();
+    final SchemaTypeDescriptor<byte[]> descriptor = serializer.getValueSchemaDescriptor();
     assertEquals(AttributeValueType.BYTE, descriptor.asArrayTypeDescriptor().getValueType());
+  }
+
+  @Test
+  public void testValueAccessor() {
+    AttributeValueAccessor<byte[], byte[]> accessor = serializer.getValueAccessor();
+    assertArrayEquals(
+        "foo".getBytes(StandardCharsets.UTF_8),
+        accessor.valueOf("foo".getBytes(StandardCharsets.UTF_8)));
+    assertArrayEquals(
+        "bar".getBytes(StandardCharsets.UTF_8),
+        accessor.createFrom("bar".getBytes(StandardCharsets.UTF_8)));
   }
 }

@@ -1670,7 +1670,9 @@ public class DirectDataOperatorTest {
     Optional<CommitLogReader> maybeReader = family.getCommitLogReader();
     assertTrue(maybeReader.isPresent());
     CommitLogReader reader = maybeReader.get();
-    assertTrue(reader instanceof LimitedCommitLogReader);
+    assertTrue(
+        "Expected reader of class LimitedCommitLogReader, got " + reader.getClass(),
+        reader instanceof LimitedCommitLogReader);
     LimitedCommitLogReader limitedReader = (LimitedCommitLogReader) reader;
     ThroughputLimiter limiter = limitedReader.getLimiter();
     assertNotNull(limiter);

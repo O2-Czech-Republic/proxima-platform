@@ -2134,7 +2134,10 @@ public final class ConfigRepository extends Repository {
   }
 
   @Override
-  public Stream<AttributeFamilyDescriptor> getAllFamilies() {
+  public Stream<AttributeFamilyDescriptor> getAllFamilies(boolean includeSystem) {
+    if (includeSystem) {
+      return allCreatedFamilies.values().stream();
+    }
     return attributeToFamily.values().stream().flatMap(Collection::stream).distinct();
   }
 

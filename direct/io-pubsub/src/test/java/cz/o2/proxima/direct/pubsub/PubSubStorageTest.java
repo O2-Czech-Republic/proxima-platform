@@ -18,21 +18,41 @@ package cz.o2.proxima.direct.pubsub;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
+import java.net.URI;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 /** Test suite for {@link PubSubStorage}. */
 public class PubSubStorageTest {
 
   private final Repository repo = Repository.of(ConfigFactory.load("test-pubsub.conf").resolve());
+  private final PubSubStorage storage = new PubSubStorage();
 
   @Test
   public void testDefaultValuesOverrides() {
-    PubSubStorage storage = new PubSubStorage();
     storage.setup(repo);
     assertEquals(3600000, storage.getDefaultMaxAckDeadlineMs());
     assertFalse(storage.isDefaultSubscriptionAutoCreate());
     assertEquals(10, storage.getDefaultSubscriptionAckDeadlineSeconds());
     assertNull(storage.getDefaultWatermarkEstimateDuration());
+    assertEquals(200, storage.getDefaultAllowedTimestampSkew());
+  }
+
+  @Test
+  public void testAccept() {
+    assertEquals(Accept.ACCEPT, storage.accepts(URI.create("gps://project/topic")));
+    assertEquals(Accept.REJECT, storage.accepts(URI.create("file:///dev/null")));
+  }
+
+  @Test
+  public void testCreateAccessor() {
+    final AttributeFamilyDescriptor family = Mockito.mock(AttributeFamilyDescriptor.class);
+    Mockito.when(family.getStorageUri()).thenReturn(URI.create("gps://project/topic"));
+    assertNotNull(
+        storage.createAccessor(repo.getOrCreateOperator(DirectDataOperator.class), family));
   }
 }

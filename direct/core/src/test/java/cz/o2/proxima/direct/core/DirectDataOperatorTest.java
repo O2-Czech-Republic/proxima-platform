@@ -16,7 +16,11 @@
 package cz.o2.proxima.direct.core;
 
 import static cz.o2.proxima.util.ReplicationRunner.runAttributeReplicas;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
@@ -1640,7 +1644,13 @@ public class DirectDataOperatorTest {
     assertEquals(Accept.ACCEPT, delegate.accepts(uri));
     assertEquals(factory.accepts(uri), delegate.accepts(uri));
     DataAccessor accessor =
-        factory.createAccessor(direct, repo.getEntity("gateway"), uri, Collections.emptyMap());
+        factory.createAccessor(
+            direct,
+            TestUtils.createTestFamily(
+                repo.getEntity("gateway"),
+                uri,
+                repo.getEntity("gateway").getAllAttributes(),
+                Collections.emptyMap()));
     assertTrue(accessor.getWriter(direct.getContext()).isPresent());
     assertTrue(accessor.getBatchLogReader(direct.getContext()).isPresent());
     assertTrue(accessor.getCachedView(direct.getContext()).isPresent());

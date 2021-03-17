@@ -124,7 +124,7 @@ public interface LogObserver extends Serializable {
   default void onCancelled() {}
 
   /**
-   * Called to notify there was an {@link Throwable error) in the commit reader.
+   * Called to notify there was an {@link Throwable error} in the commit reader.
    *
    * @param error error caught during processing
    * @return {@code true} to restart processing from last committed position, {@code false} to stop

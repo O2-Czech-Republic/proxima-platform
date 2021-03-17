@@ -22,7 +22,6 @@ import cz.o2.proxima.beam.core.DataAccessorFactory;
 import cz.o2.proxima.functional.UnaryPredicate;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.config.ConfigUtils;
 import cz.o2.proxima.storage.StreamElement;
@@ -106,13 +105,12 @@ public class TestStreamStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      BeamDataOperator operator, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
-
+      BeamDataOperator operator, AttributeFamilyDescriptor familyDescriptor) {
     return new DataAccessor() {
 
       @Override
       public URI getUri() {
-        return uri;
+        return familyDescriptor.getStorageUri();
       }
 
       @Override
@@ -124,7 +122,7 @@ public class TestStreamStorage implements DataAccessorFactory {
           boolean eventTime,
           long limit) {
 
-        return streamFor(pipeline, uri);
+        return streamFor(pipeline, familyDescriptor.getStorageUri());
       }
 
       @Override
@@ -135,14 +133,14 @@ public class TestStreamStorage implements DataAccessorFactory {
           long endStamp,
           long limit) {
 
-        return streamFor(pipeline, uri);
+        return streamFor(pipeline, familyDescriptor.getStorageUri());
       }
 
       @Override
       public PCollection<StreamElement> createBatch(
           Pipeline pipeline, List<AttributeDescriptor<?>> attrs, long startStamp, long endStamp) {
 
-        return streamFor(pipeline, uri);
+        return streamFor(pipeline, familyDescriptor.getStorageUri());
       }
     };
   }

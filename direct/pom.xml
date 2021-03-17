@@ -109,7 +109,6 @@
         <module>ingest-client</module>
         <module>ingest-server</module>
         <module>io-blob</module>
-        <module>io-bigtable</module>
         <module>io-bulkfs</module>
         <module>io-cassandra</module>
         <module>io-gcloud-storage</module>

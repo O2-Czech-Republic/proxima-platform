@@ -15,11 +15,11 @@
  */
 package cz.o2.proxima.direct.cassandra;
 
+import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.net.URI;
-import java.util.Map;
 
 /** Storage descriptor for Apache Cassandra. */
 public class CassandraStorageDescriptor implements DataAccessorFactory {
@@ -27,10 +27,9 @@ public class CassandraStorageDescriptor implements DataAccessorFactory {
   private static final long serialVersionUID = 1L;
 
   @Override
-  public CassandraDBAccessor createAccessor(
-      DirectDataOperator direct, EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-
-    return new CassandraDBAccessor(entityDesc, uri, cfg);
+  public DataAccessor createAccessor(
+      DirectDataOperator operator, AttributeFamilyDescriptor family) {
+    return new CassandraDBAccessor(family.getEntity(), family.getStorageUri(), family.getCfg());
   }
 
   @Override

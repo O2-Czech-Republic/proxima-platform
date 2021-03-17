@@ -15,28 +15,30 @@
  */
 package cz.o2.proxima.direct.http;
 
-import com.google.common.collect.Sets;
-import cz.o2.proxima.direct.core.DataAccessor;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
 import java.net.URI;
+import org.junit.Test;
+import org.mockito.Mockito;
 
-/** Storage via HTTP(S) requests. */
-public class HttpStorage implements DataAccessorFactory {
+public class HttpStorageTest {
 
-  private static final long serialVersionUID = 1L;
+  private final DataAccessorFactory factory = new HttpStorage();
 
-  @Override
-  public DataAccessor createAccessor(
-      DirectDataOperator operator, AttributeFamilyDescriptor family) {
-    return new HttpAccessor(family.getEntity(), family.getStorageUri(), family.getCfg());
+  @Test
+  public void testAccept() {
+    assertEquals(Accept.ACCEPT, factory.accepts(URI.create("https://localhost")));
+    assertEquals(Accept.REJECT, factory.accepts(URI.create("file:///dev/null")));
   }
 
-  @Override
-  public Accept accepts(URI uri) {
-    return Sets.newHashSet("http", "https", "ws", "wss", "opentsdb").contains(uri.getScheme())
-        ? Accept.ACCEPT
-        : Accept.REJECT;
+  @Test
+  public void testCreateAccessor() {
+    final AttributeFamilyDescriptor family = Mockito.mock(AttributeFamilyDescriptor.class);
+    assertNotNull(factory.createAccessor(Mockito.mock(DirectDataOperator.class), family));
   }
 }

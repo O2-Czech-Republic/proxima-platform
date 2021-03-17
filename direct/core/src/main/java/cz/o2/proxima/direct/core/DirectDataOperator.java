@@ -30,7 +30,6 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.DataOperator;
-import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.Repository.Validate;
 import cz.o2.proxima.storage.StorageType;
@@ -462,13 +461,6 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     @Override
     public Accept accepts(URI uri) {
       return delegate.accepts(uri);
-    }
-
-    @Override
-    public DataAccessor createAccessor(
-        DirectDataOperator operator, EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
-
-      return new ForwardingDataAccessor(delegate.createAccessor(operator, entity, uri, cfg), cfg);
     }
 
     @Override

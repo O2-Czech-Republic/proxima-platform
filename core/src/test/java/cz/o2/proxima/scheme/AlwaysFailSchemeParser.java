@@ -58,7 +58,7 @@ public class AlwaysFailSchemeParser implements ValueSerializerFactory {
 
       @Override
       public SchemaTypeDescriptor<byte[]> getValueSchemaDescriptor() {
-        return SchemaDescriptors.bytes().toTypeDescriptor();
+        return SchemaDescriptors.bytes();
       }
     };
   }

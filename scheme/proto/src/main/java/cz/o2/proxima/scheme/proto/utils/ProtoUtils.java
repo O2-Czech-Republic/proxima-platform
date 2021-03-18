@@ -18,6 +18,8 @@ package cz.o2.proxima.scheme.proto.utils;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.EnumValueDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
+import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
+import com.google.protobuf.Message;
 import cz.o2.proxima.scheme.SchemaDescriptors;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.scheme.SchemaDescriptors.StructureTypeDescriptor;
@@ -29,61 +31,92 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ProtoUtils {
 
-  private static Map<String, SchemaTypeDescriptor<?>> structCache = new ConcurrentHashMap<>();
-
   private ProtoUtils() {
     // no-op
   }
 
-  public static <T> SchemaTypeDescriptor<T> convertProtoToSchema(Descriptor proto) {
-    StructureTypeDescriptor<T> schema = SchemaDescriptors.structures(proto.getName());
-    proto.getFields().forEach(f -> schema.addField(f.getName(), convertField(f)));
-    return schema.toTypeDescriptor();
+  /**
+   * Covert proto object to proxima schema.
+   *
+   * @param proto proto message descriptor
+   * @param <T> message type
+   * @return structure type descriptor
+   */
+  public static <T extends Message> StructureTypeDescriptor<T> convertProtoToSchema(
+      Descriptor proto) {
+    return convertProtoMessage(proto, new ConcurrentHashMap<>());
   }
 
-  @SuppressWarnings("unchecked")
-  protected static <T> SchemaTypeDescriptor<T> convertField(FieldDescriptor proto) {
-    SchemaTypeDescriptor<T> descriptor;
+  static <T extends Message> StructureTypeDescriptor<T> convertProtoMessage(
+      Descriptor proto, Map<String, SchemaTypeDescriptor<?>> structCache) {
+    final Map<String, SchemaTypeDescriptor<?>> fields =
+        proto
+            .getFields()
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    FieldDescriptor::getName,
+                    field -> {
+                      if (field.getJavaType().equals(JavaType.MESSAGE)
+                          && field.getMessageType().equals(proto)) {
+                        throw new UnsupportedOperationException(
+                            "Recursion in field [" + field.getName() + "] is not supported");
+                      }
+                      return convertField(field, structCache);
+                    }));
 
+    return SchemaDescriptors.structures(proto.getName(), fields);
+  }
+
+  /**
+   * Convert field of proto message to type descriptor
+   *
+   * @param proto field proto descriptor
+   * @param <T> field type
+   * @return schema type descriptor
+   */
+  @SuppressWarnings("unchecked")
+  static <T> SchemaTypeDescriptor<T> convertField(
+      FieldDescriptor proto, Map<String, SchemaTypeDescriptor<?>> structCache) {
+    SchemaTypeDescriptor<T> descriptor;
     switch (proto.getJavaType()) {
       case STRING:
-        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.strings().toTypeDescriptor();
+        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.strings();
         break;
       case BOOLEAN:
-        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.booleans().toTypeDescriptor();
+        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.booleans();
         break;
       case BYTE_STRING:
-        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.bytes().toTypeDescriptor();
+        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.bytes();
         break;
       case FLOAT:
-        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.floats().toTypeDescriptor();
+        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.floats();
         break;
       case DOUBLE:
-        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.doubles().toTypeDescriptor();
+        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.doubles();
         break;
       case LONG:
-        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.longs().toTypeDescriptor();
+        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.longs();
         break;
       case INT:
-        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.integers().toTypeDescriptor();
+        descriptor = (SchemaTypeDescriptor<T>) SchemaDescriptors.integers();
         break;
       case ENUM:
         descriptor =
             (SchemaTypeDescriptor<T>)
                 SchemaDescriptors.enums(
-                        proto
-                            .getEnumType()
-                            .getValues()
-                            .stream()
-                            .map(EnumValueDescriptor::getName)
-                            .collect(Collectors.toList()))
-                    .toTypeDescriptor();
+                    proto
+                        .getEnumType()
+                        .getValues()
+                        .stream()
+                        .map(EnumValueDescriptor::getName)
+                        .collect(Collectors.toList()));
         break;
       case MESSAGE:
         final String messageTypeName = proto.getMessageType().toProto().getName();
         structCache.computeIfAbsent(
-            messageTypeName, name -> convertProtoToSchema(proto.getMessageType()));
-        descriptor = (SchemaTypeDescriptor<T>) structCache.get(messageTypeName).toTypeDescriptor();
+            messageTypeName, name -> convertProtoMessage(proto.getMessageType(), structCache));
+        descriptor = (SchemaTypeDescriptor<T>) structCache.get(messageTypeName);
 
         break;
       default:
@@ -92,7 +125,7 @@ public class ProtoUtils {
     }
 
     if (proto.isRepeated()) {
-      return SchemaDescriptors.arrays(descriptor).toTypeDescriptor();
+      return SchemaDescriptors.arrays(descriptor);
     } else {
       return descriptor;
     }

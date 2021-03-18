@@ -78,7 +78,7 @@ public class LongSerializer implements ValueSerializerFactory {
 
           @Override
           public SchemaTypeDescriptor<Long> getValueSchemaDescriptor() {
-            return SchemaDescriptors.longs().toTypeDescriptor();
+            return SchemaDescriptors.longs();
           }
         };
   }

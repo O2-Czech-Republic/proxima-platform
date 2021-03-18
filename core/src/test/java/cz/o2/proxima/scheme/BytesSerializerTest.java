@@ -71,6 +71,6 @@ public class BytesSerializerTest {
   @Test
   public void testGetValueSchemaDescriptor() {
     SchemaTypeDescriptor<byte[]> descriptor = serializer.getValueSchemaDescriptor();
-    assertEquals(AttributeValueType.BYTE, descriptor.getArrayTypeDescriptor().getValueType());
+    assertEquals(AttributeValueType.BYTE, descriptor.asArrayTypeDescriptor().getValueType());
   }
 }

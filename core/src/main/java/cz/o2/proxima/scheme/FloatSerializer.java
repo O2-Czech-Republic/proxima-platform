@@ -78,7 +78,7 @@ public class FloatSerializer implements ValueSerializerFactory {
 
           @Override
           public SchemaTypeDescriptor<Float> getValueSchemaDescriptor() {
-            return SchemaDescriptors.floats().toTypeDescriptor();
+            return SchemaDescriptors.floats();
           }
         };
   }

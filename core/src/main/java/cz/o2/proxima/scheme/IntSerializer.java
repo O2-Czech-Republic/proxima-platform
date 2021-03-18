@@ -78,7 +78,7 @@ public class IntSerializer implements ValueSerializerFactory {
 
           @Override
           public SchemaTypeDescriptor<Integer> getValueSchemaDescriptor() {
-            return SchemaDescriptors.integers().toTypeDescriptor();
+            return SchemaDescriptors.integers();
           }
         };
   }

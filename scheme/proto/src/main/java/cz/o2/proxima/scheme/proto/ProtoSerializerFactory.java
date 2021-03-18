@@ -68,7 +68,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
   @SuppressWarnings("unchecked")
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI scheme) {
-    return (ValueSerializer)
+    return (ValueSerializer<T>)
         parsers.computeIfAbsent(scheme, ProtoSerializerFactory::createSerializer);
   }
 
@@ -121,7 +121,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
       try {
         Class<?> proto = Classpath.findClass(protoClassName, AbstractMessage.class);
         Method p = proto.getMethod("parser");
-        return (Parser) p.invoke(null);
+        return (Parser<?>) p.invoke(null);
       } catch (IllegalAccessException
           | IllegalArgumentException
           | NoSuchMethodException

@@ -59,7 +59,7 @@ public class StringUtf8Serializer implements ValueSerializerFactory {
 
     @Override
     public SchemaTypeDescriptor<String> getValueSchemaDescriptor() {
-      return SchemaDescriptors.strings().toTypeDescriptor();
+      return SchemaDescriptors.strings();
     }
 
     private String escape(String value) {

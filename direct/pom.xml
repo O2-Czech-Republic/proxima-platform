@@ -68,7 +68,6 @@
 
   <profiles>
     <profile>
-      <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
       <id>jdk8</id>
       <activation>
         <jdk>1.8</jdk>
@@ -93,11 +92,11 @@
         <module>io-pubsub</module>
         <module>io-s3</module>
         <module>rpc</module>
+        <module>io-bulkfs-parquet</module>
       </modules>
     </profile>
 
     <profile>
-      <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
       <id>jdk11</id>
       <activation>
         <jdk>11</jdk>
@@ -118,6 +117,7 @@
         <module>io-pubsub</module>
         <module>io-s3</module>
         <module>rpc</module>
+        <module>io-bulkfs-parquet</module>
       </modules>
     </profile>
   </profiles>

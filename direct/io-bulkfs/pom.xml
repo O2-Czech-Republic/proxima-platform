@@ -99,6 +99,10 @@
               <pattern>com.google.protobuf.</pattern>
               <shadedPattern>${shadePattern}.com.google.protobuf.</shadedPattern>
             </relocation>
+            <relocation>
+              <pattern>com.google.gson.</pattern>
+              <shadedPattern>${shadePattern}.com.google.gson.</shadedPattern>
+            </relocation>
           </relocations>
         </configuration>
         <executions>

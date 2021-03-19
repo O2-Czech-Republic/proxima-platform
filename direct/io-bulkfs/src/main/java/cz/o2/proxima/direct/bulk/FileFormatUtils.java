@@ -97,6 +97,10 @@ public class FileFormatUtils {
     if ("json".equals(format)) {
       return FileFormat.json(gzip);
     }
+    if ("parquet".equals(format)) {
+      // just an shortcut for parquet file format
+      format = "cz.o2.proxima.direct.bulk.fs.parquet.ParquetFileFormat";
+    }
     try {
       return Classpath.newInstance(format, FileFormat.class);
     } catch (Exception ex) {

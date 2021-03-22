@@ -38,12 +38,10 @@ import java.nio.channels.SeekableByteChannel;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import lombok.Getter;
-import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 /** A {@link Path} representation of a remote blob in S3. */
 @Internal
-@ToString
 @Slf4j
 public class S3BlobPath extends BlobPath<S3BlobPath.S3Blob> implements Path {
 

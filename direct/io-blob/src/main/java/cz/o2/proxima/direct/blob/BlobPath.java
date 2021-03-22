@@ -16,6 +16,7 @@
 package cz.o2.proxima.direct.blob;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.MoreObjects;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.bulk.FileSystem;
 import cz.o2.proxima.direct.bulk.Path;
@@ -23,11 +24,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Objects;
 import javax.annotation.Nonnull;
-import lombok.ToString;
 
 /** A {@link Path} representation of a remote blob. */
 @Internal
-@ToString
 public abstract class BlobPath<BlobT extends BlobBase> implements Path {
 
   private static final long serialVersionUID = 1L;
@@ -35,7 +34,7 @@ public abstract class BlobPath<BlobT extends BlobBase> implements Path {
   private final FileSystem fs;
   private final BlobT blob;
 
-  public BlobPath(FileSystem fs, BlobT blob) {
+  protected BlobPath(FileSystem fs, BlobT blob) {
     this.fs = fs;
     this.blob = Objects.requireNonNull(blob);
   }
@@ -102,5 +101,13 @@ public abstract class BlobPath<BlobT extends BlobBase> implements Path {
       }
     }
     return sb.toString();
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("uri", getFileSystem().getUri())
+        .add("blobName", getBlobName())
+        .toString();
   }
 }

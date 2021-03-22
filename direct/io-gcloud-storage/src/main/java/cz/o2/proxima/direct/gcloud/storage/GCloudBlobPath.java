@@ -98,9 +98,4 @@ public class GCloudBlobPath extends BlobPath<GCloudBlobPath.GCloudBlob> {
   public void delete() {
     Preconditions.checkState(getBlob().getBlob().delete());
   }
-
-  @Override
-  public String toString() {
-    return MoreObjects.toStringHelper(this).add("blobName", getBlobName()).toString();
-  }
 }

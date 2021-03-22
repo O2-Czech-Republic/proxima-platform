@@ -15,75 +15,32 @@
  */
 package cz.o2.proxima.direct.bulk;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
-import com.google.common.collect.Streams;
-import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
-import java.io.File;
-import java.io.IOException;
-import java.time.Duration;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
-import java.util.UUID;
-import java.util.stream.Collectors;
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 /** Test {@link JsonFormat}. */
 @RunWith(Parameterized.class)
-public class JsonFormatTest {
+public class JsonFormatTest extends AbstractFileFormatTest {
+
+  @Parameterized.Parameter public boolean gzip;
 
   @Parameterized.Parameters
   public static Collection<Boolean> parameters() {
     return Arrays.asList(true, false);
   }
 
-  @Parameterized.Parameter public boolean gzip;
+  public JsonFormatTest() throws URISyntaxException {}
 
-  @Rule public final TemporaryFolder folder = new TemporaryFolder();
-  private final Repository repo =
-      Repository.of(ConfigFactory.load("test-reference.conf").resolve());
-  private final EntityDescriptor entity = repo.getEntity("gateway");
-  private final AttributeDescriptor<Object> wildcard = entity.getAttribute("device.*");
-  private final long stamp = System.currentTimeMillis();
-
-  private JsonFormat format;
-
-  @Before
-  public void setUp() {
-    this.format = new JsonFormat(gzip);
-  }
-
-  @Test
-  public void testReadWrite() throws IOException {
-    folder.create();
-    File file = folder.newFile();
-    FileSystem fs =
-        FileSystem.local(
-            file.getParentFile(),
-            NamingConvention.defaultConvention(Duration.ofHours(1), "prefix", format.fileSuffix()));
-    AttributeDescriptor<Object> wildcard = entity.getAttribute("device.*");
-    StreamElement deleteWildcard = deleteWildcard();
-    StreamElement delete = delete();
-    StreamElement upsert = upsert();
-    try (Writer writer = format.openWriter(Path.local(fs, file), entity)) {
-      writer.write(deleteWildcard);
-      writer.write(delete);
-      writer.write(upsert);
-    }
-    try (Reader reader = format.openReader(Path.local(fs, file), entity)) {
-      List<StreamElement> elements = Streams.stream(reader).collect(Collectors.toList());
-      assertEquals(Arrays.asList(deleteWildcard, delete, upsert), elements);
-    }
+  @Override
+  protected FileFormat getFileFormat() {
+    return new JsonFormat(gzip);
   }
 
   @Test
@@ -91,32 +48,6 @@ public class JsonFormatTest {
     checkSerialization(deleteWildcard());
     checkSerialization(delete());
     checkSerialization(upsert());
-  }
-
-  StreamElement upsert() {
-    return StreamElement.upsert(
-        entity,
-        wildcard,
-        UUID.randomUUID().toString(),
-        "key",
-        wildcard.toAttributePrefix() + "1",
-        stamp,
-        new byte[] {1});
-  }
-
-  StreamElement delete() {
-    return StreamElement.delete(
-        entity,
-        wildcard,
-        UUID.randomUUID().toString(),
-        "key",
-        wildcard.toAttributePrefix() + "1",
-        stamp);
-  }
-
-  StreamElement deleteWildcard() {
-    return StreamElement.deleteWildcard(
-        entity, wildcard, UUID.randomUUID().toString(), "key", stamp);
   }
 
   private void checkSerialization(StreamElement elem) {

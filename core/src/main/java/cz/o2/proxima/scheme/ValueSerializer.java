@@ -76,7 +76,7 @@ public interface ValueSerializer<T> extends Serializable {
    */
   default String asJsonValue(T value) {
     throw new UnsupportedOperationException(
-        getClass() + " is not ported to support JSON (de)serialization. " + "Please fill issue.");
+        getClass() + " is not ported to support JSON (de)serialization. Please fill issue.");
   }
 
   /**
@@ -87,7 +87,7 @@ public interface ValueSerializer<T> extends Serializable {
    */
   default T fromJsonValue(String json) {
     throw new UnsupportedOperationException(
-        getClass() + " is not ported to support JSON (de)serialization. " + "Please fill issue.");
+        getClass() + " is not ported to support JSON (de)serialization. Please fill issue.");
   }
 
   /**
@@ -108,6 +108,16 @@ public interface ValueSerializer<T> extends Serializable {
    */
   default SchemaTypeDescriptor<T> getValueSchemaDescriptor() {
     throw new UnsupportedOperationException(
-        getClass() + " is not ported to provide a ValueSchemaDescriptor. " + "Please fill issue.");
+        getClass() + " is not ported to provide a ValueSchemaDescriptor. Please fill issue.");
+  }
+
+  /**
+   * Provide {@link AttributeValueAccessor} for give attribute value.
+   *
+   * @return value accessor
+   */
+  default <V> AttributeValueAccessor<T, V> getValueAccessor() {
+    throw new UnsupportedOperationException(
+        getClass() + " is not ported to provide a ValueAccessor. Please fill issue.");
   }
 }

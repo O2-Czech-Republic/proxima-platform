@@ -45,5 +45,6 @@ public class ValueSerializerTest {
     assertThrows(UnsupportedOperationException.class, () -> serializer.asJsonValue(new byte[] {}));
     assertThrows(UnsupportedOperationException.class, () -> serializer.fromJsonValue(""));
     assertThrows(UnsupportedOperationException.class, serializer::getValueSchemaDescriptor);
+    assertThrows(UnsupportedOperationException.class, serializer::getValueAccessor);
   }
 }

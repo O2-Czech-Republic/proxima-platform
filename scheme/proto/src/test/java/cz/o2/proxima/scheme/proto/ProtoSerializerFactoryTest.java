@@ -19,6 +19,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.ByteString;
+import cz.o2.proxima.scheme.AttributeValueAccessor;
+import cz.o2.proxima.scheme.AttributeValueAccessors.StructureValue;
 import cz.o2.proxima.scheme.AttributeValueType;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.scheme.ValueSerializer;
@@ -26,6 +28,8 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
@@ -83,5 +87,21 @@ public class ProtoSerializerFactoryTest {
   public void testGetSchemaDescriptor() {
     SchemaTypeDescriptor<Event> descriptor = serializer.getValueSchemaDescriptor();
     assertEquals(AttributeValueType.STRUCTURE, descriptor.getType());
+  }
+
+  @Test
+  public void testGetValueAccessor() {
+    AttributeValueAccessor<Event, StructureValue> accessor = serializer.getValueAccessor();
+    Event created =
+        accessor.createFrom(
+            StructureValue.of(
+                new HashMap<String, Object>() {
+                  {
+                    put("gatewayId", "gatewayId value");
+                    put("payload", "payload value".getBytes(StandardCharsets.UTF_8));
+                  }
+                }));
+    assertEquals("gatewayId value", created.getGatewayId());
+    assertEquals("payload value", created.getPayload().toStringUtf8());
   }
 }

@@ -12,7 +12,7 @@ jdk:
 addons:
   apt:
     packages:
-      - realpath
+      - coreutils
   sonarcloud:
     organization: datadriven
 

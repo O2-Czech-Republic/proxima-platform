@@ -40,7 +40,7 @@ public class DefaultNamingConvention implements NamingConvention {
 
   private static final char SEPARATOR = '/';
   private static final Pattern NAME_PATTERN =
-      Pattern.compile(".*/?[^/]+-([0-9]+)_([0-9]+)[^/]*\\.+[^/]*$");
+      Pattern.compile("[^/]+-([0-9]+)_([0-9]+)[^/]*\\.+[^/]*$");
   private static final DateTimeFormatter DIR_FORMAT = DateTimeFormatter.ofPattern("yyyy/MM/");
 
   private final long rollPeriodMs;
@@ -104,7 +104,7 @@ public class DefaultNamingConvention implements NamingConvention {
 
   @Override
   public boolean isInRange(String name, long minTs, long maxTs) {
-    Matcher matcher = NAME_PATTERN.matcher(name);
+    Matcher matcher = getNamePatternMatcherFor(name);
     if (matcher.matches()) {
       long min = Long.parseLong(matcher.group(1));
       long max = Long.parseLong(matcher.group(2));
@@ -116,12 +116,20 @@ public class DefaultNamingConvention implements NamingConvention {
 
   @Override
   public Pair<Long, Long> parseMinMaxTimestamp(String name) {
-    Matcher matcher = NAME_PATTERN.matcher(name);
+    Matcher matcher = getNamePatternMatcherFor(name);
     if (matcher.matches()) {
       long min = Long.parseLong(matcher.group(1));
       long max = Long.parseLong(matcher.group(2));
       return Pair.of(min, max);
     }
-    throw new IllegalArgumentException("Name " + name + " is not understood by this convetion.");
+    throw new IllegalArgumentException("Name " + name + " is not understood by this convention.");
+  }
+
+  private Matcher getNamePatternMatcherFor(String name) {
+    int lastSlash = name.lastIndexOf('/');
+    if (lastSlash >= 0) {
+      return NAME_PATTERN.matcher(name.substring(lastSlash + 1));
+    }
+    return NAME_PATTERN.matcher(name);
   }
 }

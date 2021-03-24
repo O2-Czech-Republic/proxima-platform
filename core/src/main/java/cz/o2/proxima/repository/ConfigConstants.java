@@ -50,6 +50,7 @@ public class ConfigConstants {
   public static final String FILTER = "filter";
   public static final String ATTRIBUTE_FAMILIES = "attributeFamilies";
   public static final String TRANSACTIONAL = "transactional";
+  public static final String MANAGER = "manager";
   public static final String TRANSACTIONS = "transactions";
   public static final String SCHEME_PROVIDER = "scheme-provider";
 

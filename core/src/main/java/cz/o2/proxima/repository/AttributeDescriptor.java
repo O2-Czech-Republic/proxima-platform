@@ -23,6 +23,8 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transform.ProxyTransform;
 import java.io.Serializable;
 import java.net.URI;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import lombok.Setter;
@@ -51,6 +53,8 @@ public interface AttributeDescriptor<T> extends Serializable {
 
     @Setter private TransactionMode transactionMode = TransactionMode.NONE;
 
+    @Setter private List<String> transactionManagerFamilies = Collections.emptyList();
+
     @SuppressWarnings("unchecked")
     public <T> AttributeDescriptorImpl<T> build() {
       Objects.requireNonNull(name, "Please specify name");
@@ -66,7 +70,8 @@ public interface AttributeDescriptor<T> extends Serializable {
           schemeUri,
           factory.map(f -> (ValueSerializer<T>) f.getValueSerializer(schemeUri)).orElse(null),
           replica,
-          transactionMode);
+          transactionMode,
+          transactionManagerFamilies);
     }
   }
 
@@ -194,11 +199,16 @@ public interface AttributeDescriptor<T> extends Serializable {
   }
 
   /**
-   * Reetrieve type of transactional support of this attribute.
+   * Retrieve type of transactional support of this attribute.
    *
    * @return {@link TransactionMode} of the attribute.
    */
   TransactionMode getTransactionMode();
+
+  /** Retrieve transactional manager families for this attribute. */
+  default List<String> getTransactionalManagerFamilies() {
+    return Collections.emptyList();
+  }
 
   /**
    * Convert this object to {@link AttributeProxyDescriptor} iff {@link #isProxy} returns {@code

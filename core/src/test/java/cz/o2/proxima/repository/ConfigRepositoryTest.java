@@ -431,9 +431,9 @@ public class ConfigRepositoryTest {
     try {
       checkThrows(() -> ConfigRepository.validateEntityName("0test"));
       checkThrows(() -> ConfigRepository.validateEntityName("test-with-dashes"));
+      checkThrows(() -> ConfigRepository.validateEntityName("_testOk"));
       // must not throw
       ConfigRepository.validateEntityName("testOk");
-      ConfigRepository.validateEntityName("_testOk");
       ConfigRepository.validateEntityName("test_with_underscores");
       Repository.of(ConfigFactory.load("test-reference-with-invalid-entities.conf").resolve());
       fail("Should have thrown exception");
@@ -582,15 +582,56 @@ public class ConfigRepositoryTest {
     assertFalse(repo.getAllFamilies().anyMatch(af -> af.getEntity().isSystemEntity()));
     assertTrue(repo.getAllFamilies(true).anyMatch(af -> af.getEntity().isSystemEntity()));
     assertTrue(repo.getEntity("_transaction").isSystemEntity());
-    assertTrue(repo.getEntity("gateway").isTransactional());
     assertTrue(repo.findFamilyByName("gateway-transaction-commit-log").isPresent());
     assertTrue(repo.findFamilyByName("user-transaction-commit-log-request").isPresent());
+
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    assertTrue(gateway.isTransactional());
+    assertFalse(gateway.isSystemEntity());
+    assertFalse(gateway.getAllAttributes().isEmpty());
+    AttributeDescriptor<?> status = gateway.getAttribute("status");
+    AttributeDescriptor<?> device = gateway.getAttribute("device.*");
+    assertEquals(TransactionMode.ATTRIBUTE, status.getTransactionMode());
+    assertEquals(TransactionMode.ENTITY, device.getTransactionMode());
+    assertEquals(
+        Collections.singletonList("gateway-transaction-commit-log"),
+        status.getTransactionalManagerFamilies());
+    assertEquals(
+        Collections.singletonList("gateway-transaction-commit-log"),
+        device.getTransactionalManagerFamilies());
+
+    EntityDescriptor user = repo.getEntity("user");
+    assertTrue(user.isTransactional());
+    assertFalse(user.isSystemEntity());
+    assertFalse(user.getAllAttributes().isEmpty());
+    assertTrue(
+        user.getAllAttributes()
+            .stream()
+            .allMatch(a -> a.getTransactionMode() == TransactionMode.ENTITY));
+    assertEquals(3, user.getAllAttributes().get(0).getTransactionalManagerFamilies().size());
 
     EntityDescriptor transaction = repo.getEntity("_transaction");
     AttributeDescriptor<Request> request = transaction.getAttribute("request.*");
     byte[] serialized = request.getValueSerializer().serialize(Request.of());
     assertNotNull(serialized);
     assertTrue(request.getValueSerializer().deserialize(serialized).isPresent());
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testIncompleteTransactionManagerFamiliesConfigParsing() {
+    ConfigRepository.dropCached();
+    Repository.of(
+        ConfigFactory.parseString("entities.user.manager = [ user-transaction-commit-log-request ]")
+            .withFallback(ConfigFactory.load("test-transactions.conf").resolve()));
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testDuplicateTransactionManagerFamiliesConfigParsing() {
+    ConfigRepository.dropCached();
+    Repository.of(
+        ConfigFactory.parseString(
+                "entities.gateway.attributes.status.manager = [ gateway-transaction-commit-log, user-transaction-commit-log-request ]")
+            .withFallback(ConfigFactory.load("test-transactions.conf").resolve()));
   }
 
   private void checkThrows(Factory<?> factory) {

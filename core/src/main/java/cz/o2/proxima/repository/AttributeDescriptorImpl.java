@@ -15,9 +15,11 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.scheme.ValueSerializer;
 import java.net.URI;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** Descriptor of attribute of entity. */
@@ -26,18 +28,33 @@ public class AttributeDescriptorImpl<T> extends AttributeDescriptorBase<T> {
 
   private static final long serialVersionUID = 1L;
 
+  private final List<String> transactionalManagerFamilies;
+
   AttributeDescriptorImpl(
       String name,
       String entity,
       URI schemeUri,
       @Nullable ValueSerializer<T> serializer,
-      boolean replica) {
+      boolean replica,
+      TransactionMode transactionMode,
+      List<String> transactionalManagerFamilies) {
 
-    super(name, entity, schemeUri, serializer, replica);
+    super(name, entity, schemeUri, serializer, replica, transactionMode);
+    this.transactionalManagerFamilies = transactionalManagerFamilies;
+    Preconditions.checkArgument(
+        transactionMode == TransactionMode.NONE || !transactionalManagerFamilies.isEmpty(),
+        "Transactional attributes need specification of manager families. Missing for %s.%s",
+        entity,
+        name);
   }
 
   @Override
   public String toString() {
     return "AttributeDescriptor(entity=" + entity + ", name=" + name + ")";
+  }
+
+  @Override
+  public List<String> getTransactionalManagerFamilies() {
+    return transactionalManagerFamilies;
   }
 }

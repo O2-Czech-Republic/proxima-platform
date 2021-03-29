@@ -41,6 +41,8 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
 
   @Getter protected final boolean replica;
 
+  @Getter protected final TransactionMode transactionMode;
+
   @Nullable protected final ValueSerializer<T> valueSerializer;
 
   public AttributeDescriptorBase(
@@ -48,7 +50,8 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
       String entity,
       URI schemeUri,
       @Nullable ValueSerializer<T> valueSerializer,
-      boolean replica) {
+      boolean replica,
+      TransactionMode transactionMode) {
 
     this.name = Objects.requireNonNull(name);
     this.entity = Objects.requireNonNull(entity);
@@ -57,6 +60,7 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
     this.proxy = false;
     this.valueSerializer = valueSerializer;
     this.replica = replica;
+    this.transactionMode = transactionMode;
     if (this.wildcard
         && (name.length() < 3
             || name.substring(0, name.length() - 1).contains("*")
@@ -79,6 +83,8 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
       ValueSerializer<T> valueSerializer) {
 
     this.name = Objects.requireNonNull(name);
+    Preconditions.checkArgument(targetRead != null);
+    Preconditions.checkArgument(targetWrite != null);
     Preconditions.checkArgument(
         targetRead.getEntity().equals(targetWrite.getEntity()),
         String.format(
@@ -93,6 +99,14 @@ public abstract class AttributeDescriptorBase<T> implements AttributeDescriptor<
     this.replica = replica;
     this.wildcard = targetRead.isWildcard();
     this.valueSerializer = Objects.requireNonNull(valueSerializer);
+
+    Preconditions.checkArgument(
+        targetRead.getTransactionMode() == targetWrite.getTransactionMode(),
+        "When specifying a proxy, both read and write targets must have the same TransactionMode, got %s and %s",
+        targetRead.getTransactionMode(),
+        targetWrite.getTransactionMode());
+
+    this.transactionMode = targetRead.getTransactionMode();
   }
 
   @Override

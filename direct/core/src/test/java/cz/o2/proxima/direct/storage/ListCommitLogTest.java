@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.storage;
 
+import static cz.o2.proxima.direct.commitlog.LogObserverUtils.toList;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
@@ -24,8 +25,6 @@ import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.storage.ListCommitLog.ListObserveHandle;
-import cz.o2.proxima.functional.Consumer;
-import cz.o2.proxima.functional.UnaryPredicate;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -276,40 +275,6 @@ public class ListCommitLogTest {
     List<Long> expected =
         IntStream.range(0, numElements).mapToObj(i -> now + i).collect(Collectors.toList());
     assertEquals(expected, watermarks);
-  }
-
-  private static LogObserver toList(List<StreamElement> list, Consumer<Boolean> onFinished) {
-    return toList(list, onFinished, ign -> true);
-  }
-
-  private static LogObserver toList(
-      List<StreamElement> list,
-      Consumer<Boolean> onFinished,
-      UnaryPredicate<StreamElement> shouldContinue) {
-
-    return new LogObserver() {
-      @Override
-      public boolean onError(Throwable error) {
-        throw new RuntimeException(error);
-      }
-
-      @Override
-      public boolean onNext(StreamElement ingest, OnNextContext context) {
-        list.add(ingest);
-        context.confirm();
-        return shouldContinue.apply(ingest);
-      }
-
-      @Override
-      public void onCompleted() {
-        onFinished.accept(true);
-      }
-
-      @Override
-      public void onCancelled() {
-        onFinished.accept(false);
-      }
-    };
   }
 
   private List<StreamElement> data(int count) {

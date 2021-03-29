@@ -123,7 +123,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   public final void reload() {
     close();
     familyMap.clear();
-    dependencyOrdered(repo.getAllFamilies()).forEach(this::addResolvedFamily);
+    dependencyOrdered(repo.getAllFamilies(true)).forEach(this::addResolvedFamily);
   }
 
   /** Create list of families ordered by dependencies between them (non-proxy first). */

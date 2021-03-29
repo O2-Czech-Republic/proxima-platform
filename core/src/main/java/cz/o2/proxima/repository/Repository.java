@@ -166,7 +166,16 @@ public abstract class Repository implements Serializable {
    *
    * @return all families specified in this repository
    */
-  public abstract Stream<AttributeFamilyDescriptor> getAllFamilies();
+  public Stream<AttributeFamilyDescriptor> getAllFamilies() {
+    return getAllFamilies(false);
+  }
+
+  /**
+   * List all unique attribute families, possibly including system attribute families.
+   *
+   * @param includeSystem {@code true} if system families should be included
+   */
+  public abstract Stream<AttributeFamilyDescriptor> getAllFamilies(boolean includeSystem);
 
   /**
    * Retrieve attribute family by name.

@@ -184,7 +184,7 @@ public class StreamElementMaterializer extends RecordMaterializer<StreamElement>
     return current;
   }
 
-  static class ParquetColumnListGroup extends ParquetColumnGroup {
+  public static class ParquetColumnListGroup extends ParquetColumnGroup {
 
     @Override
     List<ParquetColumnGroup> getListElements() {
@@ -200,7 +200,7 @@ public class StreamElementMaterializer extends RecordMaterializer<StreamElement>
     }
   }
 
-  static class ParquetColumnGroup {
+  public static class ParquetColumnGroup {
 
     private final List<ParquetColumn> columns = new ArrayList<>();
 

@@ -57,6 +57,7 @@
             <transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
              <resource>META-INF/services/org.apache.hadoop.fs.FileSystem</resource>
             </transformer>
+            <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
           </transformers>
           <artifactSet>
             <excludes>
@@ -66,6 +67,10 @@
             </excludes>
           </artifactSet>
           <relocations>
+            <relocation>
+              <pattern>com.amazonaws.</pattern>
+              <shadedPattern>${shadePattern}.com.amazonaws.</shadedPattern>
+            </relocation>
             <relocation>
               <pattern>com.fasterxml.</pattern>
               <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>

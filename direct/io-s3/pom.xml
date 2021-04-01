@@ -67,6 +67,10 @@
           </artifactSet>
           <relocations>
             <relocation>
+              <pattern>com.amazonaws.</pattern>
+              <shadedPattern>${shadePattern}.com.amazonaws.</shadedPattern>
+            </relocation>
+            <relocation>
               <pattern>com.fasterxml.</pattern>
               <shadedPattern>${shadePattern}.com.fasterxml.</shadedPattern>
             </relocation>

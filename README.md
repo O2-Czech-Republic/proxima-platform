@@ -19,7 +19,7 @@ First, let's introduce some glossary:
  * _attribute family_: a logical grouping of attributes of the same entity into a named group
  * _storage_: a physical store for data
 
- ### Example scheme definition
+### Example scheme definition
  The scheme definition uses [HOCON](https://github.com/typesafehub/config/blob/master/HOCON.md).
  As a short example we will show definition of data processing of a hypothetic e-commerce site. The site has some goods,
  some users and generates some events which describe how users interact with the goods. We will use
@@ -181,7 +181,7 @@ First, let's introduce some glossary:
    By this definition, we have (somewhat simplified) working description of Proxima platform scheme for data manipulation,
    that can be fed into the ingestion/retrieval service and will start working as described above.
 
- ## Platform's data model
+## Platform's data model
  Generally, data are modelled as unbounded stream of _updates_ to attributes of entities. Each update consists of the following:
   * name of entity
   * name of attribute
@@ -191,7 +191,7 @@ First, let's introduce some glossary:
 
  Each stream can then be represented as a _table_ (a.k.a [table-stream duality](https://docs.confluent.io/current/streams/concepts.html#duality-of-streams-and-tables)), which is essentially a snapshot of a stream at a certain time (in terms of Proxima platform called _batch snapshot_).
 
- ## Compiling scheme definition to access classes
+## Compiling scheme definition to access classes
  The platform contains maven compiler of scheme specification to java access classes as follows:
  ```xml
       <plugin>
@@ -256,11 +256,11 @@ First, let's introduce some glossary:
    Model model = Model.ofTest(ConfigFactory.defaultApplication());
   ```
 
- ## Platform's _DataOperators_
+## Platform's _DataOperators_
  The platform offers various modes of access to data. As of version 0.4.x, these types are:
   * direct
   * Apache Beam
- ### Direct access to data
+### Direct access to data
  This operator is used when accessing data from inside single JVM (or potentially multiple JVMs, e.g. coordinated via distributed consumption of commit log). The operator is constructed as follows:
  ```java
     private DirectDataOperator createDataOperator(Model model) {
@@ -300,7 +300,7 @@ First, let's introduce some glossary:
  ```
  Creating BatchLogReader or RandomAccessReader is analogous.
 
- ### [Apache Beam](https://beam.apache.org/) access to data
+### [Apache Beam](https://beam.apache.org/) access to data
  First, create BeamDataOperator as follows:
  ```java
    BeamDataOperator operator = model.getRepo().getOrCreateOperator(BeamDataOperator.class);
@@ -331,3 +331,9 @@ First, let's introduce some glossary:
        .output();
    // do something with the output
  ```
+
+## Online Java docs
+  * [Latest](https://proxima.datadriven.cz/javadoc/)
+  * [0.7-SNAPSHOT](https://proxima.datadriven.cz/javadoc/0.7-SNAPSHOT/index.html)
+  * [0.6-SNAPSHOT](https://proxima.datadriven.cz/javadoc/0.6-SNAPSHOT/index.html)
+

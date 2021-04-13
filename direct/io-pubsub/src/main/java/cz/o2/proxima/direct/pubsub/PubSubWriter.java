@@ -170,6 +170,9 @@ class PubSubWriter extends AbstractOnlineAttributeWriter implements OnlineAttrib
         publisher.shutdown();
       } catch (Exception ex) {
         log.warn("Failed to shutdown publisher {}", publisher, ex);
+        if (ex instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+        }
       }
       publisher = null;
       initialized = false;

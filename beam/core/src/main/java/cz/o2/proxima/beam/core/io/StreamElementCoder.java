@@ -72,7 +72,12 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
 
     final DataOutput output = new DataOutputStream(outStream);
     output.writeUTF(value.getEntityDescriptor().getName());
-    output.writeUTF(value.getUuid());
+    if (value.hasSequentialId()) {
+      output.writeUTF("");
+      output.writeLong(value.getSequentialId());
+    } else {
+      output.writeUTF(value.getUuid());
+    }
     output.writeUTF(value.getKey());
     final Type type;
     if (value.isDelete()) {
@@ -101,6 +106,7 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
                 () -> new IOException(String.format("Unable to find entity [%s].", entityName)));
 
     final String uuid = input.readUTF();
+    final long sequentialId = uuid.length() == 0 ? input.readLong() : -1L;
     final String key = input.readUTF();
     final int typeOrdinal = input.readInt();
     final Type type = Type.values()[typeOrdinal];
@@ -122,18 +128,34 @@ public class StreamElementCoder extends CustomCoder<StreamElement> {
     final long stamp = input.readLong();
 
     byte[] value = readBytes(input);
-    switch (type) {
-      case DELETE_WILDCARD:
-        return StreamElement.deleteWildcard(
-            entityDescriptor, attributeDescriptor, uuid, key, stamp);
-      case DELETE:
-        return StreamElement.delete(
-            entityDescriptor, attributeDescriptor, uuid, key, attribute, stamp);
-      case UPDATE:
-        return StreamElement.upsert(
-            entityDescriptor, attributeDescriptor, uuid, key, attribute, stamp, value);
-      default:
-        throw new IllegalStateException("Unknown type " + type);
+    if (sequentialId == -1L) {
+      switch (type) {
+        case DELETE_WILDCARD:
+          return StreamElement.deleteWildcard(
+              entityDescriptor, attributeDescriptor, uuid, key, stamp);
+        case DELETE:
+          return StreamElement.delete(
+              entityDescriptor, attributeDescriptor, uuid, key, attribute, stamp);
+        case UPDATE:
+          return StreamElement.upsert(
+              entityDescriptor, attributeDescriptor, uuid, key, attribute, stamp, value);
+        default:
+          throw new IllegalStateException("Unknown type " + type);
+      }
+    } else {
+      switch (type) {
+        case DELETE_WILDCARD:
+          return StreamElement.deleteWildcard(
+              entityDescriptor, attributeDescriptor, sequentialId, key, stamp);
+        case DELETE:
+          return StreamElement.delete(
+              entityDescriptor, attributeDescriptor, sequentialId, key, attribute, stamp);
+        case UPDATE:
+          return StreamElement.upsert(
+              entityDescriptor, attributeDescriptor, sequentialId, key, attribute, stamp, value);
+        default:
+          throw new IllegalStateException("Unknown type " + type);
+      }
     }
   }
 

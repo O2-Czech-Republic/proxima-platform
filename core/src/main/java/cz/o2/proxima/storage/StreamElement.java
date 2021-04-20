@@ -16,6 +16,7 @@
 package cz.o2.proxima.storage;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -60,6 +61,31 @@ public class StreamElement implements Serializable {
   }
 
   /**
+   * Upsert given entity attribute with given value.
+   *
+   * @param entityDesc descriptor of entity
+   * @param attributeDesc descriptor of attribute
+   * @param sequentialId sequential ID of the upsert
+   * @param key key of entity
+   * @param attribute name of attribute of the entity
+   * @param stamp timestamp of the event
+   * @param value serialized value
+   * @return {@link StreamElement} to be written to the system
+   */
+  public static StreamElement upsert(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<?> attributeDesc,
+      long sequentialId,
+      String key,
+      String attribute,
+      long stamp,
+      byte[] value) {
+
+    return new StreamElement(
+        entityDesc, attributeDesc, sequentialId, key, attribute, stamp, false, value);
+  }
+
+  /**
    * Delete given instance of attribute.
    *
    * @param entityDesc descriptor of entity
@@ -79,6 +105,29 @@ public class StreamElement implements Serializable {
       long stamp) {
 
     return new StreamElement(entityDesc, attributeDesc, uuid, key, attribute, stamp, false, null);
+  }
+
+  /**
+   * Delete given instance of attribute.
+   *
+   * @param entityDesc descriptor of entity
+   * @param attributeDesc descriptor of attribute
+   * @param sequentialId sequential ID of the delete
+   * @param key key of entity
+   * @param attribute attribute of the entity
+   * @param stamp timestamp of the delete event
+   * @return {@link StreamElement} to be written to the system
+   */
+  public static StreamElement delete(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<?> attributeDesc,
+      long sequentialId,
+      String key,
+      String attribute,
+      long stamp) {
+
+    return new StreamElement(
+        entityDesc, attributeDesc, sequentialId, key, attribute, stamp, false, null);
   }
 
   /**
@@ -111,6 +160,32 @@ public class StreamElement implements Serializable {
    *
    * @param entityDesc descriptor of entity
    * @param attributeDesc descriptor of attribute
+   * @param sequentialId sequential ID of the delete
+   * @param key key of entity
+   * @param attribute string representation of the attribute
+   * @param stamp timestamp of the event
+   * @return {@link StreamElement} to be written to the system
+   */
+  public static StreamElement deleteWildcard(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<?> attributeDesc,
+      long sequentialId,
+      String key,
+      String attribute,
+      long stamp) {
+
+    if (!attribute.endsWith("*")) {
+      attribute += "*";
+    }
+    return new StreamElement(
+        entityDesc, attributeDesc, sequentialId, key, attribute, stamp, true, null);
+  }
+
+  /**
+   * Delete all versions of given wildcard attribute.
+   *
+   * @param entityDesc descriptor of entity
+   * @param attributeDesc descriptor of attribute
    * @param uuid UUID of the event
    * @param key key of entity
    * @param stamp timestamp of the event
@@ -127,11 +202,39 @@ public class StreamElement implements Serializable {
         entityDesc, attributeDesc, uuid, key, attributeDesc.toAttributePrefix() + "*", stamp);
   }
 
+  /**
+   * Delete all versions of given wildcard attribute.
+   *
+   * @param entityDesc descriptor of entity
+   * @param attributeDesc descriptor of attribute
+   * @param sequentialId sequential ID of the delete
+   * @param key key of entity
+   * @param stamp timestamp of the event
+   * @return {@link StreamElement} to be written to the system
+   */
+  public static StreamElement deleteWildcard(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<?> attributeDesc,
+      long sequentialId,
+      String key,
+      long stamp) {
+
+    return deleteWildcard(
+        entityDesc,
+        attributeDesc,
+        sequentialId,
+        key,
+        attributeDesc.toAttributePrefix() + "*",
+        stamp);
+  }
+
   @Getter private final EntityDescriptor entityDescriptor;
 
   @Getter private final AttributeDescriptor<?> attributeDescriptor;
 
-  @Getter private final String uuid;
+  private final @Nullable String uuid;
+
+  @Getter private final long sequentialId;
 
   @Getter private final String key;
 
@@ -144,6 +247,7 @@ public class StreamElement implements Serializable {
   private final boolean deleteWildcard;
 
   private transient Object parsed;
+  private transient String cachedUuid;
 
   protected StreamElement(
       EntityDescriptor entityDesc,
@@ -158,6 +262,7 @@ public class StreamElement implements Serializable {
     this.entityDescriptor = Objects.requireNonNull(entityDesc);
     this.attributeDescriptor = Objects.requireNonNull(attributeDesc);
     this.uuid = Objects.requireNonNull(uuid);
+    this.sequentialId = -1L;
     this.key = Objects.requireNonNull(key);
     this.attribute = Objects.requireNonNull(attribute);
     this.stamp = stamp;
@@ -165,10 +270,49 @@ public class StreamElement implements Serializable {
     this.deleteWildcard = deleteWildcard;
   }
 
+  protected StreamElement(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<?> attributeDesc,
+      long sequentialId,
+      String key,
+      String attribute,
+      long stamp,
+      boolean deleteWildcard,
+      @Nullable byte[] value) {
+
+    this.entityDescriptor = Objects.requireNonNull(entityDesc);
+    this.attributeDescriptor = Objects.requireNonNull(attributeDesc);
+    this.uuid = null;
+    this.sequentialId = sequentialId;
+    this.key = Objects.requireNonNull(key);
+    this.attribute = Objects.requireNonNull(attribute);
+    this.stamp = stamp;
+    this.value = value;
+    this.deleteWildcard = deleteWildcard;
+
+    Preconditions.checkArgument(
+        sequentialId > 0, "Sequential ID must be greater than zero, got %s", sequentialId);
+  }
+
+  public String getUuid() {
+    if (cachedUuid == null) {
+      if (uuid != null) {
+        cachedUuid = uuid;
+      } else {
+        cachedUuid = key + ":" + attribute + ":" + sequentialId;
+      }
+    }
+    return cachedUuid;
+  }
+
+  public boolean hasSequentialId() {
+    return sequentialId > 0;
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("uuid", uuid)
+        .add("uuid", getUuid())
         .add("entityDesc", entityDescriptor)
         .add("attributeDesc", attributeDescriptor)
         .add("key", key)
@@ -222,14 +366,14 @@ public class StreamElement implements Serializable {
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof StreamElement) {
-      return ((StreamElement) obj).uuid.equals(uuid);
+      return ((StreamElement) obj).getUuid().equals(getUuid());
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return uuid.hashCode();
+    return getUuid().hashCode();
   }
 
   /**

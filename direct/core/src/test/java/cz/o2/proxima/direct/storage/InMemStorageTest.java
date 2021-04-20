@@ -23,6 +23,7 @@ import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.LogObserverUtils;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
@@ -57,6 +58,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.junit.Assert;
 import org.junit.Test;
 
 /** Test suite for {@link InMemStorage}. */
@@ -659,6 +661,50 @@ public class InMemStorageTest implements Serializable {
         storage.createAccessor(
             direct, createFamilyDescriptor(URI.create("inmem:///test"), numPartitions));
     accessor.getCachedView(direct.getContext());
+  }
+
+  @Test(timeout = 10000)
+  public void testReadWriteSequentialIds() throws InterruptedException {
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    AttributeWriterBase writer =
+        accessor
+            .getWriter(direct.getContext())
+            .orElseThrow(() -> new IllegalStateException("Missing writer"));
+
+    List<StreamElement> result = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    LogObserver observer =
+        LogObserverUtils.toList(
+            result,
+            Assert::assertTrue,
+            elem -> {
+              latch.countDown();
+              return false;
+            });
+    reader.observe("test", observer);
+    writer
+        .online()
+        .write(
+            StreamElement.upsert(
+                entity,
+                data,
+                1L,
+                "key",
+                data.getName(),
+                System.currentTimeMillis(),
+                new byte[] {1, 2, 3}),
+            (succ, exc) -> {});
+    latch.await();
+    assertEquals(1, result.size());
+    assertTrue(result.get(0).hasSequentialId());
+    assertEquals(1L, result.get(0).getSequentialId());
   }
 
   private AttributeFamilyDescriptor createFamilyDescriptor(URI storageUri) {

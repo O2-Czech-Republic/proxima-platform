@@ -19,6 +19,7 @@ import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
+import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import java.io.Serializable;
 import java.net.URI;
@@ -302,6 +303,16 @@ public interface CommitLogReader {
    * @return {@code true} if {@link Offset}s of this reader are externalizable
    */
   default boolean hasExternalizableOffsets() {
+    return false;
+  }
+
+  /**
+   * Signals the user that this {@link CommitLogReader} is able to recover sequential IDs sent to it
+   * in {@link StreamElement StreamElements} through its associated writer.
+   *
+   * @return {@code true} if StreamElement read from the commit log contain valid sequential IDs.
+   */
+  default boolean restoresSequentialIds() {
     return false;
   }
 

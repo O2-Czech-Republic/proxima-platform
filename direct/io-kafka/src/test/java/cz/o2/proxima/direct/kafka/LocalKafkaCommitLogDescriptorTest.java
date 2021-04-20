@@ -87,6 +87,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
@@ -2923,8 +2924,14 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     }
 
     @Override
-    public Pair<String, String> write(StreamElement element) {
-      return Pair.of(element.getKey(), (String) element.getParsed().get());
+    public ProducerRecord<String, String> write(
+        String topic, int partition, StreamElement element) {
+      return new ProducerRecord<>(
+          topic,
+          partition,
+          element.getStamp(),
+          element.getKey(),
+          (String) Optionals.get(element.getParsed()));
     }
 
     @Override

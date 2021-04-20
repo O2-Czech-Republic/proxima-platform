@@ -20,7 +20,6 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Partitioner;
-import cz.o2.proxima.util.Pair;
 import java.util.Properties;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -28,18 +27,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.Serdes;
 
 /** ${link OnlineAttributeWriter} implementation for Kafka. */
 @Slf4j
-public class KafkaWriter extends AbstractOnlineAttributeWriter {
+public class KafkaWriter<K, V> extends AbstractOnlineAttributeWriter {
 
   @Getter final KafkaAccessor accessor;
   private final Partitioner partitioner;
   private final String topic;
-  private final ElementSerializer<?, ?> serializer;
+  private final ElementSerializer<K, V> serializer;
 
-  @Nullable private transient KafkaProducer<String, byte[]> producer;
+  @Nullable private transient KafkaProducer<K, V> producer;
 
   KafkaWriter(KafkaAccessor accessor) {
     super(accessor.getEntityDescriptor(), accessor.getUri());
@@ -50,7 +48,6 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public void write(StreamElement data, CommitCallback callback) {
     try {
       if (producer == null) {
@@ -60,10 +57,9 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
           (partitioner.getPartitionId(data) & Integer.MAX_VALUE)
               % producer.partitionsFor(topic).size();
 
-      Pair<?, ?> output = serializer.write(data);
+      ProducerRecord<K, V> toWrite = serializer.write(topic, partition, data);
       producer.send(
-          new ProducerRecord(
-              topic, partition, data.getStamp(), output.getFirst(), output.getSecond()),
+          toWrite,
           (metadata, exception) -> {
             log.debug(
                 "Written {} to topic {} offset {} and partition {}",
@@ -82,17 +78,16 @@ public class KafkaWriter extends AbstractOnlineAttributeWriter {
   @Override
   public OnlineAttributeWriter.Factory<?> asFactory() {
     final KafkaAccessor accessor = this.accessor;
-    return repo -> new KafkaWriter(accessor);
+    return repo -> new KafkaWriter<>(accessor);
   }
 
-  @SuppressWarnings("unchecked")
-  private KafkaProducer<String, byte[]> createProducer() {
+  private KafkaProducer<K, V> createProducer() {
     Properties props = accessor.createProps();
     props.put(ProducerConfig.ACKS_CONFIG, "all");
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, getUri().getAuthority());
     props.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384);
     return new KafkaProducer<>(
-        props, Serdes.String().serializer(), Serdes.ByteArray().serializer());
+        props, serializer.keySerde().serializer(), serializer.valueSerde().serializer());
   }
 
   @Override

@@ -29,6 +29,7 @@ import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.KeyPartitioner;
 import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.util.Classpath;
@@ -90,6 +91,9 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
    * time. This controls time needed to initialize kafka consumer.
    */
   public static final String EMPTY_POLL_TIME = "poll.allowed-empty-before-watermark-move";
+
+  /** A name for a header containing sequential ID of {@link StreamElement} (if any). */
+  public static final String SEQUENCE_ID_HEADER = "seqId";
 
   @Getter @Nullable private final String topic;
 
@@ -303,8 +307,8 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
         new LocalCachedPartitionedView(getEntityDescriptor(), newReader(context), newWriter()));
   }
 
-  KafkaWriter newWriter() {
-    return new KafkaWriter(this);
+  KafkaWriter<?, ?> newWriter() {
+    return new KafkaWriter<>(this);
   }
 
   KafkaLogReader newReader(Context context) {

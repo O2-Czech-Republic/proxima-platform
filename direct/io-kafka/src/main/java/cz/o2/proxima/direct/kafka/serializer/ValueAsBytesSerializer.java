@@ -21,9 +21,9 @@ import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.Pair;
 import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
 
@@ -81,7 +81,8 @@ public class ValueAsBytesSerializer implements ElementSerializer<byte[], byte[]>
   }
 
   @Override
-  public Pair<byte[], byte[]> write(StreamElement streamElement) {
+  public ProducerRecord<byte[], byte[]> write(
+      String topic, int partition, StreamElement streamElement) {
     throw new UnsupportedOperationException("Readonly storage!");
   }
 

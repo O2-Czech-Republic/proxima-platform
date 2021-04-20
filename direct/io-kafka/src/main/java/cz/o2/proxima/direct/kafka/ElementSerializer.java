@@ -17,10 +17,10 @@ package cz.o2.proxima.direct.kafka;
 
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.Serde;
 
 /**
@@ -50,12 +50,14 @@ public interface ElementSerializer<K, V> extends Serializable {
   StreamElement read(ConsumerRecord<K, V> record, EntityDescriptor entityDesc);
 
   /**
-   * Convert {@link StreamElement} into {@link Pair} of key and value.
+   * Convert {@link StreamElement} into {@link ProducerRecord}.
    *
+   * @param topic the target topic
+   * @param partition the target partition
    * @param element the {@link StreamElement} to convert
-   * @return the {@link Pair} of key and value.
+   * @return the {@link ProducerRecord} to write to Kafka
    */
-  Pair<K, V> write(StreamElement element);
+  ProducerRecord<K, V> write(String topic, int partition, StreamElement element);
 
   /**
    * Retrieve {@link Serde} for type K.
@@ -70,4 +72,12 @@ public interface ElementSerializer<K, V> extends Serializable {
    * @return {@link Serde} for value
    */
   Serde<V> valueSerde();
+
+  /**
+   * @return {@code true} if this serializer reads and writes sequential IDs of {@link
+   *     StreamElement} (if any).
+   */
+  default boolean storesSequentialId() {
+    return false;
+  }
 }

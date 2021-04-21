@@ -85,6 +85,26 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
     /**
      * Create upsert update to non-wildcard attribute. UUID is auto generated.
      *
+     * @param sequentialId sequential ID of the update
+     * @param key key of the upsert
+     * @param stamp timestamp
+     * @param value the value to write
+     * @return the upsert {@link StreamElement}
+     */
+    public StreamElement upsert(long sequentialId, String key, long stamp, T value) {
+      return StreamElement.upsert(
+          entity,
+          wrapped,
+          sequentialId,
+          key,
+          wrapped.getName(),
+          stamp,
+          wrapped.getValueSerializer().serialize(value));
+    }
+
+    /**
+     * Create upsert update to non-wildcard attribute. UUID is auto generated.
+     *
      * @param key key of the upsert
      * @param stamp timestamp
      * @param value the value to write
@@ -102,8 +122,8 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
      * @param stamp timestamp
      * @return the delete {@link StreamElement}
      */
-    public StreamElement delete(String uuid, String key, long stamp) {
-      return StreamElement.delete(entity, wrapped, uuid, key, wrapped.getName(), stamp);
+    public StreamElement delete(String uuid, String key, Instant stamp) {
+      return delete(uuid, key, stamp.toEpochMilli());
     }
 
     /**
@@ -114,8 +134,20 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
      * @param stamp timestamp
      * @return the delete {@link StreamElement}
      */
-    public StreamElement delete(String uuid, String key, Instant stamp) {
-      return delete(uuid, key, stamp.toEpochMilli());
+    public StreamElement delete(String uuid, String key, long stamp) {
+      return StreamElement.delete(entity, wrapped, uuid, key, wrapped.getName(), stamp);
+    }
+
+    /**
+     * Create delete for non-wildcard attribute.
+     *
+     * @param sequentialId sequential ID of the delete
+     * @param key key of the delete
+     * @param stamp timestamp
+     * @return the delete {@link StreamElement}
+     */
+    public StreamElement delete(long sequentialId, String key, long stamp) {
+      return StreamElement.delete(entity, wrapped, sequentialId, key, wrapped.getName(), stamp);
     }
 
     /**
@@ -166,6 +198,29 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
           entity,
           wrapped,
           uuid,
+          key,
+          wrapped.toAttributePrefix() + attribute,
+          stamp,
+          wrapped.getValueSerializer().serialize(value));
+    }
+
+    /**
+     * Create upsert update to wildcard attribute.
+     *
+     * @param sequentialId sequential ID of the upsert
+     * @param key key of the upsert
+     * @param attribute the attribute (only the suffix part)
+     * @param stamp timestamp
+     * @param value the value to write
+     * @return the upsert {@link StreamElement}
+     */
+    public StreamElement upsert(
+        long sequentialId, String key, String attribute, long stamp, T value) {
+      Preconditions.checkArgument(!attribute.startsWith(toAttributePrefix()));
+      return StreamElement.upsert(
+          entity,
+          wrapped,
+          sequentialId,
           key,
           wrapped.toAttributePrefix() + attribute,
           stamp,
@@ -230,6 +285,21 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
     /**
      * Create delete for wildcard attribute.
      *
+     * @param sequentialId sequential ID of the delete
+     * @param key key of the upsert
+     * @param attribute the attribute (only the suffix part)
+     * @param stamp timestamp
+     * @return the delete {@link StreamElement}
+     */
+    public StreamElement delete(long sequentialId, String key, String attribute, long stamp) {
+      Preconditions.checkArgument(!attribute.startsWith(toAttributePrefix()));
+      return StreamElement.delete(
+          entity, wrapped, sequentialId, key, wrapped.toAttributePrefix() + attribute, stamp);
+    }
+
+    /**
+     * Create delete for wildcard attribute.
+     *
      * @param uuid UUID of the delete
      * @param key key of the upsert
      * @param attribute the attribute (only the suffix part)
@@ -274,6 +344,18 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
      */
     public StreamElement deleteWildcard(String uuid, String key, long stamp) {
       return StreamElement.deleteWildcard(entity, wrapped, uuid, key, stamp);
+    }
+
+    /**
+     * Delete wildcard attribute (all versions).
+     *
+     * @param sequentialId sequential ID of the delete
+     * @param key key of the upsert
+     * @param stamp timestamp
+     * @return the delete {@link StreamElement}
+     */
+    public StreamElement deleteWildcard(long sequentialId, String key, long stamp) {
+      return StreamElement.deleteWildcard(entity, wrapped, sequentialId, key, stamp);
     }
 
     /**

@@ -288,7 +288,6 @@ public class KafkaLogReaderIT {
     final int numElements = 100;
     writeElements(numElements, true);
     while (observer.getNumReceivedElements() < numElements) {
-      System.err.println(" *** " + observer.getReceivedElements());
       TimeUnit.MILLISECONDS.sleep(100);
     }
     observer.getReceivedElements().forEach(e -> assertTrue(e.hasSequentialId()));

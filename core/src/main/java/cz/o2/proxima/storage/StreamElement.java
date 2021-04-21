@@ -65,7 +65,7 @@ public class StreamElement implements Serializable {
    *
    * @param entityDesc descriptor of entity
    * @param attributeDesc descriptor of attribute
-   * @param sequentialId sequential ID of the upsert
+   * @param sequentialId sequential ID of the upsert. The sequential ID is required to be positive.
    * @param key key of entity
    * @param attribute name of attribute of the entity
    * @param stamp timestamp of the event
@@ -112,7 +112,7 @@ public class StreamElement implements Serializable {
    *
    * @param entityDesc descriptor of entity
    * @param attributeDesc descriptor of attribute
-   * @param sequentialId sequential ID of the delete
+   * @param sequentialId sequential ID of the delete. The sequential ID is required to be positive.
    * @param key key of entity
    * @param attribute attribute of the entity
    * @param stamp timestamp of the delete event
@@ -160,7 +160,7 @@ public class StreamElement implements Serializable {
    *
    * @param entityDesc descriptor of entity
    * @param attributeDesc descriptor of attribute
-   * @param sequentialId sequential ID of the delete
+   * @param sequentialId sequential ID of the delete. The sequential ID is required to be positive.
    * @param key key of entity
    * @param attribute string representation of the attribute
    * @param stamp timestamp of the event
@@ -207,7 +207,7 @@ public class StreamElement implements Serializable {
    *
    * @param entityDesc descriptor of entity
    * @param attributeDesc descriptor of attribute
-   * @param sequentialId sequential ID of the delete
+   * @param sequentialId sequential ID of the delete. The sequential ID is required to be positive.
    * @param key key of entity
    * @param stamp timestamp of the event
    * @return {@link StreamElement} to be written to the system
@@ -313,6 +313,7 @@ public class StreamElement implements Serializable {
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("uuid", getUuid())
+        .add("sequentialId", getSequentialId())
         .add("entityDesc", entityDescriptor)
         .add("attributeDesc", attributeDescriptor)
         .add("key", key)

@@ -73,6 +73,8 @@ public class StreamElementTest {
     long now = System.currentTimeMillis();
     StreamElement element =
         StreamElement.upsert(gateway, armed, 1L, "key", armed.getName(), now, new byte[] {1, 2});
+    assertTrue(element.hasSequentialId());
+    assertEquals(1L, element.getSequentialId());
     assertEquals(gateway, element.getEntityDescriptor());
     assertEquals(armed, element.getAttributeDescriptor());
     assertEquals(armed.getName(), element.getAttribute());
@@ -114,6 +116,8 @@ public class StreamElementTest {
     StreamElement element =
         StreamElement.upsert(
             gateway, device, 1L, "key", device.toAttributePrefix() + "1", now, new byte[] {1, 2});
+    assertTrue(element.hasSequentialId());
+    assertEquals(1L, element.getSequentialId());
     assertEquals(gateway, element.getEntityDescriptor());
     assertEquals(device, element.getAttributeDescriptor());
     assertEquals(device.toAttributePrefix() + "1", element.getAttribute());
@@ -146,6 +150,8 @@ public class StreamElementTest {
   public void testDeleteCreationWithSequentialId() {
     long now = System.currentTimeMillis();
     StreamElement element = StreamElement.delete(gateway, armed, 1L, "key", armed.getName(), now);
+    assertTrue(element.hasSequentialId());
+    assertEquals(1L, element.getSequentialId());
     assertEquals(gateway, element.getEntityDescriptor());
     assertEquals(armed, element.getAttributeDescriptor());
     assertEquals(armed.getName(), element.getAttribute());
@@ -177,6 +183,8 @@ public class StreamElementTest {
   public void testWildcardDeleteCreationWithSequentialId() {
     long now = System.currentTimeMillis();
     StreamElement element = StreamElement.deleteWildcard(gateway, device, 1L, "key", now);
+    assertTrue(element.hasSequentialId());
+    assertEquals(1L, element.getSequentialId());
     assertEquals(gateway, element.getEntityDescriptor());
     assertEquals(device, element.getAttributeDescriptor());
     assertEquals(device.getName(), element.getAttribute());
@@ -216,6 +224,8 @@ public class StreamElementTest {
     StreamElement element =
         StreamElement.deleteWildcard(
             gateway, device, 1L, "key", device.toAttributePrefix() + "1", now);
+    assertTrue(element.hasSequentialId());
+    assertEquals(1L, element.getSequentialId());
     assertEquals(gateway, element.getEntityDescriptor());
     assertEquals(device, element.getAttributeDescriptor());
     assertEquals(device.toAttributePrefix() + "1*", element.getAttribute());

@@ -25,6 +25,7 @@ import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
 import cz.o2.proxima.direct.randomaccess.RawOffset;
+import cz.o2.proxima.direct.view.TimeBoundedVersionedCache.Payload;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -101,14 +102,22 @@ public class LocalCachedPartitionedView implements CachedView {
         attrName = ingest.getAttribute();
       }
       final boolean updated;
-      final Pair<Long, Object> oldVal;
+      final Pair<Long, Payload> oldVal;
       synchronized (cache) {
         oldVal = cache.get(ingest.getKey(), attrName, Long.MAX_VALUE);
+        long sequenceId = ingest.hasSequentialId() ? ingest.getSequentialId() : 0L;
         updated =
-            cache.put(ingest.getKey(), attrName, ingest.getStamp(), overwrite, parsed.orElse(null));
+            cache.put(
+                ingest.getKey(),
+                attrName,
+                ingest.getStamp(),
+                sequenceId,
+                overwrite,
+                parsed.orElse(null));
       }
       if (updated) {
-        updateCallback.accept(ingest, oldVal);
+        updateCallback.accept(
+            ingest, oldVal != null ? Pair.of(oldVal.getFirst(), oldVal.getSecond()) : null);
       }
     }
   }
@@ -227,8 +236,8 @@ public class LocalCachedPartitionedView implements CachedView {
     synchronized (cache) {
       if (desc.isWildcard()) {
         // check for wildcard delete
-        Pair<Long, Object> wildcard = cache.get(key, desc.toAttributePrefix(), stamp);
-        if (wildcard != null && wildcard.getSecond() == null) {
+        Pair<Long, Payload> wildcard = cache.get(key, desc.toAttributePrefix(), stamp);
+        if (wildcard != null && wildcard.getSecond().getData() == null) {
           // this is delete
           // move the required stamp after the delete
           deleteStamp = wildcard.getFirst();
@@ -316,7 +325,7 @@ public class LocalCachedPartitionedView implements CachedView {
   }
 
   private @Nullable <T> KeyValue<T> toKv(
-      String key, String attribute, @Nullable Pair<Long, Object> p) {
+      String key, String attribute, @Nullable Pair<Long, Payload> p) {
 
     Optional<AttributeDescriptor<Object>> attrDesc = entity.findAttribute(attribute, true);
     if (attrDesc.isPresent()) {
@@ -328,10 +337,22 @@ public class LocalCachedPartitionedView implements CachedView {
 
   @SuppressWarnings("unchecked")
   private @Nullable <T> KeyValue<T> toKv(
-      String key, String attribute, AttributeDescriptor<?> attr, @Nullable Pair<Long, Object> p) {
+      String key, String attribute, AttributeDescriptor<?> attr, @Nullable Pair<Long, Payload> p) {
 
-    if (p == null || p.getSecond() == null) {
+    if (p == null || p.getSecond() == null || p.getSecond().getData() == null) {
       return null;
+    }
+    if (p.getSecond().getSeqId() > 0) {
+      return KeyValue.of(
+          entity,
+          (AttributeDescriptor<T>) attr,
+          p.getSecond().getSeqId(),
+          key,
+          attribute,
+          new RawOffset(attribute),
+          (T) p.getSecond().getData(),
+          null,
+          p.getFirst());
     }
     return KeyValue.of(
         entity,
@@ -339,7 +360,7 @@ public class LocalCachedPartitionedView implements CachedView {
         key,
         attribute,
         new RawOffset(attribute),
-        (T) p.getSecond(),
+        (T) p.getSecond().getData(),
         null,
         p.getFirst());
   }

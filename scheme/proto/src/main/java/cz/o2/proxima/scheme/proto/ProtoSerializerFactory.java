@@ -400,10 +400,14 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
               a -> {
                 EntityDescriptor entity = repo.getEntity(a.getEntity());
                 if (Strings.isNullOrEmpty(a.getAttribute())) {
-                  return KeyAttribute.ofAttributeDescriptor(
-                      entity, a.getKey(), entity.getAttribute(a.getAttributeDesc()), a.getSeqId());
+                  return new KeyAttribute(
+                      entity,
+                      a.getKey(),
+                      entity.getAttribute(a.getAttributeDesc()),
+                      a.getSeqId(),
+                      null);
                 }
-                return KeyAttribute.ofAttributeDescriptor(
+                return new KeyAttribute(
                     entity,
                     a.getKey(),
                     entity.getAttribute(a.getAttributeDesc()),

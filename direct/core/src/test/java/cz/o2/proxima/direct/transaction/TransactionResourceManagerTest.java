@@ -25,7 +25,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.transaction.KeyAttribute;
+import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
@@ -95,7 +95,7 @@ public class TransactionResourceManagerTest {
           transactionId,
           (k, v) -> receivedResponses.add(Pair.of(k, v)),
           Collections.singletonList(
-              KeyAttribute.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
+              KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
 
       assertEquals(1, receivedResponses.size());
       assertEquals(Response.Flags.OPEN, receivedResponses.get(0).getSecond().getFlags());
@@ -151,13 +151,13 @@ public class TransactionResourceManagerTest {
           transactionId,
           (k, v) -> receivedResponses.add(Pair.of(k, v)),
           Collections.singletonList(
-              KeyAttribute.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
+              KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
 
       receivedResponses.take();
       manager.commit(
           transactionId,
           Collections.singletonList(
-              KeyAttribute.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
+              KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
 
       Pair<String, Response> response = receivedResponses.take();
       assertEquals("commit", response.getFirst());
@@ -206,7 +206,7 @@ public class TransactionResourceManagerTest {
           transactionId,
           (k, v) -> receivedResponses.add(Pair.of(k, v)),
           Collections.singletonList(
-              KeyAttribute.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
+              KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
 
       receivedResponses.take();
       manager.rollback(transactionId);

@@ -39,12 +39,12 @@ public class StateTest {
     State s = State.open(5L, Collections.emptyList());
     assertEquals(5L, s.getSequentialId());
     assertTrue(s.getInputAttributes().isEmpty());
-    KeyAttribute ka = KeyAttribute.ofAttributeDescriptor(gateway, "key", status, 2L);
+    KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 2L);
     s = s.update(Lists.newArrayList(ka));
     assertEquals(5L, s.getSequentialId());
     assertEquals(1, s.getInputAttributes().size());
     assertEquals(ka, Iterables.get(s.getInputAttributes(), 0));
-    ka = KeyAttribute.ofAttributeDescriptor(gateway, "key", device, 3L, "1");
+    ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", device, 3L, "1");
     State committed = s.committed(Collections.singletonList(ka));
     assertEquals(1, committed.getInputAttributes().size());
     assertEquals(1, committed.getCommittedAttributes().size());

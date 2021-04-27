@@ -21,6 +21,7 @@ import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.scheme.AttributeValueAccessor;
@@ -33,6 +34,7 @@ import cz.o2.proxima.scheme.proto.ProtoSerializerFactory.TransactionProtoSeriali
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.KeyAttribute;
+import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
@@ -129,9 +131,22 @@ public class ProtoSerializerFactoryTest {
                 .withFallback(ConfigFactory.load("test-transactions.conf"))
                 .resolve());
     EntityDescriptor transaction = repo.getEntity("_transaction");
-    AttributeDescriptor<Request> request = transaction.getAttribute("request.*");
+    Wildcard<Request> request =
+        Wildcard.wildcard(transaction, transaction.getAttribute("request.*"));
+
     KeyAttribute keyAttribute =
-        KeyAttribute.ofAttributeDescriptor(transaction, "t", request, 1L, "1");
+        KeyAttributes.ofAttributeDescriptor(transaction, "t", request, 1L, "1");
+
+    List<KeyAttribute> wildcardQuery =
+        KeyAttributes.ofWildcardQueryElements(
+            transaction,
+            "t",
+            request,
+            Arrays.asList(
+                request.upsert(
+                    1L, "t", "1", System.currentTimeMillis(), newRequest(Request.Flags.OPEN)),
+                request.upsert(
+                    2L, "t", "1", System.currentTimeMillis(), newRequest(Request.Flags.OPEN))));
 
     assertTrue(request.getValueSerializer() instanceof TransactionProtoSerializer);
     assertTrue(request.getValueSerializer().isUsable());
@@ -153,7 +168,7 @@ public class ProtoSerializerFactoryTest {
             request.toAttributePrefix() + "1",
             System.currentTimeMillis(),
             new byte[] {});
-    KeyAttribute keyAttributeSingleWildcard = KeyAttribute.ofStreamElement(el);
+    KeyAttribute keyAttributeSingleWildcard = KeyAttributes.ofStreamElement(el);
 
     List<Pair<Object, AttributeDescriptor<?>>> toVerify =
         Arrays.asList(
@@ -163,6 +178,7 @@ public class ProtoSerializerFactoryTest {
             Pair.of(newRequest(keyAttributeSingleWildcard, Request.Flags.COMMIT), request),
             Pair.of(newRequest(keyAttribute, Request.Flags.UPDATE), request),
             Pair.of(newRequest(keyAttributeSingleWildcard, Request.Flags.UPDATE), request),
+            Pair.of(newRequest(wildcardQuery, Request.Flags.OPEN), request),
             Pair.of(newRequest(Request.Flags.ROLLBACK), request),
             Pair.of(Response.open(1L), response),
             Pair.of(Response.updated(), response),
@@ -201,9 +217,13 @@ public class ProtoSerializerFactoryTest {
   }
 
   private Request newRequest(KeyAttribute keyAttribute, Request.Flags flags) {
+    return newRequest(Collections.singletonList(keyAttribute), flags);
+  }
+
+  private Request newRequest(List<KeyAttribute> keyAttributes, Request.Flags flags) {
     return Request.builder()
-        .inputAttributes(Collections.singletonList(keyAttribute))
-        .outputAttributes(Collections.singletonList(keyAttribute))
+        .inputAttributes(keyAttributes)
+        .outputAttributes(keyAttributes)
         .flags(flags)
         .build();
   }

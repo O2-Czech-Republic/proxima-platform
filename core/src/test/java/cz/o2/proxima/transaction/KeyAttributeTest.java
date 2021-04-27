@@ -15,14 +15,17 @@
  */
 package cz.o2.proxima.transaction;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import org.junit.Test;
 
 public class KeyAttributeTest {
@@ -35,8 +38,8 @@ public class KeyAttributeTest {
 
   @Test
   public void testKeyAttributeConstruction() {
-    KeyAttribute ka = KeyAttribute.ofAttributeDescriptor(gateway, "gw", status, 1L);
-    KeyAttribute ka2 = KeyAttribute.ofAttributeDescriptor(gateway, "gw", status, 1L);
+    KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "gw", status, 1L);
+    KeyAttribute ka2 = KeyAttributes.ofAttributeDescriptor(gateway, "gw", status, 1L);
     assertEquals(ka, ka2);
     StreamElement el =
         StreamElement.upsert(
@@ -47,17 +50,36 @@ public class KeyAttributeTest {
             status.getName(),
             System.currentTimeMillis(),
             new byte[] {});
-    ka = KeyAttribute.ofStreamElement(el);
-    ka2 = KeyAttribute.ofStreamElement(el);
+    ka = KeyAttributes.ofStreamElement(el);
+    ka2 = KeyAttributes.ofStreamElement(el);
     assertEquals(ka, ka2);
-    ka = KeyAttribute.ofAttributeDescriptor(gateway, "gw", device, 1L, "1");
-    ka2 = KeyAttribute.ofAttributeDescriptor(gateway, "gw", device, 1L, "1");
+    ka = KeyAttributes.ofAttributeDescriptor(gateway, "gw", device, 1L, "1");
+    ka2 = KeyAttributes.ofAttributeDescriptor(gateway, "gw", device, 1L, "1");
     assertEquals(ka, ka2);
     try {
-      KeyAttribute.ofAttributeDescriptor(gateway, "gw", device, 1L);
+      KeyAttributes.ofAttributeDescriptor(gateway, "gw", device, 1L);
       fail("Should have thrown exception");
     } catch (IllegalArgumentException ex) {
       // pass
     }
+  }
+
+  @Test
+  public void testWildcardQueryElements() {
+    Wildcard<byte[]> device = Wildcard.wildcard(gateway, this.device);
+    StreamElement first =
+        device.upsert(100L, "key", "1", System.currentTimeMillis(), new byte[] {});
+    StreamElement second =
+        device.upsert(101L, "key", "2", System.currentTimeMillis(), new byte[] {});
+    List<KeyAttribute> wildcardQuery =
+        KeyAttributes.ofWildcardQueryElements(gateway, "key", device, Arrays.asList(first, second));
+    assertEquals(3, wildcardQuery.size());
+    assertEquals(new KeyAttribute(gateway, "key", device, 100L, null), wildcardQuery.get(2));
+
+    List<KeyAttribute> empty =
+        KeyAttributes.ofWildcardQueryElements(gateway, "key", device, Collections.emptyList());
+    assertEquals(1, empty.size());
+    assertEquals(1L, empty.get(0).getSequenceId());
+    assertTrue(empty.get(0).isWildcardQuery());
   }
 }

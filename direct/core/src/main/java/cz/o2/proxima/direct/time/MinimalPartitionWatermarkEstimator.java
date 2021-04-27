@@ -20,8 +20,8 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.PartitionedWatermarkEstimator;
 import cz.o2.proxima.time.WatermarkEstimator;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nullable;
 
 /**
  * Watermark estimator wrapper for partitioned sources. Estimates watermark as a minimum across all
@@ -29,7 +29,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * partition.
  */
 public class MinimalPartitionWatermarkEstimator implements PartitionedWatermarkEstimator {
+
   private static final long serialVersionUID = 1L;
+
   private final ConcurrentHashMap<Integer, WatermarkEstimator> estimators;
 
   public MinimalPartitionWatermarkEstimator(Map<Integer, WatermarkEstimator> partitionEstimators) {
@@ -48,17 +50,25 @@ public class MinimalPartitionWatermarkEstimator implements PartitionedWatermarkE
   }
 
   public long getWatermark(int partition) {
-    return estimators.get(partition).getWatermark();
+    return getEstimator(partition).getWatermark();
   }
 
   @Override
   public void update(int partition, StreamElement element) {
-    Optional.ofNullable(estimators.get(partition))
-        .ifPresent(estimator -> estimator.update(element));
+    getEstimator(partition).update(element);
   }
 
   @Override
   public void idle(int partition) {
-    estimators.get(partition).idle();
+    getEstimator(partition).idle();
+  }
+
+  private WatermarkEstimator getEstimator(int partition) {
+    @Nullable final WatermarkEstimator watermarkEstimator = estimators.get(partition);
+    if (watermarkEstimator == null) {
+      throw new IllegalStateException(
+          String.format("Watermark estimator for partition %d not found.", partition));
+    }
+    return watermarkEstimator;
   }
 }

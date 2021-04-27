@@ -83,6 +83,11 @@ public class MinimalPartitionWatermarkEstimatorTest {
     verify(estimator2, times(1)).idle();
   }
 
+  @Test(expected = IllegalStateException.class)
+  public void testUpdateNonExistentPartition() {
+    minimalPartitionWatermarkEstimator.update(10, element());
+  }
+
   @Test
   public void testGetWatermark() {
     when(estimator1.getWatermark()).thenReturn(1000L);

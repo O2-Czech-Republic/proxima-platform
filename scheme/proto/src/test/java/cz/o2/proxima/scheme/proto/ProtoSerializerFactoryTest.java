@@ -17,6 +17,7 @@ package cz.o2.proxima.scheme.proto;
 
 import static org.junit.Assert.*;
 
+import com.google.common.collect.Sets;
 import com.google.protobuf.ByteString;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -30,13 +31,20 @@ import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.scheme.proto.ProtoSerializerFactory.TransactionProtoSerializer;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
+import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
+import cz.o2.proxima.util.Optionals;
+import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 import org.junit.Before;
 import org.junit.Test;
@@ -112,6 +120,7 @@ public class ProtoSerializerFactoryTest {
     assertEquals("payload value", created.getPayload().toStringUtf8());
   }
 
+  @SuppressWarnings("unchecked")
   @Test
   public void testTransactionSchemeProvider() {
     Repository repo =
@@ -121,24 +130,81 @@ public class ProtoSerializerFactoryTest {
                 .resolve());
     EntityDescriptor transaction = repo.getEntity("_transaction");
     AttributeDescriptor<Request> request = transaction.getAttribute("request.*");
+    KeyAttribute keyAttribute =
+        KeyAttribute.ofAttributeDescriptor(transaction, "t", request, 1L, "1");
+
     assertTrue(request.getValueSerializer() instanceof TransactionProtoSerializer);
     assertTrue(request.getValueSerializer().isUsable());
-    byte[] bytes = request.getValueSerializer().serialize(Request.of());
-    assertNotNull(bytes);
-    assertTrue(request.getValueSerializer().deserialize(bytes).isPresent());
 
     AttributeDescriptor<Response> response = transaction.getAttribute("response.*");
     assertTrue(response.getValueSerializer() instanceof TransactionProtoSerializer);
     assertTrue(request.getValueSerializer().isUsable());
-    bytes = response.getValueSerializer().serialize(Response.of());
-    assertNotNull(bytes);
-    assertTrue(response.getValueSerializer().deserialize(bytes).isPresent());
 
     AttributeDescriptor<State> state = transaction.getAttribute("state");
     assertTrue(state.getValueSerializer() instanceof TransactionProtoSerializer);
     assertTrue(state.getValueSerializer().isUsable());
-    bytes = state.getValueSerializer().serialize(State.of());
-    assertNotNull(bytes);
-    assertTrue(state.getValueSerializer().deserialize(bytes).isPresent());
+
+    StreamElement el =
+        StreamElement.upsert(
+            transaction,
+            request,
+            1L,
+            "t",
+            request.toAttributePrefix() + "1",
+            System.currentTimeMillis(),
+            new byte[] {});
+    KeyAttribute keyAttributeSingleWildcard = KeyAttribute.ofStreamElement(el);
+
+    List<Pair<Object, AttributeDescriptor<?>>> toVerify =
+        Arrays.asList(
+            Pair.of(newRequest(keyAttribute, Request.Flags.OPEN), request),
+            Pair.of(newRequest(keyAttributeSingleWildcard, Request.Flags.OPEN), request),
+            Pair.of(newRequest(keyAttribute, Request.Flags.COMMIT), request),
+            Pair.of(newRequest(keyAttributeSingleWildcard, Request.Flags.COMMIT), request),
+            Pair.of(newRequest(keyAttribute, Request.Flags.UPDATE), request),
+            Pair.of(newRequest(keyAttributeSingleWildcard, Request.Flags.UPDATE), request),
+            Pair.of(newRequest(Request.Flags.ROLLBACK), request),
+            Pair.of(Response.open(1L), response),
+            Pair.of(Response.updated(), response),
+            Pair.of(Response.committed(), response),
+            Pair.of(Response.aborted(), response),
+            Pair.of(Response.duplicate(), response),
+            Pair.of(Response.empty(), response),
+            Pair.of(State.open(1L, Sets.newHashSet(keyAttribute)), state),
+            Pair.of(
+                State.open(1L, Sets.newHashSet(keyAttribute, keyAttributeSingleWildcard))
+                    .committed(Sets.newHashSet(keyAttribute)),
+                state),
+            Pair.of(State.empty(), state),
+            Pair.of(
+                State.open(1L, Sets.newHashSet(keyAttribute))
+                    .update(Collections.singletonList(keyAttributeSingleWildcard)),
+                state),
+            Pair.of(State.open(1L, Sets.newHashSet(keyAttribute)).aborted(), state),
+            Pair.of(
+                State.open(1L, Sets.newHashSet(keyAttributeSingleWildcard))
+                    .committed(Sets.newHashSet(keyAttributeSingleWildcard)),
+                state));
+
+    toVerify.forEach(
+        p -> {
+          ValueSerializer<Object> serializer =
+              (ValueSerializer<Object>) p.getSecond().getValueSerializer();
+          byte[] bytes = serializer.serialize(p.getFirst());
+          assertNotNull(bytes);
+          assertEquals(p.getFirst(), Optionals.get(serializer.deserialize(bytes)));
+        });
+  }
+
+  private Request newRequest(Request.Flags flags) {
+    return Request.builder().flags(flags).build();
+  }
+
+  private Request newRequest(KeyAttribute keyAttribute, Request.Flags flags) {
+    return Request.builder()
+        .inputAttributes(Collections.singletonList(keyAttribute))
+        .outputAttributes(Collections.singletonList(keyAttribute))
+        .flags(flags)
+        .build();
   }
 }

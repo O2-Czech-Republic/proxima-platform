@@ -30,9 +30,18 @@ public enum TransactionMode {
   /**
    * Transactional support within the same entity key (i.e. transaction can contain only single
    * entity key and only single entity type). Note: all attributes within specified transaction
-   * *must* have *at least* mode set to ENTITY, otherwise {@link IllegalArgumentException} is
-   * thrown. The actual mode of each transaction is defined to be the maximal transaction mode from
-   * all attributes *written* by the transaction.
+   * *must* have *at least* mode set to KEY, otherwise {@link IllegalArgumentException} is thrown.
+   * The actual mode of each transaction is defined to be the maximal transaction mode from all
+   * attributes *written* by the transaction.
+   */
+  KEY,
+
+  /**
+   * Transactional support within the same entity (i.e. transaction can contain multiple entity keys
+   * but only single entity type). Note: all attributes within specified transaction *must* have *at
+   * least* mode set to ENTITY, otherwise {@link IllegalArgumentException} is thrown. The actual
+   * mode of each transaction is defined to be the maximal transaction mode from all attributes
+   * *written* by the transaction.
    */
   ENTITY,
 

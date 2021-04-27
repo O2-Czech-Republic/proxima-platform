@@ -30,6 +30,7 @@ import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.RepositoryFactory.LocalInstance;
 import cz.o2.proxima.repository.RepositoryFactory.VersionedCaching;
+import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageFilter;
@@ -396,6 +397,19 @@ public final class ConfigRepository extends Repository {
     }
 
     operators.forEach(DataOperator::reload);
+    initializeValueSerializers();
+  }
+
+  private void initializeValueSerializers() {
+    getAllFamilies(true)
+        .map(AttributeFamilyDescriptor::getEntity)
+        .flatMap(e -> e.getAllAttributes(true).stream())
+        .map(AttributeDescriptor::getValueSerializer)
+        .distinct()
+        .filter(ValueSerializer.InitializedWithRepository.class::isInstance)
+        .forEach(
+            serializer ->
+                ((ValueSerializer.InitializedWithRepository) serializer).setRepository(this));
   }
 
   private void createEntityTransaction(Config transactionsConfig) {

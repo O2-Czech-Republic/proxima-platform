@@ -15,7 +15,6 @@
  */
 package cz.o2.proxima.scheme;
 
-import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import java.net.URI;
 import java.nio.ByteBuffer;
@@ -23,68 +22,61 @@ import java.util.Arrays;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
-/** {@link ValueSerializerFactory} for floats. */
-@Stable
 @Slf4j
-public class FloatSerializer implements ValueSerializerFactory {
-
-  private static final long serialVersionUID = 1L;
+public class DoubleSerializer implements ValueSerializerFactory {
 
   @Override
   public String getAcceptableScheme() {
-    return "float";
+    return "double";
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"unchecked", "rawtypes"})
   @Override
   public <T> ValueSerializer<T> getValueSerializer(URI specifier) {
     return (ValueSerializer)
-        new ValueSerializer<Float>() {
-
-          private static final long serialVersionUID = 1L;
-
+        new ValueSerializer<Double>() {
           @Override
-          public Optional<Float> deserialize(byte[] input) {
+          public Optional<Double> deserialize(byte[] input) {
             try {
-              ByteBuffer buffer = ByteBuffer.wrap(input);
-              return Optional.of(buffer.getFloat());
+              ByteBuffer buf = ByteBuffer.wrap(input);
+              return Optional.of(buf.getDouble());
             } catch (Exception ex) {
-              log.warn("Failed to parse bytes {}", Arrays.toString(input));
+              log.warn("Failed to parse bytes {}", Arrays.toString(input), ex);
               return Optional.empty();
             }
           }
 
           @Override
-          public byte[] serialize(Float value) {
-            ByteBuffer buffer = ByteBuffer.allocate(4);
-            buffer.putFloat(value);
+          public byte[] serialize(Double value) {
+            ByteBuffer buffer = ByteBuffer.allocate(8);
+            buffer.putDouble(value);
             return buffer.array();
           }
 
           @Override
-          public Float getDefault() {
-            return 0.0f;
+          public Double getDefault() {
+            return 0.0;
           }
 
           @Override
-          public String asJsonValue(Float value) {
+          public String asJsonValue(Double value) {
             return String.valueOf(value);
           }
 
           @Override
-          public Float fromJsonValue(String json) {
-            return Float.valueOf(json);
+          public Double fromJsonValue(String json) {
+            return Double.valueOf(json);
           }
 
           @Override
-          public SchemaTypeDescriptor<Float> getValueSchemaDescriptor() {
-            return SchemaDescriptors.floats();
+          public SchemaTypeDescriptor<Double> getValueSchemaDescriptor() {
+            return SchemaDescriptors.doubles();
           }
         };
   }
 
   @Override
   public String getClassName(URI specifier) {
-    return "Float";
+    return "Double";
   }
 }

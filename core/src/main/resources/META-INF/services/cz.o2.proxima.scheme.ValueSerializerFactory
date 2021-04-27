@@ -3,5 +3,6 @@ cz.o2.proxima.scheme.StringUtf8Serializer
 cz.o2.proxima.scheme.JavaSerializer
 cz.o2.proxima.scheme.IntSerializer
 cz.o2.proxima.scheme.LongSerializer
+cz.o2.proxima.scheme.DoubleSerializer
 cz.o2.proxima.scheme.FloatSerializer
 cz.o2.proxima.scheme.JsonSerializer

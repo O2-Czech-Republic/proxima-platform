@@ -425,7 +425,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 preWrite.accept(tp, r);
                 StreamElement ingest = serializer.read(r, getEntityDescriptor());
                 if (ingest != null) {
-                  watermarkEstimator.get().update(tp.partition(), ingest);
+                  watermarkEstimator
+                      .get()
+                      .update(Objects.requireNonNull(topicPartitionToId.get(tp)), ingest);
                 }
                 boolean cont =
                     consumer.consumeWithConfirm(

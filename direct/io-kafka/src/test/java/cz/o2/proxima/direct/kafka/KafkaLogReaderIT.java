@@ -32,6 +32,7 @@ import cz.o2.proxima.direct.kafka.KafkaStreamElement.KafkaStreamElementSerialize
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.KeyPartitioner;
 import cz.o2.proxima.storage.commitlog.Position;
@@ -40,8 +41,12 @@ import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
@@ -98,6 +103,8 @@ public class KafkaLogReaderIT {
     private final AtomicInteger numReceivedElements = new AtomicInteger();
     private final CountDownLatch completed = new CountDownLatch(1);
 
+    private final Map<Partition, Long> watermarks = new HashMap<>();
+
     @Override
     public void onCompleted() {
       completed.countDown();
@@ -114,6 +121,7 @@ public class KafkaLogReaderIT {
         numReceivedElements.incrementAndGet();
       }
       context.confirm();
+      watermarks.merge(context.getPartition(), context.getWatermark(), Math::max);
       return true;
     }
 
@@ -123,6 +131,16 @@ public class KafkaLogReaderIT {
 
     int getNumReceivedElements() {
       return numReceivedElements.get();
+    }
+
+    /**
+     * Return last known watermark before receiving poisoned pill.
+     *
+     * @param partition Partition to get watermark for.
+     * @return Watermark.
+     */
+    long getWatermark(Partition partition) {
+      return Objects.requireNonNull(watermarks.get(partition));
     }
   }
 
@@ -217,6 +235,39 @@ public class KafkaLogReaderIT {
     handle.close();
     Assert.assertEquals(numElements, observer.getNumReceivedElements());
     Assert.assertEquals(numElements, numCommittedElements(handle));
+  }
+
+  @Test(timeout = 30_000L)
+  public void testLastPartitionReadFromOldest() throws InterruptedException {
+    final EmbeddedKafkaBroker embeddedKafka = rule.getEmbeddedKafka();
+    final int numPartitions = 3;
+    embeddedKafka.addTopics(new NewTopic("foo", numPartitions, (short) 1));
+    final CommitLogReader commitLogReader =
+        Optionals.get(operator.getCommitLogReader(fooDescriptor));
+    // Write everything up front, so we can be sure that we really seek all the way to beginning.
+    final int numElements = 100;
+    await(writeElements(numElements));
+    await(writePoisonedPills(numPartitions));
+    final TestLogObserver observer = new TestLogObserver();
+    final Partition lastPartition =
+        commitLogReader.getPartitions().get(commitLogReader.getPartitions().size() - 1);
+    final ObserveHandle handle =
+        commitLogReader.observePartitions(
+            "test-reader",
+            Collections.singletonList(lastPartition),
+            Position.OLDEST,
+            false,
+            observer);
+    // First observer should successfully complete and commit offsets.
+    await(observer.getCompleted());
+
+    // These numbers are determined hashing all elements into three partitions.
+    final int numElementsInLastPartition = 33;
+    final int lastPartitionWatermark = 97;
+
+    Assert.assertEquals(numElementsInLastPartition, observer.getNumReceivedElements());
+    Assert.assertEquals(lastPartitionWatermark, observer.getWatermark(lastPartition));
+    handle.close();
   }
 
   // --------------------------------------------------------------------------

@@ -16,6 +16,7 @@
 package cz.o2.proxima.scheme;
 
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import java.io.Serializable;
 import java.util.Optional;
@@ -23,6 +24,17 @@ import java.util.Optional;
 /** A serializer of values with specified scheme. */
 @Stable
 public interface ValueSerializer<T> extends Serializable {
+
+  /**
+   * When a {@link ValueSerializer} needs to be initialized with {@link Repository} instance after
+   * the Repository has need created and initialized, it can implement this interface.
+   *
+   * @apiNote The {@link #setRepository(Repository)} method might be called *after* a test
+   *     (de)serialization using default instance. Implementations should account for that.
+   */
+  interface InitializedWithRepository {
+    void setRepository(Repository repository);
+  }
 
   /**
    * Deserialize the bytes to materialized typed message. If the deserialization fails the returned

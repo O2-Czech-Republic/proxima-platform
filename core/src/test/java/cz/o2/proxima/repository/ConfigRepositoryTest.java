@@ -29,6 +29,8 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.ConfigRepository.Builder;
 import cz.o2.proxima.repository.Repository.Validate;
+import cz.o2.proxima.scheme.RepositoryInitializedValueSerializer;
+import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
@@ -612,7 +614,7 @@ public class ConfigRepositoryTest {
 
     EntityDescriptor transaction = repo.getEntity("_transaction");
     AttributeDescriptor<Request> request = transaction.getAttribute("request.*");
-    byte[] serialized = request.getValueSerializer().serialize(Request.of());
+    byte[] serialized = request.getValueSerializer().serialize(Request.builder().build());
     assertNotNull(serialized);
     assertTrue(request.getValueSerializer().deserialize(serialized).isPresent());
   }
@@ -632,6 +634,20 @@ public class ConfigRepositoryTest {
         ConfigFactory.parseString(
                 "entities.gateway.attributes.status.manager = [ gateway-transaction-commit-log, user-transaction-commit-log-request ]")
             .withFallback(ConfigFactory.load("test-transactions.conf").resolve()));
+  }
+
+  @Test
+  public void testValueSerializerInitializedWithRepository() {
+    ConfigRepository.dropCached();
+    Repository repo =
+        Repository.ofTest(
+            ConfigFactory.parseString(
+                    "entities.gateway.attributes.armed.scheme = \"test-repo-initialized\"")
+                .withFallback(ConfigFactory.load("test-reference.conf").resolve()));
+    ValueSerializer<Object> serializer =
+        repo.getEntity("gateway").getAttribute("armed").getValueSerializer();
+    assertTrue(serializer instanceof RepositoryInitializedValueSerializer);
+    assertEquals(repo, ((RepositoryInitializedValueSerializer) serializer).getRepo());
   }
 
   private void checkThrows(Factory<?> factory) {

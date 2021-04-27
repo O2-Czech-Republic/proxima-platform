@@ -17,14 +17,41 @@ package cz.o2.proxima.transaction;
 
 import cz.o2.proxima.annotations.Internal;
 import java.io.Serializable;
-import lombok.Value;
+import java.util.Collections;
+import java.util.List;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
 
-/** A transactional request sent to coordinator */
-@Value
+/** A transactional request sent to coordinator. */
 @Internal
+@Builder
+@ToString
+@EqualsAndHashCode
 public class Request implements Serializable {
 
-  public static Request of() {
-    return new Request();
+  public enum Flags {
+    NONE,
+    OPEN,
+    UPDATE,
+    ROLLBACK,
+    COMMIT;
+  }
+
+  @Getter private final List<KeyAttribute> inputAttributes;
+  @Getter private final List<KeyAttribute> outputAttributes;
+  @Getter private final Flags flags;
+
+  public Request() {
+    this(null, null, Flags.NONE);
+  }
+
+  public Request(
+      List<KeyAttribute> inputAttributes, List<KeyAttribute> outputAttributes, Flags flags) {
+
+    this.inputAttributes = inputAttributes == null ? Collections.emptyList() : inputAttributes;
+    this.outputAttributes = outputAttributes == null ? Collections.emptyList() : outputAttributes;
+    this.flags = flags;
   }
 }

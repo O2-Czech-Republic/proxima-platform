@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.util;
 
+import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.UnaryFunction;
 import java.io.Serializable;
@@ -30,6 +31,17 @@ public class ExceptionUtils {
   @FunctionalInterface
   public interface ThrowingConsumer<T> extends Serializable {
     void apply(T what) throws Exception;
+  }
+
+  /**
+   * BiConsumer throwing exceptions.
+   *
+   * @param <A> type parameter 1
+   * @param <B> type parameter 2
+   */
+  @FunctionalInterface
+  public interface ThrowingBiConsumer<A, B> extends Serializable {
+    void apply(A a, B b) throws Exception;
   }
 
   /** Runnable throwing exception. */
@@ -70,6 +82,16 @@ public class ExceptionUtils {
     return t -> {
       try {
         wrap.apply(t);
+      } catch (Exception ex) {
+        throw new RuntimeException(ex);
+      }
+    };
+  }
+
+  public static <A, B> BiConsumer<A, B> uncheckedBiConsumer(ThrowingBiConsumer<A, B> wrap) {
+    return (a, b) -> {
+      try {
+        wrap.apply(a, b);
       } catch (Exception ex) {
         throw new RuntimeException(ex);
       }

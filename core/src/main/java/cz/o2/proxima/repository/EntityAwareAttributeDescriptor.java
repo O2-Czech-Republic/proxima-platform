@@ -16,10 +16,12 @@
 package cz.o2.proxima.repository;
 
 import com.google.common.base.Preconditions;
+import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.StreamElement;
 import java.net.URI;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -499,5 +501,15 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
   @Override
   public String toString() {
     return wrapped.toString();
+  }
+
+  @Override
+  public List<String> getTransactionalManagerFamilies() {
+    return wrapped.getTransactionalManagerFamilies();
+  }
+
+  @Override
+  public SchemaTypeDescriptor<T> getSchemaTypeDescriptor() {
+    return wrapped.getSchemaTypeDescriptor();
   }
 }

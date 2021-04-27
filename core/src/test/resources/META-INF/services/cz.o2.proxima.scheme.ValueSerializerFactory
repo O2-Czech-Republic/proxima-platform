@@ -1,1 +1,2 @@
 cz.o2.proxima.scheme.AlwaysFailSchemeParser
+cz.o2.proxima.scheme.RepositoryInitializedValueSerializer$Factory

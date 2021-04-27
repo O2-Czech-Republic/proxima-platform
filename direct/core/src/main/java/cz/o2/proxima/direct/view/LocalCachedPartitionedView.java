@@ -117,7 +117,8 @@ public class LocalCachedPartitionedView implements CachedView {
       }
       if (updated) {
         updateCallback.accept(
-            ingest, oldVal != null ? Pair.of(oldVal.getFirst(), oldVal.getSecond()) : null);
+            ingest,
+            oldVal != null ? Pair.of(oldVal.getFirst(), oldVal.getSecond().getData()) : null);
       }
     }
   }

@@ -93,4 +93,7 @@ public interface CachedView extends RandomAccessReader, OnlineAttributeWriter {
    */
   @Override
   Factory asFactory();
+
+  @Override
+  void close();
 }

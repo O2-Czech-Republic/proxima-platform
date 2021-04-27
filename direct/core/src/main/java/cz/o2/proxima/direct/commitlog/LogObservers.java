@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicLong;
+import lombok.experimental.Delegate;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -207,6 +208,63 @@ public class LogObservers {
       BiConsumer<StreamElement, OnNextContext> latecomerConsumer) {
 
     return new SinglePartitionSortedLogObserver(upstream, allowedLateness, latecomerConsumer);
+  }
+
+  public static LogObserver synchronizedObserver(LogObserver delegate) {
+    return new LogObserver() {
+
+      @Override
+      public synchronized void onCompleted() {
+        delegate.onCompleted();
+      }
+
+      @Override
+      public synchronized void onCancelled() {
+        delegate.onCancelled();
+      }
+
+      @Override
+      public synchronized boolean onError(Throwable error) {
+        return delegate.onError(error);
+      }
+
+      @Override
+      public synchronized boolean onException(Exception exception) {
+        return delegate.onException(exception);
+      }
+
+      @Override
+      public synchronized boolean onFatalError(Error error) {
+        return delegate.onFatalError(error);
+      }
+
+      @Override
+      public synchronized boolean onNext(StreamElement ingest, OnNextContext context) {
+        return delegate.onNext(ingest, context);
+      }
+
+      @Override
+      public synchronized void onRepartition(OnRepartitionContext context) {
+        delegate.onRepartition(context);
+      }
+
+      @Override
+      public synchronized void onIdle(OnIdleContext context) {
+        delegate.onIdle(context);
+      }
+    };
+  }
+
+  /**
+   * A @{link LogObserver} that delegates calls to underlying delegate. Useful for overriding
+   * specific methods before passing to delegate.
+   */
+  public static class ForwardingObserver implements LogObserver {
+    @Delegate private final LogObserver delegate;
+
+    protected ForwardingObserver(LogObserver delegate) {
+      this.delegate = delegate;
+    }
   }
 
   private LogObservers() {}

@@ -638,34 +638,93 @@ public class InMemStorageTest implements Serializable {
     assertEquals(3, observeHandle.getCurrentOffsets().size());
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test
+  public void testObserveSinglePartitionOutOfMultiplePartitions() throws InterruptedException {
+    final int numPartitions = 3;
+    final InMemStorage storage = new InMemStorage();
+    final DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///test"), numPartitions));
+    final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    final AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
+    final int numElements = 999;
+    final ConcurrentMap<Partition, Long> partitionHistogram = new ConcurrentHashMap<>();
+    // Elements are uniformly distributed between partitions.
+    final CountDownLatch elementsReceived = new CountDownLatch(numElements / numPartitions);
+    // Start observer.
+    final ObserveHandle observeHandle =
+        reader.observePartitions(
+            reader.getPartitions().subList(0, 1),
+            new LogObserver() {
+
+              @Override
+              public void onRepartition(OnRepartitionContext context) {
+                assertEquals(numPartitions, context.partitions().size());
+              }
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                partitionHistogram.merge(context.getPartition(), 1L, Long::sum);
+                context.confirm();
+                elementsReceived.countDown();
+                return elementsReceived.getCount() > 0;
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
+    // Write data.
+    for (int i = 0; i < numElements; i++) {
+      writer
+          .online()
+          .write(
+              StreamElement.upsert(
+                  entity,
+                  data,
+                  UUID.randomUUID().toString(),
+                  "key_" + i,
+                  data.getName(),
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2, 3}),
+              CommitCallback.noop());
+    }
+    // Wait for all elements to be received.
+    elementsReceived.await();
+
+    assertEquals(1, partitionHistogram.size());
+    assertEquals(1, observeHandle.getCurrentOffsets().size());
+  }
+
+  @Test
   public void testRandomAccessReaderWithMultiplePartitions() {
     final int numPartitions = 3;
     final InMemStorage storage = new InMemStorage();
     final DataAccessor accessor =
         storage.createAccessor(
             direct, createFamilyDescriptor(URI.create("inmem:///test"), numPartitions));
-    accessor.getRandomAccessReader(direct.getContext());
+    assertFalse(accessor.getRandomAccessReader(direct.getContext()).isPresent());
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test
   public void testBatchLogReaderWithMultiplePartitions() {
     final int numPartitions = 3;
     final InMemStorage storage = new InMemStorage();
     final DataAccessor accessor =
         storage.createAccessor(
             direct, createFamilyDescriptor(URI.create("inmem:///test"), numPartitions));
-    accessor.getBatchLogReader(direct.getContext());
+    assertFalse(accessor.getBatchLogReader(direct.getContext()).isPresent());
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test
   public void testCachedViewWithMultiplePartitions() {
     final int numPartitions = 3;
     final InMemStorage storage = new InMemStorage();
     final DataAccessor accessor =
         storage.createAccessor(
             direct, createFamilyDescriptor(URI.create("inmem:///test"), numPartitions));
-    accessor.getCachedView(direct.getContext());
+    assertFalse(accessor.getCachedView(direct.getContext()).isPresent());
   }
 
   @Test(timeout = 10000)

@@ -32,11 +32,39 @@
   <name>${project.groupId}:${project.artifactId}</name>
 
   <properties>
-    <protobuf.version>2.5.0</protobuf.version>
+    <proto.version>2.5.0</proto.version>
+    <protoc.version>2.5.0</protoc.version>
   </properties>
 
   <build>
+    <extensions>
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>${maven.ext.os.version}</version>
+      </extension>
+    </extensions>
     <plugins>
+      <plugin>
+        <groupId>org.xolstice.maven.plugins</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <version>${maven.protobuf.version}</version>
+        <configuration>
+          <protocArtifact>
+            com.google.protobuf:protoc:${protoc.version}:exe:${os.detected.classifier}
+          </protocArtifact>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>compile</goal>
+              <goal>test-compile</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
@@ -94,6 +122,12 @@
     </dependency>
 
     <dependency>
+      <groupId>com.google.protobuf</groupId>
+      <artifactId>protobuf-java</artifactId>
+      <version>${proto.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-common</artifactId>
       <version>${hadoop.version}</version>
@@ -105,13 +139,6 @@
           <artifactId>slf4j-log4j12</artifactId>
         </exclusion>
       </exclusions>
-    </dependency>
-
-    <dependency>
-      <groupId>com.google.protobuf</groupId>
-      <artifactId>protobuf-java</artifactId>
-      <version>${protobuf.version}</version>
-      <scope>test</scope>
     </dependency>
 
     <dependency>

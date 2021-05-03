@@ -50,6 +50,19 @@ public class KeyValue<T> extends StreamElement {
       byte[] valueBytes,
       long stamp) {
 
+    return of(entityDesc, attrDesc, -1L, key, attribute, offset, valueBytes, stamp);
+  }
+
+  public static <T> KeyValue<T> of(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<T> attrDesc,
+      long seqId,
+      String key,
+      String attribute,
+      RandomOffset offset,
+      byte[] valueBytes,
+      long stamp) {
+
     Optional<T> value = attrDesc.getValueSerializer().deserialize(valueBytes);
 
     if (!value.isPresent()) {
@@ -60,6 +73,10 @@ public class KeyValue<T> extends StreamElement {
               + attrDesc.getValueSerializer());
     }
 
+    if (seqId > 0) {
+      return new KeyValue<>(
+          entityDesc, attrDesc, seqId, key, attribute, offset, value.get(), valueBytes, stamp);
+    }
     return new KeyValue<>(
         entityDesc, attrDesc, key, attribute, offset, value.get(), valueBytes, stamp);
   }

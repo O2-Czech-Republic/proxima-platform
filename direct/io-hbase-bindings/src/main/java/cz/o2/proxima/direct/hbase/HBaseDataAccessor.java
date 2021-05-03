@@ -24,13 +24,33 @@ import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.UriUtil;
 import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 
-/** {@code DataAccessor} for HBase. */
+/**
+ * {@code DataAccessor} for HBase.
+ *
+ * HBase storage uses URIs in the form of
+ * <pre>hbase://<master_hostport>/<table>?family=<family></pre> and stores data using HBase table
+ * named <pre>table</pre> in family <pre>family</pre>.
+ *
+ * An optional parameter in URI called <pre>v</pre> can be used to distinguish two serialization
+ * versions of data in HBase {@link org.apache.hadoop.hbase.Cell}:
+ * <ol>
+ *   <li><pre>v=1</pre> (default) stores the serialized bytes of a value in a cell directly</li>
+ *   <li><pre>v=2</pre> uses protobuffer to store more metadata into the value</li>
+ * </ol>
+ *
+ * The <pre>v=2</pre> serialization format is required to support transactions on top of HBase,
+ * because the metadata preserves sequentialId (stored in {@link StreamElement#getSequentialId()}).
+ **/
+@Slf4j
 public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
 
   private static final long serialVersionUID = 1L;
@@ -45,7 +65,6 @@ public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
   private final ConfFactory confFactory;
 
   public HBaseDataAccessor(EntityDescriptor entity, URI uri, Map<String, Object> cfg) {
-
     this(entity, uri, cfg, (m, u) -> Util.getConf(u));
   }
 
@@ -86,5 +105,15 @@ public class HBaseDataAccessor extends AbstractStorage implements DataAccessor {
 
   private Configuration getConf() {
     return HBaseConfiguration.create(confFactory.apply(cfg, getUri()));
+  }
+
+  static InternalSerializer instantiateSerializer(URI uri) {
+    Map<String, String> queryAsMap = UriUtil.parseQuery(uri);
+    if (Optional.ofNullable(queryAsMap.get("v")).map(Integer::valueOf).orElse(1) == 2) {
+      log.info("Using V2Serializer for URI {}", uri);
+      return new InternalSerializer.V2Serializer();
+    }
+    log.info("Using V1Serializer for URI {}", uri);
+    return new InternalSerializer.V1Serializer();
   }
 }

@@ -13,13 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package cz.o2.proxima.commitlog;
+package cz.o2.proxima.direct.commitlog;
 
 import static org.mockito.Mockito.*;
 
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.CommitLogReaders;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.commitlog.Position;

@@ -77,6 +77,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   private final long consumerPollInterval;
   private final long maxBytesPerSec;
   private final Map<String, Object> cfg;
+  private final ElementSerializer<Object, Object> serializer;
 
   KafkaLogReader(KafkaAccessor accessor, Context context) {
     super(accessor.getEntityDescriptor(), accessor.getUri());
@@ -85,8 +86,14 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     this.consumerPollInterval = accessor.getConsumerPollInterval();
     this.maxBytesPerSec = accessor.getMaxBytesPerSec();
     this.cfg = accessor.getCfg();
+    this.serializer = accessor.getSerializer();
 
     log.debug("Created {} for accessor {}", getClass().getSimpleName(), accessor);
+  }
+
+  @Override
+  public boolean restoresSequentialIds() {
+    return serializer.storesSequentialId();
   }
 
   /**
@@ -373,7 +380,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                   emptyPollCount,
                   topicPartitionToId,
                   watermarkEstimator);
-          final ElementSerializer<Object, Object> serializer = accessor.getSerializer();
 
           try (KafkaConsumer<Object, Object> kafka =
               createConsumer(name, offsets, name != null ? listener : null, position)) {

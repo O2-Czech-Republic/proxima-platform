@@ -19,14 +19,23 @@ import com.google.common.base.MoreObjects;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.Pair;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.util.Collections;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.internals.RecordHeader;
 import org.apache.kafka.common.serialization.Serde;
 import org.apache.kafka.common.serialization.Serdes;
+import org.apache.kafka.common.utils.ByteUtils;
 
 /** Data read from a kafka partition. */
 @Slf4j
@@ -55,6 +64,25 @@ public class KafkaStreamElement extends StreamElement {
         if (!attr.isPresent()) {
           log.error("Invalid attribute {} in kafka key {}", attribute, key);
         } else {
+          @Nullable
+          Header sequenceIdHeader = record.headers().lastHeader(KafkaAccessor.SEQUENCE_ID_HEADER);
+          if (sequenceIdHeader != null) {
+            try {
+              long seqId = asLong(sequenceIdHeader.value());
+              return new KafkaStreamElement(
+                  entityDesc,
+                  attr.get(),
+                  seqId,
+                  entityKey,
+                  attribute,
+                  record.timestamp(),
+                  value,
+                  record.partition(),
+                  record.offset());
+            } catch (IOException ex) {
+              log.warn("Failed to deserialize sequenceId from {}", sequenceIdHeader, ex);
+            }
+          }
           return new KafkaStreamElement(
               entityDesc,
               attr.get(),
@@ -71,8 +99,21 @@ public class KafkaStreamElement extends StreamElement {
     }
 
     @Override
-    public Pair<String, byte[]> write(StreamElement data) {
-      return Pair.of(data.getKey() + "#" + data.getAttribute(), data.getValue());
+    public ProducerRecord<String, byte[]> write(String topic, int partition, StreamElement data) {
+      @Nullable Iterable<Header> headers = null;
+      if (data.hasSequentialId()) {
+        headers =
+            Collections.singletonList(
+                new RecordHeader(
+                    KafkaAccessor.SEQUENCE_ID_HEADER, asBytes(data.getSequentialId())));
+      }
+      return new ProducerRecord<>(
+          topic,
+          partition >= 0 ? partition : null,
+          data.getStamp(),
+          data.getKey() + "#" + data.getAttribute(),
+          data.getValue(),
+          headers);
     }
 
     @Override
@@ -83,6 +124,28 @@ public class KafkaStreamElement extends StreamElement {
     @Override
     public Serde<byte[]> valueSerde() {
       return Serdes.ByteArray();
+    }
+
+    @Override
+    public boolean storesSequentialId() {
+      return true;
+    }
+
+    byte[] asBytes(long sequentialId) {
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      try (DataOutputStream dout = new DataOutputStream(baos)) {
+        ByteUtils.writeVarlong(sequentialId, dout);
+      } catch (IOException e) {
+        throw new IllegalStateException(e);
+      }
+      return baos.toByteArray();
+    }
+
+    long asLong(byte[] serializedSeqId) throws IOException {
+      try (ByteArrayInputStream bais = new ByteArrayInputStream(serializedSeqId);
+          DataInputStream dis = new DataInputStream(bais)) {
+        return ByteUtils.readVarlong(dis);
+      }
     }
   }
 
@@ -107,6 +170,31 @@ public class KafkaStreamElement extends StreamElement {
         entityDesc,
         attributeDesc,
         uuid,
+        key,
+        attribute,
+        stamp,
+        false /* not forced, is inferred from attribute descriptor name */,
+        value);
+
+    this.partition = partition;
+    this.offset = offset;
+  }
+
+  KafkaStreamElement(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<?> attributeDesc,
+      long sequenceId,
+      String key,
+      String attribute,
+      long stamp,
+      byte[] value,
+      int partition,
+      long offset) {
+
+    super(
+        entityDesc,
+        attributeDesc,
+        sequenceId,
         key,
         attribute,
         stamp,

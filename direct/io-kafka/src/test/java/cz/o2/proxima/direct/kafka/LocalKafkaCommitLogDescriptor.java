@@ -66,6 +66,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.record.TimestampType;
@@ -530,13 +531,12 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     private <K, V> ConsumerRecord<K, V> toConsumerRecord(
         StreamElement ingest, ElementSerializer<K, V> serializer, int partitionId, int offset) {
 
-      Pair<K, V> elem = serializer.write(ingest);
-      int keyLength =
-          serializer.keySerde().serializer().serialize(getTopic(), elem.getFirst()).length;
+      ProducerRecord<K, V> elem = serializer.write(getTopic(), partitionId, ingest);
+      int keyLength = serializer.keySerde().serializer().serialize(getTopic(), elem.key()).length;
       int valueLength =
           ingest.isDelete()
               ? 0
-              : serializer.valueSerde().serializer().serialize(getTopic(), elem.getSecond()).length;
+              : serializer.valueSerde().serializer().serialize(getTopic(), elem.value()).length;
 
       return new ConsumerRecord<>(
           getTopic(),
@@ -547,8 +547,9 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
           0L,
           keyLength,
           valueLength,
-          elem.getFirst(),
-          elem.getSecond());
+          elem.key(),
+          elem.value(),
+          elem.headers());
     }
 
     public boolean allConsumed() {

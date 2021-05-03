@@ -271,6 +271,18 @@ public class LocalCachedPartitionedViewTest {
     assertNotEquals(firstOffset, next.get());
   }
 
+  @Test
+  public void testPreserveSequenceIdOnGet() {
+    view.assign(singlePartition());
+    writer.write(update("key", armed.getName(), armed, now, 100L), (succ, exc) -> {});
+    assertTrue(view.get("key", armed, now).isPresent());
+    assertFalse(view.get("key", armed, now - 1).isPresent());
+    assertEquals(100L, view.get("key", armed, now).get().getSequentialId());
+    writer.write(delete("key", armed, now + 1), (succ, exc) -> {});
+    assertFalse(view.get("key", armed, now + 1).isPresent());
+    assertTrue(view.get("key", armed, now).isPresent());
+  }
+
   private StreamElement deleteWildcard(String key, AttributeDescriptor<?> desc, long stamp) {
 
     return StreamElement.deleteWildcard(gateway, desc, UUID.randomUUID().toString(), key, stamp);
@@ -292,7 +304,16 @@ public class LocalCachedPartitionedViewTest {
 
   private StreamElement update(
       String key, String attribute, AttributeDescriptor<?> desc, long stamp) {
+    return update(key, attribute, desc, stamp, 0L);
+  }
 
+  private StreamElement update(
+      String key, String attribute, AttributeDescriptor<?> desc, long stamp, long seqId) {
+
+    if (seqId > 0) {
+      return StreamElement.upsert(
+          gateway, desc, seqId, key, attribute, stamp, new byte[] {1, 2, 3});
+    }
     return StreamElement.upsert(
         gateway, desc, UUID.randomUUID().toString(), key, attribute, stamp, new byte[] {1, 2, 3});
   }

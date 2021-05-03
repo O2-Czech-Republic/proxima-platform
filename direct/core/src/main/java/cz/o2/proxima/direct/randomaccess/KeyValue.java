@@ -97,6 +97,21 @@ public class KeyValue<T> extends StreamElement {
     return new KeyValue<>(entityDesc, attrDesc, key, attribute, offset, value, valueBytes, stamp);
   }
 
+  public static <T> KeyValue<T> of(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<T> attrDesc,
+      long seqId,
+      String key,
+      String attribute,
+      RandomOffset offset,
+      T value,
+      byte[] valueBytes,
+      long stamp) {
+
+    return new KeyValue<>(
+        entityDesc, attrDesc, seqId, key, attribute, offset, value, valueBytes, stamp);
+  }
+
   @Getter private final RandomOffset offset;
 
   private KeyValue(
@@ -113,6 +128,30 @@ public class KeyValue<T> extends StreamElement {
         entityDesc,
         attrDesc,
         UUID.randomUUID().toString(),
+        key,
+        attribute,
+        stamp,
+        false,
+        asValueBytes(attrDesc, value, valueBytes));
+    this.offset = Objects.requireNonNull(offset);
+    setParsed(value);
+  }
+
+  private KeyValue(
+      EntityDescriptor entityDesc,
+      AttributeDescriptor<T> attrDesc,
+      long sequenceId,
+      String key,
+      String attribute,
+      RandomOffset offset,
+      T value,
+      @Nullable byte[] valueBytes,
+      long stamp) {
+
+    super(
+        entityDesc,
+        attrDesc,
+        sequenceId,
         key,
         attribute,
         stamp,

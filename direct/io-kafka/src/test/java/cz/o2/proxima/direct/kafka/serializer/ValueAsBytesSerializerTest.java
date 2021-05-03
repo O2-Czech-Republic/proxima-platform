@@ -63,6 +63,8 @@ public class ValueAsBytesSerializerTest {
   public void testWriteFails() {
     ValueAsBytesSerializer serializer = new ValueAsBytesSerializer("data");
     serializer.write(
+        "topic",
+        1,
         StreamElement.upsert(
             event,
             event.getAttribute("data"),

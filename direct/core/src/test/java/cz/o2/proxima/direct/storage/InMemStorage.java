@@ -277,6 +277,11 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     @Override
+    public boolean restoresSequentialIds() {
+      return true;
+    }
+
+    @Override
     public ObserveHandle observe(String name, Position position, LogObserver observer) {
       return observe(name, position, false, observer);
     }
@@ -1170,6 +1175,16 @@ public class InMemStorage implements DataAccessorFactory {
   private static StreamElement cloneAndUpdateAttribute(
       EntityDescriptor entity, StreamElement elem) {
 
+    if (elem.hasSequentialId()) {
+      return StreamElement.upsert(
+          entity,
+          getAttributeOfEntity(entity, elem),
+          elem.getSequentialId(),
+          elem.getKey(),
+          elem.getAttribute(),
+          elem.getStamp(),
+          elem.getValue());
+    }
     return StreamElement.upsert(
         entity,
         getAttributeOfEntity(entity, elem),

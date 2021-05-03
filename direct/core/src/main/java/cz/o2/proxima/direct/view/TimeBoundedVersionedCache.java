@@ -40,8 +40,9 @@ class TimeBoundedVersionedCache implements Serializable {
   private static final long serialVersionUID = 1L;
 
   @Value
-  private static class Payload {
+  static class Payload {
     @Nullable Object data;
+    long seqId;
     boolean overridable;
   }
 
@@ -58,7 +59,7 @@ class TimeBoundedVersionedCache implements Serializable {
   }
 
   @Nullable
-  synchronized Pair<Long, Object> get(String key, String attribute, long stamp) {
+  synchronized Pair<Long, Payload> get(String key, String attribute, long stamp) {
 
     NavigableMap<String, NavigableMap<Long, Payload>> attrMap;
     attrMap = cache.get(key);
@@ -67,7 +68,7 @@ class TimeBoundedVersionedCache implements Serializable {
       if (valueMap != null) {
         Map.Entry<Long, Payload> floorEntry = valueMap.floorEntry(stamp);
         if (floorEntry != null) {
-          return Pair.of(floorEntry.getKey(), floorEntry.getValue().getData());
+          return Pair.of(floorEntry.getKey(), floorEntry.getValue());
         }
       }
     }
@@ -84,7 +85,7 @@ class TimeBoundedVersionedCache implements Serializable {
       String prefix,
       long stamp,
       UnaryFunction<String, String> parentRecordExtractor,
-      BiFunction<String, Pair<Long, Object>, Boolean> consumer) {
+      BiFunction<String, Pair<Long, Payload>, Boolean> consumer) {
 
     scan(key, prefix, prefix, stamp, parentRecordExtractor, consumer);
   }
@@ -95,7 +96,7 @@ class TimeBoundedVersionedCache implements Serializable {
       String offset,
       long stamp,
       UnaryFunction<String, String> parentRecordExtractor,
-      BiFunction<String, Pair<Long, Object>, Boolean> consumer) {
+      BiFunction<String, Pair<Long, Payload>, Boolean> consumer) {
 
     NavigableMap<String, NavigableMap<Long, Payload>> attrMap;
     attrMap = cache.get(key);
@@ -103,7 +104,7 @@ class TimeBoundedVersionedCache implements Serializable {
       return;
     }
     String lastParent = null;
-    Pair<Long, Object> parentEntry = null;
+    Pair<Long, Payload> parentEntry = null;
     long parentTombstoneStamp = stamp;
     for (Map.Entry<String, NavigableMap<Long, Payload>> e : attrMap.tailMap(offset).entrySet()) {
 
@@ -112,14 +113,13 @@ class TimeBoundedVersionedCache implements Serializable {
           if (lastParent == null || !e.getKey().startsWith(lastParent)) {
             lastParent = parentRecordExtractor.apply(e.getKey());
             parentEntry = lastParent == null ? null : get(key, lastParent, stamp);
-            boolean isDelete = parentEntry != null && parentEntry.getSecond() == null;
+            boolean isDelete = parentEntry != null && parentEntry.getSecond().getData() == null;
             parentTombstoneStamp = isDelete ? parentEntry.getFirst() : -1;
           }
           Map.Entry<Long, Payload> floorEntry = e.getValue().floorEntry(stamp);
           if (floorEntry != null
               && parentTombstoneStamp < floorEntry.getKey()
-              && !consumer.apply(
-                  e.getKey(), Pair.of(floorEntry.getKey(), floorEntry.getValue().getData()))) {
+              && !consumer.apply(e.getKey(), Pair.of(floorEntry.getKey(), floorEntry.getValue()))) {
             return;
           }
         }
@@ -159,7 +159,12 @@ class TimeBoundedVersionedCache implements Serializable {
   }
 
   synchronized boolean put(
-      String key, String attribute, long stamp, boolean overwrite, @Nullable Object value) {
+      String key,
+      String attribute,
+      long stamp,
+      long sequenceId,
+      boolean overwrite,
+      @Nullable Object value) {
 
     AtomicBoolean updated = new AtomicBoolean();
     cache.compute(
@@ -174,7 +179,7 @@ class TimeBoundedVersionedCache implements Serializable {
             final Payload oldPayload = valueMap.get(stamp);
             if (overwrite || oldPayload == null || oldPayload.overridable) {
               logPayloadUpdateIfNecessary(key, attribute, stamp, value);
-              Payload newPayload = new Payload(value, !overwrite);
+              Payload newPayload = new Payload(value, sequenceId, !overwrite);
               valueMap.put(stamp, newPayload);
               updated.set(!newPayload.equals(oldPayload));
             }

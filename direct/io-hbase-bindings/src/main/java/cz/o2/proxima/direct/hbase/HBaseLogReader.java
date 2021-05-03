@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.direct.hbase;
 
-import static cz.o2.proxima.direct.hbase.Util.cloneArray;
-
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
@@ -52,6 +50,7 @@ import org.apache.hadoop.hbase.filter.QualifierFilter;
 class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
 
   private final EntityDescriptor entity;
+  private final InternalSerializer serializer;
   private final cz.o2.proxima.functional.Factory<ExecutorService> executorFactory;
   private final ExecutorService executor;
 
@@ -63,6 +62,7 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
 
     super(uri, conf);
     this.entity = entity;
+    this.serializer = HBaseDataAccessor.instantiateSerializer(uri);
     this.executorFactory = executorFactory;
     this.executor = executorFactory.apply();
   }
@@ -168,31 +168,22 @@ class HBaseLogReader extends HBaseClientWrapper implements BatchLogReader {
     CellScanner scanner = r.cellScanner();
     while (scanner.advance()) {
       if (!observer.onNext(
-          toStreamElement(scanner.current(), attrs, hp), BatchLogObservers.defaultContext(hp))) {
+          toStreamElement(scanner.current(), attrs), BatchLogObservers.defaultContext(hp))) {
         return false;
       }
     }
     return true;
   }
 
-  private StreamElement toStreamElement(
-      Cell cell, List<AttributeDescriptor<?>> attrs, HBasePartition hp) {
-
-    String key = new String(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
+  private StreamElement toStreamElement(Cell cell, List<AttributeDescriptor<?>> attrs)
+      throws IOException {
 
     String qualifier =
         new String(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
 
     for (AttributeDescriptor<?> d : attrs) {
       if (qualifier.startsWith(d.toAttributePrefix())) {
-        return StreamElement.upsert(
-            entity,
-            d,
-            new String(hp.getStartKey()) + "#" + cell.getSequenceId(),
-            key,
-            qualifier,
-            cell.getTimestamp(),
-            cloneArray(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength()));
+        return serializer.toKeyValue(entity, d, cell);
       }
     }
     throw new IllegalStateException("Illegal state! Fix code!");

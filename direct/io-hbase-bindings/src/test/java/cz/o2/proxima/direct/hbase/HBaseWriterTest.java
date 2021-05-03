@@ -19,7 +19,9 @@ import static cz.o2.proxima.direct.hbase.HbaseTestUtil.bytes;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter.Factory;
+import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -30,10 +32,14 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.NavigableMap;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import org.apache.hadoop.hbase.HBaseTestingUtility;
 import org.apache.hadoop.hbase.MiniHBaseCluster;
@@ -262,5 +268,115 @@ public class HBaseWriterTest {
     byte[] bytes = TestUtils.serializeObject(writer.asFactory());
     Factory<?> factory = TestUtils.deserializeObject(bytes);
     assertEquals(writer.getUri(), ((HBaseWriter) factory.apply(repo)).getUri());
+  }
+
+  @Test
+  public void testWriteGetObserve() throws InterruptedException {
+    URI uri = URI.create("hbase://localhost:2181/users?family=u");
+    HBaseWriter writer = new HBaseWriter(uri, cluster.getConfiguration(), Collections.emptyMap());
+    HBaseLogReader reader =
+        new HBaseLogReader(uri, cluster.getConfiguration(), entity, Executors::newCachedThreadPool);
+    RandomHBaseReader randomReader =
+        new RandomHBaseReader(uri, cluster.getConfiguration(), Collections.emptyMap(), entity);
+
+    StreamElement write =
+        StreamElement.upsert(
+            entity,
+            wildcard,
+            UUID.randomUUID().toString(),
+            "key",
+            wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(),
+            new byte[] {1, 2, 3});
+    CountDownLatch writeLatch = new CountDownLatch(1);
+    writer.write(write, (succ, exc) -> writeLatch.countDown());
+    writeLatch.await();
+
+    List<StreamElement> el = new ArrayList<>();
+    CountDownLatch observeLatch = new CountDownLatch(1);
+    reader.observe(
+        reader.getPartitions(),
+        Collections.singletonList(wildcard),
+        new BatchLogObserver() {
+          @Override
+          public boolean onNext(StreamElement element) {
+            el.add(element);
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            observeLatch.countDown();
+          }
+        });
+    observeLatch.await();
+
+    assertEquals(1, el.size());
+    assertEquals(write.getKey(), el.get(0).getKey());
+    assertEquals(write.getAttribute(), el.get(0).getAttribute());
+    assertArrayEquals(write.getValue(), el.get(0).getValue());
+
+    Optional<? extends KeyValue<?>> kv =
+        randomReader.get("key", wildcard.toAttributePrefix() + "1", wildcard, Long.MAX_VALUE);
+    assertTrue(kv.isPresent());
+    assertEquals(write.getKey(), el.get(0).getKey());
+    assertEquals(write.getAttribute(), el.get(0).getAttribute());
+    assertArrayEquals(write.getValue(), el.get(0).getValue());
+  }
+
+  @Test
+  public void testWriteGetObserveV2() throws InterruptedException {
+    URI uri = URI.create("hbase://localhost:2181/users?family=u&v=2");
+    HBaseWriter writer = new HBaseWriter(uri, cluster.getConfiguration(), Collections.emptyMap());
+    HBaseLogReader reader =
+        new HBaseLogReader(uri, cluster.getConfiguration(), entity, Executors::newCachedThreadPool);
+    RandomHBaseReader randomReader =
+        new RandomHBaseReader(uri, cluster.getConfiguration(), Collections.emptyMap(), entity);
+
+    StreamElement write =
+        StreamElement.upsert(
+            entity,
+            wildcard,
+            1L,
+            "key",
+            wildcard.toAttributePrefix() + "1",
+            System.currentTimeMillis(),
+            new byte[] {1, 2, 3});
+    CountDownLatch writeLatch = new CountDownLatch(1);
+    writer.write(write, (succ, exc) -> writeLatch.countDown());
+    writeLatch.await();
+
+    List<StreamElement> el = new ArrayList<>();
+    CountDownLatch observeLatch = new CountDownLatch(1);
+    reader.observe(
+        reader.getPartitions(),
+        Collections.singletonList(wildcard),
+        new BatchLogObserver() {
+          @Override
+          public boolean onNext(StreamElement element) {
+            el.add(element);
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            observeLatch.countDown();
+          }
+        });
+    observeLatch.await();
+
+    assertEquals(1, el.size());
+    assertEquals(write.getKey(), el.get(0).getKey());
+    assertEquals(write.getAttribute(), el.get(0).getAttribute());
+    assertArrayEquals(write.getValue(), el.get(0).getValue());
+    assertEquals(1L, el.get(0).getSequentialId());
+
+    Optional<? extends KeyValue<?>> kv =
+        randomReader.get("key", wildcard.toAttributePrefix() + "1", wildcard, Long.MAX_VALUE);
+    assertTrue(kv.isPresent());
+    assertEquals(write.getKey(), kv.get().getKey());
+    assertEquals(write.getAttribute(), kv.get().getAttribute());
+    assertArrayEquals(write.getValue(), kv.get().getValue());
+    assertEquals(1L, kv.get().getSequentialId());
   }
 }

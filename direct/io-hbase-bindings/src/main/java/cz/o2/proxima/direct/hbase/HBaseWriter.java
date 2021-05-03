@@ -49,6 +49,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
 
   private final int batchSize;
   private final Map<String, Object> cfg;
+  private final InternalSerializer serializer;
 
   private boolean flushCommits;
 
@@ -62,6 +63,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
         Optional.ofNullable(cfg.get(FLUSH_COMMITS_CFG))
             .map(o -> Boolean.valueOf(o.toString()))
             .orElse(true);
+    serializer = HBaseDataAccessor.instantiateSerializer(uri);
     this.cfg = cfg;
   }
 
@@ -84,9 +86,7 @@ class HBaseWriter extends HBaseClientWrapper implements OnlineAttributeWriter {
           this.client.delete(del);
         }
       } else {
-        String column = data.getAttribute();
-        Put put = new Put(key, stamp);
-        put.addColumn(family, column.getBytes(StandardCharsets.UTF_8), stamp, data.getValue());
+        Put put = serializer.toPut(family, key, data);
         this.client.put(put);
       }
       if (flushCommits) {

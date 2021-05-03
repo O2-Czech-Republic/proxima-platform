@@ -15,8 +15,6 @@
  */
 package cz.o2.proxima.direct.hbase;
 
-import static cz.o2.proxima.direct.hbase.Util.cloneArray;
-
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader.Listing;
@@ -55,6 +53,7 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
   private static final int KEYS_SCANNER_CACHING_DEFAULT = 1000;
 
   private final EntityDescriptor entity;
+  private final InternalSerializer serializer;
   private final int keyCaching;
   private final Map<String, Object> cfg;
 
@@ -63,6 +62,7 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
 
     super(uri, conf);
     this.entity = entity;
+    this.serializer = HBaseDataAccessor.instantiateSerializer(uri);
     this.keyCaching =
         Integer.parseInt(
             Optional.ofNullable(cfg.get(KEYS_SCANNER_CACHING))
@@ -73,7 +73,7 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
 
   @Override
   public RandomOffset fetchOffset(Listing type, String key) {
-    return asOffset(key);
+    return new RawOffset(key);
   }
 
   @SuppressWarnings("unchecked")
@@ -88,7 +88,7 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
     try {
       Result res = client.get(get);
       Cell cell = res.getColumnLatestCell(family, qualifier);
-      return Optional.ofNullable(cell == null ? null : kv(desc, cell));
+      return Optional.ofNullable(cell == null ? null : serializer.toKeyValue(entity, desc, cell));
     } catch (IOException ex) {
       throw new RuntimeException(ex);
     }
@@ -131,7 +131,7 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
           CellScanner cellScanner = next.cellScanner();
           while (cellScanner.advance() && accepted++ < limit) {
             Cell cell = cellScanner.current();
-            consumer.accept(kv(wildcard, cell));
+            consumer.accept(serializer.toKeyValue(entity, wildcard, cell));
           }
         }
       }
@@ -160,7 +160,7 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
         Result res = scanner.next();
         if (res != null) {
           String key = new String(res.getRow());
-          consumer.accept(Pair.of(asOffset(key), key));
+          consumer.accept(Pair.of(new RawOffset(key), key));
         } else {
           break;
         }
@@ -176,22 +176,6 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
       Util.closeQuietly(client);
       client = null;
     }
-  }
-
-  @SuppressWarnings("unchecked")
-  private <T> KeyValue<T> kv(AttributeDescriptor<T> desc, Cell cell) {
-    String key = new String(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
-    String attribute =
-        new String(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
-
-    return KeyValue.of(
-        entity,
-        desc,
-        key,
-        attribute,
-        asOffset(attribute),
-        cloneArray(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength()),
-        cell.getTimestamp());
   }
 
   @Override
@@ -215,9 +199,5 @@ public class RandomHBaseReader extends HBaseClientWrapper implements RandomAcces
 
     throw new UnsupportedOperationException(
         "Unsupported. See https://github.com/O2-Czech-Republic/proxima-platform/issues/68");
-  }
-
-  static RawOffset asOffset(String what) {
-    return new RawOffset(what);
   }
 }

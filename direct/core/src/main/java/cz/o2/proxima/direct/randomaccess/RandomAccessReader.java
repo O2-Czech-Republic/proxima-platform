@@ -79,7 +79,6 @@ public interface RandomAccessReader extends Closeable {
    * @return optional {@link KeyValue} if present
    */
   default <T> Optional<KeyValue<T>> get(String key, AttributeDescriptor<T> desc) {
-
     return get(key, desc.getName(), desc, System.currentTimeMillis());
   }
 
@@ -93,7 +92,6 @@ public interface RandomAccessReader extends Closeable {
    * @return optional {@link KeyValue} if present
    */
   default <T> Optional<KeyValue<T>> get(String key, AttributeDescriptor<T> desc, long stamp) {
-
     return get(key, desc.getName(), desc, stamp);
   }
 
@@ -107,7 +105,6 @@ public interface RandomAccessReader extends Closeable {
    * @return optional {@link KeyValue} if present
    */
   default <T> Optional<KeyValue<T>> get(String key, String attribute, AttributeDescriptor<T> desc) {
-
     return get(key, attribute, desc, System.currentTimeMillis());
   }
 
@@ -131,7 +128,6 @@ public interface RandomAccessReader extends Closeable {
    * @param consumer consumer to use for scanning
    */
   default void scanWildcardAll(String key, Consumer<KeyValue<?>> consumer) {
-
     scanWildcardAll(key, System.currentTimeMillis(), consumer);
   }
 
@@ -143,7 +139,6 @@ public interface RandomAccessReader extends Closeable {
    * @param consumer consumer to use for scanning
    */
   default void scanWildcardAll(String key, long stamp, Consumer<KeyValue<?>> consumer) {
-
     scanWildcardAll(key, null, stamp, -1, consumer);
   }
 

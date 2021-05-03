@@ -55,6 +55,30 @@ public class KeyValueTest {
   }
 
   @Test
+  public void testCreateWithSeqId() {
+    KeyValue<byte[]> kv =
+        KeyValue.of(
+            entity,
+            status,
+            1L,
+            "key",
+            status.getName(),
+            new RawOffset(""),
+            new byte[] {1, 2},
+            null,
+            System.currentTimeMillis());
+
+    assertEquals("key", kv.getKey());
+    assertEquals(entity, kv.getEntityDescriptor());
+    assertEquals(status, kv.getAttributeDescriptor());
+    assertEquals(status.getName(), kv.getAttribute());
+    assertNotNull(kv.toString());
+    assertNotNull(kv.getParsedRequired());
+    assertTrue(kv.hasSequentialId());
+    assertEquals(1L, kv.getSequentialId());
+  }
+
+  @Test
   public void testSerializable() throws IOException, ClassNotFoundException {
     KeyValue<byte[]> kv =
         KeyValue.of(

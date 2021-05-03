@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Value;
@@ -70,10 +71,18 @@ class TransactionLogObserver implements LogObserver {
     String attribute;
   }
 
+  @Value
+  private static class SeqIdWithTombstone {
+    /** sequential ID of the update */
+    long seqId;
+    /** marker that the write is actually a delete */
+    boolean tombstone;
+  }
+
   private final DirectDataOperator direct;
   private final ServerTransactionManager manager;
   private final AtomicLong sequenceId = new AtomicLong(1000L);
-  private final Map<KeyWithAttribute, Long> lastUpdateSeqId = new HashMap<>();
+  private final Map<KeyWithAttribute, SeqIdWithTombstone> lastUpdateSeqId = new HashMap<>();
   private final Map<KeyWithAttribute, List<KeyWithAttribute>> updatesToWildcard = new HashMap<>();
 
   TransactionLogObserver(DirectDataOperator direct) {
@@ -195,7 +204,7 @@ class TransactionLogObserver implements LogObserver {
 
   private boolean notInConflict(Collection<KeyAttribute> inputAttributes) {
 
-    Set<KeyWithAttribute> requiredInputs =
+    List<Pair<KeyWithAttribute, Boolean>> affectedWildcards =
         inputAttributes
             .stream()
             .filter(KeyAttribute::isWildcardQuery)
@@ -203,6 +212,21 @@ class TransactionLogObserver implements LogObserver {
             .map(updatesToWildcard::get)
             .filter(Objects::nonNull)
             .flatMap(List::stream)
+            .map(kwa -> Pair.of(kwa, isNotDelete(lastUpdateSeqId.get(kwa))))
+            .collect(Collectors.toList());
+
+    Set<KeyWithAttribute> requiredInputs =
+        affectedWildcards
+            .stream()
+            .filter(Pair::getSecond)
+            .map(Pair::getFirst)
+            .collect(Collectors.toSet());
+
+    Set<KeyWithAttribute> bannedInputs =
+        affectedWildcards
+            .stream()
+            .filter(((Predicate<? super Pair<KeyWithAttribute, Boolean>>) Pair::getSecond).negate())
+            .map(Pair::getFirst)
             .collect(Collectors.toSet());
 
     if (!requiredInputs.isEmpty()) {
@@ -219,14 +243,30 @@ class TransactionLogObserver implements LogObserver {
       }
     }
 
+    if (!bannedInputs.isEmpty()) {
+      boolean anyBannedPresent =
+          inputAttributes
+              .stream()
+              .filter(ka -> !ka.isWildcardQuery())
+              .map(KeyWithAttribute::of)
+              .anyMatch(bannedInputs::contains);
+      if (anyBannedPresent) {
+        return false;
+      }
+    }
+
     return inputAttributes
         .stream()
         .filter(ka -> !ka.isWildcardQuery())
         .noneMatch(
             ka -> {
-              Long lastUpdated = lastUpdateSeqId.get(KeyWithAttribute.of(ka));
-              return lastUpdated != null && lastUpdated > ka.getSequenceId();
+              SeqIdWithTombstone lastUpdated = lastUpdateSeqId.get(KeyWithAttribute.of(ka));
+              return lastUpdated != null && lastUpdated.getSeqId() > ka.getSequenceId();
             });
+  }
+
+  private boolean isNotDelete(@Nullable SeqIdWithTombstone seqIdWithTombstone) {
+    return seqIdWithTombstone == null || !seqIdWithTombstone.isTombstone();
   }
 
   private void stateUpdate(StreamElement newUpdate, Pair<Long, Object> oldValue) {
@@ -248,7 +288,13 @@ class TransactionLogObserver implements LogObserver {
             ka -> {
               KeyWithAttribute kwa = KeyWithAttribute.of(ka);
               lastUpdateSeqId.compute(
-                  kwa, (k, v) -> v == null ? committedSeqId : Math.max(v, committedSeqId));
+                  kwa,
+                  (k, v) -> {
+                    if (v == null || v.getSeqId() < committedSeqId) {
+                      return new SeqIdWithTombstone(committedSeqId, ka.isDelete());
+                    }
+                    return v;
+                  });
               if (ka.getAttributeDescriptor().isWildcard()) {
                 List<KeyWithAttribute> list =
                     updatesToWildcard.computeIfAbsent(

@@ -22,7 +22,8 @@ message KeyAttribute {
   string key = 2;
   string attributeDesc = 3;
   string attribute = 4;
-  uint64 seqId = 5;
+  bool delete = 5;
+  uint64 seqId = 6;
 }
 
 enum Flags {

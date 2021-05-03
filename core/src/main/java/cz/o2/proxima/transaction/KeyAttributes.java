@@ -62,7 +62,7 @@ public class KeyAttributes {
     if (minSeqId == Long.MAX_VALUE) {
       minSeqId = 1L;
     }
-    ret.add(new KeyAttribute(entity, key, wildcardAttribute, minSeqId, null));
+    ret.add(new KeyAttribute(entity, key, wildcardAttribute, minSeqId, false, null));
     return ret;
   }
 
@@ -87,7 +87,7 @@ public class KeyAttributes {
         !attributeDescriptor.isWildcard(),
         "Please specify attribute suffix for wildcard attributes. Got attribute %s",
         attributeDescriptor);
-    return new KeyAttribute(entity, key, attributeDescriptor, sequenceId, null);
+    return new KeyAttribute(entity, key, attributeDescriptor, sequenceId, false, null);
   }
 
   /**
@@ -112,7 +112,7 @@ public class KeyAttributes {
         !attributeDescriptor.isWildcard() || attributeSuffix != null,
         "Please specify attribute suffix for wildcard attributes. Got attribute %s",
         attributeDescriptor);
-    return new KeyAttribute(entity, key, attributeDescriptor, sequenceId, attributeSuffix);
+    return new KeyAttribute(entity, key, attributeDescriptor, sequenceId, false, attributeSuffix);
   }
 
   /**
@@ -125,11 +125,13 @@ public class KeyAttributes {
         element.hasSequentialId(),
         "Elements read with enabled transactions need to use sequenceIds got %s.",
         element);
+    Preconditions.checkArgument(!element.isDeleteWildcard(), "Wildcard deletes not yet supported");
     return new KeyAttribute(
         element.getEntityDescriptor(),
         element.getKey(),
         element.getAttributeDescriptor(),
         element.getSequentialId(),
+        element.isDelete(),
         element.getAttributeDescriptor().isWildcard() ? element.getAttribute() : null);
   }
 }

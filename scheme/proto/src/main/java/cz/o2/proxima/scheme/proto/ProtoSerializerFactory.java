@@ -405,6 +405,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
                       a.getKey(),
                       entity.getAttribute(a.getAttributeDesc()),
                       a.getSeqId(),
+                      a.getDelete(),
                       null);
                 }
                 return new KeyAttribute(
@@ -412,6 +413,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
                     a.getKey(),
                     entity.getAttribute(a.getAttributeDesc()),
                     a.getSeqId(),
+                    a.getDelete(),
                     a.getAttribute());
               })
           .collect(Collectors.toList());
@@ -429,6 +431,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
                   .setKey(a.getKey())
                   .setAttribute(a.getAttribute().orElse(""))
                   .setSeqId(a.getSequenceId())
+                  .setDelete(a.isDelete())
                   .build());
     }
 

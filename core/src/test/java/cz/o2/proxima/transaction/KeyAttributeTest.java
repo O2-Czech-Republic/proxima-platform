@@ -65,6 +65,28 @@ public class KeyAttributeTest {
   }
 
   @Test
+  public void testKeyAttributeDeleteConstruction() {
+    KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "gw", status, 1L);
+    KeyAttribute ka2 = KeyAttributes.ofAttributeDescriptor(gateway, "gw", status, 1L);
+    assertEquals(ka, ka2);
+    StreamElement el =
+        StreamElement.delete(
+            gateway, status, 1L, "key", status.getName(), System.currentTimeMillis());
+    ka = KeyAttributes.ofStreamElement(el);
+    ka2 = KeyAttributes.ofStreamElement(el);
+    assertEquals(ka, ka2);
+    ka = KeyAttributes.ofAttributeDescriptor(gateway, "gw", device, 1L, "1");
+    ka2 = KeyAttributes.ofAttributeDescriptor(gateway, "gw", device, 1L, "1");
+    assertEquals(ka, ka2);
+    try {
+      KeyAttributes.ofAttributeDescriptor(gateway, "gw", device, 1L);
+      fail("Should have thrown exception");
+    } catch (IllegalArgumentException ex) {
+      // pass
+    }
+  }
+
+  @Test
   public void testWildcardQueryElements() {
     Wildcard<byte[]> device = Wildcard.wildcard(gateway, this.device);
     StreamElement first =
@@ -74,7 +96,7 @@ public class KeyAttributeTest {
     List<KeyAttribute> wildcardQuery =
         KeyAttributes.ofWildcardQueryElements(gateway, "key", device, Arrays.asList(first, second));
     assertEquals(3, wildcardQuery.size());
-    assertEquals(new KeyAttribute(gateway, "key", device, 100L, null), wildcardQuery.get(2));
+    assertEquals(new KeyAttribute(gateway, "key", device, 100L, false, null), wildcardQuery.get(2));
 
     List<KeyAttribute> empty =
         KeyAttributes.ofWildcardQueryElements(gateway, "key", device, Collections.emptyList());

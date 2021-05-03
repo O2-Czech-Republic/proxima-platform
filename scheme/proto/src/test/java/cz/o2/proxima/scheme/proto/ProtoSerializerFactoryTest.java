@@ -159,7 +159,7 @@ public class ProtoSerializerFactoryTest {
     assertTrue(state.getValueSerializer() instanceof TransactionProtoSerializer);
     assertTrue(state.getValueSerializer().isUsable());
 
-    StreamElement el =
+    StreamElement update =
         StreamElement.upsert(
             transaction,
             request,
@@ -168,7 +168,18 @@ public class ProtoSerializerFactoryTest {
             request.toAttributePrefix() + "1",
             System.currentTimeMillis(),
             new byte[] {});
-    KeyAttribute keyAttributeSingleWildcard = KeyAttributes.ofStreamElement(el);
+
+    StreamElement delete =
+        StreamElement.delete(
+            transaction,
+            request,
+            1L,
+            "t",
+            request.toAttributePrefix() + "2",
+            System.currentTimeMillis());
+
+    KeyAttribute keyAttributeSingleWildcard = KeyAttributes.ofStreamElement(update);
+    KeyAttribute keyAttributeDelete = KeyAttributes.ofStreamElement(delete);
 
     List<Pair<Object, AttributeDescriptor<?>>> toVerify =
         Arrays.asList(
@@ -200,6 +211,10 @@ public class ProtoSerializerFactoryTest {
             Pair.of(
                 State.open(1L, Sets.newHashSet(keyAttributeSingleWildcard))
                     .committed(Sets.newHashSet(keyAttributeSingleWildcard)),
+                state),
+            Pair.of(
+                State.open(1L, Collections.emptyList())
+                    .committed(Sets.newHashSet(keyAttributeDelete)),
                 state));
 
     toVerify.forEach(

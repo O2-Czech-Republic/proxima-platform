@@ -42,6 +42,7 @@ public class KeyAttribute implements Serializable {
   @Getter private final String key;
   @Getter private final AttributeDescriptor<?> attributeDescriptor;
   @Getter private final long sequenceId;
+  @Getter private final boolean delete;
   @Nullable private final String attribute;
 
   public KeyAttribute(
@@ -49,12 +50,14 @@ public class KeyAttribute implements Serializable {
       String key,
       AttributeDescriptor<?> attributeDescriptor,
       long sequenceId,
+      boolean delete,
       @Nullable String attribute) {
 
     this.entity = entity;
     this.key = key;
     this.attributeDescriptor = attributeDescriptor;
     this.sequenceId = sequenceId;
+    this.delete = delete;
     this.attribute = attribute;
 
     Preconditions.checkArgument(sequenceId > 0, "Sequence ID must be positive, got %s", sequenceId);

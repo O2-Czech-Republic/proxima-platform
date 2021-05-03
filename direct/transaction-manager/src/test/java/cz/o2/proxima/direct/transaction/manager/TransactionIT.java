@@ -150,7 +150,109 @@ public class TransactionIT {
     verifyNumDevicesMatch(numWrites, numUsers);
   }
 
+  @Test(timeout = 100_000)
+  public void testWildcardAttributeListWithDeleteAtomic() throws InterruptedException {
+    // in each transaction, we remove random device and add two new into device.* and write sum of
+    // all current devices into numDevices. After the test, the numDevice must match the total
+    // number of writes
+
+    int numWrites = 1000;
+    int numThreads = 20;
+    int numUsers = 100;
+
+    CountDownLatch latch = new CountDownLatch(numThreads);
+    ExecutorService service = direct.getContext().getExecutorService();
+    AtomicReference<Throwable> err = new AtomicReference<>();
+    int numWritesPerThread = numWrites / numThreads;
+    for (int i = 0; i < numThreads; i++) {
+      service.submit(
+          () -> {
+            try {
+              for (int j = 0; j < numWritesPerThread; j++) {
+                writeSingleDevice(numUsers, true);
+                writeSingleDevice(numUsers, true);
+                removeSingleDevice(numUsers);
+              }
+            } catch (InterruptedException ex) {
+              Thread.currentThread().interrupt();
+            } catch (Throwable ex) {
+              err.set(ex);
+            }
+            latch.countDown();
+          });
+    }
+
+    latch.await();
+    if (err.get() != null) {
+      throw new RuntimeException(err.get());
+    }
+    verifyNumDevicesMatch(numWrites, numUsers, true);
+  }
+
+  private void removeSingleDevice(int numUsers) throws InterruptedException {
+    long abortWaitDuration = (long) (random.nextDouble() * 40 + 10);
+    do {
+      String userId = "user" + random.nextInt(numUsers);
+      String transactionId = UUID.randomUUID().toString();
+      BlockingQueue<Response> responses = new ArrayBlockingQueue<>(1);
+      List<StreamElement> devices = new ArrayList<>();
+      view.scanWildcard(userId, device, devices::add);
+
+      List<KeyAttribute> keyAttributes =
+          KeyAttributes.ofWildcardQueryElements(user, userId, device, devices);
+
+      if (devices.isEmpty()) {
+        continue;
+      }
+
+      long stamp = System.currentTimeMillis();
+      client.begin(
+          transactionId,
+          (id, resp) -> ExceptionUtils.unchecked(() -> responses.put(resp)),
+          keyAttributes);
+
+      Response response = responses.take();
+      if (response.getFlags() != Flags.OPEN) {
+        TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
+        abortWaitDuration *= 2;
+        continue;
+      }
+      long sequentialId = response.getSeqId();
+
+      String name =
+          device.extractSuffix(devices.get(random.nextInt(devices.size())).getAttribute());
+      StreamElement deviceUpdate = device.delete(sequentialId, userId, name, stamp);
+      StreamElement numDevicesUpdate =
+          numDevices.upsert(sequentialId, userId, "all", stamp, devices.size() - 1);
+
+      client.commit(
+          transactionId,
+          Arrays.asList(
+              KeyAttributes.ofStreamElement(deviceUpdate),
+              KeyAttributes.ofStreamElement(numDevicesUpdate)));
+
+      response = responses.take();
+      if (response.getFlags() != Flags.COMMITTED) {
+        TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
+        abortWaitDuration *= 2;
+        continue;
+      }
+
+      CountDownLatch latch = new CountDownLatch(2);
+      CommitCallback callback = (succ, exc) -> latch.countDown();
+      view.write(deviceUpdate, callback);
+      view.write(numDevicesUpdate, callback);
+      latch.await();
+      break;
+
+    } while (true);
+  }
+
   private void writeSingleDevice(int numUsers) throws InterruptedException {
+    writeSingleDevice(numUsers, false);
+  }
+
+  private void writeSingleDevice(int numUsers, boolean intoAll) throws InterruptedException {
     String name = UUID.randomUUID().toString();
     String userId = "user" + random.nextInt(numUsers);
     long abortWaitDuration = (long) (random.nextDouble() * 40 + 10);
@@ -178,9 +280,14 @@ public class TransactionIT {
       long sequentialId = response.getSeqId();
 
       StreamElement deviceUpdate = device.upsert(sequentialId, userId, name, stamp, new byte[] {});
-      StreamElement numDevicesUpdate =
-          numDevices.upsert(
-              sequentialId, userId, String.valueOf(devices.size()), stamp, devices.size());
+      final StreamElement numDevicesUpdate;
+      int count = devices.size() + 1;
+      if (intoAll) {
+        numDevicesUpdate = numDevices.upsert(sequentialId, userId, "all", stamp, count);
+      } else {
+        numDevicesUpdate =
+            numDevices.upsert(sequentialId, userId, String.valueOf(count), stamp, count);
+      }
 
       client.commit(
           transactionId,
@@ -206,13 +313,23 @@ public class TransactionIT {
   }
 
   private void verifyNumDevicesMatch(int numWrites, int numUsers) {
+    verifyNumDevicesMatch(numWrites, numUsers, false);
+  }
+
+  private void verifyNumDevicesMatch(int numWrites, int numUsers, boolean inCountAll) {
     int sum = 0;
     for (int i = 0; i < numUsers; i++) {
       String userId = "user" + i;
       AtomicInteger numDeviceAttrs = new AtomicInteger();
       AtomicInteger deviceAttrs = new AtomicInteger();
       view.scanWildcard(userId, device, d -> deviceAttrs.incrementAndGet());
-      view.scanWildcard(userId, numDevices, d -> numDeviceAttrs.incrementAndGet());
+      if (inCountAll) {
+        Optional<KeyValue<Integer>> numAllDevices =
+            view.get(userId, numDevices.toAttributePrefix() + "all", numDevices);
+        numDeviceAttrs.set(numAllDevices.get().getParsedRequired());
+      } else {
+        view.scanWildcard(userId, numDevices, d -> numDeviceAttrs.incrementAndGet());
+      }
       assertEquals(numDeviceAttrs.get(), deviceAttrs.get());
       sum += numDeviceAttrs.get();
     }

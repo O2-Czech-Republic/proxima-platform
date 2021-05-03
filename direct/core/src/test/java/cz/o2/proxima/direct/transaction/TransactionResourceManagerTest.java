@@ -21,10 +21,12 @@ import static org.junit.Assert.assertNotNull;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.transaction.TransactionResourceManager.CachedTransaction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
@@ -217,6 +219,83 @@ public class TransactionResourceManagerTest {
 
       State currentState = manager.getCurrentState(transactionId);
       assertEquals(State.Flags.UNKNOWN, currentState.getFlags());
+    }
+  }
+
+  @Test
+  public void testTransactionRequestUpdate() throws InterruptedException {
+    try (TransactionResourceManager manager = TransactionResourceManager.of(direct)) {
+      String transactionId = UUID.randomUUID().toString();
+      BlockingQueue<Pair<String, Response>> receivedResponses = new ArrayBlockingQueue<>(1);
+
+      // create a simple ping-pong communication
+      manager.runObservations(
+          "requests",
+          (ingest, context) -> {
+            if (ingest.getAttributeDescriptor().equals(requestDesc)) {
+              String key = ingest.getKey();
+              String requestId = requestDesc.extractSuffix(ingest.getAttribute());
+              Request request = Optionals.get(requestDesc.valueOf(ingest));
+              CountDownLatch latch = new CountDownLatch(1);
+              CommitCallback commit =
+                  CommitCallback.afterNumCommits(
+                      2,
+                      (succ, exc) -> {
+                        latch.countDown();
+                        context.commit(succ, exc);
+                      });
+              if (request.getFlags() == Request.Flags.UPDATE) {
+                manager.setCurrentState(
+                    key,
+                    State.open(1L, Collections.emptyList())
+                        .update(new HashSet<>(request.getInputAttributes())),
+                    commit);
+                manager.writeResponse(key, requestId, Response.updated(), commit);
+              } else {
+                manager.setCurrentState(
+                    key, State.open(1L, new HashSet<>(request.getInputAttributes())), commit);
+                manager.writeResponse(key, requestId, Response.open(1L), commit);
+              }
+              ExceptionUtils.ignoringInterrupted(latch::await);
+            } else {
+              context.confirm();
+            }
+            return true;
+          });
+
+      manager.begin(
+          transactionId,
+          (k, v) -> receivedResponses.add(Pair.of(k, v)),
+          Collections.singletonList(
+              KeyAttributes.ofAttributeDescriptor(gateway, "gw1", status, 1L)));
+
+      receivedResponses.take();
+      manager.updateTransaction(
+          transactionId,
+          Collections.singletonList(
+              KeyAttributes.ofAttributeDescriptor(gateway, "gw2", status, 1L)));
+
+      Pair<String, Response> response = receivedResponses.take();
+      assertEquals("update", response.getFirst());
+      assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
+    }
+  }
+
+  @Test
+  public void testCreateCachedTransactionWhenMissing() {
+    KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "g", status, 1L);
+    try (TransactionResourceManager manager = TransactionResourceManager.of(direct)) {
+      CachedTransaction transaction =
+          manager.createCachedTransaction(
+              "transaction", State.open(1L, Collections.singletonList(ka)));
+      assertEquals("transaction", transaction.getTransactionId());
+    }
+    try (TransactionResourceManager manager = TransactionResourceManager.of(direct)) {
+      CachedTransaction transaction =
+          manager.createCachedTransaction(
+              "transaction",
+              State.open(2L, Collections.emptyList()).committed(Collections.singletonList(ka)));
+      assertEquals("transaction", transaction.getTransactionId());
     }
   }
 }

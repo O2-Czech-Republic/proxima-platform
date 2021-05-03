@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.transaction;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
 import cz.o2.proxima.annotations.Internal;
@@ -120,9 +121,10 @@ class TransactionResourceManager implements ClientTransactionManager, ServerTran
     }
   }
 
-  private class CachedTransaction implements AutoCloseable {
+  @VisibleForTesting
+  class CachedTransaction implements AutoCloseable {
 
-    final String transactionId;
+    @Getter final String transactionId;
     final Map<AttributeDescriptor<?>, DirectAttributeFamilyDescriptor> attributeToFamily =
         new HashMap<>();
     final Thread owningThread = Thread.currentThread();
@@ -455,19 +457,7 @@ class TransactionResourceManager implements ClientTransactionManager, ServerTran
 
     CachedTransaction cachedTransaction =
         openTransactionMap.computeIfAbsent(
-            transactionId,
-            tmp -> {
-              final Collection<KeyAttribute> attributes;
-              if (!state.getCommittedAttributes().isEmpty()) {
-                HashSet<KeyAttribute> committedSet =
-                    Sets.newHashSet(state.getCommittedAttributes());
-                committedSet.addAll(state.getInputAttributes());
-                attributes = committedSet;
-              } else {
-                attributes = state.getInputAttributes();
-              }
-              return new CachedTransaction(transactionId, attributes, null);
-            });
+            transactionId, tmp -> createCachedTransaction(transactionId, state));
 
     final StreamElement update;
     if (state != null) {
@@ -476,6 +466,19 @@ class TransactionResourceManager implements ClientTransactionManager, ServerTran
       update = stateDesc.delete(transactionId, System.currentTimeMillis());
     }
     cachedTransaction.getStateView().write(update, callback);
+  }
+
+  @VisibleForTesting
+  CachedTransaction createCachedTransaction(String transactionId, State state) {
+    final Collection<KeyAttribute> attributes;
+    if (!state.getCommittedAttributes().isEmpty()) {
+      HashSet<KeyAttribute> committedSet = Sets.newHashSet(state.getCommittedAttributes());
+      committedSet.addAll(state.getInputAttributes());
+      attributes = committedSet;
+    } else {
+      attributes = state.getInputAttributes();
+    }
+    return new CachedTransaction(transactionId, attributes, null);
   }
 
   @Override

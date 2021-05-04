@@ -107,7 +107,7 @@
     <sonar.login>21787938b088389dc6edfdf1cf4008e91b81e70b</sonar.login>
     <error-prone.version>2.4.0</error-prone.version>
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
-    <lombok.version>1.18.16</lombok.version>
+    <lombok.version>1.18.20</lombok.version>
     <spotless.version>2.0.1</spotless.version>
     <!-- apache beam related properties -->
     <apache.beam.groupId>org.apache.beam</apache.beam.groupId>

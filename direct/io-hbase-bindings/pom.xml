@@ -34,6 +34,7 @@
   <properties>
     <proto.version>2.5.0</proto.version>
     <protoc.version>2.5.0</protoc.version>
+    <shadePattern>cz.o2.proxima.direct.hbase.bindings</shadePattern>
   </properties>
 
   <build>
@@ -77,6 +78,45 @@
           </execution>
         </executions>
       </plugin>
+
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>${maven.shade.version}</version>
+        <configuration>
+          <filters>
+            <filter>
+              <artifact>*:*</artifact>
+              <excludes>
+                <exclude>META-INF/*.SF</exclude>
+                <exclude>META-INF/*.DSA</exclude>
+                <exclude>META-INF/*.RSA</exclude>
+              </excludes>
+            </filter>
+          </filters>
+          <artifactSet>
+            <includes>
+              <include>cz.o2.proxima:proxima-direct-io-hbase-bindings</include>
+              <include>com.google.protobuf:protobuf-java</include>
+            </includes>
+          </artifactSet>
+          <relocations>
+            <relocation>
+              <pattern>com.google.protobuf.</pattern>
+              <shadedPattern>${shadePattern}.com.google.protobuf.</shadedPattern>
+            </relocation>
+          </relocations>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>verify</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>  
     </plugins>
   </build>
 

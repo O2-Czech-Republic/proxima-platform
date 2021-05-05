@@ -255,7 +255,7 @@ public class ReplicationController {
 
     final String name = replicaFamily.getDesc().getReplicationConsumerNameFactory().apply();
     log.info(
-        "Using consumer name {} for replicate family {}", name, replicaFamily.getDesc().getName());
+        "Using consumer name {} to replicate family {}", name, replicaFamily.getDesc().getName());
 
     registerWriterTo(name, commitLog, allowedAttributes, filter, writer);
 

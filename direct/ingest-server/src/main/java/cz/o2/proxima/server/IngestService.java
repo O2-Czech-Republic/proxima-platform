@@ -161,11 +161,10 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
               builder.clear();
             }
             if (completed.get() && inflightRequests.get() == 0 && statusQueue.isEmpty()) {
-
               responseObserver.onCompleted();
             }
           }
-        } catch (Exception ex) {
+        } catch (Throwable ex) {
           log.error("Failed to send bulk status", ex);
         }
       };
@@ -269,7 +268,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
         Metrics.INVALID_REQUEST.increment();
       }
     } catch (Exception err) {
-      log.error("Error processing user request {}", request, err);
+      log.error("Error processing user request {}", TextFormat.shortDebugString(request), err);
       loggingConsumer.accept(status(request.getUuid(), 500, err.getMessage()));
     }
   }

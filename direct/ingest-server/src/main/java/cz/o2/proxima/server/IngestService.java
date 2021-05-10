@@ -127,9 +127,9 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     final AtomicBoolean completed = new AtomicBoolean(false);
     final Object inflightRequestsLock = new Object();
     final AtomicInteger inflightRequests = new AtomicInteger();
-    final AtomicLong lastFlushNanos = new AtomicLong(System.nanoTime());
+    final AtomicLong lastFlushMs = new AtomicLong(System.currentTimeMillis());
     final Rpc.StatusBulk.Builder builder = Rpc.StatusBulk.newBuilder();
-    static final long MAX_SLEEP_NANOS = 100000000L;
+    static final long MAX_SLEEP_MILLIS = 100;
     static final int MAX_QUEUED_STATUSES = 500;
 
     Runnable flushTask = createFlushTask();
@@ -137,7 +137,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     // schedule the flush periodically
     ScheduledFuture<?> flushFuture =
         scheduler.scheduleAtFixedRate(
-            flushTask, MAX_SLEEP_NANOS, MAX_SLEEP_NANOS, TimeUnit.NANOSECONDS);
+            flushTask, MAX_SLEEP_MILLIS, MAX_SLEEP_MILLIS, TimeUnit.MILLISECONDS);
 
     IngestBulkObserver(StreamObserver<Rpc.StatusBulk> responseObserver) {
       this.responseObserver = responseObserver;
@@ -150,8 +150,8 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
             while (statusQueue.size() > MAX_QUEUED_STATUSES) {
               peekQueueToBuilderAndFlush();
             }
-            long now = System.nanoTime();
-            if (now - lastFlushNanos.get() >= MAX_SLEEP_NANOS) {
+            long now = System.currentTimeMillis();
+            if (now - lastFlushMs.get() >= MAX_SLEEP_MILLIS) {
               while (!statusQueue.isEmpty()) {
                 peekQueueToBuilderAndFlush();
               }
@@ -182,7 +182,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     /** Flush response(s) to the observer. */
     private void flush() {
       synchronized (builder) {
-        lastFlushNanos.set(System.nanoTime());
+        lastFlushMs.set(System.currentTimeMillis());
         Rpc.StatusBulk bulk = builder.build();
         if (bulk.getStatusCount() > 0) {
           responseObserver.onNext(bulk);
@@ -206,6 +206,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
                         statusQueue.add(status);
                         if (statusQueue.size() >= MAX_QUEUED_STATUSES) {
                           // enqueue flush
+                          lastFlushMs.set(Long.MIN_VALUE);
                           scheduler.execute(flushTask);
                         }
                         if (inflightRequests.decrementAndGet() == 0) {

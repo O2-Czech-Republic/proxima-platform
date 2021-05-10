@@ -123,7 +123,7 @@ public class IngestClient implements AutoCloseable {
 
   private final ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1);
 
-  private long lastFlush = System.nanoTime();
+  private long lastFlush = System.currentTimeMillis();
 
   @VisibleForTesting
   IngestClient(String host, int port, Options options) {
@@ -138,9 +138,9 @@ public class IngestClient implements AutoCloseable {
         new Thread(
             () -> {
               try {
-                long flushTimeNanos = options.getFlushUsec() * 1_000L;
+                long flushTimeMs = options.getFlushUsec() / 1_000L;
                 while (!Thread.currentThread().isInterrupted()) {
-                  flushLoop(flushTimeNanos);
+                  flushLoop(flushTimeMs);
                 }
                 flushThread.set(null);
               } catch (Throwable thwbl) {
@@ -155,13 +155,13 @@ public class IngestClient implements AutoCloseable {
     return ret;
   }
 
-  private void flushLoop(long flushTimeNanos) {
+  private void flushLoop(long flushTimeMs) {
     try {
-      long nowNanos = System.nanoTime();
-      long waitTimeNanos = flushTimeNanos - nowNanos + lastFlush;
+      long now = System.currentTimeMillis();
+      long waitTimeMs = flushTimeMs - now + lastFlush;
       synchronized (this) {
-        if (waitTimeNanos > 0) {
-          wait(waitTimeNanos / 1_000_000L, (int) (waitTimeNanos % 1_000_000L));
+        if (waitTimeMs > 0) {
+          wait(waitTimeMs);
         }
       }
       synchronized (IngestClient.this) {
@@ -591,6 +591,6 @@ public class IngestClient implements AutoCloseable {
       }
       bulkBuilder.clear();
     }
-    lastFlush = System.nanoTime();
+    lastFlush = System.currentTimeMillis();
   }
 }

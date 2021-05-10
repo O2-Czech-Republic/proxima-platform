@@ -78,6 +78,12 @@ public class KeyAttributeTest {
     ka = KeyAttributes.ofAttributeDescriptor(gateway, "gw", device, 1L, "1");
     ka2 = KeyAttributes.ofAttributeDescriptor(gateway, "gw", device, 1L, "1");
     assertEquals(ka, ka2);
+    ka = KeyAttributes.ofMissingAttribute(gateway, "key", status);
+    ka2 = KeyAttributes.ofMissingAttribute(gateway, "key", status);
+    assertEquals(ka, ka2);
+    ka = KeyAttributes.ofMissingAttribute(gateway, "key", device, "1");
+    ka2 = KeyAttributes.ofMissingAttribute(gateway, "key", device, "1");
+    assertEquals(ka, ka2);
     try {
       KeyAttributes.ofAttributeDescriptor(gateway, "gw", device, 1L);
       fail("Should have thrown exception");

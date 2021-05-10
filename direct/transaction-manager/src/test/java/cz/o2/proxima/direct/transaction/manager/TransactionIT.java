@@ -36,8 +36,10 @@ import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.Response.Flags;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -49,6 +51,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Before;
 import org.junit.Test;
@@ -187,6 +190,150 @@ public class TransactionIT {
       throw new RuntimeException(err.get());
     }
     verifyNumDevicesMatch(numWrites, numUsers, true);
+  }
+
+  @Test(timeout = 100_000)
+  public void testDeletedAttributeGet() throws InterruptedException {
+    // check atomic swap of data between two attributes
+    // a value is read from attribute X, incremented and written to attribute Y and deleted from X
+    // if value is not present in attribute X, it is read from attribute Y, and written to X
+
+    int numWrites = 1000;
+    int numThreads = 20;
+
+    CountDownLatch latch = new CountDownLatch(numThreads);
+    ExecutorService service = direct.getContext().getExecutorService();
+    AtomicReference<Throwable> err = new AtomicReference<>();
+    int numWritesPerThread = numWrites / numThreads;
+    String attrA = device.toAttributePrefix() + "A";
+    String attrB = device.toAttributePrefix() + "B";
+    String key = "key";
+    // seed value
+    writeSeedValue(attrA, key);
+    for (int i = 0; i < numThreads; i++) {
+      service.submit(
+          () -> {
+            try {
+              for (int j = 0; j < numWritesPerThread; j++) {
+                swapValueBetween(key, attrA, attrB);
+              }
+            } catch (InterruptedException ex) {
+              Thread.currentThread().interrupt();
+            } catch (Throwable ex) {
+              err.set(ex);
+            }
+            latch.countDown();
+          });
+    }
+
+    latch.await();
+    if (err.get() != null) {
+      throw new RuntimeException(err.get());
+    }
+    verifyNumInAttributeIs(key, numWrites + 1, attrA);
+  }
+
+  private void writeSeedValue(String attribute, String key) {
+    String transactionId = "firstTransaction";
+    BlockingQueue<Long> sequenceId = new ArrayBlockingQueue<>(1);
+    client.begin(
+        transactionId,
+        (a, b) -> ExceptionUtils.unchecked(() -> sequenceId.put(b.getSeqId())),
+        Collections.singletonList(
+            KeyAttributes.ofMissingAttribute(user, key, device, device.extractSuffix(attribute))));
+    StreamElement upsert =
+        device.upsert(
+            ExceptionUtils.uncheckedFactory(sequenceId::take),
+            key,
+            device.extractSuffix(attribute),
+            System.currentTimeMillis(),
+            ByteBuffer.allocate(4).putInt(1).array());
+    client.commit(transactionId, Collections.singletonList(KeyAttributes.ofStreamElement(upsert)));
+    view.write(upsert, (succ, exc) -> {});
+  }
+
+  private void swapValueBetween(String key, String attrA, String attrB)
+      throws InterruptedException {
+    long abortWaitDuration = (long) (random.nextDouble() * 40 + 10);
+    do {
+      String transactionId = UUID.randomUUID().toString();
+      BlockingQueue<Response> responses = new ArrayBlockingQueue<>(1);
+      Optional<KeyValue<byte[]>> valA = view.get(key, attrA, device);
+      Optional<KeyValue<byte[]>> valB = view.get(key, attrB, device);
+      final List<KeyAttribute> fetched =
+          Arrays.asList(
+              valA.isPresent()
+                  ? KeyAttributes.ofStreamElement(valA.get())
+                  : KeyAttributes.ofMissingAttribute(
+                      user, key, device, device.extractSuffix(attrA)),
+              valB.isPresent()
+                  ? KeyAttributes.ofStreamElement(valB.get())
+                  : KeyAttributes.ofMissingAttribute(
+                      user, key, device, device.extractSuffix(attrB)));
+
+      client.begin(
+          transactionId,
+          (id, resp) -> ExceptionUtils.unchecked(() -> responses.put(resp)),
+          fetched);
+
+      Response response = responses.take();
+      if (response.getFlags() != Flags.OPEN) {
+        TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
+        abortWaitDuration *= 2;
+        continue;
+      }
+      long sequentialId = response.getSeqId();
+
+      final List<StreamElement> updates;
+      if (valA.isPresent()) {
+        int currentVal = ByteBuffer.wrap(valA.get().getParsedRequired()).getInt();
+        updates = updateAttributeAndRemove(sequentialId, key, attrB, attrA, currentVal);
+      } else {
+        int currentVal = ByteBuffer.wrap(valB.get().getParsedRequired()).getInt();
+        updates = updateAttributeAndRemove(sequentialId, key, attrA, attrB, currentVal);
+      }
+
+      client.commit(
+          transactionId,
+          updates.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList()));
+
+      response = responses.take();
+      if (response.getFlags() != Flags.COMMITTED) {
+        TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
+        abortWaitDuration *= 2;
+        continue;
+      }
+
+      CountDownLatch latch = new CountDownLatch(updates.size());
+      CommitCallback callback = (succ, exc) -> latch.countDown();
+      updates.forEach(u -> view.write(u, callback));
+      latch.await();
+      break;
+
+    } while (true);
+  }
+
+  private List<StreamElement> updateAttributeAndRemove(
+      long sequentialId, String key, String toUpdate, String toDelete, int currentVal) {
+    List<StreamElement> ret = new ArrayList<>();
+    ret.add(
+        device.upsert(
+            sequentialId,
+            key,
+            device.extractSuffix(toUpdate),
+            System.currentTimeMillis(),
+            ByteBuffer.allocate(4).putInt(currentVal + 1).array()));
+    ret.add(
+        device.delete(
+            sequentialId, key, device.extractSuffix(toDelete), System.currentTimeMillis()));
+    Collections.shuffle(ret);
+    return ret;
+  }
+
+  private void verifyNumInAttributeIs(String key, int numWrites, String attr) {
+    Optional<KeyValue<byte[]>> value = view.get(key, attr, device, Long.MAX_VALUE);
+    assertTrue(value.isPresent());
+    assertEquals(numWrites, ByteBuffer.wrap(value.get().getParsedRequired()).getInt());
   }
 
   private void removeSingleDevice(int numUsers) throws InterruptedException {

@@ -429,7 +429,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
                   .setEntity(a.getEntity().getName())
                   .setAttributeDesc(a.getAttributeDescriptor().getName())
                   .setKey(a.getKey())
-                  .setAttribute(a.getAttribute().orElse(""))
+                  .setAttribute(a.getAttributeSuffix().orElse(""))
                   .setSeqId(a.getSequenceId())
                   .setDelete(a.isDelete())
                   .build());

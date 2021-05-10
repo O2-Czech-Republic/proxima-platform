@@ -180,6 +180,7 @@ public class ProtoSerializerFactoryTest {
 
     KeyAttribute keyAttributeSingleWildcard = KeyAttributes.ofStreamElement(update);
     KeyAttribute keyAttributeDelete = KeyAttributes.ofStreamElement(delete);
+    KeyAttribute missingGet = KeyAttributes.ofMissingAttribute(transaction, "t", request, "1");
 
     List<Pair<Object, AttributeDescriptor<?>>> toVerify =
         Arrays.asList(
@@ -208,6 +209,7 @@ public class ProtoSerializerFactoryTest {
                     .update(Collections.singletonList(keyAttributeSingleWildcard)),
                 state),
             Pair.of(State.open(1L, Sets.newHashSet(keyAttribute)).aborted(), state),
+            Pair.of(State.open(1L, Sets.newHashSet(missingGet)).aborted(), state),
             Pair.of(
                 State.open(1L, Sets.newHashSet(keyAttributeSingleWildcard))
                     .committed(Sets.newHashSet(keyAttributeSingleWildcard)),

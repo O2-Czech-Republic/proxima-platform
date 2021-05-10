@@ -43,7 +43,7 @@ public class KeyAttribute implements Serializable {
   @Getter private final AttributeDescriptor<?> attributeDescriptor;
   @Getter private final long sequenceId;
   @Getter private final boolean delete;
-  @Nullable private final String attribute;
+  @Nullable private final String attributeSuffix;
 
   public KeyAttribute(
       EntityDescriptor entity,
@@ -51,23 +51,29 @@ public class KeyAttribute implements Serializable {
       AttributeDescriptor<?> attributeDescriptor,
       long sequenceId,
       boolean delete,
-      @Nullable String attribute) {
+      @Nullable String attributeSuffix) {
 
     this.entity = entity;
     this.key = key;
     this.attributeDescriptor = attributeDescriptor;
     this.sequenceId = sequenceId;
     this.delete = delete;
-    this.attribute = attribute;
+    this.attributeSuffix = attributeSuffix;
 
     Preconditions.checkArgument(sequenceId > 0, "Sequence ID must be positive, got %s", sequenceId);
+    Preconditions.checkArgument(
+        attributeSuffix == null
+            || !attributeSuffix.startsWith(attributeDescriptor.toAttributePrefix()),
+        "Attribute suffix %s must NOT start with %s",
+        attributeSuffix,
+        attributeDescriptor.toAttributePrefix());
   }
 
-  public Optional<String> getAttribute() {
-    return Optional.ofNullable(attribute);
+  public Optional<String> getAttributeSuffix() {
+    return Optional.ofNullable(attributeSuffix);
   }
 
   public boolean isWildcardQuery() {
-    return attributeDescriptor.isWildcard() && attribute == null;
+    return attributeDescriptor.isWildcard() && attributeSuffix == null;
   }
 }

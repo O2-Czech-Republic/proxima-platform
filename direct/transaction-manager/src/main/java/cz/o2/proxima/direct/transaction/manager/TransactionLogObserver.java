@@ -60,7 +60,8 @@ class TransactionLogObserver implements LogObserver {
         return new KeyWithAttribute(ka.getKey(), ka.getAttributeDescriptor().toAttributePrefix());
       }
       return new KeyWithAttribute(
-          ka.getKey(), ka.getAttribute().orElse(ka.getAttributeDescriptor().getName()));
+          ka.getKey(),
+          ka.getAttributeDescriptor().toAttributePrefix() + ka.getAttributeSuffix().orElse(""));
     }
 
     static KeyWithAttribute ofWildcard(KeyAttribute ka) {
@@ -177,7 +178,7 @@ class TransactionLogObserver implements LogObserver {
         if (request.getFlags() == Request.Flags.OPEN) {
           long seqId = sequenceId.getAndIncrement();
           State proposedState = State.open(seqId, new HashSet<>(request.getInputAttributes()));
-          if (notInConflict(request.getInputAttributes())) {
+          if (verifyNotInConflict(request.getInputAttributes())) {
             return proposedState;
           }
           return proposedState.aborted();
@@ -185,7 +186,7 @@ class TransactionLogObserver implements LogObserver {
         break;
       case OPEN:
         if (request.getFlags() == Request.Flags.COMMIT) {
-          if (!notInConflict(currentState.getInputAttributes())) {
+          if (!verifyNotInConflict(currentState.getInputAttributes())) {
             return currentState.aborted();
           }
           State proposedState = currentState.committed(request.getOutputAttributes());
@@ -202,7 +203,7 @@ class TransactionLogObserver implements LogObserver {
     return null;
   }
 
-  private boolean notInConflict(Collection<KeyAttribute> inputAttributes) {
+  private boolean verifyNotInConflict(Collection<KeyAttribute> inputAttributes) {
 
     List<Pair<KeyWithAttribute, Boolean>> affectedWildcards =
         inputAttributes
@@ -261,7 +262,13 @@ class TransactionLogObserver implements LogObserver {
         .noneMatch(
             ka -> {
               SeqIdWithTombstone lastUpdated = lastUpdateSeqId.get(KeyWithAttribute.of(ka));
-              return lastUpdated != null && lastUpdated.getSeqId() > ka.getSequenceId();
+              if (lastUpdated == null) {
+                return false;
+              }
+              return lastUpdated.getSeqId() > ka.getSequenceId()
+                  // we can accept somewhat stale data if the state is equal => both agree that the
+                  // field was deleted
+                  && (!lastUpdated.isTombstone() || !ka.isDelete());
             });
   }
 
@@ -275,13 +282,6 @@ class TransactionLogObserver implements LogObserver {
 
   private void transactionPostCommit(State state) {
     long committedSeqId = state.getSequentialId();
-    Set<KeyWithAttribute> committedAttributes =
-        state
-            .getCommittedAttributes()
-            .stream()
-            .map(KeyWithAttribute::of)
-            .collect(Collectors.toSet());
-
     state
         .getCommittedAttributes()
         .forEach(

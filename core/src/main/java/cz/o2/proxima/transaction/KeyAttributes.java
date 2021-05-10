@@ -116,6 +116,48 @@ public class KeyAttributes {
   }
 
   /**
+   * Create {@link KeyAttribute} for given entity, key and attribute descriptor. This represents a
+   * missing value, that is a value that was either not-yet written or already deleted.
+   *
+   * @param entity the entity descriptor
+   * @param key the entity key
+   * @param attributeDescriptor descriptor of wildcard or regular attribute
+   */
+  public static KeyAttribute ofMissingAttribute(
+      EntityDescriptor entity, String key, AttributeDescriptor<?> attributeDescriptor) {
+
+    Preconditions.checkArgument(
+        !attributeDescriptor.isWildcard(),
+        "Please specify use #ofMissingAttribute without suffix for "
+            + "non-wildcard attributes only. Got attribute %s",
+        attributeDescriptor);
+    return new KeyAttribute(entity, key, attributeDescriptor, 1L, true, null);
+  }
+
+  /**
+   * Create {@link KeyAttribute} for given entity, key and attribute descriptor. This represents a
+   * missing value, that is a value that was either not-yet written or already deleted.
+   *
+   * @param entity the entity descriptor
+   * @param key the entity key
+   * @param attributeDescriptor descriptor of wildcard or regular attribute
+   * @param attributeSuffix a specific attribute suffix when {@code attributeDescriptor} is wildcard
+   *     attribute
+   */
+  public static KeyAttribute ofMissingAttribute(
+      EntityDescriptor entity,
+      String key,
+      AttributeDescriptor<?> attributeDescriptor,
+      String attributeSuffix) {
+
+    Preconditions.checkArgument(
+        attributeSuffix != null,
+        "Please specify attribute suffix for wildcard attributes. Got attribute %s",
+        attributeDescriptor);
+    return new KeyAttribute(entity, key, attributeDescriptor, 1L, true, attributeSuffix);
+  }
+
+  /**
    * Create a {@link KeyAttribute} for given {@link StreamElement}.
    *
    * @param element the {@link StreamElement} that should be part of the transaction
@@ -132,6 +174,10 @@ public class KeyAttributes {
         element.getAttributeDescriptor(),
         element.getSequentialId(),
         element.isDelete(),
-        element.getAttributeDescriptor().isWildcard() ? element.getAttribute() : null);
+        element.getAttributeDescriptor().isWildcard()
+            ? element
+                .getAttribute()
+                .substring(element.getAttributeDescriptor().toAttributePrefix().length())
+            : null);
   }
 }

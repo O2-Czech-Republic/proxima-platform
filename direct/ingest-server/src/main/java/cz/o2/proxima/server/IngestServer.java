@@ -29,7 +29,12 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.StreamElement;
+import io.grpc.Metadata;
+import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.grpc.ServerCall;
+import io.grpc.ServerCall.Listener;
+import io.grpc.ServerCallHandler;
 import java.io.File;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -189,12 +194,8 @@ public class IngestServer {
   private void run() {
     final int port =
         cfg.hasPath(Constants.CFG_PORT) ? cfg.getInt(Constants.CFG_PORT) : Constants.DEFAULT_PORT;
-    io.grpc.Server server =
-        ServerBuilder.forPort(port)
-            .executor(executor)
-            .addService(new IngestService(repo, direct, scheduler))
-            .addService(new RetrieveService(repo, direct))
-            .build();
+
+    io.grpc.Server server = createServer(port);
 
     Runtime.getRuntime()
         .addShutdownHook(
@@ -216,6 +217,22 @@ public class IngestServer {
     Metrics.LIVENESS.reset();
   }
 
+  private Server createServer(int port) {
+    return createServer(port, log.isDebugEnabled());
+  }
+
+  Server createServer(int port, boolean debug) {
+    ServerBuilder<?> builder =
+        ServerBuilder.forPort(port)
+            .executor(executor)
+            .addService(new IngestService(repo, direct, scheduler))
+            .addService(new RetrieveService(repo, direct));
+    if (debug) {
+      builder = builder.intercept(new IngestServerInterceptor());
+    }
+    return builder.build();
+  }
+
   @VisibleForTesting
   void runReplications() {
     final ReplicationController replicationController = ReplicationController.of(repo);
@@ -227,5 +244,22 @@ public class IngestServer {
                 Utils.die(error.getMessage(), error);
               }
             });
+  }
+
+  private static class IngestServerInterceptor implements io.grpc.ServerInterceptor {
+
+    @Override
+    public <ReqT, RespT> Listener<ReqT> interceptCall(
+        ServerCall<ReqT, RespT> serverCall,
+        Metadata metadata,
+        ServerCallHandler<ReqT, RespT> serverCallHandler) {
+
+      log.debug(
+          "Received call {} with attributes {} and metadata {}",
+          serverCall.getMethodDescriptor(),
+          serverCall.getAttributes(),
+          metadata);
+      return serverCallHandler.startCall(serverCall, metadata);
+    }
   }
 }

@@ -206,7 +206,7 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
                         statusQueue.add(status);
                         if (statusQueue.size() >= MAX_QUEUED_STATUSES) {
                           // enqueue flush
-                          lastFlushMs.set(Long.MIN_VALUE);
+                          lastFlushMs.set(0L);
                           scheduler.execute(flushTask);
                         }
                         if (inflightRequests.decrementAndGet() == 0) {

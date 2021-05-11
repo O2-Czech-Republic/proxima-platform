@@ -197,6 +197,34 @@ public class IngestServiceTest {
   }
 
   @Test(timeout = 10000)
+  public void testIngestBulkResponseFlush() throws Exception {
+    int numElements = 2303;
+    StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
+    result.onNext(
+        bulk(
+            numElements,
+            Rpc.Ingest.newBuilder()
+                .setEntity("dummy")
+                .setAttribute("data")
+                .setUuid(UUID.randomUUID().toString())
+                .setKey("my-dummy-entity")
+                .setValue(ByteString.EMPTY)
+                .build()));
+
+    int receivedResponses = 0;
+    while (receivedResponses < numElements) {
+      Rpc.Status status = responses.take();
+      assertEquals(200, status.getStatus());
+      receivedResponses++;
+    }
+
+    InMemStorage storage = getInMemStorage();
+    Map<String, Pair<Long, byte[]>> data = storage.getData();
+    assertEquals(1, data.size());
+    assertArrayEquals(new byte[0], data.get("/proxima/dummy/my-dummy-entity#data").getSecond());
+  }
+
+  @Test(timeout = 10000)
   public void testIngestBulkWildcardEntityAttribute() throws Exception {
 
     StreamObserver<Rpc.IngestBulk> result = ingest.ingestBulk(responseObserver);
@@ -269,9 +297,15 @@ public class IngestServiceTest {
   }
 
   private Rpc.IngestBulk bulk(Rpc.Ingest... ingests) {
+    return bulk(1, ingests);
+  }
+
+  private Rpc.IngestBulk bulk(int numCopies, Rpc.Ingest... ingests) {
     Rpc.IngestBulk.Builder ret = Rpc.IngestBulk.newBuilder();
-    for (Rpc.Ingest ingest : ingests) {
-      ret.addIngest(ingest);
+    for (int i = 0; i < numCopies; i++) {
+      for (Rpc.Ingest ingest : ingests) {
+        ret.addIngest(ingest);
+      }
     }
     return ret.build();
   }

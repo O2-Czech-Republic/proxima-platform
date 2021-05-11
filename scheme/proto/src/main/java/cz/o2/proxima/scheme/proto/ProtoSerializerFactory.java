@@ -16,20 +16,27 @@
 package cz.o2.proxima.scheme.proto;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.AbstractMessage;
 import com.google.protobuf.Message.Builder;
 import com.google.protobuf.Parser;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.util.JsonFormat;
-import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.functional.BiFunction;
+import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.scheme.AttributeValueAccessor;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
+import cz.o2.proxima.scheme.proto.transactions.Transactions;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoRequest;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoResponse;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoState;
 import cz.o2.proxima.scheme.proto.utils.ProtoUtils;
+import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
@@ -39,9 +46,12 @@ import cz.o2.proxima.util.ExceptionUtils;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
@@ -112,6 +122,10 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     @Nullable private transient SchemaTypeDescriptor<MessageT> valueSchemaDescriptor;
 
     @Nullable private transient ProtoMessageValueAccessor<MessageT> accessor;
+
+    ProtoValueSerializer(Class<MessageT> protoClass) {
+      this(protoClass.getName());
+    }
 
     ProtoValueSerializer(String protoClass) {
       this.protoClass = protoClass;
@@ -199,41 +213,238 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
   }
 
   @VisibleForTesting
-  static class TransactionProtoSerializer<T> implements ValueSerializer<T> {
+  static class TransactionProtoSerializer<TransactionT, ProtoTransactionT extends AbstractMessage>
+      implements ValueSerializer<TransactionT>, ValueSerializer.InitializedWithRepository {
 
-    @SuppressWarnings("unchecked")
-    static <V> TransactionProtoSerializer<V> ofTransactionClass(String className) {
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    static <V, P extends AbstractMessage> TransactionProtoSerializer<V, P> ofTransactionClass(
+        String className) {
+
       switch (className) {
         case "cz.o2.proxima.transaction.Request":
-          return (TransactionProtoSerializer<V>)
-              new TransactionProtoSerializer<>(
+          return (TransactionProtoSerializer)
+              new TransactionProtoSerializer<Request, ProtoRequest>(
                   new ProtoValueSerializer<>(ProtoRequest.class.getName()),
-                  req -> ProtoRequest.newBuilder().build(),
-                  req -> Request.of());
+                  TransactionProtoSerializer::requestToProto,
+                  TransactionProtoSerializer::requestFromProto);
         case "cz.o2.proxima.transaction.Response":
-          return (TransactionProtoSerializer<V>)
-              new TransactionProtoSerializer<>(
+          return (TransactionProtoSerializer)
+              new TransactionProtoSerializer<Response, ProtoResponse>(
                   new ProtoValueSerializer<>(ProtoResponse.class.getName()),
-                  req -> ProtoResponse.newBuilder().build(),
-                  req -> Response.of());
+                  TransactionProtoSerializer::responseToProto,
+                  TransactionProtoSerializer::responseFromProto);
         case "cz.o2.proxima.transaction.State":
-          return (TransactionProtoSerializer<V>)
-              new TransactionProtoSerializer<>(
+          return (TransactionProtoSerializer)
+              new TransactionProtoSerializer<State, ProtoState>(
                   new ProtoValueSerializer<>(ProtoState.class.getName()),
-                  req -> ProtoState.newBuilder().build(),
-                  req -> State.of());
+                  TransactionProtoSerializer::stateToProto,
+                  TransactionProtoSerializer::stateFromProto);
       }
       throw new UnsupportedOperationException("Unknown className of transactions: " + className);
     }
 
-    private final ProtoValueSerializer<AbstractMessage> inner;
-    private final UnaryFunction<T, AbstractMessage> asMessage;
-    private final UnaryFunction<AbstractMessage, T> asTransaction;
+    private static State stateFromProto(Repository repository, ProtoState state) {
+      switch (state.getFlags()) {
+        case UNKNOWN:
+          return State.empty();
+        case OPEN:
+          return State.open(
+              state.getSeqId(),
+              new HashSet<>(getKeyAttributesFromProto(repository, state.getInputAttributesList())));
+        case COMMITTED:
+          return State.open(
+                  state.getSeqId(),
+                  new HashSet<>(
+                      getKeyAttributesFromProto(repository, state.getInputAttributesList())))
+              .committed(
+                  new HashSet<>(
+                      getKeyAttributesFromProto(repository, state.getCommittedAttributesList())));
+        case ABORTED:
+          return State.open(
+                  state.getSeqId(),
+                  new HashSet<>(
+                      getKeyAttributesFromProto(repository, state.getInputAttributesList())))
+              .aborted();
+        default:
+          throw new IllegalStateException("Unknown flags: " + state.getFlags());
+      }
+    }
+
+    private static ProtoState stateToProto(Repository repository, State state) {
+      return ProtoState.newBuilder()
+          .setFlags(asFlags(state.getFlags()))
+          .addAllInputAttributes(asProtoKeyAttributes(state.getInputAttributes()))
+          .addAllCommittedAttributes(asProtoKeyAttributes(state.getCommittedAttributes()))
+          .setSeqId(state.getSequentialId())
+          .build();
+    }
+
+    private static Response responseFromProto(Repository repository, ProtoResponse response) {
+      switch (response.getFlags()) {
+        case UNKNOWN:
+          return Response.empty();
+        case OPEN:
+          return Response.open(response.getSeqId());
+        case COMMITTED:
+          return Response.committed();
+        case ABORTED:
+          return Response.aborted();
+        case DUPLICATE:
+          return Response.duplicate();
+        case UPDATE:
+          return Response.updated();
+        default:
+          throw new IllegalArgumentException("Unknown flag: " + response.getFlags());
+      }
+    }
+
+    private static ProtoResponse responseToProto(Repository repository, Response response) {
+      return ProtoResponse.newBuilder()
+          .setFlags(asFlags(response.getFlags()))
+          .setSeqId(response.hasSequenceId() ? response.getSeqId() : 0L)
+          .build();
+    }
+
+    private static ProtoRequest requestToProto(Repository repository, Request request) {
+      return ProtoRequest.newBuilder()
+          .addAllInputAttribute(asProtoKeyAttributes(request.getInputAttributes()))
+          .addAllOutputAttribute(asProtoKeyAttributes(request.getOutputAttributes()))
+          .setFlags(asFlags(request.getFlags()))
+          .build();
+    }
+
+    private static Request requestFromProto(Repository repository, ProtoRequest protoRequest) {
+      return Request.builder()
+          .inputAttributes(
+              getKeyAttributesFromProto(repository, protoRequest.getInputAttributeList()))
+          .outputAttributes(
+              getKeyAttributesFromProto(repository, protoRequest.getOutputAttributeList()))
+          .flags(asFlags(protoRequest.getFlags()))
+          .build();
+    }
+
+    private static Request.Flags asFlags(Transactions.Flags flags) {
+      switch (flags) {
+        case UNKNOWN:
+          return Request.Flags.NONE;
+        case OPEN:
+          return Request.Flags.OPEN;
+        case COMMITTED:
+          return Request.Flags.COMMIT;
+        case UPDATE:
+          return Request.Flags.UPDATE;
+        case ROLLBACK:
+          return Request.Flags.ROLLBACK;
+        default:
+          throw new IllegalArgumentException("Unknown flags: " + flags);
+      }
+    }
+
+    private static Transactions.Flags asFlags(Response.Flags flags) {
+      switch (flags) {
+        case NONE:
+          return Transactions.Flags.UNKNOWN;
+        case OPEN:
+          return Transactions.Flags.OPEN;
+        case COMMITTED:
+          return Transactions.Flags.COMMITTED;
+        case ABORTED:
+          return Transactions.Flags.ABORTED;
+        case DUPLICATE:
+          return Transactions.Flags.DUPLICATE;
+        case UPDATED:
+          return Transactions.Flags.UPDATE;
+        default:
+          throw new IllegalArgumentException("Unknown flags: " + flags);
+      }
+    }
+
+    private static Transactions.Flags asFlags(State.Flags flags) {
+      switch (flags) {
+        case UNKNOWN:
+          return Transactions.Flags.UNKNOWN;
+        case OPEN:
+          return Transactions.Flags.OPEN;
+        case COMMITTED:
+          return Transactions.Flags.COMMITTED;
+        case ABORTED:
+          return Transactions.Flags.ABORTED;
+        default:
+          throw new IllegalArgumentException("Unknown flags: " + flags);
+      }
+    }
+
+    private static Transactions.Flags asFlags(Request.Flags flags) {
+      switch (flags) {
+        case NONE:
+          return Transactions.Flags.UNKNOWN;
+        case OPEN:
+          return Transactions.Flags.OPEN;
+        case COMMIT:
+          return Transactions.Flags.COMMITTED;
+        case UPDATE:
+          return Transactions.Flags.UPDATE;
+        case ROLLBACK:
+          return Transactions.Flags.ROLLBACK;
+        default:
+          throw new IllegalArgumentException("Unknown flags: " + flags);
+      }
+    }
+
+    private static List<KeyAttribute> getKeyAttributesFromProto(
+        Repository repo, List<Transactions.KeyAttribute> attrList) {
+
+      return attrList
+          .stream()
+          .map(
+              a -> {
+                EntityDescriptor entity = repo.getEntity(a.getEntity());
+                if (Strings.isNullOrEmpty(a.getAttribute())) {
+                  return new KeyAttribute(
+                      entity,
+                      a.getKey(),
+                      entity.getAttribute(a.getAttributeDesc()),
+                      a.getSeqId(),
+                      a.getDelete(),
+                      null);
+                }
+                return new KeyAttribute(
+                    entity,
+                    a.getKey(),
+                    entity.getAttribute(a.getAttributeDesc()),
+                    a.getSeqId(),
+                    a.getDelete(),
+                    a.getAttribute());
+              })
+          .collect(Collectors.toList());
+    }
+
+    private static Iterable<Transactions.KeyAttribute> asProtoKeyAttributes(
+        Iterable<KeyAttribute> inputAttributes) {
+
+      return Iterables.transform(
+          inputAttributes,
+          a ->
+              Transactions.KeyAttribute.newBuilder()
+                  .setEntity(a.getEntity().getName())
+                  .setAttributeDesc(a.getAttributeDescriptor().getName())
+                  .setKey(a.getKey())
+                  .setAttribute(a.getAttributeSuffix().orElse(""))
+                  .setSeqId(a.getSequenceId())
+                  .setDelete(a.isDelete())
+                  .build());
+    }
+
+    private final ProtoValueSerializer<ProtoTransactionT> inner;
+    private final BiFunction<Repository, TransactionT, ProtoTransactionT> asMessage;
+    private final BiFunction<Repository, ProtoTransactionT, TransactionT> asTransaction;
+    private RepositoryFactory repoFactory;
+    private transient Repository repo;
 
     public TransactionProtoSerializer(
-        ProtoValueSerializer<AbstractMessage> inner,
-        UnaryFunction<T, AbstractMessage> asMessage,
-        UnaryFunction<AbstractMessage, T> asTransaction) {
+        ProtoValueSerializer<ProtoTransactionT> inner,
+        BiFunction<Repository, TransactionT, ProtoTransactionT> asMessage,
+        BiFunction<Repository, ProtoTransactionT, TransactionT> asTransaction) {
 
       this.inner = inner;
       this.asMessage = asMessage;
@@ -241,18 +452,31 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
     }
 
     @Override
-    public Optional<T> deserialize(byte[] input) {
-      return inner.deserialize(input).map(asTransaction::apply);
+    public Optional<TransactionT> deserialize(byte[] input) {
+      return inner.deserialize(input).map(m -> asTransaction.apply(repo(), m));
     }
 
     @Override
-    public byte[] serialize(T value) {
-      return inner.serialize(asMessage.apply(value));
+    public byte[] serialize(TransactionT value) {
+      return inner.serialize(asMessage.apply(repo(), value));
     }
 
     @Override
-    public T getDefault() {
-      return asTransaction.apply(inner.getDefault());
+    public TransactionT getDefault() {
+      return asTransaction.apply(repo(), inner.getDefault());
+    }
+
+    private Repository repo() {
+      if (repo == null && repoFactory != null) {
+        repo = repoFactory.apply();
+      }
+      return repo;
+    }
+
+    @Override
+    public void setRepository(Repository repository) {
+      this.repo = repository;
+      this.repoFactory = repo.asFactory();
     }
   }
 }

@@ -81,6 +81,7 @@
         <module>io-bigtable</module>
         <module>io-blob</module>
         <module>io-bulkfs</module>
+        <module>io-bulkfs-parquet</module>
         <module>io-cassandra</module>
         <module>io-gcloud-storage</module>
         <module>io-hadoop</module>
@@ -92,7 +93,7 @@
         <module>io-pubsub</module>
         <module>io-s3</module>
         <module>rpc</module>
-        <module>io-bulkfs-parquet</module>
+        <module>transaction-manager</module>
       </modules>
     </profile>
 
@@ -110,6 +111,7 @@
         <module>io-bigtable</module>
         <module>io-blob</module>
         <module>io-bulkfs</module>
+        <module>io-bulkfs-parquet</module>
         <module>io-cassandra</module>
         <module>io-gcloud-storage</module>
         <module>io-http</module>
@@ -117,7 +119,7 @@
         <module>io-pubsub</module>
         <module>io-s3</module>
         <module>rpc</module>
-        <module>io-bulkfs-parquet</module>
+        <module>transaction-manager</module>
       </modules>
     </profile>
   </profiles>

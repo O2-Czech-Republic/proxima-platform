@@ -17,6 +17,8 @@ package cz.o2.proxima.util;
 
 import static org.junit.Assert.*;
 
+import cz.o2.proxima.functional.BiConsumer;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 
 /** Test {@link ExceptionUtils}. */
@@ -37,6 +39,25 @@ public class ExceptionUtilsTest {
     assertFalse(ExceptionUtils.isInterrupted(new RuntimeException()));
     assertTrue(ExceptionUtils.isInterrupted(new InterruptedException()));
     assertTrue(ExceptionUtils.isInterrupted(new RuntimeException(new InterruptedException())));
+  }
+
+  @Test
+  public void testThrowingBiConsumer() {
+    AtomicReference<Pair<String, String>> res = new AtomicReference<>();
+    BiConsumer<String, String> consumer =
+        ExceptionUtils.uncheckedBiConsumer((a, b) -> res.set(Pair.of(a, b)));
+    consumer.accept("a", "b");
+    assertEquals(Pair.of("a", "b"), res.get());
+    try {
+      ExceptionUtils.uncheckedBiConsumer(
+              (a, b) -> {
+                throw new IllegalStateException();
+              })
+          .accept(null, null);
+      fail("Should have thrown exception");
+    } catch (RuntimeException ex) {
+      assertTrue(ex.getCause() instanceof IllegalStateException);
+    }
   }
 
   @Test

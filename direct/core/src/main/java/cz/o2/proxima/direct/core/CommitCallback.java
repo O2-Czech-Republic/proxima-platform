@@ -15,12 +15,41 @@
  */
 package cz.o2.proxima.direct.core;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Stable;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Callback for write and commit log operations. */
 @Stable
 @FunctionalInterface
 public interface CommitCallback {
+
+  /**
+   * Create new {@link CommitCallback} that will commit the delegate after
+   *
+   * <ul>
+   *   <li>{@code numCommits} successful commits as successful, or
+   *   <li>after first error as failed
+   * </ul>
+   *
+   * @param numCommits
+   * @param delegate
+   * @return
+   */
+  static CommitCallback afterNumCommits(int numCommits, CommitCallback delegate) {
+    Preconditions.checkState(numCommits > 0, "numCommits must be positive, got %s", numCommits);
+    AtomicInteger missingCommits = new AtomicInteger(numCommits);
+    return (succ, exc) -> {
+      if (succ) {
+        if (missingCommits.decrementAndGet() == 0) {
+          delegate.commit(true, null);
+        }
+      } else if (missingCommits.get() > 0) {
+        missingCommits.set(-1);
+        delegate.commit(false, exc);
+      }
+    };
+  }
 
   static CommitCallback noop() {
     return (success, error) -> {};

@@ -47,7 +47,7 @@ public class FloatSerializer implements ValueSerializerFactory {
           public Optional<Float> deserialize(byte[] input) {
             try {
               ByteBuffer buffer = ByteBuffer.wrap(input);
-              return Optional.ofNullable(buffer.getFloat());
+              return Optional.of(buffer.getFloat());
             } catch (Exception ex) {
               log.warn("Failed to parse bytes {}", Arrays.toString(input));
               return Optional.empty();

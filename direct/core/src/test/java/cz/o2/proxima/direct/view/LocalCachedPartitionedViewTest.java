@@ -84,6 +84,24 @@ public class LocalCachedPartitionedViewTest {
     assertTrue(view.get("key", armed, now).isPresent());
   }
 
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  @Test
+  public void testWriteSimpleWithCallback() {
+    AtomicReference<Pair<StreamElement, Pair<Long, byte[]>>> updated = new AtomicReference<>();
+    view.assign(singlePartition(), (update, old) -> updated.set(Pair.of(update, (Pair) old)));
+    writer.write(update("key", armed, now), (succ, exc) -> {});
+    assertEquals("key", updated.get().getFirst().getKey());
+    assertNull(updated.get().getSecond());
+    assertTrue(view.get("key", armed, now).isPresent());
+    assertFalse(view.get("key", armed, now - 1).isPresent());
+    writer.write(delete("key", armed, now + 1), (succ, exc) -> {});
+    assertEquals("key", updated.get().getFirst().getKey());
+    assertEquals(3, updated.get().getSecond().getSecond().length);
+    assertEquals(now, (long) updated.get().getSecond().getFirst());
+    assertFalse(view.get("key", armed, now + 1).isPresent());
+    assertTrue(view.get("key", armed, now).isPresent());
+  }
+
   @Test
   public void testWriteOnCacheError() {
     view.assign(

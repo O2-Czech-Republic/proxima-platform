@@ -16,6 +16,8 @@
 package cz.o2.proxima.direct.commitlog;
 
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
@@ -674,6 +676,17 @@ public class CommitLogReaderTest {
         numElements,
         durations.stream().filter(s -> s >= 500 / numElements).count());
     handle.close();
+  }
+
+  @Test
+  public void testOffsetExternalizer() {
+    CommitLogReader commitLogReader = spy(CommitLogReader.class);
+
+    when(commitLogReader.hasExternalizableOffsets()).thenReturn(false);
+    assertThrows(UnsupportedOperationException.class, commitLogReader::getOffsetExternalizer);
+
+    when(commitLogReader.hasExternalizableOffsets()).thenReturn(true);
+    assertThrows(IllegalStateException.class, commitLogReader::getOffsetExternalizer);
   }
 
   public static ThroughputLimiter withNumRecordsPerSec(int recordsPerSec) {

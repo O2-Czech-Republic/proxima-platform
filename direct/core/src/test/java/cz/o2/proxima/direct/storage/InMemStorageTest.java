@@ -17,6 +17,9 @@ package cz.o2.proxima.direct.storage;
 
 import static org.junit.Assert.*;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
@@ -35,6 +38,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.scheme.SerializationException;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StorageType;
@@ -49,6 +53,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -705,6 +710,57 @@ public class InMemStorageTest implements Serializable {
     assertEquals(1, result.size());
     assertTrue(result.get(0).hasSequentialId());
     assertEquals(1L, result.get(0).getSequentialId());
+  }
+
+  @Test
+  public void testConsumedOffsetExternalizerToJson() throws JsonProcessingException {
+    InMemStorage.ConsumedOffsetExternalizer externalizer =
+        new InMemStorage.ConsumedOffsetExternalizer();
+
+    String json =
+        externalizer.toJson(
+            new ConsumedOffset(Partition.of(1), new HashSet<>(Arrays.asList("a", "b")), 1000L));
+
+    HashMap<String, Object> jsonObject =
+        new ObjectMapper().readValue(json, new TypeReference<HashMap<String, Object>>() {});
+
+    assertEquals(1, jsonObject.get("partition"));
+    assertEquals(Arrays.asList("a", "b"), jsonObject.get("offset"));
+    assertEquals(1000, jsonObject.get("watermark"));
+  }
+
+  @Test
+  public void testConsumedOffsetExternalizerFromJson() {
+    InMemStorage.ConsumedOffsetExternalizer externalizer =
+        new InMemStorage.ConsumedOffsetExternalizer();
+    ConsumedOffset consumedOffset =
+        new ConsumedOffset(Partition.of(1), new HashSet<>(Arrays.asList("a", "b")), 1000L);
+
+    assertEquals(consumedOffset, externalizer.fromJson(externalizer.toJson(consumedOffset)));
+  }
+
+  @Test
+  public void testOffsetExternalizerFromBytesWhenInvalidJson() {
+    InMemStorage.ConsumedOffsetExternalizer externalizer =
+        new InMemStorage.ConsumedOffsetExternalizer();
+    assertThrows(SerializationException.class, () -> externalizer.fromJson(""));
+  }
+
+  @Test
+  public void testConsumedOffsetExternalizerFromBytes() {
+    InMemStorage.ConsumedOffsetExternalizer externalizer =
+        new InMemStorage.ConsumedOffsetExternalizer();
+    ConsumedOffset consumedOffset =
+        new ConsumedOffset(Partition.of(1), new HashSet<>(Arrays.asList("a", "b")), 1000L);
+
+    assertEquals(consumedOffset, externalizer.fromBytes(externalizer.toBytes(consumedOffset)));
+  }
+
+  @Test
+  public void testOffsetExternalizerFromBytesWhenInvalidBytes() {
+    InMemStorage.ConsumedOffsetExternalizer externalizer =
+        new InMemStorage.ConsumedOffsetExternalizer();
+    assertThrows(SerializationException.class, () -> externalizer.fromBytes(new byte[] {0x0}));
   }
 
   private AttributeFamilyDescriptor createFamilyDescriptor(URI storageUri) {

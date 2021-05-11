@@ -17,6 +17,9 @@ package cz.o2.proxima.direct.storage;
 
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -32,6 +35,7 @@ import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.ObserverUtils;
 import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.commitlog.OffsetExternalizer;
 import cz.o2.proxima.direct.core.AbstractOnlineAttributeWriter;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -54,6 +58,7 @@ import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
+import cz.o2.proxima.scheme.SerializationException;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
@@ -157,6 +162,42 @@ public class InMemStorage implements DataAccessorFactory {
     @Override
     public int hashCode() {
       return Objects.hash(watermark, consumedKeyAttr);
+    }
+  }
+
+  public static class ConsumedOffsetExternalizer implements OffsetExternalizer {
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+
+    @Override
+    public String toJson(Offset offset) {
+      try {
+        final ConsumedOffset consumedOffset = (ConsumedOffset) offset;
+        final HashMap<String, Object> jsonMap = new HashMap<>();
+        jsonMap.put("partition", consumedOffset.getPartition().getId());
+        jsonMap.put("offset", consumedOffset.getConsumedKeyAttr());
+        jsonMap.put("watermark", consumedOffset.getWatermark());
+
+        return JSON_MAPPER.writeValueAsString(jsonMap);
+      } catch (JsonProcessingException e) {
+        throw new SerializationException("Offset can't be externalized to Json", e);
+      }
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public ConsumedOffset fromJson(String json) {
+      try {
+        final HashMap<String, Object> jsonMap =
+            JSON_MAPPER.readValue(json, new TypeReference<HashMap<String, Object>>() {});
+
+        return new ConsumedOffset(
+            Partition.of((int) jsonMap.get("partition")),
+            new HashSet<>((List<String>) jsonMap.get("offset")),
+            ((Number) jsonMap.get("watermark")).longValue());
+
+      } catch (JsonProcessingException e) {
+        throw new SerializationException("Offset can't be create from externalized Json", e);
+      }
     }
   }
 
@@ -666,6 +707,11 @@ public class InMemStorage implements DataAccessorFactory {
     @Override
     public boolean hasExternalizableOffsets() {
       return true;
+    }
+
+    @Override
+    public OffsetExternalizer getOffsetExternalizer() {
+      return new ConsumedOffsetExternalizer();
     }
 
     @Override

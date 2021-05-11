@@ -307,6 +307,20 @@ public interface CommitLogReader {
   }
 
   /**
+   * Provides offset externalizer for serializing log specific offsets to external formats (bytes,
+   * JSON).
+   *
+   * @return {@link OffsetExternalizer} when externalizable offsets are supported by this reader,
+   *     check it by {@see hasExternalizableOffsets}.
+   */
+  default OffsetExternalizer getOffsetExternalizer() {
+    if (hasExternalizableOffsets()) {
+      throw new IllegalStateException("Not implemented yet");
+    }
+    throw new UnsupportedOperationException("Offsets are not externalizable");
+  }
+
+  /**
    * Signals the user that this {@link CommitLogReader} is able to recover sequential IDs sent to it
    * in {@link StreamElement StreamElements} through its associated writer.
    *

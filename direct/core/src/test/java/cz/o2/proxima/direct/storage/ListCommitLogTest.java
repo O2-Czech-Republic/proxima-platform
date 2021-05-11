@@ -18,6 +18,9 @@ package cz.o2.proxima.direct.storage;
 import static cz.o2.proxima.direct.commitlog.LogObserverUtils.toList;
 import static org.junit.Assert.*;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
@@ -28,10 +31,12 @@ import cz.o2.proxima.direct.storage.ListCommitLog.ListObserveHandle;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.scheme.SerializationException;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkEstimator;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -275,6 +280,47 @@ public class ListCommitLogTest {
     List<Long> expected =
         IntStream.range(0, numElements).mapToObj(i -> now + i).collect(Collectors.toList());
     assertEquals(expected, watermarks);
+  }
+
+  @Test
+  public void testOffsetExternalizerToJson() throws JsonProcessingException {
+    ListCommitLog.ListOffsetExternalizer externalizer = new ListCommitLog.ListOffsetExternalizer();
+    String json = externalizer.toJson(new ListCommitLog.ListOffset("consumer-1", 10, 1000L));
+
+    HashMap<String, Object> jsonMap =
+        new ObjectMapper().readValue(json, new TypeReference<HashMap<String, Object>>() {});
+
+    assertEquals("consumer-1", jsonMap.get("consumer_name"));
+    assertEquals(10, jsonMap.get("offset"));
+    assertEquals(1000, jsonMap.get("watermark"));
+  }
+
+  @Test
+  public void testOffsetExternalizerFromJson() {
+    ListCommitLog.ListOffsetExternalizer externalizer = new ListCommitLog.ListOffsetExternalizer();
+    ListCommitLog.ListOffset listOffset = new ListCommitLog.ListOffset("consumer-1", 10, 1000L);
+
+    assertEquals(listOffset, externalizer.fromJson(externalizer.toJson(listOffset)));
+  }
+
+  @Test
+  public void testOffsetExternalizerFromBytesWhenInvalidJson() {
+    ListCommitLog.ListOffsetExternalizer externalizer = new ListCommitLog.ListOffsetExternalizer();
+    assertThrows(SerializationException.class, () -> externalizer.fromJson(""));
+  }
+
+  @Test
+  public void testOffsetExternalizerFromBytes() {
+    ListCommitLog.ListOffsetExternalizer externalizer = new ListCommitLog.ListOffsetExternalizer();
+    ListCommitLog.ListOffset listOffset = new ListCommitLog.ListOffset("consumer-1", 10, 1000L);
+
+    assertEquals(listOffset, externalizer.fromBytes(externalizer.toBytes(listOffset)));
+  }
+
+  @Test
+  public void testOffsetExternalizerFromBytesWhenInvalidBytes() {
+    ListCommitLog.ListOffsetExternalizer externalizer = new ListCommitLog.ListOffsetExternalizer();
+    assertThrows(SerializationException.class, () -> externalizer.fromBytes(new byte[] {0x0}));
   }
 
   private List<StreamElement> data(int count) {

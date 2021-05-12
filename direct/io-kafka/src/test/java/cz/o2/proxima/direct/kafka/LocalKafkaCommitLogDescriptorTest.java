@@ -2791,6 +2791,19 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(FixedWatermarkIdlePolicyFactory.FIXED_IDLE_WATERMARK, watermark.get());
   }
 
+  @Test
+  public void testOffsetExternalizer() {
+    Accessor accessor =
+        kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(1)));
+    CommitLogReader reader =
+        accessor
+            .getCommitLogReader(context())
+            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+
+    assertTrue(reader.hasExternalizableOffsets());
+    assertEquals(TopicOffsetExternalizer.class, reader.getOffsetExternalizer().getClass());
+  }
+
   private long testSequentialConsumption(long maxBytesPerSec) throws InterruptedException {
 
     final Accessor accessor =

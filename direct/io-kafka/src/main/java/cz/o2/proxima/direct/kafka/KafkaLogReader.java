@@ -23,6 +23,7 @@ import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.commitlog.OffsetExternalizer;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.kafka.ElementConsumers.BulkConsumer;
 import cz.o2.proxima.direct.kafka.ElementConsumers.OnlineConsumer;
@@ -740,6 +741,11 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
   @Override
   public boolean hasExternalizableOffsets() {
     return true;
+  }
+
+  @Override
+  public OffsetExternalizer getOffsetExternalizer() {
+    return new TopicOffsetExternalizer();
   }
 
   @Override

@@ -17,6 +17,9 @@ package cz.o2.proxima.direct.storage;
 
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -28,9 +31,11 @@ import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.ObserverUtils;
 import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.commitlog.OffsetExternalizer;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.functional.BiFunction;
 import cz.o2.proxima.functional.UnaryPredicate;
+import cz.o2.proxima.scheme.SerializationException;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
@@ -40,6 +45,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -76,7 +82,7 @@ public class ListCommitLog implements CommitLogReader {
     @Getter final int offset;
     @Getter final long watermark;
 
-    private ListOffset(String consumerName, int offset, long watermark) {
+    ListOffset(String consumerName, int offset, long watermark) {
       this.consumerName = Objects.requireNonNull(consumerName);
       this.offset = offset;
       this.watermark = watermark;
@@ -107,6 +113,41 @@ public class ListCommitLog implements CommitLogReader {
     @Override
     public int hashCode() {
       return (int) ((offset ^ watermark) % Integer.MAX_VALUE);
+    }
+  }
+
+  static class ListOffsetExternalizer implements OffsetExternalizer {
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+
+    @Override
+    public String toJson(Offset offset) {
+      try {
+        final ListOffset listOffset = (ListOffset) offset;
+        final HashMap<String, Object> jsonMap = new HashMap<>();
+        jsonMap.put("consumer_name", listOffset.consumerName);
+        jsonMap.put("offset", listOffset.offset);
+        jsonMap.put("watermark", listOffset.watermark);
+
+        return JSON_MAPPER.writeValueAsString(jsonMap);
+      } catch (JsonProcessingException e) {
+        throw new SerializationException("Offset can't be externalized to Json", e);
+      }
+    }
+
+    @Override
+    public ListOffset fromJson(String json) {
+      try {
+        final HashMap<String, Object> jsonMap =
+            JSON_MAPPER.readValue(json, new TypeReference<HashMap<String, Object>>() {});
+
+        return new ListOffset(
+            (String) jsonMap.get("consumer_name"),
+            (int) jsonMap.get("offset"),
+            ((Number) jsonMap.get("watermark")).longValue());
+
+      } catch (JsonProcessingException e) {
+        throw new SerializationException("Offset can't be create from externalized Json", e);
+      }
     }
   }
 
@@ -509,6 +550,11 @@ public class ListCommitLog implements CommitLogReader {
   @Override
   public boolean hasExternalizableOffsets() {
     return externalizableOffsets;
+  }
+
+  @Override
+  public OffsetExternalizer getOffsetExternalizer() {
+    return new ListOffsetExternalizer();
   }
 
   private ObserveHandle pushToObserverBulk(@Nonnull String name, int skip, LogObserver observer) {

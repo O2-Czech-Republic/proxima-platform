@@ -35,6 +35,6 @@ public abstract class AbstractOnlineAttributeWriter extends AbstractAttributeWri
   @Override
   public void close() {
     log.warn(
-        "Fallback to empty close() method in {}.. This should be addressed.", getClass().getName());
+        "Fallback to empty close() method in {}. This should be addressed.", getClass().getName());
   }
 }

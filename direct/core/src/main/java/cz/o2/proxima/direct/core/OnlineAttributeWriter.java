@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.core;
 
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.direct.core.AttributeWriterBase.Factory;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
 
@@ -67,4 +67,12 @@ public interface OnlineAttributeWriter extends AttributeWriterBase {
   @SuppressWarnings("unchecked")
   @Override
   Factory<? extends OnlineAttributeWriter> asFactory();
+
+  default boolean isTransactional() {
+    return false;
+  }
+
+  default TransactionalOnlineAttributeWriter toTransactional() {
+    throw new UnsupportedOperationException();
+  }
 }

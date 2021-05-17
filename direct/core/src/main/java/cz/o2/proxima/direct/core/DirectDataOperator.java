@@ -23,6 +23,7 @@ import cz.o2.proxima.direct.batch.BatchLogReaders;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReaders;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.functional.UnaryFunction;
@@ -32,6 +33,7 @@ import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.Repository.Validate;
+import cz.o2.proxima.repository.TransactionMode;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.ThroughputLimiter;
 import cz.o2.proxima.storage.internal.DataAccessorLoader;
@@ -269,17 +271,40 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
             .filter(af -> !af.getAccess().isReadonly())
             .findAny()
             .flatMap(context::resolve)
-            .ifPresent(
-                af ->
-                    // store writer of this family to all attributes
-                    af.getWriter()
-                        .ifPresent(
-                            w -> af.getAttributes().forEach(a -> writers.put(a, w.online()))));
+            .ifPresent(this::cacheOrRetrieveWriterFor);
 
         return Optional.ofNullable(writers.get(attr));
       }
       return Optional.of(writer);
     }
+  }
+
+  private void cacheOrRetrieveWriterFor(DirectAttributeFamilyDescriptor af) {
+    Optional<AttributeWriterBase> maybeWriter = af.getWriter();
+    if (maybeWriter.isPresent()) {
+      @Nullable OnlineAttributeWriter maybeTransactionalWriter = null;
+      OnlineAttributeWriter familyWriter = maybeWriter.get().online();
+      if (af.getAttributes()
+          .stream()
+          .anyMatch(a -> a.getTransactionMode() != TransactionMode.NONE)) {
+
+        maybeTransactionalWriter = wrapTransactionalWriterAround(familyWriter);
+      }
+      // store writer of this family to all attributes
+      for (AttributeDescriptor<?> a : af.getAttributes()) {
+        if (a.getTransactionMode() == TransactionMode.NONE) {
+          writers.put(a, familyWriter);
+        } else {
+          writers.put(a, maybeTransactionalWriter);
+        }
+      }
+    }
+  }
+
+  private TransactionalOnlineAttributeWriter wrapTransactionalWriterAround(
+      OnlineAttributeWriter familyWriter) {
+
+    return TransactionalOnlineAttributeWriter.of(this, familyWriter);
   }
 
   /**

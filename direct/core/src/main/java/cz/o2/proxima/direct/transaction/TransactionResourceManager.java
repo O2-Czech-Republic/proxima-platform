@@ -189,7 +189,6 @@ class TransactionResourceManager implements ClientTransactionManager, ServerTran
       if (error.get() != null) {
         throw new IllegalStateException(error.get());
       }
-      ;
     }
 
     @Override

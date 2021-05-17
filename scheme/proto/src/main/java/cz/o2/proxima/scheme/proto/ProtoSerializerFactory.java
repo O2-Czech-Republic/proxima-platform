@@ -250,10 +250,12 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
         case OPEN:
           return State.open(
               state.getSeqId(),
+              state.getStamp(),
               new HashSet<>(getKeyAttributesFromProto(repository, state.getInputAttributesList())));
         case COMMITTED:
           return State.open(
                   state.getSeqId(),
+                  state.getStamp(),
                   new HashSet<>(
                       getKeyAttributesFromProto(repository, state.getInputAttributesList())))
               .committed(
@@ -262,6 +264,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
         case ABORTED:
           return State.open(
                   state.getSeqId(),
+                  state.getStamp(),
                   new HashSet<>(
                       getKeyAttributesFromProto(repository, state.getInputAttributesList())))
               .aborted();
@@ -276,6 +279,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
           .addAllInputAttributes(asProtoKeyAttributes(state.getInputAttributes()))
           .addAllCommittedAttributes(asProtoKeyAttributes(state.getCommittedAttributes()))
           .setSeqId(state.getSequentialId())
+          .setStamp(state.getStamp())
           .build();
     }
 
@@ -284,7 +288,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
         case UNKNOWN:
           return Response.empty();
         case OPEN:
-          return Response.open(response.getSeqId());
+          return Response.open(response.getSeqId(), response.getStamp());
         case COMMITTED:
           return Response.committed();
         case ABORTED:
@@ -302,6 +306,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
       return ProtoResponse.newBuilder()
           .setFlags(asFlags(response.getFlags()))
           .setSeqId(response.hasSequenceId() ? response.getSeqId() : 0L)
+          .setStamp(response.hasStamp() ? response.getStamp() : 0L)
           .build();
     }
 

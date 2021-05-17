@@ -57,6 +57,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     private final BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(1);
     private State.Flags state;
     private long sequenceId = -1L;
+    private long stamp = Long.MIN_VALUE;
 
     private Transaction(String transactionId) {
       this.transactionId = transactionId;
@@ -87,8 +88,18 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       if (response.hasSequenceId()) {
         Preconditions.checkState(
             sequenceId == -1 || sequenceId == response.getSeqId(),
-            "Updated sequence ID. That is a bug in proxima's transactions.");
+            "Updated sequence ID from %s to %s. That is a bug in proxima's transactions.",
+            sequenceId,
+            response.getSeqId());
         sequenceId = response.getSeqId();
+      }
+      if (response.hasStamp()) {
+        Preconditions.checkState(
+            stamp == Long.MIN_VALUE || stamp == response.getStamp(),
+            "Updated stamp from %s to %s. That is a bug in proxima's transactions.",
+            stamp,
+            response.getStamp());
+        stamp = response.getStamp();
       }
       state = State.Flags.OPEN;
     }
@@ -97,7 +108,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
         throws TransactionRejectedException {
 
       List<StreamElement> toWrite =
-          outputs.stream().map(this::injectSequenceId).collect(Collectors.toList());
+          outputs.stream().map(this::injectSequenceIdAndStamp).collect(Collectors.toList());
       List<KeyAttribute> keyAttributes =
           toWrite.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList());
       manager.commit(transactionId, keyAttributes);
@@ -117,7 +128,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       ExceptionUtils.unchecked(() -> responseQueue.put(response));
     }
 
-    private StreamElement injectSequenceId(StreamElement in) {
+    private StreamElement injectSequenceIdAndStamp(StreamElement in) {
 
       Preconditions.checkArgument(!in.isDeleteWildcard(), "Wildcard deletes not yet supported");
 
@@ -127,7 +138,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
           sequenceId,
           in.getKey(),
           in.getAttribute(),
-          in.getStamp(),
+          stamp,
           in.getValue());
     }
 

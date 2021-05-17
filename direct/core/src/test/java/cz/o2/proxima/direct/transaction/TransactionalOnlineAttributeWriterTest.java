@@ -73,7 +73,8 @@ public class TransactionalOnlineAttributeWriterTest {
               toCommit = CommitCallback.afterNumCommits(2, context::commit);
               manager.setCurrentState(
                   transactionId,
-                  State.open(response.getSeqId(), request.getInputAttributes()),
+                  State.open(
+                      response.getSeqId(), response.getStamp(), request.getInputAttributes()),
                   toCommit);
             }
             manager.writeResponse(transactionId, responseId, response, toCommit);
@@ -96,7 +97,8 @@ public class TransactionalOnlineAttributeWriterTest {
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
     assertTrue(writer.isTransactional());
     // we successfully open and commit the transaction
-    toReturn.put(Response.open(1L));
+    long stamp = 1234567890000L;
+    toReturn.put(Response.open(1L, stamp));
     toReturn.put(Response.committed());
     CountDownLatch latch = new CountDownLatch(1);
     writer.write(
@@ -119,6 +121,7 @@ public class TransactionalOnlineAttributeWriterTest {
     assertEquals("key", res.get().getKey());
     assertTrue(res.get().hasSequentialId());
     assertEquals(1L, res.get().getSequentialId());
+    assertEquals(stamp, res.get().getStamp());
   }
 
   @Test(timeout = 10_000)
@@ -129,8 +132,9 @@ public class TransactionalOnlineAttributeWriterTest {
     view.assign(view.getPartitions());
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
     assertTrue(writer.isTransactional());
+    long stamp = 123456789000L;
     // we successfully open and commit the transaction
-    toReturn.put(Response.open(1L));
+    toReturn.put(Response.open(1L, stamp));
     toReturn.put(Response.updated());
     toReturn.put(Response.committed());
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
@@ -157,6 +161,7 @@ public class TransactionalOnlineAttributeWriterTest {
     assertEquals("key", res.get().getKey());
     assertTrue(res.get().hasSequentialId());
     assertEquals(1L, res.get().getSequentialId());
+    assertEquals(stamp, res.get().getStamp());
   }
 
   @Test(timeout = 10_000, expected = TransactionRejectedException.class)
@@ -167,8 +172,9 @@ public class TransactionalOnlineAttributeWriterTest {
     view.assign(view.getPartitions());
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
     assertTrue(writer.isTransactional());
+    long stamp = 123456789000L;
     // we successfully open and commit the transaction
-    toReturn.put(Response.open(1L));
+    toReturn.put(Response.open(1L, stamp));
     toReturn.put(Response.updated());
     toReturn.put(Response.aborted());
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
@@ -199,7 +205,7 @@ public class TransactionalOnlineAttributeWriterTest {
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
     assertTrue(writer.isTransactional());
     // we successfully open and commit the transaction
-    toReturn.put(Response.open(1L));
+    toReturn.put(Response.open(1L, 123456789000L));
     toReturn.put(Response.aborted());
     CountDownLatch latch = new CountDownLatch(1);
     writer.write(

@@ -45,11 +45,13 @@ message ProtoRequest {
 message ProtoResponse {
   Flags flags = 1;
   uint64 seqId = 2;
+  fixed64 stamp = 3;
 }
 
 message ProtoState {
   Flags flags = 1;
   uint64 seqId = 2;
-  repeated KeyAttribute inputAttributes = 3;
-  repeated KeyAttribute committedAttributes = 4;
+  fixed64 stamp = 3;
+  repeated KeyAttribute inputAttributes = 4;
+  repeated KeyAttribute committedAttributes = 5;
 }

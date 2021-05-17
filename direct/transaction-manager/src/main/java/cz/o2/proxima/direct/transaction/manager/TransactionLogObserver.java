@@ -33,7 +33,6 @@ import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -46,9 +45,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.ToString;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -181,7 +178,7 @@ class TransactionLogObserver implements LogObserver {
     switch (state.getFlags()) {
       case OPEN:
         return oldState.getFlags() == State.Flags.UNKNOWN
-            ? Response.open(state.getSequentialId())
+            ? Response.open(state.getSequentialId(), state.getStamp())
             : Response.updated();
       case COMMITTED:
         return Response.committed();
@@ -237,7 +234,8 @@ class TransactionLogObserver implements LogObserver {
 
   private State transitionToOpen(Request request) {
     long seqId = sequenceId.getAndIncrement();
-    State proposedState = State.open(seqId, new HashSet<>(request.getInputAttributes()));
+    State proposedState =
+        State.open(seqId, System.currentTimeMillis(), new HashSet<>(request.getInputAttributes()));
     if (verifyNotInConflict(request.getInputAttributes())) {
       return proposedState;
     }

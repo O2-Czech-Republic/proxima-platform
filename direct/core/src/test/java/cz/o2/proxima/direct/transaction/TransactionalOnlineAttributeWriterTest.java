@@ -98,6 +98,7 @@ public class TransactionalOnlineAttributeWriterTest {
     // we successfully open and commit the transaction
     toReturn.put(Response.open(1L));
     toReturn.put(Response.committed());
+    CountDownLatch latch = new CountDownLatch(1);
     writer.write(
         StreamElement.upsert(
             gateway,
@@ -110,7 +111,9 @@ public class TransactionalOnlineAttributeWriterTest {
         (succ, exc) -> {
           assertTrue(succ);
           assertNull(exc);
+          latch.countDown();
         });
+    latch.await();
     Optional<KeyValue<byte[]>> res = view.get("key", status);
     assertTrue(res.isPresent());
     assertEquals("key", res.get().getKey());
@@ -131,7 +134,7 @@ public class TransactionalOnlineAttributeWriterTest {
     toReturn.put(Response.updated());
     toReturn.put(Response.committed());
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
-    try (TransactionalOnlineAttributeWriter.Transaction t = writer.toTransactional().begin()) {
+    try (TransactionalOnlineAttributeWriter.Transaction t = writer.transactional().begin()) {
       t.update(Collections.singletonList(ka));
       t.update(Collections.singletonList(ka));
       t.commitWrite(
@@ -169,7 +172,7 @@ public class TransactionalOnlineAttributeWriterTest {
     toReturn.put(Response.updated());
     toReturn.put(Response.aborted());
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
-    try (TransactionalOnlineAttributeWriter.Transaction t = writer.toTransactional().begin()) {
+    try (TransactionalOnlineAttributeWriter.Transaction t = writer.transactional().begin()) {
       t.update(Collections.singletonList(ka));
       t.update(Collections.singletonList(ka));
       t.commitWrite(

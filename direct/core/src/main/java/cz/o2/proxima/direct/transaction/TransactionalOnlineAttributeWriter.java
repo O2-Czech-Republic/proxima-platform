@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -147,12 +148,14 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
   private final OnlineAttributeWriter delegate;
   private final ClientTransactionManager manager;
+  private final ExecutorService executor;
 
   private TransactionalOnlineAttributeWriter(
       DirectDataOperator direct, OnlineAttributeWriter delegate) {
 
     this.delegate = delegate;
     this.manager = TransactionResourceManager.of(direct);
+    this.executor = direct.getContext().getExecutorService();
   }
 
   @Override
@@ -169,25 +172,28 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   public void write(StreamElement data, CommitCallback statusCallback) {
     // this means start transaction with the single KeyAttribute as input and then
     // commit that transaction right away
-    try (Transaction t = begin()) {
-      @Nullable
-      String suffix =
-          data.getAttributeDescriptor().isWildcard()
-              ? data.getAttribute()
-                  .substring(data.getAttributeDescriptor().toAttributePrefix().length())
-              : null;
-      KeyAttribute zeroInput =
-          KeyAttributes.ofAttributeDescriptor(
-              data.getEntityDescriptor(),
-              data.getKey(),
-              data.getAttributeDescriptor(),
-              Long.MAX_VALUE,
-              suffix);
-      t.update(Collections.singletonList(zeroInput));
-      t.commitWrite(Collections.singletonList(data), statusCallback);
-    } catch (TransactionRejectedException e) {
-      statusCallback.commit(false, e);
-    }
+    executor.execute(
+        () -> {
+          try (Transaction t = begin()) {
+            @Nullable
+            String suffix =
+                data.getAttributeDescriptor().isWildcard()
+                    ? data.getAttribute()
+                        .substring(data.getAttributeDescriptor().toAttributePrefix().length())
+                    : null;
+            KeyAttribute outputKetAttribute =
+                KeyAttributes.ofAttributeDescriptor(
+                    data.getEntityDescriptor(),
+                    data.getKey(),
+                    data.getAttributeDescriptor(),
+                    Long.MAX_VALUE,
+                    suffix);
+            t.update(Collections.singletonList(outputKetAttribute));
+            t.commitWrite(Collections.singletonList(data), statusCallback);
+          } catch (TransactionRejectedException e) {
+            statusCallback.commit(false, e);
+          }
+        });
   }
 
   @Override
@@ -204,7 +210,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   }
 
   @Override
-  public TransactionalOnlineAttributeWriter toTransactional() {
+  public TransactionalOnlineAttributeWriter transactional() {
     return this;
   }
 

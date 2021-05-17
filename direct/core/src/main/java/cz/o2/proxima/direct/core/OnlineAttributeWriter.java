@@ -68,11 +68,21 @@ public interface OnlineAttributeWriter extends AttributeWriterBase {
   @Override
   Factory<? extends OnlineAttributeWriter> asFactory();
 
+  /**
+   * @return {@code true} is this is a {@link TransactionalOnlineAttributeWriter}. {@link
+   *     TransactionalOnlineAttributeWriter} is used when writing attribute that supports {@link
+   *     cz.o2.proxima.repository.TransactionMode} different from {@link
+   *     cz.o2.proxima.repository.TransactionMode#NONE}.
+   */
   default boolean isTransactional() {
     return false;
   }
 
-  default TransactionalOnlineAttributeWriter toTransactional() {
+  /**
+   * @return {@code this} if {@link #isTransactional()} returns true.
+   * @throws UnsupportedOperationException if {@link #isTransactional()} returns {@code false}
+   */
+  default TransactionalOnlineAttributeWriter transactional() {
     throw new UnsupportedOperationException();
   }
 }

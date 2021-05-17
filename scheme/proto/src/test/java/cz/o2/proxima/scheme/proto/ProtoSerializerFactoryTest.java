@@ -181,6 +181,7 @@ public class ProtoSerializerFactoryTest {
     KeyAttribute keyAttributeSingleWildcard = KeyAttributes.ofStreamElement(update);
     KeyAttribute keyAttributeDelete = KeyAttributes.ofStreamElement(delete);
     KeyAttribute missingGet = KeyAttributes.ofMissingAttribute(transaction, "t", request, "1");
+    long now = System.currentTimeMillis();
 
     List<Pair<Object, AttributeDescriptor<?>>> toVerify =
         Arrays.asList(
@@ -192,30 +193,30 @@ public class ProtoSerializerFactoryTest {
             Pair.of(newRequest(keyAttributeSingleWildcard, Request.Flags.UPDATE), request),
             Pair.of(newRequest(wildcardQuery, Request.Flags.OPEN), request),
             Pair.of(newRequest(Request.Flags.ROLLBACK), request),
-            Pair.of(Response.open(1L), response),
+            Pair.of(Response.open(1L, now), response),
             Pair.of(Response.updated(), response),
             Pair.of(Response.committed(), response),
             Pair.of(Response.aborted(), response),
             Pair.of(Response.duplicate(), response),
             Pair.of(Response.empty(), response),
-            Pair.of(State.open(1L, Sets.newHashSet(keyAttribute)), state),
+            Pair.of(State.open(1L, now, Sets.newHashSet(keyAttribute)), state),
             Pair.of(
-                State.open(1L, Sets.newHashSet(keyAttribute, keyAttributeSingleWildcard))
+                State.open(1L, now, Sets.newHashSet(keyAttribute, keyAttributeSingleWildcard))
                     .committed(Sets.newHashSet(keyAttribute)),
                 state),
             Pair.of(State.empty(), state),
             Pair.of(
-                State.open(1L, Sets.newHashSet(keyAttribute))
+                State.open(1L, now, Sets.newHashSet(keyAttribute))
                     .update(Collections.singletonList(keyAttributeSingleWildcard)),
                 state),
-            Pair.of(State.open(1L, Sets.newHashSet(keyAttribute)).aborted(), state),
-            Pair.of(State.open(1L, Sets.newHashSet(missingGet)).aborted(), state),
+            Pair.of(State.open(1L, now, Sets.newHashSet(keyAttribute)).aborted(), state),
+            Pair.of(State.open(1L, now, Sets.newHashSet(missingGet)).aborted(), state),
             Pair.of(
-                State.open(1L, Sets.newHashSet(keyAttributeSingleWildcard))
+                State.open(1L, now, Sets.newHashSet(keyAttributeSingleWildcard))
                     .committed(Sets.newHashSet(keyAttributeSingleWildcard)),
                 state),
             Pair.of(
-                State.open(1L, Collections.emptyList())
+                State.open(1L, now, Collections.emptyList())
                     .committed(Sets.newHashSet(keyAttributeDelete)),
                 state));
 

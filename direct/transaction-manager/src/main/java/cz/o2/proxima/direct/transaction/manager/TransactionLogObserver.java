@@ -16,7 +16,9 @@
 package cz.o2.proxima.direct.transaction.manager;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Sets;
+import com.google.common.collect.SortedSetMultimap;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -38,6 +40,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedSet;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -73,20 +76,27 @@ class TransactionLogObserver implements LogObserver {
   }
 
   @Value
-  private static class SeqIdWithTombstone {
+  private static class SeqIdWithTombstone implements Comparable<SeqIdWithTombstone> {
     /** sequential ID of the update */
     long seqId;
     /** marker that the write is actually a delete */
     boolean tombstone;
+
+    @Override
+    public int compareTo(SeqIdWithTombstone other) {
+      return Long.compare(seqId, other.getSeqId());
+    }
   }
 
   private final DirectDataOperator direct;
   private final ServerTransactionManager manager;
   private final AtomicLong sequenceId = new AtomicLong(1000L);
-  private final Map<KeyWithAttribute, SeqIdWithTombstone> lastUpdateSeqId = new HashMap<>();
+  private final SortedSetMultimap<KeyWithAttribute, SeqIdWithTombstone> lastUpdateSeqId =
+      MultimapBuilder.hashKeys().treeSetValues().build();
   private final Map<KeyWithAttribute, List<KeyWithAttribute>> updatesToWildcard = new HashMap<>();
 
   TransactionLogObserver(DirectDataOperator direct) {
+
     this.direct = direct;
     this.manager = TransactionManager.server(direct);
   }
@@ -133,10 +143,6 @@ class TransactionLogObserver implements LogObserver {
     if (newState != null) {
       // we have successfully computed new state, produce response
       Response response = getResponseForNewState(currentState, newState);
-      if (response.getFlags() == Response.Flags.OPEN) {
-        // we need to advance our sequenceId for new transaction
-        long seqId = response.getSeqId();
-      }
       CommitCallback commitCallback = CommitCallback.afterNumCommits(2, context::commit);
       manager.setCurrentState(transactionId, newState, commitCallback);
       manager.writeResponse(transactionId, requestId, response, commitCallback);
@@ -148,12 +154,23 @@ class TransactionLogObserver implements LogObserver {
         manager.writeResponse(transactionId, requestId, Response.duplicate(), context::commit);
       } else {
         log.warn(
-            "Unexpected OPEN request for transaction {} when the state is {}",
+            "Unexpected {} request for transaction {} when the state is {}",
+            request.getFlags(),
             transactionId,
             currentState.getFlags());
         manager.writeResponse(transactionId, requestId, Response.aborted(), context::commit);
       }
     }
+  }
+
+  private void abortTransaction(State state) {
+    long seqId = state.getSequentialId();
+    // we need to rollback all updates to lastUpdateSeqId with the same seqId
+    state
+        .getCommittedAttributes()
+        .stream()
+        .map(KeyWithAttribute::of)
+        .forEach(kwa -> lastUpdateSeqId.get(kwa).removeIf(s -> s.getSeqId() == seqId));
   }
 
   private Response getResponseForNewState(State oldState, State state) {
@@ -176,31 +193,51 @@ class TransactionLogObserver implements LogObserver {
     switch (currentState.getFlags()) {
       case UNKNOWN:
         if (request.getFlags() == Request.Flags.OPEN) {
-          long seqId = sequenceId.getAndIncrement();
-          State proposedState = State.open(seqId, new HashSet<>(request.getInputAttributes()));
-          if (verifyNotInConflict(request.getInputAttributes())) {
-            return proposedState;
-          }
-          return proposedState.aborted();
+          return transitionToOpen(request);
         }
         break;
       case OPEN:
         if (request.getFlags() == Request.Flags.COMMIT) {
-          if (!verifyNotInConflict(currentState.getInputAttributes())) {
-            return currentState.aborted();
-          }
-          State proposedState = currentState.committed(request.getOutputAttributes());
-          transactionPostCommit(proposedState);
-          return proposedState;
+          return transitionToCommitted(currentState, request);
         } else if (request.getFlags() == Request.Flags.UPDATE) {
-          HashSet<KeyAttribute> newAttributes =
-              new HashSet<>(currentState.getCommittedAttributes());
-          newAttributes.addAll(request.getInputAttributes());
-          return currentState.update(newAttributes);
+          return transitionToUpdated(currentState, request);
+        } else if (request.getFlags() == Request.Flags.ROLLBACK) {
+          abortTransaction(currentState);
+          return currentState.aborted();
+        }
+        break;
+      case COMMITTED:
+        if (request.getFlags() == Request.Flags.ROLLBACK) {
+          abortTransaction(currentState);
+          return currentState.aborted();
         }
         break;
     }
     return null;
+  }
+
+  private State transitionToUpdated(State currentState, Request request) {
+    HashSet<KeyAttribute> newAttributes = new HashSet<>(currentState.getCommittedAttributes());
+    newAttributes.addAll(request.getInputAttributes());
+    return currentState.update(newAttributes);
+  }
+
+  private State transitionToCommitted(State currentState, Request request) {
+    if (!verifyNotInConflict(currentState.getInputAttributes())) {
+      return currentState.aborted();
+    }
+    State proposedState = currentState.committed(request.getOutputAttributes());
+    transactionPostCommit(proposedState);
+    return proposedState;
+  }
+
+  private State transitionToOpen(Request request) {
+    long seqId = sequenceId.getAndIncrement();
+    State proposedState = State.open(seqId, new HashSet<>(request.getInputAttributes()));
+    if (verifyNotInConflict(request.getInputAttributes())) {
+      return proposedState;
+    }
+    return proposedState.aborted();
   }
 
   private boolean verifyNotInConflict(Collection<KeyAttribute> inputAttributes) {
@@ -213,7 +250,7 @@ class TransactionLogObserver implements LogObserver {
             .map(updatesToWildcard::get)
             .filter(Objects::nonNull)
             .flatMap(List::stream)
-            .map(kwa -> Pair.of(kwa, isNotDelete(lastUpdateSeqId.get(kwa))))
+            .map(kwa -> Pair.of(kwa, lastIsNotTombstone(lastUpdateSeqId.get(kwa))))
             .collect(Collectors.toList());
 
     Set<KeyWithAttribute> requiredInputs =
@@ -261,19 +298,24 @@ class TransactionLogObserver implements LogObserver {
         .filter(ka -> !ka.isWildcardQuery())
         .noneMatch(
             ka -> {
-              SeqIdWithTombstone lastUpdated = lastUpdateSeqId.get(KeyWithAttribute.of(ka));
-              if (lastUpdated == null) {
+              SortedSet<SeqIdWithTombstone> lastUpdated =
+                  lastUpdateSeqId.get(KeyWithAttribute.of(ka));
+              if (lastUpdated == null || lastUpdated.isEmpty()) {
                 return false;
               }
-              return lastUpdated.getSeqId() > ka.getSequenceId()
+              return lastUpdated.last().getSeqId() > ka.getSequenceId()
                   // we can accept somewhat stale data if the state is equal => both agree that the
                   // field was deleted
-                  && (!lastUpdated.isTombstone() || !ka.isDelete());
+                  && (!lastUpdated.last().isTombstone() || !ka.isDelete());
             });
   }
 
-  private boolean isNotDelete(@Nullable SeqIdWithTombstone seqIdWithTombstone) {
-    return seqIdWithTombstone == null || !seqIdWithTombstone.isTombstone();
+  private static boolean lastIsNotTombstone(
+      @Nullable SortedSet<SeqIdWithTombstone> seqIdWithTombstones) {
+
+    return seqIdWithTombstones == null
+        || seqIdWithTombstones.isEmpty()
+        || !seqIdWithTombstones.last().isTombstone();
   }
 
   private void stateUpdate(StreamElement newUpdate, Pair<Long, Object> oldValue) {
@@ -287,14 +329,7 @@ class TransactionLogObserver implements LogObserver {
         .forEach(
             ka -> {
               KeyWithAttribute kwa = KeyWithAttribute.of(ka);
-              lastUpdateSeqId.compute(
-                  kwa,
-                  (k, v) -> {
-                    if (v == null || v.getSeqId() < committedSeqId) {
-                      return new SeqIdWithTombstone(committedSeqId, ka.isDelete());
-                    }
-                    return v;
-                  });
+              lastUpdateSeqId.put(kwa, new SeqIdWithTombstone(committedSeqId, ka.isDelete()));
               if (ka.getAttributeDescriptor().isWildcard()) {
                 List<KeyWithAttribute> list =
                     updatesToWildcard.computeIfAbsent(

@@ -158,6 +158,32 @@ public class TransactionLogObserverTest {
     }
   }
 
+  @Test(timeout = 10000)
+  public void testTransactionRollback() throws InterruptedException {
+    try (ClientTransactionManager clientManager = TransactionManager.client(direct)) {
+      String transactionId = UUID.randomUUID().toString();
+      BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+      clientManager.begin(
+          transactionId,
+          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+          Collections.singletonList(
+              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+      // discard this
+      responseQueue.take();
+      clientManager.updateTransaction(
+          transactionId,
+          Collections.singletonList(
+              KeyAttributes.ofAttributeDescriptor(user, "user2", userGateways, 2L, "1")));
+      Pair<String, Response> response = responseQueue.take();
+      assertEquals("update", response.getFirst());
+      assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
+      clientManager.rollback(transactionId);
+      response = responseQueue.take();
+      assertEquals("rollback", response.getFirst());
+      assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
+    }
+  }
+
   @Test
   public void testFailedTransactionCommit() {}
 }

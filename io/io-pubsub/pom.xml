@@ -33,7 +33,6 @@
 
   <properties>
     <shadePattern>cz.o2.proxima.pubsub.io.shaded</shadePattern>
-    <junit.jupiter.version>5.7.0</junit.jupiter.version>
   </properties>
 
   <build>

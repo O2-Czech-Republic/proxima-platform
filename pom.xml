@@ -86,6 +86,7 @@
     <groovy.version>3.0.8</groovy.version>
     <hadoop.version>2.10.0</hadoop.version>
     <hbase.version>1.6.0</hbase.version>
+    <junit.jupiter.version>5.7.0</junit.jupiter.version>
     <kafka.version>2.6.0</kafka.version>
     <proto.version>3.11.1</proto.version>
     <protoc.version>3.11.1</protoc.version>
@@ -297,6 +298,7 @@
       </build>
       <modules>
         <module>beam</module>
+        <module>flink</module>
         <module>core</module>
         <module>direct</module>
         <module>example</module>
@@ -347,6 +349,7 @@
       </build>
       <modules>
         <module>beam</module>
+        <module>flink</module>
         <module>core</module>
         <module>direct</module>
         <module>io</module>

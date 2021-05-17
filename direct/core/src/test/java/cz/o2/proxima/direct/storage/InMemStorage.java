@@ -353,7 +353,12 @@ public class InMemStorage implements DataAccessorFactory {
         Position position,
         boolean stopAtCurrent,
         LogObserver observer) {
-      return observe(null, position, stopAtCurrent, observer);
+      return observe(
+          null,
+          position,
+          partitions.stream().map(ConsumedOffset::empty).collect(Collectors.toList()),
+          stopAtCurrent,
+          observer);
     }
 
     @Override
@@ -513,7 +518,10 @@ public class InMemStorage implements DataAccessorFactory {
                   () ->
                       handleFlushDataBaseOnPosition(
                           position,
-                          initialOffsets,
+                          initialOffsets
+                              .stream()
+                              .map(ConsumedOffset::getPartition)
+                              .collect(Collectors.toSet()),
                           consumerId,
                           stopAtCurrent,
                           killSwitch,
@@ -549,7 +557,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     private void handleFlushDataBaseOnPosition(
         Position position,
-        List<ConsumedOffset> initialOffsets,
+        Set<Partition> subscribedPartitions,
         int consumerId,
         boolean stopAtCurrent,
         AtomicBoolean killSwitch,
@@ -564,8 +572,7 @@ public class InMemStorage implements DataAccessorFactory {
           () -> {
             try {
               synchronized (observer) {
-                initialOffsets.forEach(
-                    item -> watermarkEstimator.idle(item.getPartition().getId()));
+                subscribedPartitions.forEach(item -> watermarkEstimator.idle(item.getId()));
                 observer.onIdle(watermarkEstimator::getWatermark);
                 if (watermarkEstimator.getWatermark()
                     >= (Watermarks.MAX_WATERMARK - BOUNDED_OUT_OF_ORDERNESS)) {
@@ -583,25 +590,26 @@ public class InMemStorage implements DataAccessorFactory {
           scheduler.scheduleAtFixedRate(
               onIdle, IDLE_FLUSH_TIME, IDLE_FLUSH_TIME, TimeUnit.MILLISECONDS);
       onIdleRef.set(onIdleFuture);
-      AtomicReference<StreamElement> lastConsumed = new AtomicReference<>();
+      final Map<Partition, StreamElement> lastConsumedPerPartition = new HashMap<>();
       final ElementConsumer consumer =
           (partition, element, committer) -> {
             try {
-              if (!killSwitch.get()) {
+              if (!killSwitch.get() && subscribedPartitions.contains(partition)) {
                 synchronized (observer) {
                   element = cloneAndUpdateAttribute(getEntityDescriptor(), element);
                   watermarkEstimator.update(partition.getId(), element);
-                  Optional.ofNullable(lastConsumed.get())
-                      .ifPresent(
-                          last ->
-                              consumedOffsets.add(
-                                  String.format(
-                                      "%d-%s#%s:%d",
-                                      partition.getId(),
-                                      last.getKey(),
-                                      last.getAttribute(),
-                                      last.getStamp())));
-                  lastConsumed.set(element);
+                  @Nullable
+                  final StreamElement lastConsumed = lastConsumedPerPartition.get(partition);
+                  if (lastConsumed != null) {
+                    consumedOffsets.add(
+                        String.format(
+                            "%d-%s#%s:%d",
+                            partition.getId(),
+                            lastConsumed.getKey(),
+                            lastConsumed.getAttribute(),
+                            lastConsumed.getStamp()));
+                  }
+                  lastConsumedPerPartition.put(partition, element);
                   final boolean continueProcessing =
                       observer.onNext(
                           element,
@@ -656,9 +664,7 @@ public class InMemStorage implements DataAccessorFactory {
                       return;
                     }
                     consumer.accept(
-                        Partition.of(
-                            Partitioners.getTruncatedPartitionId(
-                                partitioner, element, numPartitions)),
+                        Partition.of(partitionId),
                         element,
                         (succ, exc) -> {
                           if (!succ && exc != null) {
@@ -1128,22 +1134,9 @@ public class InMemStorage implements DataAccessorFactory {
     final BatchLogReader.Factory<Reader> batchLogReaderFactory;
     final CachedView.Factory cachedViewFactory;
     if (numPartitions > 1) {
-      final UnsupportedOperationException exception =
-          new UnsupportedOperationException(
-              "Reader currently does not support multiple partitions.");
-      randomAccessReaderFactory =
-          (ignore) -> {
-            throw exception;
-          };
-      batchLogReaderFactory =
-          (ignore) -> {
-            throw exception;
-          };
-      cachedViewFactory =
-          (ignore) -> {
-            throw exception;
-          };
-
+      randomAccessReaderFactory = null;
+      batchLogReaderFactory = null;
+      cachedViewFactory = null;
     } else {
       final ReaderFactory readerFactory =
           new Reader(entity, uri, op.getContext().getExecutorFactory()).asFactory();
@@ -1181,19 +1174,19 @@ public class InMemStorage implements DataAccessorFactory {
       @Override
       public Optional<RandomAccessReader> getRandomAccessReader(Context context) {
         Objects.requireNonNull(context);
-        return Optional.of(randomAccessReaderFactory.apply(repo()));
+        return Optional.ofNullable(randomAccessReaderFactory).map(item -> item.apply(repo()));
       }
 
       @Override
       public Optional<CachedView> getCachedView(Context context) {
         Objects.requireNonNull(context);
-        return Optional.of(cachedViewFactory.apply(repo()));
+        return Optional.ofNullable(cachedViewFactory).map(item -> item.apply(repo()));
       }
 
       @Override
       public Optional<BatchLogReader> getBatchLogReader(Context context) {
         Objects.requireNonNull(context);
-        return Optional.of(batchLogReaderFactory.apply(repo()));
+        return Optional.ofNullable(batchLogReaderFactory).map(item -> item.apply(repo()));
       }
 
       private Repository repo() {

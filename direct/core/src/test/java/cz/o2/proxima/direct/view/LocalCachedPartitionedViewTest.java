@@ -34,8 +34,8 @@ import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -337,6 +337,6 @@ public class LocalCachedPartitionedViewTest {
   }
 
   private Collection<Partition> singlePartition() {
-    return Arrays.asList(() -> 0);
+    return Collections.singletonList(Partition.of(0));
   }
 }

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
@@ -43,6 +44,9 @@ import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.storage.commitlog.KeyAttributePartitioner;
+import cz.o2.proxima.storage.commitlog.Partitioner;
+import cz.o2.proxima.storage.commitlog.Partitioners;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.time.Watermarks;
@@ -89,32 +93,31 @@ public class InMemStorageTest implements Serializable {
             .getWriter(direct.getContext())
             .orElseThrow(() -> new IllegalStateException("Missing writer"));
     AtomicReference<CountDownLatch> latch = new AtomicReference<>();
-    ObserveHandle handle =
-        reader.observePartitions(
-            reader.getPartitions(),
-            new LogObserver() {
+    reader.observePartitions(
+        reader.getPartitions(),
+        new LogObserver() {
 
-              @Override
-              public void onRepartition(OnRepartitionContext context) {
-                assertEquals(1, context.partitions().size());
-                latch.set(new CountDownLatch(1));
-              }
+          @Override
+          public void onRepartition(OnRepartitionContext context) {
+            assertEquals(1, context.partitions().size());
+            latch.set(new CountDownLatch(1));
+          }
 
-              @Override
-              public boolean onNext(StreamElement ingest, OnNextContext context) {
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
 
-                assertEquals(0, context.getPartition().getId());
-                assertEquals("key", ingest.getKey());
-                context.confirm();
-                latch.get().countDown();
-                return false;
-              }
+            assertEquals(0, context.getPartition().getId());
+            assertEquals("key", ingest.getKey());
+            context.confirm();
+            latch.get().countDown();
+            return false;
+          }
 
-              @Override
-              public boolean onError(Throwable error) {
-                throw new RuntimeException(error);
-              }
-            });
+          @Override
+          public boolean onError(Throwable error) {
+            throw new RuntimeException(error);
+          }
+        });
 
     writer
         .online()
@@ -132,7 +135,7 @@ public class InMemStorageTest implements Serializable {
   }
 
   @Test(timeout = 10000)
-  public void testObservePartionsWithSamePath() throws InterruptedException {
+  public void testObservePartitionsWithSamePath() throws InterruptedException {
     InMemStorage storage = new InMemStorage();
     DataAccessor accessor =
         storage.createAccessor(direct, createFamilyDescriptor(URI.create("inmem://test1")));
@@ -275,7 +278,7 @@ public class InMemStorageTest implements Serializable {
     AtomicInteger count = new AtomicInteger();
     reader.observe(
         reader.getPartitions(),
-        Arrays.asList(data),
+        Collections.singletonList(data),
         new BatchLogObserver() {
 
           @Override
@@ -652,6 +655,7 @@ public class InMemStorageTest implements Serializable {
     // Elements are uniformly distributed between partitions.
     final CountDownLatch elementsReceived = new CountDownLatch(numElements / numPartitions);
     // Start observer.
+    final List<Partition> consumedPartitions = reader.getPartitions().subList(0, 1);
     final ObserveHandle observeHandle =
         reader.observePartitions(
             reader.getPartitions().subList(0, 1),
@@ -676,25 +680,34 @@ public class InMemStorageTest implements Serializable {
               }
             });
     // Write data.
+    final Partitioner partitioner = new KeyAttributePartitioner();
+    final Map<Partition, Long> expectedPartitionHistogram = new HashMap<>();
     for (int i = 0; i < numElements; i++) {
-      writer
-          .online()
-          .write(
-              StreamElement.upsert(
-                  entity,
-                  data,
-                  UUID.randomUUID().toString(),
-                  "key_" + i,
-                  data.getName(),
-                  System.currentTimeMillis(),
-                  new byte[] {1, 2, 3}),
-              CommitCallback.noop());
+      final StreamElement element =
+          StreamElement.upsert(
+              entity,
+              data,
+              UUID.randomUUID().toString(),
+              "key_" + i,
+              data.getName(),
+              System.currentTimeMillis(),
+              new byte[] {1, 2, 3});
+      expectedPartitionHistogram.merge(
+          Partition.of(Partitioners.getTruncatedPartitionId(partitioner, element, numPartitions)),
+          1L,
+          Long::sum);
+      writer.online().write(element, CommitCallback.noop());
     }
+    assertEquals(3, expectedPartitionHistogram.size());
+
     // Wait for all elements to be received.
     elementsReceived.await();
 
     assertEquals(1, partitionHistogram.size());
     assertEquals(1, observeHandle.getCurrentOffsets().size());
+    assertEquals(
+        expectedPartitionHistogram.get(Iterables.getOnlyElement(consumedPartitions)),
+        partitionHistogram.get(Iterables.getOnlyElement(consumedPartitions)));
   }
 
   @Test

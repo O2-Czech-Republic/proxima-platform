@@ -62,7 +62,7 @@ import cz.o2.proxima.scheme.SerializationException;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.KeyPartitioner;
+import cz.o2.proxima.storage.commitlog.KeyAttributePartitioner;
 import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.storage.commitlog.Partitioners;
 import cz.o2.proxima.storage.commitlog.Position;
@@ -90,7 +90,6 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -591,8 +590,7 @@ public class InMemStorage implements DataAccessorFactory {
           scheduler.scheduleAtFixedRate(
               onIdle, IDLE_FLUSH_TIME, IDLE_FLUSH_TIME, TimeUnit.MILLISECONDS);
       onIdleRef.set(onIdleFuture);
-      final ConcurrentMap<Partition, StreamElement> lastConsumedPerPartition =
-          new ConcurrentHashMap<>();
+      final Map<Partition, StreamElement> lastConsumedPerPartition = new HashMap<>();
       final ElementConsumer consumer =
           (partition, element, committer) -> {
             try {
@@ -1121,7 +1119,7 @@ public class InMemStorage implements DataAccessorFactory {
             .map(v -> Integer.parseInt(v.toString()))
             .orElse(1);
 
-    final Partitioner partitioner = new KeyPartitioner();
+    final Partitioner partitioner = new KeyAttributePartitioner();
 
     final Repository opRepo = op.getRepository();
     final RepositoryFactory repositoryFactory = opRepo.asFactory();

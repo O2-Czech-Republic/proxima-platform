@@ -31,3 +31,5 @@ beam: ["beam/*"]
 beam-core: ["beam/core/*"]
 beam-io: ["beam/io-*"]
 
+flink: ["flink/*"]
+flink-core: ["flink/core/*"]

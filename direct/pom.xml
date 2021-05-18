@@ -101,6 +101,7 @@
         <module>io-bulkfs</module>
         <module>io-bulkfs-parquet</module>
         <module>io-cassandra</module>
+        <module>io-elastic</module>
         <module>io-gcloud-storage</module>
         <module>io-http</module>
         <module>io-kafka</module>

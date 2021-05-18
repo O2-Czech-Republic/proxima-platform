@@ -26,6 +26,14 @@ message KeyAttribute {
   uint64 seqId = 6;
 }
 
+message ProtoStreamElement {
+  string entity = 1;
+  string key = 2;
+  string attribute = 3;
+  bytes value = 4;
+  bool delete = 5;
+}
+
 enum Flags {
   UNKNOWN = 0;
   OPEN = 1;
@@ -54,4 +62,10 @@ message ProtoState {
   fixed64 stamp = 3;
   repeated KeyAttribute inputAttributes = 4;
   repeated KeyAttribute committedAttributes = 5;
+}
+
+message ProtoCommit {
+  uint64 seqId = 1;
+  fixed64 stamp = 2;
+  repeated ProtoStreamElement updates = 3;
 }

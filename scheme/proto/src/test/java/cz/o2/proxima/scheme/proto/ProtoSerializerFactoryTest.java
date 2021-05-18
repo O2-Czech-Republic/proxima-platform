@@ -33,6 +33,7 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.scheme.proto.ProtoSerializerFactory.TransactionProtoSerializer;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
@@ -125,6 +126,16 @@ public class ProtoSerializerFactoryTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testTransactionSchemeProvider() {
+    try {
+      Repository.ofTest(
+          ConfigFactory.load("test-transactions-proto.conf")
+              .withFallback(ConfigFactory.load("test-transactions.conf"))
+              .resolve());
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
+    }
+
     Repository repo =
         Repository.ofTest(
             ConfigFactory.load("test-transactions-proto.conf")
@@ -156,6 +167,10 @@ public class ProtoSerializerFactoryTest {
     assertTrue(request.getValueSerializer().isUsable());
 
     AttributeDescriptor<State> state = transaction.getAttribute("state");
+    assertTrue(state.getValueSerializer() instanceof TransactionProtoSerializer);
+    assertTrue(state.getValueSerializer().isUsable());
+
+    AttributeDescriptor<State> commit = transaction.getAttribute("commit");
     assertTrue(state.getValueSerializer() instanceof TransactionProtoSerializer);
     assertTrue(state.getValueSerializer().isUsable());
 
@@ -199,6 +214,8 @@ public class ProtoSerializerFactoryTest {
             Pair.of(Response.aborted(), response),
             Pair.of(Response.duplicate(), response),
             Pair.of(Response.empty(), response),
+            Pair.of(
+                Commit.of(1L, System.currentTimeMillis(), Arrays.asList(update, delete)), commit),
             Pair.of(State.open(1L, now, Sets.newHashSet(keyAttribute)), state),
             Pair.of(
                 State.open(1L, now, Sets.newHashSet(keyAttribute, keyAttributeSingleWildcard))

@@ -578,6 +578,12 @@ public class ConfigRepositoryTest {
   @Test
   public void testTransactionConfigParsing() {
     ConfigRepository.dropCached();
+    try {
+      Repository.of(ConfigFactory.load("test-transactions.conf").resolve());
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
+    }
     Repository repo = Repository.of(ConfigFactory.load("test-transactions.conf").resolve());
     assertNotNull(repo);
     assertFalse(repo.getAllEntities().anyMatch(EntityDescriptor::isSystemEntity));

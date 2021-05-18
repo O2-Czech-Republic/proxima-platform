@@ -26,7 +26,8 @@ import java.io.Serializable;
 public interface TransactionSerializerSchemeProvider extends Serializable {
 
   static TransactionSerializerSchemeProvider of(
-      String requestScheme, String responseScheme, String stateScheme) {
+      String requestScheme, String responseScheme, String stateScheme, String commitScheme) {
+
     return new TransactionSerializerSchemeProvider() {
       @Override
       public String getRequestScheme() {
@@ -41,6 +42,11 @@ public interface TransactionSerializerSchemeProvider extends Serializable {
       @Override
       public String getStateScheme() {
         return stateScheme;
+      }
+
+      @Override
+      public String getCommitScheme() {
+        return commitScheme;
       }
     };
   }
@@ -65,4 +71,11 @@ public interface TransactionSerializerSchemeProvider extends Serializable {
    * @return the string scheme representing {@link Request} serialization.
    */
   String getStateScheme();
+
+  /**
+   * Retrieve scheme for serialization of {@link Commit}
+   *
+   * @return the string scheme representing {@link Commit} serialization.
+   */
+  String getCommitScheme();
 }

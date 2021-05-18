@@ -66,7 +66,6 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -365,9 +364,7 @@ public final class ConfigRepository extends Repository {
     // Read the config and store entity descriptors
     readEntityDescriptors(config);
 
-    boolean hasTransactions = getAllEntities().anyMatch(EntityDescriptor::isTransactional);
-
-    if (hasTransactions) {
+    if (hasTransactions()) {
       Config transactionConfig =
           conf.hasPath(TRANSACTIONS) ? conf.getConfig(TRANSACTIONS) : ConfigFactory.empty();
       createEntityTransaction(transactionConfig);
@@ -441,6 +438,11 @@ public final class ConfigRepository extends Repository {
         TRANSACTION,
         "state",
         Collections.singletonMap(SCHEME, schemeProvider.getStateScheme()),
+        builder);
+    loadRegular(
+        TRANSACTION,
+        "commit",
+        Collections.singletonMap(SCHEME, schemeProvider.getCommitScheme()),
         builder);
     entitiesByName.put(TRANSACTION, builder.build());
   }
@@ -2132,9 +2134,7 @@ public final class ConfigRepository extends Repository {
   /** check validity of the settings */
   private void validate() {
     // validate that each attribute belongs to at least one attribute family
-    entitiesByName
-        .values()
-        .stream()
+    getAllEntities(true)
         .flatMap(d -> d.getAllAttributes(true).stream())
         .filter(a -> !a.isProxy())
         .filter(
@@ -2169,14 +2169,25 @@ public final class ConfigRepository extends Repository {
 
     // check the size of attributes with primary family is equal to all attribute
     // hence all attributes have exactly one primary family
-    getAllEntities()
+    getAllEntities(true)
         .flatMap(e -> e.getAllAttributes(true).stream())
         .forEach(
             attr ->
                 Preconditions.checkArgument(
-                    map.get(attr) != null, "Attribute " + attr + " has no primary family"));
+                    attr.getEntity().equals(TRANSACTION) || map.get(attr) != null,
+                    "Attribute " + attr + " has no primary family"));
 
-    // validate we have a transacational manager families for all transactional entities
+    if (hasTransactions()) {
+      validateTransactions();
+    }
+  }
+
+  private boolean hasTransactions() {
+    return getAllEntities().anyMatch(EntityDescriptor::isTransactional);
+  }
+
+  private void validateTransactions() {
+    // validate we have a transactional manager families for all transactional entities
     getAllEntities()
         .filter(EntityDescriptor::isTransactional)
         .flatMap(e -> e.getAllAttributes().stream())
@@ -2186,7 +2197,11 @@ public final class ConfigRepository extends Repository {
                   a.getTransactionalManagerFamilies()
                       .stream()
                       .map(this::getFamilyByName)
-                      .flatMap(af -> af.getAttributes().stream())
+                      .flatMap(
+                          af ->
+                              af.getAttributes()
+                                  .stream()
+                                  .filter(attr -> !attr.getName().equals("commit")))
                       .collect(
                           Collectors.toMap(
                               Function.identity(),
@@ -2200,12 +2215,27 @@ public final class ConfigRepository extends Repository {
                               }));
               EntityDescriptor transaction = getEntity(TRANSACTION);
               Preconditions.checkArgument(
-                  transactionAttributes.size() == transaction.getAllAttributes().size(),
-                  "All attribute of entity "
-                      + TRANSACTION
-                      + " must be covered by transactional manager families in attribute "
-                      + a);
+                  transactionAttributes.size() == 3,
+                  "Exactly the attributes [ request.*, response.*, state] of entity %s "
+                      + " must be covered by transactional manager families in attribute %s. Got %s.",
+                  transaction,
+                  a,
+                  transactionAttributes.keySet());
             });
+
+    // validate we have exactly one family for _transaction.commit
+    AttributeDescriptor<Object> commit = getEntity(TRANSACTION).getAttribute("commit");
+    Set<AttributeFamilyDescriptor> commitFamilies =
+        allCreatedFamilies
+            .values()
+            .stream()
+            .filter(af -> af.getAttributes().contains(commit))
+            .collect(Collectors.toSet());
+    Preconditions.checkArgument(
+        commitFamilies.size() == 1,
+        "Expected exactly one family for attribute %s. Got %s.",
+        commit,
+        commitFamilies);
   }
 
   @Override
@@ -2235,7 +2265,6 @@ public final class ConfigRepository extends Repository {
 
   @Override
   public Set<AttributeFamilyDescriptor> getFamiliesForAttribute(AttributeDescriptor<?> attr) {
-
     return getFamiliesForAttribute(attr, true);
   }
 
@@ -2250,10 +2279,11 @@ public final class ConfigRepository extends Repository {
 
   @Override
   public Stream<EntityDescriptor> getAllEntities() {
-    return entitiesByName
-        .values()
-        .stream()
-        .filter(((Predicate<EntityDescriptor>) EntityDescriptor::isSystemEntity).negate());
+    return getAllEntities(false);
+  }
+
+  private Stream<EntityDescriptor> getAllEntities(boolean includeSystem) {
+    return entitiesByName.values().stream().filter(e -> includeSystem || !e.isSystemEntity());
   }
 
   @Override

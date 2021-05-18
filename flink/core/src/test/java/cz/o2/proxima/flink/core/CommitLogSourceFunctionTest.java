@@ -80,6 +80,20 @@ class CommitLogSourceFunctionTest {
         new StreamSource<>(source), maxParallelism, numSubtasks, subtaskIndex);
   }
 
+  private static StreamElement newData(
+      Repository repository, String key, Instant timestamp, String value) {
+    final EntityDescriptor entity = repository.getEntity("test");
+    final AttributeDescriptor<String> attribute = entity.getAttribute("data");
+    return StreamElement.upsert(
+        entity,
+        attribute,
+        UUID.randomUUID().toString(),
+        key,
+        attribute.getName(),
+        timestamp.toEpochMilli(),
+        attribute.getValueSerializer().serialize(value));
+  }
+
   @Test
   void testRunAndClose() throws Exception {
     final Repository repository = Repository.of(ConfigFactory.parseString(MODEL));
@@ -115,18 +129,50 @@ class CommitLogSourceFunctionTest {
     runThread.sync();
   }
 
-  private static StreamElement newData(
-      Repository repository, String key, Instant timestamp, String value) {
-    final EntityDescriptor entity = repository.getEntity("test");
-    final AttributeDescriptor<String> attribute = entity.getAttribute("data");
-    return StreamElement.upsert(
-        entity,
-        attribute,
-        UUID.randomUUID().toString(),
-        key,
-        attribute.getName(),
-        timestamp.toEpochMilli(),
-        attribute.getValueSerializer().serialize(value));
+  @Test
+  void testObserverErrorPropagatesToTheMainThread() throws Exception {
+    final Repository repository = Repository.of(ConfigFactory.parseString(MODEL));
+    final DirectDataOperator direct = repository.getOrCreateOperator(DirectDataOperator.class);
+    final AttributeDescriptor<?> attributeDescriptor =
+        repository.getEntity("test").getAttribute("data");
+    final CommitLogSourceFunction<StreamElement> sourceFunction =
+        new CommitLogSourceFunction<>(
+            repository.asFactory(),
+            Collections.singletonList(attributeDescriptor),
+            element -> {
+              throw new IllegalStateException("Test failure.");
+            });
+    final AbstractStreamOperatorTestHarness<StreamElement> testHarness =
+        createTestHarness(sourceFunction, 1, 0);
+    testHarness.initializeEmptyState();
+    testHarness.open();
+
+    final CheckedThread runThread =
+        new CheckedThread("run") {
+
+          @Override
+          public void go() throws Exception {
+            sourceFunction.run(
+                new TestSourceContext<StreamElement>() {
+
+                  @Override
+                  public void collect(StreamElement element) {
+                    // No-op.
+                  }
+                });
+          }
+        };
+
+    final StreamElement element = newData(repository, "key", Instant.now(), "value");
+    final OnlineAttributeWriter writer = Optionals.get(direct.getWriter(attributeDescriptor));
+    writer.write(element, CommitCallback.noop());
+
+    runThread.start();
+    sourceFunction.awaitRunning();
+
+    final IllegalStateException exception =
+        Assertions.assertThrows(IllegalStateException.class, runThread::sync);
+    Assertions.assertEquals("Test failure.", exception.getCause().getMessage());
   }
 
   @Test

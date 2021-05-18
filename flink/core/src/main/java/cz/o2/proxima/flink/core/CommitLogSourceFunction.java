@@ -17,6 +17,7 @@ package cz.o2.proxima.flink.core;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.MultimapBuilder;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -138,11 +139,6 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
     }
 
     @Override
-    public void onRepartition(OnRepartitionContext context) {
-      // No-op.
-    }
-
-    @Override
     public boolean onNext(StreamElement ingest, OnNextContext context) {
       final boolean skipElement =
           skipFirstElementFromEachPartition && seenPartitions.add(context.getPartition());
@@ -174,7 +170,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
   private final ResultExtractor<T> resultExtractor;
 
   @Nullable private transient List<Offset> restoredOffsets;
-  private transient ListState<Offset> persistedOffsets;
+  @Nullable private transient ListState<Offset> persistedOffsets;
 
   @Nullable private transient volatile ObserveHandle observeHandle;
 
@@ -215,6 +211,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
   @Override
   public void run(SourceContext<T> sourceContext) throws Exception {
     final CommitLogReader reader = getCommitLogReader(attributeDescriptors);
+    MultimapBuilder.hashKeys().treeSetValues();
     Preconditions.checkArgument(
         reader.hasExternalizableOffsets(), "Reader [%s] doesn't support external offsets.", reader);
     final Set<Partition> partitions =
@@ -285,7 +282,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
 
   @Override
   public void snapshotState(FunctionSnapshotContext functionSnapshotContext) throws Exception {
-    persistedOffsets.clear();
+    Objects.requireNonNull(persistedOffsets).clear();
     if (observeHandle != null) {
       for (Offset offset : Objects.requireNonNull(observeHandle).getCurrentOffsets()) {
         persistedOffsets.add(offset);
@@ -301,7 +298,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
             new ListStateDescriptor<>(OFFSETS_STATE_NAME, new JavaSerializer<>()));
     if (context.isRestored()) {
       restoredOffsets = new ArrayList<>();
-      persistedOffsets.get().forEach(restoredOffsets::add);
+      Objects.requireNonNull(persistedOffsets).get().forEach(restoredOffsets::add);
       log.info(
           "CommitLog subtask {} restored state: {}.",
           getRuntimeContext().getIndexOfThisSubtask(),

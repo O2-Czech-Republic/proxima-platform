@@ -270,7 +270,7 @@ public class ReplicationControllerTest {
 
   @Test
   public void testTransformationObserverRetryable() {
-    TransformationObserver observer = new TransformationObserver(direct, null, null, null);
+    TransformationObserver observer = new TransformationObserver(direct, null, null, true, null);
     assertTrue(observer.onError(new IllegalArgumentException()));
   }
 

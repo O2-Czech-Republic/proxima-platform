@@ -53,6 +53,7 @@ public class ConfigConstants {
   public static final String MANAGER = "manager";
   public static final String TRANSACTIONS = "transactions";
   public static final String SCHEME_PROVIDER = "scheme-provider";
+  public static final String TRANSACTION_ENTITY = "_transaction";
 
   private ConfigConstants() {
     // nop

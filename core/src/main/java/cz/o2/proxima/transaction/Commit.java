@@ -18,10 +18,10 @@ package cz.o2.proxima.transaction;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
@@ -47,7 +47,7 @@ public class Commit implements Serializable {
         updates.stream().noneMatch(StreamElement::isDeleteWildcard),
         "Wildcard deletes not currently supported.");
     Preconditions.checkArgument(seqId > 0, "SequenceId must be positive, for %s", seqId);
-    return new Commit(seqId, stamp, new ArrayList<>(updates));
+    return new Commit(seqId, stamp, updates);
   }
 
   /** Transaction's sequenceId. */
@@ -63,9 +63,33 @@ public class Commit implements Serializable {
     this(-1L, Long.MIN_VALUE, Collections.emptyList());
   }
 
-  private Commit(long seqId, long stamp, List<StreamElement> updates) {
+  private Commit(long seqId, long stamp, Collection<StreamElement> updates) {
     this.seqId = seqId;
     this.stamp = stamp;
-    this.updates = updates;
+    this.updates = fixSeqIdAndStamp(seqId, stamp, updates);
+  }
+
+  private static List<StreamElement> fixSeqIdAndStamp(
+      long seqId, long stamp, Collection<StreamElement> updates) {
+
+    return updates
+        .stream()
+        .map(
+            s -> {
+              Preconditions.checkArgument(
+                  !s.isDeleteWildcard(), "Wildcard deletes not yet supported, got %s", s);
+              if (s.getSequentialId() != seqId || s.getStamp() != stamp) {
+                return StreamElement.upsert(
+                    s.getEntityDescriptor(),
+                    s.getAttributeDescriptor(),
+                    seqId,
+                    s.getKey(),
+                    s.getAttribute(),
+                    stamp,
+                    s.getValue());
+              }
+              return s;
+            })
+        .collect(Collectors.toList());
   }
 }

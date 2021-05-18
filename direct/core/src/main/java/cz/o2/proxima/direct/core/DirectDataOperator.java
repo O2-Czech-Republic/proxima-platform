@@ -30,6 +30,7 @@ import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
+import cz.o2.proxima.repository.ConfigConstants;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.Repository.Validate;
@@ -265,13 +266,23 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     synchronized (writers) {
       OnlineAttributeWriter writer = writers.get(attr);
       if (writer == null) {
-        repo.getFamiliesForAttribute(attr)
-            .stream()
-            .filter(af -> af.getType() == StorageType.PRIMARY)
-            .filter(af -> !af.getAccess().isReadonly())
-            .findAny()
-            .flatMap(context::resolve)
-            .ifPresent(this::cacheOrRetrieveWriterFor);
+        if (attr.getEntity().equals(ConfigConstants.TRANSACTION_ENTITY)
+            && attr.getName().equals("commit")) {
+
+          repo.getAllFamilies(true)
+              .filter(af -> af.getEntity().getName().equals(attr.getEntity()))
+              .filter(af -> af.getAttributes().contains(attr))
+              .map(af -> getFamilyByName(af.getName()))
+              .forEach(this::cacheOrRetrieveWriterFor);
+        } else {
+          repo.getFamiliesForAttribute(attr)
+              .stream()
+              .filter(af -> af.getType() == StorageType.PRIMARY)
+              .filter(af -> !af.getAccess().isReadonly())
+              .findAny()
+              .flatMap(context::resolve)
+              .ifPresent(this::cacheOrRetrieveWriterFor);
+        }
 
         return Optional.ofNullable(writers.get(attr));
       }
@@ -293,7 +304,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       // store writer of this family to all attributes
       for (AttributeDescriptor<?> a : af.getAttributes()) {
         if (a.getTransactionMode() == TransactionMode.NONE) {
-          writers.put(a, familyWriter);
+          writers.put(a, OnlineAttributeWriters.synchronizedWriter(familyWriter));
         } else {
           writers.put(a, maybeTransactionalWriter);
         }

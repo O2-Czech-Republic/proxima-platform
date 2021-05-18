@@ -35,6 +35,7 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
+import cz.o2.proxima.transaction.TransactionCommitTransformation;
 import cz.o2.proxima.transaction.TransactionSerializerSchemeProvider;
 import cz.o2.proxima.transform.DataOperatorAware;
 import cz.o2.proxima.transform.ElementWiseProxyTransform;
@@ -85,7 +86,6 @@ public final class ConfigRepository extends Repository {
   private static final Pattern ENTITY_NAME_PATTERN = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
   private static final Pattern ATTRIBUTE_NAME_PATTERN =
       Pattern.compile("[a-zA-Z_][a-zA-Z0-9_\\-$]*(\\.\\*)?");
-  private static final String TRANSACTION = "_transaction";
 
   private static Config cachedConfigConstructed;
 
@@ -368,6 +368,7 @@ public final class ConfigRepository extends Repository {
       Config transactionConfig =
           conf.hasPath(TRANSACTIONS) ? conf.getConfig(TRANSACTIONS) : ConfigFactory.empty();
       createEntityTransaction(transactionConfig);
+      createTransactionCommitTransformation();
     }
 
     if (loadFamilies) {
@@ -423,28 +424,28 @@ public final class ConfigRepository extends Repository {
     }
     TransactionSerializerSchemeProvider schemeProvider =
         factory.get().createTransactionSerializerSchemeProvider();
-    EntityDescriptor.Builder builder = EntityDescriptor.newBuilder().setName(TRANSACTION);
+    EntityDescriptor.Builder builder = EntityDescriptor.newBuilder().setName(TRANSACTION_ENTITY);
     loadRegular(
-        TRANSACTION,
+        TRANSACTION_ENTITY,
         "request.*",
         Collections.singletonMap(SCHEME, schemeProvider.getRequestScheme()),
         builder);
     loadRegular(
-        TRANSACTION,
+        TRANSACTION_ENTITY,
         "response.*",
         Collections.singletonMap(SCHEME, schemeProvider.getResponseScheme()),
         builder);
     loadRegular(
-        TRANSACTION,
+        TRANSACTION_ENTITY,
         "state",
         Collections.singletonMap(SCHEME, schemeProvider.getStateScheme()),
         builder);
     loadRegular(
-        TRANSACTION,
+        TRANSACTION_ENTITY,
         "commit",
         Collections.singletonMap(SCHEME, schemeProvider.getCommitScheme()),
         builder);
-    entitiesByName.put(TRANSACTION, builder.build());
+    entitiesByName.put(TRANSACTION_ENTITY, builder.build());
   }
 
   private void setupTransforms() {
@@ -1186,7 +1187,7 @@ public final class ConfigRepository extends Repository {
     }
     final String entity = Objects.requireNonNull(cfg.get(ENTITY)).toString();
     final String filter = toString(cfg.get(FILTER));
-    final boolean isTransactional = entity.equals(TRANSACTION);
+    final boolean isTransactional = entity.equals(TRANSACTION_ENTITY);
     final StorageType type = getStorageType(cfg, isTransactional);
     final AccessType access = getAccessType(cfg, isTransactional);
     final List<String> attributes =
@@ -1316,7 +1317,7 @@ public final class ConfigRepository extends Repository {
   }
 
   private void insertSystemFamily(AttributeFamilyDescriptor family) {
-    if (family.getEntity().getName().equals(TRANSACTION)) {
+    if (family.getEntity().getName().equals(TRANSACTION_ENTITY)) {
       Preconditions.checkState(
           allCreatedFamilies.put(family.getName(), family) == null,
           "Multiple definitions of family %s",
@@ -1988,12 +1989,12 @@ public final class ConfigRepository extends Repository {
               .stream()
               .filter(
                   p ->
-                      (!((AttributeDescriptorBase<?>) p.getReadTarget()).isProxy()
+                      (!p.getReadTarget().isProxy()
                               || dependencyOrdered.contains(p.getReadTarget())
                               // the dependency can be self-resolved in case of
                               // read-only replications
                               || p.getReadTarget().equals(p))
-                          && (!((AttributeDescriptorBase<?>) p.getWriteTarget()).isProxy()
+                          && (!p.getWriteTarget().isProxy()
                               || dependencyOrdered.contains(p.getWriteTarget())
                               || p.getWriteTarget().equals(p)))
               .map(dependencyOrdered::add)
@@ -2068,6 +2069,24 @@ public final class ConfigRepository extends Repository {
           setupTransform(transformationDescriptor.getTransformation(), transformation);
           this.transformations.put(name, transformationDescriptor);
         });
+  }
+
+  private void createTransactionCommitTransformation() {
+    EntityDescriptor transaction = getEntity(TRANSACTION_ENTITY);
+    String name = "_transaction-commit";
+    TransformationDescriptor descriptor =
+        TransformationDescriptor.newBuilder()
+            .setTransformation(new TransactionCommitTransformation())
+            .setEntity(transaction)
+            .addAttributes(transaction.getAttribute("commit"))
+            .setName(name)
+            .disallowTransactions()
+            .build();
+    setupTransform(descriptor.getTransformation(), Collections.emptyMap());
+    Preconditions.checkState(
+        this.transformations.put(name, descriptor) == null,
+        "Transformation %s already exists.",
+        name);
   }
 
   private void setupTransform(Transformation transformation, Map<String, Object> cfg) {
@@ -2174,7 +2193,7 @@ public final class ConfigRepository extends Repository {
         .forEach(
             attr ->
                 Preconditions.checkArgument(
-                    attr.getEntity().equals(TRANSACTION) || map.get(attr) != null,
+                    attr.getEntity().equals(TRANSACTION_ENTITY) || map.get(attr) != null,
                     "Attribute " + attr + " has no primary family"));
 
     if (hasTransactions()) {
@@ -2209,11 +2228,11 @@ public final class ConfigRepository extends Repository {
                               (l, r) -> {
                                 throw new IllegalArgumentException(
                                     "Multiple manager families share attribute of entity "
-                                        + TRANSACTION
+                                        + TRANSACTION_ENTITY
                                         + " in attribute "
                                         + a);
                               }));
-              EntityDescriptor transaction = getEntity(TRANSACTION);
+              EntityDescriptor transaction = getEntity(TRANSACTION_ENTITY);
               Preconditions.checkArgument(
                   transactionAttributes.size() == 3,
                   "Exactly the attributes [ request.*, response.*, state] of entity %s "
@@ -2224,7 +2243,7 @@ public final class ConfigRepository extends Repository {
             });
 
     // validate we have exactly one family for _transaction.commit
-    AttributeDescriptor<Object> commit = getEntity(TRANSACTION).getAttribute("commit");
+    AttributeDescriptor<Object> commit = getEntity(TRANSACTION_ENTITY).getAttribute("commit");
     Set<AttributeFamilyDescriptor> commitFamilies =
         allCreatedFamilies
             .values()

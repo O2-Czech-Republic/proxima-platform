@@ -35,6 +35,7 @@ import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Request;
+import cz.o2.proxima.transaction.TransactionCommitTransformation;
 import cz.o2.proxima.transform.ElementWiseProxyTransform.ProxySetupContext;
 import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.transform.EventDataToDummy;
@@ -578,12 +579,6 @@ public class ConfigRepositoryTest {
   @Test
   public void testTransactionConfigParsing() {
     ConfigRepository.dropCached();
-    try {
-      Repository.of(ConfigFactory.load("test-transactions.conf").resolve());
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
-    }
     Repository repo = Repository.of(ConfigFactory.load("test-transactions.conf").resolve());
     assertNotNull(repo);
     assertFalse(repo.getAllEntities().anyMatch(EntityDescriptor::isSystemEntity));
@@ -623,6 +618,12 @@ public class ConfigRepositoryTest {
     byte[] serialized = request.getValueSerializer().serialize(Request.builder().build());
     assertNotNull(serialized);
     assertTrue(request.getValueSerializer().deserialize(serialized).isPresent());
+
+    assertEquals(1, repo.getTransformations().size());
+    TransformationDescriptor desc = repo.getTransformations().get("_transaction-commit");
+    assertEquals("_transaction-commit", desc.getName());
+    assertEquals(TransactionCommitTransformation.class, desc.getTransformation().getClass());
+    assertFalse(desc.isSupportTransactions());
   }
 
   @Test(expected = IllegalArgumentException.class)

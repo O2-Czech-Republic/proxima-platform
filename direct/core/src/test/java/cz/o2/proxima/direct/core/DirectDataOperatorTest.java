@@ -649,8 +649,8 @@ public class DirectDataOperatorTest {
               assertTrue(succ);
               done.countDown();
             });
-    done.await();
     // wait till write propagates
+    done.await();
     final Optional<KeyValue<Object>> maybeResult =
         Optionals.get(direct.getRandomAccess(armed)).get("gw", armed);
     assertTrue(maybeResult.isPresent());

@@ -15,9 +15,6 @@
  */
 package cz.o2.proxima.flink.core;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.MultimapBuilder;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -49,6 +46,8 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.runtime.state.JavaSerializer;
+import org.apache.flink.shaded.guava18.com.google.common.annotations.VisibleForTesting;
+import org.apache.flink.shaded.guava18.com.google.common.base.Preconditions;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
@@ -211,7 +210,6 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
   @Override
   public void run(SourceContext<T> sourceContext) throws Exception {
     final CommitLogReader reader = getCommitLogReader(attributeDescriptors);
-    MultimapBuilder.hashKeys().treeSetValues();
     Preconditions.checkArgument(
         reader.hasExternalizableOffsets(), "Reader [%s] doesn't support external offsets.", reader);
     final Set<Partition> partitions =

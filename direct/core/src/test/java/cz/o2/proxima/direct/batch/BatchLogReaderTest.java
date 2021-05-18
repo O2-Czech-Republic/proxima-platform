@@ -19,12 +19,15 @@ import static cz.o2.proxima.direct.commitlog.CommitLogReaderTest.withNumRecordsP
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.util.Optionals;
+import cz.o2.proxima.util.ReplicationRunner;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -51,6 +54,7 @@ public class BatchLogReaderTest {
   public void setUp() {
     repo = Repository.ofTest(ConfigFactory.load("test-reference.conf").resolve());
     direct = repo.getOrCreateOperator(DirectDataOperator.class);
+    ReplicationRunner.runAttributeReplicas(direct);
     entity = repo.getEntity("gateway");
     attr = entity.getAttribute("armed");
     now = System.currentTimeMillis();
@@ -168,22 +172,14 @@ public class BatchLogReaderTest {
   }
 
   private BatchLogReader getBatchReader() {
-    return direct
-        .getFamiliesForAttribute(attr)
-        .stream()
-        .filter(af -> af.getDesc().getAccess().canReadBatchUpdates())
-        .findAny()
-        .flatMap(af -> af.getBatchReader())
-        .orElseThrow(() -> new IllegalStateException("Missing batch reader for " + attr));
+    return Optionals.get(direct.getBatchLogReader(attr));
   }
 
   private void write(String key, byte[] value) {
-    direct
-        .getWriter(attr)
-        .orElseThrow(() -> new IllegalStateException("Missing writer for " + attr))
+    Optionals.get(direct.getWriter(attr))
         .write(
             StreamElement.upsert(
                 entity, attr, UUID.randomUUID().toString(), key, attr.getName(), now, value),
-            (success, error) -> {});
+            CommitCallback.noop());
   }
 }

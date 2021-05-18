@@ -15,8 +15,11 @@
  */
 package cz.o2.proxima.util;
 
+import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.core.AttributeWriterBase;
+import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -25,7 +28,6 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import java.util.List;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -55,47 +57,51 @@ public class ReplicationRunner {
         .forEach(
             af -> {
               List<AttributeDescriptor<?>> attributes = af.getAttributes();
-              OnlineAttributeWriter writer =
-                  af.getWriter()
-                      .orElseThrow(
-                          () -> new IllegalStateException("Missing writer of family " + af))
-                      .online();
-              ObserveHandle handle =
-                  attributes
-                      .stream()
-                      .map(
-                          a ->
-                              direct
-                                  .getFamiliesForAttribute(a)
-                                  .stream()
-                                  .filter(f -> f.getDesc().getType() == StorageType.PRIMARY)
-                                  .findAny()
-                                  .get())
-                      .collect(Collectors.toSet())
-                      .stream()
-                      .findFirst()
-                      .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader)
-                      .get()
-                      .observe(
-                          af.getDesc().getName(),
-                          new LogObserver() {
-                            @Override
-                            public boolean onNext(StreamElement ingest, OnNextContext context) {
+              final AttributeWriterBase writer = Optionals.get(af.getWriter());
+              final CommitLogReader primaryCommitLogReader =
+                  Optionals.get(
+                      attributes
+                          .stream()
+                          .flatMap(a -> direct.getFamiliesForAttribute(a).stream())
+                          .filter(f -> f.getDesc().getType() == StorageType.PRIMARY)
+                          .distinct()
+                          .findFirst()
+                          .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader));
+              final ObserveHandle handle;
+              if (writer instanceof OnlineAttributeWriter) {
+                final OnlineAttributeWriter onlineWriter = writer.online();
+                handle =
+                    primaryCommitLogReader.observe(
+                        af.getDesc().getName(),
+                        (LogObserver)
+                            (ingest, context) -> {
                               log.debug("Replicating input {} to {}", ingest, writer);
-                              writer.write(
+                              onlineWriter.write(
                                   ingest,
                                   (succ, exc) -> {
                                     context.commit(succ, exc);
                                     onReplicated.accept(ingest);
                                   });
                               return true;
-                            }
-
-                            @Override
-                            public boolean onError(Throwable error) {
-                              throw new RuntimeException(error);
-                            }
-                          });
+                            });
+              } else {
+                final BulkAttributeWriter bulkWriter = writer.bulk();
+                handle =
+                    primaryCommitLogReader.observe(
+                        af.getDesc().getName(),
+                        (LogObserver)
+                            (ingest, context) -> {
+                              log.debug("Replicating input {} to {}", ingest, writer);
+                              bulkWriter.write(
+                                  ingest,
+                                  context.getWatermark(),
+                                  (succ, exc) -> {
+                                    context.commit(succ, exc);
+                                    onReplicated.accept(ingest);
+                                  });
+                              return true;
+                            });
+              }
               ExceptionUtils.unchecked(handle::waitUntilReady);
               log.info("Started attribute replica {}", af.getDesc().getName());
             });

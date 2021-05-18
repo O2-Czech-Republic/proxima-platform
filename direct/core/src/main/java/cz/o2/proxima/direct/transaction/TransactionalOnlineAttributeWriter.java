@@ -57,7 +57,6 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     private final BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(1);
     private State.Flags state;
     private long sequenceId = -1L;
-    private boolean needsRollback = false;
 
     private Transaction(String transactionId) {
       this.transactionId = transactionId;
@@ -72,7 +71,6 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
               transactionId,
               ExceptionUtils.uncheckedBiConsumer(this::enqueueResponse),
               addedInputs);
-          needsRollback = true;
           expectedResponse = Response.Flags.OPEN;
           break;
         case OPEN:
@@ -106,8 +104,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       Response response = ExceptionUtils.uncheckedFactory(responseQueue::take);
       if (response.getFlags() != Response.Flags.COMMITTED) {
         if (response.getFlags() == Response.Flags.ABORTED) {
-          // already aborted
-          needsRollback = false;
+          state = State.Flags.ABORTED;
         }
         throw new TransactionRejectedException(transactionId);
       }
@@ -136,7 +133,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
     @Override
     public void close() {
-      if (needsRollback && state != State.Flags.COMMITTED) {
+      if (state == State.Flags.OPEN) {
         rollback();
       }
     }
@@ -165,6 +162,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
   @Override
   public void close() {
+    manager.close();
     delegate.close();
   }
 

@@ -359,8 +359,8 @@ class TransactionResourceManager implements ClientTransactionManager, ServerTran
         if (ingest.getAttributeDescriptor().equals(responseDesc)) {
           String transactionId = ingest.getKey();
           BiConsumer<String, Response> consumer = transactionResponseConsumers.get(transactionId);
+          Optional<Response> response = responseDesc.valueOf(ingest);
           if (consumer != null) {
-            Optional<Response> response = responseDesc.valueOf(ingest);
             if (response.isPresent()) {
               String suffix = responseDesc.extractSuffix(ingest.getAttribute());
               consumer.accept(suffix, response.get());
@@ -368,7 +368,10 @@ class TransactionResourceManager implements ClientTransactionManager, ServerTran
               log.error("Failed to parse response from {}", ingest);
             }
           } else {
-            log.warn("Missing consumer for transaction {}", transactionId);
+            log.warn(
+                "Missing consumer for transaction {} processing response {}",
+                transactionId,
+                response.orElse(null));
           }
         }
         context.confirm();

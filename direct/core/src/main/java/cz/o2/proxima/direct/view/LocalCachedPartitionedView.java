@@ -56,7 +56,7 @@ public class LocalCachedPartitionedView implements CachedView {
   @Value
   @VisibleForTesting
   static class IntOffset implements RandomOffset {
-    private final int offset;
+    int offset;
   }
 
   private final CommitLogReader reader;

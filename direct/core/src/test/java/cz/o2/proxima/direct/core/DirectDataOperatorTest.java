@@ -49,6 +49,7 @@ import cz.o2.proxima.storage.watermark.GlobalWatermarkTracker;
 import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.transform.EventDataToDummy;
 import cz.o2.proxima.util.DummyFilter;
+import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.TestUtils;
 import cz.o2.proxima.util.TransformationRunner;
 import java.io.IOException;
@@ -622,21 +623,19 @@ public class DirectDataOperatorTest {
 
   @Test
   public void testReplicationWriteObserve() throws InterruptedException {
-    Config config =
+    final Config config =
         ConfigFactory.load()
             .withFallback(ConfigFactory.load("test-replication.conf"))
             .withFallback(ConfigFactory.load("test-reference.conf"))
             .resolve();
     repo.reloadConfig(true, config);
-    EntityDescriptor gateway = repo.getEntity("gateway");
-    AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
+    final EntityDescriptor gateway = repo.getEntity("gateway");
+    final AttributeDescriptor<Object> armed = gateway.getAttribute("armed");
 
     // start replications
     TransformationRunner.runTransformations(repo, direct);
-    assertTrue(direct.getWriter(armed).isPresent());
-    direct
-        .getWriter(armed)
-        .get()
+    final CountDownLatch done = new CountDownLatch(1);
+    Optionals.get(direct.getWriter(armed))
         .write(
             StreamElement.upsert(
                 gateway,
@@ -648,20 +647,14 @@ public class DirectDataOperatorTest {
                 new byte[] {1, 2}),
             (succ, exc) -> {
               assertTrue(succ);
+              done.countDown();
             });
+    done.await();
     // wait till write propagates
-    TimeUnit.MILLISECONDS.sleep(300);
-    Optional<KeyValue<Object>> kv =
-        direct
-            .getFamiliesForAttribute(armed)
-            .stream()
-            .filter(af -> af.getDesc().getAccess().canRandomRead())
-            .findAny()
-            .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader)
-            .orElseThrow(() -> new IllegalStateException("Missing random access reader for armed"))
-            .get("gw", armed);
-    assertTrue(kv.isPresent());
-    assertEquals(armed, kv.get().getAttributeDescriptor());
+    final Optional<KeyValue<Object>> maybeResult =
+        Optionals.get(direct.getRandomAccess(armed)).get("gw", armed);
+    assertTrue(maybeResult.isPresent());
+    assertEquals(armed, maybeResult.get().getAttributeDescriptor());
   }
 
   @Test

@@ -122,7 +122,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
 
   private AttributeWriterBase writer() {
     if (writer == null) {
-      writer = writerFactory.apply(repo());
+      writer = Objects.requireNonNull(writerFactory).apply(repo());
     }
     return writer;
   }
@@ -145,7 +145,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
 
   private CommitLogReader commitLogReader() {
     if (commitLogReader == null) {
-      commitLogReader = commitLogReaderFactory.apply(repo());
+      commitLogReader = Objects.requireNonNull(commitLogReaderFactory).apply(repo());
     }
     return commitLogReader;
   }
@@ -156,8 +156,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
    * @return optional {@link BatchLogReader} of this family
    */
   public Optional<BatchLogReader> getBatchReader() {
-    if (desc.getAccess().canReadBatchSnapshot() || desc.getAccess().canReadBatchUpdates()) {
-
+    if (hasBatchReader()) {
       return Optional.of(
           Objects.requireNonNull(
               batchReader(), () -> "Family " + desc.getName() + " doesn't have batch reader"));
@@ -167,7 +166,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
 
   private BatchLogReader batchReader() {
     if (batchReader == null) {
-      batchReader = batchReaderFactory.apply(repo());
+      batchReader = Objects.requireNonNull(batchReaderFactory).apply(repo());
     }
     return batchReader;
   }
@@ -178,7 +177,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
    * @return optional {@link RandomAccessReader} of this family
    */
   public Optional<RandomAccessReader> getRandomAccessReader() {
-    if (desc.getAccess().canRandomRead()) {
+    if (hasRandomAccessReader()) {
       return Optional.of(
           Objects.requireNonNull(
               randomAccessReader(),
@@ -189,7 +188,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
 
   private RandomAccessReader randomAccessReader() {
     if (randomAccessReader == null) {
-      randomAccessReader = randomAccessReaderFactory.apply(repo());
+      randomAccessReader = Objects.requireNonNull(randomAccessReaderFactory).apply(repo());
     }
     return randomAccessReader;
   }
@@ -200,7 +199,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
    * @return optional {@link CachedView} of this family
    */
   public Optional<CachedView> getCachedView() {
-    if (desc.getAccess().canCreateCachedView()) {
+    if (hasCachedView()) {
       return Optional.of(
           Objects.requireNonNull(
               cachedView(), () -> "Family " + desc.getName() + " cannot create cached view"));
@@ -210,7 +209,7 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
 
   private CachedView cachedView() {
     if (cachedView == null) {
-      cachedView = cachedViewFactory.apply(repo());
+      cachedView = Objects.requireNonNull(cachedViewFactory).apply(repo());
     }
     return cachedView;
   }
@@ -224,6 +223,22 @@ public class DirectAttributeFamilyDescriptor implements Serializable {
    */
   public Optional<String> getSource() {
     return desc.getSource();
+  }
+
+  boolean hasBatchReader() {
+    return desc.getAccess().canReadBatchSnapshot() || desc.getAccess().canReadBatchUpdates();
+  }
+
+  boolean hasCachedView() {
+    return desc.getAccess().canCreateCachedView();
+  }
+
+  boolean hasCommitLogReader() {
+    return desc.getAccess().canReadCommitLog();
+  }
+
+  boolean hasRandomAccessReader() {
+    return desc.getAccess().canRandomRead();
   }
 
   private Repository repo() {

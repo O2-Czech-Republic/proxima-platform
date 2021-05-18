@@ -23,6 +23,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -109,16 +110,21 @@ public class IngestServer {
       String uuid,
       Consumer<Rpc.Status> responseConsumer) {
 
+    return ingestRequest(direct, ingest, uuid, true, responseConsumer);
+  }
+
+  static boolean ingestRequest(
+      DirectDataOperator direct,
+      StreamElement ingest,
+      String uuid,
+      boolean supportTransactions,
+      Consumer<Rpc.Status> responseConsumer) {
+
     EntityDescriptor entityDesc = ingest.getEntityDescriptor();
     AttributeDescriptor<?> attributeDesc = ingest.getAttributeDescriptor();
 
     OnlineAttributeWriter writer =
-        direct
-            .getWriter(attributeDesc)
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "Writer for attribute " + attributeDesc.getName() + " not found"));
+        getWriterForAttributeInTransform(direct, supportTransactions, attributeDesc);
 
     if (writer == null) {
       log.warn("Missing writer for request {}", ingest);
@@ -165,6 +171,24 @@ public class IngestServer {
           }
         });
     return true;
+  }
+
+  private static OnlineAttributeWriter getWriterForAttributeInTransform(
+      DirectDataOperator direct,
+      boolean supportTransactions,
+      AttributeDescriptor<?> attributeDesc) {
+
+    return direct
+        .getWriter(attributeDesc)
+        .map(
+            w ->
+                supportTransactions || !w.isTransactional()
+                    ? w
+                    : ((TransactionalOnlineAttributeWriter) w).getDelegate())
+        .orElseThrow(
+            () ->
+                new IllegalStateException(
+                    "Writer for attribute " + attributeDesc.getName() + " not found"));
   }
 
   static Rpc.Status notFound(String uuid, String what) {

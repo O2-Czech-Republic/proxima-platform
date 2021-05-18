@@ -34,6 +34,7 @@ public class TransformationObserver implements LogObserver {
 
   private final RepositoryFactory repoFactory;
   private final ElementWiseTransformation transformation;
+  private final boolean supportTransactions;
   private final StorageFilter filter;
   private final String name;
 
@@ -43,11 +44,13 @@ public class TransformationObserver implements LogObserver {
       DirectDataOperator direct,
       String name,
       ElementWiseTransformation transformation,
+      boolean supportTransactions,
       StorageFilter filter) {
 
     this.repoFactory = direct.getRepository().asFactory();
     this.name = name;
     this.transformation = transformation;
+    this.supportTransactions = supportTransactions;
     this.filter = filter;
   }
 
@@ -90,6 +93,7 @@ public class TransformationObserver implements LogObserver {
                   direct(),
                   elem,
                   elem.getUuid(),
+                  supportTransactions,
                   rpc -> {
                     if (rpc.getStatus() == 200) {
                       if (toConfirm.decrementAndGet() == 0) {

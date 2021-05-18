@@ -365,7 +365,7 @@ public class ReplicationController {
                     new IllegalStateException(
                         "Unable to get reader for family " + family.getDesc().getName() + "."));
 
-    startTransformationObserver(consumer, reader, transformation, filter, name);
+    startTransformationObserver(consumer, reader, transform, filter, name);
     log.info(
         "Started transformer {} reading from {} using {}",
         consumer,
@@ -376,12 +376,15 @@ public class ReplicationController {
   private void startTransformationObserver(
       String consumerName,
       CommitLogReader reader,
-      ElementWiseTransformation transformation,
+      TransformationDescriptor transform,
       StorageFilter filter,
       String name) {
 
+    ElementWiseTransformation transformation =
+        transform.getTransformation().asElementWiseTransform();
     TransformationObserver observer =
-        new TransformationObserver(dataOperator, name, transformation, filter);
+        new TransformationObserver(
+            dataOperator, name, transformation, transform.isSupportTransactions(), filter);
     reader.observe(
         consumerName,
         LogObservers.withNumRetriedExceptions(consumerName, 3, observer::onFatalError, observer));

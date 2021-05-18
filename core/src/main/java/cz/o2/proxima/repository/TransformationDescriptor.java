@@ -47,6 +47,7 @@ public class TransformationDescriptor implements Serializable {
     final List<AttributeDescriptor<?>> attrs = new ArrayList<>();
     Transformation transformation;
     StorageFilter filter;
+    boolean supportTransactions = true;
 
     Builder setEntity(EntityDescriptor entity) {
       this.entity = entity;
@@ -78,13 +79,19 @@ public class TransformationDescriptor implements Serializable {
       return this;
     }
 
+    Builder disallowTransactions() {
+      this.supportTransactions = false;
+      return this;
+    }
+
     TransformationDescriptor build() {
 
       Preconditions.checkArgument(!attrs.isEmpty(), "Please specify at least one attribute");
       Preconditions.checkArgument(transformation != null, "Please specify transformation function");
       Preconditions.checkArgument(entity != null, "Please specify source entity");
 
-      return new TransformationDescriptor(name, entity, attrs, transformation, filter);
+      return new TransformationDescriptor(
+          name, entity, attrs, transformation, supportTransactions, filter);
     }
   }
 
@@ -96,6 +103,8 @@ public class TransformationDescriptor implements Serializable {
 
   @Getter private final Transformation transformation;
 
+  @Getter private final boolean supportTransactions;
+
   @Getter private final StorageFilter filter;
 
   private TransformationDescriptor(
@@ -103,12 +112,14 @@ public class TransformationDescriptor implements Serializable {
       EntityDescriptor entity,
       List<AttributeDescriptor<?>> attributes,
       Transformation transformation,
+      boolean supportTransactions,
       @Nullable StorageFilter filter) {
 
     this.name = Objects.requireNonNull(name);
     this.entity = Objects.requireNonNull(entity);
     this.attributes = Objects.requireNonNull(attributes);
     this.transformation = Objects.requireNonNull(transformation);
+    this.supportTransactions = supportTransactions;
     this.filter = filter == null ? new PassthroughFilter() : filter;
   }
 
@@ -143,6 +154,7 @@ public class TransformationDescriptor implements Serializable {
     return MoreObjects.toStringHelper(this)
         .add("entity", entity)
         .add("attributes", attributes)
+        .add("supportTransactions", supportTransactions)
         .toString();
   }
 }

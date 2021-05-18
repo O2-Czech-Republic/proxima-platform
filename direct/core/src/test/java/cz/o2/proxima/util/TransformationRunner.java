@@ -19,11 +19,17 @@ import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.functional.Consumer;
+import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.TransformationDescriptor;
+import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 
 /** Utility class for running transformations locally. */
@@ -37,7 +43,6 @@ public class TransformationRunner {
    * @param direct the operator to run transformations with
    */
   public static void runTransformations(Repository repo, DirectDataOperator direct) {
-
     repo.getTransformations()
         .forEach((name, desc) -> runTransformation(direct, name, desc, i -> {}));
   }
@@ -84,12 +89,7 @@ public class TransformationRunner {
 
     return desc.getAttributes()
         .stream()
-        .flatMap(
-            attr ->
-                direct
-                    .getFamiliesForAttribute(attr)
-                    .stream()
-                    .filter(af -> af.getDesc().getAccess().canReadCommitLog()))
+        .flatMap(attr -> findFamilyDescriptorForAttribute(direct, attr))
         .collect(Collectors.toSet())
         .stream()
         .findAny()
@@ -114,10 +114,7 @@ public class TransformationRunner {
                               ingest,
                               transformed);
                           onReplicated.accept(transformed);
-                          direct
-                              .getWriter(transformed.getAttributeDescriptor())
-                              .get()
-                              .write(transformed, context::commit);
+                          getWriter(desc, transformed, direct).write(transformed, context::commit);
                         });
                 return true;
               }
@@ -128,6 +125,35 @@ public class TransformationRunner {
                 throw new RuntimeException(error);
               }
             });
+  }
+
+  private static OnlineAttributeWriter getWriter(
+      TransformationDescriptor desc, StreamElement elem, DirectDataOperator direct) {
+
+    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(elem.getAttributeDescriptor()));
+    if (!desc.isSupportTransactions() && writer.isTransactional()) {
+      return ((TransactionalOnlineAttributeWriter) writer).getDelegate();
+    }
+    return writer;
+  }
+
+  private static Stream<DirectAttributeFamilyDescriptor> findFamilyDescriptorForAttribute(
+      DirectDataOperator direct, AttributeDescriptor<?> attr) {
+
+    EntityDescriptor entity = direct.getRepository().getEntity(attr.getEntity());
+    if (entity.isSystemEntity()) {
+      return direct
+          .getRepository()
+          .getAllFamilies(true)
+          .filter(af -> af.getEntity().equals(entity))
+          .filter(af -> af.getAttributes().contains(attr))
+          .filter(af -> af.getType() == StorageType.PRIMARY)
+          .map(af -> direct.getFamilyByName(af.getName()));
+    }
+    return direct
+        .getFamiliesForAttribute(attr)
+        .stream()
+        .filter(af -> af.getDesc().getAccess().canReadCommitLog());
   }
 
   private TransformationRunner() {}

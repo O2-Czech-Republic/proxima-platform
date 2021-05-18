@@ -16,6 +16,7 @@
 package cz.o2.proxima.scheme;
 
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
@@ -68,10 +69,12 @@ public class JavaSerializer implements ValueSerializerFactory {
 
   @Override
   public TransactionSerializerSchemeProvider createTransactionSerializerSchemeProvider() {
+    String scheme = "java:";
     return TransactionSerializerSchemeProvider.of(
-        "java:" + Request.class.getName(),
-        "java:" + Response.class.getName(),
-        "java:" + State.class.getName());
+        scheme + Request.class.getName(),
+        scheme + Response.class.getName(),
+        scheme + State.class.getName(),
+        scheme + Commit.class.getName());
   }
 
   private static <T> ValueSerializer<T> createSerializer(URI scheme) {

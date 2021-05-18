@@ -19,11 +19,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.AbstractMessage;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message.Builder;
 import com.google.protobuf.Parser;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.util.JsonFormat;
 import cz.o2.proxima.functional.BiFunction;
+import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
@@ -32,10 +34,14 @@ import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.scheme.proto.transactions.Transactions;
+import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoCommit;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoRequest;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoResponse;
 import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoState;
+import cz.o2.proxima.scheme.proto.transactions.Transactions.ProtoStreamElement;
 import cz.o2.proxima.scheme.proto.utils.ProtoUtils;
+import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
@@ -103,10 +109,12 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
 
   @Override
   public TransactionSerializerSchemeProvider createTransactionSerializerSchemeProvider() {
+    String scheme = "proto:";
     return TransactionSerializerSchemeProvider.of(
-        "proto:" + Request.class.getName(),
-        "proto:" + Response.class.getName(),
-        "proto:" + State.class.getName());
+        scheme + Request.class.getName(),
+        scheme + Response.class.getName(),
+        scheme + State.class.getName(),
+        scheme + Commit.class.getName());
   }
 
   private static class ProtoValueSerializer<MessageT extends AbstractMessage>
@@ -239,8 +247,77 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
                   new ProtoValueSerializer<>(ProtoState.class.getName()),
                   TransactionProtoSerializer::stateToProto,
                   TransactionProtoSerializer::stateFromProto);
+        case "cz.o2.proxima.transaction.Commit":
+          return (TransactionProtoSerializer)
+              new TransactionProtoSerializer<Commit, ProtoCommit>(
+                  new ProtoValueSerializer<>(ProtoCommit.class.getName()),
+                  TransactionProtoSerializer::commitToProto,
+                  TransactionProtoSerializer::commitFromProto);
       }
       throw new UnsupportedOperationException("Unknown className of transactions: " + className);
+    }
+
+    private static Commit commitFromProto(Repository repository, ProtoCommit protoCommit) {
+      return Commit.of(
+          protoCommit.getSeqId() == 0 ? 1 : protoCommit.getSeqId(),
+          protoCommit.getStamp(),
+          protoCommit
+              .getUpdatesList()
+              .stream()
+              .map(
+                  p ->
+                      asStreamElement(
+                          repository, protoCommit.getSeqId(), protoCommit.getStamp(), p))
+              .collect(Collectors.toList()));
+    }
+
+    private static ProtoCommit commitToProto(Repository repository, Commit commit) {
+      return ProtoCommit.newBuilder()
+          .setSeqId(commit.getSeqId())
+          .setStamp(commit.getStamp())
+          .addAllUpdates(
+              commit
+                  .getUpdates()
+                  .stream()
+                  .map(TransactionProtoSerializer::asProtoStreamElement)
+                  .collect(Collectors.toList()))
+          .build();
+    }
+
+    private static ProtoStreamElement asProtoStreamElement(StreamElement in) {
+      if (in.isDelete()) {
+        return ProtoStreamElement.newBuilder()
+            .setEntity(in.getEntityDescriptor().getName())
+            .setAttribute(in.getAttribute())
+            .setKey(in.getKey())
+            .setDelete(in.isDelete())
+            .build();
+      }
+      return ProtoStreamElement.newBuilder()
+          .setEntity(in.getEntityDescriptor().getName())
+          .setAttribute(in.getAttribute())
+          .setKey(in.getKey())
+          .setValue(ByteString.copyFrom(in.getValue()))
+          .build();
+    }
+
+    private static StreamElement asStreamElement(
+        Repository repo, long sequenceId, long stamp, ProtoStreamElement elem) {
+
+      EntityDescriptor entity = repo.getEntity(elem.getEntity());
+      AttributeDescriptor<?> attrDesc = entity.getAttribute(elem.getAttribute());
+      if (elem.getDelete()) {
+        return StreamElement.delete(
+            entity, attrDesc, sequenceId, elem.getKey(), elem.getAttribute(), stamp);
+      }
+      return StreamElement.upsert(
+          entity,
+          attrDesc,
+          sequenceId,
+          elem.getKey(),
+          elem.getAttribute(),
+          stamp,
+          elem.getValue().toByteArray());
     }
 
     private static State stateFromProto(Repository repository, ProtoState state) {

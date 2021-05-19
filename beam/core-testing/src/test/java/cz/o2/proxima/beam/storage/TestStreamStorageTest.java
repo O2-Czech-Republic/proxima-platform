@@ -29,6 +29,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.storage.internal.AbstractDataAccessorFactory.Accept;
+import cz.o2.proxima.util.Optionals;
 import java.net.URI;
 import java.util.UUID;
 import org.apache.beam.sdk.testing.PAssert;
@@ -52,12 +53,21 @@ public class TestStreamStorageTest {
           TestStreamStorage.replaceStorages(ConfigFactory.load("test-reference.conf").resolve()));
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
-  private final AttributeFamilyDescriptor family =
-      repo.getFamiliesForAttribute(status)
-          .stream()
-          .filter(af -> af.getAccess().canReadCommitLog())
-          .findFirst()
-          .orElseThrow(() -> new IllegalStateException("Missing commit log for " + status));
+
+  private final AttributeFamilyDescriptor commitLogFamily =
+      Optionals.get(
+          repo.getFamiliesForAttribute(status)
+              .stream()
+              .filter(af -> af.getAccess().canReadCommitLog())
+              .findFirst());
+
+  private final AttributeFamilyDescriptor batchFamily =
+      Optionals.get(
+          repo.getFamiliesForAttribute(status)
+              .stream()
+              .filter(af -> af.getAccess().canReadBatchSnapshot())
+              .findFirst());
+
   private final long now = System.currentTimeMillis();
 
   @Rule public TestPipeline pipeline = TestPipeline.create();
@@ -76,7 +86,8 @@ public class TestStreamStorageTest {
 
   @Test
   public void testReadingFromTestStream() {
-    validatePipelineRun(() -> beam.getStream(pipeline, Position.OLDEST, false, false, status));
+    validatePipelineRun(
+        () -> beam.getStream(pipeline, Position.OLDEST, false, false, status), commitLogFamily);
   }
 
   @FunctionalInterface
@@ -86,7 +97,7 @@ public class TestStreamStorageTest {
 
   @Test
   public void testReadingBatchSnapshotFromStream() {
-    validatePipelineRun(() -> beam.getBatchSnapshot(pipeline, status));
+    validatePipelineRun(() -> beam.getBatchSnapshot(pipeline, status), batchFamily);
   }
 
   @Test
@@ -94,11 +105,11 @@ public class TestStreamStorageTest {
     final TestStreamStorage factory = new TestStreamStorage();
     assertEquals(Accept.ACCEPT, factory.accepts(URI.create("test-stream:///")));
     assertEquals(Accept.REJECT, factory.accepts(URI.create("file:///")));
-    final DataAccessor accessor = factory.createAccessor(beam, family);
-    assertEquals(family.getStorageUri(), accessor.getUri());
+    final DataAccessor accessor = factory.createAccessor(beam, commitLogFamily);
+    assertEquals(commitLogFamily.getStorageUri(), accessor.getUri());
   }
 
-  private void validatePipelineRun(DoFnProvider stream) {
+  private void validatePipelineRun(DoFnProvider stream, AttributeFamilyDescriptor family) {
     TestStream<StreamElement> input =
         TestStream.create(StreamElementCoder.of(repo))
             .addElements(newUpsert(), newUpsert())

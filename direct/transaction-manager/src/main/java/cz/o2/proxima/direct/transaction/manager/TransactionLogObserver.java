@@ -23,7 +23,6 @@ import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.transaction.ServerTransactionManager;
-import cz.o2.proxima.direct.transaction.TransactionManager;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.KeyAttribute;
@@ -45,7 +44,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
-import lombok.Getter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -79,7 +77,7 @@ class TransactionLogObserver implements LogObserver {
   @Value
   private static class SeqIdWithTombstone implements Comparable<SeqIdWithTombstone> {
     /** sequential ID of the update */
-    @Getter private final long seqId;
+    long seqId;
     /** marker that the write is actually a delete */
     boolean tombstone;
 
@@ -97,9 +95,8 @@ class TransactionLogObserver implements LogObserver {
   private final Map<KeyWithAttribute, List<KeyWithAttribute>> updatesToWildcard = new HashMap<>();
 
   TransactionLogObserver(DirectDataOperator direct) {
-
     this.direct = direct;
-    this.manager = TransactionManager.server(direct);
+    this.manager = direct.getServerTransactionManager();
   }
 
   @Override

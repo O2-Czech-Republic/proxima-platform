@@ -22,18 +22,23 @@ import com.datastax.driver.core.Session;
 import com.datastax.driver.core.Statement;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
+import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.util.Classpath;
 import java.io.ObjectStreamException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -215,17 +220,44 @@ public class CassandraDBAccessor extends AbstractStorage implements DataAccessor
 
   @VisibleForTesting
   CassandraRandomReader newRandomReader() {
-    return new CassandraRandomReader(this);
+    return new CassandraRandomReader(this) {
+
+      @Override
+      public void close() {
+        super.close();
+        cqlFactory.remove();
+      }
+    };
   }
 
   @VisibleForTesting
   CassandraLogReader newBatchReader(Context context) {
-    return new CassandraLogReader(this, context::getExecutorService);
+    return new CassandraLogReader(this, context::getExecutorService) {
+
+      @Override
+      public ObserveHandle observe(
+          List<Partition> partitions,
+          List<AttributeDescriptor<?>> attributes,
+          BatchLogObserver observer) {
+        final ObserveHandle handle = super.observe(partitions, attributes, observer);
+        return () -> {
+          handle.close();
+          cqlFactory.remove();
+        };
+      }
+    };
   }
 
   @VisibleForTesting
   CassandraWriter newWriter() {
-    return new CassandraWriter(this);
+    return new CassandraWriter(this) {
+
+      @Override
+      public void close() {
+        super.close();
+        cqlFactory.remove();
+      }
+    };
   }
 
   CqlFactory getCqlFactory() {

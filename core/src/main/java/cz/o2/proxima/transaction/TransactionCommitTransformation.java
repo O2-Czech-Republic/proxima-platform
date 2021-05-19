@@ -33,7 +33,7 @@ public class TransactionCommitTransformation implements ElementWiseTransformatio
   @Override
   public void setup(Repository repo, Map<String, Object> cfg) {
     EntityDescriptor transaction = repo.getEntity(ConfigConstants.TRANSACTION_ENTITY);
-    commitDesc = Regular.regular(transaction, transaction.getAttribute("commit"));
+    commitDesc = Regular.of(transaction, transaction.getAttribute("commit"));
   }
 
   @Override

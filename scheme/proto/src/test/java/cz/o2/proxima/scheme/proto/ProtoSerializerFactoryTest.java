@@ -142,8 +142,7 @@ public class ProtoSerializerFactoryTest {
                 .withFallback(ConfigFactory.load("test-transactions.conf"))
                 .resolve());
     EntityDescriptor transaction = repo.getEntity("_transaction");
-    Wildcard<Request> request =
-        Wildcard.wildcard(transaction, transaction.getAttribute("request.*"));
+    Wildcard<Request> request = Wildcard.of(transaction, transaction.getAttribute("request.*"));
 
     KeyAttribute keyAttribute =
         KeyAttributes.ofAttributeDescriptor(transaction, "t", request, 1L, "1");

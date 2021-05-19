@@ -86,6 +86,10 @@ public final class ConfigRepository extends Repository {
   private static final Pattern ENTITY_NAME_PATTERN = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
   private static final Pattern ATTRIBUTE_NAME_PATTERN =
       Pattern.compile("[a-zA-Z_][a-zA-Z0-9_\\-$]*(\\.\\*)?");
+  private static final String REQUEST_ATTRIBUTE = "request.*";
+  private static final String RESPONSE_ATTRIBUTE = "response.*";
+  private static final String STATE_ATTRIBUTE = "state";
+  private static final String COMMIT_ATTRIBUTE = "commit";
 
   private static Config cachedConfigConstructed;
 
@@ -427,22 +431,22 @@ public final class ConfigRepository extends Repository {
     EntityDescriptor.Builder builder = EntityDescriptor.newBuilder().setName(TRANSACTION_ENTITY);
     loadRegular(
         TRANSACTION_ENTITY,
-        "request.*",
+        REQUEST_ATTRIBUTE,
         Collections.singletonMap(SCHEME, schemeProvider.getRequestScheme()),
         builder);
     loadRegular(
         TRANSACTION_ENTITY,
-        "response.*",
+        RESPONSE_ATTRIBUTE,
         Collections.singletonMap(SCHEME, schemeProvider.getResponseScheme()),
         builder);
     loadRegular(
         TRANSACTION_ENTITY,
-        "state",
+        STATE_ATTRIBUTE,
         Collections.singletonMap(SCHEME, schemeProvider.getStateScheme()),
         builder);
     loadRegular(
         TRANSACTION_ENTITY,
-        "commit",
+        COMMIT_ATTRIBUTE,
         Collections.singletonMap(SCHEME, schemeProvider.getCommitScheme()),
         builder);
     entitiesByName.put(TRANSACTION_ENTITY, builder.build());
@@ -2078,7 +2082,7 @@ public final class ConfigRepository extends Repository {
         TransformationDescriptor.newBuilder()
             .setTransformation(new TransactionCommitTransformation())
             .setEntity(transaction)
-            .addAttributes(transaction.getAttribute("commit"))
+            .addAttributes(transaction.getAttribute(COMMIT_ATTRIBUTE))
             .setName(name)
             .disallowTransactions()
             .build();
@@ -2220,7 +2224,7 @@ public final class ConfigRepository extends Repository {
                           af ->
                               af.getAttributes()
                                   .stream()
-                                  .filter(attr -> !attr.getName().equals("commit")))
+                                  .filter(attr -> !attr.getName().equals(COMMIT_ATTRIBUTE)))
                       .collect(
                           Collectors.toMap(
                               Function.identity(),
@@ -2235,15 +2239,19 @@ public final class ConfigRepository extends Repository {
               EntityDescriptor transaction = getEntity(TRANSACTION_ENTITY);
               Preconditions.checkArgument(
                   transactionAttributes.size() == 3,
-                  "Exactly the attributes [ request.*, response.*, state] of entity %s "
+                  "Exactly the attributes [ %s, %s, %s] of entity %s "
                       + " must be covered by transactional manager families in attribute %s. Got %s.",
+                  REQUEST_ATTRIBUTE,
+                  RESPONSE_ATTRIBUTE,
+                  STATE_ATTRIBUTE,
                   transaction,
                   a,
                   transactionAttributes.keySet());
             });
 
     // validate we have exactly one family for _transaction.commit
-    AttributeDescriptor<Object> commit = getEntity(TRANSACTION_ENTITY).getAttribute("commit");
+    AttributeDescriptor<Object> commit =
+        getEntity(TRANSACTION_ENTITY).getAttribute(COMMIT_ATTRIBUTE);
     Set<AttributeFamilyDescriptor> commitFamilies =
         allCreatedFamilies
             .values()

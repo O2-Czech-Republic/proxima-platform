@@ -72,10 +72,9 @@ public class TransactionIT {
   private final Repository repo =
       Repository.of(ConfigFactory.load("transactions-it.conf").resolve());
   private final EntityDescriptor user = repo.getEntity("user");
-  private final Regular<Double> amount = Regular.regular(user, user.getAttribute("amount"));
-  private final Wildcard<Integer> numDevices =
-      Wildcard.wildcard(user, user.getAttribute("numDevices.*"));
-  private final Wildcard<byte[]> device = Wildcard.wildcard(user, user.getAttribute("device.*"));
+  private final Regular<Double> amount = Regular.of(user, user.getAttribute("amount"));
+  private final Wildcard<Integer> numDevices = Wildcard.of(user, user.getAttribute("numDevices.*"));
+  private final Wildcard<byte[]> device = Wildcard.of(user, user.getAttribute("device.*"));
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private TransactionLogObserver observer;
   private CachedView view;

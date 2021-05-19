@@ -150,13 +150,13 @@ public class ${java_classname} implements Serializable {
   <#list entity.attributes as attribute>
     <#if attribute.wildcard>
     private final Wildcard<${attribute.type}> ${attribute.name}Descriptor =
-      EntityAwareAttributeDescriptor.wildcard(descriptor, descriptor.getAttribute("${attribute.name}.*"));
+      EntityAwareAttributeDescriptor.Wildcard.of(descriptor, descriptor.getAttribute("${attribute.name}.*"));
     public Wildcard<${attribute.type}> get${attribute.nameCamel}Descriptor() {
       return ${attribute.name}Descriptor;
     }
     <#else>
     private final Regular<${attribute.type}> ${attribute.name}Descriptor =
-      EntityAwareAttributeDescriptor.regular(descriptor, descriptor.getAttribute("${attribute.name}"));
+      EntityAwareAttributeDescriptor.Regular.of(descriptor, descriptor.getAttribute("${attribute.name}"));
     public Regular<${attribute.type}> get${attribute.nameCamel}Descriptor() {
       return ${attribute.name}Descriptor;
     }

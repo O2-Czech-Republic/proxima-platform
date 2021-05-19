@@ -56,11 +56,10 @@ public class TransactionLogObserverTest {
   private final AttributeDescriptor<byte[]> userGateways = user.getAttribute("gateway.*");
   private final EntityDescriptor transaction = repo.getEntity("_transaction");
   private final Wildcard<Request> request =
-      Wildcard.wildcard(transaction, transaction.getAttribute("request.*"));
+      Wildcard.of(transaction, transaction.getAttribute("request.*"));
   private final Wildcard<Response> response =
-      Wildcard.wildcard(transaction, transaction.getAttribute("response.*"));
-  private final Regular<State> state =
-      Regular.regular(transaction, transaction.getAttribute("state"));
+      Wildcard.of(transaction, transaction.getAttribute("response.*"));
+  private final Regular<State> state = Regular.of(transaction, transaction.getAttribute("state"));
   private long now;
   private TransactionLogObserver observer;
 

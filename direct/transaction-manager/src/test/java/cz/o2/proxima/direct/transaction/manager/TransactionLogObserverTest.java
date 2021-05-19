@@ -21,7 +21,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.transaction.ClientTransactionManager;
-import cz.o2.proxima.direct.transaction.TransactionManager;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
@@ -77,112 +76,104 @@ public class TransactionLogObserverTest {
 
   @Test(timeout = 10000)
   public void testCreateTransaction() throws InterruptedException {
-    try (ClientTransactionManager clientManager = TransactionManager.client(direct)) {
-      String transactionId = UUID.randomUUID().toString();
-      BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-      clientManager.begin(
-          transactionId,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      Pair<String, Response> response = responseQueue.take();
-      assertEquals("open", response.getFirst());
-      assertEquals(Response.Flags.OPEN, response.getSecond().getFlags());
-    }
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        transactionId,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals("open", response.getFirst());
+    assertEquals(Response.Flags.OPEN, response.getSecond().getFlags());
   }
 
   @Test(timeout = 10000)
   public void testCreateTransactionCommit() throws InterruptedException {
-    try (ClientTransactionManager clientManager = TransactionManager.client(direct)) {
-      String transactionId = UUID.randomUUID().toString();
-      BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-      clientManager.begin(
-          transactionId,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      responseQueue.take();
-      clientManager.commit(
-          transactionId,
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
-      Pair<String, Response> response = responseQueue.take();
-      assertEquals("commit", response.getFirst());
-      assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
-    }
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        transactionId,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    responseQueue.take();
+    clientManager.commit(
+        transactionId,
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 2L, "1")));
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals("commit", response.getFirst());
+    assertEquals(Response.Flags.COMMITTED, response.getSecond().getFlags());
   }
 
   @Test(timeout = 10000)
   public void testCreateTransactionDuplicate() throws InterruptedException {
-    try (ClientTransactionManager clientManager = TransactionManager.client(direct)) {
-      String transactionId = UUID.randomUUID().toString();
-      BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-      clientManager.begin(
-          transactionId,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      // discard this
-      responseQueue.take();
-      clientManager.begin(
-          transactionId,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      Pair<String, Response> response = responseQueue.take();
-      assertEquals("open", response.getFirst());
-      assertEquals(Response.Flags.DUPLICATE, response.getSecond().getFlags());
-    }
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        transactionId,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    // discard this
+    responseQueue.take();
+    clientManager.begin(
+        transactionId,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals("open", response.getFirst());
+    assertEquals(Response.Flags.DUPLICATE, response.getSecond().getFlags());
   }
 
   @Test(timeout = 10000)
   public void testTransactionUpdate() throws InterruptedException {
-    try (ClientTransactionManager clientManager = TransactionManager.client(direct)) {
-      String transactionId = UUID.randomUUID().toString();
-      BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-      clientManager.begin(
-          transactionId,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      // discard this
-      responseQueue.take();
-      clientManager.updateTransaction(
-          transactionId,
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user2", userGateways, 2L, "1")));
-      Pair<String, Response> response = responseQueue.take();
-      assertEquals("update", response.getFirst());
-      assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
-    }
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        transactionId,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    // discard this
+    responseQueue.take();
+    clientManager.updateTransaction(
+        transactionId,
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user2", userGateways, 2L, "1")));
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals("update", response.getFirst());
+    assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
   }
 
   @Test(timeout = 10000)
   public void testTransactionRollback() throws InterruptedException {
-    try (ClientTransactionManager clientManager = TransactionManager.client(direct)) {
-      String transactionId = UUID.randomUUID().toString();
-      BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
-      clientManager.begin(
-          transactionId,
-          ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
-      // discard this
-      responseQueue.take();
-      clientManager.updateTransaction(
-          transactionId,
-          Collections.singletonList(
-              KeyAttributes.ofAttributeDescriptor(user, "user2", userGateways, 2L, "1")));
-      Pair<String, Response> response = responseQueue.take();
-      assertEquals("update", response.getFirst());
-      assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
-      clientManager.rollback(transactionId);
-      response = responseQueue.take();
-      assertEquals("rollback", response.getFirst());
-      assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
-    }
+    ClientTransactionManager clientManager = direct.getClientTransactionManager();
+    String transactionId = UUID.randomUUID().toString();
+    BlockingQueue<Pair<String, Response>> responseQueue = new ArrayBlockingQueue<>(1);
+    clientManager.begin(
+        transactionId,
+        ExceptionUtils.uncheckedBiConsumer((k, v) -> responseQueue.put(Pair.of(k, v))),
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user", userGateways, 1L, "1")));
+    // discard this
+    responseQueue.take();
+    clientManager.updateTransaction(
+        transactionId,
+        Collections.singletonList(
+            KeyAttributes.ofAttributeDescriptor(user, "user2", userGateways, 2L, "1")));
+    Pair<String, Response> response = responseQueue.take();
+    assertEquals("update", response.getFirst());
+    assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
+    clientManager.rollback(transactionId);
+    response = responseQueue.take();
+    assertEquals("rollback", response.getFirst());
+    assertEquals(Response.Flags.ABORTED, response.getSecond().getFlags());
   }
-
-  @Test
-  public void testFailedTransactionCommit() {}
 }

@@ -25,7 +25,6 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.transaction.ClientTransactionManager;
-import cz.o2.proxima.direct.transaction.TransactionManager;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.Transaction;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
@@ -84,7 +83,7 @@ public class TransactionIT {
   @Before
   public void setUp() {
     observer = new TransactionLogObserver(direct);
-    client = TransactionManager.client(direct);
+    client = direct.getClientTransactionManager();
     view = Optionals.get(direct.getCachedView(amount));
     view.assign(view.getPartitions());
     observer.run("transaction-observer");
@@ -99,6 +98,7 @@ public class TransactionIT {
   @After
   public void tearDown() {
     transformationHandle.close();
+    direct.close();
   }
 
   @Test(timeout = 100_000)
@@ -217,7 +217,7 @@ public class TransactionIT {
     // a value is read from attribute X, incremented and written to attribute Y and deleted from X
     // if value is not present in attribute X, it is read from attribute Y, and written to X
 
-    int numWrites = 1000;
+    int numWrites = 500;
     int numThreads = 10;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
@@ -347,7 +347,7 @@ public class TransactionIT {
       Response response = responses.take();
       if (response.getFlags() != Flags.OPEN) {
         TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
-        abortWaitDuration *= 2;
+        abortWaitDuration = extendWaitDuration(abortWaitDuration, random);
         continue;
       }
       long sequentialId = response.getSeqId();
@@ -368,7 +368,7 @@ public class TransactionIT {
       response = responses.take();
       if (response.getFlags() != Flags.COMMITTED) {
         TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
-        abortWaitDuration *= 2;
+        abortWaitDuration = extendWaitDuration(abortWaitDuration, random);
         continue;
       }
 
@@ -447,7 +447,7 @@ public class TransactionIT {
         break;
       } catch (TransactionRejectedException e) {
         TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
-        abortWaitDuration *= 2;
+        abortWaitDuration = extendWaitDuration(abortWaitDuration, random);
       }
 
     } while (true);
@@ -487,8 +487,8 @@ public class TransactionIT {
         latch.await();
         break;
       } catch (TransactionRejectedException e) {
-        abortWaitDuration *= 2;
         TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
+        abortWaitDuration = extendWaitDuration(abortWaitDuration, random);
       }
     } while (true);
   }
@@ -566,9 +566,13 @@ public class TransactionIT {
         latch.await();
         break;
       } catch (TransactionRejectedException e) {
-        abortWaitDuration *= 2;
         TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
+        abortWaitDuration = extendWaitDuration(abortWaitDuration, random);
       }
     } while (true);
+  }
+
+  private long extendWaitDuration(long abortWaitDuration, Random random) {
+    return (long) (abortWaitDuration * (random.nextDouble() / 2 + 1.75));
   }
 }

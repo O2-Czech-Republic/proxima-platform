@@ -76,9 +76,11 @@ import lombok.extern.slf4j.Slf4j;
 @Internal
 @ThreadSafe
 @Slf4j
-class TransactionResourceManager implements ClientTransactionManager, ServerTransactionManager {
+public class TransactionResourceManager
+    implements ClientTransactionManager, ServerTransactionManager {
 
-  public static TransactionResourceManager of(DirectDataOperator direct) {
+  @VisibleForTesting
+  static TransactionResourceManager create(DirectDataOperator direct) {
     return new TransactionResourceManager(direct);
   }
 
@@ -259,7 +261,7 @@ class TransactionResourceManager implements ClientTransactionManager, ServerTran
   private final Map<String, BiConsumer<String, Response>> transactionResponseConsumers =
       new ConcurrentHashMap<>();
 
-  private TransactionResourceManager(DirectDataOperator direct) {
+  public TransactionResourceManager(DirectDataOperator direct) {
     this.direct = direct;
     this.transaction = direct.getRepository().getEntity("_transaction");
     this.requestDesc = Wildcard.of(transaction, transaction.getAttribute("request.*"));

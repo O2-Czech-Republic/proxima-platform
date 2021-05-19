@@ -65,7 +65,7 @@ public class TransactionResourceManagerTest {
 
   @Test
   public void testTransactionRequestResponse() {
-    try (TransactionResourceManager manager = TransactionResourceManager.of(direct)) {
+    try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
       List<Pair<String, Response>> receivedResponses = new ArrayList<>();
 
@@ -111,7 +111,7 @@ public class TransactionResourceManagerTest {
 
   @Test
   public void testTransactionRequestCommit() throws InterruptedException {
-    try (TransactionResourceManager manager = TransactionResourceManager.of(direct)) {
+    try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
       BlockingQueue<Pair<String, Response>> receivedResponses = new ArrayBlockingQueue<>(1);
 
@@ -173,7 +173,7 @@ public class TransactionResourceManagerTest {
 
   @Test
   public void testTransactionRequestRollback() throws InterruptedException {
-    try (TransactionResourceManager manager = TransactionResourceManager.of(direct)) {
+    try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
       BlockingQueue<Pair<String, Response>> receivedResponses = new ArrayBlockingQueue<>(1);
 
@@ -231,7 +231,7 @@ public class TransactionResourceManagerTest {
 
   @Test
   public void testTransactionRequestUpdate() throws InterruptedException {
-    try (TransactionResourceManager manager = TransactionResourceManager.of(direct)) {
+    try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
       BlockingQueue<Pair<String, Response>> receivedResponses = new ArrayBlockingQueue<>(1);
 
@@ -295,13 +295,13 @@ public class TransactionResourceManagerTest {
   public void testCreateCachedTransactionWhenMissing() {
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "g", status, 1L);
     long stamp = System.currentTimeMillis();
-    try (TransactionResourceManager manager = TransactionResourceManager.of(direct)) {
+    try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       CachedTransaction transaction =
           manager.createCachedTransaction(
               "transaction", State.open(1L, stamp, Collections.singletonList(ka)));
       assertEquals("transaction", transaction.getTransactionId());
     }
-    try (TransactionResourceManager manager = TransactionResourceManager.of(direct)) {
+    try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       CachedTransaction transaction =
           manager.createCachedTransaction(
               "transaction",

@@ -182,7 +182,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       DirectDataOperator direct, OnlineAttributeWriter delegate) {
 
     this.delegate = delegate;
-    this.manager = TransactionResourceManager.of(direct);
+    this.manager = direct.getClientTransactionManager();
     this.executor = direct.getContext().getExecutorService();
     this.commitDelegate = Optionals.get(direct.getWriter(manager.getCommitDesc()));
   }
@@ -212,14 +212,14 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
                     ? data.getAttribute()
                         .substring(data.getAttributeDescriptor().toAttributePrefix().length())
                     : null;
-            KeyAttribute outputKetAttribute =
+            KeyAttribute outputKeyAttribute =
                 KeyAttributes.ofAttributeDescriptor(
                     data.getEntityDescriptor(),
                     data.getKey(),
                     data.getAttributeDescriptor(),
                     Long.MAX_VALUE,
                     suffix);
-            t.update(Collections.singletonList(outputKetAttribute));
+            t.update(Collections.singletonList(outputKeyAttribute));
             t.commitWrite(Collections.singletonList(data), statusCallback);
           } catch (TransactionRejectedException e) {
             statusCallback.commit(false, e);

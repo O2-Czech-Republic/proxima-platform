@@ -27,6 +27,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.util.ReplicationRunner;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -74,6 +75,7 @@ public class BeamDataOperatorTest {
     direct = beam.getDirect();
     pipeline = Pipeline.create();
     now = System.currentTimeMillis();
+    ReplicationRunner.runAttributeReplicas(direct);
   }
 
   @SuppressWarnings("unchecked")

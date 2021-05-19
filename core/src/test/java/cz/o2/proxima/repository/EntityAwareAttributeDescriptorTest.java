@@ -34,7 +34,7 @@ public class EntityAwareAttributeDescriptorTest {
 
   @Test
   public void testRegularAttributeDescriptor() {
-    Regular<byte[]> regular = EntityAwareAttributeDescriptor.regular(getEvent(), getData());
+    Regular<byte[]> regular = Regular.of(getEvent(), getData());
     StreamElement element = regular.upsert("uuid", "key", now, new byte[] {});
     assertFalse(element.isDelete());
     assertFalse(element.isDeleteWildcard());
@@ -127,7 +127,7 @@ public class EntityAwareAttributeDescriptorTest {
 
   @Test
   public void testWildcard() {
-    Wildcard<byte[]> wildcard = EntityAwareAttributeDescriptor.wildcard(getGateway(), getDevice());
+    Wildcard<byte[]> wildcard = Wildcard.of(getGateway(), getDevice());
     StreamElement element = wildcard.upsert("uuid", "key", "1", now, new byte[] {});
     assertFalse(element.isDelete());
     assertFalse(element.isDeleteWildcard());
@@ -270,28 +270,25 @@ public class EntityAwareAttributeDescriptorTest {
 
   @Test(expected = IllegalArgumentException.class)
   public void testWildcardNotRegular() {
-    EntityAwareAttributeDescriptor.regular(getGateway(), getDevice());
+    Regular.of(getGateway(), getDevice());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testRegularNotWildcard() {
-    EntityAwareAttributeDescriptor.wildcard(getEvent(), getData());
+    Wildcard.of(getEvent(), getData());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testMimatchingEntities() {
-    EntityAwareAttributeDescriptor.regular(getGateway(), getData());
+    Regular.of(getGateway(), getData());
   }
 
   @Test
   public void testSerializabilityAndEquality() throws IOException, ClassNotFoundException {
     TestUtils.assertHashCodeAndEquals(
-        TestUtils.assertSerializable(EntityAwareAttributeDescriptor.regular(getEvent(), getData())),
-        getData());
+        TestUtils.assertSerializable(Regular.of(getEvent(), getData())), getData());
     TestUtils.assertHashCodeAndEquals(
-        TestUtils.assertSerializable(
-            EntityAwareAttributeDescriptor.wildcard(getGateway(), getDevice())),
-        getDevice());
+        TestUtils.assertSerializable(Wildcard.of(getGateway(), getDevice())), getDevice());
   }
 
   private AttributeDescriptor<byte[]> getData() {

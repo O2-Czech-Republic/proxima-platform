@@ -54,9 +54,9 @@ public class TransactionResourceManagerTest {
   private final AttributeDescriptor<?> status = gateway.getAttribute("status");
   private final EntityDescriptor transaction = repo.getEntity("_transaction");
   private final Wildcard<Request> requestDesc =
-      Wildcard.wildcard(transaction, transaction.getAttribute("request.*"));
+      Wildcard.of(transaction, transaction.getAttribute("request.*"));
   private final Wildcard<Response> response =
-      Wildcard.wildcard(transaction, transaction.getAttribute("response.*"));
+      Wildcard.of(transaction, transaction.getAttribute("response.*"));
 
   @Test(expected = IllegalArgumentException.class)
   public void testDirectWriterFetchFails() {

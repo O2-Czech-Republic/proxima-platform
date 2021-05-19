@@ -94,7 +94,7 @@ public class KeyAttributeTest {
 
   @Test
   public void testWildcardQueryElements() {
-    Wildcard<byte[]> device = Wildcard.wildcard(gateway, this.device);
+    Wildcard<byte[]> device = Wildcard.of(gateway, this.device);
     StreamElement first =
         device.upsert(100L, "key", "1", System.currentTimeMillis(), new byte[] {});
     StreamElement second =

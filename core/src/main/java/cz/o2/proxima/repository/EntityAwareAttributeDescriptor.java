@@ -32,6 +32,10 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
 
   public static class Regular<T> extends EntityAwareAttributeDescriptor<T> {
 
+    public static <T> Regular<T> of(EntityDescriptor entity, AttributeDescriptor<T> attr) {
+      return EntityAwareAttributeDescriptor.regular(entity, attr);
+    }
+
     private static final long serialVersionUID = 1L;
 
     private Regular(EntityDescriptor entity, AttributeDescriptor<T> attr) {
@@ -176,6 +180,10 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
   }
 
   public static class Wildcard<T> extends EntityAwareAttributeDescriptor<T> {
+
+    public static <T> Wildcard<T> of(EntityDescriptor entity, AttributeDescriptor<T> attr) {
+      return EntityAwareAttributeDescriptor.wildcard(entity, attr);
+    }
 
     private static final long serialVersionUID = 1L;
 
@@ -406,11 +414,11 @@ public class EntityAwareAttributeDescriptor<T> implements AttributeDescriptor<T>
     }
   }
 
-  public static <T> Regular<T> regular(EntityDescriptor entity, AttributeDescriptor<T> wrapped) {
+  private static <T> Regular<T> regular(EntityDescriptor entity, AttributeDescriptor<T> wrapped) {
     return new Regular<>(entity, wrapped);
   }
 
-  public static <T> Wildcard<T> wildcard(EntityDescriptor entity, AttributeDescriptor<T> wrapped) {
+  private static <T> Wildcard<T> wildcard(EntityDescriptor entity, AttributeDescriptor<T> wrapped) {
     return new Wildcard<>(entity, wrapped);
   }
 

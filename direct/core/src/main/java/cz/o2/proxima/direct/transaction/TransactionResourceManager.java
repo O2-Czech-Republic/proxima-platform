@@ -262,10 +262,10 @@ class TransactionResourceManager implements ClientTransactionManager, ServerTran
   private TransactionResourceManager(DirectDataOperator direct) {
     this.direct = direct;
     this.transaction = direct.getRepository().getEntity("_transaction");
-    this.requestDesc = Wildcard.wildcard(transaction, transaction.getAttribute("request.*"));
-    this.responseDesc = Wildcard.wildcard(transaction, transaction.getAttribute("response.*"));
-    this.stateDesc = Regular.regular(transaction, transaction.getAttribute("state"));
-    this.commitDesc = Regular.regular(transaction, transaction.getAttribute("commit"));
+    this.requestDesc = Wildcard.of(transaction, transaction.getAttribute("request.*"));
+    this.responseDesc = Wildcard.of(transaction, transaction.getAttribute("response.*"));
+    this.stateDesc = Regular.of(transaction, transaction.getAttribute("state"));
+    this.commitDesc = Regular.of(transaction, transaction.getAttribute("commit"));
   }
 
   @Override

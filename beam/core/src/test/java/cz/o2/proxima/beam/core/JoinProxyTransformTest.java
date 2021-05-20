@@ -28,6 +28,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
+import cz.o2.proxima.util.ReplicationRunner;
 import java.util.UUID;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.testing.PAssert;
@@ -35,6 +36,7 @@ import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.TypeDescriptors;
+import org.junit.Before;
 import org.junit.Test;
 
 public class JoinProxyTransformTest {
@@ -48,9 +50,17 @@ public class JoinProxyTransformTest {
   private final AttributeDescriptor<byte[]> armed = entity.getAttribute("armed");
   private final AttributeDescriptor<byte[]> status = entity.getAttribute("status");
   private final AttributeDescriptor<Integer> proxy = entity.getAttribute("armed-proxy");
-  private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
-  private final BeamDataOperator beam = repo.getOrCreateOperator(BeamDataOperator.class);
   private final long now = System.currentTimeMillis();
+
+  private BeamDataOperator beam;
+  private DirectDataOperator direct;
+
+  @Before
+  public void setUp() {
+    beam = repo.getOrCreateOperator(BeamDataOperator.class);
+    direct = beam.getDirect();
+    ReplicationRunner.runAttributeReplicas(direct);
+  }
 
   @Test
   public void testReadFromProxy() {

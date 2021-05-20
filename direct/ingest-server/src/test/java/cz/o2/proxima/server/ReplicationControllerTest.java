@@ -38,6 +38,7 @@ import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.util.Optionals;
 import java.net.URI;
 import java.util.ArrayList;
@@ -64,6 +65,23 @@ public class ReplicationControllerTest {
 
   @Before
   public void setUp() {
+    // We're not using gateway replicas in this test, so we need to set watermark close to
+    // processing time, for the liveness check to pass.
+    InMemStorage.setWatermarkEstimatorFactory(
+        URI.create("inmem:///proxima_gateway"),
+        (stamp, name, offset) ->
+            new WatermarkEstimator() {
+              @Override
+              public long getWatermark() {
+                return System.currentTimeMillis();
+              }
+
+              @Override
+              public void setMinWatermark(long minWatermark) {
+                // No-op.
+              }
+            });
+
     direct = repo.getOrCreateOperator(DirectDataOperator.class);
     livenessLatch = new CountDownLatch(1);
     controller =

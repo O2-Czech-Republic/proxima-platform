@@ -33,6 +33,7 @@ import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Optionals;
+import cz.o2.proxima.util.ReplicationRunner;
 import cz.o2.proxima.util.SerializableUtils;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
@@ -77,6 +78,7 @@ public class DirectBatchUnboundedSourceTest {
     gateway = repo.getEntity("gateway");
     armed = gateway.getAttribute("armed");
     direct = repo.getOrCreateOperator(DirectDataOperator.class);
+    ReplicationRunner.runAttributeReplicas(direct);
   }
 
   @Test

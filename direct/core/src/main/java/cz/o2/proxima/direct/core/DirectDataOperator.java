@@ -314,7 +314,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional commit log reader
    */
   public Optional<CommitLogReader> getCommitLogReader(Collection<AttributeDescriptor<?>> attrs) {
-    return getFamilyForAttributes(attrs, a -> a.getDesc().getAccess().canReadCommitLog())
+    return getFamilyForAttributes(attrs, DirectAttributeFamilyDescriptor::hasCommitLogReader)
         .flatMap(DirectAttributeFamilyDescriptor::getCommitLogReader);
   }
 
@@ -330,13 +330,13 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
   }
 
   /**
-   * Retrieve {@link CommitLogReader} for given {@link AttributeDescriptor}s.
+   * Retrieve {@link BatchLogReader} for given {@link AttributeDescriptor}s.
    *
    * @param attrs the attributes to find commit log reader for
-   * @return optional commit log reader
+   * @return optional batch log reader
    */
   public Optional<BatchLogReader> getBatchLogReader(Collection<AttributeDescriptor<?>> attrs) {
-    return getFamilyForAttributes(attrs, a -> a.getDesc().getAccess().canReadCommitLog())
+    return getFamilyForAttributes(attrs, DirectAttributeFamilyDescriptor::hasBatchReader)
         .flatMap(DirectAttributeFamilyDescriptor::getBatchReader);
   }
 
@@ -358,7 +358,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional cached view
    */
   public Optional<CachedView> getCachedView(Collection<AttributeDescriptor<?>> attrs) {
-    return getFamilyForAttributes(attrs, a -> a.getDesc().getAccess().canCreateCachedView())
+    return getFamilyForAttributes(attrs, DirectAttributeFamilyDescriptor::hasCachedView)
         .flatMap(DirectAttributeFamilyDescriptor::getCachedView);
   }
 
@@ -380,14 +380,14 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional random access reader
    */
   public Optional<RandomAccessReader> getRandomAccess(Collection<AttributeDescriptor<?>> attrs) {
-    return getFamilyForAttributes(attrs, a -> a.getDesc().getAccess().canRandomRead())
+    return getFamilyForAttributes(attrs, DirectAttributeFamilyDescriptor::hasRandomAccessReader)
         .flatMap(DirectAttributeFamilyDescriptor::getRandomAccessReader);
   }
 
   /**
    * Retrieve {@link RandomAccessReader} for given {@link AttributeDescriptor}s.
    *
-   * @param attrs the attributes to find radom access reader for
+   * @param attrs the attributes to find random access reader for
    * @return optional random access reader
    */
   @SafeVarargs

@@ -257,7 +257,7 @@ First, let's introduce some glossary:
   ```
 
 ## Platform's _DataOperators_
- The platform offers various modes of access to data. As of version 0.4.x, these types are:
+ The platform offers various modes of access to data. As of version 0.6.x, these types are:
   * direct
   * Apache Beam
 ### Direct access to data

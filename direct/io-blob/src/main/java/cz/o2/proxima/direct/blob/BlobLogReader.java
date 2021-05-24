@@ -21,6 +21,7 @@ import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
+import cz.o2.proxima.direct.batch.Offset;
 import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.direct.bulk.FileFormat;
 import cz.o2.proxima.direct.bulk.FileSystem;
@@ -273,9 +274,7 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
                 final Iterator<StreamElement> iterator = reader.iterator();
                 while (iterator.hasNext()) {
                   final StreamElement element = iterator.next();
-                  final BatchLogObserver.Offset offset =
-                      new BatchLogObserver.SimpleOffset(
-                          partition, elementIndex++, !iterator.hasNext());
+                  final Offset offset = Offset.of(partition, elementIndex++, !iterator.hasNext());
                   if (stopProcessing.get() || terminationContext.isCancelled()) {
                     break;
                   }

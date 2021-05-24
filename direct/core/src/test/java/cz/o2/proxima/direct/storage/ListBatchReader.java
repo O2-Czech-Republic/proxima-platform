@@ -21,6 +21,7 @@ import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
+import cz.o2.proxima.direct.batch.Offset;
 import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -113,9 +114,7 @@ public class ListBatchReader implements BatchLogReader, Serializable {
                 final Iterator<StreamElement> iterator = data.get(partition.getId()).iterator();
                 while (!Thread.currentThread().isInterrupted() && iterator.hasNext()) {
                   final StreamElement element = iterator.next();
-                  final BatchLogObserver.Offset offset =
-                      new BatchLogObserver.SimpleOffset(
-                          partition, elementIndex++, !iterator.hasNext());
+                  final Offset offset = Offset.of(partition, elementIndex++, !iterator.hasNext());
                   if (attrSet.contains(element.getAttributeDescriptor())
                       && !observer.onNext(
                           element,

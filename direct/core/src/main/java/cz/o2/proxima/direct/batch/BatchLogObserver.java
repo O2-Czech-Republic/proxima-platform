@@ -19,7 +19,6 @@ import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkSupplier;
-import lombok.Value;
 
 /**
  * Batch observer of data. No commits needed.
@@ -28,37 +27,6 @@ import lombok.Value;
  */
 @Stable
 public interface BatchLogObserver {
-
-  @Value
-  class SimpleOffset implements BatchLogObserver.Offset {
-    Partition partition;
-    long elementIndex;
-    boolean last;
-  }
-
-  interface Offset {
-
-    /**
-     * Partition the offset belongs to.
-     *
-     * @return Partition.
-     */
-    Partition getPartition();
-
-    /**
-     * Index of the element within the partition. Elements are indexed from zero.
-     *
-     * @return Index of the element.
-     */
-    long getElementIndex();
-
-    /**
-     * Is there any other element in the partition?
-     *
-     * @return True if there are no more elements in the partition.
-     */
-    boolean isLast();
-  }
 
   /** Context passed to {@link #onNext}. */
   @Stable

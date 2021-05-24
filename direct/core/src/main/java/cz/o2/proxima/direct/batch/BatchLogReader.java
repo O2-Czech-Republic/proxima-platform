@@ -86,13 +86,9 @@ public interface BatchLogReader {
    * @return an {@link ObserveHandle} to control the consumption
    */
   default ObserveHandle observeOffsets(
-      List<BatchLogObserver.Offset> offsets,
-      List<AttributeDescriptor<?>> attributes,
-      BatchLogObserver observer) {
-    final Map<Partition, BatchLogObserver.Offset> partitions =
-        offsets
-            .stream()
-            .collect(Collectors.toMap(BatchLogObserver.Offset::getPartition, Function.identity()));
+      List<Offset> offsets, List<AttributeDescriptor<?>> attributes, BatchLogObserver observer) {
+    final Map<Partition, Offset> partitions =
+        offsets.stream().collect(Collectors.toMap(Offset::getPartition, Function.identity()));
 
     return observe(
         new ArrayList<>(partitions.keySet()),

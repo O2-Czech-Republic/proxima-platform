@@ -189,7 +189,7 @@ public class BatchLogReaderTest {
     final ListBatchReader reader =
         ListBatchReader.ofPartitioned(
             direct.getContext(), Arrays.asList(firstPartition, secondPartition, thirdPartition));
-    final ConcurrentMap<Partition, BatchLogObserver.Offset> lastOffsets = new ConcurrentHashMap<>();
+    final ConcurrentMap<Partition, Offset> lastOffsets = new ConcurrentHashMap<>();
     final CountDownLatch doneConsuming = new CountDownLatch(1);
     reader.observe(
         Arrays.asList(Partition.of(0), Partition.of(1), Partition.of(2)),
@@ -214,15 +214,9 @@ public class BatchLogReaderTest {
           }
         });
     doneConsuming.await();
-    assertEquals(
-        new BatchLogObserver.SimpleOffset(Partition.of(0), 9, true),
-        lastOffsets.get(Partition.of(0)));
-    assertEquals(
-        new BatchLogObserver.SimpleOffset(Partition.of(1), 19, true),
-        lastOffsets.get(Partition.of(1)));
-    assertEquals(
-        new BatchLogObserver.SimpleOffset(Partition.of(2), 29, true),
-        lastOffsets.get(Partition.of(2)));
+    assertEquals(Offset.of(Partition.of(0), 9, true), lastOffsets.get(Partition.of(0)));
+    assertEquals(Offset.of(Partition.of(1), 19, true), lastOffsets.get(Partition.of(1)));
+    assertEquals(Offset.of(Partition.of(2), 29, true), lastOffsets.get(Partition.of(2)));
   }
 
   @Test
@@ -236,9 +230,7 @@ public class BatchLogReaderTest {
     final BlockingQueue<String> consumed = new LinkedBlockingQueue<>();
     final CountDownLatch doneConsuming = new CountDownLatch(1);
     reader.observeOffsets(
-        Arrays.asList(
-            new BatchLogObserver.SimpleOffset(Partition.of(0), 50, false),
-            new BatchLogObserver.SimpleOffset(Partition.of(2), 40, false)),
+        Arrays.asList(Offset.of(Partition.of(0), 50, false), Offset.of(Partition.of(2), 40, false)),
         Collections.singletonList(attr),
         new BatchLogObserver() {
 

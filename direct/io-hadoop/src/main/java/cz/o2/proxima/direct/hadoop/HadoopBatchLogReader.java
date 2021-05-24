@@ -19,6 +19,7 @@ import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
+import cz.o2.proxima.direct.batch.Offset;
 import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.direct.bulk.Reader;
 import cz.o2.proxima.direct.core.Context;
@@ -136,8 +137,7 @@ public class HadoopBatchLogReader implements BatchLogReader {
         final Iterator<StreamElement> iterator = reader.iterator();
         while (iterator.hasNext()) {
           final StreamElement element = iterator.next();
-          final BatchLogObserver.Offset offset =
-              new BatchLogObserver.SimpleOffset(partition, elementIndex++, !iterator.hasNext());
+          final Offset offset = Offset.of(partition, elementIndex++, !iterator.hasNext());
           if (terminationContext.isCancelled()
               || !observer.onNext(
                   element, BatchLogObservers.withWatermark(partition, offset, watermark))) {

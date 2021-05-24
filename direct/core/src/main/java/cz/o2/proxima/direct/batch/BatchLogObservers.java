@@ -42,9 +42,9 @@ public class BatchLogObservers {
       }
 
       @Override
-      public BatchLogObserver.Offset getOffset() {
+      public Offset getOffset() {
         throw new UnsupportedOperationException(
-            "Unable to calculate offset, because underlying data may have changed.");
+            "Unable to calculate offset, because the underlying data store is not known to be immutable.");
       }
 
       @Override
@@ -66,7 +66,7 @@ public class BatchLogObservers {
    * @return a wrapped {@link OnNextContext} for given partition and given watermark supplier
    */
   public static OnNextContext withWatermarkSupplier(
-      Partition partition, BatchLogObserver.Offset offset, WatermarkSupplier watermark) {
+      Partition partition, Offset offset, WatermarkSupplier watermark) {
     return new OnNextContext() {
 
       private static final long serialVersionUID = 1L;
@@ -77,7 +77,7 @@ public class BatchLogObservers {
       }
 
       @Override
-      public BatchLogObserver.Offset getOffset() {
+      public Offset getOffset() {
         return offset;
       }
 
@@ -96,8 +96,7 @@ public class BatchLogObservers {
    * @param watermark epoch millis to set the watermark to
    * @return a wrapped {@link OnNextContext} for given partition with given watermark
    */
-  public static OnNextContext withWatermark(
-      Partition partition, BatchLogObserver.Offset offset, long watermark) {
+  public static OnNextContext withWatermark(Partition partition, Offset offset, long watermark) {
     return new OnNextContext() {
 
       private static final long serialVersionUID = 1L;
@@ -108,7 +107,7 @@ public class BatchLogObservers {
       }
 
       @Override
-      public BatchLogObserver.Offset getOffset() {
+      public Offset getOffset() {
         return offset;
       }
 

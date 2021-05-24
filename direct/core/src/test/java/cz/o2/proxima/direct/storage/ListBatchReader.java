@@ -18,7 +18,7 @@ package cz.o2.proxima.direct.storage;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext;
+import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.batch.TerminationContext;
@@ -108,13 +108,19 @@ public class ListBatchReader implements BatchLogReader, Serializable {
             () -> {
               terminationContext.setRunningThread();
               for (int i = 0; i < partitions.size() && !terminationContext.isCancelled(); i++) {
-                Partition p = partitions.get(i);
-                List<StreamElement> partData = data.get(p.getId());
-                Iterator<StreamElement> dataIter = partData.iterator();
-                while (!Thread.currentThread().isInterrupted() && dataIter.hasNext()) {
-                  StreamElement elem = dataIter.next();
-                  if (attrSet.contains(elem.getAttributeDescriptor())
-                      && !observer.onNext(elem, newOnNextContext(p))) {
+                long elementIndex = 0;
+                final Partition partition = partitions.get(i);
+                final Iterator<StreamElement> iterator = data.get(partition.getId()).iterator();
+                while (!Thread.currentThread().isInterrupted() && iterator.hasNext()) {
+                  final StreamElement element = iterator.next();
+                  final BatchLogObserver.Offset offset =
+                      new BatchLogObserver.SimpleOffset(
+                          partition, elementIndex++, !iterator.hasNext());
+                  if (attrSet.contains(element.getAttributeDescriptor())
+                      && !observer.onNext(
+                          element,
+                          BatchLogObservers.withWatermark(
+                              partition, offset, Watermarks.MIN_WATERMARK))) {
                     terminationContext.cancel();
                     break;
                   }
@@ -123,20 +129,6 @@ public class ListBatchReader implements BatchLogReader, Serializable {
               terminationContext.finished();
             });
     return terminationContext.asObserveHandle();
-  }
-
-  private OnNextContext newOnNextContext(Partition part) {
-    return new OnNextContext() {
-      @Override
-      public Partition getPartition() {
-        return part;
-      }
-
-      @Override
-      public long getWatermark() {
-        return Watermarks.MIN_WATERMARK;
-      }
-    };
   }
 
   @Override

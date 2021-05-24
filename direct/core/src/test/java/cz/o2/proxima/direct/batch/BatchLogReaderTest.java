@@ -18,21 +18,31 @@ package cz.o2.proxima.direct.batch;
 import static cz.o2.proxima.direct.commitlog.CommitLogReaderTest.withNumRecordsPerSec;
 import static org.junit.Assert.*;
 
+import com.google.common.collect.Streams;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.storage.ListBatchReader;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.ReplicationRunner;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -171,15 +181,106 @@ public class BatchLogReaderTest {
     assertTrue(System.currentTimeMillis() - now > 1000);
   }
 
+  @Test
+  public void testObserveReadOffset() throws InterruptedException {
+    final List<StreamElement> firstPartition = newPartition("first_", 10);
+    final List<StreamElement> secondPartition = newPartition("second_", 20);
+    final List<StreamElement> thirdPartition = newPartition("third_", 30);
+    final ListBatchReader reader =
+        ListBatchReader.ofPartitioned(
+            direct.getContext(), Arrays.asList(firstPartition, secondPartition, thirdPartition));
+    final ConcurrentMap<Partition, BatchLogObserver.Offset> lastOffsets = new ConcurrentHashMap<>();
+    final CountDownLatch doneConsuming = new CountDownLatch(1);
+    reader.observe(
+        Arrays.asList(Partition.of(0), Partition.of(1), Partition.of(2)),
+        Collections.singletonList(attr),
+        new BatchLogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            lastOffsets.merge(
+                context.getPartition(),
+                context.getOffset(),
+                (oldValue, newValue) -> {
+                  assertTrue(oldValue.getElementIndex() < newValue.getElementIndex());
+                  return newValue;
+                });
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            doneConsuming.countDown();
+          }
+        });
+    doneConsuming.await();
+    assertEquals(
+        new BatchLogObserver.SimpleOffset(Partition.of(0), 9, true),
+        lastOffsets.get(Partition.of(0)));
+    assertEquals(
+        new BatchLogObserver.SimpleOffset(Partition.of(1), 19, true),
+        lastOffsets.get(Partition.of(1)));
+    assertEquals(
+        new BatchLogObserver.SimpleOffset(Partition.of(2), 29, true),
+        lastOffsets.get(Partition.of(2)));
+  }
+
+  @Test
+  public void testObserveOffsets() throws InterruptedException {
+    final List<StreamElement> firstPartition = newPartition("first_", 100);
+    final List<StreamElement> secondPartition = newPartition("second_", 80);
+    final List<StreamElement> thirdPartition = newPartition("third_", 60);
+    final ListBatchReader reader =
+        ListBatchReader.ofPartitioned(
+            direct.getContext(), Arrays.asList(firstPartition, secondPartition, thirdPartition));
+    final BlockingQueue<String> consumed = new LinkedBlockingQueue<>();
+    final CountDownLatch doneConsuming = new CountDownLatch(1);
+    reader.observeOffsets(
+        Arrays.asList(
+            new BatchLogObserver.SimpleOffset(Partition.of(0), 50, false),
+            new BatchLogObserver.SimpleOffset(Partition.of(2), 40, false)),
+        Collections.singletonList(attr),
+        new BatchLogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement element) {
+            assertTrue(consumed.add(element.getKey()));
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            doneConsuming.countDown();
+          }
+        });
+    doneConsuming.await();
+    final Set<String> expected =
+        Streams.concat(
+                firstPartition.subList(50, firstPartition.size()).stream(),
+                thirdPartition.subList(40, thirdPartition.size()).stream())
+            .map(StreamElement::getKey)
+            .collect(Collectors.toSet());
+    assertEquals(expected, new HashSet<>(consumed));
+  }
+
   private BatchLogReader getBatchReader() {
     return Optionals.get(direct.getBatchLogReader(attr));
   }
 
+  private List<StreamElement> newPartition(String keyPrefix, int size) {
+    final List<StreamElement> result = new ArrayList<>();
+    for (int i = 0; i < size; i++) {
+      result.add(newData(keyPrefix + i, new byte[] {(byte) i}));
+    }
+    return Collections.unmodifiableList(result);
+  }
+
+  private StreamElement newData(String key, byte[] value) {
+    return StreamElement.upsert(
+        entity, attr, UUID.randomUUID().toString(), key, attr.getName(), now, value);
+  }
+
   private void write(String key, byte[] value) {
-    Optionals.get(direct.getWriter(attr))
-        .write(
-            StreamElement.upsert(
-                entity, attr, UUID.randomUUID().toString(), key, attr.getName(), now, value),
-            CommitCallback.noop());
+    Optionals.get(direct.getWriter(attr)).write(newData(key, value), CommitCallback.noop());
   }
 }

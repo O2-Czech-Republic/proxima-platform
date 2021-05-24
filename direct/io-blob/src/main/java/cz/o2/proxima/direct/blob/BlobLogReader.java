@@ -269,16 +269,22 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
             () -> {
               log.info("Starting to observe {} from partition {}", blob, partition);
               try (Reader reader = fileFormat.openReader(createPath(blob), entity)) {
-                for (StreamElement e : reader) {
+                long elementIndex = 0;
+                final Iterator<StreamElement> iterator = reader.iterator();
+                while (iterator.hasNext()) {
+                  final StreamElement element = iterator.next();
+                  final BatchLogObserver.Offset offset =
+                      new BatchLogObserver.SimpleOffset(
+                          partition, elementIndex++, !iterator.hasNext());
                   if (stopProcessing.get() || terminationContext.isCancelled()) {
                     break;
                   }
-                  if (attrs.contains(e.getAttributeDescriptor())) {
+                  if (attrs.contains(element.getAttributeDescriptor())) {
                     boolean cont =
                         observer.onNext(
-                            e,
+                            element,
                             BatchLogObservers.withWatermarkSupplier(
-                                partition, partition::getMinTimestamp));
+                                partition, offset, partition::getMinTimestamp));
 
                     if (!cont) {
                       stopProcessing.set(true);

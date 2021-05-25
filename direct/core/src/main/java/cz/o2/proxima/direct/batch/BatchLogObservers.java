@@ -20,10 +20,30 @@ import cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.time.WatermarkSupplier;
 import cz.o2.proxima.time.Watermarks;
+import javax.annotation.Nullable;
+import lombok.Value;
 
 /** Utility class related to {@link BatchLogObserver BatchLogObservers}. */
 @Internal
 public class BatchLogObservers {
+
+  @Value
+  private static class SimpleOnNextContext implements OnNextContext {
+
+    private static final long serialVersionUID = 1L;
+
+    Partition partition;
+    @Nullable Offset offset;
+    long watermark;
+
+    public Offset getOffset() {
+      if (offset == null) {
+        throw new UnsupportedOperationException(
+            "Unable to calculate offset, because the underlying data store is not known to be immutable.");
+      }
+      return offset;
+    }
+  }
 
   /**
    * Create {@link OnNextContext} which holds watermark back on {@link Watermarks#MIN_WATERMARK}
@@ -34,24 +54,7 @@ public class BatchLogObservers {
    * @return a wrapped {@link OnNextContext} for given partition
    */
   public static OnNextContext defaultContext(Partition partition) {
-    return new OnNextContext() {
-
-      @Override
-      public Partition getPartition() {
-        return partition;
-      }
-
-      @Override
-      public Offset getOffset() {
-        throw new UnsupportedOperationException(
-            "Unable to calculate offset, because the underlying data store is not known to be immutable.");
-      }
-
-      @Override
-      public long getWatermark() {
-        return Watermarks.MIN_WATERMARK;
-      }
-    };
+    return new SimpleOnNextContext(partition, null, Watermarks.MIN_WATERMARK);
   }
 
   /**
@@ -67,25 +70,7 @@ public class BatchLogObservers {
    */
   public static OnNextContext withWatermarkSupplier(
       Partition partition, Offset offset, WatermarkSupplier watermark) {
-    return new OnNextContext() {
-
-      private static final long serialVersionUID = 1L;
-
-      @Override
-      public Partition getPartition() {
-        return partition;
-      }
-
-      @Override
-      public Offset getOffset() {
-        return offset;
-      }
-
-      @Override
-      public long getWatermark() {
-        return watermark.getWatermark();
-      }
-    };
+    return new SimpleOnNextContext(partition, offset, watermark.getWatermark());
   }
 
   /**
@@ -97,25 +82,7 @@ public class BatchLogObservers {
    * @return a wrapped {@link OnNextContext} for given partition with given watermark
    */
   public static OnNextContext withWatermark(Partition partition, Offset offset, long watermark) {
-    return new OnNextContext() {
-
-      private static final long serialVersionUID = 1L;
-
-      @Override
-      public Partition getPartition() {
-        return partition;
-      }
-
-      @Override
-      public Offset getOffset() {
-        return offset;
-      }
-
-      @Override
-      public long getWatermark() {
-        return watermark;
-      }
-    };
+    return new SimpleOnNextContext(partition, offset, watermark);
   }
 
   private BatchLogObservers() {}

@@ -19,6 +19,7 @@ import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
+import cz.o2.proxima.direct.batch.Offset;
 import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.direct.bulk.Reader;
 import cz.o2.proxima.direct.core.Context;
@@ -126,21 +127,26 @@ public class HadoopBatchLogReader implements BatchLogReader {
   private boolean processPath(
       BatchLogObserver observer,
       long watermark,
-      HadoopPartition p,
+      HadoopPartition partition,
       HadoopPath path,
       TerminationContext terminationContext) {
 
     try {
       try (Reader reader = accessor.getFormat().openReader(path, accessor.getEntityDesc())) {
-        for (StreamElement elem : reader) {
+        long elementIndex = 0;
+        final Iterator<StreamElement> iterator = reader.iterator();
+        while (iterator.hasNext()) {
+          final StreamElement element = iterator.next();
+          final Offset offset = Offset.of(partition, elementIndex++, !iterator.hasNext());
           if (terminationContext.isCancelled()
-              || !observer.onNext(elem, BatchLogObservers.withWatermark(p, watermark))) {
+              || !observer.onNext(
+                  element, BatchLogObservers.withWatermark(partition, offset, watermark))) {
             return false;
           }
         }
       }
     } catch (IOException ex) {
-      throw new RuntimeException("Failed to read file " + p, ex);
+      throw new RuntimeException("Failed to read file " + partition, ex);
     }
     return true;
   }

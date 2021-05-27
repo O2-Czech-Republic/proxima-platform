@@ -21,6 +21,7 @@ import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
+import cz.o2.proxima.direct.batch.Offset;
 import cz.o2.proxima.direct.batch.TerminationContext;
 import cz.o2.proxima.direct.bulk.FileFormat;
 import cz.o2.proxima.direct.bulk.FileSystem;
@@ -269,20 +270,20 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
             () -> {
               log.info("Starting to observe {} from partition {}", blob, partition);
               try (Reader reader = fileFormat.openReader(createPath(blob), entity)) {
-                for (StreamElement e : reader) {
-                  if (stopProcessing.get() || terminationContext.isCancelled()) {
-                    break;
-                  }
-                  if (attrs.contains(e.getAttributeDescriptor())) {
-                    boolean cont =
+                long elementIndex = 0;
+                final Iterator<StreamElement> iterator = reader.iterator();
+                while (!(terminationContext.isCancelled() || stopProcessing.get())
+                    && iterator.hasNext()) {
+                  final StreamElement element = iterator.next();
+                  final Offset offset = Offset.of(partition, elementIndex++, !iterator.hasNext());
+                  if (attrs.contains(element.getAttributeDescriptor())) {
+                    final boolean continueProcessing =
                         observer.onNext(
-                            e,
+                            element,
                             BatchLogObservers.withWatermarkSupplier(
-                                partition, partition::getMinTimestamp));
-
-                    if (!cont) {
+                                partition, offset, partition::getMinTimestamp));
+                    if (!continueProcessing) {
                       stopProcessing.set(true);
-                      break;
                     }
                   }
                 }

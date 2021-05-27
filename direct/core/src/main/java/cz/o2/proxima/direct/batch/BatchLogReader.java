@@ -20,8 +20,13 @@ import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.Partition;
+import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /** Reader of batch data stored in batch storage. */
 @Stable
@@ -71,6 +76,51 @@ public interface BatchLogReader {
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributes,
       BatchLogObserver observer);
+
+  /**
+   * Observe data stored in given partitions for a given offsets.
+   *
+   * @param offsets offsets to observe
+   * @param attributes attribute descriptors to filter out
+   * @param observer the observer by which to consume the data
+   * @return an {@link ObserveHandle} to control the consumption
+   */
+  default ObserveHandle observeOffsets(
+      List<Offset> offsets, List<AttributeDescriptor<?>> attributes, BatchLogObserver observer) {
+    final Map<Partition, Offset> partitions =
+        offsets.stream().collect(Collectors.toMap(Offset::getPartition, Function.identity()));
+
+    return observe(
+        new ArrayList<>(partitions.keySet()),
+        attributes,
+        new BatchLogObserver() {
+
+          @Override
+          public boolean onNext(StreamElement element, OnNextContext context) {
+            final Offset startOffset = partitions.get(context.getPartition());
+            if (startOffset.getElementIndex() <= context.getOffset().getElementIndex()) {
+              observer.onNext(element);
+            }
+            // Skip processing.
+            return true;
+          }
+
+          @Override
+          public void onCompleted() {
+            observer.onCompleted();
+          }
+
+          @Override
+          public void onCancelled() {
+            observer.onCancelled();
+          }
+
+          @Override
+          public boolean onError(Throwable error) {
+            return observer.onError(error);
+          }
+        });
+  }
 
   /**
    * Convert instance of this reader to {@link Factory} suitable for serialization.

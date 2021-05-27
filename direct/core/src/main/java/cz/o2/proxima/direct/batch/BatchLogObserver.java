@@ -40,6 +40,13 @@ public interface BatchLogObserver {
     Partition getPartition();
 
     /**
+     * Retrieve offset of the current element.
+     *
+     * @return Offset.
+     */
+    Offset getOffset();
+
+    /**
      * Retrieve current watermark of the observe process
      *
      * @return watermark in milliseconds

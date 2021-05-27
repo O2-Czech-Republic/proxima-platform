@@ -19,20 +19,42 @@ import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.time.WatermarkSupplier;
+import cz.o2.proxima.time.Watermarks;
+import javax.annotation.Nullable;
+import lombok.Value;
 
 /** Utility class related to {@link BatchLogObserver BatchLogObservers}. */
 @Internal
 public class BatchLogObservers {
 
+  @Value
+  private static class SimpleOnNextContext implements OnNextContext {
+
+    private static final long serialVersionUID = 1L;
+
+    Partition partition;
+    @Nullable Offset offset;
+    long watermark;
+
+    public Offset getOffset() {
+      if (offset == null) {
+        throw new UnsupportedOperationException(
+            "Unable to calculate offset, because the underlying data store is not known to be immutable.");
+      }
+      return offset;
+    }
+  }
+
   /**
-   * Create {@link OnNextContext} which holds watermark back on {@link Long#MIN_VALUE} until the end
-   * of data. This is the default behavior of batch readers when there is no way to time-order data.
+   * Create {@link OnNextContext} which holds watermark back on {@link Watermarks#MIN_WATERMARK}
+   * until the end of data. This is the default behavior of batch readers when there is no way to
+   * time-order data.
    *
    * @param partition the partition to create context for
    * @return a wrapped {@link OnNextContext} for given partition
    */
   public static OnNextContext defaultContext(Partition partition) {
-    return withWatermark(partition, Long.MIN_VALUE);
+    return new SimpleOnNextContext(partition, null, Watermarks.MIN_WATERMARK);
   }
 
   /**
@@ -40,49 +62,27 @@ public class BatchLogObservers {
    * WatermarkSupplier}.
    *
    * @param partition the partition to create context for
+   * @param offset offset of a current element
    * @param watermark {@link WatermarkSupplier} for watermark at any given time. The supplier can
    *     assume that each element gets consumed immediately after being passed to {@link
    *     BatchLogObserver#onNext}
    * @return a wrapped {@link OnNextContext} for given partition and given watermark supplier
    */
   public static OnNextContext withWatermarkSupplier(
-      Partition partition, WatermarkSupplier watermark) {
-
-    return new OnNextContext() {
-
-      private static final long serialVersionUID = 1L;
-
-      @Override
-      public Partition getPartition() {
-        return partition;
-      }
-
-      @Override
-      public long getWatermark() {
-        return watermark.getWatermark();
-      }
-    };
+      Partition partition, Offset offset, WatermarkSupplier watermark) {
+    return new SimpleOnNextContext(partition, offset, watermark.getWatermark());
   }
 
   /**
    * Create {@link OnNextContext} which sets watermark ti given epoch millis.
    *
    * @param partition the partition to create context for
+   * @param offset offset of a current element
    * @param watermark epoch millis to set the watermark to
    * @return a wrapped {@link OnNextContext} for given partition with given watermark
    */
-  public static OnNextContext withWatermark(Partition partition, long watermark) {
-    return new OnNextContext() {
-      @Override
-      public Partition getPartition() {
-        return partition;
-      }
-
-      @Override
-      public long getWatermark() {
-        return watermark;
-      }
-    };
+  public static OnNextContext withWatermark(Partition partition, Offset offset, long watermark) {
+    return new SimpleOnNextContext(partition, offset, watermark);
   }
 
   private BatchLogObservers() {}

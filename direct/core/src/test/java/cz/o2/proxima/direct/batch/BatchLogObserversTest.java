@@ -26,8 +26,8 @@ public class BatchLogObserversTest {
   public void testDefaultContext() {
     final BatchLogObserver.OnNextContext context =
         BatchLogObservers.defaultContext(Partition.of(3));
-    Assert.assertEquals(context.getPartition(), Partition.of(3));
-    Assert.assertEquals(context.getWatermark(), Watermarks.MIN_WATERMARK);
+    Assert.assertEquals(Partition.of(3), context.getPartition());
+    Assert.assertEquals(Watermarks.MIN_WATERMARK, context.getWatermark());
     Assert.assertThrows(UnsupportedOperationException.class, context::getOffset);
   }
 
@@ -37,9 +37,9 @@ public class BatchLogObserversTest {
     final Offset offset = Offset.of(partition, 3, false);
     final BatchLogObserver.OnNextContext context =
         BatchLogObservers.withWatermarkSupplier(partition, offset, () -> 1000L);
-    Assert.assertEquals(context.getPartition(), partition);
-    Assert.assertEquals(context.getWatermark(), 1000L);
-    Assert.assertEquals(context.getOffset(), offset);
+    Assert.assertEquals(partition, context.getPartition());
+    Assert.assertEquals(1000L, context.getWatermark());
+    Assert.assertEquals(offset, context.getOffset());
   }
 
   @Test
@@ -48,8 +48,8 @@ public class BatchLogObserversTest {
     final Offset offset = Offset.of(partition, 3, false);
     final BatchLogObserver.OnNextContext context =
         BatchLogObservers.withWatermark(partition, offset, 2000L);
-    Assert.assertEquals(context.getPartition(), partition);
-    Assert.assertEquals(context.getWatermark(), 2000L);
-    Assert.assertEquals(context.getOffset(), offset);
+    Assert.assertEquals(partition, context.getPartition());
+    Assert.assertEquals(2000L, context.getWatermark());
+    Assert.assertEquals(offset, context.getOffset());
   }
 }

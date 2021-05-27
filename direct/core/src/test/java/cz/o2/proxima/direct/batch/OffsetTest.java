@@ -26,11 +26,11 @@ public class OffsetTest {
     final Partition partition = Partition.of(2);
     final Offset.SimpleOffset firstOffset = Offset.of(partition, 5, false);
     final Offset.SimpleOffset secondOffset = Offset.of(partition, 10, true);
-    Assert.assertEquals(firstOffset.getPartition(), partition);
-    Assert.assertEquals(firstOffset.getElementIndex(), 5);
+    Assert.assertEquals(partition, firstOffset.getPartition());
+    Assert.assertEquals(5, firstOffset.getElementIndex());
     Assert.assertFalse(firstOffset.isLast());
-    Assert.assertEquals(secondOffset.getPartition(), partition);
-    Assert.assertEquals(secondOffset.getElementIndex(), 10);
+    Assert.assertEquals(partition, secondOffset.getPartition());
+    Assert.assertEquals(10, secondOffset.getElementIndex());
     Assert.assertTrue(secondOffset.isLast());
   }
 }

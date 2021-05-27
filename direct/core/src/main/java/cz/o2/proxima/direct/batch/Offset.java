@@ -16,10 +16,20 @@
 package cz.o2.proxima.direct.batch;
 
 import cz.o2.proxima.storage.Partition;
+import java.io.Serializable;
 import lombok.Value;
 
-public interface Offset {
+/** Offset representing a "pointer" to an element within a batch {@link Partition partition}. */
+public interface Offset extends Serializable {
 
+  /**
+   * Construct an immutable offset from given values.
+   *
+   * @param partition Batch partition.
+   * @param elementIndex Index of element within the partition.
+   * @param last Flag whether offset is representing the last element in the partition.
+   * @return Offset.
+   */
   static SimpleOffset of(Partition partition, long elementIndex, boolean last) {
     return new SimpleOffset(partition, elementIndex, last);
   }

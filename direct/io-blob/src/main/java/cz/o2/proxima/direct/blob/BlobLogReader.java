@@ -272,22 +272,18 @@ public abstract class BlobLogReader<BlobT extends BlobBase, BlobPathT extends Bl
               try (Reader reader = fileFormat.openReader(createPath(blob), entity)) {
                 long elementIndex = 0;
                 final Iterator<StreamElement> iterator = reader.iterator();
-                while (iterator.hasNext()) {
+                while (!(terminationContext.isCancelled() || stopProcessing.get())
+                    && iterator.hasNext()) {
                   final StreamElement element = iterator.next();
                   final Offset offset = Offset.of(partition, elementIndex++, !iterator.hasNext());
-                  if (stopProcessing.get() || terminationContext.isCancelled()) {
-                    break;
-                  }
                   if (attrs.contains(element.getAttributeDescriptor())) {
-                    boolean cont =
+                    final boolean continueProcessing =
                         observer.onNext(
                             element,
                             BatchLogObservers.withWatermarkSupplier(
                                 partition, offset, partition::getMinTimestamp));
-
-                    if (!cont) {
+                    if (!continueProcessing) {
                       stopProcessing.set(true);
-                      break;
                     }
                   }
                 }

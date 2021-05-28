@@ -100,7 +100,7 @@ class BatchLogSourceFunctionTest {
 
   @Test
   void testRunAndClose() throws Exception {
-    final Repository repository = Repository.of(ConfigFactory.parseString(MODEL));
+    final Repository repository = Repository.ofTest(ConfigFactory.parseString(MODEL));
     final AttributeDescriptor<?> attribute = repository.getEntity("test").getAttribute("data");
     final BatchLogSourceFunction<StreamElement> sourceFunction =
         new BatchLogSourceFunction<StreamElement>(
@@ -159,7 +159,7 @@ class BatchLogSourceFunctionTest {
   }
 
   private void testSnapshotAndRestore(int numSubtasks, int numRestoredSubtasks) throws Exception {
-    final Repository repository = Repository.of(ConfigFactory.parseString(MODEL));
+    final Repository repository = Repository.ofTest(ConfigFactory.parseString(MODEL));
     final AttributeDescriptor<?> attributeDescriptor =
         repository.getEntity("test").getAttribute("data");
     final Instant now = Instant.now();
@@ -184,9 +184,7 @@ class BatchLogSourceFunctionTest {
     final List<OperatorSubtaskState> snapshots = new ArrayList<>();
 
     // Run the first iteration - clean state. We subtract random number of elements from each
-    // subTask,
-    // that we'll process in the second iteration.
-
+    // subTask, that we'll process in the second iteration.
     int subtractTotal = 0;
     for (int subtaskIndex = 0; subtaskIndex < numSubtasks; subtaskIndex++) {
       int numExpectedElements = expectedElements.getOrDefault(subtaskIndex, 0);
@@ -272,8 +270,7 @@ class BatchLogSourceFunctionTest {
           }
 
           @Override
-          BatchLogObserver wrapSourceObserver(
-              BatchLogSourceFunction.SourceLogObserver<StreamElement> sourceObserver) {
+          BatchLogObserver wrapSourceObserver(BatchLogObserver sourceObserver) {
             return new BatchLogReaders.ForwardingBatchLogObserver(sourceObserver) {
 
               @Override

@@ -68,14 +68,6 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
     T toResult(StreamElement element);
   }
 
-  public static class IdentityResultExtractor implements ResultExtractor<StreamElement> {
-
-    @Override
-    public StreamElement toResult(StreamElement element) {
-      return element;
-    }
-  }
-
   @SuppressWarnings("java:S1948")
   @VisibleForTesting
   static class SourceLogObserver<T> implements BatchLogObserver {
@@ -190,8 +182,15 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
     return OffsetTracking.wrapReader(batchLogReader);
   }
 
+  /**
+   * Allow tests to wrap the source observer, in order to place a barrier for deterministically
+   * acquiring the checkpoint lock.
+   *
+   * @param sourceObserver Source observer to wrap.
+   * @return Wrapped observer.
+   */
   @VisibleForTesting
-  BatchLogObserver wrapSourceObserver(SourceLogObserver<T> sourceObserver) {
+  BatchLogObserver wrapSourceObserver(BatchLogObserver sourceObserver) {
     return sourceObserver;
   }
 

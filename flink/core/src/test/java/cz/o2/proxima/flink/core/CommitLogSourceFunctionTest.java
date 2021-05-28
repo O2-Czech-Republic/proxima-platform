@@ -94,7 +94,7 @@ class CommitLogSourceFunctionTest {
 
   @Test
   void testRunAndClose() throws Exception {
-    final Repository repository = Repository.of(ConfigFactory.parseString(MODEL));
+    final Repository repository = Repository.ofTest(ConfigFactory.parseString(MODEL));
     final AttributeDescriptor<?> attribute = repository.getEntity("test").getAttribute("data");
     final CommitLogSourceFunction<StreamElement> sourceFunction =
         CommitLogSourceFunction.of(repository.asFactory(), Collections.singletonList(attribute));
@@ -129,7 +129,7 @@ class CommitLogSourceFunctionTest {
 
   @Test
   void testObserverErrorPropagatesToTheMainThread() throws Exception {
-    final Repository repository = Repository.of(ConfigFactory.parseString(MODEL));
+    final Repository repository = Repository.ofTest(ConfigFactory.parseString(MODEL));
     final DirectDataOperator direct = repository.getOrCreateOperator(DirectDataOperator.class);
     final AttributeDescriptor<?> attributeDescriptor =
         repository.getEntity("test").getAttribute("data");
@@ -189,7 +189,7 @@ class CommitLogSourceFunctionTest {
   }
 
   private void testSnapshotAndRestore(int numSubtasks, int numRestoredSubtasks) throws Exception {
-    final Repository repository = Repository.of(ConfigFactory.parseString(MODEL));
+    final Repository repository = Repository.ofTest(ConfigFactory.parseString(MODEL));
     final DirectDataOperator direct = repository.getOrCreateOperator(DirectDataOperator.class);
     final AttributeDescriptor<?> attributeDescriptor =
         repository.getEntity("test").getAttribute("data");

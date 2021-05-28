@@ -112,7 +112,9 @@ public class ListBatchReader implements BatchLogReader, Serializable {
                 long elementIndex = 0;
                 final Partition partition = partitions.get(i);
                 final Iterator<StreamElement> iterator = data.get(partition.getId()).iterator();
-                while (!Thread.currentThread().isInterrupted() && iterator.hasNext()) {
+                while (!Thread.currentThread().isInterrupted()
+                    && !terminationContext.isCancelled()
+                    && iterator.hasNext()) {
                   final StreamElement element = iterator.next();
                   final Offset offset = Offset.of(partition, elementIndex++, !iterator.hasNext());
                   if (attrSet.contains(element.getAttributeDescriptor())

@@ -50,6 +50,15 @@ public class BatchLogReaders {
     return delegate;
   }
 
+  public static class ForwardingBatchLogObserver implements BatchLogObserver {
+
+    @Delegate private final BatchLogObserver delegate;
+
+    public ForwardingBatchLogObserver(BatchLogObserver delegate) {
+      this.delegate = delegate;
+    }
+  }
+
   private static class ForwardingLimitedBatchLogReader implements BatchLogReader {
 
     @Delegate private final BatchLogReader delegate;
@@ -101,15 +110,6 @@ public class BatchLogReaders {
         BatchLogObserver delegate, List<Partition> consumedPartitions) {
 
       return new ThroughputLimitedBatchLogObserver(delegate, consumedPartitions, limiter);
-    }
-  }
-
-  private static class ForwardingBatchLogObserver implements BatchLogObserver {
-
-    @Delegate private final BatchLogObserver delegate;
-
-    private ForwardingBatchLogObserver(BatchLogObserver delegate) {
-      this.delegate = delegate;
     }
   }
 

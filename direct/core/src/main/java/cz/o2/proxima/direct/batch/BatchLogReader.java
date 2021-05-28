@@ -99,7 +99,7 @@ public interface BatchLogReader {
           public boolean onNext(StreamElement element, OnNextContext context) {
             final Offset startOffset = partitions.get(context.getPartition());
             if (startOffset.getElementIndex() <= context.getOffset().getElementIndex()) {
-              observer.onNext(element);
+              observer.onNext(element, context);
             }
             // Skip processing.
             return true;

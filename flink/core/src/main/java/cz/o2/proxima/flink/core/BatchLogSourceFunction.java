@@ -15,20 +15,21 @@
  */
 package cz.o2.proxima.flink.core;
 
-import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.ObserveHandle;
-import cz.o2.proxima.direct.commitlog.Offset;
+import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.ObserveHandle;
+import cz.o2.proxima.direct.batch.Offset;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.flink.core.batch.OffsetTracking;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -47,25 +48,18 @@ import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.runtime.state.JavaSerializer;
 import org.apache.flink.shaded.guava18.com.google.common.annotations.VisibleForTesting;
-import org.apache.flink.shaded.guava18.com.google.common.base.Preconditions;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
 
 @Slf4j
-public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
+public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
     implements CheckpointListener, CheckpointedFunction {
 
   private static final String OFFSETS_STATE_NAME = "offsets";
 
   private static int assignPartition(Partition partition, int numParallelSubtasks) {
     return partition.getId() % numParallelSubtasks;
-  }
-
-  public static CommitLogSourceFunction<StreamElement> of(
-      RepositoryFactory repositoryFactory, List<AttributeDescriptor<?>> attributeDescriptors) {
-    return new CommitLogSourceFunction<>(
-        repositoryFactory, attributeDescriptors, new IdentityResultExtractor());
   }
 
   @FunctionalInterface
@@ -83,7 +77,8 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
   }
 
   @SuppressWarnings("java:S1948")
-  private static class SourceLogObserver<T> implements LogObserver {
+  @VisibleForTesting
+  static class SourceLogObserver<T> implements BatchLogObserver {
 
     private final transient CountDownLatch completed = new CountDownLatch(1);
     private final Set<Partition> seenPartitions = new HashSet<>();
@@ -92,10 +87,10 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
     private final ResultExtractor<T> resultExtractor;
 
     /**
-     * When restoring from checkpoint, we need to skip the first element in each partition, due to
-     * {@link ObserveHandle#getCurrentOffsets()} contract.
+     * When restoring from checkpoint, we need to skip the first element in each partition, because
+     * it has been already consumed.
      */
-    private final boolean skipFirstElementFromEachPartition;
+    private final Set<Partition> skipFirstElementFromEachPartition;
 
     private long watermark = Watermarks.MIN_WATERMARK;
 
@@ -104,7 +99,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
     private SourceLogObserver(
         SourceContext<T> sourceContext,
         ResultExtractor<T> resultExtractor,
-        boolean skipFirstElementFromEachPartition) {
+        Set<Partition> skipFirstElementFromEachPartition) {
       this.sourceContext = sourceContext;
       this.resultExtractor = resultExtractor;
       this.skipFirstElementFromEachPartition = skipFirstElementFromEachPartition;
@@ -128,19 +123,10 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
     }
 
     @Override
-    public void onIdle(OnIdleContext context) {
-      if (context.getWatermark() > watermark) {
-        watermark = context.getWatermark();
-        synchronized (sourceContext.getCheckpointLock()) {
-          sourceContext.emitWatermark(new Watermark(watermark));
-        }
-      }
-    }
-
-    @Override
     public boolean onNext(StreamElement ingest, OnNextContext context) {
       final boolean skipElement =
-          skipFirstElementFromEachPartition && seenPartitions.add(context.getPartition());
+          skipFirstElementFromEachPartition.contains(context.getPartition())
+              && seenPartitions.add(context.getPartition());
       if (!skipElement) {
         synchronized (sourceContext.getCheckpointLock()) {
           sourceContext.collect(resultExtractor.toResult(ingest));
@@ -180,7 +166,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
    */
   private transient volatile CountDownLatch running = new CountDownLatch(1);
 
-  public CommitLogSourceFunction(
+  public BatchLogSourceFunction(
       RepositoryFactory repositoryFactory,
       List<AttributeDescriptor<?>> attributeDescriptors,
       ResultExtractor<T> resultExtractor) {
@@ -190,16 +176,23 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
   }
 
   @VisibleForTesting
-  CommitLogReader getCommitLogReader(List<AttributeDescriptor<?>> attributeDescriptors) {
-    return repositoryFactory
-        .apply()
-        .getOrCreateOperator(DirectDataOperator.class)
-        .getCommitLogReader(attributeDescriptors)
-        .orElseThrow(
-            () ->
-                new IllegalStateException(
-                    String.format(
-                        "Unable to find commit log reader for [%s].", attributeDescriptors)));
+  BatchLogReader getBatchLogReader(List<AttributeDescriptor<?>> attributeDescriptors) {
+    final BatchLogReader batchLogReader =
+        repositoryFactory
+            .apply()
+            .getOrCreateOperator(DirectDataOperator.class)
+            .getBatchLogReader(attributeDescriptors)
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        String.format(
+                            "Unable to find batch log reader for [%s].", attributeDescriptors)));
+    return OffsetTracking.wrapReader(batchLogReader);
+  }
+
+  @VisibleForTesting
+  BatchLogObserver wrapSourceObserver(SourceLogObserver<T> sourceObserver) {
+    return sourceObserver;
   }
 
   @Override
@@ -209,10 +202,8 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
 
   @Override
   public void run(SourceContext<T> sourceContext) throws Exception {
-    final CommitLogReader reader = getCommitLogReader(attributeDescriptors);
-    Preconditions.checkArgument(
-        reader.hasExternalizableOffsets(), "Reader [%s] doesn't support external offsets.", reader);
-    final Set<Partition> partitions =
+    final BatchLogReader reader = getBatchLogReader(attributeDescriptors);
+    final List<Partition> partitions =
         reader
             .getPartitions()
             .stream()
@@ -220,23 +211,35 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
                 partition ->
                     assignPartition(partition, getRuntimeContext().getNumberOfParallelSubtasks())
                         == getRuntimeContext().getIndexOfThisSubtask())
-            .collect(Collectors.toSet());
+            .collect(Collectors.toList());
     if (!partitions.isEmpty()) {
       final SourceLogObserver<T> observer;
       if (restoredOffsets != null) {
-        observer = new SourceLogObserver<>(sourceContext, resultExtractor, true);
+        final List<Offset> filteredOffsets =
+            restoredOffsets
+                .stream()
+                .filter(
+                    offset ->
+                        assignPartition(
+                                offset.getPartition(),
+                                getRuntimeContext().getNumberOfParallelSubtasks())
+                            == getRuntimeContext().getIndexOfThisSubtask())
+                .collect(Collectors.toList());
+        final Set<Partition> skipFirstElement =
+            filteredOffsets
+                .stream()
+                .filter(offset -> offset.getElementIndex() >= 0)
+                .map(Offset::getPartition)
+                .collect(Collectors.toSet());
+        observer = new SourceLogObserver<>(sourceContext, resultExtractor, skipFirstElement);
         observeHandle =
-            reader.observeBulkOffsets(
-                restoredOffsets
-                    .stream()
-                    .filter(offset -> partitions.contains(offset.getPartition()))
-                    .collect(Collectors.toList()),
-                observer);
+            reader.observeOffsets(
+                filteredOffsets, attributeDescriptors, wrapSourceObserver(observer));
       } else {
-        observer = new SourceLogObserver<>(sourceContext, resultExtractor, false);
-        observeHandle = reader.observeBulkPartitions(partitions, Position.OLDEST, observer);
+        observer = new SourceLogObserver<>(sourceContext, resultExtractor, Collections.emptySet());
+        observeHandle =
+            reader.observe(partitions, attributeDescriptors, wrapSourceObserver(observer));
       }
-      Objects.requireNonNull(observeHandle).waitUntilReady();
       log.info("Source [{}]: RUNNING", this);
       running.countDown();
       observer.awaitCompleted();
@@ -245,19 +248,28 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
         log.error("Source [{}]: FAILED", this, maybeError.get());
         ExceptionUtils.rethrowAsIllegalStateException(maybeError.get());
       } else {
-        log.info("Source [{}]: COMPLETED", this);
-        synchronized (sourceContext.getCheckpointLock()) {
-          sourceContext.emitWatermark(new Watermark(Watermarks.MAX_WATERMARK));
-        }
+        finishAndMarkAsIdle(sourceContext);
       }
     } else {
       running.countDown();
-      log.info("Source [{}]: RUNNING", this);
-      log.info("Source [{}]: COMPLETED", this);
-      synchronized (sourceContext.getCheckpointLock()) {
-        sourceContext.emitWatermark(new Watermark(Watermarks.MAX_WATERMARK));
-      }
+      finishAndMarkAsIdle(sourceContext);
     }
+  }
+
+  /**
+   * We're done with this source. Progress watermark to {@link Watermark#MAX_WATERMARK}, mark source
+   * as idle and sleep.
+   *
+   * @param sourceContext Source context.
+   * @see <a href="https://issues.apache.org/jira/browse/FLINK-2491">FLINK-2491</a>
+   */
+  @VisibleForTesting
+  void finishAndMarkAsIdle(SourceContext<?> sourceContext) {
+    log.info("Source [{}]: COMPLETED", this);
+    synchronized (sourceContext.getCheckpointLock()) {
+      sourceContext.emitWatermark(new Watermark(Watermarks.MAX_WATERMARK));
+    }
+    sourceContext.markAsTemporarilyIdle();
   }
 
   @Override
@@ -274,6 +286,16 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
     }
   }
 
+  protected List<Offset> getCurrentOffsets(ObserveHandle handle) {
+    final OffsetTracking.OffsetTrackingObserveHandle cast =
+        (OffsetTracking.OffsetTrackingObserveHandle) handle;
+    // Filter out finished partitions, as we don't need them for restoring the state.
+    return cast.getCurrentOffsets()
+        .stream()
+        .filter(offset -> !offset.isLast())
+        .collect(Collectors.toList());
+  }
+
   public void notifyCheckpointComplete(long l) {
     // No-op.
   }
@@ -282,7 +304,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
   public void snapshotState(FunctionSnapshotContext functionSnapshotContext) throws Exception {
     Objects.requireNonNull(persistedOffsets).clear();
     if (observeHandle != null) {
-      for (Offset offset : Objects.requireNonNull(observeHandle).getCurrentOffsets()) {
+      for (Offset offset : getCurrentOffsets(Objects.requireNonNull(observeHandle))) {
         persistedOffsets.add(offset);
       }
     }

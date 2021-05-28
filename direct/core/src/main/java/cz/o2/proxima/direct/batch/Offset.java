@@ -49,9 +49,10 @@ public interface Offset extends Serializable {
   Partition getPartition();
 
   /**
-   * Index of the element within the partition. Elements are indexed from zero.
+   * Index of the element within the partition. Elements are indexed from zero. Value of `-1` means,
+   * no element has been consumed from the partition.
    *
-   * @return Index of the element.
+   * @return Index of the element or `-1` if no element has been consumed.
    */
   long getElementIndex();
 

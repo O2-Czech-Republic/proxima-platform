@@ -25,6 +25,7 @@ import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.Context;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import java.io.IOException;
 import java.net.URI;
@@ -68,10 +69,10 @@ public class HadoopDataAccessor implements DataAccessor {
   @Getter private final HadoopFileSystem temporaryHadoopFs;
   @Getter private final long allowedLateness;
 
-  public HadoopDataAccessor(EntityDescriptor entityDesc, URI uri, Map<String, Object> cfg) {
-    this.entityDesc = entityDesc;
-    this.uri = uri;
-    this.cfg = cfg;
+  public HadoopDataAccessor(AttributeFamilyDescriptor family) {
+    this.entityDesc = family.getEntity();
+    this.uri = family.getStorageUri();
+    this.cfg = family.getCfg();
     this.rollInterval =
         getCfg(
             HADOOP_ROLL_INTERVAL,
@@ -85,6 +86,7 @@ public class HadoopDataAccessor implements DataAccessor {
             o -> Long.valueOf(o.toString()),
             HADOOP_BATCH_PROCESS_SIZE_MIN_DEFAULT);
     this.format = FileFormatUtils.getFileFormat(CFG_PREFIX + ".", cfg);
+    this.format.setup(family);
     this.namingConvention =
         FileFormatUtils.getNamingConvention(CFG_PREFIX + ".", cfg, rollInterval, format);
     this.temporaryNamingConvention = NamingConvention.prefixed("/_tmp", namingConvention);

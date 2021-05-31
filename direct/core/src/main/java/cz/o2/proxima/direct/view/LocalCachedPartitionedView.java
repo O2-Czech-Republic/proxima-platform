@@ -16,8 +16,8 @@
 package cz.o2.proxima.direct.view;
 
 import com.google.common.annotations.VisibleForTesting;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -134,8 +134,8 @@ public class LocalCachedPartitionedView implements CachedView {
     AtomicLong prefetchedCount = new AtomicLong();
     final long prefetchStartTime = System.currentTimeMillis();
 
-    LogObserver prefetchObserver =
-        new LogObserver() {
+    CommitLogObserver prefetchObserver =
+        new CommitLogObserver() {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -164,8 +164,8 @@ public class LocalCachedPartitionedView implements CachedView {
           }
         };
 
-    LogObserver observer =
-        new LogObserver() {
+    CommitLogObserver observer =
+        new CommitLogObserver() {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {

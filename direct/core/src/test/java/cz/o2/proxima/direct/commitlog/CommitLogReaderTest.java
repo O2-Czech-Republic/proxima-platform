@@ -21,9 +21,9 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.CommitLogReaders.LimitedCommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
-import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -93,7 +93,7 @@ public class CommitLogReaderTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
         "test",
-        new LogObserver() {
+        new CommitLogObserver() {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -133,7 +133,7 @@ public class CommitLogReaderTest {
     AtomicReference<Throwable> caught = new AtomicReference<>();
     reader.observe(
         "test",
-        new LogObserver() {
+        new CommitLogObserver() {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -171,11 +171,11 @@ public class CommitLogReaderTest {
     List<StreamElement> received = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
     AtomicInteger count = new AtomicInteger();
-    final LogObserver observer =
+    final CommitLogObserver observer =
         LogObservers.withNumRetriedExceptions(
             "test",
             2,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext confirm) {
@@ -217,7 +217,7 @@ public class CommitLogReaderTest {
     CountDownLatch latch = new CountDownLatch(2);
     reader.observeBulk(
         "test",
-        new LogObserver() {
+        new CommitLogObserver() {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -262,7 +262,7 @@ public class CommitLogReaderTest {
     reader.observe(
         "test",
         LogObservers.withSortBuffer(
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -324,7 +324,7 @@ public class CommitLogReaderTest {
     reader.observe(
         "test",
         LogObservers.withSortBufferWithinPartition(
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -391,8 +391,8 @@ public class CommitLogReaderTest {
             0,
             new byte[] {1, 2});
     AtomicInteger mask = new AtomicInteger();
-    LogObserver inner =
-        new LogObserver() {
+    CommitLogObserver inner =
+        new CommitLogObserver() {
 
           @Override
           public void onCompleted() {
@@ -486,9 +486,9 @@ public class CommitLogReaderTest {
   public void testThroughputLimitedCommitLogIdles() throws InterruptedException {
     ThroughputLimiter limiter = ThroughputLimiter.NoOpThroughputLimiter.INSTANCE;
     CommitLogReader limitedReader = CommitLogReaders.withThroughputLimit(reader, limiter);
-    UnaryFunction<CountDownLatch, LogObserver> observerFactory =
+    UnaryFunction<CountDownLatch, CommitLogObserver> observerFactory =
         myLatch ->
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onError(Throwable error) {
@@ -506,7 +506,7 @@ public class CommitLogReaderTest {
               }
             };
     CountDownLatch latch = new CountDownLatch(1);
-    LogObserver observer = observerFactory.apply(latch);
+    CommitLogObserver observer = observerFactory.apply(latch);
     long nanoTime = System.nanoTime();
     ObserveHandle handle = limitedReader.observe("dummy", observer);
     latch.await();
@@ -530,7 +530,7 @@ public class CommitLogReaderTest {
                   "offset-fetch",
                   Position.NEWEST,
                   false,
-                  new LogObserver() {
+                  new CommitLogObserver() {
 
                     @Override
                     public boolean onError(Throwable error) {
@@ -574,8 +574,8 @@ public class CommitLogReaderTest {
               (succ, exc) -> {});
     }
 
-    LogObserver observer =
-        new LogObserver() {
+    CommitLogObserver observer =
+        new CommitLogObserver() {
 
           @Override
           public void onCompleted() {
@@ -619,8 +619,8 @@ public class CommitLogReaderTest {
     }
   }
 
-  private LogObserver createLimitedObserver(Runnable onNext) {
-    return new LogObserver() {
+  private CommitLogObserver createLimitedObserver(Runnable onNext) {
+    return new CommitLogObserver() {
 
       @Override
       public boolean onError(Throwable error) {

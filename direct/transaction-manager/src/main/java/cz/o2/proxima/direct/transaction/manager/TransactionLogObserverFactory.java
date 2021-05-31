@@ -16,7 +16,7 @@
 package cz.o2.proxima.direct.transaction.manager;
 
 import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 
 @FunctionalInterface
@@ -31,10 +31,10 @@ public interface TransactionLogObserverFactory {
   }
 
   /**
-   * A factory for {@link LogObserver} responsible for transaction management.
+   * A factory for {@link CommitLogObserver} responsible for transaction management.
    *
    * @param direct the direct operator for the observer
-   * @return the {@link LogObserver}
+   * @return the {@link CommitLogObserver}
    */
   TransactionLogObserver create(DirectDataOperator direct);
 }

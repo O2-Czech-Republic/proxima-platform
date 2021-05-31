@@ -81,7 +81,7 @@ public class CommitLogReaders {
     }
 
     @Override
-    public ObserveHandle observe(String name, Position position, LogObserver observer) {
+    public ObserveHandle observe(String name, Position position, CommitLogObserver observer) {
       return delegate.observe(name, position, observer);
     }
 
@@ -91,13 +91,13 @@ public class CommitLogReaders {
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
       return delegate.observePartitions(name, partitions, position, stopAtCurrent, observer);
     }
 
     @Override
     public ObserveHandle observeBulk(
-        String name, Position position, boolean stopAtCurrent, LogObserver observer) {
+        String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
       return delegate.observeBulk(name, position, stopAtCurrent, observer);
     }
 
@@ -107,13 +107,13 @@ public class CommitLogReaders {
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
       return delegate.observeBulkPartitions(name, partitions, position, stopAtCurrent, observer);
     }
 
     @Override
     public ObserveHandle observeBulkOffsets(
-        Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
+        Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
 
       return delegate.observeBulkOffsets(offsets, stopAtCurrent, observer);
     }
@@ -142,7 +142,7 @@ public class CommitLogReaders {
     }
 
     @Override
-    public ObserveHandle observe(String name, Position position, LogObserver observer) {
+    public ObserveHandle observe(String name, Position position, CommitLogObserver observer) {
       return super.observe(
           name, position, throughputLimited(limiter, availablePartitions.get(), observer));
     }
@@ -153,7 +153,7 @@ public class CommitLogReaders {
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
       return super.observePartitions(
           name,
           partitions,
@@ -164,7 +164,7 @@ public class CommitLogReaders {
 
     @Override
     public ObserveHandle observeBulk(
-        String name, Position position, boolean stopAtCurrent, LogObserver observer) {
+        String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
       return super.observeBulk(
           name,
           position,
@@ -178,7 +178,7 @@ public class CommitLogReaders {
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
       return super.observeBulkPartitions(
           name,
           partitions,
@@ -189,7 +189,7 @@ public class CommitLogReaders {
 
     @Override
     public ObserveHandle observeBulkOffsets(
-        Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
+        Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
 
       return super.observeBulkOffsets(
           offsets, stopAtCurrent, throughputLimited(limiter, availablePartitions.get(), observer));
@@ -210,10 +210,10 @@ public class CommitLogReaders {
       return repo -> CommitLogReaders.withThroughputLimit(delegateFactory.apply(repo), limiter);
     }
 
-    private static LogObserver throughputLimited(
+    private static CommitLogObserver throughputLimited(
         ThroughputLimiter readerLimiter,
         Collection<Partition> readerPartitions,
-        LogObserver delegate) {
+        CommitLogObserver delegate) {
 
       final ThroughputLimiter limiter = SerializableUtils.clone(readerLimiter);
       final List<Partition> partitions = new ArrayList<>(readerPartitions);
@@ -297,11 +297,11 @@ public class CommitLogReaders {
     }
   }
 
-  private static class ForwardingLogObserver implements LogObserver {
+  private static class ForwardingLogObserver implements CommitLogObserver {
 
-    @Delegate private final LogObserver delegate;
+    @Delegate private final CommitLogObserver delegate;
 
-    public ForwardingLogObserver(LogObserver delegate) {
+    public ForwardingLogObserver(CommitLogObserver delegate) {
       this.delegate = delegate;
     }
 

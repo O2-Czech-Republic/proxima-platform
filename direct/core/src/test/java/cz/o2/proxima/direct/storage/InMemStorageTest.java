@@ -25,8 +25,8 @@ import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObserverUtils;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
@@ -95,7 +95,7 @@ public class InMemStorageTest implements Serializable {
     AtomicReference<CountDownLatch> latch = new AtomicReference<>();
     reader.observePartitions(
         reader.getPartitions(),
-        new LogObserver() {
+        new CommitLogObserver() {
 
           @Override
           public void onRepartition(OnRepartitionContext context) {
@@ -170,7 +170,7 @@ public class InMemStorageTest implements Serializable {
         reader.getPartitions(),
         Position.OLDEST,
         true,
-        new LogObserver() {
+        new CommitLogObserver() {
 
           @Override
           public void onCompleted() {
@@ -321,15 +321,15 @@ public class InMemStorageTest implements Serializable {
     ObserveHandle handle =
         reader.observePartitions(
             reader.getPartitions(),
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
-              public void onRepartition(LogObserver.OnRepartitionContext context) {
+              public void onRepartition(CommitLogObserver.OnRepartitionContext context) {
                 assertEquals(1, context.partitions().size());
               }
 
               @Override
-              public boolean onNext(StreamElement ingest, LogObserver.OnNextContext context) {
+              public boolean onNext(StreamElement ingest, CommitLogObserver.OnNextContext context) {
 
                 assertEquals(0, context.getPartition().getId());
                 assertEquals("key", ingest.getKey());
@@ -390,16 +390,16 @@ public class InMemStorageTest implements Serializable {
             .getWriter(direct.getContext())
             .orElseThrow(() -> new IllegalStateException("Missing writer"));
     List<Byte> received = new ArrayList<>();
-    LogObserver observer =
-        new LogObserver() {
+    CommitLogObserver observer =
+        new CommitLogObserver() {
 
           @Override
-          public void onRepartition(LogObserver.OnRepartitionContext context) {
+          public void onRepartition(CommitLogObserver.OnRepartitionContext context) {
             assertEquals(1, context.partitions().size());
           }
 
           @Override
-          public boolean onNext(StreamElement ingest, LogObserver.OnNextContext context) {
+          public boolean onNext(StreamElement ingest, CommitLogObserver.OnNextContext context) {
             assertEquals(0, context.getPartition().getId());
             received.add(ingest.getValue()[0]);
             return false;
@@ -489,7 +489,7 @@ public class InMemStorageTest implements Serializable {
     CountDownLatch completed = new CountDownLatch(1);
     reader.observe(
         "observer",
-        new LogObserver() {
+        new CommitLogObserver() {
 
           @Override
           public void onCompleted() {
@@ -521,7 +521,7 @@ public class InMemStorageTest implements Serializable {
     final AtomicInteger failingObserverMessages = new AtomicInteger(0);
     reader.observe(
         "failing-observer",
-        new LogObserver() {
+        new CommitLogObserver() {
 
           @Override
           public void onCompleted() {
@@ -545,7 +545,7 @@ public class InMemStorageTest implements Serializable {
     final CountDownLatch successObserverAllReceived = new CountDownLatch(numElements);
     reader.observe(
         "success-observer",
-        new LogObserver() {
+        new CommitLogObserver() {
 
           @Override
           public void onCompleted() {
@@ -599,7 +599,7 @@ public class InMemStorageTest implements Serializable {
     final ObserveHandle observeHandle =
         reader.observePartitions(
             reader.getPartitions(),
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public void onRepartition(OnRepartitionContext context) {
@@ -659,7 +659,7 @@ public class InMemStorageTest implements Serializable {
     final ObserveHandle observeHandle =
         reader.observePartitions(
             reader.getPartitions().subList(0, 1),
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public void onRepartition(OnRepartitionContext context) {
@@ -757,7 +757,7 @@ public class InMemStorageTest implements Serializable {
 
     List<StreamElement> result = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
-    LogObserver observer =
+    CommitLogObserver observer =
         LogObserverUtils.toList(
             result,
             Assert::assertTrue,

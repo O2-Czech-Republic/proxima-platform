@@ -20,19 +20,19 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.time.WatermarkSupplier;
 import java.util.Collection;
 
-/** Various utilities for working with {@link LogObserver}. */
+/** Various utilities for working with {@link CommitLogObserver}. */
 @Internal
 public class ObserverUtils {
 
-  public static LogObserver.OnNextContext asOnNextContext(
-      LogObserver.OffsetCommitter committer, Offset offset) {
+  public static CommitLogObserver.OnNextContext asOnNextContext(
+      CommitLogObserver.OffsetCommitter committer, Offset offset) {
 
-    return new LogObserver.OnNextContext() {
+    return new CommitLogObserver.OnNextContext() {
 
       private static final long serialVersionUID = 1L;
 
       @Override
-      public LogObserver.OffsetCommitter committer() {
+      public CommitLogObserver.OffsetCommitter committer() {
         return committer;
       }
 
@@ -53,13 +53,13 @@ public class ObserverUtils {
     };
   }
 
-  public static LogObserver.OnRepartitionContext asRepartitionContext(
+  public static CommitLogObserver.OnRepartitionContext asRepartitionContext(
       Collection<Partition> assigned) {
 
     return () -> assigned;
   }
 
-  public static LogObserver.OnIdleContext asOnIdleContext(WatermarkSupplier supplier) {
+  public static CommitLogObserver.OnIdleContext asOnIdleContext(WatermarkSupplier supplier) {
     return supplier::getWatermark;
   }
 

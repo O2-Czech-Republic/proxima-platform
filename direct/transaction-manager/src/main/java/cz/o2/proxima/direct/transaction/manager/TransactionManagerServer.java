@@ -20,7 +20,7 @@ import com.google.common.base.Preconditions;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.annotations.Experimental;
-import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.LogObservers.ForwardingObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -126,7 +126,7 @@ public class TransactionManagerServer {
     runningObserves.add(handle);
   }
 
-  private LogObserver newTransformationLogObserver(CountDownLatch awaitingLatch) {
+  private CommitLogObserver newTransformationLogObserver(CountDownLatch awaitingLatch) {
     return new ForwardingObserver(observerFactory.create(direct)) {
       boolean repartitioned = false;
 

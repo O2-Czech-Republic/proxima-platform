@@ -22,9 +22,9 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.LogObservers;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
@@ -751,7 +751,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         reader.observe(
             "test",
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -823,7 +823,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         .observe(
             "test",
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -886,7 +886,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         .observe(
             "test",
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -943,7 +943,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         .observe(
             "test",
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -998,7 +998,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         .observe(
             "test",
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -1104,15 +1104,15 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
     final long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(numObservers);
-    Set<LogObserver> movedConsumers = Collections.synchronizedSet(new HashSet<>());
-    Map<LogObserver, Long> observerWatermarks = new ConcurrentHashMap<>();
+    Set<CommitLogObserver> movedConsumers = Collections.synchronizedSet(new HashSet<>());
+    Map<CommitLogObserver, Long> observerWatermarks = new ConcurrentHashMap<>();
     AtomicInteger readyObservers = new AtomicInteger();
     for (int i = 0; i < numObservers; i++) {
       reader
           .observe(
               "test-" + expectMoved,
               Position.OLDEST,
-              new LogObserver() {
+              new CommitLogObserver() {
 
                 @Override
                 public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -1197,7 +1197,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             "test",
             Position.OLDEST,
             true,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               int processed = 0;
 
@@ -1263,8 +1263,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     AtomicInteger consumed = new AtomicInteger();
     List<OnNextContext> unconfirmed = Collections.synchronizedList(new ArrayList<>());
 
-    LogObserver observer =
-        new LogObserver() {
+    CommitLogObserver observer =
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             switch (consumed.getAndIncrement()) {
@@ -1302,7 +1302,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   private void testOnlineObserveWithRebalanceResetsOffsetCommitterWithObserver(
-      LogObserver observer, Accessor accessor, int numWrites) throws InterruptedException {
+      CommitLogObserver observer, Accessor accessor, int numWrites) throws InterruptedException {
 
     LocalKafkaWriter writer = accessor.newWriter();
     CommitLogReader reader =
@@ -1361,7 +1361,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         reader.observe(
             "test",
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -1429,7 +1429,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         reader.observeBulk(
             "test",
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -1492,11 +1492,11 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     final int numRetries = 3;
     final CountDownLatch latch = new CountDownLatch(numRetries);
-    final LogObserver observer =
+    final CommitLogObserver observer =
         LogObservers.withNumRetriedExceptions(
             "test",
             numRetries,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onError(Throwable error) {
@@ -1559,7 +1559,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         reader.observeBulk(
             "test",
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public void onRepartition(OnRepartitionContext context) {
@@ -1642,7 +1642,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         reader.getPartitions(),
         Position.OLDEST,
         true,
-        new LogObserver() {
+        new CommitLogObserver() {
 
           @Override
           public void onRepartition(OnRepartitionContext context) {}
@@ -1698,7 +1698,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         reader.observeBulkPartitions(
             reader.getPartitions(),
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public void onRepartition(OnRepartitionContext context) {
@@ -1775,7 +1775,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         reader.observePartitions(
             reader.getPartitions(),
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public void onRepartition(OnRepartitionContext context) {
@@ -1875,8 +1875,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     final Map<Integer, Offset> currentOffsets = new HashMap<>();
 
-    final LogObserver observer =
-        new LogObserver() {
+    final CommitLogObserver observer =
+        new CommitLogObserver() {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -1952,8 +1952,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             System.currentTimeMillis(),
             new byte[] {1, 2});
 
-    final LogObserver observer =
-        new LogObserver() {
+    final CommitLogObserver observer =
+        new CommitLogObserver() {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -2022,7 +2022,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         reader.observe(
             "name",
             Position.OLDEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onError(Throwable error) {
@@ -2699,7 +2699,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         .observe(
             "test",
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -2759,7 +2759,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         .observe(
             "test",
             Position.NEWEST,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -2826,8 +2826,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final int numElements = 2;
     final CountDownLatch latch = new CountDownLatch(numElements);
 
-    LogObserver observer =
-        new LogObserver() {
+    CommitLogObserver observer =
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             long now = System.nanoTime();

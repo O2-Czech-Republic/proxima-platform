@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Internal
 @Slf4j
-class RetryableLogObserver implements LogObserver {
+class RetryableLogObserver implements CommitLogObserver {
 
   /** Maximal number of retries. */
   @Getter private final int maxRetries;
@@ -42,14 +42,14 @@ class RetryableLogObserver implements LogObserver {
   /** Current number of failures in a row. */
   private int numFailures;
   /** Underlying log observer. */
-  private final LogObserver delegate;
+  private final CommitLogObserver delegate;
 
   RetryableLogObserver(
       String name,
       int maxRetries,
       UnaryFunction<Throwable, TerminationStrategy> onRetriesExhausted,
       boolean retryErrors,
-      LogObserver delegate) {
+      CommitLogObserver delegate) {
 
     this.maxRetries = maxRetries;
     this.name = name;

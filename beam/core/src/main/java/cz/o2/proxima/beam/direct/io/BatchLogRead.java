@@ -153,7 +153,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
         PartitionList restriction = Objects.requireNonNull(tracker.currentRestriction());
         Partition part = Objects.requireNonNull(restriction.getFirstPartition());
 
-        BlockingQueueLogObserver observer =
+        final BlockingQueueLogObserver.BatchLog observer =
             newObserver("observer-" + part.getId(), restriction.getTotalLimit());
 
         if (!tracker.tryClaim(part)) {
@@ -264,7 +264,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
   }
 
   @VisibleForTesting
-  BlockingQueueLogObserver newObserver(String name, long limit) {
-    return BlockingQueueLogObserver.create(name, limit, Watermarks.MIN_WATERMARK);
+  BlockingQueueLogObserver.BatchLog newObserver(String name, long limit) {
+    return BlockingQueueLogObserver.createBatchLog(name, limit, Watermarks.MIN_WATERMARK);
   }
 }

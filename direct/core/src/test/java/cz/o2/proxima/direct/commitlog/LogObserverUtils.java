@@ -23,16 +23,16 @@ import java.util.List;
 
 public class LogObserverUtils {
 
-  public static LogObserver toList(List<StreamElement> list, Consumer<Boolean> onFinished) {
+  public static CommitLogObserver toList(List<StreamElement> list, Consumer<Boolean> onFinished) {
     return toList(list, onFinished, ign -> true);
   }
 
-  public static LogObserver toList(
+  public static CommitLogObserver toList(
       List<StreamElement> list,
       Consumer<Boolean> onFinished,
       UnaryPredicate<StreamElement> shouldContinue) {
 
-    return new LogObserver() {
+    return new CommitLogObserver() {
       @Override
       public boolean onError(Throwable error) {
         throw new RuntimeException(error);
@@ -57,7 +57,7 @@ public class LogObserverUtils {
     };
   }
 
-  public static <T> LogObserver toList(List<T> list, AttributeDescriptor<T> attribute) {
+  public static <T> CommitLogObserver toList(List<T> list, AttributeDescriptor<T> attribute) {
     return (ingest, context) -> {
       if (ingest.getAttributeDescriptor().equals(attribute)) {
         attribute.valueOf(ingest).ifPresent(list::add);

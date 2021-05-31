@@ -18,8 +18,8 @@ package cz.o2.proxima.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.LogObservers;
 import cz.o2.proxima.direct.commitlog.LogObservers.TerminationStrategy;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
@@ -90,7 +90,7 @@ public class ReplicationController {
 
   @VisibleForTesting
   @AllArgsConstructor
-  abstract class ReplicationLogObserver implements LogObserver {
+  abstract class ReplicationLogObserver implements CommitLogObserver {
 
     private final String consumerName;
     private final CommitLogReader commitLog;
@@ -404,7 +404,7 @@ public class ReplicationController {
     switch (writerBase.getType()) {
       case ONLINE:
         {
-          final LogObserver observer =
+          final CommitLogObserver observer =
               createOnlineObserver(
                   consumerName, commitLog, allowedAttributes, filter, writerBase.online());
           commitLog.observe(consumerName, observer);
@@ -412,7 +412,7 @@ public class ReplicationController {
         }
       case BULK:
         {
-          final LogObserver observer =
+          final CommitLogObserver observer =
               createBulkObserver(
                   consumerName, commitLog, allowedAttributes, filter, writerBase.bulk());
           commitLog.observeBulk(consumerName, observer);
@@ -435,7 +435,7 @@ public class ReplicationController {
    * @return Log observer.
    */
   @VisibleForTesting
-  LogObserver createBulkObserver(
+  CommitLogObserver createBulkObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,
@@ -488,7 +488,7 @@ public class ReplicationController {
    * @return Log observer.
    */
   @VisibleForTesting
-  LogObserver createOnlineObserver(
+  CommitLogObserver createOnlineObserver(
       String consumerName,
       CommitLogReader commitLog,
       Set<AttributeDescriptor<?>> allowedAttributes,

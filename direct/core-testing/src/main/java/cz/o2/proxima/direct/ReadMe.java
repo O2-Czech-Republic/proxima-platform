@@ -16,8 +16,8 @@
 package cz.o2.proxima.direct;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.testing.model.Model;
@@ -46,7 +46,7 @@ class ReadMe {
                         "Missing commit log for " + model.getEvent().getDataDescriptor()));
     commitLog.observe(
         "MyObservationProcess",
-        new LogObserver() {
+        new CommitLogObserver() {
 
           @Override
           public boolean onError(Throwable error) {

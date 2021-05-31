@@ -18,7 +18,7 @@ package cz.o2.proxima.direct.transaction;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.AttributeWriterBase.Type;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
@@ -61,7 +61,7 @@ public class TransactionalCachedViewTest {
     AtomicLong seqId = new AtomicLong(1000L);
     server.runObservations(
         "dummy",
-        new LogObserver() {
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             if (ingest.getAttributeDescriptor().equals(server.getRequestDesc())) {

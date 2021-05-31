@@ -29,9 +29,9 @@ import cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.TerminationContext;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.ObserverUtils;
 import cz.o2.proxima.direct.commitlog.Offset;
@@ -323,12 +323,12 @@ public class InMemStorage implements DataAccessorFactory {
     }
 
     @Override
-    public ObserveHandle observe(String name, Position position, LogObserver observer) {
+    public ObserveHandle observe(String name, Position position, CommitLogObserver observer) {
       return observe(name, position, false, observer);
     }
 
     private ObserveHandle observe(
-        String name, Position position, boolean stopAtCurrent, LogObserver observer) {
+        String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
       return observe(
           name,
           position,
@@ -342,7 +342,7 @@ public class InMemStorage implements DataAccessorFactory {
         Position position,
         List<ConsumedOffset> offsets,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
       return doObserve(position, offsets, stopAtCurrent, observer, name);
     }
 
@@ -352,7 +352,7 @@ public class InMemStorage implements DataAccessorFactory {
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
       return observe(
           null,
           position,
@@ -363,7 +363,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public ObserveHandle observeBulk(
-        String name, Position position, boolean stopAtCurrent, LogObserver observer) {
+        String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
       return doObserve(
           position,
           getPartitions().stream().map(ConsumedOffset::empty).collect(Collectors.toList()),
@@ -378,7 +378,7 @@ public class InMemStorage implements DataAccessorFactory {
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
       return doObserve(
           position,
           partitions.stream().map(ConsumedOffset::empty).collect(Collectors.toList()),
@@ -389,7 +389,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public ObserveHandle observeBulkOffsets(
-        Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
+        Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
       @SuppressWarnings("unchecked")
       final List<ConsumedOffset> cast = (List) offsets;
       return doObserve(Position.OLDEST, cast, stopAtCurrent, observer, null);
@@ -399,7 +399,7 @@ public class InMemStorage implements DataAccessorFactory {
         Position position,
         List<ConsumedOffset> offsets,
         boolean stopAtCurrent,
-        LogObserver observer,
+        CommitLogObserver observer,
         @Nullable String name) {
       log.debug(
           "Observing {} as {} from offset {} with position {} and stopAtCurrent {} using observer {}",
@@ -444,7 +444,7 @@ public class InMemStorage implements DataAccessorFactory {
 
     private ObserveHandle createHandle(
         int consumerId,
-        LogObserver observer,
+        CommitLogObserver observer,
         Supplier<List<Offset>> offsetTracker,
         AtomicBoolean killSwitch,
         AtomicReference<Future<?>> observeFuture) {
@@ -493,7 +493,7 @@ public class InMemStorage implements DataAccessorFactory {
         boolean stopAtCurrent,
         AtomicBoolean killSwitch,
         AtomicReference<Future<?>> observeFuture,
-        LogObserver observer) {
+        CommitLogObserver observer) {
 
       final Set<String> consumedOffsets = Collections.synchronizedSet(new HashSet<>());
       initialOffsets.forEach(item -> consumedOffsets.addAll(item.getConsumedKeyAttr()));
@@ -564,7 +564,7 @@ public class InMemStorage implements DataAccessorFactory {
         Set<String> consumedOffsets,
         PartitionedWatermarkEstimator watermarkEstimator,
         CountDownLatch latch,
-        LogObserver observer) {
+        CommitLogObserver observer) {
 
       AtomicReference<ScheduledFuture<?>> onIdleRef = new AtomicReference<>();
 
@@ -1244,8 +1244,8 @@ public class InMemStorage implements DataAccessorFactory {
     return toStoragePrefix(uri) + key + "#" + attribute;
   }
 
-  private static LogObserver.OnNextContext asOnNextContext(
-      LogObserver.OffsetCommitter committer, Offset offset) {
+  private static CommitLogObserver.OnNextContext asOnNextContext(
+      CommitLogObserver.OffsetCommitter committer, Offset offset) {
     return ObserverUtils.asOnNextContext(committer, offset);
   }
 

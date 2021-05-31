@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.util;
 
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
@@ -73,7 +73,7 @@ public class ReplicationRunner {
                 handle =
                     primaryCommitLogReader.observe(
                         af.getDesc().getName(),
-                        (LogObserver)
+                        (CommitLogObserver)
                             (ingest, context) -> {
                               log.debug("Replicating input {} to {}", ingest, writer);
                               onlineWriter.write(
@@ -89,7 +89,7 @@ public class ReplicationRunner {
                 handle =
                     primaryCommitLogReader.observe(
                         af.getDesc().getName(),
-                        (LogObserver)
+                        (CommitLogObserver)
                             (ingest, context) -> {
                               log.debug("Replicating input {} to {}", ingest, writer);
                               bulkWriter.write(

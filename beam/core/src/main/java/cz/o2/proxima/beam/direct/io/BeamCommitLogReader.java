@@ -17,8 +17,8 @@ package cz.o2.proxima.beam.direct.io;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.Partition;
@@ -220,7 +220,7 @@ class BeamCommitLogReader {
   @Getter private long limit;
   @Nullable private final Offset startingOffset;
   private final long offsetWatermark;
-  @Nullable private BlockingQueueLogObserver observer;
+  @Nullable private BlockingQueueLogObserver.CommitLog observer;
   private StreamElement current;
   private Instant currentProcessingTime = Instant.now();
   private Instant lastReadWatermark = BoundedWindow.TIMESTAMP_MIN_VALUE;
@@ -261,7 +261,7 @@ class BeamCommitLogReader {
 
   public boolean start() throws IOException {
     this.observer =
-        BlockingQueueLogObserver.create(
+        BlockingQueueLogObserver.createCommitLog(
             name == null ? "Source(" + reader.getUri() + ":" + partition.getId() + ")" : name,
             limit,
             offsetWatermark);

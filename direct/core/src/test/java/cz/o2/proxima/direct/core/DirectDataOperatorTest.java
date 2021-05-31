@@ -25,9 +25,9 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReaders.LimitedCommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
 import cz.o2.proxima.direct.view.CachedView;
@@ -174,7 +174,7 @@ public class DirectDataOperatorTest {
         .get()
         .observe(
             "dummy",
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -453,7 +453,7 @@ public class DirectDataOperatorTest {
     reader
         .observe(
             "dummy",
-            new LogObserver() {
+            new CommitLogObserver() {
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
                 read.add(ingest);
@@ -530,7 +530,7 @@ public class DirectDataOperatorTest {
     reader
         .observeBulk(
             "dummy",
-            new LogObserver() {
+            new CommitLogObserver() {
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
                 read.add(ingest);
@@ -773,7 +773,7 @@ public class DirectDataOperatorTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
         "dummy",
-        new LogObserver() {
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             assertEquals(ingest.getAttributeDescriptor(), armed);
@@ -828,7 +828,7 @@ public class DirectDataOperatorTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
         "dummy",
-        new LogObserver() {
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             assertEquals(ingest.getAttributeDescriptor(), armed);
@@ -881,7 +881,7 @@ public class DirectDataOperatorTest {
             .orElseThrow(() -> new IllegalStateException("Missing commit log reader for data"));
     reader.observe(
         "dummy",
-        new LogObserver() {
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             assertEquals(ingest.getAttributeDescriptor(), data);
@@ -1257,7 +1257,7 @@ public class DirectDataOperatorTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
         "dummy",
-        new LogObserver() {
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             assertEquals(ingest.getAttributeDescriptor(), data);
@@ -1467,7 +1467,7 @@ public class DirectDataOperatorTest {
     CountDownLatch latch = new CountDownLatch(1);
     reader.observe(
         "dummy",
-        new LogObserver() {
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             assertEquals(ingest.getAttributeDescriptor(), status);
@@ -1702,7 +1702,7 @@ public class DirectDataOperatorTest {
     List<StreamElement> observed = new ArrayList<>();
     reader.observe(
         "dummy",
-        new LogObserver() {
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             if (!expectNonEmpty) {

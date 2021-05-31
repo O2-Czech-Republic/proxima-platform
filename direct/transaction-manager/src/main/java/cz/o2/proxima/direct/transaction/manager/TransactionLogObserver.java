@@ -19,7 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Sets;
 import com.google.common.collect.SortedSetMultimap;
-import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.transaction.ServerTransactionManager;
@@ -48,11 +48,11 @@ import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * A {@link LogObserver} performing the overall transaction logic via keeping state of transactions
- * and responding to requests.
+ * A {@link CommitLogObserver} performing the overall transaction logic via keeping state of
+ * transactions and responding to requests.
  */
 @Slf4j
-class TransactionLogObserver implements LogObserver {
+class TransactionLogObserver implements CommitLogObserver {
 
   @Value
   private static class KeyWithAttribute {

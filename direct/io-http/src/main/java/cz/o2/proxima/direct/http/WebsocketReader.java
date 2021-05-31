@@ -18,9 +18,9 @@ package cz.o2.proxima.direct.http;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 
 import com.google.common.collect.Iterables;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.functional.UnaryFunction;
@@ -113,7 +113,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
   }
 
   @Override
-  public ObserveHandle observe(String name, Position position, LogObserver observer) {
+  public ObserveHandle observe(String name, Position position, CommitLogObserver observer) {
 
     checkSupportedPosition(position);
     return observe(element -> observer.onNext(element, nullContext()), observer::onError);
@@ -190,7 +190,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     checkSupportedPosition(position);
     return observe(element -> observer.onNext(element, nullContext()), observer::onError);
@@ -198,7 +198,7 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
 
   @Override
   public ObserveHandle observeBulk(
-      String name, Position position, boolean stopAtCurrent, LogObserver observer) {
+      String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
 
     checkSupportedPosition(position);
     return observe(element -> observer.onNext(element, nullContext()), observer::onError);
@@ -210,14 +210,14 @@ public class WebsocketReader extends AbstractStorage implements CommitLogReader 
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     return observeBulk(name, position, observer);
   }
 
   @Override
   public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
+      Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
 
     return observeBulk(null, Position.NEWEST, stopAtCurrent, observer);
   }

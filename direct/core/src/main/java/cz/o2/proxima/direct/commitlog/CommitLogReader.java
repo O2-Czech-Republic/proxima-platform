@@ -64,7 +64,7 @@ public interface CommitLogReader {
    * @param observer the observer to subscribe to the commit log
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  ObserveHandle observe(String name, Position position, LogObserver observer);
+  ObserveHandle observe(String name, Position position, CommitLogObserver observer);
 
   /**
    * Subscribe observer by name to the commit log and read the newest data. Each observer maintains
@@ -76,7 +76,7 @@ public interface CommitLogReader {
    * @param observer the observer to subscribe to the commit log
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default ObserveHandle observe(String name, LogObserver observer) {
+  default ObserveHandle observe(String name, CommitLogObserver observer) {
     return observe(name, Position.NEWEST, observer);
   }
 
@@ -98,7 +98,7 @@ public interface CommitLogReader {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer);
+      CommitLogObserver observer);
 
   /**
    * Subscribe to given set of partitions. If you use this call then the reader stops being
@@ -116,7 +116,7 @@ public interface CommitLogReader {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     return observePartitions(
         "unnamed-proxima-bulk-consumer-" + UUID.randomUUID().toString(),
@@ -137,7 +137,7 @@ public interface CommitLogReader {
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   default ObserveHandle observePartitions(
-      Collection<Partition> partitions, Position position, LogObserver observer) {
+      Collection<Partition> partitions, Position position, CommitLogObserver observer) {
 
     return observePartitions(partitions, position, false, observer);
   }
@@ -151,7 +151,8 @@ public interface CommitLogReader {
    * @param observer the observer to subscribe to the given partitions
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default ObserveHandle observePartitions(Collection<Partition> partitions, LogObserver observer) {
+  default ObserveHandle observePartitions(
+      Collection<Partition> partitions, CommitLogObserver observer) {
 
     return observePartitions(partitions, Position.NEWEST, observer);
   }
@@ -169,7 +170,7 @@ public interface CommitLogReader {
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   ObserveHandle observeBulk(
-      String name, Position position, boolean stopAtCurrent, LogObserver observer);
+      String name, Position position, boolean stopAtCurrent, CommitLogObserver observer);
 
   /**
    * Subscribe to the commit log in a bulk fashion. That implies that elements are not committed
@@ -181,7 +182,7 @@ public interface CommitLogReader {
    * @param observer the observer to subscribe
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default ObserveHandle observeBulk(String name, Position position, LogObserver observer) {
+  default ObserveHandle observeBulk(String name, Position position, CommitLogObserver observer) {
     return observeBulk(name, position, false, observer);
   }
 
@@ -194,7 +195,7 @@ public interface CommitLogReader {
    * @param observer the observer to subscribe
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default ObserveHandle observeBulk(String name, LogObserver observer) {
+  default ObserveHandle observeBulk(String name, CommitLogObserver observer) {
     return observeBulk(name, Position.NEWEST, observer);
   }
 
@@ -208,7 +209,10 @@ public interface CommitLogReader {
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   default ObserveHandle observeBulkPartitions(
-      String name, Collection<Partition> partitions, Position position, LogObserver observer) {
+      String name,
+      Collection<Partition> partitions,
+      Position position,
+      CommitLogObserver observer) {
 
     return observeBulkPartitions(name, partitions, position, false, observer);
   }
@@ -229,7 +233,7 @@ public interface CommitLogReader {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer);
+      CommitLogObserver observer);
 
   /**
    * Subscribe to given partitions in a bulk fashion.
@@ -245,7 +249,7 @@ public interface CommitLogReader {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     return observeBulkPartitions(
         "unnamed-proxima-bulk-consumer-" + UUID.randomUUID().toString(),
@@ -264,7 +268,7 @@ public interface CommitLogReader {
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   default ObserveHandle observeBulkPartitions(
-      Collection<Partition> partitions, Position position, LogObserver observer) {
+      Collection<Partition> partitions, Position position, CommitLogObserver observer) {
 
     return observeBulkPartitions(partitions, position, false, observer);
   }
@@ -279,7 +283,7 @@ public interface CommitLogReader {
    * @param observer the observer to subscribe to the offsets
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
-  default ObserveHandle observeBulkOffsets(Collection<Offset> offsets, LogObserver observer) {
+  default ObserveHandle observeBulkOffsets(Collection<Offset> offsets, CommitLogObserver observer) {
     return observeBulkOffsets(offsets, false, observer);
   }
 
@@ -295,7 +299,7 @@ public interface CommitLogReader {
    * @return {@link ObserveHandle} to asynchronously cancel the observation
    */
   ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer);
+      Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer);
 
   /**
    * Signals the user that offsets used by this reader can be externalized and reused later.

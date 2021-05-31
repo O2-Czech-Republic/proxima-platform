@@ -15,8 +15,8 @@
  */
 package cz.o2.proxima.flink.core;
 
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -76,7 +76,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
    * @param <T> Type of extracted element.
    */
   @SuppressWarnings("java:S1948")
-  private static class SourceLogObserver<T> implements LogObserver {
+  private static class SourceLogObserver<T> implements CommitLogObserver {
 
     private final CountDownLatch completed = new CountDownLatch(1);
     private final Set<Partition> seenPartitions = new HashSet<>();

@@ -20,12 +20,12 @@ import static org.mockito.Mockito.verify;
 
 import org.junit.Test;
 
-public class LogObserversTest {
+public class CommitLogObserversTest {
 
   @Test
   public void testSynchronizedLogObserver() {
-    LogObserver delegate = mock(LogObserver.class);
-    LogObserver observer = LogObservers.synchronizedObserver(delegate);
+    CommitLogObserver delegate = mock(CommitLogObserver.class);
+    CommitLogObserver observer = LogObservers.synchronizedObserver(delegate);
     Throwable err = new Throwable();
     observer.onError(err);
     verify(delegate).onError(err);

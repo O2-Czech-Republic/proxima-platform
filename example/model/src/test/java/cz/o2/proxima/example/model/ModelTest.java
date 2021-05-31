@@ -18,8 +18,8 @@ package cz.o2.proxima.example.model;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.example.event.Event.BaseEvent;
 import cz.o2.proxima.example.user.User.Details;
@@ -79,7 +79,7 @@ public class ModelTest {
             "consumer",
             Position.OLDEST,
             true,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onError(Throwable error) {

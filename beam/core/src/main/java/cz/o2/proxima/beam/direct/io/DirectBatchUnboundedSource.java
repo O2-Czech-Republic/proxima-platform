@@ -368,7 +368,7 @@ public class DirectBatchUnboundedSource
     private final BatchLogReader reader;
     private final List<AttributeDescriptor<?>> attributes;
     private final List<Partition> toProcess;
-    @Nullable private BlockingQueueLogObserver observer;
+    @Nullable private BlockingQueueLogObserver.BatchLog observer;
 
     private final long initialCheckpointSkip;
     private long consumedFromCurrent;
@@ -450,8 +450,8 @@ public class DirectBatchUnboundedSource
       return true;
     }
 
-    private BlockingQueueLogObserver newObserver(Partition partition) {
-      return BlockingQueueLogObserver.create(
+    private BlockingQueueLogObserver.BatchLog newObserver(Partition partition) {
+      return BlockingQueueLogObserver.createBatchLog(
           "DirectBatchUnbounded:" + partition.getId(), Long.MIN_VALUE);
     }
 

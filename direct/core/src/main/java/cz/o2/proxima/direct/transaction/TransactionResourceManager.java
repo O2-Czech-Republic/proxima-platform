@@ -20,7 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.LogObservers;
 import cz.o2.proxima.direct.commitlog.LogObservers.ForwardingObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -289,9 +289,9 @@ public class TransactionResourceManager
   public void runObservations(
       String name,
       BiConsumer<StreamElement, Pair<Long, Object>> updateConsumer,
-      LogObserver requestObserver) {
+      CommitLogObserver requestObserver) {
 
-    LogObserver synchronizedObserver = LogObservers.synchronizedObserver(requestObserver);
+    CommitLogObserver synchronizedObserver = LogObservers.synchronizedObserver(requestObserver);
     direct
         .getRepository()
         .getAllFamilies(true)
@@ -309,10 +309,10 @@ public class TransactionResourceManager
                         hookForRepartitions(r.getFirst(), updateConsumer, synchronizedObserver)));
   }
 
-  private LogObserver hookForRepartitions(
+  private CommitLogObserver hookForRepartitions(
       String family,
       BiConsumer<StreamElement, Pair<Long, Object>> updateConsumer,
-      LogObserver delegate) {
+      CommitLogObserver delegate) {
 
     DirectAttributeFamilyDescriptor directFamily = direct.getFamilyByName(family);
     return new ForwardingObserver(delegate) {
@@ -357,8 +357,8 @@ public class TransactionResourceManager
         });
   }
 
-  private LogObserver newTransactionResponseObserver() {
-    return new LogObserver() {
+  private CommitLogObserver newTransactionResponseObserver() {
+    return new CommitLogObserver() {
 
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {

@@ -17,8 +17,8 @@ package cz.o2.proxima.beam.direct.io;
 
 import com.google.common.base.MoreObjects;
 import cz.o2.proxima.beam.core.io.StreamElementCoder;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.Partition;

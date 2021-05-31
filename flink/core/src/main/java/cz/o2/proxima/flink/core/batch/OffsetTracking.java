@@ -95,6 +95,33 @@ public class OffsetTracking {
     }
   }
 
+  public abstract static class OffsetTrackingOnNextContext
+      implements BatchLogObserver.OnNextContext {
+
+    private final BatchLogObserver.OnNextContext delegate;
+
+    public OffsetTrackingOnNextContext(BatchLogObserver.OnNextContext delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public Partition getPartition() {
+      return delegate.getPartition();
+    }
+
+    @Override
+    public Offset getOffset() {
+      return delegate.getOffset();
+    }
+
+    @Override
+    public long getWatermark() {
+      return delegate.getWatermark();
+    }
+
+    public abstract void commit();
+  }
+
   public static class OffsetTrackingBatchLogObserver implements BatchLogObserver {
 
     private final Map<Partition, Offset> consumedOffsets = new HashMap<>();
@@ -112,12 +139,18 @@ public class OffsetTracking {
 
     @Override
     public boolean onNext(StreamElement element, OnNextContext context) {
-      final boolean continueProcessing = delegate.onNext(element, context);
-      synchronized (consumedOffsets) {
-        consumedOffsets.merge(
-            context.getPartition(), context.getOffset(), OffsetTracking::mergeOffsets);
-      }
-      return continueProcessing;
+      return delegate.onNext(
+          element,
+          new OffsetTrackingOnNextContext(context) {
+
+            @Override
+            public void commit() {
+              synchronized (consumedOffsets) {
+                consumedOffsets.merge(
+                    context.getPartition(), context.getOffset(), OffsetTracking::mergeOffsets);
+              }
+            }
+          });
     }
 
     @Override

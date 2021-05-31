@@ -121,7 +121,10 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
               && seenPartitions.add(context.getPartition());
       if (!skipElement) {
         synchronized (sourceContext.getCheckpointLock()) {
+          final OffsetTracking.OffsetTrackingOnNextContext committer =
+              (OffsetTracking.OffsetTrackingOnNextContext) context;
           sourceContext.collect(resultExtractor.toResult(ingest));
+          committer.commit();
         }
         if (context.getWatermark() > watermark) {
           watermark = context.getWatermark();

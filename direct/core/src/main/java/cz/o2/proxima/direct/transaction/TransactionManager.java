@@ -19,6 +19,7 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
@@ -52,4 +53,6 @@ public interface TransactionManager {
   Wildcard<Response> getResponseDesc();
 
   Regular<State> getStateDesc();
+
+  Regular<Commit> getCommitDesc();
 }

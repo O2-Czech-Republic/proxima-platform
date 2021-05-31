@@ -32,13 +32,14 @@ import lombok.ToString;
 @EqualsAndHashCode
 public class State implements Serializable {
 
-  public static State open(long sequentialId, Collection<KeyAttribute> openAttributes) {
+  public static State open(long sequentialId, long stamp, Collection<KeyAttribute> openAttributes) {
     return new State(
-        sequentialId, Flags.OPEN, Sets.newHashSet(openAttributes), Collections.emptyList());
+        sequentialId, stamp, Flags.OPEN, Sets.newHashSet(openAttributes), Collections.emptyList());
   }
 
   public static State empty() {
-    return new State(-1L, Flags.UNKNOWN, Collections.emptyList(), Collections.emptyList());
+    return new State(
+        -1L, Long.MIN_VALUE, Flags.UNKNOWN, Collections.emptyList(), Collections.emptyList());
   }
 
   public enum Flags {
@@ -49,21 +50,24 @@ public class State implements Serializable {
   }
 
   @Getter private final long sequentialId;
+  @Getter private final long stamp;
   @Getter private final Flags flags;
   @Getter private final Collection<KeyAttribute> inputAttributes;
   @Getter private final Collection<KeyAttribute> committedAttributes;
 
   public State() {
-    this(-1L, Flags.UNKNOWN, Collections.emptySet(), Collections.emptySet());
+    this(-1L, Long.MIN_VALUE, Flags.UNKNOWN, Collections.emptySet(), Collections.emptySet());
   }
 
   private State(
       long sequentialId,
+      long stamp,
       Flags flags,
       Collection<KeyAttribute> inputAttributes,
       Collection<KeyAttribute> committedAttributes) {
 
     this.sequentialId = sequentialId;
+    this.stamp = stamp;
     this.flags = flags;
     this.inputAttributes = Lists.newArrayList(inputAttributes);
     this.committedAttributes = Lists.newArrayList(committedAttributes);
@@ -77,7 +81,11 @@ public class State implements Serializable {
    */
   public State committed(Collection<KeyAttribute> outputAttributes) {
     return new State(
-        sequentialId, Flags.COMMITTED, getInputAttributes(), Sets.newHashSet(outputAttributes));
+        sequentialId,
+        stamp,
+        Flags.COMMITTED,
+        getInputAttributes(),
+        Sets.newHashSet(outputAttributes));
   }
 
   public State update(Collection<KeyAttribute> additionalAttributes) {
@@ -85,7 +93,7 @@ public class State implements Serializable {
         flags == Flags.OPEN, "Cannot update transaction in state %s, expected OPEN", flags);
     Set<KeyAttribute> inputs = Sets.newHashSet(getInputAttributes());
     inputs.addAll(additionalAttributes);
-    return new State(sequentialId, flags, inputs, Collections.emptyList());
+    return new State(sequentialId, stamp, flags, inputs, Collections.emptyList());
   }
 
   /**
@@ -94,6 +102,7 @@ public class State implements Serializable {
    * @return new {@link State} marked as {@link Flags#ABORTED}.
    */
   public State aborted() {
-    return new State(sequentialId, Flags.ABORTED, getInputAttributes(), Collections.emptySet());
+    return new State(
+        sequentialId, stamp, Flags.ABORTED, getInputAttributes(), Collections.emptySet());
   }
 }

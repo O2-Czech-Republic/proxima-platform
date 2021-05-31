@@ -20,11 +20,13 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.ExceptionUtils;
+import cz.o2.proxima.util.Optionals;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
@@ -57,6 +59,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     private final BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(1);
     private State.Flags state;
     private long sequenceId = -1L;
+    private long stamp = Long.MIN_VALUE;
 
     private Transaction(String transactionId) {
       this.transactionId = transactionId;
@@ -87,8 +90,18 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       if (response.hasSequenceId()) {
         Preconditions.checkState(
             sequenceId == -1 || sequenceId == response.getSeqId(),
-            "Updated sequence ID. That is a bug in proxima's transactions.");
+            "Updated sequence ID from %s to %s. That is a bug in proxima's transactions.",
+            sequenceId,
+            response.getSeqId());
         sequenceId = response.getSeqId();
+      }
+      if (response.hasStamp()) {
+        Preconditions.checkState(
+            stamp == Long.MIN_VALUE || stamp == response.getStamp(),
+            "Updated stamp from %s to %s. That is a bug in proxima's transactions.",
+            stamp,
+            response.getStamp());
+        stamp = response.getStamp();
       }
       state = State.Flags.OPEN;
     }
@@ -96,10 +109,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     public void commitWrite(List<StreamElement> outputs, CommitCallback callback)
         throws TransactionRejectedException {
 
-      List<StreamElement> toWrite =
-          outputs.stream().map(this::injectSequenceId).collect(Collectors.toList());
+      List<StreamElement> injected =
+          outputs.stream().map(this::injectSequenceIdAndStamp).collect(Collectors.toList());
+      StreamElement toWrite = getSingleOrCommit(injected);
+      OnlineAttributeWriter writer = outputs.size() == 1 ? delegate : commitDelegate;
       List<KeyAttribute> keyAttributes =
-          toWrite.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList());
+          injected.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList());
       manager.commit(transactionId, keyAttributes);
       Response response = ExceptionUtils.uncheckedFactory(responseQueue::take);
       if (response.getFlags() != Response.Flags.COMMITTED) {
@@ -108,16 +123,31 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
         }
         throw new TransactionRejectedException(transactionId);
       }
-      CommitCallback compositeCallback = CommitCallback.afterNumCommits(toWrite.size(), callback);
+      CommitCallback compositeCallback =
+          (succ, exc) -> {
+            if (!succ) {
+              rollback();
+            }
+            callback.commit(succ, exc);
+          };
       state = State.Flags.COMMITTED;
-      toWrite.forEach(w -> delegate.write(w, compositeCallback));
+      writer.write(toWrite, compositeCallback);
+    }
+
+    private StreamElement getSingleOrCommit(List<StreamElement> outputs) {
+      if (outputs.size() == 1) {
+        return outputs.get(0);
+      }
+      return manager
+          .getCommitDesc()
+          .upsert(transactionId, stamp, Commit.of(sequenceId, stamp, outputs));
     }
 
     private void enqueueResponse(String responseId, Response response) {
       ExceptionUtils.unchecked(() -> responseQueue.put(response));
     }
 
-    private StreamElement injectSequenceId(StreamElement in) {
+    private StreamElement injectSequenceIdAndStamp(StreamElement in) {
 
       Preconditions.checkArgument(!in.isDeleteWildcard(), "Wildcard deletes not yet supported");
 
@@ -127,7 +157,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
           sequenceId,
           in.getKey(),
           in.getAttribute(),
-          in.getStamp(),
+          stamp,
           in.getValue());
     }
 
@@ -143,7 +173,8 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     }
   }
 
-  private final OnlineAttributeWriter delegate;
+  @Getter private final OnlineAttributeWriter delegate;
+  private final OnlineAttributeWriter commitDelegate;
   private final ClientTransactionManager manager;
   private final ExecutorService executor;
 
@@ -153,6 +184,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     this.delegate = delegate;
     this.manager = TransactionResourceManager.of(direct);
     this.executor = direct.getContext().getExecutorService();
+    this.commitDelegate = Optionals.get(direct.getWriter(manager.getCommitDesc()));
   }
 
   @Override
@@ -161,13 +193,14 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   }
 
   @Override
-  public void close() {
+  public synchronized void close() {
     manager.close();
     delegate.close();
+    commitDelegate.close();
   }
 
   @Override
-  public void write(StreamElement data, CommitCallback statusCallback) {
+  public synchronized void write(StreamElement data, CommitCallback statusCallback) {
     // this means start transaction with the single KeyAttribute as input and then
     // commit that transaction right away
     executor.execute(

@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -40,6 +41,7 @@ import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.Response.Flags;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
+import cz.o2.proxima.util.TransformationRunner;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -58,6 +60,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -69,14 +72,14 @@ public class TransactionIT {
   private final Repository repo =
       Repository.of(ConfigFactory.load("transactions-it.conf").resolve());
   private final EntityDescriptor user = repo.getEntity("user");
-  private final Regular<Double> amount = Regular.regular(user, user.getAttribute("amount"));
-  private final Wildcard<Integer> numDevices =
-      Wildcard.wildcard(user, user.getAttribute("numDevices.*"));
-  private final Wildcard<byte[]> device = Wildcard.wildcard(user, user.getAttribute("device.*"));
+  private final Regular<Double> amount = Regular.of(user, user.getAttribute("amount"));
+  private final Wildcard<Integer> numDevices = Wildcard.of(user, user.getAttribute("numDevices.*"));
+  private final Wildcard<byte[]> device = Wildcard.of(user, user.getAttribute("device.*"));
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private TransactionLogObserver observer;
   private CachedView view;
   private ClientTransactionManager client;
+  private ObserveHandle transformationHandle;
 
   @Before
   public void setUp() {
@@ -85,6 +88,17 @@ public class TransactionIT {
     view = Optionals.get(direct.getCachedView(amount));
     view.assign(view.getPartitions());
     observer.run("transaction-observer");
+    transformationHandle =
+        TransformationRunner.runTransformation(
+            direct,
+            "_transaction-commit",
+            repo.getTransformations().get("_transaction-commit"),
+            ign -> {});
+  }
+
+  @After
+  public void tearDown() {
+    transformationHandle.close();
   }
 
   @Test(timeout = 100_000)
@@ -92,7 +106,7 @@ public class TransactionIT {
     // we begin with all amounts equal to zero
     // we randomly reshuffle random amounts between users and then we verify, that the sum is zero
 
-    int numThreads = 50;
+    int numThreads = 20;
     int numSwaps = 1000;
     int numUsers = 20;
     CountDownLatch latch = new CountDownLatch(numThreads);
@@ -128,7 +142,7 @@ public class TransactionIT {
     // devices into numDevices. After the test, the numDevice must match the total number of writes
 
     int numWrites = 1000;
-    int numThreads = 20;
+    int numThreads = 10;
     int numUsers = 100;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
@@ -164,8 +178,8 @@ public class TransactionIT {
     // all current devices into numDevices. After the test, the numDevice must match the total
     // number of writes
 
-    int numWrites = 1000;
-    int numThreads = 20;
+    int numWrites = 500;
+    int numThreads = 10;
     int numUsers = 100;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
@@ -204,7 +218,7 @@ public class TransactionIT {
     // if value is not present in attribute X, it is read from attribute Y, and written to X
 
     int numWrites = 1000;
-    int numThreads = 20;
+    int numThreads = 10;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();

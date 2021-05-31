@@ -35,6 +35,7 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
+import cz.o2.proxima.transaction.TransactionCommitTransformation;
 import cz.o2.proxima.transaction.TransactionSerializerSchemeProvider;
 import cz.o2.proxima.transform.DataOperatorAware;
 import cz.o2.proxima.transform.ElementWiseProxyTransform;
@@ -66,7 +67,6 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -86,7 +86,10 @@ public final class ConfigRepository extends Repository {
   private static final Pattern ENTITY_NAME_PATTERN = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
   private static final Pattern ATTRIBUTE_NAME_PATTERN =
       Pattern.compile("[a-zA-Z_][a-zA-Z0-9_\\-$]*(\\.\\*)?");
-  private static final String TRANSACTION = "_transaction";
+  private static final String REQUEST_ATTRIBUTE = "request.*";
+  private static final String RESPONSE_ATTRIBUTE = "response.*";
+  private static final String STATE_ATTRIBUTE = "state";
+  private static final String COMMIT_ATTRIBUTE = "commit";
 
   private static Config cachedConfigConstructed;
 
@@ -365,12 +368,11 @@ public final class ConfigRepository extends Repository {
     // Read the config and store entity descriptors
     readEntityDescriptors(config);
 
-    boolean hasTransactions = getAllEntities().anyMatch(EntityDescriptor::isTransactional);
-
-    if (hasTransactions) {
+    if (hasTransactions()) {
       Config transactionConfig =
           conf.hasPath(TRANSACTIONS) ? conf.getConfig(TRANSACTIONS) : ConfigFactory.empty();
       createEntityTransaction(transactionConfig);
+      createTransactionCommitTransformation();
     }
 
     if (loadFamilies) {
@@ -426,23 +428,28 @@ public final class ConfigRepository extends Repository {
     }
     TransactionSerializerSchemeProvider schemeProvider =
         factory.get().createTransactionSerializerSchemeProvider();
-    EntityDescriptor.Builder builder = EntityDescriptor.newBuilder().setName(TRANSACTION);
+    EntityDescriptor.Builder builder = EntityDescriptor.newBuilder().setName(TRANSACTION_ENTITY);
     loadRegular(
-        TRANSACTION,
-        "request.*",
+        TRANSACTION_ENTITY,
+        REQUEST_ATTRIBUTE,
         Collections.singletonMap(SCHEME, schemeProvider.getRequestScheme()),
         builder);
     loadRegular(
-        TRANSACTION,
-        "response.*",
+        TRANSACTION_ENTITY,
+        RESPONSE_ATTRIBUTE,
         Collections.singletonMap(SCHEME, schemeProvider.getResponseScheme()),
         builder);
     loadRegular(
-        TRANSACTION,
-        "state",
+        TRANSACTION_ENTITY,
+        STATE_ATTRIBUTE,
         Collections.singletonMap(SCHEME, schemeProvider.getStateScheme()),
         builder);
-    entitiesByName.put(TRANSACTION, builder.build());
+    loadRegular(
+        TRANSACTION_ENTITY,
+        COMMIT_ATTRIBUTE,
+        Collections.singletonMap(SCHEME, schemeProvider.getCommitScheme()),
+        builder);
+    entitiesByName.put(TRANSACTION_ENTITY, builder.build());
   }
 
   private void setupTransforms() {
@@ -1184,7 +1191,7 @@ public final class ConfigRepository extends Repository {
     }
     final String entity = Objects.requireNonNull(cfg.get(ENTITY)).toString();
     final String filter = toString(cfg.get(FILTER));
-    final boolean isTransactional = entity.equals(TRANSACTION);
+    final boolean isTransactional = entity.equals(TRANSACTION_ENTITY);
     final StorageType type = getStorageType(cfg, isTransactional);
     final AccessType access = getAccessType(cfg, isTransactional);
     final List<String> attributes =
@@ -1314,7 +1321,7 @@ public final class ConfigRepository extends Repository {
   }
 
   private void insertSystemFamily(AttributeFamilyDescriptor family) {
-    if (family.getEntity().getName().equals(TRANSACTION)) {
+    if (family.getEntity().getName().equals(TRANSACTION_ENTITY)) {
       Preconditions.checkState(
           allCreatedFamilies.put(family.getName(), family) == null,
           "Multiple definitions of family %s",
@@ -1986,12 +1993,12 @@ public final class ConfigRepository extends Repository {
               .stream()
               .filter(
                   p ->
-                      (!((AttributeDescriptorBase<?>) p.getReadTarget()).isProxy()
+                      (!p.getReadTarget().isProxy()
                               || dependencyOrdered.contains(p.getReadTarget())
                               // the dependency can be self-resolved in case of
                               // read-only replications
                               || p.getReadTarget().equals(p))
-                          && (!((AttributeDescriptorBase<?>) p.getWriteTarget()).isProxy()
+                          && (!p.getWriteTarget().isProxy()
                               || dependencyOrdered.contains(p.getWriteTarget())
                               || p.getWriteTarget().equals(p)))
               .map(dependencyOrdered::add)
@@ -2068,6 +2075,24 @@ public final class ConfigRepository extends Repository {
         });
   }
 
+  private void createTransactionCommitTransformation() {
+    EntityDescriptor transaction = getEntity(TRANSACTION_ENTITY);
+    String name = "_transaction-commit";
+    TransformationDescriptor descriptor =
+        TransformationDescriptor.newBuilder()
+            .setTransformation(new TransactionCommitTransformation())
+            .setEntity(transaction)
+            .addAttributes(transaction.getAttribute(COMMIT_ATTRIBUTE))
+            .setName(name)
+            .disallowTransactions()
+            .build();
+    setupTransform(descriptor.getTransformation(), Collections.emptyMap());
+    Preconditions.checkState(
+        this.transformations.put(name, descriptor) == null,
+        "Transformation %s already exists.",
+        name);
+  }
+
   private void setupTransform(Transformation transformation, Map<String, Object> cfg) {
     if (transformation.isContextual()) {
       final DataOperator op = getDataOperatorForDelegate(transformation);
@@ -2132,9 +2157,7 @@ public final class ConfigRepository extends Repository {
   /** check validity of the settings */
   private void validate() {
     // validate that each attribute belongs to at least one attribute family
-    entitiesByName
-        .values()
-        .stream()
+    getAllEntities(true)
         .flatMap(d -> d.getAllAttributes(true).stream())
         .filter(a -> !a.isProxy())
         .filter(
@@ -2169,14 +2192,25 @@ public final class ConfigRepository extends Repository {
 
     // check the size of attributes with primary family is equal to all attribute
     // hence all attributes have exactly one primary family
-    getAllEntities()
+    getAllEntities(true)
         .flatMap(e -> e.getAllAttributes(true).stream())
         .forEach(
             attr ->
                 Preconditions.checkArgument(
-                    map.get(attr) != null, "Attribute " + attr + " has no primary family"));
+                    attr.getEntity().equals(TRANSACTION_ENTITY) || map.get(attr) != null,
+                    "Attribute " + attr + " has no primary family"));
 
-    // validate we have a transacational manager families for all transactional entities
+    if (hasTransactions()) {
+      validateTransactions();
+    }
+  }
+
+  private boolean hasTransactions() {
+    return getAllEntities().anyMatch(EntityDescriptor::isTransactional);
+  }
+
+  private void validateTransactions() {
+    // validate we have a transactional manager families for all transactional entities
     getAllEntities()
         .filter(EntityDescriptor::isTransactional)
         .flatMap(e -> e.getAllAttributes().stream())
@@ -2186,7 +2220,11 @@ public final class ConfigRepository extends Repository {
                   a.getTransactionalManagerFamilies()
                       .stream()
                       .map(this::getFamilyByName)
-                      .flatMap(af -> af.getAttributes().stream())
+                      .flatMap(
+                          af ->
+                              af.getAttributes()
+                                  .stream()
+                                  .filter(attr -> !attr.getName().equals(COMMIT_ATTRIBUTE)))
                       .collect(
                           Collectors.toMap(
                               Function.identity(),
@@ -2194,18 +2232,37 @@ public final class ConfigRepository extends Repository {
                               (l, r) -> {
                                 throw new IllegalArgumentException(
                                     "Multiple manager families share attribute of entity "
-                                        + TRANSACTION
+                                        + TRANSACTION_ENTITY
                                         + " in attribute "
                                         + a);
                               }));
-              EntityDescriptor transaction = getEntity(TRANSACTION);
+              EntityDescriptor transaction = getEntity(TRANSACTION_ENTITY);
               Preconditions.checkArgument(
-                  transactionAttributes.size() == transaction.getAllAttributes().size(),
-                  "All attribute of entity "
-                      + TRANSACTION
-                      + " must be covered by transactional manager families in attribute "
-                      + a);
+                  transactionAttributes.size() == 3,
+                  "Exactly the attributes [ %s, %s, %s] of entity %s "
+                      + " must be covered by transactional manager families in attribute %s. Got %s.",
+                  REQUEST_ATTRIBUTE,
+                  RESPONSE_ATTRIBUTE,
+                  STATE_ATTRIBUTE,
+                  transaction,
+                  a,
+                  transactionAttributes.keySet());
             });
+
+    // validate we have exactly one family for _transaction.commit
+    AttributeDescriptor<Object> commit =
+        getEntity(TRANSACTION_ENTITY).getAttribute(COMMIT_ATTRIBUTE);
+    Set<AttributeFamilyDescriptor> commitFamilies =
+        allCreatedFamilies
+            .values()
+            .stream()
+            .filter(af -> af.getAttributes().contains(commit))
+            .collect(Collectors.toSet());
+    Preconditions.checkArgument(
+        commitFamilies.size() == 1,
+        "Expected exactly one family for attribute %s. Got %s.",
+        commit,
+        commitFamilies);
   }
 
   @Override
@@ -2235,7 +2292,6 @@ public final class ConfigRepository extends Repository {
 
   @Override
   public Set<AttributeFamilyDescriptor> getFamiliesForAttribute(AttributeDescriptor<?> attr) {
-
     return getFamiliesForAttribute(attr, true);
   }
 
@@ -2250,10 +2306,11 @@ public final class ConfigRepository extends Repository {
 
   @Override
   public Stream<EntityDescriptor> getAllEntities() {
-    return entitiesByName
-        .values()
-        .stream()
-        .filter(((Predicate<EntityDescriptor>) EntityDescriptor::isSystemEntity).negate());
+    return getAllEntities(false);
+  }
+
+  private Stream<EntityDescriptor> getAllEntities(boolean includeSystem) {
+    return entitiesByName.values().stream().filter(e -> includeSystem || !e.isSystemEntity());
   }
 
   @Override

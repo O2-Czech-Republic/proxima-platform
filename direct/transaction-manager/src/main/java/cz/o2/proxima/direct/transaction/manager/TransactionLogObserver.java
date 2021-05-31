@@ -177,7 +177,7 @@ class TransactionLogObserver implements LogObserver {
     switch (state.getFlags()) {
       case OPEN:
         return oldState.getFlags() == State.Flags.UNKNOWN
-            ? Response.open(state.getSequentialId())
+            ? Response.open(state.getSequentialId(), state.getStamp())
             : Response.updated();
       case COMMITTED:
         return Response.committed();
@@ -233,7 +233,8 @@ class TransactionLogObserver implements LogObserver {
 
   private State transitionToOpen(Request request) {
     long seqId = sequenceId.getAndIncrement();
-    State proposedState = State.open(seqId, new HashSet<>(request.getInputAttributes()));
+    State proposedState =
+        State.open(seqId, System.currentTimeMillis(), new HashSet<>(request.getInputAttributes()));
     if (verifyNotInConflict(request.getInputAttributes())) {
       return proposedState;
     }

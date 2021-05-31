@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.transaction;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.commitlog.LogObserver;
@@ -38,6 +39,7 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.TransactionMode;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Request.Flags;
@@ -48,6 +50,7 @@ import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -245,6 +248,7 @@ class TransactionResourceManager implements ClientTransactionManager, ServerTran
   @Getter private final Wildcard<Request> requestDesc;
   @Getter private final Wildcard<Response> responseDesc;
   @Getter private final Regular<State> stateDesc;
+  @Getter private final Regular<Commit> commitDesc;
   private final Map<String, CachedTransaction> openTransactionMap = new ConcurrentHashMap<>();
   private final Map<AttributeFamilyDescriptor, CachedWriters> cachedAccessors =
       new ConcurrentHashMap<>();
@@ -258,9 +262,10 @@ class TransactionResourceManager implements ClientTransactionManager, ServerTran
   private TransactionResourceManager(DirectDataOperator direct) {
     this.direct = direct;
     this.transaction = direct.getRepository().getEntity("_transaction");
-    this.requestDesc = Wildcard.wildcard(transaction, transaction.getAttribute("request.*"));
-    this.responseDesc = Wildcard.wildcard(transaction, transaction.getAttribute("response.*"));
-    this.stateDesc = Regular.regular(transaction, transaction.getAttribute("state"));
+    this.requestDesc = Wildcard.of(transaction, transaction.getAttribute("request.*"));
+    this.responseDesc = Wildcard.of(transaction, transaction.getAttribute("response.*"));
+    this.stateDesc = Regular.of(transaction, transaction.getAttribute("state"));
+    this.commitDesc = Regular.of(transaction, transaction.getAttribute("commit"));
   }
 
   @Override
@@ -522,10 +527,15 @@ class TransactionResourceManager implements ClientTransactionManager, ServerTran
             .map(Optional::get)
             .collect(Collectors.toList());
 
-    long numAttributes = candidates.stream().mapToLong(f -> f.getAttributes().size()).sum();
+    List<AttributeDescriptor<?>> requestResponseState =
+        candidates
+            .stream()
+            .flatMap(f -> f.getAttributes().stream().filter(a -> !a.equals(commitDesc)))
+            .sorted(Comparator.comparing(AttributeDescriptor::getName))
+            .collect(Collectors.toList());
 
     Preconditions.checkState(
-        numAttributes == 3,
+        requestResponseState.equals(Lists.newArrayList(requestDesc, responseDesc, stateDesc)),
         "Should have received only families for unique transactional attributes, "
             + "got %s for %s with transactional mode %s",
         candidates,

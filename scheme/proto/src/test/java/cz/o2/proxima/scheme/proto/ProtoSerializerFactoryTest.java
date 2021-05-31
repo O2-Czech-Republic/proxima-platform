@@ -33,6 +33,7 @@ import cz.o2.proxima.scheme.ValueSerializerFactory;
 import cz.o2.proxima.scheme.proto.ProtoSerializerFactory.TransactionProtoSerializer;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
@@ -125,14 +126,23 @@ public class ProtoSerializerFactoryTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testTransactionSchemeProvider() {
+    try {
+      Repository.ofTest(
+          ConfigFactory.load("test-transactions-proto.conf")
+              .withFallback(ConfigFactory.load("test-transactions.conf"))
+              .resolve());
+    } catch (Exception ex) {
+      ex.printStackTrace(System.err);
+      throw ex;
+    }
+
     Repository repo =
         Repository.ofTest(
             ConfigFactory.load("test-transactions-proto.conf")
                 .withFallback(ConfigFactory.load("test-transactions.conf"))
                 .resolve());
     EntityDescriptor transaction = repo.getEntity("_transaction");
-    Wildcard<Request> request =
-        Wildcard.wildcard(transaction, transaction.getAttribute("request.*"));
+    Wildcard<Request> request = Wildcard.of(transaction, transaction.getAttribute("request.*"));
 
     KeyAttribute keyAttribute =
         KeyAttributes.ofAttributeDescriptor(transaction, "t", request, 1L, "1");
@@ -159,6 +169,10 @@ public class ProtoSerializerFactoryTest {
     assertTrue(state.getValueSerializer() instanceof TransactionProtoSerializer);
     assertTrue(state.getValueSerializer().isUsable());
 
+    AttributeDescriptor<State> commit = transaction.getAttribute("commit");
+    assertTrue(state.getValueSerializer() instanceof TransactionProtoSerializer);
+    assertTrue(state.getValueSerializer().isUsable());
+
     StreamElement update =
         StreamElement.upsert(
             transaction,
@@ -181,6 +195,7 @@ public class ProtoSerializerFactoryTest {
     KeyAttribute keyAttributeSingleWildcard = KeyAttributes.ofStreamElement(update);
     KeyAttribute keyAttributeDelete = KeyAttributes.ofStreamElement(delete);
     KeyAttribute missingGet = KeyAttributes.ofMissingAttribute(transaction, "t", request, "1");
+    long now = System.currentTimeMillis();
 
     List<Pair<Object, AttributeDescriptor<?>>> toVerify =
         Arrays.asList(
@@ -192,30 +207,32 @@ public class ProtoSerializerFactoryTest {
             Pair.of(newRequest(keyAttributeSingleWildcard, Request.Flags.UPDATE), request),
             Pair.of(newRequest(wildcardQuery, Request.Flags.OPEN), request),
             Pair.of(newRequest(Request.Flags.ROLLBACK), request),
-            Pair.of(Response.open(1L), response),
+            Pair.of(Response.open(1L, now), response),
             Pair.of(Response.updated(), response),
             Pair.of(Response.committed(), response),
             Pair.of(Response.aborted(), response),
             Pair.of(Response.duplicate(), response),
             Pair.of(Response.empty(), response),
-            Pair.of(State.open(1L, Sets.newHashSet(keyAttribute)), state),
             Pair.of(
-                State.open(1L, Sets.newHashSet(keyAttribute, keyAttributeSingleWildcard))
+                Commit.of(1L, System.currentTimeMillis(), Arrays.asList(update, delete)), commit),
+            Pair.of(State.open(1L, now, Sets.newHashSet(keyAttribute)), state),
+            Pair.of(
+                State.open(1L, now, Sets.newHashSet(keyAttribute, keyAttributeSingleWildcard))
                     .committed(Sets.newHashSet(keyAttribute)),
                 state),
             Pair.of(State.empty(), state),
             Pair.of(
-                State.open(1L, Sets.newHashSet(keyAttribute))
+                State.open(1L, now, Sets.newHashSet(keyAttribute))
                     .update(Collections.singletonList(keyAttributeSingleWildcard)),
                 state),
-            Pair.of(State.open(1L, Sets.newHashSet(keyAttribute)).aborted(), state),
-            Pair.of(State.open(1L, Sets.newHashSet(missingGet)).aborted(), state),
+            Pair.of(State.open(1L, now, Sets.newHashSet(keyAttribute)).aborted(), state),
+            Pair.of(State.open(1L, now, Sets.newHashSet(missingGet)).aborted(), state),
             Pair.of(
-                State.open(1L, Sets.newHashSet(keyAttributeSingleWildcard))
+                State.open(1L, now, Sets.newHashSet(keyAttributeSingleWildcard))
                     .committed(Sets.newHashSet(keyAttributeSingleWildcard)),
                 state),
             Pair.of(
-                State.open(1L, Collections.emptyList())
+                State.open(1L, now, Collections.emptyList())
                     .committed(Sets.newHashSet(keyAttributeDelete)),
                 state));
 

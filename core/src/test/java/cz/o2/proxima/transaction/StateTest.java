@@ -36,12 +36,14 @@ public class StateTest {
 
   @Test
   public void testStateTransitions() {
-    State s = State.open(5L, Collections.emptyList());
+    State s = State.open(5L, 1234567890000L, Collections.emptyList());
     assertEquals(5L, s.getSequentialId());
+    assertEquals(1234567890000L, s.getStamp());
     assertTrue(s.getInputAttributes().isEmpty());
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 2L);
     s = s.update(Lists.newArrayList(ka));
     assertEquals(5L, s.getSequentialId());
+    assertEquals(1234567890000L, s.getStamp());
     assertEquals(1, s.getInputAttributes().size());
     assertEquals(ka, Iterables.get(s.getInputAttributes(), 0));
     ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", device, 3L, "1");
@@ -53,7 +55,9 @@ public class StateTest {
         Iterables.get(committed.getCommittedAttributes(), 0));
     assertEquals(ka, Iterables.get(committed.getCommittedAttributes(), 0));
     assertEquals(5L, committed.getSequentialId());
+    assertEquals(1234567890000L, s.getStamp());
     State aborted = s.aborted();
     assertEquals(5L, aborted.getSequentialId());
+    assertEquals(1234567890000L, s.getStamp());
   }
 }

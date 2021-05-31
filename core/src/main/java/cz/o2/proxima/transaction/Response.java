@@ -41,8 +41,8 @@ public class Response implements Serializable {
    *
    * @return response for open transaction
    */
-  public static Response open(long seqId) {
-    return new Response(Flags.OPEN, seqId);
+  public static Response open(long seqId, long stamp) {
+    return new Response(Flags.OPEN, seqId, stamp);
   }
 
   public static Response updated() {
@@ -95,20 +95,28 @@ public class Response implements Serializable {
    */
   @Getter private final long seqId;
 
+  /** A timestamp that *must* be used as a timestamp of all writes after the commit. */
+  @Getter private final long stamp;
+
   public Response() {
     this(Flags.NONE);
   }
 
   private Response(Flags flags) {
-    this(flags, -1L);
+    this(flags, -1L, Long.MIN_VALUE);
   }
 
-  private Response(Flags flags, long seqId) {
+  private Response(Flags flags, long seqId, long stamp) {
     this.flags = flags;
     this.seqId = seqId;
+    this.stamp = stamp;
   }
 
   public boolean hasSequenceId() {
     return seqId > 0;
+  }
+
+  public boolean hasStamp() {
+    return stamp > Long.MIN_VALUE;
   }
 }

@@ -28,6 +28,7 @@ import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -40,11 +41,11 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
@@ -88,12 +89,11 @@ public class HadoopStorageTest {
   @Test
   public void testHashCodeAndEquals() {
     TestUtils.assertHashCodeAndEquals(new HadoopStorage(), new HadoopStorage());
-
     EntityDescriptor entity = EntityDescriptor.newBuilder().setName("dummy").build();
+    final AttributeFamilyDescriptor family =
+        TestUtils.createTestFamily(entity, URI.create("hdfs://host:9000/path"));
     TestUtils.assertHashCodeAndEquals(
-        new HadoopDataAccessor(entity, URI.create("hdfs://host:9000/path"), Collections.emptyMap()),
-        new HadoopDataAccessor(
-            entity, URI.create("hdfs://host:9000/path"), Collections.emptyMap()));
+        new HadoopDataAccessor(family), new HadoopDataAccessor(family));
   }
 
   @Test
@@ -116,25 +116,22 @@ public class HadoopStorageTest {
     assertEquals("/", remap.getPath());
     remap = HadoopStorage.remap(URI.create("hadoop:file:///"));
     assertEquals("file", remap.getScheme());
-    assertEquals(null, remap.getAuthority());
+    assertNull(remap.getAuthority());
     assertEquals("/", remap.getPath());
     remap = HadoopStorage.remap(URI.create("hadoop:file:///tmp/?query=a"));
     assertEquals("file", remap.getScheme());
-    assertEquals(null, remap.getAuthority());
+    assertNull(remap.getAuthority());
     assertEquals("/tmp/", remap.getPath());
     assertEquals("query=a", remap.getQuery());
-    try {
-      remap = HadoopStorage.remap(URI.create("hadoop:///tmp/"));
-      fail("Should have thrown exception");
-    } catch (IllegalArgumentException ex) {
-      // pass
-    }
+    final URI invalidURI = URI.create("hadoop:///tmp/");
+    assertThrows(IllegalArgumentException.class, () -> HadoopStorage.remap(invalidURI));
   }
 
   @Test(timeout = 5000L)
   public void testWriteElement() throws InterruptedException {
     Map<String, Object> cfg = cfg(HadoopDataAccessor.HADOOP_ROLL_INTERVAL, -1);
-    HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
+    HadoopDataAccessor accessor =
+        new HadoopDataAccessor(TestUtils.createTestFamily(entity, uri, cfg));
 
     CountDownLatch latch = new CountDownLatch(1);
     BulkAttributeWriter writer =
@@ -174,7 +171,8 @@ public class HadoopStorageTest {
   @Test(timeout = 5000L)
   public void testObserveCancel() throws InterruptedException {
     Map<String, Object> cfg = cfg(HadoopDataAccessor.HADOOP_ROLL_INTERVAL, -1);
-    HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
+    HadoopDataAccessor accessor =
+        new HadoopDataAccessor(TestUtils.createTestFamily(entity, uri, cfg));
 
     CountDownLatch latch = new CountDownLatch(1);
     writeOneElement(
@@ -225,7 +223,8 @@ public class HadoopStorageTest {
   @Test(timeout = 5000L)
   public void testOnNextCancel() throws InterruptedException {
     Map<String, Object> cfg = cfg(HadoopDataAccessor.HADOOP_ROLL_INTERVAL, -1);
-    HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
+    HadoopDataAccessor accessor =
+        new HadoopDataAccessor(TestUtils.createTestFamily(entity, uri, cfg));
 
     long now = System.currentTimeMillis();
     AtomicInteger consumed = new AtomicInteger();
@@ -274,7 +273,8 @@ public class HadoopStorageTest {
   public void testWriteElementJson() throws InterruptedException {
     Map<String, Object> cfg =
         cfg(HadoopDataAccessor.HADOOP_ROLL_INTERVAL, -1, "hadoop.format", "json");
-    HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
+    HadoopDataAccessor accessor =
+        new HadoopDataAccessor(TestUtils.createTestFamily(entity, uri, cfg));
 
     CountDownLatch latch = new CountDownLatch(1);
     BulkAttributeWriter writer =
@@ -312,10 +312,11 @@ public class HadoopStorageTest {
     assertNotNull(element);
   }
 
-  @Test(timeout = 5000L)
+  @Test(timeout = 5_000L)
   public void testWriteElementNotYetFlushed() throws InterruptedException {
     Map<String, Object> cfg = cfg(HadoopDataAccessor.HADOOP_ROLL_INTERVAL, 1000);
-    HadoopDataAccessor accessor = new HadoopDataAccessor(entity, uri, cfg);
+    HadoopDataAccessor accessor =
+        new HadoopDataAccessor(TestUtils.createTestFamily(entity, uri, cfg));
 
     CountDownLatch latch = new CountDownLatch(1);
     BulkAttributeWriter writer =
@@ -364,7 +365,7 @@ public class HadoopStorageTest {
   @Test
   public void testWriterAsFactorySerializable() throws IOException, ClassNotFoundException {
     HadoopDataAccessor accessor =
-        new HadoopDataAccessor(entity, URI.create("hdfs://namenode"), Collections.emptyMap());
+        new HadoopDataAccessor(TestUtils.createTestFamily(entity, URI.create("hdfs://namenode")));
     HadoopBulkAttributeWriter writer = new HadoopBulkAttributeWriter(accessor, direct.getContext());
     byte[] bytes = TestUtils.serializeObject(writer.asFactory());
     AttributeWriterBase.Factory<?> factory = TestUtils.deserializeObject(bytes);
@@ -374,7 +375,7 @@ public class HadoopStorageTest {
   @Test
   public void testReaderAsFactorySerializable() throws IOException, ClassNotFoundException {
     HadoopDataAccessor accessor =
-        new HadoopDataAccessor(entity, URI.create("hdfs://namenode"), Collections.emptyMap());
+        new HadoopDataAccessor(TestUtils.createTestFamily(entity, URI.create("hdfs://namenode")));
     HadoopBatchLogReader reader = new HadoopBatchLogReader(accessor, direct.getContext());
     byte[] bytes = TestUtils.serializeObject(reader.asFactory());
     BatchLogReader.Factory<?> factory = TestUtils.deserializeObject(bytes);
@@ -432,13 +433,13 @@ public class HadoopStorageTest {
   private List<File> listRecursively(File dir) {
     if (dir.isFile()) {
       if (!dir.getName().endsWith(".crc")) {
-        return Arrays.asList(dir);
+        return Collections.singletonList(dir);
       } else {
         return Collections.emptyList();
       }
     }
     List<File> ret = new ArrayList<>();
-    for (File f : dir.listFiles()) {
+    for (File f : Objects.requireNonNull(dir.listFiles())) {
       ret.addAll(listRecursively(f));
     }
     return ret;

@@ -18,7 +18,6 @@ package cz.o2.proxima.direct.hadoop;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -27,7 +26,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
-import java.util.Collections;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -39,16 +37,13 @@ public class HadoopPathTest {
 
   private final Repository repository =
       ConfigRepository.Builder.ofTest(ConfigFactory.load("test-reference.conf").resolve()).build();
-  private final DirectDataOperator direct =
-      repository.getOrCreateOperator(DirectDataOperator.class);;
   private final EntityDescriptor entity = repository.getEntity("gateway");
-  private URI uri;
   private HadoopDataAccessor accessor;
 
   @Before
   public void setUp() throws IOException {
-    uri = URI.create("file://" + folder.newFolder().getAbsolutePath());
-    accessor = new HadoopDataAccessor(entity, uri, Collections.emptyMap());
+    URI uri = URI.create("file://" + folder.newFolder().getAbsolutePath());
+    accessor = new HadoopDataAccessor(TestUtils.createTestFamily(entity, uri));
   }
 
   @Test

@@ -36,7 +36,7 @@ import java.util.concurrent.CountDownLatch;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class OffsetTrackingTest {
+class OffsetTrackingBatchLogReaderTest {
 
   private static final String MODEL =
       "{\n"
@@ -79,7 +79,7 @@ class OffsetTrackingTest {
             newData(repository, "second", Instant.now(), "value2"),
             newData(repository, "second", Instant.now(), "value3"));
     final BatchLogReader reader =
-        OffsetTracking.wrapReader(
+        OffsetTrackingBatchLogReader.of(
             ListBatchReader.ofPartitioned(direct.getContext(), firstPartition, secondPartition));
 
     final CountDownLatch latch = new CountDownLatch(1);
@@ -91,6 +91,9 @@ class OffsetTrackingTest {
 
               @Override
               public boolean onNext(StreamElement element, OnNextContext context) {
+                final OffsetTrackingBatchLogReader.OffsetCommitter committer =
+                    (OffsetTrackingBatchLogReader.OffsetCommitter) context;
+                committer.markOffsetAsConsumed();
                 return !context.getOffset().isLast();
               }
 
@@ -106,8 +109,8 @@ class OffsetTrackingTest {
             });
     latch.await();
 
-    final OffsetTracking.OffsetTrackingObserveHandle otHandle =
-        (OffsetTracking.OffsetTrackingObserveHandle) handle;
+    final OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle otHandle =
+        (OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle) handle;
 
     Assertions.assertEquals(
         Arrays.asList(

@@ -20,7 +20,7 @@ import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.batch.Offset;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.flink.core.batch.OffsetTracking;
+import cz.o2.proxima.flink.core.batch.OffsetTrackingBatchLogReader;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.storage.Partition;
@@ -121,10 +121,10 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
               && seenPartitions.add(context.getPartition());
       if (!skipElement) {
         synchronized (sourceContext.getCheckpointLock()) {
-          final OffsetTracking.OffsetTrackingOnNextContext committer =
-              (OffsetTracking.OffsetTrackingOnNextContext) context;
+          final OffsetTrackingBatchLogReader.OffsetCommitter committer =
+              (OffsetTrackingBatchLogReader.OffsetCommitter) context;
           sourceContext.collect(resultExtractor.toResult(ingest));
-          committer.commit();
+          committer.markOffsetAsConsumed();
         }
         if (context.getWatermark() > watermark) {
           watermark = context.getWatermark();
@@ -182,7 +182,7 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
                     new IllegalStateException(
                         String.format(
                             "Unable to find batch log reader for [%s].", attributeDescriptors)));
-    return OffsetTracking.wrapReader(batchLogReader);
+    return OffsetTrackingBatchLogReader.of(batchLogReader);
   }
 
   /**
@@ -289,8 +289,8 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
   }
 
   protected List<Offset> getCurrentOffsets(ObserveHandle handle) {
-    final OffsetTracking.OffsetTrackingObserveHandle cast =
-        (OffsetTracking.OffsetTrackingObserveHandle) handle;
+    final OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle cast =
+        (OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle) handle;
     // Filter out finished partitions, as we don't need them for restoring the state.
     return cast.getCurrentOffsets()
         .stream()

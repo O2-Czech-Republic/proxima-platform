@@ -21,7 +21,7 @@ import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.BatchLogReaders;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.storage.ListBatchReader;
-import cz.o2.proxima.flink.core.batch.OffsetTracking;
+import cz.o2.proxima.flink.core.batch.OffsetTrackingBatchLogReader;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -111,7 +111,7 @@ class BatchLogSourceFunctionTest {
             final DirectDataOperator direct =
                 repository.getOrCreateOperator(DirectDataOperator.class);
             final ListBatchReader reader = ListBatchReader.ofPartitioned(direct.getContext());
-            return OffsetTracking.wrapReader(reader);
+            return OffsetTrackingBatchLogReader.of(reader);
           }
         };
     final AbstractStreamOperatorTestHarness<StreamElement> testHarness =
@@ -266,7 +266,7 @@ class BatchLogSourceFunctionTest {
                 repository.getOrCreateOperator(DirectDataOperator.class);
             final ListBatchReader reader =
                 ListBatchReader.ofPartitioned(direct.getContext(), partitions);
-            return OffsetTracking.wrapReader(reader);
+            return OffsetTrackingBatchLogReader.of(reader);
           }
 
           @Override

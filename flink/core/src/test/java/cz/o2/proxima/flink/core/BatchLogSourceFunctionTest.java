@@ -104,7 +104,9 @@ class BatchLogSourceFunctionTest {
     final AttributeDescriptor<?> attribute = repository.getEntity("test").getAttribute("data");
     final BatchLogSourceFunction<StreamElement> sourceFunction =
         new BatchLogSourceFunction<StreamElement>(
-            repository.asFactory(), Collections.singletonList(attribute), element -> element) {
+            repository.asFactory(),
+            Collections.singletonList(attribute),
+            ResultExtractor.identity()) {
 
           @Override
           BatchLogReader getBatchLogReader(List<AttributeDescriptor<?>> attributeDescriptors) {
@@ -258,7 +260,9 @@ class BatchLogSourceFunctionTest {
     final CountDownLatch snapshotAcquiredCheckpointLock = new CountDownLatch(1);
     final BatchLogSourceFunction<StreamElement> sourceFunction =
         new BatchLogSourceFunction<StreamElement>(
-            repository.asFactory(), Collections.singletonList(attributeDescriptor), el -> el) {
+            repository.asFactory(),
+            Collections.singletonList(attributeDescriptor),
+            ResultExtractor.identity()) {
 
           @Override
           BatchLogReader getBatchLogReader(List<AttributeDescriptor<?>> attributeDescriptors) {

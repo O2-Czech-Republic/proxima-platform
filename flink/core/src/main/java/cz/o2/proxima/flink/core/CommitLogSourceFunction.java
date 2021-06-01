@@ -27,7 +27,6 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -58,30 +57,24 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
 
   private static final String OFFSETS_STATE_NAME = "offsets";
 
-  private static int assignPartition(Partition partition, int numParallelSubtasks) {
+  /**
+   * Get index of the subtask, that will be executing a given {@link Partition}.
+   *
+   * @param partition Partition to get subtask index for.
+   * @param numParallelSubtasks Source parallelism.
+   * @return Subtask index.
+   */
+  private static int getSubtaskIndex(Partition partition, int numParallelSubtasks) {
     return partition.getId() % numParallelSubtasks;
   }
 
-  public static CommitLogSourceFunction<StreamElement> of(
-      RepositoryFactory repositoryFactory, List<AttributeDescriptor<?>> attributeDescriptors) {
-    return new CommitLogSourceFunction<>(
-        repositoryFactory, attributeDescriptors, new IdentityResultExtractor());
-  }
-
-  @FunctionalInterface
-  public interface ResultExtractor<T> extends Serializable {
-
-    T toResult(StreamElement element);
-  }
-
-  public static class IdentityResultExtractor implements ResultExtractor<StreamElement> {
-
-    @Override
-    public StreamElement toResult(StreamElement element) {
-      return element;
-    }
-  }
-
+  /**
+   * Log observer that writes consumed elements to {@link SourceContext}.
+   *
+   * @see <a href="https://github.com/O2-Czech-Republic/proxima-platform/issues/220>PROXIMA-220</a>
+   *     to explain {@code java:S1948} suppression.
+   * @param <T> Type of extracted element.
+   */
   @SuppressWarnings("java:S1948")
   private static class SourceLogObserver<T> implements LogObserver {
 
@@ -218,7 +211,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
             .stream()
             .filter(
                 partition ->
-                    assignPartition(partition, getRuntimeContext().getNumberOfParallelSubtasks())
+                    getSubtaskIndex(partition, getRuntimeContext().getNumberOfParallelSubtasks())
                         == getRuntimeContext().getIndexOfThisSubtask())
             .collect(Collectors.toSet());
     if (!partitions.isEmpty()) {

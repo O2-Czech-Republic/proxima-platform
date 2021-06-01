@@ -97,7 +97,10 @@ class CommitLogSourceFunctionTest {
     final Repository repository = Repository.ofTest(ConfigFactory.parseString(MODEL));
     final AttributeDescriptor<?> attribute = repository.getEntity("test").getAttribute("data");
     final CommitLogSourceFunction<StreamElement> sourceFunction =
-        CommitLogSourceFunction.of(repository.asFactory(), Collections.singletonList(attribute));
+        new CommitLogSourceFunction<>(
+            repository.asFactory(),
+            Collections.singletonList(attribute),
+            ResultExtractor.identity());
     final AbstractStreamOperatorTestHarness<StreamElement> testHarness =
         createTestHarness(sourceFunction, 1, 0);
     testHarness.initializeEmptyState();
@@ -277,8 +280,10 @@ class CommitLogSourceFunctionTest {
       int expectedElements)
       throws Exception {
     final CommitLogSourceFunction<StreamElement> sourceFunction =
-        CommitLogSourceFunction.of(
-            repository.asFactory(), Collections.singletonList(attributeDescriptor));
+        new CommitLogSourceFunction<>(
+            repository.asFactory(),
+            Collections.singletonList(attributeDescriptor),
+            ResultExtractor.identity());
     final AbstractStreamOperatorTestHarness<StreamElement> testHarness =
         createTestHarness(sourceFunction, numSubtasks, subtaskIndex);
     if (state == null) {

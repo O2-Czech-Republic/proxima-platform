@@ -27,7 +27,6 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -58,19 +57,26 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
 
   private static final String OFFSETS_STATE_NAME = "offsets";
 
-  private static int assignPartition(Partition partition, int numParallelSubtasks) {
+  /**
+   * Get index of the subtask, that will be executing a given {@link Partition}.
+   *
+   * @param partition Partition to get subtask index for.
+   * @param numParallelSubtasks Source parallelism.
+   * @return Subtask index.
+   */
+  private static int getSubtaskIndex(Partition partition, int numParallelSubtasks) {
     return partition.getId() % numParallelSubtasks;
   }
 
-  @FunctionalInterface
-  public interface ResultExtractor<T> extends Serializable {
-
-    T toResult(StreamElement element);
-  }
-
+  /**
+   * Log observer that writes consumed elements to {@link SourceContext}.
+   *
+   * @see <a href="https://github.com/O2-Czech-Republic/proxima-platform/issues/220>PROXIMA-220</a>
+   *     to explain {@code java:S1948} suppression.
+   * @param <T> Type of extracted element.
+   */
   @SuppressWarnings("java:S1948")
-  @VisibleForTesting
-  static class SourceLogObserver<T> implements BatchLogObserver {
+  private static class SourceLogObserver<T> implements BatchLogObserver {
 
     private final transient CountDownLatch completed = new CountDownLatch(1);
     private final Set<Partition> seenPartitions = new HashSet<>();
@@ -159,7 +165,7 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
    * transition to the running state and can not be used to determine, whether source is still
    * running (eg. after close).
    */
-  private transient volatile CountDownLatch running = new CountDownLatch(1);
+  private transient volatile CountDownLatch running;
 
   public BatchLogSourceFunction(
       RepositoryFactory repositoryFactory,
@@ -211,7 +217,7 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
             .stream()
             .filter(
                 partition ->
-                    assignPartition(partition, getRuntimeContext().getNumberOfParallelSubtasks())
+                    getSubtaskIndex(partition, getRuntimeContext().getNumberOfParallelSubtasks())
                         == getRuntimeContext().getIndexOfThisSubtask())
             .collect(Collectors.toList());
     if (!partitions.isEmpty()) {
@@ -222,7 +228,7 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
                 .stream()
                 .filter(
                     offset ->
-                        assignPartition(
+                        getSubtaskIndex(
                                 offset.getPartition(),
                                 getRuntimeContext().getNumberOfParallelSubtasks())
                             == getRuntimeContext().getIndexOfThisSubtask())
@@ -306,7 +312,7 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
   public void snapshotState(FunctionSnapshotContext functionSnapshotContext) throws Exception {
     Objects.requireNonNull(persistedOffsets).clear();
     if (observeHandle != null) {
-      for (Offset offset : getCurrentOffsets(Objects.requireNonNull(observeHandle))) {
+      for (Offset offset : getCurrentOffsets(observeHandle)) {
         persistedOffsets.add(offset);
       }
     }
@@ -322,12 +328,12 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
       restoredOffsets = new ArrayList<>();
       Objects.requireNonNull(persistedOffsets).get().forEach(restoredOffsets::add);
       log.info(
-          "CommitLog subtask {} restored state: {}.",
+          "BatchLog subtask {} restored state: {}.",
           getRuntimeContext().getIndexOfThisSubtask(),
           restoredOffsets);
     } else {
       log.info(
-          "CommitLog subtask {} has no state to restore.",
+          "BatchLog subtask {} has no state to restore.",
           getRuntimeContext().getIndexOfThisSubtask());
     }
   }

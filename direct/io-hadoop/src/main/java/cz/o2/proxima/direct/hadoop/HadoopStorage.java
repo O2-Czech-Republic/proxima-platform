@@ -34,8 +34,8 @@ public class HadoopStorage implements DataAccessorFactory {
 
   @Override
   public DataAccessor createAccessor(
-      DirectDataOperator operator, AttributeFamilyDescriptor family) {
-    return new HadoopDataAccessor(family.getEntity(), family.getStorageUri(), family.getCfg());
+      DirectDataOperator operator, AttributeFamilyDescriptor familyDescriptor) {
+    return new HadoopDataAccessor(familyDescriptor);
   }
 
   static URI remap(URI input) {

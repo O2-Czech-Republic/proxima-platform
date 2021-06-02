@@ -16,9 +16,12 @@
 package cz.o2.proxima.flink.core;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.core.CommitCallback;
+import cz.o2.proxima.direct.batch.BatchLogObserver;
+import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.BatchLogReaders;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.direct.storage.ListBatchReader;
+import cz.o2.proxima.flink.core.batch.OffsetTrackingBatchLogReader;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -27,13 +30,14 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.KeyAttributePartitioner;
 import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.storage.commitlog.Partitioners;
-import cz.o2.proxima.util.Optionals;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
@@ -47,7 +51,7 @@ import org.apache.flink.streaming.util.AbstractStreamOperatorTestHarness;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class CommitLogSourceFunctionTest {
+class BatchLogSourceFunctionTest {
 
   private static final String MODEL =
       "{\n"
@@ -62,13 +66,15 @@ class CommitLogSourceFunctionTest {
           + "    test_storage_stream {\n"
           + "      entity: test\n"
           + "      attributes: [ data ]\n"
-          + "      storage: \"inmem:///test_inmem\"\n"
+          + "      storage: \"inmem:///test_storage_stream\"\n"
           + "      type: primary\n"
           + "      access: commit-log\n"
           + "      num-partitions: 3\n"
           + "    }\n"
           + "  }\n"
           + "}\n";
+
+  private static final Random RANDOM = new Random();
 
   private static <T> AbstractStreamOperatorTestHarness<T> createTestHarness(
       SourceFunction<T> source, int numSubtasks, int subtaskIndex) throws Exception {
@@ -96,11 +102,20 @@ class CommitLogSourceFunctionTest {
   void testRunAndClose() throws Exception {
     final Repository repository = Repository.ofTest(ConfigFactory.parseString(MODEL));
     final AttributeDescriptor<?> attribute = repository.getEntity("test").getAttribute("data");
-    final CommitLogSourceFunction<StreamElement> sourceFunction =
-        new CommitLogSourceFunction<>(
+    final BatchLogSourceFunction<StreamElement> sourceFunction =
+        new BatchLogSourceFunction<StreamElement>(
             repository.asFactory(),
             Collections.singletonList(attribute),
-            ResultExtractor.identity());
+            ResultExtractor.identity()) {
+
+          @Override
+          BatchLogReader getBatchLogReader(List<AttributeDescriptor<?>> attributeDescriptors) {
+            final DirectDataOperator direct =
+                repository.getOrCreateOperator(DirectDataOperator.class);
+            final ListBatchReader reader = ListBatchReader.ofPartitioned(direct.getContext());
+            return OffsetTrackingBatchLogReader.of(reader);
+          }
+        };
     final AbstractStreamOperatorTestHarness<StreamElement> testHarness =
         createTestHarness(sourceFunction, 1, 0);
     testHarness.initializeEmptyState();
@@ -131,52 +146,6 @@ class CommitLogSourceFunctionTest {
   }
 
   @Test
-  void testObserverErrorPropagatesToTheMainThread() throws Exception {
-    final Repository repository = Repository.ofTest(ConfigFactory.parseString(MODEL));
-    final DirectDataOperator direct = repository.getOrCreateOperator(DirectDataOperator.class);
-    final AttributeDescriptor<?> attributeDescriptor =
-        repository.getEntity("test").getAttribute("data");
-    final CommitLogSourceFunction<StreamElement> sourceFunction =
-        new CommitLogSourceFunction<>(
-            repository.asFactory(),
-            Collections.singletonList(attributeDescriptor),
-            element -> {
-              throw new IllegalStateException("Test failure.");
-            });
-    final AbstractStreamOperatorTestHarness<StreamElement> testHarness =
-        createTestHarness(sourceFunction, 1, 0);
-    testHarness.initializeEmptyState();
-    testHarness.open();
-
-    final CheckedThread runThread =
-        new CheckedThread("run") {
-
-          @Override
-          public void go() throws Exception {
-            sourceFunction.run(
-                new TestSourceContext<StreamElement>() {
-
-                  @Override
-                  public void collect(StreamElement element) {
-                    // No-op.
-                  }
-                });
-          }
-        };
-
-    final StreamElement element = newData(repository, "key", Instant.now(), "value");
-    final OnlineAttributeWriter writer = Optionals.get(direct.getWriter(attributeDescriptor));
-    writer.write(element, CommitCallback.noop());
-
-    runThread.start();
-    sourceFunction.awaitRunning();
-
-    final IllegalStateException exception =
-        Assertions.assertThrows(IllegalStateException.class, runThread::sync);
-    Assertions.assertEquals("Test failure.", exception.getCause().getMessage());
-  }
-
-  @Test
   void testRestore() throws Exception {
     testSnapshotAndRestore(6, 6);
   }
@@ -193,35 +162,39 @@ class CommitLogSourceFunctionTest {
 
   private void testSnapshotAndRestore(int numSubtasks, int numRestoredSubtasks) throws Exception {
     final Repository repository = Repository.ofTest(ConfigFactory.parseString(MODEL));
-    final DirectDataOperator direct = repository.getOrCreateOperator(DirectDataOperator.class);
     final AttributeDescriptor<?> attributeDescriptor =
         repository.getEntity("test").getAttribute("data");
     final Instant now = Instant.now();
 
-    final OnlineAttributeWriter writer = Optionals.get(direct.getWriter(attributeDescriptor));
-
-    final int numCommitLogPartitions = 3;
-    final int numElements = 1000;
+    final int numCommitLogPartitions = 30;
+    final int numElements = 10_000;
     final Partitioner partitioner = new KeyAttributePartitioner();
-    final Map<Integer, Integer> partitionElements = new HashMap<>();
+    final Map<Integer, Integer> expectedElements = new HashMap<>();
+    final Map<Integer, List<StreamElement>> partitionElements = new HashMap<>();
     final List<StreamElement> emittedElements = new ArrayList<>();
     for (int i = 0; i < numElements; i++) {
       final StreamElement element = newData(repository, "key_" + i, now, "value_" + i);
       emittedElements.add(element);
-      partitionElements.merge(
-          Partitioners.getTruncatedPartitionId(
-              partitioner, element, Math.min(numCommitLogPartitions, numSubtasks)),
-          1,
-          Integer::sum);
-      writer.write(element, CommitCallback.noop());
+      final int partitionId =
+          Partitioners.getTruncatedPartitionId(partitioner, element, numCommitLogPartitions);
+      final int subtaskId = partitionId % numSubtasks;
+      partitionElements.computeIfAbsent(partitionId, ArrayList::new).add(element);
+      expectedElements.merge(subtaskId, 1, Integer::sum);
     }
 
     final List<StreamElement> result = Collections.synchronizedList(new ArrayList<>());
     final List<OperatorSubtaskState> snapshots = new ArrayList<>();
 
-    // Run first iteration - clean state.
+    // Run the first iteration - clean state. We subtract random number of elements from each
+    // subTask, that we'll process in the second iteration.
+    int subtractTotal = 0;
     for (int subtaskIndex = 0; subtaskIndex < numSubtasks; subtaskIndex++) {
-      final int expectedElements = partitionElements.getOrDefault(subtaskIndex, 0);
+      int numExpectedElements = expectedElements.getOrDefault(subtaskIndex, 0);
+      if (numExpectedElements > 0) {
+        final int subtractCurrent = RANDOM.nextInt(numExpectedElements);
+        numExpectedElements -= subtractCurrent;
+        subtractTotal += subtractCurrent;
+      }
       snapshots.add(
           runSubtask(
               repository,
@@ -230,29 +203,23 @@ class CommitLogSourceFunctionTest {
               result::add,
               numSubtasks,
               subtaskIndex,
-              expectedElements));
+              numExpectedElements,
+              partitionElements
+                  .entrySet()
+                  .stream()
+                  .sorted(Comparator.comparingInt(Map.Entry::getKey))
+                  .map(Map.Entry::getValue)
+                  .collect(Collectors.toList())));
     }
+
+    Assertions.assertEquals(numElements - subtractTotal, result.size());
 
     final OperatorSubtaskState mergedState =
         AbstractStreamOperatorTestHarness.repackageState(
             snapshots.toArray(new OperatorSubtaskState[0]));
 
-    // Run second iteration - restored from snapshot.
-    partitionElements.clear();
-    for (int i = 0; i < numElements; i++) {
-      final StreamElement element = newData(repository, "second_key_" + i, now, "value_" + i);
-      emittedElements.add(element);
-      partitionElements.merge(
-          Partitioners.getTruncatedPartitionId(
-              partitioner, element, Math.min(numCommitLogPartitions, numRestoredSubtasks)),
-          1,
-          Integer::sum);
-      writer.write(element, CommitCallback.noop());
-    }
-
-    Assertions.assertEquals(1000, result.size());
+    // Run the second iteration - restored from snapshot.
     for (int subtaskIndex = 0; subtaskIndex < numRestoredSubtasks; subtaskIndex++) {
-      final int expectedElements = partitionElements.getOrDefault(subtaskIndex, 0);
       runSubtask(
           repository,
           attributeDescriptor,
@@ -260,13 +227,20 @@ class CommitLogSourceFunctionTest {
           result::add,
           numRestoredSubtasks,
           subtaskIndex,
-          expectedElements);
+          -1,
+          partitionElements
+              .entrySet()
+              .stream()
+              .sorted(Comparator.comparingInt(Map.Entry::getKey))
+              .map(Map.Entry::getValue)
+              .collect(Collectors.toList()));
     }
 
     final List<String> expectedKeys =
         emittedElements.stream().map(StreamElement::getKey).sorted().collect(Collectors.toList());
     final List<String> receivedKeys =
         result.stream().map(StreamElement::getKey).sorted().collect(Collectors.toList());
+    Assertions.assertEquals(expectedKeys.size(), receivedKeys.size());
     Assertions.assertEquals(expectedKeys, receivedKeys);
   }
 
@@ -277,13 +251,56 @@ class CommitLogSourceFunctionTest {
       Consumer<StreamElement> outputConsumer,
       int numSubtasks,
       int subtaskIndex,
-      int expectedElements)
+      int expectedElements,
+      List<List<StreamElement>> partitions)
       throws Exception {
-    final CommitLogSourceFunction<StreamElement> sourceFunction =
-        new CommitLogSourceFunction<>(
+    final CountDownLatch finished = new CountDownLatch(1);
+    final CountDownLatch elementsReceived =
+        new CountDownLatch(expectedElements > 0 ? expectedElements : Integer.MAX_VALUE);
+    final CountDownLatch snapshotAcquiredCheckpointLock = new CountDownLatch(1);
+    final BatchLogSourceFunction<StreamElement> sourceFunction =
+        new BatchLogSourceFunction<StreamElement>(
             repository.asFactory(),
             Collections.singletonList(attributeDescriptor),
-            ResultExtractor.identity());
+            ResultExtractor.identity()) {
+
+          @Override
+          BatchLogReader getBatchLogReader(List<AttributeDescriptor<?>> attributeDescriptors) {
+            final DirectDataOperator direct =
+                repository.getOrCreateOperator(DirectDataOperator.class);
+            final ListBatchReader reader =
+                ListBatchReader.ofPartitioned(direct.getContext(), partitions);
+            return OffsetTrackingBatchLogReader.of(reader);
+          }
+
+          @Override
+          BatchLogObserver wrapSourceObserver(BatchLogObserver sourceObserver) {
+            return new BatchLogReaders.ForwardingBatchLogObserver(sourceObserver) {
+
+              @Override
+              public boolean onNext(StreamElement element, OnNextContext context) {
+                // In first iteration, if we've consumed all elements, wait for snapshot to acquire
+                // snapshot lock before processing the next element. This is to ensure determinism
+                // for testing purpose.
+                if (elementsReceived.getCount() == 0) {
+                  try {
+                    snapshotAcquiredCheckpointLock.await();
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                }
+                return super.onNext(element, context);
+              }
+            };
+          }
+
+          @Override
+          void finishAndMarkAsIdle(SourceContext<?> sourceContext) {
+            super.finishAndMarkAsIdle(sourceContext);
+            finished.countDown();
+          }
+        };
+
     final AbstractStreamOperatorTestHarness<StreamElement> testHarness =
         createTestHarness(sourceFunction, numSubtasks, subtaskIndex);
     if (state == null) {
@@ -292,28 +309,40 @@ class CommitLogSourceFunctionTest {
       testHarness.initializeState(state);
     }
     testHarness.open();
-    final CountDownLatch elementsReceived = new CountDownLatch(expectedElements);
+    final TestSourceContext<StreamElement> context =
+        new TestSourceContext<StreamElement>() {
+
+          @Override
+          public void collect(StreamElement element) {
+            if (elementsReceived.getCount() > 0) {
+              outputConsumer.accept(element);
+              elementsReceived.countDown();
+            }
+          }
+        };
+
     final CheckedThread runThread =
         new CheckedThread("run") {
 
           @Override
           public void go() throws Exception {
-            sourceFunction.run(
-                new TestSourceContext<StreamElement>() {
-
-                  @Override
-                  public void collect(StreamElement element) {
-                    outputConsumer.accept(element);
-                    elementsReceived.countDown();
-                  }
-                });
+            sourceFunction.run(context);
           }
         };
     runThread.start();
     sourceFunction.awaitRunning();
-    elementsReceived.await();
 
-    final OperatorSubtaskState snapshot = testHarness.snapshot(0, 0L);
+    if (expectedElements > 0) {
+      elementsReceived.await();
+    } else {
+      finished.await();
+    }
+
+    final OperatorSubtaskState snapshot;
+    synchronized (context.getCheckpointLock()) {
+      snapshotAcquiredCheckpointLock.countDown();
+      snapshot = testHarness.snapshot(0, 0L);
+    }
 
     testHarness.close();
 

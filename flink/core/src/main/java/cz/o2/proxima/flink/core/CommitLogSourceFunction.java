@@ -78,7 +78,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
   @SuppressWarnings("java:S1948")
   private static class SourceLogObserver<T> implements LogObserver {
 
-    private final transient CountDownLatch completed = new CountDownLatch(1);
+    private final CountDownLatch completed = new CountDownLatch(1);
     private final Set<Partition> seenPartitions = new HashSet<>();
 
     private final SourceContext<T> sourceContext;

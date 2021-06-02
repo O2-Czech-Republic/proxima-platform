@@ -23,7 +23,6 @@ import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.transaction.ServerTransactionManager;
-import cz.o2.proxima.direct.transaction.TransactionManager;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.KeyAttribute;
@@ -96,9 +95,8 @@ class TransactionLogObserver implements LogObserver {
   private final Map<KeyWithAttribute, List<KeyWithAttribute>> updatesToWildcard = new HashMap<>();
 
   TransactionLogObserver(DirectDataOperator direct) {
-
     this.direct = direct;
-    this.manager = TransactionManager.server(direct);
+    this.manager = direct.getServerTransactionManager();
   }
 
   @Override

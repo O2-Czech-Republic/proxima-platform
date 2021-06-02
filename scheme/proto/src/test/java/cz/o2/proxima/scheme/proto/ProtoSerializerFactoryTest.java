@@ -216,6 +216,7 @@ public class ProtoSerializerFactoryTest {
             Pair.of(
                 Commit.of(1L, System.currentTimeMillis(), Arrays.asList(update, delete)), commit),
             Pair.of(State.open(1L, now, Sets.newHashSet(keyAttribute)), state),
+            Pair.of(State.open(1L, now, Sets.newHashSet(keyAttribute)), state),
             Pair.of(
                 State.open(1L, now, Sets.newHashSet(keyAttribute, keyAttributeSingleWildcard))
                     .committed(Sets.newHashSet(keyAttribute)),

@@ -15,25 +15,13 @@
  */
 package cz.o2.proxima.direct.transaction;
 
-import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
-import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
-import cz.o2.proxima.repository.EntityDescriptor;
-import cz.o2.proxima.transaction.Commit;
-import cz.o2.proxima.transaction.Request;
-import cz.o2.proxima.transaction.Response;
-import cz.o2.proxima.transaction.State;
+import cz.o2.proxima.direct.view.CachedView;
+import lombok.experimental.Delegate;
 
-@Internal
-public interface TransactionManager {
+class DelegatingCachedView implements CachedView {
+  @Delegate CachedView delegate;
 
-  EntityDescriptor getTransaction();
-
-  Wildcard<Request> getRequestDesc();
-
-  Wildcard<Response> getResponseDesc();
-
-  Regular<State> getStateDesc();
-
-  Regular<Commit> getCommitDesc();
+  DelegatingCachedView(CachedView delegate) {
+    this.delegate = delegate;
+  }
 }

@@ -58,12 +58,12 @@ public class TransactionalOnlineAttributeWriterTest {
   private final AttributeDescriptor<byte[]> device = gateway.getAttribute("device.*");
   private final BlockingQueue<Response> toReturn = new ArrayBlockingQueue<>(100);
 
-  private TransactionResourceManager manager;
+  private ServerTransactionManager manager;
 
   @Before
   public void setUp() {
     toReturn.clear();
-    manager = TransactionResourceManager.of(direct);
+    manager = direct.getServerTransactionManager();
     manager.runObservations(
         "test",
         (ingest, context) -> {

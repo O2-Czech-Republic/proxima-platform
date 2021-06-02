@@ -18,11 +18,16 @@ package cz.o2.proxima.direct.core;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Sets;
+import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.BatchLogReaders;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.CommitLogReaders;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.transaction.ClientTransactionManager;
+import cz.o2.proxima.direct.transaction.ServerTransactionManager;
+import cz.o2.proxima.direct.transaction.TransactionResourceManager;
+import cz.o2.proxima.direct.transaction.TransactionalCachedView;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.functional.Factory;
@@ -103,6 +108,8 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
 
   private final Context context;
   private final DataAccessorLoader<DirectDataOperator, DataAccessor, DataAccessorFactory> loader;
+
+  private volatile TransactionResourceManager transactionManager;
 
   DirectDataOperator(Repository repo) {
     this.repo = repo;
@@ -369,8 +376,15 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    * @return optional cached view
    */
   public Optional<CachedView> getCachedView(Collection<AttributeDescriptor<?>> attrs) {
-    return getFamilyForAttributes(attrs, DirectAttributeFamilyDescriptor::hasCachedView)
-        .flatMap(DirectAttributeFamilyDescriptor::getCachedView);
+    boolean hasTransactions =
+        attrs.stream().anyMatch(a -> a.getTransactionMode() != TransactionMode.NONE);
+    Optional<CachedView> view =
+        getFamilyForAttributes(attrs, DirectAttributeFamilyDescriptor::hasCachedView)
+            .flatMap(DirectAttributeFamilyDescriptor::getCachedView);
+    if (hasTransactions) {
+      return view.map(v -> new TransactionalCachedView(this, v));
+    }
+    return view;
   }
 
   /**
@@ -426,6 +440,7 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
       writers.values().stream().distinct().forEach(OnlineAttributeWriter::close);
       writers.clear();
     }
+    Optional.ofNullable(transactionManager).ifPresent(TransactionResourceManager::close);
   }
 
   /**
@@ -471,6 +486,35 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
    */
   public Optional<DirectAttributeFamilyDescriptor> findFamilyByName(String name) {
     return repo.findFamilyByName(name).flatMap(f -> Optional.ofNullable(familyMap.get(f)));
+  }
+
+  /**
+   * @return cached implementation of {@link ClientTransactionManager}. Should not be called from
+   *     client code.
+   */
+  @Internal
+  public ClientTransactionManager getClientTransactionManager() {
+    return getTransactionManager();
+  }
+
+  /**
+   * @return cached implementation of {@link ServerTransactionManager}. Should not be called from
+   *     client code.
+   */
+  @Internal
+  public ServerTransactionManager getServerTransactionManager() {
+    return getTransactionManager();
+  }
+
+  private TransactionResourceManager getTransactionManager() {
+    if (transactionManager == null) {
+      synchronized (this) {
+        if (transactionManager == null) {
+          transactionManager = new TransactionResourceManager(this);
+        }
+      }
+    }
+    return transactionManager;
   }
 
   @Override

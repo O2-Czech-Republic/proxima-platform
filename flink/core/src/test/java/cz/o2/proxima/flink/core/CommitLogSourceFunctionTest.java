@@ -124,6 +124,7 @@ class CommitLogSourceFunctionTest {
 
     runThread.start();
     sourceFunction.awaitRunning();
+    sourceFunction.cancel();
     testHarness.close();
 
     // Make sure run thread finishes normally.
@@ -306,6 +307,11 @@ class CommitLogSourceFunctionTest {
                     outputConsumer.accept(element);
                     elementsReceived.countDown();
                   }
+
+                  @Override
+                  public void collectWithTimestamp(StreamElement element, long timestamp) {
+                    collect(element);
+                  }
                 });
           }
         };
@@ -315,6 +321,7 @@ class CommitLogSourceFunctionTest {
 
     final OperatorSubtaskState snapshot = testHarness.snapshot(0, 0L);
 
+    sourceFunction.cancel();
     testHarness.close();
 
     // Make sure run thread finishes normally.

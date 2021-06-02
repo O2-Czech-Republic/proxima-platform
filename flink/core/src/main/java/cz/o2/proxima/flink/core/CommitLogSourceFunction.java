@@ -136,7 +136,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
           skipFirstElementFromEachPartition && seenPartitions.add(context.getPartition());
       if (!skipElement) {
         synchronized (sourceContext.getCheckpointLock()) {
-          sourceContext.collect(resultExtractor.toResult(ingest));
+          sourceContext.collectWithTimestamp(resultExtractor.toResult(ingest), ingest.getStamp());
         }
         if (context.getWatermark() > watermark) {
           watermark = context.getWatermark();
@@ -171,7 +171,9 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
    * transition to the running state and can not be used to determine, whether source is still
    * running (eg. after close).
    */
-  private transient volatile CountDownLatch running = new CountDownLatch(1);
+  private transient volatile CountDownLatch running;
+
+  private transient volatile CountDownLatch cancelled;
 
   public CommitLogSourceFunction(
       RepositoryFactory repositoryFactory,
@@ -198,6 +200,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
   @Override
   public void open(Configuration parameters) {
     running = new CountDownLatch(1);
+    cancelled = new CountDownLatch(1);
   }
 
   @Override
@@ -238,26 +241,43 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
         log.error("Source [{}]: FAILED", this, maybeError.get());
         ExceptionUtils.rethrowAsIllegalStateException(maybeError.get());
       } else {
-        log.info("Source [{}]: COMPLETED", this);
-        synchronized (sourceContext.getCheckpointLock()) {
-          sourceContext.emitWatermark(new Watermark(Watermarks.MAX_WATERMARK));
-        }
+        finishAndMarkAsIdle(sourceContext);
       }
     } else {
       running.countDown();
-      log.info("Source [{}]: RUNNING", this);
-      log.info("Source [{}]: COMPLETED", this);
-      synchronized (sourceContext.getCheckpointLock()) {
-        sourceContext.emitWatermark(new Watermark(Watermarks.MAX_WATERMARK));
+      finishAndMarkAsIdle(sourceContext);
+    }
+  }
+
+  /**
+   * We're done with this source. Progress watermark to {@link Watermark#MAX_WATERMARK}, mark source
+   * as idle and sleep.
+   *
+   * @param sourceContext Source context.
+   * @see <a href="https://issues.apache.org/jira/browse/FLINK-2491">FLINK-2491</a>
+   */
+  @VisibleForTesting
+  void finishAndMarkAsIdle(SourceContext<?> sourceContext) {
+    log.info("Source [{}]: COMPLETED", this);
+    synchronized (sourceContext.getCheckpointLock()) {
+      sourceContext.emitWatermark(new Watermark(Watermarks.MAX_WATERMARK));
+    }
+    sourceContext.markAsTemporarilyIdle();
+    while (cancelled.getCount() > 0) {
+      try {
+        cancelled.await();
+      } catch (InterruptedException e) {
+        if (cancelled.getCount() == 0) {
+          // Re-interrupt if cancelled.
+          Thread.currentThread().interrupt();
+        }
       }
     }
   }
 
   @Override
   public void cancel() {
-    if (observeHandle != null) {
-      Objects.requireNonNull(observeHandle).close();
-    }
+    cancelled.countDown();
   }
 
   @Override

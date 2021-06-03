@@ -16,6 +16,7 @@
 package cz.o2.proxima.flink.core;
 
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.Optionals;
 import java.io.Serializable;
 
 /**
@@ -33,6 +34,20 @@ public interface ResultExtractor<T> extends Serializable {
    */
   static ResultExtractor<StreamElement> identity() {
     return el -> el;
+  }
+
+  /**
+   * Create an extractor, that just extracts parsed value from a stream element.
+   *
+   * @param <T> Type of extracted element.
+   * @return Parsed value.
+   */
+  static <T> ResultExtractor<T> parsed() {
+    return el -> {
+      @SuppressWarnings("unchecked")
+      final T parsed = (T) Optionals.get(el.getParsed());
+      return parsed;
+    };
   }
 
   /**

@@ -71,7 +71,7 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
   /**
    * Log observer that writes consumed elements to {@link SourceContext}.
    *
-   * @see <a href="https://github.com/O2-Czech-Republic/proxima-platform/issues/220>PROXIMA-220</a>
+   * @see <a href="https://github.com/O2-Czech-Republic/proxima-platform/issues/220">PROXIMA-220</a>
    *     to explain {@code java:S1948} suppression.
    * @param <T> Type of extracted element.
    */
@@ -129,7 +129,7 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
         synchronized (sourceContext.getCheckpointLock()) {
           final OffsetTrackingBatchLogReader.OffsetCommitter committer =
               (OffsetTrackingBatchLogReader.OffsetCommitter) context;
-          sourceContext.collect(resultExtractor.toResult(ingest));
+          sourceContext.collectWithTimestamp(resultExtractor.toResult(ingest), ingest.getStamp());
           committer.markOffsetAsConsumed();
         }
         if (context.getWatermark() > watermark) {
@@ -166,6 +166,8 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
    * running (eg. after close).
    */
   private transient volatile CountDownLatch running;
+
+  private transient volatile CountDownLatch cancelled;
 
   public BatchLogSourceFunction(
       RepositoryFactory repositoryFactory,
@@ -206,6 +208,7 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
   @Override
   public void open(Configuration parameters) {
     running = new CountDownLatch(1);
+    cancelled = new CountDownLatch(1);
   }
 
   @Override
@@ -278,13 +281,21 @@ public class BatchLogSourceFunction<T> extends RichParallelSourceFunction<T>
       sourceContext.emitWatermark(new Watermark(Watermarks.MAX_WATERMARK));
     }
     sourceContext.markAsTemporarilyIdle();
+    while (cancelled.getCount() > 0) {
+      try {
+        cancelled.await();
+      } catch (InterruptedException e) {
+        if (cancelled.getCount() == 0) {
+          // Re-interrupt if cancelled.
+          Thread.currentThread().interrupt();
+        }
+      }
+    }
   }
 
   @Override
   public void cancel() {
-    if (observeHandle != null) {
-      Objects.requireNonNull(observeHandle).close();
-    }
+    cancelled.countDown();
   }
 
   @Override

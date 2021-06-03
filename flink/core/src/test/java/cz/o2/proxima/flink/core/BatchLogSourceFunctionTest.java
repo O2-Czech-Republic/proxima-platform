@@ -139,6 +139,7 @@ class BatchLogSourceFunctionTest {
 
     runThread.start();
     sourceFunction.awaitRunning();
+    sourceFunction.cancel();
     testHarness.close();
 
     // Make sure run thread finishes normally.
@@ -296,8 +297,8 @@ class BatchLogSourceFunctionTest {
 
           @Override
           void finishAndMarkAsIdle(SourceContext<?> sourceContext) {
-            super.finishAndMarkAsIdle(sourceContext);
             finished.countDown();
+            super.finishAndMarkAsIdle(sourceContext);
           }
         };
 
@@ -318,6 +319,11 @@ class BatchLogSourceFunctionTest {
               outputConsumer.accept(element);
               elementsReceived.countDown();
             }
+          }
+
+          @Override
+          public void collectWithTimestamp(StreamElement element, long timestamp) {
+            collect(element);
           }
         };
 
@@ -344,6 +350,7 @@ class BatchLogSourceFunctionTest {
       snapshot = testHarness.snapshot(0, 0L);
     }
 
+    sourceFunction.cancel();
     testHarness.close();
 
     // Make sure run thread finishes normally.

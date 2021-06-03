@@ -36,7 +36,7 @@ public class RetryableLogObserverTest {
             numRetries,
             withStrategy(exception::set, TerminationStrategy.RETHROW),
             false,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onError(Throwable error) {
@@ -97,7 +97,7 @@ public class RetryableLogObserverTest {
             numRetries,
             withStrategy(exception::set, TerminationStrategy.RETHROW),
             false,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onError(Throwable error) {
@@ -134,7 +134,7 @@ public class RetryableLogObserverTest {
             numRetries,
             withStrategy(exception::set, TerminationStrategy.STOP_PROCESSING),
             false,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onError(Throwable error) {
@@ -162,7 +162,7 @@ public class RetryableLogObserverTest {
             numRetries,
             withStrategy(exception::set, TerminationStrategy.RETHROW),
             true,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onError(Throwable error) {
@@ -216,7 +216,7 @@ public class RetryableLogObserverTest {
             numRetries,
             withStrategy(exception::set, TerminationStrategy.STOP_PROCESSING),
             true,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               @Override
               public boolean onError(Throwable error) {

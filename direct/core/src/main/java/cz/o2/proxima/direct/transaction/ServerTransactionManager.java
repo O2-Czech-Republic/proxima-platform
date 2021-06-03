@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.transaction;
 
-import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.storage.StreamElement;
@@ -32,7 +32,7 @@ public interface ServerTransactionManager extends AutoCloseable, TransactionMana
    * @param name name of the observer (will be appended with name of the family)
    * @param requestObserver the observer (need not be synchronized)
    */
-  default void runObservations(String name, LogObserver requestObserver) {
+  default void runObservations(String name, CommitLogObserver requestObserver) {
     runObservations(name, (elem, p) -> {}, requestObserver);
   }
 
@@ -46,7 +46,7 @@ public interface ServerTransactionManager extends AutoCloseable, TransactionMana
   void runObservations(
       String name,
       BiConsumer<StreamElement, Pair<Long, Object>> updateConsumer,
-      LogObserver requestObserver);
+      CommitLogObserver requestObserver);
 
   /**
    * Retrieve current state of the transaction.

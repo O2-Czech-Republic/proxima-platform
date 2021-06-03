@@ -18,7 +18,6 @@ package cz.o2.proxima.beam.direct.io;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import cz.o2.proxima.beam.direct.io.BatchRestrictionTracker.PartitionList;
-import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.BatchLogReader.Factory;
 import cz.o2.proxima.direct.batch.ObserveHandle;
@@ -153,7 +152,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
         PartitionList restriction = Objects.requireNonNull(tracker.currentRestriction());
         Partition part = Objects.requireNonNull(restriction.getFirstPartition());
 
-        BlockingQueueLogObserver observer =
+        final BlockingQueueLogObserver.BatchLogObserver observer =
             newObserver("observer-" + part.getId(), restriction.getTotalLimit());
 
         if (!tracker.tryClaim(part)) {
@@ -185,7 +184,8 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
           : ProcessContinuation.resume().withResumeDelay(Duration.millis(100));
     }
 
-    private ObserveHandle startObserve(Partition partition, BatchLogObserver observer) {
+    private ObserveHandle startObserve(
+        Partition partition, cz.o2.proxima.direct.batch.BatchLogObserver observer) {
       BatchLogReader reader = readerFactory.apply(repositoryFactory.apply());
       return reader.observe(Collections.singletonList(partition), attributes, observer);
     }
@@ -264,7 +264,7 @@ public class BatchLogRead extends PTransform<PBegin, PCollection<StreamElement>>
   }
 
   @VisibleForTesting
-  BlockingQueueLogObserver newObserver(String name, long limit) {
-    return BlockingQueueLogObserver.create(name, limit, Watermarks.MIN_WATERMARK);
+  BlockingQueueLogObserver.BatchLogObserver newObserver(String name, long limit) {
+    return BlockingQueueLogObserver.createBatchLogObserver(name, limit, Watermarks.MIN_WATERMARK);
   }
 }

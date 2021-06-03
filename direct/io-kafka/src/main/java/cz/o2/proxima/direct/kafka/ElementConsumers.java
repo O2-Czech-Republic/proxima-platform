@@ -20,8 +20,8 @@ import static cz.o2.proxima.direct.commitlog.ObserverUtils.asOnNextContext;
 import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 
 import com.google.common.base.MoreObjects;
-import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.storage.StreamElement;
@@ -94,17 +94,17 @@ class ElementConsumers {
       return TopicOffset.fromMap(committed, watermark);
     }
 
-    abstract LogObserver observer();
+    abstract CommitLogObserver observer();
   }
 
   static final class OnlineConsumer<K, V> extends ConsumerBase<K, V> {
 
-    private final LogObserver observer;
+    private final CommitLogObserver observer;
     private final OffsetCommitter<TopicPartition> committer;
     private final Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit;
 
     OnlineConsumer(
-        LogObserver observer,
+        CommitLogObserver observer,
         OffsetCommitter<TopicPartition> committer,
         Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit) {
 
@@ -149,7 +149,7 @@ class ElementConsumers {
     }
 
     @Override
-    LogObserver observer() {
+    CommitLogObserver observer() {
       return observer;
     }
 
@@ -175,13 +175,13 @@ class ElementConsumers {
 
   static final class BulkConsumer<K, V> extends ConsumerBase<K, V> {
 
-    private final LogObserver observer;
+    private final CommitLogObserver observer;
     private final BiConsumer<TopicPartition, Long> commit;
     private final Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit;
     private final Runnable onStart;
 
     BulkConsumer(
-        LogObserver observer,
+        CommitLogObserver observer,
         BiConsumer<TopicPartition, Long> commit,
         Factory<Map<TopicPartition, OffsetAndMetadata>> prepareCommit,
         Runnable onStart) {
@@ -233,7 +233,7 @@ class ElementConsumers {
     }
 
     @Override
-    LogObserver observer() {
+    CommitLogObserver observer() {
       return observer;
     }
 

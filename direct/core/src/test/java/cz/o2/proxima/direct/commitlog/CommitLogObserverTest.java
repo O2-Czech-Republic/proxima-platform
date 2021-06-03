@@ -21,14 +21,14 @@ import cz.o2.proxima.storage.StreamElement;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 
-public class LogObserverTest {
+public class CommitLogObserverTest {
 
   @Test
   public void testOnErrorDefaultRouting() {
     final AtomicInteger numExceptions = new AtomicInteger();
     final AtomicInteger numFatalErrors = new AtomicInteger();
-    final LogObserver observer =
-        new LogObserver() {
+    final CommitLogObserver observer =
+        new CommitLogObserver() {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {

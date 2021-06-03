@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
-import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.functional.BiConsumer;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.UnaryFunction;
@@ -47,86 +47,89 @@ public class LogObservers {
   }
 
   /**
-   * Create a {@link LogObserver} that handles retries on {@link Exception Exceptions} thrown during
-   * processing. If retries are exhausted, the last caught Exception is rethrown.
+   * Create a {@link CommitLogObserver} that handles retries on {@link Exception Exceptions} thrown
+   * during processing. If retries are exhausted, the last caught Exception is rethrown.
    *
    * @param name name of the consumer
    * @param numRetries number of retries that should be attempted
-   * @param delegate the {@link LogObserver} to handle to processing
-   * @return {@link LogObserver} that will retry processing
+   * @param delegate the {@link CommitLogObserver} to handle to processing
+   * @return {@link CommitLogObserver} that will retry processing
    */
-  public static LogObserver withNumRetriedExceptions(
-      String name, int numRetries, LogObserver delegate) {
+  public static CommitLogObserver withNumRetriedExceptions(
+      String name, int numRetries, CommitLogObserver delegate) {
     return withNumRetriedExceptions(
         name, numRetries, throwable -> TerminationStrategy.RETHROW, delegate);
   }
 
   /**
-   * Create a {@link LogObserver} that handles retries on {@link Exception Exceptions} thrown during
-   * processing. If retries are exhausted, the last caught Exception is rethrown.
+   * Create a {@link CommitLogObserver} that handles retries on {@link Exception Exceptions} thrown
+   * during processing. If retries are exhausted, the last caught Exception is rethrown.
    *
    * @param name name of the consumer
    * @param numRetries number of retries that should be attempted
    * @param onRetriesExhausted handler for {@link Throwable} caught during processing and not
    *     retried
-   * @param delegate the {@link LogObserver} to handle to processing
-   * @return {@link LogObserver} that will retry processing
+   * @param delegate the {@link CommitLogObserver} to handle to processing
+   * @return {@link CommitLogObserver} that will retry processing
    */
-  public static LogObserver withNumRetriedExceptions(
+  public static CommitLogObserver withNumRetriedExceptions(
       String name,
       int numRetries,
       UnaryFunction<Throwable, TerminationStrategy> onRetriesExhausted,
-      LogObserver delegate) {
+      CommitLogObserver delegate) {
 
     return new RetryableLogObserver(name, numRetries, onRetriesExhausted, false, delegate);
   }
 
   /**
-   * Create a {@link LogObserver} that handles retries on {@link Throwable Throwables} thrown during
-   * processing. If retries are exhausted, the last caught Throwable is rethrown.
+   * Create a {@link CommitLogObserver} that handles retries on {@link Throwable Throwables} thrown
+   * during processing. If retries are exhausted, the last caught Throwable is rethrown.
    *
    * @param name name of the consumer
    * @param numRetries number of retries that should be attempted
    * @param onRetriesExhausted handler for {@link Throwable} caught during processing and not
    *     retried
-   * @param delegate the {@link LogObserver} to handle to processing
-   * @return {@link LogObserver} that will retry processing
+   * @param delegate the {@link CommitLogObserver} to handle to processing
+   * @return {@link CommitLogObserver} that will retry processing
    */
-  public static LogObserver withNumRetriedThrowables(
+  public static CommitLogObserver withNumRetriedThrowables(
       String name,
       int numRetries,
       UnaryFunction<Throwable, TerminationStrategy> onRetriesExhausted,
-      LogObserver delegate) {
+      CommitLogObserver delegate) {
 
     return new RetryableLogObserver(name, numRetries, onRetriesExhausted, true, delegate);
   }
 
   /**
-   * Create {@link LogObserver} that observes data in event time order.
+   * Create {@link CommitLogObserver} that observes data in event time order.
    *
    * <p>Data are first buffered into temporal buffer and hold until watermark - allowed lateness.
    *
    * @param upstream the upstream observer that observes ordered data
    * @param allowedLateness mixture of event time and processing time lateness
-   * @return the observer to use for {@link CommitLogReader#observe(String, LogObserver)}
+   * @return the observer to use for {@link CommitLogReader#observe(String, CommitLogObserver)}
    */
-  public static LogObserver withSortBuffer(LogObserver upstream, Duration allowedLateness) {
+  public static CommitLogObserver withSortBuffer(
+      CommitLogObserver upstream, Duration allowedLateness) {
 
     return withSortBuffer(upstream, allowedLateness, lateDataLoggingConsumer(allowedLateness));
   }
 
   /**
-   * Create {@link LogObserver} that observes data in event time order.
+   * Create {@link CommitLogObserver} that observes data in event time order.
    *
    * <p>Data are first buffered into temporal buffer and hold until watermark - allowed lateness.
    *
    * @param upstream the upstream observer that observes ordered data
    * @param allowedLateness mixture of event time and processing time lateness
    * @param latecomerConsumer consumer of data that had to be dropped due to allowed lateness *
-   * @return the observer to use for {@link CommitLogReader#observe(String, LogObserver)}
+   * @return the observer to use for {@link CommitLogReader#observe(String, CommitLogObserver)}
    */
-  public static LogObserver withSortBuffer(
-      LogObserver upstream, Duration allowedLateness, Consumer<StreamElement> latecomerConsumer) {
+  public static CommitLogObserver withSortBuffer(
+      CommitLogObserver upstream,
+      Duration allowedLateness,
+      Consumer<StreamElement> latecomerConsumer) {
 
     return withSortBuffer(
         upstream,
@@ -138,17 +141,17 @@ public class LogObservers {
   }
 
   /**
-   * Create {@link LogObserver} that observes data in event time order.
+   * Create {@link CommitLogObserver} that observes data in event time order.
    *
    * <p>Data are first buffered into temporal buffer and hold until watermark - allowed lateness.
    *
    * @param upstream the upstream observer that observes ordered data
    * @param allowedLateness mixture of event time and processing time lateness
    * @param latecomerConsumer consumer of data that had to be dropped due to allowed lateness *
-   * @return the observer to use for {@link CommitLogReader#observe(String, LogObserver)}
+   * @return the observer to use for {@link CommitLogReader#observe(String, CommitLogObserver)}
    */
-  public static LogObserver withSortBuffer(
-      LogObserver upstream,
+  public static CommitLogObserver withSortBuffer(
+      CommitLogObserver upstream,
       Duration allowedLateness,
       BiConsumer<StreamElement, OnNextContext> latecomerConsumer) {
 
@@ -156,33 +159,35 @@ public class LogObservers {
   }
 
   /**
-   * Create {@link LogObserver} that observes data in event time order per partition.
+   * Create {@link CommitLogObserver} that observes data in event time order per partition.
    *
    * <p>Data are first buffered into temporal buffer and hold until watermark - allowed lateness.
    *
    * @param upstream the upstream observer that observes ordered data
    * @param allowedLateness mixture of event time and processing time lateness
-   * @return the observer to use for {@link CommitLogReader#observe(String, LogObserver)}
+   * @return the observer to use for {@link CommitLogReader#observe(String, CommitLogObserver)}
    */
-  public static LogObserver withSortBufferWithinPartition(
-      LogObserver upstream, Duration allowedLateness) {
+  public static CommitLogObserver withSortBufferWithinPartition(
+      CommitLogObserver upstream, Duration allowedLateness) {
 
     return withSortBufferWithinPartition(
         upstream, allowedLateness, lateDataLoggingConsumer(allowedLateness));
   }
 
   /**
-   * Create {@link LogObserver} that observes data in event time order per partition.
+   * Create {@link CommitLogObserver} that observes data in event time order per partition.
    *
    * <p>Data are first buffered into temporal buffer and hold until watermark - allowed lateness.
    *
    * @param upstream the upstream observer that observes ordered data
    * @param allowedLateness mixture of event time and processing time lateness
    * @param latecomerConsumer consumer of data that had to be dropped due to allowed lateness *
-   * @return the observer to use for {@link CommitLogReader#observe(String, LogObserver)}
+   * @return the observer to use for {@link CommitLogReader#observe(String, CommitLogObserver)}
    */
-  public static LogObserver withSortBufferWithinPartition(
-      LogObserver upstream, Duration allowedLateness, Consumer<StreamElement> latecomerConsumer) {
+  public static CommitLogObserver withSortBufferWithinPartition(
+      CommitLogObserver upstream,
+      Duration allowedLateness,
+      Consumer<StreamElement> latecomerConsumer) {
     return withSortBufferWithinPartition(
         upstream,
         allowedLateness,
@@ -193,25 +198,25 @@ public class LogObservers {
   }
 
   /**
-   * Create {@link LogObserver} that observes data in event time order per partition.
+   * Create {@link CommitLogObserver} that observes data in event time order per partition.
    *
    * <p>Data are first buffered into temporal buffer and hold until watermark - allowed lateness.
    *
    * @param upstream the upstream observer that observes ordered data
    * @param allowedLateness mixture of event time and processing time lateness
    * @param latecomerConsumer consumer of data that had to be dropped due to allowed lateness *
-   * @return the observer to use for {@link CommitLogReader#observe(String, LogObserver)}
+   * @return the observer to use for {@link CommitLogReader#observe(String, CommitLogObserver)}
    */
-  public static LogObserver withSortBufferWithinPartition(
-      LogObserver upstream,
+  public static CommitLogObserver withSortBufferWithinPartition(
+      CommitLogObserver upstream,
       Duration allowedLateness,
       BiConsumer<StreamElement, OnNextContext> latecomerConsumer) {
 
     return new SinglePartitionSortedLogObserver(upstream, allowedLateness, latecomerConsumer);
   }
 
-  public static LogObserver synchronizedObserver(LogObserver delegate) {
-    return new LogObserver() {
+  public static CommitLogObserver synchronizedObserver(CommitLogObserver delegate) {
+    return new CommitLogObserver() {
 
       @Override
       public synchronized void onCompleted() {
@@ -259,24 +264,24 @@ public class LogObservers {
    * A @{link LogObserver} that delegates calls to underlying delegate. Useful for overriding
    * specific methods before passing to delegate.
    */
-  public static class ForwardingObserver implements LogObserver {
-    @Delegate private final LogObserver delegate;
+  public static class ForwardingObserver implements CommitLogObserver {
+    @Delegate private final CommitLogObserver delegate;
 
-    protected ForwardingObserver(LogObserver delegate) {
+    protected ForwardingObserver(CommitLogObserver delegate) {
       this.delegate = delegate;
     }
   }
 
   private LogObservers() {}
 
-  private abstract static class AbstractSortedLogObserver implements LogObserver {
+  private abstract static class AbstractSortedLogObserver implements CommitLogObserver {
 
-    final LogObserver upstream;
+    final CommitLogObserver upstream;
     final long allowedLatenessMs;
     final BiConsumer<StreamElement, OnNextContext> latecomerConsumer;
 
     public AbstractSortedLogObserver(
-        LogObserver upstream,
+        CommitLogObserver upstream,
         Duration allowedLateness,
         BiConsumer<StreamElement, OnNextContext> latecomerConsumer) {
 
@@ -359,7 +364,7 @@ public class LogObservers {
     private final PriorityQueue<Pair<StreamElement, OnNextContext>> queue;
 
     public SortedLogObserver(
-        LogObserver upstream,
+        CommitLogObserver upstream,
         Duration allowedLateness,
         BiConsumer<StreamElement, OnNextContext> latecomerConsumer) {
 
@@ -403,7 +408,7 @@ public class LogObservers {
     private final Map<Integer, PriorityQueue<Pair<StreamElement, OnNextContext>>> queueMap;
 
     public SinglePartitionSortedLogObserver(
-        LogObserver upstream,
+        CommitLogObserver upstream,
         Duration allowedLateness,
         BiConsumer<StreamElement, OnNextContext> latecomerConsumer) {
 

@@ -16,9 +16,8 @@
 package cz.o2.proxima.direct.batch;
 
 import cz.o2.proxima.annotations.Stable;
-import cz.o2.proxima.storage.Partition;
+import cz.o2.proxima.direct.LogObserver;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.time.WatermarkSupplier;
 
 /**
  * Batch observer of data. No commits needed.
@@ -26,25 +25,11 @@ import cz.o2.proxima.time.WatermarkSupplier;
  * <p>Implementations should override either of `onNext` methods.
  */
 @Stable
-public interface BatchLogObserver {
+public interface BatchLogObserver extends LogObserver<Offset, BatchLogObserver.OnNextContext> {
 
   /** Context passed to {@link #onNext}. */
   @Stable
-  interface OnNextContext extends WatermarkSupplier {
-
-    /**
-     * Retrieve partition for currently processed record.
-     *
-     * @return partition of currently processed record
-     */
-    Partition getPartition();
-
-    /**
-     * Retrieve offset of the current element.
-     *
-     * @return Offset.
-     */
-    Offset getOffset();
+  interface OnNextContext extends LogObserver.OnNextContext<Offset> {
 
     /**
      * Retrieve current watermark of the observe process
@@ -65,30 +50,8 @@ public interface BatchLogObserver {
     throw new UnsupportedOperationException("Please override either of `onNext` methods");
   }
 
-  /**
-   * Read next data from the batch storage.
-   *
-   * @param element the retrieved data element
-   * @param context context of the data element
-   * @return {@code true} to continue processing, {@code false} otherwise
-   */
+  @Override
   default boolean onNext(StreamElement element, OnNextContext context) {
     return onNext(element);
-  }
-
-  /** Signalled when the reading is finished. */
-  default void onCompleted() {}
-
-  /** Signalled when the reading is cancelled. */
-  default void onCancelled() {}
-
-  /**
-   * Signaled when reading error occurs.
-   *
-   * @param error error caught during processing
-   * @return {@code true} to restart processing from beginning {@code false} to stop processing
-   */
-  default boolean onError(Throwable error) {
-    return false;
   }
 }

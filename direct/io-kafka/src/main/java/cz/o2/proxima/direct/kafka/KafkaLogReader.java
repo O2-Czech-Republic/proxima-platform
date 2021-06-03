@@ -19,8 +19,8 @@ import static java.util.stream.Collectors.toMap;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.commitlog.OffsetExternalizer;
@@ -106,7 +106,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
    * @param name identifier of the consumer
    */
   @Override
-  public ObserveHandle observe(String name, Position position, LogObserver observer) {
+  public ObserveHandle observe(String name, Position position, CommitLogObserver observer) {
 
     return observeKafka(name, null, position, false, observer);
   }
@@ -117,14 +117,14 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       @Nullable Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     return observeKafka(null, partitions, position, stopAtCurrent, observer);
   }
 
   @Override
   public ObserveHandle observeBulk(
-      String name, Position position, boolean stopAtCurrent, LogObserver observer) {
+      String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
 
     return observeKafkaBulk(name, null, position, stopAtCurrent, observer);
   }
@@ -135,7 +135,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     // name is ignored, because when observing partition the offsets
     // are not committed to kafka
@@ -145,7 +145,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
   @Override
   public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
+      Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
 
     return observeKafkaBulk(null, offsets, Position.CURRENT, stopAtCurrent, observer);
   }
@@ -171,7 +171,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       @Nullable Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     Preconditions.checkArgument(
         name != null || partitions != null, "Either name or offsets have to be non null");
@@ -202,7 +202,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       @Nullable Collection<Offset> offsets,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     Preconditions.checkArgument(
         name != null || offsets != null, "Either name or offsets have to be non null");
@@ -249,7 +249,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       Position position,
       boolean stopAtCurrent,
       boolean commitToKafka,
-      LogObserver observer,
+      CommitLogObserver observer,
       ExecutorService executor)
       throws InterruptedException {
 
@@ -311,7 +311,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       Position position,
       boolean stopAtCurrent,
       boolean commitToKafka,
-      LogObserver observer,
+      CommitLogObserver observer,
       ExecutorService executor)
       throws InterruptedException {
 

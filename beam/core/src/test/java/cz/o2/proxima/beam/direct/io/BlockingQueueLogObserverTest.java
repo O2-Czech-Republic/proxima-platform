@@ -18,8 +18,8 @@ package cz.o2.proxima.beam.direct.io;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
-import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
-import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -54,8 +54,9 @@ public class BlockingQueueLogObserverTest {
   }
 
   @Test
-  public void testMaxWatermarkWhenOnCompleted() throws InterruptedException {
-    BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", Long.MIN_VALUE);
+  public void testMaxWatermarkWhenOnCompleted() {
+    final BlockingQueueLogObserver.CommitLogObserver observer =
+        BlockingQueueLogObserver.createCommitLogObserver("name", Long.MIN_VALUE);
     assertEquals(Long.MIN_VALUE, observer.getWatermark());
     observer.onCompleted();
     assertFalse(observer.peekElement());
@@ -63,8 +64,9 @@ public class BlockingQueueLogObserverTest {
   }
 
   @Test
-  public void testPeekBlocking() throws InterruptedException {
-    BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", Long.MIN_VALUE);
+  public void testPeekBlocking() {
+    final BlockingQueueLogObserver.CommitLogObserver observer =
+        BlockingQueueLogObserver.createCommitLogObserver("name", Long.MIN_VALUE);
     long now = System.currentTimeMillis();
     assertFalse(observer.peekElement());
     observer.onNext(newElement(now), newContext(now));
@@ -73,7 +75,8 @@ public class BlockingQueueLogObserverTest {
 
   @Test(timeout = 10000)
   public void testCapacityFull() throws InterruptedException {
-    BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", Long.MIN_VALUE);
+    final BlockingQueueLogObserver.CommitLogObserver observer =
+        BlockingQueueLogObserver.createCommitLogObserver("name", Long.MIN_VALUE);
     long now = System.currentTimeMillis();
     int numElements = 1000;
     CountDownLatch latch = new CountDownLatch(100);
@@ -95,7 +98,8 @@ public class BlockingQueueLogObserverTest {
 
   @Test(timeout = 10000)
   public void testCapacityEmpty() throws InterruptedException, ExecutionException {
-    BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", Long.MIN_VALUE);
+    final BlockingQueueLogObserver.CommitLogObserver observer =
+        BlockingQueueLogObserver.createCommitLogObserver("name", Long.MIN_VALUE);
     long now = System.currentTimeMillis();
     int numElements = 1000;
     CountDownLatch latch = new CountDownLatch(1);
@@ -125,11 +129,12 @@ public class BlockingQueueLogObserverTest {
   }
 
   void testWithStartingWatermark(long startingWatermark) throws InterruptedException {
-    BlockingQueueLogObserver observer = BlockingQueueLogObserver.create("name", startingWatermark);
+    final BlockingQueueLogObserver.CommitLogObserver observer =
+        BlockingQueueLogObserver.createCommitLogObserver("name", startingWatermark);
     long now = System.currentTimeMillis();
     observer.onNext(newElement(now), newContext(now));
     assertEquals(startingWatermark, observer.getWatermark());
-    StreamElement elem = observer.takeBlocking();
+    observer.takeBlocking();
     assertEquals(now, observer.getWatermark());
   }
 

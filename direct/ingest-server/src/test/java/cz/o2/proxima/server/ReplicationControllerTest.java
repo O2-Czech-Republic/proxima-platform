@@ -19,10 +19,10 @@ import static org.junit.Assert.*;
 
 import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
-import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
@@ -109,7 +109,7 @@ public class ReplicationControllerTest {
   public void testSimpleEventReplication() throws InterruptedException {
     List<StreamElement> written = new ArrayList<>();
     final CommitLogReader reader = Optionals.get(direct.getCommitLogReader(data));
-    final LogObserver observer =
+    final CommitLogObserver observer =
         controller.createOnlineObserver(
             "consumer",
             direct
@@ -131,7 +131,7 @@ public class ReplicationControllerTest {
   public void testSimpleEventReplicationWithFilter() {
     final List<StreamElement> written = new ArrayList<>();
     final CommitLogReader reader = Optionals.get(direct.getCommitLogReader(data));
-    final LogObserver observer =
+    final CommitLogObserver observer =
         controller.createOnlineObserver(
             "consumer",
             direct
@@ -153,7 +153,7 @@ public class ReplicationControllerTest {
     EntityDescriptor gateway = repo.getEntity("gateway");
     AttributeDescriptor<byte[]> armed = gateway.getAttribute("armed");
     AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
-    LogObserver observer =
+    CommitLogObserver observer =
         controller.createOnlineObserver(
             "consumer",
             direct
@@ -197,7 +197,7 @@ public class ReplicationControllerTest {
     EntityDescriptor gateway = repo.getEntity("gateway");
     AttributeDescriptor<byte[]> armed = gateway.getAttribute("armed");
     AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
-    LogObserver observer =
+    CommitLogObserver observer =
         controller.createBulkObserver(
             "consumer",
             direct
@@ -242,7 +242,7 @@ public class ReplicationControllerTest {
   public void testBulkReplication() throws InterruptedException {
     final List<StreamElement> written = new ArrayList<>();
     final CommitLogReader reader = Optionals.get(direct.getCommitLogReader(data));
-    final LogObserver observer =
+    final CommitLogObserver observer =
         controller.createBulkObserver(
             "consumer",
             reader,
@@ -262,7 +262,7 @@ public class ReplicationControllerTest {
 
   @Test
   public void testOnErrorIsRetryable() {
-    LogObserver observer = controller.createBulkObserver(null, null, null, null, null);
+    CommitLogObserver observer = controller.createBulkObserver(null, null, null, null, null);
     for (int i = 0; i < 3; i++) {
       assertTrue(observer.onError(new IllegalArgumentException()));
     }

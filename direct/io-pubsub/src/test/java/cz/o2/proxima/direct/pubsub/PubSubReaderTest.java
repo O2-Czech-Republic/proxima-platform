@@ -27,9 +27,9 @@ import com.google.common.collect.Sets;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Context;
@@ -178,8 +178,8 @@ public class PubSubReaderTest {
     List<StreamElement> elems = new ArrayList<>();
     AtomicBoolean cancelled = new AtomicBoolean();
     CountDownLatch latch = new CountDownLatch(3);
-    LogObserver observer =
-        new LogObserver() {
+    CommitLogObserver observer =
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             elems.add(ingest);
@@ -246,7 +246,7 @@ public class PubSubReaderTest {
     AtomicLong watermark = new AtomicLong();
     reader.observe(
         "dummy",
-        new LogObserver() {
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             timestampSupplier.addAndGet(1000);
@@ -288,7 +288,7 @@ public class PubSubReaderTest {
     ObserveHandle handle =
         reader.observe(
             "dummy",
-            new LogObserver() {
+            new CommitLogObserver() {
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
                 timestampSupplier.addAndGet(1000);
@@ -320,8 +320,8 @@ public class PubSubReaderTest {
           return null;
         });
     List<Offset> offsets = Arrays.asList(off);
-    LogObserver observer =
-        new LogObserver() {
+    CommitLogObserver observer =
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             context.confirm();
@@ -355,8 +355,8 @@ public class PubSubReaderTest {
           LockSupport.park();
           return null;
         });
-    LogObserver observer =
-        new LogObserver() {
+    CommitLogObserver observer =
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             context.confirm();
@@ -395,8 +395,8 @@ public class PubSubReaderTest {
         });
     final AtomicBoolean cancelled = new AtomicBoolean();
     final CountDownLatch latch = new CountDownLatch(3);
-    LogObserver observer =
-        new LogObserver() {
+    CommitLogObserver observer =
+        new CommitLogObserver() {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -442,8 +442,8 @@ public class PubSubReaderTest {
     AtomicBoolean cancelled = new AtomicBoolean();
     CountDownLatch latch = new CountDownLatch(3);
     AtomicReference<OffsetCommitter> commit = new AtomicReference<>();
-    LogObserver observer =
-        new LogObserver() {
+    CommitLogObserver observer =
+        new CommitLogObserver() {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             elems.add(ingest);

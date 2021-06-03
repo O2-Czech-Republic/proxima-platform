@@ -36,9 +36,9 @@ import com.google.pubsub.v1.PushConfig;
 import com.google.pubsub.v1.Subscription;
 import com.google.pubsub.v1.UpdateSubscriptionRequest;
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Context;
@@ -182,13 +182,14 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
   }
 
   @Override
-  public ObserveHandle observe(@Nullable String name, Position position, LogObserver observer) {
+  public ObserveHandle observe(
+      @Nullable String name, Position position, CommitLogObserver observer) {
 
     return observe(name, position, Long.MIN_VALUE, observer);
   }
 
   private ObserveHandle observe(
-      @Nullable String name, Position position, long minWatermark, LogObserver observer) {
+      @Nullable String name, Position position, long minWatermark, CommitLogObserver observer) {
 
     validatePosition(position);
     String consumerName = asConsumerName(name);
@@ -238,7 +239,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     validateNotStopAtCurrent(stopAtCurrent);
     name = findConsumerFromPartitions(name, partitions);
@@ -258,7 +259,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
    */
   @Override
   public ObserveHandle observeBulk(
-      @Nullable String name, Position position, boolean stopAtCurrent, LogObserver observer) {
+      @Nullable String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
 
     return observeBulk(name, position, stopAtCurrent, Long.MIN_VALUE, observer);
   }
@@ -268,7 +269,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       Position position,
       boolean stopAtCurrent,
       long minWatermark,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     validateNotStopAtCurrent(stopAtCurrent);
 
@@ -361,7 +362,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     name = findConsumerFromPartitions(name, partitions);
     return observeBulkWithMinWatermark(name, position, stopAtCurrent, Long.MIN_VALUE, observer);
@@ -372,7 +373,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
       Position position,
       boolean stopAtCurrent,
       long minWatermark,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     validateNotStopAtCurrent(stopAtCurrent);
 
@@ -381,7 +382,7 @@ class PubSubReader extends AbstractStorage implements CommitLogReader {
 
   @Override
   public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
+      Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
 
     List<String> names =
         offsets

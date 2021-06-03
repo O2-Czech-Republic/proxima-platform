@@ -20,7 +20,7 @@ import static org.mockito.Mockito.*;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -630,7 +630,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
 
       ObserveHandle ret =
           super.observePartitions(name, partitions, position, stopAtCurrent, observer);
@@ -640,7 +640,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     @Override
-    public ObserveHandle observe(String name, Position position, LogObserver observer) {
+    public ObserveHandle observe(String name, Position position, CommitLogObserver observer) {
 
       ObserveHandle ret = super.observe(name, position, observer);
       log.debug(
@@ -654,7 +654,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
 
       ObserveHandle ret = super.observeKafka(name, partitions, position, stopAtCurrent, observer);
       log.debug(
@@ -666,7 +666,7 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
     }
 
     @Override
-    public ObserveHandle observeBulk(String name, Position position, LogObserver observer) {
+    public ObserveHandle observeBulk(String name, Position position, CommitLogObserver observer) {
 
       ObserveHandle ret = super.observeBulk(name, position, observer);
       log.debug("Started to bulk observe LocalKafkaCommitLog with URI {} by {}", getUri(), name);

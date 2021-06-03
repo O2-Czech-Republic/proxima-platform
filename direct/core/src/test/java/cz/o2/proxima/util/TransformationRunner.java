@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.util;
 
-import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -100,7 +100,7 @@ public class TransformationRunner {
                     "No commit log reader for attributes of transformation " + desc))
         .observe(
             name,
-            new LogObserver() {
+            new CommitLogObserver() {
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
                 desc.getTransformation()

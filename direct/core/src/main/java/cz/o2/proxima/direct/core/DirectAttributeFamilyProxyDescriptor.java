@@ -18,8 +18,8 @@ package cz.o2.proxima.direct.core;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
@@ -217,9 +217,9 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
   }
 
   @SuppressWarnings("unchecked")
-  private static LogObserver wrapTransformed(AttrLookup lookup, LogObserver observer) {
+  private static CommitLogObserver wrapTransformed(AttrLookup lookup, CommitLogObserver observer) {
 
-    return new LogObserver() {
+    return new CommitLogObserver() {
 
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -451,7 +451,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
     }
 
     @Override
-    public ObserveHandle observe(String name, Position position, LogObserver observer) {
+    public ObserveHandle observe(String name, Position position, CommitLogObserver observer) {
 
       return reader.observe(name, position, wrapTransformed(lookup, observer));
     }
@@ -462,7 +462,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
 
       return reader.observePartitions(
           name, partitions, position, stopAtCurrent, wrapTransformed(lookup, observer));
@@ -473,7 +473,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
 
       return reader.observePartitions(
           partitions, position, stopAtCurrent, wrapTransformed(lookup, observer));
@@ -481,7 +481,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
 
     @Override
     public ObserveHandle observeBulk(
-        String name, Position position, boolean stopAtCurrent, LogObserver observer) {
+        String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
 
       return reader.observeBulk(name, position, stopAtCurrent, wrapTransformed(lookup, observer));
     }
@@ -491,7 +491,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
 
       return reader.observeBulkPartitions(
           partitions, position, stopAtCurrent, wrapTransformed(lookup, observer));
@@ -503,7 +503,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
         Collection<Partition> partitions,
         Position position,
         boolean stopAtCurrent,
-        LogObserver observer) {
+        CommitLogObserver observer) {
 
       return reader.observeBulkPartitions(
           name, partitions, position, stopAtCurrent, wrapTransformed(lookup, observer));
@@ -511,7 +511,7 @@ public class DirectAttributeFamilyProxyDescriptor extends DirectAttributeFamilyD
 
     @Override
     public ObserveHandle observeBulkOffsets(
-        Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
+        Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
 
       return reader.observeBulkOffsets(offsets, stopAtCurrent, wrapTransformed(lookup, observer));
     }

@@ -18,8 +18,8 @@ package cz.o2.proxima.replication;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -156,7 +156,7 @@ public class SingleTopicMultipleReplicationsTest {
     reader
         .observe(
             "dummy",
-            new LogObserver() {
+            new CommitLogObserver() {
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
                 assertEquals(wildcard, ingest.getAttributeDescriptor());
@@ -204,7 +204,7 @@ public class SingleTopicMultipleReplicationsTest {
         .observeBulkPartitions(
             reader.getPartitions(),
             Position.CURRENT,
-            new LogObserver() {
+            new CommitLogObserver() {
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
                 assertEquals(wildcard, ingest.getAttributeDescriptor());

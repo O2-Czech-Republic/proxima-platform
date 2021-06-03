@@ -22,8 +22,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -92,7 +92,7 @@ public class ListCommitLogTest {
     ObserveHandle handle =
         reader.observeBulk(
             null,
-            new LogObserver() {
+            new CommitLogObserver() {
               @Override
               public boolean onError(Throwable error) {
                 throw new RuntimeException(error);
@@ -131,7 +131,7 @@ public class ListCommitLogTest {
     ObserveHandle handle =
         reader.observeBulk(
             null,
-            new LogObserver() {
+            new CommitLogObserver() {
 
               int received = 0;
 
@@ -257,7 +257,7 @@ public class ListCommitLogTest {
     ObserveHandle handle =
         reader.observe(
             null,
-            new LogObserver() {
+            new CommitLogObserver() {
               @Override
               public boolean onError(Throwable error) {
                 throw new RuntimeException(error);

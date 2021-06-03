@@ -52,9 +52,9 @@ public class CommitLogReadersTest {
     doReturn(Arrays.asList(Partition.of(0), Partition.of(1))).when(mockReader).getPartitions();
     final CommitLogReader reader =
         CommitLogReaders.withThroughputLimit(mockReader, new NoOpThroughputLimiter());
-    reader.observe("test", Position.OLDEST, mock(LogObserver.class));
-    reader.observe("test", Position.OLDEST, mock(LogObserver.class));
-    reader.observe("test", Position.OLDEST, mock(LogObserver.class));
+    reader.observe("test", Position.OLDEST, mock(CommitLogObserver.class));
+    reader.observe("test", Position.OLDEST, mock(CommitLogObserver.class));
+    reader.observe("test", Position.OLDEST, mock(CommitLogObserver.class));
     verify(mockReader, times(1)).getPartitions();
   }
 }

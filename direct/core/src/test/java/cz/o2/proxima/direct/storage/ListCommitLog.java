@@ -24,10 +24,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserver.OffsetCommitter;
-import cz.o2.proxima.direct.commitlog.LogObserver.OnNextContext;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.ObserverUtils;
 import cz.o2.proxima.direct.commitlog.Offset;
@@ -339,26 +339,26 @@ public class ListCommitLog implements CommitLogReader {
       inflightOffsets.remove(offset);
     }
 
-    OnNextContext asOnNextContext(LogObserver.OffsetCommitter committer, int offset) {
+    OnNextContext asOnNextContext(CommitLogObserver.OffsetCommitter committer, int offset) {
       return createOnNextContext(committer, offset, null);
     }
 
     OnNextContext asOnNextContextBulk(
-        LogObserver.OffsetCommitter committer, int offset, Set<Integer> consumerFedOffsets) {
+        CommitLogObserver.OffsetCommitter committer, int offset, Set<Integer> consumerFedOffsets) {
 
       return createOnNextContext(committer, offset, consumerFedOffsets);
     }
 
     private synchronized OnNextContext createOnNextContext(
-        LogObserver.OffsetCommitter committer,
+        CommitLogObserver.OffsetCommitter committer,
         int offset,
         @Nullable Set<Integer> consumerFedOffsets) {
 
       boolean bulk = consumerFedOffsets != null;
       ListOffset listOffset = new ListOffset(consumerName, offset, getWatermark());
       moveCurrentOffset(offset);
-      final LogObserver.OffsetCommitter contextCommitter;
-      LogObserver.OffsetCommitter singleCommitter =
+      final CommitLogObserver.OffsetCommitter contextCommitter;
+      CommitLogObserver.OffsetCommitter singleCommitter =
           (succ, exc) -> {
             committer.commit(succ, exc);
             if (succ) {
@@ -449,7 +449,8 @@ public class ListCommitLog implements CommitLogReader {
   }
 
   @Override
-  public ObserveHandle observe(@Nullable String name, Position position, LogObserver observer) {
+  public ObserveHandle observe(
+      @Nullable String name, Position position, CommitLogObserver observer) {
     String consumerName = name == null ? UUID.randomUUID().toString() : name;
     Consumer consumer =
         CONSUMERS
@@ -462,7 +463,7 @@ public class ListCommitLog implements CommitLogReader {
           if (handle.isClosed()) {
             return false;
           }
-          final LogObserver.OffsetCommitter committer =
+          final CommitLogObserver.OffsetCommitter committer =
               (succ, exc) -> {
                 if (exc != null) {
                   observer.onError(exc);
@@ -500,14 +501,14 @@ public class ListCommitLog implements CommitLogReader {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     return observe(name, position, observer);
   }
 
   @Override
   public ObserveHandle observeBulk(
-      @Nullable String name, Position position, boolean stopAtCurrent, LogObserver observer) {
+      @Nullable String name, Position position, boolean stopAtCurrent, CommitLogObserver observer) {
 
     String consumerName = name == null ? UUID.randomUUID().toString() : name;
     return pushToObserverBulk(consumerName, 0, observer);
@@ -519,14 +520,14 @@ public class ListCommitLog implements CommitLogReader {
       Collection<Partition> partitions,
       Position position,
       boolean stopAtCurrent,
-      LogObserver observer) {
+      CommitLogObserver observer) {
 
     return observeBulk(name, position, observer);
   }
 
   @Override
   public ObserveHandle observeBulkOffsets(
-      Collection<Offset> offsets, boolean stopAtCurrent, LogObserver observer) {
+      Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
 
     Set<String> consumers =
         offsets.stream().map(o -> ((ListOffset) o).getConsumerName()).collect(Collectors.toSet());
@@ -557,13 +558,16 @@ public class ListCommitLog implements CommitLogReader {
     return new ListOffsetExternalizer();
   }
 
-  private ObserveHandle pushToObserverBulk(@Nonnull String name, int skip, LogObserver observer) {
+  private ObserveHandle pushToObserverBulk(
+      @Nonnull String name, int skip, CommitLogObserver observer) {
     AtomicInteger skipCounter = new AtomicInteger(skip);
     return pushToObserverBulk(name, offset -> skipCounter.decrementAndGet() <= 0, observer);
   }
 
   private ObserveHandle pushToObserverBulk(
-      @Nonnull String name, UnaryPredicate<Integer> allowOffsetPredicate, LogObserver observer) {
+      @Nonnull String name,
+      UnaryPredicate<Integer> allowOffsetPredicate,
+      CommitLogObserver observer) {
 
     observer.onRepartition(asRepartitionContext(Collections.singletonList(PARTITION)));
     Consumer consumer =
@@ -577,7 +581,7 @@ public class ListCommitLog implements CommitLogReader {
           if (handle.isClosed()) {
             return false;
           }
-          final LogObserver.OffsetCommitter committer =
+          final CommitLogObserver.OffsetCommitter committer =
               (succ, exc) -> {
                 if (exc != null) {
                   observer.onError(exc);

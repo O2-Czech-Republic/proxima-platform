@@ -16,8 +16,8 @@
 package cz.o2.proxima.direct.commitlog;
 
 import cz.o2.proxima.annotations.Stable;
+import cz.o2.proxima.direct.LogObserver;
 import cz.o2.proxima.storage.Partition;
-import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkSupplier;
 import java.io.Serializable;
 import java.util.Collection;
@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 
 /** Base interface for bulk and online observers. */
 @Stable
-public interface LogObserver extends Serializable {
+public interface CommitLogObserver extends LogObserver<Offset, CommitLogObserver.OnNextContext> {
 
   /** Committer for manipulation with offset during consumption. */
   interface OffsetCommitter extends Serializable {
@@ -60,7 +60,7 @@ public interface LogObserver extends Serializable {
 
   /** Context passed to {@link #onNext}. */
   @Stable
-  interface OnNextContext extends OffsetCommitter, WatermarkSupplier {
+  interface OnNextContext extends LogObserver.OnNextContext<Offset>, OffsetCommitter {
 
     /**
      * Retrieve committer for currently processed record.
@@ -68,28 +68,6 @@ public interface LogObserver extends Serializable {
      * @return offset committer to use for committing
      */
     OffsetCommitter committer();
-
-    /**
-     * Retrieve partition for currently processed record.
-     *
-     * @return partition of currently processed record
-     */
-    Partition getPartition();
-
-    /**
-     * Retrieve current watermark of the observe process
-     *
-     * @return watermark in milliseconds
-     */
-    @Override
-    long getWatermark();
-
-    /**
-     * Retrieve {@link Offset} of current record.
-     *
-     * @return {@link Offset} of current record.
-     */
-    Offset getOffset();
 
     @Override
     default void commit(boolean success, Throwable error) {
@@ -116,64 +94,6 @@ public interface LogObserver extends Serializable {
      */
     Collection<Partition> partitions();
   }
-
-  /** Notify that the processing has gracefully ended. */
-  default void onCompleted() {}
-
-  /** Notify that the processing has been canceled. */
-  default void onCancelled() {}
-
-  /**
-   * Called to notify there was an {@link Throwable error} in the commit reader.
-   *
-   * @param error error caught during processing
-   * @return {@code true} to restart processing from last committed position, {@code false} to stop
-   *     processing
-   */
-  default boolean onError(Throwable error) {
-    if (error instanceof Error) {
-      return onFatalError((Error) error);
-    }
-    if (error instanceof Exception) {
-      return onException((Exception) error);
-    }
-    throw new UnsupportedOperationException(
-        String.format("Unknown throwable implementation [%s].", error.getClass()));
-  }
-
-  /**
-   * Called to notify there was an {@link Exception exception} in the commit reader. There is no
-   * guarantee this method gets called, if {@link #onError(Throwable)} is overridden.
-   *
-   * @param exception exception caught during processing
-   * @return {@code true} to restart processing from last committed position, {@code false} to stop
-   *     processing
-   */
-  default boolean onException(Exception exception) {
-    throw new IllegalStateException("Unhandled exception.", exception);
-  }
-
-  /**
-   * Called to notify there was an {@link Error error} in the commit reader. There is no guarantee
-   * this method gets called, if {@link #onError(Throwable)} is overridden.
-   *
-   * @param error error caught during processing
-   * @return {@code true} to restart processing from last committed position, {@code false} to stop
-   *     processing
-   */
-  default boolean onFatalError(Error error) {
-    throw error;
-  }
-
-  /**
-   * Process next record in the commit log.
-   *
-   * @param ingest the ingested data written to the commit log
-   * @param context a context that the application must use to confirm processing of the ingest. If
-   *     the application fails to do so, the result is undefined.
-   * @return {@code true} if the processing should continue, {@code false} otherwise
-   */
-  boolean onNext(StreamElement ingest, OnNextContext context);
 
   /**
    * Callback to notify of automatic repartitioning. This method is always called first before any

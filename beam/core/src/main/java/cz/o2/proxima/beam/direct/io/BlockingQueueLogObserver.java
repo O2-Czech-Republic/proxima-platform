@@ -19,14 +19,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.commitlog.LogObserver;
+import cz.o2.proxima.direct.LogObserver;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkSupplier;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Pair;
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,32 +42,106 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
-/** A {@link LogObserver} that caches data in {@link BlockingQueue}. */
+/**
+ * A {@link cz.o2.proxima.direct.commitlog.CommitLogObserver} that caches data in {@link
+ * BlockingQueue}.
+ */
 @Slf4j
-final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
+abstract class BlockingQueueLogObserver<
+        OffsetT extends Serializable, ContextT extends LogObserver.OnNextContext<OffsetT>>
+    implements LogObserver<OffsetT, ContextT> {
 
   private static final long serialVersionUID = 1L;
 
-  static BlockingQueueLogObserver create(String name, long startingWatermark) {
-    return create(name, Long.MAX_VALUE, startingWatermark);
+  private static final int DEFAULT_CAPACITY = 100;
+
+  static CommitLogObserver createCommitLogObserver(String name, long startingWatermark) {
+    return createCommitLogObserver(name, Long.MAX_VALUE, startingWatermark);
   }
 
-  static BlockingQueueLogObserver create(String name, long limit, long startingWatermark) {
-    return new BlockingQueueLogObserver(name, limit, startingWatermark);
+  static CommitLogObserver createCommitLogObserver(
+      String name, long limit, long startingWatermark) {
+    return createCommitLogObserver(name, limit, startingWatermark, DEFAULT_CAPACITY);
   }
 
-  static BlockingQueueLogObserver create(
+  static CommitLogObserver createCommitLogObserver(
       String name, long limit, long startingWatermark, int queueCapacity) {
-    return new BlockingQueueLogObserver(name, limit, startingWatermark, queueCapacity);
+    return new CommitLogObserver(name, limit, startingWatermark, queueCapacity);
+  }
+
+  static BatchLogObserver createBatchLogObserver(String name, long startingWatermark) {
+    return createBatchLogObserver(name, Long.MAX_VALUE, startingWatermark);
+  }
+
+  static BatchLogObserver createBatchLogObserver(String name, long limit, long startingWatermark) {
+    return createBatchLogObserver(name, limit, startingWatermark, DEFAULT_CAPACITY);
+  }
+
+  static BatchLogObserver createBatchLogObserver(
+      String name, long limit, long startingWatermark, int queueCapacity) {
+    return new BatchLogObserver(name, limit, startingWatermark, queueCapacity);
   }
 
   @Internal
-  interface UnifiedContext extends OffsetCommitter, WatermarkSupplier {
+  interface UnifiedContext
+      extends cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter, WatermarkSupplier {
 
     boolean isBounded();
 
     @Nullable
     Offset getOffset();
+  }
+
+  static class BatchLogObserver
+      extends BlockingQueueLogObserver<
+          cz.o2.proxima.direct.batch.Offset,
+          cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext>
+      implements cz.o2.proxima.direct.batch.BatchLogObserver {
+
+    public BatchLogObserver(String name, long limit, long startingWatermark, int capacity) {
+      super(name, limit, startingWatermark, capacity);
+    }
+
+    @Override
+    public boolean onNext(
+        StreamElement element, cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext context) {
+      log.debug(
+          "{}: Received next element {} on partition {}",
+          getName(),
+          element,
+          context.getPartition());
+      return enqueue(element, new BatchLogObserverUnifiedContext(context));
+    }
+  }
+
+  static class CommitLogObserver
+      extends BlockingQueueLogObserver<
+          Offset, cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext>
+      implements cz.o2.proxima.direct.commitlog.CommitLogObserver {
+
+    public CommitLogObserver(String name, long limit, long startingWatermark, int capacity) {
+      super(name, limit, startingWatermark, capacity);
+    }
+
+    @Override
+    public boolean onNext(
+        StreamElement ingest,
+        cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext context) {
+      if (log.isDebugEnabled()) {
+        log.debug(
+            "{}: Received next element {} at watermark {} offset {}",
+            getName(),
+            ingest,
+            context.getWatermark(),
+            context.getOffset());
+      }
+      return enqueue(ingest, new LogObserverUnifiedContext(context));
+    }
+
+    @Override
+    public void onIdle(OnIdleContext context) {
+      onIdle(context.getWatermark());
+    }
   }
 
   @ToString
@@ -76,9 +150,10 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
     private static final long serialVersionUID = 1L;
 
-    private final LogObserver.OnNextContext context;
+    private final cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext context;
 
-    LogObserverUnifiedContext(LogObserver.OnNextContext context) {
+    LogObserverUnifiedContext(
+        cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext context) {
       this.context = context;
     }
 
@@ -114,9 +189,10 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
 
     private static final long serialVersionUID = 1L;
 
-    private final BatchLogObserver.OnNextContext context;
+    private final cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext context;
 
-    private BatchLogObserverUnifiedContext(BatchLogObserver.OnNextContext context) {
+    private BatchLogObserverUnifiedContext(
+        cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext context) {
       this.context = context;
     }
 
@@ -164,10 +240,6 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
   private boolean cancelled = false;
   private transient CountDownLatch cancelledLatch = new CountDownLatch(1);
 
-  private BlockingQueueLogObserver(String name, long limit, long startingWatermark) {
-    this(name, limit, startingWatermark, 100);
-  }
-
   private BlockingQueueLogObserver(String name, long limit, long startingWatermark, int capacity) {
     Preconditions.checkArgument(limit >= 0, "Please provide non-negative limit");
 
@@ -186,27 +258,7 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return false;
   }
 
-  @Override
-  public boolean onNext(StreamElement ingest, LogObserver.OnNextContext context) {
-    if (log.isDebugEnabled()) {
-      log.debug(
-          "{}: Received next element {} at watermark {} offset {}",
-          name,
-          ingest,
-          context.getWatermark(),
-          context.getOffset());
-    }
-    return enqueue(ingest, new LogObserverUnifiedContext(context));
-  }
-
-  @Override
-  public boolean onNext(StreamElement element, BatchLogObserver.OnNextContext context) {
-    log.debug(
-        "{}: Received next element {} on partition {}", name, element, context.getPartition());
-    return enqueue(element, new BatchLogObserverUnifiedContext(context));
-  }
-
-  private boolean enqueue(StreamElement element, UnifiedContext context) {
+  boolean enqueue(StreamElement element, UnifiedContext context) {
     try {
       Preconditions.checkArgument(element != null && context != null);
       lastWrittenContext = context;
@@ -257,10 +309,9 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return false;
   }
 
-  @Override
-  public void onIdle(OnIdleContext context) {
+  void onIdle(long watermark) {
     if (queue.isEmpty()) {
-      updateAndLogWatermark(context.getWatermark());
+      updateAndLogWatermark(watermark);
     }
   }
 
@@ -427,7 +478,7 @@ final class BlockingQueueLogObserver implements LogObserver, BatchLogObserver {
     return MoreObjects.toStringHelper(this).add("name", name).add("limit", limit).toString();
   }
 
-  private Object readResolve() {
+  Object readResolve() {
     this.cancelledLatch = new CountDownLatch(1);
     return this;
   }

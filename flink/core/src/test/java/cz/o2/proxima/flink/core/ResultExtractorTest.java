@@ -27,7 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-public class ResultExtractorTest {
+class ResultExtractorTest {
 
   @Test
   void testParsed(@Mock StreamElement element) {

@@ -71,7 +71,7 @@ public class CommitLogSourceFunction<T> extends RichParallelSourceFunction<T>
   /**
    * Log observer that writes consumed elements to {@link SourceContext}.
    *
-   * @see <a href="https://github.com/O2-Czech-Republic/proxima-platform/issues/220>PROXIMA-220</a>
+   * @see <a href="https://github.com/O2-Czech-Republic/proxima-platform/issues/220">PROXIMA-220</a>
    *     to explain {@code java:S1948} suppression.
    * @param <T> Type of extracted element.
    */

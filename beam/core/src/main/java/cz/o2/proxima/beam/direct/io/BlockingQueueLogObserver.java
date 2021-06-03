@@ -20,8 +20,6 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.LogObserver;
-import cz.o2.proxima.direct.batch.BatchLogObserver;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.time.WatermarkSupplier;
@@ -44,7 +42,10 @@ import lombok.Getter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
-/** A {@link CommitLogObserver} that caches data in {@link BlockingQueue}. */
+/**
+ * A {@link cz.o2.proxima.direct.commitlog.CommitLogObserver} that caches data in {@link
+ * BlockingQueue}.
+ */
 @Slf4j
 abstract class BlockingQueueLogObserver<
         OffsetT extends Serializable, ContextT extends LogObserver.OnNextContext<OffsetT>>
@@ -54,34 +55,36 @@ abstract class BlockingQueueLogObserver<
 
   private static final int DEFAULT_CAPACITY = 100;
 
-  static CommitLog createCommitLog(String name, long startingWatermark) {
-    return createCommitLog(name, Long.MAX_VALUE, startingWatermark);
+  static CommitLogObserver createCommitLogObserver(String name, long startingWatermark) {
+    return createCommitLogObserver(name, Long.MAX_VALUE, startingWatermark);
   }
 
-  static CommitLog createCommitLog(String name, long limit, long startingWatermark) {
-    return createCommitLog(name, limit, startingWatermark, DEFAULT_CAPACITY);
+  static CommitLogObserver createCommitLogObserver(
+      String name, long limit, long startingWatermark) {
+    return createCommitLogObserver(name, limit, startingWatermark, DEFAULT_CAPACITY);
   }
 
-  static CommitLog createCommitLog(
+  static CommitLogObserver createCommitLogObserver(
       String name, long limit, long startingWatermark, int queueCapacity) {
-    return new CommitLog(name, limit, startingWatermark, queueCapacity);
+    return new CommitLogObserver(name, limit, startingWatermark, queueCapacity);
   }
 
-  static BatchLog createBatchLog(String name, long startingWatermark) {
-    return createBatchLog(name, Long.MAX_VALUE, startingWatermark);
+  static BatchLogObserver createBatchLogObserver(String name, long startingWatermark) {
+    return createBatchLogObserver(name, Long.MAX_VALUE, startingWatermark);
   }
 
-  static BatchLog createBatchLog(String name, long limit, long startingWatermark) {
-    return createBatchLog(name, limit, startingWatermark, DEFAULT_CAPACITY);
+  static BatchLogObserver createBatchLogObserver(String name, long limit, long startingWatermark) {
+    return createBatchLogObserver(name, limit, startingWatermark, DEFAULT_CAPACITY);
   }
 
-  static BatchLog createBatchLog(
+  static BatchLogObserver createBatchLogObserver(
       String name, long limit, long startingWatermark, int queueCapacity) {
-    return new BatchLog(name, limit, startingWatermark, queueCapacity);
+    return new BatchLogObserver(name, limit, startingWatermark, queueCapacity);
   }
 
   @Internal
-  interface UnifiedContext extends CommitLogObserver.OffsetCommitter, WatermarkSupplier {
+  interface UnifiedContext
+      extends cz.o2.proxima.direct.commitlog.CommitLogObserver.OffsetCommitter, WatermarkSupplier {
 
     boolean isBounded();
 
@@ -89,17 +92,19 @@ abstract class BlockingQueueLogObserver<
     Offset getOffset();
   }
 
-  static class BatchLog
+  static class BatchLogObserver
       extends BlockingQueueLogObserver<
-          cz.o2.proxima.direct.batch.Offset, BatchLogObserver.OnNextContext>
-      implements BatchLogObserver {
+          cz.o2.proxima.direct.batch.Offset,
+          cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext>
+      implements cz.o2.proxima.direct.batch.BatchLogObserver {
 
-    public BatchLog(String name, long limit, long startingWatermark, int capacity) {
+    public BatchLogObserver(String name, long limit, long startingWatermark, int capacity) {
       super(name, limit, startingWatermark, capacity);
     }
 
     @Override
-    public boolean onNext(StreamElement element, BatchLogObserver.OnNextContext context) {
+    public boolean onNext(
+        StreamElement element, cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext context) {
       log.debug(
           "{}: Received next element {} on partition {}",
           getName(),
@@ -109,15 +114,19 @@ abstract class BlockingQueueLogObserver<
     }
   }
 
-  static class CommitLog extends BlockingQueueLogObserver<Offset, CommitLogObserver.OnNextContext>
-      implements CommitLogObserver {
+  static class CommitLogObserver
+      extends BlockingQueueLogObserver<
+          Offset, cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext>
+      implements cz.o2.proxima.direct.commitlog.CommitLogObserver {
 
-    public CommitLog(String name, long limit, long startingWatermark, int capacity) {
+    public CommitLogObserver(String name, long limit, long startingWatermark, int capacity) {
       super(name, limit, startingWatermark, capacity);
     }
 
     @Override
-    public boolean onNext(StreamElement ingest, CommitLogObserver.OnNextContext context) {
+    public boolean onNext(
+        StreamElement ingest,
+        cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext context) {
       if (log.isDebugEnabled()) {
         log.debug(
             "{}: Received next element {} at watermark {} offset {}",
@@ -141,9 +150,10 @@ abstract class BlockingQueueLogObserver<
 
     private static final long serialVersionUID = 1L;
 
-    private final CommitLogObserver.OnNextContext context;
+    private final cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext context;
 
-    LogObserverUnifiedContext(CommitLogObserver.OnNextContext context) {
+    LogObserverUnifiedContext(
+        cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext context) {
       this.context = context;
     }
 
@@ -179,9 +189,10 @@ abstract class BlockingQueueLogObserver<
 
     private static final long serialVersionUID = 1L;
 
-    private final BatchLogObserver.OnNextContext context;
+    private final cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext context;
 
-    private BatchLogObserverUnifiedContext(BatchLogObserver.OnNextContext context) {
+    private BatchLogObserverUnifiedContext(
+        cz.o2.proxima.direct.batch.BatchLogObserver.OnNextContext context) {
       this.context = context;
     }
 

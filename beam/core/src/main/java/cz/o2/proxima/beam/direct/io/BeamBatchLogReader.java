@@ -56,7 +56,7 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
   private final long endStamp;
 
   private StreamElement current;
-  private BlockingQueueLogObserver.BatchLog observer;
+  private BlockingQueueLogObserver.BatchLogObserver observer;
   private boolean finished = false;
 
   private BeamBatchLogReader(
@@ -83,7 +83,7 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
   @Override
   public boolean start() throws IOException {
     this.observer =
-        BlockingQueueLogObserver.createBatchLog(
+        BlockingQueueLogObserver.createBatchLogObserver(
             "Source(" + split + ")", LOWEST_INSTANT.getMillis());
     reader.observe(Arrays.asList(split), attrs, observer);
     return advance();

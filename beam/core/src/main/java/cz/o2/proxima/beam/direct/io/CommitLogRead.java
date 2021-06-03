@@ -194,7 +194,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     ObserveHandle observeBulkOffsets(
         OffsetRange restriction,
         CommitLogReader reader,
-        BlockingQueueLogObserver.CommitLog observer) {
+        BlockingQueueLogObserver.CommitLogObserver observer) {
 
       return reader.observeBulkOffsets(
           Collections.singletonList(restriction.getStartOffset()), true, observer);
@@ -204,7 +204,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         String name,
         OffsetRange restriction,
         CommitLogReader reader,
-        BlockingQueueLogObserver.CommitLog observer) {
+        BlockingQueueLogObserver.CommitLogObserver observer) {
 
       return reader.observeBulkPartitions(
           name,
@@ -290,7 +290,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     ObserveHandle observeBulkOffsets(
         OffsetRange restriction,
         CommitLogReader reader,
-        BlockingQueueLogObserver.CommitLog observer) {
+        BlockingQueueLogObserver.CommitLogObserver observer) {
 
       return reader.observeBulkOffsets(
           Collections.singletonList(restriction.getStartOffset()), observer);
@@ -300,7 +300,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
         String name,
         OffsetRange restriction,
         CommitLogReader reader,
-        BlockingQueueLogObserver.CommitLog observer) {
+        BlockingQueueLogObserver.CommitLogObserver observer) {
 
       return reader.observeBulkPartitions(
           name,
@@ -319,7 +319,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     protected final long limit;
     protected transient Map<Integer, ObserveHandle> runningObserves;
     protected transient Map<Integer, Offset> partitionToSeekedOffset;
-    protected transient Map<Integer, BlockingQueueLogObserver.CommitLog> observers;
+    protected transient Map<Integer, BlockingQueueLogObserver.CommitLogObserver> observers;
     private transient boolean externalizableOffsets = false;
 
     public AbstractCommitLogReadFn(
@@ -350,7 +350,8 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
       Partition part = tracker.currentRestriction().getPartition();
 
-      final BlockingQueueLogObserver.CommitLog currentObserver = observers.get(part.getId());
+      final BlockingQueueLogObserver.CommitLogObserver currentObserver =
+          observers.get(part.getId());
 
       if (currentObserver != null && externalizableOffsets) {
         closeHandleIfUnmatchingOffsets(tracker, part, currentObserver);
@@ -370,7 +371,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
                   partitionToSeekedOffset.get(part.getId()),
                   tracker.currentRestriction().getStartOffset());
 
-      final BlockingQueueLogObserver.CommitLog observer =
+      final BlockingQueueLogObserver.CommitLogObserver observer =
           Objects.requireNonNull(observers.get(part.getId()));
 
       watermarkEstimator.setWatermark(Instant.ofEpochMilli(observer.getWatermark()));
@@ -411,7 +412,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     private void closeHandleIfUnmatchingOffsets(
         RestrictionTracker<OffsetRange, Offset> tracker,
         Partition part,
-        BlockingQueueLogObserver.CommitLog observer) {
+        BlockingQueueLogObserver.CommitLogObserver observer) {
 
       final Offset currentOffset;
       if (observer.getLastReadContext() != null) {
@@ -435,7 +436,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     private void startObserve(@Nullable String name, Partition partition, OffsetRange restriction) {
       CommitLogReader reader = readerFactory.apply(repositoryFactory.apply());
       this.externalizableOffsets = reader.hasExternalizableOffsets();
-      final BlockingQueueLogObserver.CommitLog observer = newObserver(name, restriction);
+      final BlockingQueueLogObserver.CommitLogObserver observer = newObserver(name, restriction);
       observers.put(partition.getId(), observer);
       final ObserveHandle handle;
       if (restriction.getStartOffset() != null) {
@@ -450,13 +451,13 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     abstract ObserveHandle observeBulkOffsets(
         OffsetRange restriction,
         CommitLogReader reader,
-        BlockingQueueLogObserver.CommitLog observer);
+        BlockingQueueLogObserver.CommitLogObserver observer);
 
     abstract ObserveHandle observeBulkPartitions(
         @Nullable String name,
         OffsetRange restriction,
         CommitLogReader reader,
-        BlockingQueueLogObserver.CommitLog observer);
+        BlockingQueueLogObserver.CommitLogObserver observer);
 
     public void setup() {
       runningObserves = new HashMap<>();
@@ -534,8 +535,9 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
   }
 
   @VisibleForTesting
-  BlockingQueueLogObserver.CommitLog newObserver(@Nullable String name, OffsetRange restriction) {
-    return BlockingQueueLogObserver.createCommitLog(
+  BlockingQueueLogObserver.CommitLogObserver newObserver(
+      @Nullable String name, OffsetRange restriction) {
+    return BlockingQueueLogObserver.createCommitLogObserver(
         name != null ? name : UUID.randomUUID().toString(),
         restriction.getTotalLimit(),
         Watermarks.MIN_WATERMARK);

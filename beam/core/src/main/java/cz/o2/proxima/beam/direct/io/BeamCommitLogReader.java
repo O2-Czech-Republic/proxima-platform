@@ -220,7 +220,7 @@ class BeamCommitLogReader {
   @Getter private long limit;
   @Nullable private final Offset startingOffset;
   private final long offsetWatermark;
-  @Nullable private BlockingQueueLogObserver.CommitLog observer;
+  @Nullable private BlockingQueueLogObserver.CommitLogObserver observer;
   private StreamElement current;
   private Instant currentProcessingTime = Instant.now();
   private Instant lastReadWatermark = BoundedWindow.TIMESTAMP_MIN_VALUE;
@@ -261,7 +261,7 @@ class BeamCommitLogReader {
 
   public boolean start() throws IOException {
     this.observer =
-        BlockingQueueLogObserver.createCommitLog(
+        BlockingQueueLogObserver.createCommitLogObserver(
             name == null ? "Source(" + reader.getUri() + ":" + partition.getId() + ")" : name,
             limit,
             offsetWatermark);

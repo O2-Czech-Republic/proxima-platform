@@ -467,7 +467,7 @@ abstract class BlockingQueueLogObserver<
     return MoreObjects.toStringHelper(this).add("name", name).add("limit", limit).toString();
   }
 
-  private Object readResolve() {
+  Object readResolve() {
     this.cancelledLatch = new CountDownLatch(1);
     return this;
   }

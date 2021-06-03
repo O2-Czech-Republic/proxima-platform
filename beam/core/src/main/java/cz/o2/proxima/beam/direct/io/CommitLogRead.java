@@ -319,7 +319,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     protected final long limit;
     protected transient Map<Integer, ObserveHandle> runningObserves;
     protected transient Map<Integer, Offset> partitionToSeekedOffset;
-    protected transient Map<Integer, BlockingQueueLogObserver> observers;
+    protected transient Map<Integer, BlockingQueueLogObserver.CommitLog> observers;
     private transient boolean externalizableOffsets = false;
 
     public AbstractCommitLogReadFn(
@@ -350,7 +350,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
 
       Partition part = tracker.currentRestriction().getPartition();
 
-      BlockingQueueLogObserver currentObserver = observers.get(part.getId());
+      final BlockingQueueLogObserver.CommitLog currentObserver = observers.get(part.getId());
 
       if (currentObserver != null && externalizableOffsets) {
         closeHandleIfUnmatchingOffsets(tracker, part, currentObserver);
@@ -370,7 +370,8 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
                   partitionToSeekedOffset.get(part.getId()),
                   tracker.currentRestriction().getStartOffset());
 
-      BlockingQueueLogObserver observer = Objects.requireNonNull(observers.get(part.getId()));
+      final BlockingQueueLogObserver.CommitLog observer =
+          Objects.requireNonNull(observers.get(part.getId()));
 
       watermarkEstimator.setWatermark(Instant.ofEpochMilli(observer.getWatermark()));
 
@@ -410,7 +411,7 @@ public class CommitLogRead extends PTransform<PBegin, PCollection<StreamElement>
     private void closeHandleIfUnmatchingOffsets(
         RestrictionTracker<OffsetRange, Offset> tracker,
         Partition part,
-        BlockingQueueLogObserver observer) {
+        BlockingQueueLogObserver.CommitLog observer) {
 
       final Offset currentOffset;
       if (observer.getLastReadContext() != null) {

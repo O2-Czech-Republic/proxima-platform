@@ -39,11 +39,10 @@ public interface ResultExtractor<T> extends Serializable {
   /**
    * Create an extractor, that just extracts parsed value from a stream element.
    *
-   * @param clazz Type of extracted element.
    * @param <T> Type of extracted element.
    * @return Parsed value.
    */
-  static <T> ResultExtractor<T> parsed(Class<T> clazz) {
+  static <T> ResultExtractor<T> parsed() {
     return el -> {
       @SuppressWarnings("unchecked")
       final T parsed = (T) Optionals.get(el.getParsed());

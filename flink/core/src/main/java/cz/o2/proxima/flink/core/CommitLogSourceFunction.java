@@ -17,6 +17,7 @@ package cz.o2.proxima.flink.core;
 
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
+import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -27,7 +28,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.flink.streaming.api.watermark.Watermark;
 
 @Slf4j
 public class CommitLogSourceFunction<OutputT>
@@ -51,12 +51,7 @@ public class CommitLogSourceFunction<OutputT>
 
     @Override
     public void onIdle(OnIdleContext context) {
-      if (context.getWatermark() > watermark) {
-        watermark = context.getWatermark();
-        synchronized (sourceContext.getCheckpointLock()) {
-          sourceContext.emitWatermark(new Watermark(watermark));
-        }
-      }
+      maybeUpdateWatermark(context.getWatermark());
     }
 
     @Override
@@ -96,12 +91,12 @@ public class CommitLogSourceFunction<OutputT>
   }
 
   @Override
-  Set<Partition> getSkipFirstElement(List<Offset> offsets) {
+  Set<Partition> getSkipFirstElementFromPartitions(List<Offset> offsets) {
     return offsets.stream().map(Offset::getPartition).collect(Collectors.toSet());
   }
 
   @Override
-  LogObserver<OutputT> createObserver(
+  LogObserver<OutputT> createLogObserver(
       SourceContext<OutputT> sourceContext,
       ResultExtractor<OutputT> resultExtractor,
       Set<Partition> skipFirstElement) {
@@ -109,39 +104,39 @@ public class CommitLogSourceFunction<OutputT>
   }
 
   @Override
-  ObserveHandle<Offset> observe(
+  UnifiedObserveHandle<Offset> observePartitions(
       CommitLogReader reader,
       List<Partition> partitions,
       List<AttributeDescriptor<?>> attributeDescriptors,
       LogObserver<OutputT> observer) {
-    final cz.o2.proxima.direct.commitlog.ObserveHandle delegate =
+    final ObserveHandle commitLogHandle =
         reader.observeBulkPartitions(partitions, Position.OLDEST, false, observer);
-    return new ObserveHandle<Offset>() {
+    return new UnifiedObserveHandle<Offset>() {
 
       @Override
-      public List<Offset> getCurrentOffsets() {
-        return delegate.getCurrentOffsets();
+      public List<Offset> getConsumedOffsets() {
+        return commitLogHandle.getCurrentOffsets();
       }
 
       @Override
       public void close() {
-        delegate.close();
+        commitLogHandle.close();
       }
     };
   }
 
   @Override
-  ObserveHandle<Offset> observeOffsets(
+  UnifiedObserveHandle<Offset> observeRestoredOffsets(
       CommitLogReader reader,
       List<Offset> offsets,
       List<AttributeDescriptor<?>> attributeDescriptors,
       LogObserver<OutputT> observer) {
     final cz.o2.proxima.direct.commitlog.ObserveHandle delegate =
         reader.observeBulkOffsets(offsets, false, observer);
-    return new ObserveHandle<Offset>() {
+    return new UnifiedObserveHandle<Offset>() {
 
       @Override
-      public List<Offset> getCurrentOffsets() {
+      public List<Offset> getConsumedOffsets() {
         return delegate.getCurrentOffsets();
       }
 

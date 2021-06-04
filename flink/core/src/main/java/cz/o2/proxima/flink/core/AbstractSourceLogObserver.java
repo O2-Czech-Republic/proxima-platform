@@ -25,6 +25,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
 
@@ -43,7 +44,7 @@ abstract class AbstractSourceLogObserver<
   private final CountDownLatch completed = new CountDownLatch(1);
   private final Set<Partition> seenPartitions = new HashSet<>();
 
-  final SourceFunction.SourceContext<OutputT> sourceContext;
+  @Getter private final SourceFunction.SourceContext<OutputT> sourceContext;
   private final ResultExtractor<OutputT> resultExtractor;
 
   /**
@@ -52,7 +53,7 @@ abstract class AbstractSourceLogObserver<
    */
   private final Set<Partition> skipFirstElementFromEachPartition;
 
-  long watermark = Watermarks.MIN_WATERMARK;
+  private long watermark = Watermarks.MIN_WATERMARK;
 
   @Nullable private volatile Throwable error = null;
 
@@ -64,6 +65,15 @@ abstract class AbstractSourceLogObserver<
     this.resultExtractor = resultExtractor;
     this.skipFirstElementFromEachPartition = skipFirstElementFromEachPartition;
   }
+
+  /**
+   * Checkpointing in Flink is asynchronous. This method enables to atomically mark current offset
+   * as read, right after emitting element, when we still hold the {@link
+   * SourceFunction.SourceContext#getCheckpointLock() checkpoint lock}.
+   *
+   * @param context Context that we can use for committing offsets.
+   */
+  abstract void markOffsetAsConsumed(ContextT context);
 
   @Override
   public boolean onError(Throwable error) {
@@ -92,17 +102,10 @@ abstract class AbstractSourceLogObserver<
         sourceContext.collectWithTimestamp(resultExtractor.toResult(ingest), ingest.getStamp());
         markOffsetAsConsumed(context);
       }
-      if (context.getWatermark() > watermark) {
-        watermark = context.getWatermark();
-        synchronized (sourceContext.getCheckpointLock()) {
-          sourceContext.emitWatermark(new Watermark(watermark));
-        }
-      }
     }
+    maybeUpdateWatermark(watermark);
     return true;
   }
-
-  abstract void markOffsetAsConsumed(ContextT context);
 
   public void awaitCompleted() throws InterruptedException {
     completed.await();
@@ -110,5 +113,19 @@ abstract class AbstractSourceLogObserver<
 
   public Optional<Throwable> getError() {
     return Optional.ofNullable(error);
+  }
+
+  /**
+   * Update watermark if it's higher than a current watermark.
+   *
+   * @param watermark Candidate for a new watermark.
+   */
+  void maybeUpdateWatermark(long watermark) {
+    if (watermark > this.watermark) {
+      this.watermark = watermark;
+      synchronized (sourceContext.getCheckpointLock()) {
+        sourceContext.emitWatermark(new Watermark(this.watermark));
+      }
+    }
   }
 }

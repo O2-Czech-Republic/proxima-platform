@@ -17,6 +17,7 @@ package cz.o2.proxima.flink.core;
 
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogReader;
+import cz.o2.proxima.direct.batch.ObserveHandle;
 import cz.o2.proxima.direct.batch.Offset;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.flink.core.batch.OffsetTrackingBatchLogReader;
@@ -90,71 +91,8 @@ public class BatchLogSourceFunction<OutputT>
   }
 
   @Override
-  LogObserver<OutputT> createObserver(
-      SourceContext<OutputT> sourceContext,
-      ResultExtractor<OutputT> resultExtractor,
-      Set<Partition> skipFirstElement) {
-    return new LogObserver<>(sourceContext, resultExtractor, skipFirstElement);
-  }
-
-  @Override
-  ObserveHandle<Offset> observe(
-      BatchLogReader reader,
-      List<Partition> partitions,
-      List<AttributeDescriptor<?>> attributeDescriptors,
-      LogObserver<OutputT> observer) {
-    final OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle delegate =
-        (OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle)
-            reader.observe(partitions, attributeDescriptors, wrapSourceObserver(observer));
-    return new ObserveHandle<Offset>() {
-
-      @Override
-      public List<Offset> getCurrentOffsets() {
-        // Filter out finished partitions, as we don't need them for restoring the state.
-        return delegate
-            .getCurrentOffsets()
-            .stream()
-            .filter(offset -> !offset.isLast())
-            .collect(Collectors.toList());
-      }
-
-      @Override
-      public void close() {
-        delegate.close();
-      }
-    };
-  }
-
-  @Override
-  ObserveHandle<Offset> observeOffsets(
-      BatchLogReader reader,
-      List<Offset> offsets,
-      List<AttributeDescriptor<?>> attributeDescriptors,
-      LogObserver<OutputT> observer) {
-    final OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle delegate =
-        (OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle)
-            reader.observeOffsets(offsets, attributeDescriptors, wrapSourceObserver(observer));
-    return new ObserveHandle<Offset>() {
-
-      @Override
-      public List<Offset> getCurrentOffsets() {
-        // Filter out finished partitions, as we don't need them for restoring the state.
-        return delegate
-            .getCurrentOffsets()
-            .stream()
-            .filter(offset -> !offset.isLast())
-            .collect(Collectors.toList());
-      }
-
-      @Override
-      public void close() {
-        delegate.close();
-      }
-    };
-  }
-
-  @Override
-  Set<Partition> getSkipFirstElement(List<Offset> offsets) {
+  Set<Partition> getSkipFirstElementFromPartitions(List<Offset> offsets) {
+    // We only want to skip first element from partitions we've already touched.
     return offsets
         .stream()
         .filter(offset -> offset.getElementIndex() >= 0)
@@ -162,6 +100,72 @@ public class BatchLogSourceFunction<OutputT>
         .collect(Collectors.toSet());
   }
 
+  @Override
+  LogObserver<OutputT> createLogObserver(
+      SourceContext<OutputT> sourceContext,
+      ResultExtractor<OutputT> resultExtractor,
+      Set<Partition> skipFirstElement) {
+    return new LogObserver<>(sourceContext, resultExtractor, skipFirstElement);
+  }
+
+  @Override
+  UnifiedObserveHandle<Offset> observeRestoredOffsets(
+      BatchLogReader reader,
+      List<Offset> offsets,
+      List<AttributeDescriptor<?>> attributeDescriptors,
+      LogObserver<OutputT> observer) {
+    final OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle delegate =
+        (OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle)
+            reader.observeOffsets(offsets, attributeDescriptors, wrapSourceObserver(observer));
+    return new UnifiedObserveHandle<Offset>() {
+
+      @Override
+      public List<Offset> getConsumedOffsets() {
+        // Filter out finished partitions, as we don't need them for restoring the state.
+        return delegate
+            .getCurrentOffsets()
+            .stream()
+            .filter(offset -> !offset.isLast())
+            .collect(Collectors.toList());
+      }
+
+      @Override
+      public void close() {
+        delegate.close();
+      }
+    };
+  }
+
+  @Override
+  UnifiedObserveHandle<Offset> observePartitions(
+      BatchLogReader reader,
+      List<Partition> partitions,
+      List<AttributeDescriptor<?>> attributeDescriptors,
+      LogObserver<OutputT> observer) {
+    final ObserveHandle batchReaderHandle =
+        reader.observe(partitions, attributeDescriptors, wrapSourceObserver(observer));
+    // We've wrapped BatchLogReader with the OffsetTrackingBatchLogReader, so we can safely cast its
+    // handle, to get access to offsets.
+    final OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle offsetTrackingHandle =
+        (OffsetTrackingBatchLogReader.OffsetTrackingObserveHandle) batchReaderHandle;
+    return new UnifiedObserveHandle<Offset>() {
+
+      @Override
+      public List<Offset> getConsumedOffsets() {
+        // Filter out finished partitions, as we don't need them for restoring the state.
+        return offsetTrackingHandle
+            .getCurrentOffsets()
+            .stream()
+            .filter(offset -> !offset.isLast())
+            .collect(Collectors.toList());
+      }
+
+      @Override
+      public void close() {
+        offsetTrackingHandle.close();
+      }
+    };
+  }
   /**
    * Allow tests to wrap the source observer, in order to place a barrier for deterministically
    * acquiring the checkpoint lock.

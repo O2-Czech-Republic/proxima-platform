@@ -332,12 +332,7 @@ class BatchLogSourceFunctionTest {
 
           @Override
           public void go() throws Exception {
-            try {
-              sourceFunction.run(context);
-            } catch (Exception e) {
-              e.printStackTrace();
-              throw e;
-            }
+            sourceFunction.run(context);
           }
         };
     runThread.start();

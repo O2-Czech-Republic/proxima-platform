@@ -23,12 +23,16 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -125,6 +129,36 @@ class TimeBoundedVersionedCache implements Serializable {
         }
       } else {
         return;
+      }
+    }
+  }
+
+  /** Clear records that are older than the given timestamp. */
+  public synchronized void clearStaleRecords(long cleanTime) {
+    List<Entry<String, NavigableMap<String, NavigableMap<Long, Payload>>>> candidates =
+        cache
+            .entrySet()
+            .stream()
+            .filter(
+                e -> e.getValue().values().stream().anyMatch(v -> v.floorEntry(cleanTime) != null))
+            .collect(Collectors.toList());
+    for (Entry<String, NavigableMap<String, NavigableMap<Long, Payload>>> candidate : candidates) {
+      candidate
+          .getValue()
+          .forEach(
+              (key, value) -> {
+                List<Long> toRemove = new ArrayList<>(value.headMap(cleanTime).keySet());
+                toRemove.forEach(value::remove);
+              });
+      candidate
+          .getValue()
+          .entrySet()
+          .stream()
+          .filter(e -> e.getValue().isEmpty())
+          .collect(Collectors.toList())
+          .forEach(e -> candidate.getValue().remove(e.getKey()));
+      if (candidate.getValue().isEmpty()) {
+        cache.remove(candidate.getKey());
       }
     }
   }

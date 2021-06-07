@@ -35,6 +35,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.util.Pair;
 import java.net.URI;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -126,27 +127,31 @@ public class LocalCachedPartitionedView implements CachedView {
   @Override
   public void assign(
       Collection<Partition> partitions,
-      BiConsumer<StreamElement, Pair<Long, Object>> updateCallback) {
+      BiConsumer<StreamElement, Pair<Long, Object>> updateCallback,
+      @Nullable Duration ttl) {
 
     close();
     this.updateCallback = Objects.requireNonNull(updateCallback);
     CountDownLatch latch = new CountDownLatch(1);
     AtomicLong prefetchedCount = new AtomicLong();
-    final long prefetchStartTime = System.currentTimeMillis();
+    final long prefetchStartTime = getCurrentTimeMillis();
 
+    final long ttlMs = ttl == null ? Long.MAX_VALUE : ttl.toMillis();
     CommitLogObserver prefetchObserver =
         new CommitLogObserver() {
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             final long prefetched = prefetchedCount.incrementAndGet();
-            if (prefetched % 10000 == 0) {
-              log.info(
-                  "Prefetched so far {} elements in {} millis",
-                  prefetched,
-                  System.currentTimeMillis() - prefetchStartTime);
+            if (ttl == null || getCurrentTimeMillis() - ingest.getStamp() < ttlMs) {
+              if (prefetched % 10000 == 0) {
+                log.info(
+                    "Prefetched so far {} elements in {} millis",
+                    prefetched,
+                    getCurrentTimeMillis() - prefetchStartTime);
+              }
+              onCache(ingest, false);
             }
-            onCache(ingest, false);
             context.confirm();
             return true;
           }
@@ -167,10 +172,15 @@ public class LocalCachedPartitionedView implements CachedView {
     CommitLogObserver observer =
         new CommitLogObserver() {
 
+          long lastCleanup = 0;
+
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             onCache(ingest, false);
             context.confirm();
+            if (ttl != null) {
+              lastCleanup = maybeDoCleanup(lastCleanup, ttlMs);
+            }
             return true;
           }
 
@@ -193,7 +203,7 @@ public class LocalCachedPartitionedView implements CachedView {
       log.info(
           "Finished prefetching of data after {} records in {} millis. Starting consumption of updates.",
           prefetchedCount.get(),
-          System.currentTimeMillis() - prefetchStartTime);
+          getCurrentTimeMillis() - prefetchStartTime);
       List<Offset> offsets = h.getCommittedOffsets();
       // continue the processing
       handle.set(reader.observeBulkOffsets(offsets, observer));
@@ -202,6 +212,21 @@ public class LocalCachedPartitionedView implements CachedView {
       Thread.currentThread().interrupt();
       throw new RuntimeException(ex);
     }
+  }
+
+  @VisibleForTesting
+  long getCurrentTimeMillis() {
+    return System.currentTimeMillis();
+  }
+
+  private long maybeDoCleanup(long lastCleanup, long ttlMs) {
+    long now = getCurrentTimeMillis();
+    long cleanTime = now - ttlMs;
+    if (cleanTime < lastCleanup) {
+      return lastCleanup;
+    }
+    cache.clearStaleRecords(cleanTime);
+    return getCurrentTimeMillis();
   }
 
   @Override

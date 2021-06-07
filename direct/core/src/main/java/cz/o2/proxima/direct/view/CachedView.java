@@ -23,7 +23,9 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
+import java.time.Duration;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * A view of commit-log that caches (and potentially checkpoints) data from partitions and makes in
@@ -56,13 +58,46 @@ public interface CachedView extends RandomAccessReader, OnlineAttributeWriter {
    * partitions not listed in the collection, these partitions are dropped.
    *
    * @param partitions the partitions to cache locally
+   * @param ttl maximaul Duration that an update should be kept in the cache NOTE: this is not a
+   *     hard limit, it is only a signal, that after this time the element can be removed to free up
+   *     memory
+   */
+  default void assign(Collection<Partition> partitions, Duration ttl) {
+    assign(partitions, (e, c) -> {}, ttl);
+  }
+
+  /**
+   * Assign and make given partitions accessible by random reads. If the view contains any
+   * partitions not listed in the collection, these partitions are dropped.
+   *
+   * @param partitions the partitions to cache locally
    * @param updateCallback function that is called when cache gets updated the function takes the
    *     new ingest element and pair of the most recent object that was associated with the key and
    *     it's currently associated stamp
    */
+  default void assign(
+      Collection<Partition> partitions,
+      BiConsumer<StreamElement, Pair<Long, Object>> updateCallback) {
+
+    assign(partitions, updateCallback, null);
+  }
+
+  /**
+   * Assign and make given partitions accessible by random reads. If the view contains any
+   * partitions not listed in the collection, these partitions are dropped.
+   *
+   * @param partitions the partitions to cache locally
+   * @param updateCallback function that is called when cache gets updated the function takes the
+   *     new ingest element and pair of the most recent object that was associated with the key and
+   *     it's currently associated stamp
+   * @param ttl maximaul Duration that an update should be kept in the cache NOTE: this is not a
+   *     hard limit, it is only a signal, that after this time the element can be removed to free up
+   *     memory
+   */
   void assign(
       Collection<Partition> partitions,
-      BiConsumer<StreamElement, Pair<Long, Object>> updateCallback);
+      BiConsumer<StreamElement, Pair<Long, Object>> updateCallback,
+      @Nullable Duration ttl);
 
   /**
    * Retrieve currently assigned partitions.

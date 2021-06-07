@@ -238,4 +238,15 @@ public class TimeBoundedVersionedCacheTest {
         });
     assertEquals(2, scanned.size());
   }
+
+  @Test
+  public void testGetWithClearStaleRecords() {
+    TimeBoundedVersionedCache cache = new TimeBoundedVersionedCache(entity, 60_000L);
+    assertTrue(cache.put("key", "attribute.suffix", now, 1L, false, "value1"));
+    assertTrue(cache.put("key", "attribute.suffix", now + 1, 2L, false, "value2"));
+    assertEquals("value1", cache.get("key", "attribute.suffix", now).getSecond().getData());
+    cache.clearStaleRecords(now + 1);
+    assertNull(cache.get("key", "attribute.suffix", now));
+    assertEquals("value2", cache.get("key", "attribute.suffix", now + 1).getSecond().getData());
+  }
 }

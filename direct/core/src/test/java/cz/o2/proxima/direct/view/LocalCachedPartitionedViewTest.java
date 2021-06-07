@@ -26,6 +26,7 @@ import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader.Listing;
 import cz.o2.proxima.direct.randomaccess.RandomOffset;
+import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -33,11 +34,13 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Pair;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
@@ -70,7 +73,17 @@ public class LocalCachedPartitionedViewTest {
           .orElseThrow(() -> new IllegalStateException("Missing commit log"));
   OnlineAttributeWriter writer =
       direct.getWriter(armed).orElseThrow(() -> new IllegalStateException("Missing writer"));
-  LocalCachedPartitionedView view = new LocalCachedPartitionedView(gateway, reader, writer);
+  Factory<Long> timeProvider = null;
+
+  LocalCachedPartitionedView view =
+      new LocalCachedPartitionedView(gateway, reader, writer) {
+        @Override
+        long getCurrentTimeMillis() {
+          return Optional.ofNullable(timeProvider)
+              .map(cz.o2.proxima.functional.Factory::apply)
+              .orElseGet(super::getCurrentTimeMillis);
+        }
+      };
   long now = System.currentTimeMillis();
 
   @Test
@@ -299,6 +312,17 @@ public class LocalCachedPartitionedViewTest {
     writer.write(delete("key", armed, now + 1), (succ, exc) -> {});
     assertFalse(view.get("key", armed, now + 1).isPresent());
     assertTrue(view.get("key", armed, now).isPresent());
+  }
+
+  @Test
+  public void testGetWithTtl() {
+    timeProvider = () -> now;
+    view.assign(singlePartition(), Duration.ofMinutes(1));
+    writer.write(update("key", armed.getName(), armed, now), (succ, exc) -> {});
+    assertTrue(view.get("key", armed).isPresent());
+    timeProvider = () -> now + 60001;
+    writer.write(update("key2", armed.getName(), armed, now + 60000), (succ, exc) -> {});
+    assertFalse(view.get("key", armed).isPresent());
   }
 
   private StreamElement deleteWildcard(String key, AttributeDescriptor<?> desc, long stamp) {

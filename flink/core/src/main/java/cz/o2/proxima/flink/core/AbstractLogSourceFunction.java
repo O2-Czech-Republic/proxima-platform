@@ -155,7 +155,7 @@ abstract class AbstractLogSourceFunction<
 
   /**
    * Get a "global" list of partitions that we want to read by the source. This list will be evenly
-   * distrubuted between parallel subtask.
+   * distributed between parallel subtask.
    *
    * @param reader Reader to get a list of partitions from.
    * @return List of partitions.
@@ -166,7 +166,7 @@ abstract class AbstractLogSourceFunction<
    * Get a partition the given offset belongs to. This method is mostly a workaround for not having
    * a base interface for offset implementations.
    *
-   * @param offset Offset to gat a partition from.
+   * @param offset Offset to get a partition from.
    * @return Partition.
    */
   abstract Partition getOffsetPartition(OffsetT offset);

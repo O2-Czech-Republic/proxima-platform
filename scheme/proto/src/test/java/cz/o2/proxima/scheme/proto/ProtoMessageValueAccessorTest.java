@@ -17,18 +17,21 @@ package cz.o2.proxima.scheme.proto;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import com.google.protobuf.ByteString;
 import cz.o2.proxima.scheme.AttributeValueAccessors.StructureValue;
 import cz.o2.proxima.scheme.AttributeValueAccessors.StructureValueAccessor;
 import cz.o2.proxima.scheme.proto.test.Scheme.Event;
+import cz.o2.proxima.scheme.proto.test.Scheme.MultiLevelMessage;
 import cz.o2.proxima.scheme.proto.test.Scheme.RuleConfig;
 import cz.o2.proxima.scheme.proto.test.Scheme.Users;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage.Directions;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage.InnerMessage;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage.SecondInnerMessage;
+import cz.o2.proxima.scheme.proto.utils.ProtoUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
@@ -40,6 +43,11 @@ import org.junit.Test;
 
 @Slf4j
 public class ProtoMessageValueAccessorTest {
+
+  @Test(timeout = 1000)
+  public void testInspectMultiLevelMessageNotHanged() {
+    assertNotNull(ProtoUtils.convertProtoToSchema(MultiLevelMessage.getDescriptor()));
+  }
 
   @Test
   public void testManipulateWithSimpleMessage() {

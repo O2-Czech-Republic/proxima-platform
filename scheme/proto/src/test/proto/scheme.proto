@@ -17,6 +17,9 @@
 syntax = "proto3";
 option java_package = "cz.o2.proxima.scheme.proto.test";
 
+import "google/protobuf/timestamp.proto";
+import "readme.proto";
+
 message Event {
   string gatewayId = 1;
   bytes payload = 2;
@@ -75,4 +78,30 @@ message ValueSchemeMessage {
 
 message RecursiveMessage {
   RecursiveMessage recursion = 1;
+}
+
+message TwoStepRecursiveMessage {
+  message Inner {
+    TwoStepRecursiveMessage recursion = 1;
+  }
+  string name = 1;
+  Inner inner = 2;
+}
+
+message WithTimestamps {
+  google.protobuf.Timestamp minTimestamp = 1;
+  google.protobuf.Timestamp maxTimestamp = 2;
+}
+
+message MultiLevelMessage {
+  message Properties {
+    string id = 1;
+    google.protobuf.Timestamp minTimestamp = 2;
+    google.protobuf.Timestamp maxTimestamp = 3;
+    cz.o2.proxima.example.UserDetails user = 4;
+  }
+  string id = 1;
+  ValueSchemeMessage child = 2;
+  WithTimestamps timestamps = 3;
+  Properties props = 4;
 }

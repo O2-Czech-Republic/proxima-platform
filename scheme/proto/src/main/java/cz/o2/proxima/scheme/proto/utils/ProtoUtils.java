@@ -23,7 +23,10 @@ import com.google.protobuf.Message;
 import cz.o2.proxima.scheme.SchemaDescriptors;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.scheme.SchemaDescriptors.StructureTypeDescriptor;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
@@ -44,11 +47,13 @@ public class ProtoUtils {
    */
   public static <T extends Message> StructureTypeDescriptor<T> convertProtoToSchema(
       Descriptor proto) {
-    return convertProtoMessage(proto, new ConcurrentHashMap<>());
+    return convertProtoMessage(proto, new ConcurrentHashMap<>(), Collections.singleton(proto));
   }
 
   static <T extends Message> StructureTypeDescriptor<T> convertProtoMessage(
-      Descriptor proto, Map<String, SchemaTypeDescriptor<?>> structCache) {
+      Descriptor proto,
+      Map<String, SchemaTypeDescriptor<?>> structCache,
+      Set<Descriptor> seenMessages) {
     final Map<String, SchemaTypeDescriptor<?>> fields =
         proto
             .getFields()
@@ -58,11 +63,11 @@ public class ProtoUtils {
                     FieldDescriptor::getName,
                     field -> {
                       if (field.getJavaType().equals(JavaType.MESSAGE)
-                          && field.getMessageType().equals(proto)) {
+                          && seenMessages.contains(field.getMessageType())) {
                         throw new UnsupportedOperationException(
                             "Recursion in field [" + field.getName() + "] is not supported");
                       }
-                      return convertField(field, structCache);
+                      return convertField(field, structCache, seenMessages);
                     }));
 
     return SchemaDescriptors.structures(proto.getName(), fields);
@@ -77,7 +82,9 @@ public class ProtoUtils {
    */
   @SuppressWarnings("unchecked")
   static <T> SchemaTypeDescriptor<T> convertField(
-      FieldDescriptor proto, Map<String, SchemaTypeDescriptor<?>> structCache) {
+      FieldDescriptor proto,
+      Map<String, SchemaTypeDescriptor<?>> structCache,
+      Set<Descriptor> seenMessages) {
     SchemaTypeDescriptor<T> descriptor;
     switch (proto.getJavaType()) {
       case STRING:
@@ -114,12 +121,17 @@ public class ProtoUtils {
         break;
       case MESSAGE:
         final String messageTypeName = proto.getMessageType().toProto().getName();
-        if (!structCache.containsKey(messageTypeName)) {
+        descriptor = (SchemaTypeDescriptor<T>) structCache.get(messageTypeName);
+        if (descriptor == null) {
+          final Set<Descriptor> newSeenMessages = new HashSet<>(seenMessages);
+          newSeenMessages.add(proto.getMessageType());
           descriptor =
-              (SchemaTypeDescriptor<T>) convertProtoMessage(proto.getMessageType(), structCache);
+              (SchemaTypeDescriptor<T>)
+                  convertProtoMessage(
+                      proto.getMessageType(),
+                      structCache,
+                      Collections.unmodifiableSet(newSeenMessages));
           structCache.put(messageTypeName, descriptor);
-        } else {
-          descriptor = (SchemaTypeDescriptor<T>) structCache.get(messageTypeName);
         }
         break;
       default:

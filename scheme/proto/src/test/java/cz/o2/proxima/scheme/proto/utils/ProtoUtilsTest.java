@@ -20,6 +20,7 @@ import static org.junit.Assert.assertTrue;
 
 import cz.o2.proxima.scheme.AttributeValueType;
 import cz.o2.proxima.scheme.SchemaDescriptors.StructureTypeDescriptor;
+import cz.o2.proxima.scheme.proto.test.Scheme;
 import cz.o2.proxima.scheme.proto.test.Scheme.Device;
 import cz.o2.proxima.scheme.proto.test.Scheme.RecursiveMessage;
 import cz.o2.proxima.scheme.proto.test.Scheme.ValueSchemeMessage;
@@ -67,6 +68,13 @@ public class ProtoUtilsTest {
   public void testConvertMessageWithRecursion() {
     StructureTypeDescriptor<RecursiveMessage> descriptor =
         ProtoUtils.convertProtoToSchema(RecursiveMessage.getDescriptor());
+    log.debug("Schema: {}", descriptor);
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testConvertMessageWithTwoStepRecursion() {
+    StructureTypeDescriptor<RecursiveMessage> descriptor =
+        ProtoUtils.convertProtoToSchema(Scheme.TwoStepRecursiveMessage.getDescriptor());
     log.debug("Schema: {}", descriptor);
   }
 }

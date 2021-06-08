@@ -80,6 +80,14 @@ message RecursiveMessage {
   RecursiveMessage recursion = 1;
 }
 
+message TwoStepRecursiveMessage {
+  message Inner {
+    TwoStepRecursiveMessage recursion = 1;
+  }
+  string name = 1;
+  Inner inner = 2;
+}
+
 message WithTimestamps {
   google.protobuf.Timestamp minTimestamp = 1;
   google.protobuf.Timestamp maxTimestamp = 2;

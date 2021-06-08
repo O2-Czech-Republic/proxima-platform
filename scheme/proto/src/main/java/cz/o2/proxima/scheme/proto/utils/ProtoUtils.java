@@ -24,6 +24,7 @@ import cz.o2.proxima.scheme.SchemaDescriptors;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import cz.o2.proxima.scheme.SchemaDescriptors.StructureTypeDescriptor;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,10 +44,11 @@ public class ProtoUtils {
    */
   public static <T extends Message> StructureTypeDescriptor<T> convertProtoToSchema(
       Descriptor proto) {
-    return convertProtoMessage(proto);
+    return convertProtoMessage(proto, new ConcurrentHashMap<>());
   }
 
-  static <T extends Message> StructureTypeDescriptor<T> convertProtoMessage(Descriptor proto) {
+  static <T extends Message> StructureTypeDescriptor<T> convertProtoMessage(
+      Descriptor proto, Map<String, SchemaTypeDescriptor<?>> structCache) {
     final Map<String, SchemaTypeDescriptor<?>> fields =
         proto
             .getFields()
@@ -60,7 +62,7 @@ public class ProtoUtils {
                         throw new UnsupportedOperationException(
                             "Recursion in field [" + field.getName() + "] is not supported");
                       }
-                      return convertField(field);
+                      return convertField(field, structCache);
                     }));
 
     return SchemaDescriptors.structures(proto.getName(), fields);
@@ -74,7 +76,8 @@ public class ProtoUtils {
    * @return schema type descriptor
    */
   @SuppressWarnings("unchecked")
-  static <T> SchemaTypeDescriptor<T> convertField(FieldDescriptor proto) {
+  static <T> SchemaTypeDescriptor<T> convertField(
+      FieldDescriptor proto, Map<String, SchemaTypeDescriptor<?>> structCache) {
     SchemaTypeDescriptor<T> descriptor;
     switch (proto.getJavaType()) {
       case STRING:
@@ -110,8 +113,14 @@ public class ProtoUtils {
                         .collect(Collectors.toList()));
         break;
       case MESSAGE:
-        descriptor = (SchemaTypeDescriptor<T>) convertProtoMessage(proto.getMessageType());
-
+        final String messageTypeName = proto.getMessageType().toProto().getName();
+        if (!structCache.containsKey(messageTypeName)) {
+          descriptor =
+              (SchemaTypeDescriptor<T>) convertProtoMessage(proto.getMessageType(), structCache);
+          structCache.put(messageTypeName, descriptor);
+        } else {
+          descriptor = (SchemaTypeDescriptor<T>) structCache.get(messageTypeName);
+        }
         break;
       default:
         throw new IllegalStateException(

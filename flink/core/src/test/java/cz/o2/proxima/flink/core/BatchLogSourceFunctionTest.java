@@ -109,7 +109,7 @@ class BatchLogSourceFunctionTest {
             ResultExtractor.identity()) {
 
           @Override
-          BatchLogReader getBatchLogReader(List<AttributeDescriptor<?>> attributeDescriptors) {
+          BatchLogReader createLogReader(List<AttributeDescriptor<?>> attributeDescriptors) {
             final DirectDataOperator direct =
                 repository.getOrCreateOperator(DirectDataOperator.class);
             final ListBatchReader reader = ListBatchReader.ofPartitioned(direct.getContext());
@@ -266,7 +266,7 @@ class BatchLogSourceFunctionTest {
             ResultExtractor.identity()) {
 
           @Override
-          BatchLogReader getBatchLogReader(List<AttributeDescriptor<?>> attributeDescriptors) {
+          BatchLogReader createLogReader(List<AttributeDescriptor<?>> attributeDescriptors) {
             final DirectDataOperator direct =
                 repository.getOrCreateOperator(DirectDataOperator.class);
             final ListBatchReader reader =

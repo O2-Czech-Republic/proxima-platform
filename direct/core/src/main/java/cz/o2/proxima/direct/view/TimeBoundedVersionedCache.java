@@ -23,12 +23,15 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -127,6 +130,39 @@ class TimeBoundedVersionedCache implements Serializable {
         return;
       }
     }
+  }
+
+  /** Clear records that are older than the given timestamp. */
+  public synchronized void clearStaleRecords(long cleanTime) {
+    long now = System.currentTimeMillis();
+    AtomicInteger removed = new AtomicInteger();
+    ArrayList<String> emptyKeys = new ArrayList<>();
+    for (Map.Entry<String, NavigableMap<String, NavigableMap<Long, Payload>>> candidate :
+        cache.entrySet()) {
+
+      ArrayList<String> emptyAttributes = new ArrayList<>();
+      candidate
+          .getValue()
+          .forEach(
+              (key, value) -> {
+                Set<Long> remove = value.headMap(cleanTime).keySet();
+                removed.addAndGet(remove.size());
+                remove.removeIf(tmp -> true);
+                if (value.isEmpty()) {
+                  emptyAttributes.add(key);
+                }
+              });
+      emptyAttributes.forEach(k -> candidate.getValue().remove(k));
+      if (candidate.getValue().isEmpty()) {
+        emptyKeys.add(candidate.getKey());
+      }
+    }
+    emptyKeys.forEach(cache::remove);
+    log.info(
+        "Cleared {} elements from cache older than {} in {} ms",
+        removed.get(),
+        cleanTime,
+        System.currentTimeMillis() - now);
   }
 
   synchronized int findPosition(String key) {

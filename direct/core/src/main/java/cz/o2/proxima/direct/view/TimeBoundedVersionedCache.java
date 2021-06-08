@@ -25,14 +25,13 @@ import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -135,32 +134,35 @@ class TimeBoundedVersionedCache implements Serializable {
 
   /** Clear records that are older than the given timestamp. */
   public synchronized void clearStaleRecords(long cleanTime) {
-    List<Entry<String, NavigableMap<String, NavigableMap<Long, Payload>>>> candidates =
-        cache
-            .entrySet()
-            .stream()
-            .filter(
-                e -> e.getValue().values().stream().anyMatch(v -> v.floorEntry(cleanTime) != null))
-            .collect(Collectors.toList());
-    for (Entry<String, NavigableMap<String, NavigableMap<Long, Payload>>> candidate : candidates) {
+    long now = System.currentTimeMillis();
+    AtomicInteger removed = new AtomicInteger();
+    ArrayList<String> emptyKeys = new ArrayList<>();
+    for (Map.Entry<String, NavigableMap<String, NavigableMap<Long, Payload>>> candidate :
+        cache.entrySet()) {
+
+      ArrayList<String> emptyAttributes = new ArrayList<>();
       candidate
           .getValue()
           .forEach(
               (key, value) -> {
-                List<Long> toRemove = new ArrayList<>(value.headMap(cleanTime).keySet());
-                toRemove.forEach(value::remove);
+                Set<Long> remove = value.headMap(cleanTime).keySet();
+                removed.addAndGet(remove.size());
+                remove.removeIf(tmp -> true);
+                if (value.isEmpty()) {
+                  emptyAttributes.add(key);
+                }
               });
-      candidate
-          .getValue()
-          .entrySet()
-          .stream()
-          .filter(e -> e.getValue().isEmpty())
-          .collect(Collectors.toList())
-          .forEach(e -> candidate.getValue().remove(e.getKey()));
+      emptyAttributes.forEach(k -> candidate.getValue().remove(k));
       if (candidate.getValue().isEmpty()) {
-        cache.remove(candidate.getKey());
+        emptyKeys.add(candidate.getKey());
       }
     }
+    emptyKeys.forEach(cache::remove);
+    log.info(
+        "Cleared {} elements from cache older than {} in {} ms",
+        removed.get(),
+        cleanTime,
+        System.currentTimeMillis() - now);
   }
 
   synchronized int findPosition(String key) {

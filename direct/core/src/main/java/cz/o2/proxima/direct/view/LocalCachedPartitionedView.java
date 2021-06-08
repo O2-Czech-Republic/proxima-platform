@@ -172,7 +172,7 @@ public class LocalCachedPartitionedView implements CachedView {
     CommitLogObserver observer =
         new CommitLogObserver() {
 
-          long lastCleanup = 0;
+          private long lastCleanup = 0;
 
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
@@ -219,6 +219,7 @@ public class LocalCachedPartitionedView implements CachedView {
     return System.currentTimeMillis();
   }
 
+  /** Possibly do a cleanup and return timestamp of the last run of the cleanup. */
   private long maybeDoCleanup(long lastCleanup, long ttlMs) {
     long now = getCurrentTimeMillis();
     long cleanTime = now - ttlMs;

@@ -34,7 +34,7 @@ import lombok.experimental.Delegate;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class LogObservers {
+public class CommitLogObservers {
 
   /** A strategy to use when maximal error count is reached. */
   public enum TerminationStrategy {
@@ -272,7 +272,7 @@ public class LogObservers {
     }
   }
 
-  private LogObservers() {}
+  private CommitLogObservers() {}
 
   private abstract static class AbstractSortedLogObserver implements CommitLogObserver {
 

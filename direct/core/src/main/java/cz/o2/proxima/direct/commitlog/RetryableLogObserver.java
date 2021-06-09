@@ -17,7 +17,7 @@ package cz.o2.proxima.direct.commitlog;
 
 import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.annotations.Internal;
-import cz.o2.proxima.direct.commitlog.LogObservers.TerminationStrategy;
+import cz.o2.proxima.direct.commitlog.CommitLogObservers.TerminationStrategy;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.storage.StreamElement;
 import lombok.Getter;

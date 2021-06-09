@@ -15,7 +15,7 @@
  */
 package cz.o2.proxima.direct.commitlog;
 
-import cz.o2.proxima.direct.commitlog.LogObservers.TerminationStrategy;
+import cz.o2.proxima.direct.commitlog.CommitLogObservers.TerminationStrategy;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.storage.StreamElement;

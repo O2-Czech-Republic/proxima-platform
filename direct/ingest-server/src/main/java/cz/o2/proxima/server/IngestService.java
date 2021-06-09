@@ -15,21 +15,30 @@
  */
 package cz.o2.proxima.server;
 
-import static cz.o2.proxima.server.IngestServer.ingestRequest;
-import static cz.o2.proxima.server.IngestServer.notFound;
-import static cz.o2.proxima.server.IngestServer.status;
+import static cz.o2.proxima.server.IngestServer.*;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 import com.google.protobuf.TextFormat;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.proto.service.IngestServiceGrpc;
 import cz.o2.proxima.proto.service.Rpc;
+import cz.o2.proxima.proto.service.Rpc.Ingest;
+import cz.o2.proxima.proto.service.Rpc.Status;
+import cz.o2.proxima.proto.service.Rpc.TransactionCommitRequest;
+import cz.o2.proxima.proto.service.Rpc.TransactionCommitResponse;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.server.metrics.Metrics;
+import cz.o2.proxima.server.transaction.TransactionContext;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.util.Pair;
 import io.grpc.stub.StreamObserver;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -40,6 +49,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** The ingestion service. */
@@ -48,13 +59,18 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
 
   private final Repository repo;
   private final DirectDataOperator direct;
+  private final TransactionContext transactionContext;
   private final ScheduledExecutorService scheduler;
 
   public IngestService(
-      Repository repo, DirectDataOperator direct, ScheduledExecutorService scheduler) {
+      Repository repo,
+      DirectDataOperator direct,
+      TransactionContext transactionContext,
+      ScheduledExecutorService scheduler) {
 
     this.repo = repo;
     this.direct = direct;
+    this.transactionContext = transactionContext;
     this.scheduler = scheduler;
   }
 
@@ -73,18 +89,26 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     public void onNext(Rpc.Ingest request) {
       Metrics.INGEST_SINGLE.increment();
       inflightRequests.incrementAndGet();
-      processSingleIngest(
-          request,
-          status -> {
-            synchronized (responseObserverLock) {
-              responseObserver.onNext(status);
-            }
-            if (inflightRequests.decrementAndGet() == 0) {
-              synchronized (inflightRequestsLock) {
-                inflightRequestsLock.notifyAll();
+      if (!Strings.isNullOrEmpty(request.getTransactionId())) {
+        responseObserver.onNext(
+            status(
+                request.getUuid(),
+                403,
+                "Please use ingestBulk when committing outputs of a transaction."));
+      } else {
+        processSingleIngest(
+            request,
+            status -> {
+              synchronized (responseObserverLock) {
+                responseObserver.onNext(status);
               }
-            }
-          });
+              if (inflightRequests.decrementAndGet() == 0) {
+                synchronized (inflightRequestsLock) {
+                  inflightRequestsLock.notifyAll();
+                }
+              }
+            });
+      }
     }
 
     @Override
@@ -196,26 +220,79 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
       Metrics.INGEST_BULK.increment();
       Metrics.BULK_SIZE.increment(bulk.getIngestCount());
       inflightRequests.addAndGet(bulk.getIngestCount());
-      bulk.getIngestList()
-          .stream()
-          .forEach(
-              r ->
-                  processSingleIngest(
-                      r,
-                      status -> {
-                        statusQueue.add(status);
-                        if (statusQueue.size() >= MAX_QUEUED_STATUSES) {
-                          // enqueue flush
-                          lastFlushMs.set(0L);
-                          scheduler.execute(flushTask);
-                        }
-                        if (inflightRequests.decrementAndGet() == 0) {
-                          // there is no more inflight requests
-                          synchronized (inflightRequestsLock) {
-                            inflightRequestsLock.notifyAll();
-                          }
-                        }
-                      }));
+      Map<String, List<Ingest>> groupedByTransaction =
+          bulk.getIngestList().stream().collect(Collectors.groupingBy(Ingest::getTransactionId));
+
+      List<Rpc.Ingest> nonTransactionalWrites =
+          MoreObjects.firstNonNull(groupedByTransaction.remove(""), Collections.emptyList());
+
+      handleNonTransactionalWrites(nonTransactionalWrites);
+      groupedByTransaction.forEach(this::handleTransactionalWrites);
+    }
+
+    private void handleTransactionalWrites(String transactionId, List<Rpc.Ingest> writes) {
+      List<Pair<Ingest, StreamElement>> outputs =
+          writes
+              .stream()
+              .map(r -> Pair.of(r, validateAndConvertToStreamElement(r, createRpcConsumer(r))))
+              .collect(Collectors.toList());
+      if (outputs.stream().anyMatch(p -> p.getSecond() == null)) {
+        // when we have a single fail in the transaction we need to discard the complete outputs
+        outputs
+            .stream()
+            .filter(p -> p.getSecond() != null)
+            .forEach(
+                p ->
+                    createRpcConsumer(p.getFirst())
+                        .accept(
+                            status(
+                                p.getFirst().getUuid(),
+                                412,
+                                "Invalid update was part of transaction " + transactionId)));
+
+        transactionContext.get(transactionId).rollback();
+      } else {
+        List<StreamElement> toWrite =
+            outputs.stream().map(Pair::getSecond).collect(Collectors.toList());
+        transactionContext.get(transactionId).addOutputs(toWrite);
+        writes.forEach(r -> createRpcConsumer(r).accept(ok(r.getUuid())));
+      }
+    }
+
+    private void handleNonTransactionalWrites(List<Ingest> writes) {
+      writes.forEach(r -> processSingleIngest(r, createRpcConsumer(r)));
+    }
+
+    private Consumer<Status> createRpcConsumer(Rpc.Ingest request) {
+      boolean needsCommit = !request.getTransactionId().isEmpty();
+      return status -> {
+        if (needsCommit) {
+          log.info(
+              "Uncommitted input ingest {}: {}, {}, waiting for transaction {}",
+              TextFormat.shortDebugString(request),
+              status.getStatus(),
+              status.getStatus() == 200 ? "OK" : status.getStatusMessage(),
+              request.getTransactionId());
+        } else {
+          log.info(
+              "Committed input ingest {}: {}, {}",
+              TextFormat.shortDebugString(request),
+              status.getStatus(),
+              status.getStatus() == 200 ? "OK" : status.getStatusMessage());
+        }
+        statusQueue.add(status);
+        if (statusQueue.size() >= MAX_QUEUED_STATUSES) {
+          // enqueue flush
+          lastFlushMs.set(0L);
+          scheduler.execute(flushTask);
+        }
+        if (inflightRequests.decrementAndGet() == 0) {
+          // there is no more inflight requests
+          synchronized (inflightRequestsLock) {
+            inflightRequestsLock.notifyAll();
+          }
+        }
+      };
     }
 
     @Override
@@ -231,13 +308,14 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
       completed.set(true);
       flushFuture.cancel(true);
       // flush all responses to the observer
-      synchronized (inflightRequests) {
+      synchronized (inflightRequestsLock) {
         while (inflightRequests.get() > 0) {
           try {
-            inflightRequests.wait(100);
+            inflightRequestsLock.wait(100);
           } catch (InterruptedException ex) {
             log.warn("Interrupted while waiting to send responses to client", ex);
             Thread.currentThread().interrupt();
+            break;
           }
         }
       }
@@ -250,27 +328,17 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
   }
 
   private void processSingleIngest(Rpc.Ingest request, Consumer<Rpc.Status> consumer) {
-
     if (log.isDebugEnabled()) {
       log.debug("Processing input ingest {}", TextFormat.shortDebugString(request));
     }
-    Consumer<Rpc.Status> loggingConsumer =
-        rpc -> {
-          log.info(
-              "Input ingest {}: {}, {}",
-              TextFormat.shortDebugString(request),
-              rpc.getStatus(),
-              rpc.getStatus() == 200 ? "OK" : rpc.getStatusMessage());
-          consumer.accept(rpc);
-        };
     Metrics.INGESTS.increment();
     try {
-      if (!writeRequest(request, loggingConsumer)) {
+      if (!writeRequest(request, consumer)) {
         Metrics.INVALID_REQUEST.increment();
       }
     } catch (Exception err) {
       log.error("Error processing user request {}", TextFormat.shortDebugString(request), err);
-      loggingConsumer.accept(status(request.getUuid(), 500, err.getMessage()));
+      consumer.accept(status(request.getUuid(), 500, err.getMessage()));
     }
   }
 
@@ -279,18 +347,28 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
    * the request is invalid.
    */
   private boolean writeRequest(Rpc.Ingest request, Consumer<Rpc.Status> consumer) {
+    StreamElement element = validateAndConvertToStreamElement(request, consumer);
+    if (element == null) {
+      return false;
+    }
+    return ingestRequest(direct, element, request.getUuid(), consumer);
+  }
+
+  @Nullable
+  private StreamElement validateAndConvertToStreamElement(
+      Ingest request, Consumer<Rpc.Status> consumer) {
 
     if (Strings.isNullOrEmpty(request.getKey())
         || Strings.isNullOrEmpty(request.getEntity())
         || Strings.isNullOrEmpty(request.getAttribute())) {
       consumer.accept(status(request.getUuid(), 400, "Missing required fields in input message"));
-      return false;
+      return null;
     }
     Optional<EntityDescriptor> entity = repo.findEntity(request.getEntity());
 
     if (!entity.isPresent()) {
       consumer.accept(notFound(request.getUuid(), "Entity " + request.getEntity() + " not found"));
-      return false;
+      return null;
     }
     Optional<AttributeDescriptor<Object>> attr = entity.get().findAttribute(request.getAttribute());
     if (!attr.isPresent()) {
@@ -302,10 +380,9 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
                   + " of entity "
                   + entity.get().getName()
                   + " not found"));
-      return false;
+      return null;
     }
-    return ingestRequest(
-        direct, toStreamElement(request, entity.get(), attr.get()), request.getUuid(), consumer);
+    return toStreamElement(request, entity.get(), attr.get());
   }
 
   @Override
@@ -335,6 +412,45 @@ public class IngestService extends IngestServiceGrpc.IngestServiceImplBase {
     // in single flush thread
 
     return new IngestBulkObserver(responseObserver);
+  }
+
+  @Override
+  public void commit(
+      TransactionCommitRequest request,
+      StreamObserver<TransactionCommitResponse> responseObserver) {
+
+    log.info("Committing transaction {}", request.getTransactionId());
+    try {
+      transactionContext
+          .get(request.getTransactionId())
+          .commit(
+              (succ, exc) -> {
+                if (exc != null) {
+                  log.warn(
+                      "Error during committing transaction {}", request.getTransactionId(), exc);
+                }
+                responseObserver.onNext(
+                    TransactionCommitResponse.newBuilder()
+                        .setStatus(
+                            succ
+                                ? TransactionCommitResponse.Status.COMMITTED
+                                : TransactionCommitResponse.Status.FAILED)
+                        .build());
+              });
+    } catch (TransactionRejectedException e) {
+      log.info("Transaction {} rejected.", request.getTransactionId());
+      responseObserver.onNext(
+          TransactionCommitResponse.newBuilder()
+              .setStatus(TransactionCommitResponse.Status.REJECTED)
+              .build());
+    } catch (Exception err) {
+      log.error("Error during committing transaction {}", request.getTransactionId(), err);
+      responseObserver.onNext(
+          TransactionCommitResponse.newBuilder()
+              .setStatus(TransactionCommitResponse.Status.FAILED)
+              .build());
+    }
+    responseObserver.onCompleted();
   }
 
   private static StreamElement toStreamElement(

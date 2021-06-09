@@ -23,6 +23,7 @@ import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.Transaction;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.repository.AttributeDescriptor;
@@ -34,15 +35,14 @@ import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
-import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.TransformationRunner;
+import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
@@ -54,9 +54,11 @@ public class TransactionalOnlineAttributeWriterTest {
   private final Repository repo = Repository.ofTest(ConfigFactory.load("test-transactions.conf"));
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor gateway = repo.getEntity("gateway");
+  private final EntityDescriptor user = repo.getEntity("user");
   private final AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
   private final AttributeDescriptor<byte[]> device = gateway.getAttribute("device.*");
-  private final BlockingQueue<Response> toReturn = new ArrayBlockingQueue<>(100);
+  private final AttributeDescriptor<byte[]> userGateways = user.getAttribute("gateway.*");
+  private final Deque<Response> toReturn = new ArrayDeque<>(100);
 
   private ServerTransactionManager manager;
 
@@ -70,8 +72,8 @@ public class TransactionalOnlineAttributeWriterTest {
           String transactionId = ingest.getKey();
           if (ingest.getAttributeDescriptor().equals(manager.getRequestDesc())) {
             String responseId = manager.getRequestDesc().extractSuffix(ingest.getAttribute());
-            Response response = ExceptionUtils.uncheckedFactory(toReturn::take);
-            Request request = manager.getRequestDesc().valueOf(ingest).get();
+            Request request = Optionals.get(manager.getRequestDesc().valueOf(ingest));
+            Response response = Optional.ofNullable(toReturn.poll()).orElse(Response.empty());
             CommitCallback toCommit = context::commit;
             if (response.getFlags() == Response.Flags.OPEN) {
               toCommit = CommitCallback.afterNumCommits(2, context::commit);
@@ -87,11 +89,13 @@ public class TransactionalOnlineAttributeWriterTest {
           }
           return true;
         });
+    TransformationRunner.runTransformations(repo, direct);
   }
 
   @After
   public void tearDown() {
     manager.close();
+    direct.close();
   }
 
   @Test(timeout = 10_000)
@@ -102,8 +106,8 @@ public class TransactionalOnlineAttributeWriterTest {
     assertTrue(writer.isTransactional());
     // we successfully open and commit the transaction
     long stamp = 1234567890000L;
-    toReturn.put(Response.open(1L, stamp));
-    toReturn.put(Response.committed());
+    toReturn.add(Response.forRequest(anyRequest()).open(1L, stamp));
+    toReturn.add(Response.forRequest(anyRequest()).committed());
     CountDownLatch latch = new CountDownLatch(1);
     writer.write(
         StreamElement.upsert(
@@ -138,9 +142,9 @@ public class TransactionalOnlineAttributeWriterTest {
     assertTrue(writer.isTransactional());
     long stamp = 123456789000L;
     // we successfully open and commit the transaction
-    toReturn.put(Response.open(1L, stamp));
-    toReturn.put(Response.updated());
-    toReturn.put(Response.committed());
+    toReturn.add(Response.forRequest(anyRequest()).open(1L, stamp));
+    toReturn.add(Response.forRequest(anyRequest()).updated());
+    toReturn.add(Response.forRequest(anyRequest()).committed());
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
     try (TransactionalOnlineAttributeWriter.Transaction t = writer.transactional().begin()) {
       t.update(Collections.singletonList(ka));
@@ -184,9 +188,9 @@ public class TransactionalOnlineAttributeWriterTest {
       assertTrue(writer.isTransactional());
       long stamp = 123456789000L;
       // we successfully open and commit the transaction
-      toReturn.put(Response.open(1L, stamp));
-      toReturn.put(Response.updated());
-      toReturn.put(Response.committed());
+      toReturn.add(Response.forRequest(anyRequest()).open(1L, stamp));
+      toReturn.add(Response.forRequest(anyRequest()).updated());
+      toReturn.add(Response.forRequest(anyRequest()).committed());
       KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
       try (TransactionalOnlineAttributeWriter.Transaction t = writer.transactional().begin()) {
         t.update(Collections.singletonList(ka));
@@ -248,9 +252,9 @@ public class TransactionalOnlineAttributeWriterTest {
     assertTrue(writer.isTransactional());
     long stamp = 123456789000L;
     // we successfully open and commit the transaction
-    toReturn.put(Response.open(1L, stamp));
-    toReturn.put(Response.updated());
-    toReturn.put(Response.aborted());
+    toReturn.add(Response.forRequest(anyRequest()).open(1L, stamp));
+    toReturn.add(Response.forRequest(anyRequest()).updated());
+    toReturn.add(Response.forRequest(anyRequest()).aborted());
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(gateway, "key", status, 1L);
     try (TransactionalOnlineAttributeWriter.Transaction t = writer.transactional().begin()) {
       t.update(Collections.singletonList(ka));
@@ -279,8 +283,8 @@ public class TransactionalOnlineAttributeWriterTest {
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
     assertTrue(writer.isTransactional());
     // we successfully open and commit the transaction
-    toReturn.put(Response.open(1L, 123456789000L));
-    toReturn.put(Response.aborted());
+    toReturn.add(Response.forRequest(anyRequest()).open(1L, 123456789000L));
+    toReturn.add(Response.forRequest(anyRequest()).aborted());
     CountDownLatch latch = new CountDownLatch(1);
     writer.write(
         StreamElement.upsert(
@@ -298,5 +302,54 @@ public class TransactionalOnlineAttributeWriterTest {
           latch.countDown();
         });
     latch.await();
+  }
+
+  @Test(timeout = 10000)
+  public void testGlobalTransactionWriter()
+      throws InterruptedException, TransactionRejectedException {
+
+    TransactionalOnlineAttributeWriter writer = direct.getGlobalTransactionWriter();
+    assertTrue(user.isTransactional());
+    // we successfully open and commit the transaction
+    long stamp = 1234567890000L;
+    toReturn.add(Response.forRequest(anyRequest()).open(1L, stamp));
+    toReturn.add(Response.forRequest(anyRequest()).committed());
+    try (Transaction t = writer.begin()) {
+      CachedView view = Optionals.get(direct.getCachedView(userGateways));
+      view.assign(view.getPartitions());
+      CountDownLatch latch = new CountDownLatch(1);
+      t.commitWrite(
+          Collections.singletonList(
+              StreamElement.upsert(
+                  user,
+                  userGateways,
+                  UUID.randomUUID().toString(),
+                  "key",
+                  userGateways.toAttributePrefix() + "gw1",
+                  System.currentTimeMillis(),
+                  new byte[] {1, 2, 3})),
+          (succ, exc) -> {
+            assertTrue(succ);
+            assertNull(exc);
+            latch.countDown();
+          });
+      latch.await();
+      Optional<KeyValue<byte[]>> res;
+      while (true) {
+        res = view.get("key", userGateways.toAttributePrefix() + "gw1", userGateways);
+        if (res.isPresent()) {
+          break;
+        }
+        TimeUnit.MILLISECONDS.sleep(100);
+      }
+      assertEquals("key", res.get().getKey());
+      assertTrue(res.get().hasSequentialId());
+      assertEquals(1L, res.get().getSequentialId());
+      assertEquals(stamp, res.get().getStamp());
+    }
+  }
+
+  private Request anyRequest() {
+    return Request.builder().build();
   }
 }

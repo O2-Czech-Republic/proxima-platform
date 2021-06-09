@@ -18,7 +18,10 @@ package cz.o2.proxima.direct.transaction;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnRepartitionContext;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.transaction.TransactionResourceManager.CachedTransaction;
@@ -26,6 +29,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
+import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import cz.o2.proxima.transaction.Request;
@@ -52,6 +56,8 @@ public class TransactionResourceManagerTest {
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final AttributeDescriptor<?> status = gateway.getAttribute("status");
+  private final EntityDescriptor user = repo.getEntity("user");
+  private final AttributeDescriptor<byte[]> allGateways = user.getAttribute("gateway.*");
   private final EntityDescriptor transaction = repo.getEntity("_transaction");
   private final Wildcard<Request> requestDesc =
       Wildcard.of(transaction, transaction.getAttribute("request.*"));
@@ -87,7 +93,8 @@ public class TransactionResourceManagerTest {
                     latch.countDown();
                   });
               ExceptionUtils.ignoringInterrupted(latch::await);
-              manager.writeResponse(key, requestId, Response.open(1L, stamp), context::commit);
+              manager.writeResponse(
+                  key, requestId, Response.forRequest(request).open(1L, stamp), context::commit);
             } else {
               context.confirm();
             }
@@ -138,13 +145,15 @@ public class TransactionResourceManagerTest {
                     State.open(1L, stamp, Collections.emptyList())
                         .committed(new HashSet<>(request.getOutputAttributes())),
                     commit);
-                manager.writeResponse(key, requestId, Response.committed(), commit);
+                manager.writeResponse(
+                    key, requestId, Response.forRequest(request).committed(), commit);
               } else {
                 manager.setCurrentState(
                     key,
                     State.open(1L, stamp, new HashSet<>(request.getInputAttributes())),
                     commit);
-                manager.writeResponse(key, requestId, Response.open(1L, stamp), commit);
+                manager.writeResponse(
+                    key, requestId, Response.forRequest(request).open(1L, stamp), commit);
               }
               ExceptionUtils.ignoringInterrupted(latch::await);
             } else {
@@ -196,13 +205,15 @@ public class TransactionResourceManagerTest {
               long stamp = System.currentTimeMillis();
               if (request.getFlags() == Request.Flags.ROLLBACK) {
                 manager.setCurrentState(key, null, commit);
-                manager.writeResponse(key, requestId, Response.aborted(), commit);
+                manager.writeResponse(
+                    key, requestId, Response.forRequest(request).aborted(), commit);
               } else if (request.getFlags() == Request.Flags.OPEN) {
                 manager.setCurrentState(
                     key,
                     State.open(1L, stamp, new HashSet<>(request.getInputAttributes())),
                     commit);
-                manager.writeResponse(key, requestId, Response.open(1L, stamp), commit);
+                manager.writeResponse(
+                    key, requestId, Response.forRequest(request).open(1L, stamp), commit);
               }
               ExceptionUtils.ignoringInterrupted(latch::await);
             } else {
@@ -258,13 +269,15 @@ public class TransactionResourceManagerTest {
                     State.open(1L, stamp, Collections.emptyList())
                         .update(new HashSet<>(request.getInputAttributes())),
                     commit);
-                manager.writeResponse(key, requestId, Response.updated(), commit);
+                manager.writeResponse(
+                    key, requestId, Response.forRequest(request).updated(), commit);
               } else {
                 manager.setCurrentState(
                     key,
                     State.open(1L, stamp, new HashSet<>(request.getInputAttributes())),
                     commit);
-                manager.writeResponse(key, requestId, Response.open(1L, stamp), commit);
+                manager.writeResponse(
+                    key, requestId, Response.forRequest(request).open(1L, stamp), commit);
               }
               ExceptionUtils.ignoringInterrupted(latch::await);
             } else {
@@ -288,6 +301,8 @@ public class TransactionResourceManagerTest {
       Pair<String, Response> response = receivedResponses.take();
       assertEquals("update", response.getFirst());
       assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
+      State currentState = manager.getCurrentState(transactionId);
+      assertEquals("gw2", Iterables.getOnlyElement(currentState.getInputAttributes()).getKey());
     }
   }
 
@@ -309,5 +324,55 @@ public class TransactionResourceManagerTest {
                   .committed(Collections.singletonList(ka)));
       assertEquals("transaction", transaction.getTransactionId());
     }
+  }
+
+  @Test(timeout = 10000)
+  public void testTransactionWriteToCorrectFamily() throws InterruptedException {
+    KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(user, "u", allGateways, 1L, "gw");
+    long stamp = System.currentTimeMillis();
+    try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
+      CountDownLatch repatitionLatch = new CountDownLatch(1);
+      manager.runObservations(
+          "name",
+          new CommitLogObserver() {
+            @Override
+            public boolean onNext(StreamElement ingest, OnNextContext context) {
+              return true;
+            }
+
+            @Override
+            public void onRepartition(OnRepartitionContext context) {
+              repatitionLatch.countDown();
+            }
+          });
+      CachedTransaction transaction =
+          manager.createCachedTransaction(
+              "transaction",
+              State.open(2L, stamp + 1, Collections.emptyList())
+                  .committed(Collections.singletonList(ka)),
+              (a, b) -> {});
+      transaction.open(Collections.singletonList(ka));
+      repatitionLatch.await();
+      assertEquals(
+          Optionals.get(direct.getFamilyByName("all-transaction-commit-log-request").getWriter()),
+          transaction.getRequestWriter().getSecond());
+      assertEquals(
+          Optionals.get(direct.getFamilyByName("all-transaction-commit-log-response").getWriter()),
+          transaction.getResponseWriter());
+      assertEquals(
+          direct.getFamilyByName("all-transaction-commit-log-state").getCachedView().get(),
+          transaction.getStateView());
+    }
+  }
+
+  @Test
+  public void testParsingTransactionConfig() {
+    Repository repo =
+        Repository.of(
+            ConfigFactory.parseString("transactions.timeout = 1000")
+                .withFallback(ConfigFactory.load("test-transactions.conf")));
+    ServerTransactionManager manager =
+        repo.getOrCreateOperator(DirectDataOperator.class).getServerTransactionManager();
+    assertEquals(1000L, ((TransactionResourceManager) manager).getTransactionTimeoutMs());
   }
 }

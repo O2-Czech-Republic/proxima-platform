@@ -67,6 +67,14 @@ public interface ServerTransactionManager extends AutoCloseable, TransactionMana
   void setCurrentState(String transactionId, @Nullable State state, CommitCallback callback);
 
   /**
+   * Ensure that the given transaction ID is initialized.
+   *
+   * @param transactionId ID of the transaction
+   * @param state the state that the transaction is supposed to have
+   */
+  void ensureTransactionOpen(String transactionId, State state);
+
+  /**
    * Write response for a request to the caller.
    *
    * @param transactionId ID of transaction
@@ -79,4 +87,10 @@ public interface ServerTransactionManager extends AutoCloseable, TransactionMana
 
   @Override
   void close();
+
+  /**
+   * Called by the server to signal that the manager should reclaim any resources that are not
+   * needed anymore.
+   */
+  void houseKeeping();
 }

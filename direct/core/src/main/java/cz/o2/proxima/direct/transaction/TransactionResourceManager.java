@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObservers;
 import cz.o2.proxima.direct.commitlog.LogObservers.ForwardingObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
@@ -48,6 +49,10 @@ import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -55,14 +60,17 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -81,7 +89,7 @@ public class TransactionResourceManager
 
   @VisibleForTesting
   static TransactionResourceManager create(DirectDataOperator direct) {
-    return new TransactionResourceManager(direct);
+    return new TransactionResourceManager(direct, Collections.emptyMap());
   }
 
   private class CachedWriters implements AutoCloseable {
@@ -120,7 +128,7 @@ public class TransactionResourceManager
       if (stateView == null) {
         stateView = stateViews.get(family);
         Preconditions.checkState(
-            stateViews != null, "StateView not initialized for family %s", family);
+            stateView != null, "StateView not initialized for family %s", family);
       }
       return stateView;
     }
@@ -130,6 +138,7 @@ public class TransactionResourceManager
   class CachedTransaction implements AutoCloseable {
 
     @Getter final String transactionId;
+    @Getter final long created = System.currentTimeMillis();
     final Map<AttributeDescriptor<?>, DirectAttributeFamilyDescriptor> attributeToFamily =
         new HashMap<>();
     final Thread owningThread = Thread.currentThread();
@@ -144,7 +153,7 @@ public class TransactionResourceManager
         @Nullable BiConsumer<String, Response> responseConsumer) {
 
       this.transactionId = transactionId;
-      attributeToFamily.putAll(
+      this.attributeToFamily.putAll(
           findFamilyForTransactionalAttribute(
               attributes
                   .stream()
@@ -155,14 +164,17 @@ public class TransactionResourceManager
 
     void open(List<KeyAttribute> inputAttrs) {
       checkThread();
+      log.debug("Opening transaction {} with inputAttrs {}", transactionId, inputAttrs);
       Preconditions.checkState(responseConsumer != null);
       addTransactionResponseConsumer(
-          transactionId, attributeToFamily.get(requestDesc), responseConsumer);
+          transactionId, attributeToFamily.get(responseDesc), responseConsumer);
       sendRequest(Request.builder().flags(Flags.OPEN).inputAttributes(inputAttrs).build(), "open");
     }
 
     public void commit(List<KeyAttribute> outputAttributes) {
       checkThread();
+      log.debug(
+          "Committing transaction {} with outputAttributes {}", transactionId, outputAttributes);
       sendRequest(
           Request.builder().flags(Request.Flags.COMMIT).outputAttributes(outputAttributes).build(),
           "commit");
@@ -170,22 +182,36 @@ public class TransactionResourceManager
 
     public void update(List<KeyAttribute> addedAttributes) {
       checkThread();
+      log.debug("Updating transaction {} with addedAttributes {}", transactionId, addedAttributes);
       sendRequest(
-          Request.builder().flags(Request.Flags.UPDATE).outputAttributes(addedAttributes).build(),
+          Request.builder().flags(Request.Flags.UPDATE).inputAttributes(addedAttributes).build(),
           "update");
     }
 
     public void rollback() {
       checkThread();
+      log.debug("Rolling back transaction {} (cached {})", transactionId, this);
       sendRequest(Request.builder().flags(Flags.ROLLBACK).build(), "rollback");
     }
 
     private void sendRequest(Request request, String requestId) {
       CountDownLatch latch = new CountDownLatch(1);
       AtomicReference<Throwable> error = new AtomicReference<>();
-      getRequestWriter()
+      Pair<List<Integer>, OnlineAttributeWriter> writerWithAssignedPartitions = getRequestWriter();
+      Preconditions.checkState(
+          !writerWithAssignedPartitions.getFirst().isEmpty(),
+          "Received empty partitions to observe for responses to transactional "
+              + "requests. Please see if you have enough partitions and if your clients can correctly "
+              + "resolve hostnames");
+      writerWithAssignedPartitions
+          .getSecond()
           .write(
-              requestDesc.upsert(transactionId, requestId, System.currentTimeMillis(), request),
+              requestDesc.upsert(
+                  transactionId,
+                  requestId,
+                  System.currentTimeMillis(),
+                  request.withResponsePartitionId(
+                      pickOneAtRandom(writerWithAssignedPartitions.getFirst()))),
               (succ, exc) -> {
                 error.set(exc);
                 latch.countDown();
@@ -196,25 +222,32 @@ public class TransactionResourceManager
       }
     }
 
+    private int pickOneAtRandom(List<Integer> partitions) {
+      return partitions.get(ThreadLocalRandom.current().nextInt(partitions.size()));
+    }
+
     @Override
     public void close() {
       requestWriter = responseWriter = null;
       stateView = null;
     }
 
-    OnlineAttributeWriter getRequestWriter() {
+    Pair<List<Integer>, OnlineAttributeWriter> getRequestWriter() {
       checkThread();
       if (requestWriter == null) {
         DirectAttributeFamilyDescriptor family = attributeToFamily.get(requestDesc);
         requestWriter = getCachedAccessors(family).getOrCreateRequestWriter();
       }
-      return requestWriter;
+      DirectAttributeFamilyDescriptor responseFamile = attributeToFamily.get(responseDesc);
+      return Pair.of(
+          Objects.requireNonNull(clientObservedFamilies.get(responseFamile).getPartitions()),
+          requestWriter);
     }
 
     OnlineAttributeWriter getResponseWriter() {
       checkThread();
       if (responseWriter == null) {
-        DirectAttributeFamilyDescriptor family = attributeToFamily.get(requestDesc);
+        DirectAttributeFamilyDescriptor family = attributeToFamily.get(responseDesc);
         responseWriter = getCachedAccessors(family).getOrCreateResponseWriter();
       }
       return responseWriter;
@@ -222,7 +255,7 @@ public class TransactionResourceManager
 
     CachedView getStateView() {
       if (stateView == null) {
-        DirectAttributeFamilyDescriptor family = attributeToFamily.get(requestDesc);
+        DirectAttributeFamilyDescriptor family = attributeToFamily.get(stateDesc);
         stateView = getCachedAccessors(family).getOrCreateStateView();
       }
       return stateView;
@@ -245,6 +278,22 @@ public class TransactionResourceManager
     }
   }
 
+  private static class HandleWithAssignment {
+
+    @Getter private final List<Integer> partitions = new ArrayList<>();
+    @Getter ObserveHandle observeHandle = null;
+
+    public void assign(Collection<Partition> partitions) {
+      this.partitions.clear();
+      this.partitions.addAll(
+          partitions.stream().map(Partition::getId).collect(Collectors.toList()));
+    }
+
+    public void withHandle(ObserveHandle handle) {
+      this.observeHandle = handle;
+    }
+  }
+
   private final DirectDataOperator direct;
   @Getter private final EntityDescriptor transaction;
   @Getter private final Wildcard<Request> requestDesc;
@@ -254,29 +303,65 @@ public class TransactionResourceManager
   private final Map<String, CachedTransaction> openTransactionMap = new ConcurrentHashMap<>();
   private final Map<AttributeFamilyDescriptor, CachedWriters> cachedAccessors =
       new ConcurrentHashMap<>();
-  private final Map<DirectAttributeFamilyDescriptor, ObserveHandle> observedFamilies =
+  private final Map<DirectAttributeFamilyDescriptor, ObserveHandle> serverObservedFamilies =
+      new ConcurrentHashMap<>();
+  private final Map<DirectAttributeFamilyDescriptor, HandleWithAssignment> clientObservedFamilies =
       new ConcurrentHashMap<>();
   private final Map<DirectAttributeFamilyDescriptor, CachedView> stateViews =
       new ConcurrentHashMap<>();
   private final Map<String, BiConsumer<String, Response>> transactionResponseConsumers =
       new ConcurrentHashMap<>();
 
-  public TransactionResourceManager(DirectDataOperator direct) {
+  @Getter(AccessLevel.PACKAGE)
+  private final long transactionTimeoutMs;
+
+  public TransactionResourceManager(DirectDataOperator direct, Map<String, Object> cfg) {
     this.direct = direct;
     this.transaction = direct.getRepository().getEntity("_transaction");
     this.requestDesc = Wildcard.of(transaction, transaction.getAttribute("request.*"));
     this.responseDesc = Wildcard.of(transaction, transaction.getAttribute("response.*"));
     this.stateDesc = Regular.of(transaction, transaction.getAttribute("state"));
     this.commitDesc = Regular.of(transaction, transaction.getAttribute("commit"));
+    this.transactionTimeoutMs = getTransactionTimeout(cfg);
+
+    log.info(
+        "Created {} with transaction timeout {} ms",
+        getClass().getSimpleName(),
+        transactionTimeoutMs);
+  }
+
+  private long getTransactionTimeout(Map<String, Object> cfg) {
+    return Optional.ofNullable(cfg.get("timeout"))
+        .map(Object::toString)
+        .map(Long::parseLong)
+        .orElse(3600000L);
   }
 
   @Override
-  public synchronized void close() {
+  public void close() {
     openTransactionMap.forEach((k, v) -> v.close());
     cachedAccessors.forEach((k, v) -> v.close());
     openTransactionMap.clear();
     cachedAccessors.clear();
     transactionResponseConsumers.clear();
+    serverObservedFamilies.values().forEach(ObserveHandle::close);
+    serverObservedFamilies.clear();
+    clientObservedFamilies.values().forEach(p -> p.getObserveHandle().close());
+    clientObservedFamilies.clear();
+  }
+
+  @Override
+  public void houseKeeping() {
+    // FIXME: [PROXIMA-215]
+    long now = System.currentTimeMillis();
+    long releaseTime = now - transactionTimeoutMs;
+    openTransactionMap
+        .entrySet()
+        .stream()
+        .filter(e -> e.getValue().getCreated() < releaseTime)
+        .map(Map.Entry::getKey)
+        .collect(Collectors.toList())
+        .forEach(this::release);
   }
 
   /**
@@ -292,52 +377,105 @@ public class TransactionResourceManager
       CommitLogObserver requestObserver) {
 
     CommitLogObserver synchronizedObserver = LogObservers.synchronizedObserver(requestObserver);
-    direct
-        .getRepository()
-        .getAllFamilies(true)
-        .filter(af -> af.getAttributes().contains(requestDesc))
-        .map(
-            af ->
-                Pair.of(
-                    af.getName(),
-                    Optionals.get(direct.getFamilyByName(af.getName()).getCommitLogReader())))
+
+    List<Set<String>> families =
+        direct
+            .getRepository()
+            .getAllEntities()
+            .filter(EntityDescriptor::isTransactional)
+            .flatMap(e -> e.getAllAttributes().stream())
+            .filter(a -> a.getTransactionMode() != TransactionMode.NONE)
+            .map(AttributeDescriptor::getTransactionalManagerFamilies)
+            .map(Sets::newHashSet)
+            .distinct()
+            .collect(Collectors.toList());
+
+    CountDownLatch initializedLatch = new CountDownLatch(families.size());
+    families
+        .stream()
+        .map(this::toRequestStatePair)
         .forEach(
-            r ->
-                r.getSecond()
-                    .observe(
-                        name + "-" + r.getFirst(),
-                        hookForRepartitions(r.getFirst(), updateConsumer, synchronizedObserver)));
+            p -> {
+              DirectAttributeFamilyDescriptor requestFamily = p.getFirst();
+              DirectAttributeFamilyDescriptor stateFamily = p.getSecond();
+              log.info(
+                  "Starting to observe family {} with URI {}",
+                  requestFamily,
+                  requestFamily.getDesc().getStorageUri());
+              CommitLogReader reader = Optionals.get(requestFamily.getCommitLogReader());
+              serverObservedFamilies.put(
+                  requestFamily,
+                  reader.observe(
+                      name + "-" + requestFamily.getDesc().getName(),
+                      repartitionHookForView(
+                          stateFamily, updateConsumer, synchronizedObserver, initializedLatch)));
+            });
+    ExceptionUtils.unchecked(initializedLatch::await);
   }
 
-  private CommitLogObserver hookForRepartitions(
-      String family,
-      BiConsumer<StreamElement, Pair<Long, Object>> updateConsumer,
-      CommitLogObserver delegate) {
+  private Pair<DirectAttributeFamilyDescriptor, DirectAttributeFamilyDescriptor> toRequestStatePair(
+      Collection<String> families) {
 
-    DirectAttributeFamilyDescriptor directFamily = direct.getFamilyByName(family);
+    List<DirectAttributeFamilyDescriptor> candidates =
+        families
+            .stream()
+            .map(direct::getFamilyByName)
+            .filter(
+                af ->
+                    af.getAttributes().contains(requestDesc)
+                        || af.getAttributes().contains(stateDesc))
+            .collect(Collectors.toList());
+    Preconditions.checkState(candidates.size() < 3 && !candidates.isEmpty());
+    if (candidates.size() == 1) {
+      return Pair.of(candidates.get(0), candidates.get(0));
+    }
+    return candidates.get(0).getAttributes().contains(requestDesc)
+        ? Pair.of(candidates.get(0), candidates.get(1))
+        : Pair.of(candidates.get(1), candidates.get(0));
+  }
+
+  private CommitLogObserver repartitionHookForView(
+      DirectAttributeFamilyDescriptor stateFamily,
+      BiConsumer<StreamElement, Pair<Long, Object>> updateConsumer,
+      CommitLogObserver delegate,
+      CountDownLatch initializedLatch) {
+
     return new ForwardingObserver(delegate) {
+
+      @Override
+      public boolean onNext(StreamElement ingest, OnNextContext context) {
+        if (ingest.getStamp() > System.currentTimeMillis() - transactionTimeoutMs) {
+          super.onNext(ingest, context);
+        } else {
+          log.warn(
+              "Skipping request {} due to timeout. Current timeout specified as {}",
+              ingest,
+              transactionTimeoutMs);
+          context.confirm();
+        }
+        return true;
+      }
+
       @Override
       public void onRepartition(OnRepartitionContext context) {
-        super.onRepartition(context);
         CachedView view =
-            stateViews.computeIfAbsent(directFamily, f -> Optionals.get(f.getCachedView()));
+            stateViews.computeIfAbsent(stateFamily, f -> Optionals.get(f.getCachedView()));
         Set<Integer> partitionIds =
             context.partitions().stream().map(Partition::getId).collect(Collectors.toSet());
-        view.assign(
-            view.getPartitions()
-                .stream()
-                .filter(p -> partitionIds.contains(p.getId()))
-                .collect(Collectors.toList()),
-            updateConsumer);
+        if (!partitionIds.isEmpty()) {
+          Duration ttl = Duration.ofMillis(transactionTimeoutMs);
+          view.assign(
+              view.getPartitions()
+                  .stream()
+                  .filter(p -> partitionIds.contains(p.getId()))
+                  .collect(Collectors.toList()),
+              updateConsumer,
+              ttl);
+          initializedLatch.countDown();
+        }
+        super.onRepartition(context);
       }
     };
-  }
-
-  OnlineAttributeWriter getRequestWriter(String transactionId) {
-    CachedTransaction cachedTransaction = openTransactionMap.get(transactionId);
-    Preconditions.checkState(
-        cachedTransaction != null, "Transaction %s is not open", transactionId);
-    return cachedTransaction.getRequestWriter();
   }
 
   private void addTransactionResponseConsumer(
@@ -345,19 +483,35 @@ public class TransactionResourceManager
       DirectAttributeFamilyDescriptor responseFamily,
       BiConsumer<String, Response> responseConsumer) {
 
+    Preconditions.checkArgument(responseFamily.getAttributes().contains(responseDesc));
     transactionResponseConsumers.put(transactionId, responseConsumer);
-    observedFamilies.computeIfAbsent(
+    clientObservedFamilies.computeIfAbsent(
         responseFamily,
         k -> {
-          log.debug("Starting to observe family {}", k);
-          return Optionals.get(k.getCommitLogReader())
-              .observe(
-                  "transactionResponseObserver-" + k.getDesc().getName(),
-                  newTransactionResponseObserver());
+          log.debug("Starting to observe family {} with URI {}", k, k.getDesc().getStorageUri());
+          HandleWithAssignment assignment = new HandleWithAssignment();
+          assignment.withHandle(
+              Optionals.get(k.getCommitLogReader())
+                  .observe(
+                      newResponseObserverNameFor(k), newTransactionResponseObserver(assignment)));
+          return assignment;
         });
   }
 
-  private CommitLogObserver newTransactionResponseObserver() {
+  protected String newResponseObserverNameFor(DirectAttributeFamilyDescriptor k) {
+    String localhost = "localhost";
+    try {
+      localhost = InetAddress.getLocalHost().getHostAddress();
+    } catch (UnknownHostException e) {
+      log.warn("Error getting name of localhost, using {} instead.", localhost, e);
+    }
+    return "transactionResponseObserver-"
+        + k.getDesc().getName()
+        + (localhost.hashCode() & Integer.MAX_VALUE);
+  }
+
+  private CommitLogObserver newTransactionResponseObserver(HandleWithAssignment assignment) {
+    Preconditions.checkArgument(assignment != null);
     return new CommitLogObserver() {
 
       @Override
@@ -375,14 +529,19 @@ public class TransactionResourceManager
               log.error("Failed to parse response from {}", ingest);
             }
           } else {
-            log.warn(
-                "Missing consumer for transaction {} processing response {}",
+            log.debug(
+                "Missing consumer for transaction {} processing response {}. Ignoring.",
                 transactionId,
                 response.orElse(null));
           }
         }
         context.confirm();
         return true;
+      }
+
+      @Override
+      public void onRepartition(OnRepartitionContext context) {
+        assignment.assign(context.partitions());
       }
     };
   }
@@ -406,7 +565,6 @@ public class TransactionResourceManager
       BiConsumer<String, Response> responseConsumer,
       List<KeyAttribute> attributes) {
 
-    log.debug("Opening transaction {} with attributes {}", transactionId, attributes);
     CachedTransaction cachedTransaction =
         openTransactionMap.computeIfAbsent(
             transactionId, k -> new CachedTransaction(transactionId, attributes, responseConsumer));
@@ -445,6 +603,13 @@ public class TransactionResourceManager
     cachedTransaction.rollback();
   }
 
+  @Override
+  public void release(String transactionId) {
+    Optional.ofNullable(openTransactionMap.remove(transactionId))
+        .ifPresent(CachedTransaction::close);
+    transactionResponseConsumers.remove(transactionId);
+  }
+
   /**
    * Retrieve current state of the transaction.
    *
@@ -464,10 +629,7 @@ public class TransactionResourceManager
   public void setCurrentState(
       String transactionId, @Nullable State state, CommitCallback callback) {
 
-    CachedTransaction cachedTransaction =
-        openTransactionMap.computeIfAbsent(
-            transactionId, tmp -> createCachedTransaction(transactionId, state));
-
+    CachedTransaction cachedTransaction = getOrCreateCachedTransaction(transactionId, state);
     final StreamElement update;
     if (state != null) {
       update = stateDesc.upsert(transactionId, System.currentTimeMillis(), state);
@@ -477,8 +639,20 @@ public class TransactionResourceManager
     cachedTransaction.getStateView().write(update, callback);
   }
 
+  @Override
+  public void ensureTransactionOpen(String transactionId, State state) {
+    getOrCreateCachedTransaction(transactionId, state);
+  }
+
   @VisibleForTesting
   CachedTransaction createCachedTransaction(String transactionId, State state) {
+    return createCachedTransaction(transactionId, state, null);
+  }
+
+  @VisibleForTesting
+  CachedTransaction createCachedTransaction(
+      String transactionId, State state, BiConsumer<String, Response> responseConsumer) {
+
     final Collection<KeyAttribute> attributes;
     if (!state.getCommittedAttributes().isEmpty()) {
       HashSet<KeyAttribute> committedSet = Sets.newHashSet(state.getCommittedAttributes());
@@ -487,24 +661,32 @@ public class TransactionResourceManager
     } else {
       attributes = state.getInputAttributes();
     }
-    return new CachedTransaction(transactionId, attributes, null);
+    return new CachedTransaction(transactionId, attributes, responseConsumer);
   }
 
   @Override
   public void writeResponse(
       String transactionId, String responseId, Response response, CommitCallback callback) {
-    getCachedTransaction(transactionId)
-        .getResponseWriter()
-        .write(
-            responseDesc.upsert(transactionId, responseId, System.currentTimeMillis(), response),
-            callback);
+
+    CachedTransaction cachedTransaction = openTransactionMap.get(transactionId);
+    if (cachedTransaction != null) {
+      cachedTransaction
+          .getResponseWriter()
+          .write(
+              responseDesc.upsert(transactionId, responseId, System.currentTimeMillis(), response),
+              callback);
+    } else {
+      log.warn(
+          "Transaction {} is not open, don't have a writer to return response {}",
+          transactionId,
+          response);
+      callback.commit(true, null);
+    }
   }
 
-  private CachedTransaction getCachedTransaction(String transactionId) {
-    CachedTransaction cachedTransaction = openTransactionMap.get(transactionId);
-    Preconditions.checkState(
-        cachedTransaction != null, "Transaction %s is not currently open", transactionId);
-    return cachedTransaction;
+  private CachedTransaction getOrCreateCachedTransaction(String transactionId, State state) {
+    return openTransactionMap.computeIfAbsent(
+        transactionId, tmp -> createCachedTransaction(transactionId, state));
   }
 
   private Map<AttributeDescriptor<?>, DirectAttributeFamilyDescriptor>

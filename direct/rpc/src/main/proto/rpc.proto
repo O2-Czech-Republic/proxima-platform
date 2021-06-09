@@ -29,6 +29,7 @@ message Ingest {
   string uuid = 1;
   /** Name of the entity */
   string entity = 2;
+
   /** Name of the attribute.
     * Might be a wildcard specified (e.g. "prefix.*" if `delete` is true, meaning to delete the whole prefix.
     */
@@ -45,6 +46,11 @@ message Ingest {
    * if you want to delete an attribute.
    **/
   bool delete = 6;
+
+  /**
+   * Optional transaction ID associated with the ingest.
+   **/
+  string transactionId = 8;
 
 }
 
@@ -90,6 +96,25 @@ message StatusBulk {
 
 }
 
+message TransactionCommitRequest {
+
+  string transactionId = 1;
+
+}
+
+message TransactionCommitResponse {
+
+  enum Status {
+    UNKNOWN = 0;
+    COMMITTED = 1;
+    REJECTED = 2;
+    FAILED = 3;
+  }
+
+  Status status = 1;
+
+}
+
 /**
  * Ingest service serves as data entry point. All data
  * is sent to the system via this endpoint.
@@ -117,6 +142,11 @@ service IngestService {
    */
   rpc ingest (Ingest) returns (Status);
 
+  /**
+   * A synchronous request to commit a transaction.
+   */
+  rpc commit (TransactionCommitRequest) returns (TransactionCommitResponse);
+
 }
 
 /**
@@ -132,6 +162,12 @@ message GetRequest {
 
   /** Name of the attribute. */
   string attribute = 3;
+
+  /**
+   * ID of transaction that is part of this request (if any).
+   * If empty, the request is not part of any ongoing transaction.
+   */
+  string transactionId = 4;
 
 }
 
@@ -181,6 +217,12 @@ message ListRequest {
   /** Maximal number of items to return. If less or equal to zero than unlimited.*/
   uint32 limit = 5;
 
+  /**
+   * ID of transaction that is part of this request (if any).
+   * If empty, the request is not part of any ongoing transaction.
+   */
+  string transactionId = 6;
+
 }
 
 /**
@@ -221,6 +263,45 @@ message ListResponse {
 }
 
 /**
+ * A message describing entity-key-attribute without actual data.
+ * Transactions use this information to properly route requests to transaction managers
+ * that are able to ensure the required isolation level.
+ **/
+message KeyAttribute {
+
+  /** Name of entity. */
+  string entity = 1;
+  /** Key of entity. */
+  string key = 2;
+  /** The attribute. */
+  string attribute = 3;
+
+}
+
+message BeginTransactionRequest {
+
+  /**
+   * A list of entity-key-attributes that will be involved during the transaction.
+   * The list will be automatically updated as new requests with the same transaction ID
+   * arrive, but at least the outputs need to be known in advance.
+   * 
+   * An empty list will create a GLOBAL transaction, with resulting scalability concerns.
+   */
+  repeated KeyAttribute attributesInvolved = 1;
+
+  /** An optional transaction ID. When omitted a new transaction ID will be generated. */
+  string transcationId = 2;
+
+}
+
+message BeginTransactionResponse {
+
+  /** ID associated to the transcation. */
+  string transactionId = 1;
+
+}
+
+/**
  * Service that serves for retrieving data from the system
  * (via stream or random access calls).
  */
@@ -231,6 +312,12 @@ service RetrieveService {
 
   /** Synchronous request to list attributes of a specified entity by prefix. */
   rpc listAttributes (ListRequest) returns (ListResponse);
+
+  /**
+   * Synchronous request to begin a transaction.
+   * Returns most importantly the ID of the transaction that should be the used in subsequent read operations.
+   */
+  rpc begin (BeginTransactionRequest) returns (BeginTransactionResponse);
 
 }
 

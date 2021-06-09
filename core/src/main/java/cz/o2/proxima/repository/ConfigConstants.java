@@ -55,6 +55,12 @@ public class ConfigConstants {
   public static final String SCHEME_PROVIDER = "scheme-provider";
   public static final String TRANSACTION_ENTITY = "_transaction";
 
+  public static final String REQUEST_ATTRIBUTE = "request.*";
+  public static final String RESPONSE_ATTRIBUTE = "response.*";
+  public static final String RESPONSE_ATTRIBUTE_PREFIX = "response.";
+  public static final String STATE_ATTRIBUTE = "state";
+  public static final String COMMIT_ATTRIBUTE = "commit";
+
   private ConfigConstants() {
     // nop
   }

@@ -48,6 +48,7 @@ message ProtoRequest {
   repeated KeyAttribute inputAttribute = 1;
   repeated KeyAttribute outputAttribute = 2;
   Flags flags = 3;
+  int32 responsePartitionId = 4;
 }
 
 message ProtoResponse {

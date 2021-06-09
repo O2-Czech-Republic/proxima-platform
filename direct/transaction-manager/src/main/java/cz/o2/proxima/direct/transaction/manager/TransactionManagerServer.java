@@ -16,25 +16,17 @@
 package cz.o2.proxima.direct.transaction.manager;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.annotations.Experimental;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.LogObservers.ForwardingObserver;
-import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.DirectDataOperator;
-import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.direct.transaction.ServerTransactionManager;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.Repository;
-import cz.o2.proxima.util.ExceptionUtils;
-import cz.o2.proxima.util.Optionals;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -74,17 +66,14 @@ public class TransactionManagerServer {
     }
   }
 
-  private final Config conf;
-  private final Repository repo;
   private final DirectDataOperator direct;
-  private final List<ObserveHandle> runningObserves = new ArrayList<>();
+  private final ServerTransactionManager manager;
   private final TransactionLogObserverFactory observerFactory;
-  private AtomicBoolean closed = new AtomicBoolean();
+  private final AtomicBoolean closed = new AtomicBoolean();
 
   private TransactionManagerServer(Config conf, Repository repo) {
-    this.conf = conf;
-    this.repo = repo;
     this.direct = repo.getOrCreateOperator(DirectDataOperator.class);
+    this.manager = direct.getServerTransactionManager();
     this.observerFactory = getObserverFactory(conf);
   }
 
@@ -92,64 +81,27 @@ public class TransactionManagerServer {
     return new TransactionLogObserverFactory.Default();
   }
 
-  public synchronized void run() {
-    List<AttributeFamilyDescriptor> transactionFamilies = getTransactionFamilies();
-    Preconditions.checkArgument(
-        !transactionFamilies.isEmpty(),
-        "Repository contains no transactional families. No work, bailing out.");
-    CountDownLatch awaitingLatch = new CountDownLatch(transactionFamilies.size());
-    runInternal(transactionFamilies, awaitingLatch);
-    if (ExceptionUtils.ignoringInterrupted(awaitingLatch::await)) {
-      stop();
-    } else {
-      log.info("Started {}", getClass().getSimpleName());
-    }
+  public void run() {
+    manager.runObservations("transaction-manager", newTransformationLogObserver());
+    log.info("Started {}", getClass().getSimpleName());
   }
 
-  private List<AttributeFamilyDescriptor> getTransactionFamilies() {
-    return repo.getAllFamilies(true)
-        .filter(af -> af.getEntity().isSystemEntity())
-        .filter(af -> af.getEntity().getName().equals("_transaction"))
-        .collect(Collectors.toList());
-  }
-
-  private void runInternal(
-      List<AttributeFamilyDescriptor> transactionFamilies, CountDownLatch awaitingLatch) {
-
-    transactionFamilies.forEach(af -> startFamilyObserve(af, awaitingLatch));
-  }
-
-  private void startFamilyObserve(AttributeFamilyDescriptor family, CountDownLatch awaitingLatch) {
-    ObserveHandle handle =
-        Optionals.get(direct.getFamilyByName(family.getName()).getCommitLogReader())
-            .observe(getObserverName(family), newTransformationLogObserver(awaitingLatch));
-    runningObserves.add(handle);
-  }
-
-  private CommitLogObserver newTransformationLogObserver(CountDownLatch awaitingLatch) {
+  private CommitLogObserver newTransformationLogObserver() {
     return new ForwardingObserver(observerFactory.create(direct)) {
-      boolean repartitioned = false;
-
       @Override
-      public void onRepartition(OnRepartitionContext context) {
-        if (!repartitioned) {
-          awaitingLatch.countDown();
-          repartitioned = true;
-        }
-        super.onRepartition(context);
+      public boolean onError(Throwable error) {
+        super.onError(error);
+        log.error("Error processing transactions. Bailing out for safety.", error);
+        System.exit(1);
+        return false;
       }
     };
   }
 
-  protected String getObserverName(AttributeFamilyDescriptor family) {
-    return "transaction-manager-" + family.getName();
-  }
-
-  public synchronized void stop() {
-    if (!closed.getAndSet(true)) {
+  public void stop() {
+    if (closed.compareAndSet(false, true)) {
       log.info("{} shutting down.", getClass().getSimpleName());
-      runningObserves.forEach(ObserveHandle::close);
-      runningObserves.clear();
+      manager.close();
       direct.close();
     }
   }

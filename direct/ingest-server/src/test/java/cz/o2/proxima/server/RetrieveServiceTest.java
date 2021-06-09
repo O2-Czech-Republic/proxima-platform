@@ -25,6 +25,7 @@ import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.server.test.Test.ExtendedMessage;
+import cz.o2.proxima.server.transaction.TransactionContext;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.util.Optionals;
 import io.grpc.stub.StreamObserver;
@@ -48,7 +49,8 @@ public class RetrieveServiceTest {
             ConfigFactory.load("test-reference.conf")
                 .withFallback(ConfigFactory.load("test-ingest-server.conf"))
                 .resolve());
-    retrieve = new RetrieveService(server.repo, server.direct);
+    retrieve =
+        new RetrieveService(server.repo, server.direct, new TransactionContext(server.direct));
     server.runReplications();
   }
 

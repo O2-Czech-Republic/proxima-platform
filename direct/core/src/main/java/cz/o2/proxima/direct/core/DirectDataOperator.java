@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.core;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.Sets;
+import com.typesafe.config.Config;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.batch.BatchLogReader;
 import cz.o2.proxima.direct.batch.BatchLogReaders;
@@ -36,6 +37,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyProxyDescriptor;
 import cz.o2.proxima.repository.ConfigConstants;
+import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.Repository.Validate;
@@ -297,6 +299,22 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     }
   }
 
+  /**
+   * Retrieve a {@link TransactionalOnlineAttributeWriter} with GLOBAL transactions capable to
+   * fulfil any transactional requests.
+   *
+   * <p>Note that global transactions are required to be processed by a single instance of {@link
+   * cz.o2.proxima.direct.transaction.TransactionManager} and therefore are not scalable.
+   *
+   * <p>Use with caution.
+   *
+   * @return the global {@link TransactionalOnlineAttributeWriter} that is able to handle all
+   *     transactions
+   */
+  public TransactionalOnlineAttributeWriter getGlobalTransactionWriter() {
+    return TransactionalOnlineAttributeWriter.global(this);
+  }
+
   private void cacheOrRetrieveWriterFor(DirectAttributeFamilyDescriptor af) {
     Optional<AttributeWriterBase> maybeWriter = af.getWriter();
     if (maybeWriter.isPresent()) {
@@ -510,7 +528,12 @@ public class DirectDataOperator implements DataOperator, ContextProvider {
     if (transactionManager == null) {
       synchronized (this) {
         if (transactionManager == null) {
-          transactionManager = new TransactionResourceManager(this);
+          Config config = ((ConfigRepository) repo).getConfig();
+          Map<String, Object> cfg =
+              config.hasPath(ConfigConstants.TRANSACTIONS)
+                  ? config.getObject(ConfigConstants.TRANSACTIONS).unwrapped()
+                  : Collections.emptyMap();
+          transactionManager = new TransactionResourceManager(this, cfg);
         }
       }
     }

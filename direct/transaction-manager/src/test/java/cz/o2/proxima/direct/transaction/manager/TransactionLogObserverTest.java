@@ -17,6 +17,7 @@ package cz.o2.proxima.direct.transaction.manager;
 
 import static org.junit.Assert.*;
 
+import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -72,6 +73,18 @@ public class TransactionLogObserverTest {
   @After
   public void tearDown() {
     direct.close();
+  }
+
+  @Test
+  public void testErrorExits() {
+    try {
+      new TransactionLogObserverFactory.Rethrowing()
+          .create(direct)
+          .onError(new RuntimeException("error"));
+      fail("Should have thown exception");
+    } catch (RuntimeException ex) {
+      assertEquals("System.exit(1)", ex.getMessage());
+    }
   }
 
   @Test(timeout = 10000)
@@ -150,6 +163,12 @@ public class TransactionLogObserverTest {
     Pair<String, Response> response = responseQueue.take();
     assertEquals("update", response.getFirst());
     assertEquals(Response.Flags.UPDATED, response.getSecond().getFlags());
+    assertFalse(response.getSecond().hasStamp());
+    State currentState = direct.getServerTransactionManager().getCurrentState(transactionId);
+    assertNotNull(currentState);
+    assertEquals(2, currentState.getInputAttributes().size());
+    assertEquals("user", Iterables.get(currentState.getInputAttributes(), 0).getKey());
+    assertEquals("user2", Iterables.get(currentState.getInputAttributes(), 1).getKey());
   }
 
   @Test(timeout = 10000)

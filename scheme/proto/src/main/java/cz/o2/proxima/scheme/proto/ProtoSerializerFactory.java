@@ -365,15 +365,17 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
         case UNKNOWN:
           return Response.empty();
         case OPEN:
-          return Response.open(response.getSeqId(), response.getStamp());
+          return new Response(Response.Flags.OPEN, response.getSeqId(), response.getStamp(), -1);
         case COMMITTED:
-          return Response.committed();
+          return new Response(
+              Response.Flags.COMMITTED, response.getSeqId(), response.getStamp(), -1);
         case ABORTED:
-          return Response.aborted();
+          return new Response(Response.Flags.ABORTED, response.getSeqId(), response.getStamp(), -1);
         case DUPLICATE:
-          return Response.duplicate();
+          return new Response(
+              Response.Flags.DUPLICATE, response.getSeqId(), response.getStamp(), -1);
         case UPDATE:
-          return Response.updated();
+          return new Response(Response.Flags.UPDATED, response.getSeqId(), response.getStamp(), -1);
         default:
           throw new IllegalArgumentException("Unknown flag: " + response.getFlags());
       }
@@ -392,6 +394,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
           .addAllInputAttribute(asProtoKeyAttributes(request.getInputAttributes()))
           .addAllOutputAttribute(asProtoKeyAttributes(request.getOutputAttributes()))
           .setFlags(asFlags(request.getFlags()))
+          .setResponsePartitionId(request.getResponsePartitionId())
           .build();
     }
 
@@ -402,6 +405,7 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
           .outputAttributes(
               getKeyAttributesFromProto(repository, protoRequest.getOutputAttributeList()))
           .flags(asFlags(protoRequest.getFlags()))
+          .responsePartitionId(protoRequest.getResponsePartitionId())
           .build();
     }
 

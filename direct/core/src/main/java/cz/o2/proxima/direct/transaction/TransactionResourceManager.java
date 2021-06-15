@@ -21,9 +21,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObservers;
+import cz.o2.proxima.direct.commitlog.CommitLogObservers.ForwardingObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObservers;
-import cz.o2.proxima.direct.commitlog.LogObservers.ForwardingObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
@@ -376,7 +376,8 @@ public class TransactionResourceManager
       BiConsumer<StreamElement, Pair<Long, Object>> updateConsumer,
       CommitLogObserver requestObserver) {
 
-    CommitLogObserver synchronizedObserver = LogObservers.synchronizedObserver(requestObserver);
+    CommitLogObserver synchronizedObserver =
+        CommitLogObservers.synchronizedObserver(requestObserver);
 
     List<Set<String>> families =
         direct

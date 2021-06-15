@@ -19,9 +19,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Sets;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObservers;
+import cz.o2.proxima.direct.commitlog.CommitLogObservers.TerminationStrategy;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObservers;
-import cz.o2.proxima.direct.commitlog.LogObservers.TerminationStrategy;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.BulkAttributeWriter;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
@@ -404,7 +404,8 @@ public class ReplicationController {
             dataOperator, name, transformation, transform.isSupportTransactions(), filter);
     reader.observe(
         consumerName,
-        LogObservers.withNumRetriedExceptions(consumerName, 3, observer::onFatalError, observer));
+        CommitLogObservers.withNumRetriedExceptions(
+            consumerName, 3, observer::onFatalError, observer));
   }
 
   private void registerWriterTo(
@@ -491,7 +492,8 @@ public class ReplicationController {
             writer.updateWatermark(context.getWatermark());
           }
         };
-    return LogObservers.withNumRetriedExceptions(consumerName, 3, observer::onFatalError, observer);
+    return CommitLogObservers.withNumRetriedExceptions(
+        consumerName, 3, observer::onFatalError, observer);
   }
 
   /**
@@ -538,7 +540,8 @@ public class ReplicationController {
             context.confirm();
           }
         };
-    return LogObservers.withNumRetriedExceptions(consumerName, 3, observer::onFatalError, observer);
+    return CommitLogObservers.withNumRetriedExceptions(
+        consumerName, 3, observer::onFatalError, observer);
   }
 
   private void confirmWrite(

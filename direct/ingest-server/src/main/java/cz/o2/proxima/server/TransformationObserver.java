@@ -18,7 +18,7 @@ package cz.o2.proxima.server;
 import static cz.o2.proxima.server.IngestServer.ingestRequest;
 
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
-import cz.o2.proxima.direct.commitlog.LogObservers.TerminationStrategy;
+import cz.o2.proxima.direct.commitlog.CommitLogObservers.TerminationStrategy;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.repository.RepositoryFactory;
 import cz.o2.proxima.server.metrics.Metrics;

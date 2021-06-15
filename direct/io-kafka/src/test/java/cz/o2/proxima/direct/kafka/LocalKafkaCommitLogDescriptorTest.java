@@ -24,8 +24,8 @@ import com.google.common.collect.Lists;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnNextContext;
+import cz.o2.proxima.direct.commitlog.CommitLogObservers;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
-import cz.o2.proxima.direct.commitlog.LogObservers;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.Context;
@@ -1495,7 +1495,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final int numRetries = 3;
     final CountDownLatch latch = new CountDownLatch(numRetries);
     final CommitLogObserver observer =
-        LogObservers.withNumRetriedExceptions(
+        CommitLogObservers.withNumRetriedExceptions(
             "test",
             numRetries,
             new CommitLogObserver() {

@@ -172,7 +172,7 @@ public class CommitLogReaderTest {
     CountDownLatch latch = new CountDownLatch(1);
     AtomicInteger count = new AtomicInteger();
     final CommitLogObserver observer =
-        LogObservers.withNumRetriedExceptions(
+        CommitLogObservers.withNumRetriedExceptions(
             "test",
             2,
             new CommitLogObserver() {
@@ -261,7 +261,7 @@ public class CommitLogReaderTest {
     CountDownLatch latch = new CountDownLatch(100);
     reader.observe(
         "test",
-        LogObservers.withSortBuffer(
+        CommitLogObservers.withSortBuffer(
             new CommitLogObserver() {
 
               @Override
@@ -323,7 +323,7 @@ public class CommitLogReaderTest {
     CountDownLatch latch = new CountDownLatch(100);
     reader.observe(
         "test",
-        LogObservers.withSortBufferWithinPartition(
+        CommitLogObservers.withSortBufferWithinPartition(
             new CommitLogObserver() {
 
               @Override

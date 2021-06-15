@@ -20,7 +20,6 @@ import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
-import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.Transaction;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.server.IngestService;

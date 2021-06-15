@@ -20,7 +20,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.annotations.Experimental;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
-import cz.o2.proxima.direct.commitlog.LogObservers.ForwardingObserver;
+import cz.o2.proxima.direct.commitlog.CommitLogObservers.ForwardingObserver;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.transaction.ServerTransactionManager;
 import cz.o2.proxima.repository.ConfigRepository;

@@ -53,7 +53,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -371,6 +370,9 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           final Map<TopicPartition, Integer> emptyPollCount = new ConcurrentHashMap<>();
           final Map<TopicPartition, Integer> topicPartitionToId = new HashMap<>();
           final Duration pollDuration = Duration.ofMillis(consumerPollInterval);
+          final KafkaThroughputLimiter throughputLimiter =
+              new KafkaThroughputLimiter(maxBytesPerSec);
+
           consumerRef = new AtomicReference<>();
           consumer.onStart();
           ConsumerRebalanceListener listener =
@@ -410,6 +412,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
             latch.countDown();
 
             AtomicReference<Throwable> error = new AtomicReference<>();
+            long pollTimeMs = 0L;
+
             do {
               if (poll.isEmpty()) {
                 Optional.ofNullable(watermarkEstimator.get()).ifPresent(consumer::onIdle);
@@ -418,10 +422,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               poll =
                   seekToNewOffsetsIfNeeded(seekOffsets, consumer, watermarkEstimator, kafka, poll);
 
-              final long bytesPerPoll =
-                  maxBytesPerSec < Long.MAX_VALUE
-                      ? Math.max(1L, maxBytesPerSec / (1000L * consumerPollInterval))
-                      : Long.MAX_VALUE;
               long bytesPolled = 0L;
               // increase all partition's empty poll counter by 1
               emptyPollCount.replaceAll((k, v) -> v + 1);
@@ -456,8 +456,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
               flushCommits(kafka, consumer);
               rethrowErrorIfPresent(name, error);
               terminateIfConsumed(stopAtCurrent, kafka, endOffsets, completed);
-              waitToReduceThroughput(bytesPolled, bytesPerPoll);
+              throughputLimiter.sleepToLimitThroughput(bytesPolled, pollTimeMs);
+              long startTime = System.currentTimeMillis();
               poll = kafka.poll(pollDuration);
+              pollTimeMs = System.currentTimeMillis() - startTime;
             } while (!shutdown.get()
                 && !completed.get()
                 && !Thread.currentThread().isInterrupted());
@@ -565,15 +567,6 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           "Assignment {} reached end of current data. Terminating consumption.",
           consumer.assignment());
       completed.set(true);
-    }
-  }
-
-  private void waitToReduceThroughput(long bytesPolled, final long bytesPerPoll)
-      throws InterruptedException {
-
-    long sleepDuration = bytesPolled * consumerPollInterval / bytesPerPoll;
-    if (sleepDuration > 0) {
-      TimeUnit.MILLISECONDS.sleep(sleepDuration);
     }
   }
 

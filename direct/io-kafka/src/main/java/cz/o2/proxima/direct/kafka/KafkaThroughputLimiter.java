@@ -33,7 +33,8 @@ class KafkaThroughputLimiter {
    * @param bytesPolled Number of bytes polled from Kafka.
    * @param pollTimeMs Duration of the poll.
    */
-  public void sleepToLimitThroughput(long bytesPolled, long pollTimeMs) throws InterruptedException {
+  public void sleepToLimitThroughput(long bytesPolled, long pollTimeMs)
+      throws InterruptedException {
     if (desiredBytesPerSec < Long.MAX_VALUE) {
       final long sleepTimeMs = getSleepTime(bytesPolled, pollTimeMs);
       if (sleepTimeMs > 0) {

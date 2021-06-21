@@ -28,6 +28,7 @@ import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.repository.AttributeDescriptor;
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.server.metrics.Metrics;
@@ -52,6 +53,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -338,12 +340,8 @@ public class ReplicationController {
             .getAttributes()
             .stream()
             .map(
-                a ->
-                    dataOperator
-                        .getFamiliesForAttribute(a)
-                        .stream()
-                        .filter(af -> af.getDesc().getAccess().canReadCommitLog())
-                        .collect(Collectors.toSet()))
+                attr ->
+                    getAttributeDescriptorStreamFor(dataOperator, attr).collect(Collectors.toSet()))
             .reduce(Sets::intersection)
             .filter(s -> !s.isEmpty())
             .flatMap(s -> s.stream().filter(f -> f.getCommitLogReader().isPresent()).findAny())
@@ -371,6 +369,25 @@ public class ReplicationController {
         consumer,
         reader.getUri(),
         transformation.getClass());
+  }
+
+  private Stream<DirectAttributeFamilyDescriptor> getAttributeDescriptorStreamFor(
+      DirectDataOperator direct, AttributeDescriptor<?> attr) {
+
+    EntityDescriptor entity = direct.getRepository().getEntity(attr.getEntity());
+    if (entity.isSystemEntity()) {
+      return direct
+          .getRepository()
+          .getAllFamilies(true)
+          .filter(af -> af.getEntity().equals(entity))
+          .filter(af -> af.getAttributes().contains(attr))
+          .filter(af -> af.getType() == StorageType.PRIMARY)
+          .map(af -> direct.getFamilyByName(af.getName()));
+    }
+    return direct
+        .getFamiliesForAttribute(attr)
+        .stream()
+        .filter(af -> af.getDesc().getAccess().canReadCommitLog());
   }
 
   private void startTransformationObserver(

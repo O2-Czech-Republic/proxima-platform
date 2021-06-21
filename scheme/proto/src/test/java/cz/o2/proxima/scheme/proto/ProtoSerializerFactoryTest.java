@@ -197,6 +197,7 @@ public class ProtoSerializerFactoryTest {
     KeyAttribute missingGet = KeyAttributes.ofMissingAttribute(transaction, "t", request, "1");
     long now = System.currentTimeMillis();
 
+    Request someRequest = newRequest(keyAttribute, Request.Flags.OPEN);
     List<Pair<Object, AttributeDescriptor<?>>> toVerify =
         Arrays.asList(
             Pair.of(newRequest(keyAttribute, Request.Flags.OPEN), request),
@@ -207,15 +208,14 @@ public class ProtoSerializerFactoryTest {
             Pair.of(newRequest(keyAttributeSingleWildcard, Request.Flags.UPDATE), request),
             Pair.of(newRequest(wildcardQuery, Request.Flags.OPEN), request),
             Pair.of(newRequest(Request.Flags.ROLLBACK), request),
-            Pair.of(Response.open(1L, now), response),
-            Pair.of(Response.updated(), response),
-            Pair.of(Response.committed(), response),
-            Pair.of(Response.aborted(), response),
-            Pair.of(Response.duplicate(), response),
+            Pair.of(Response.forRequest(someRequest).open(1L, now), response),
+            Pair.of(Response.forRequest(someRequest).updated(), response),
+            Pair.of(Response.forRequest(someRequest).committed(), response),
+            Pair.of(Response.forRequest(someRequest).aborted(), response),
+            Pair.of(Response.forRequest(someRequest).duplicate(), response),
             Pair.of(Response.empty(), response),
             Pair.of(
                 Commit.of(1L, System.currentTimeMillis(), Arrays.asList(update, delete)), commit),
-            Pair.of(State.open(1L, now, Sets.newHashSet(keyAttribute)), state),
             Pair.of(State.open(1L, now, Sets.newHashSet(keyAttribute)), state),
             Pair.of(
                 State.open(1L, now, Sets.newHashSet(keyAttribute, keyAttributeSingleWildcard))
@@ -243,8 +243,28 @@ public class ProtoSerializerFactoryTest {
               (ValueSerializer<Object>) p.getSecond().getValueSerializer();
           byte[] bytes = serializer.serialize(p.getFirst());
           assertNotNull(bytes);
-          assertEquals(p.getFirst(), Optionals.get(serializer.deserialize(bytes)));
+          // we do not serialize the target partition for responses
+          if (p.getFirst() instanceof Response) {
+            compareResponses(
+                (Response) p.getFirst(), (Response) Optionals.get(serializer.deserialize(bytes)));
+          } else {
+            assertEquals(p.getFirst(), Optionals.get(serializer.deserialize(bytes)));
+          }
         });
+  }
+
+  private void compareResponses(Response first, Response other) {
+    assertEquals(
+        new Response(
+            first.getFlags(),
+            first.hasSequenceId() ? first.getSeqId() : 0L,
+            first.hasStamp() ? first.getStamp() : 0L,
+            -1),
+        new Response(
+            other.getFlags(),
+            other.hasSequenceId() ? other.getSeqId() : 0L,
+            other.hasStamp() ? other.getStamp() : 0L,
+            -1));
   }
 
   private Request newRequest(Request.Flags flags) {
@@ -259,6 +279,7 @@ public class ProtoSerializerFactoryTest {
     return Request.builder()
         .inputAttributes(keyAttributes)
         .outputAttributes(keyAttributes)
+        .responsePartitionId(1)
         .flags(flags)
         .build();
   }

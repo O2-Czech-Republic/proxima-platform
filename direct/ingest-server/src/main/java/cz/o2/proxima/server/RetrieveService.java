@@ -22,17 +22,23 @@ import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.randomaccess.RandomAccessReader;
+import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.Rpc;
-import cz.o2.proxima.proto.service.Rpc.ListResponse;
+import cz.o2.proxima.proto.service.Rpc.GetRequest;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.server.metrics.Metrics;
+import cz.o2.proxima.server.transaction.TransactionContext;
+import cz.o2.proxima.server.transaction.TransactionContext.Transaction;
+import cz.o2.proxima.transaction.KeyAttribute;
+import cz.o2.proxima.transaction.KeyAttributes;
 import io.grpc.stub.StreamObserver;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 
 /** Service for reading data. */
@@ -42,14 +48,18 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
   private final Map<AttributeDescriptor<?>, RandomAccessReader> readerMap;
   private final Repository repo;
   private final DirectDataOperator direct;
+  private final TransactionContext transactionContext;
 
-  public RetrieveService(Repository repo, DirectDataOperator direct) {
+  public RetrieveService(
+      Repository repo, DirectDataOperator direct, TransactionContext transactionContext) {
+
     this.repo = repo;
     this.direct = direct;
     this.readerMap = Collections.synchronizedMap(new HashMap<>());
+    this.transactionContext = transactionContext;
   }
 
-  private class Status extends Exception {
+  private static class Status extends Exception {
     final int statusCode;
     final String message;
 
@@ -57,6 +67,17 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       this.statusCode = statusCode;
       this.message = message;
     }
+  }
+
+  @Override
+  public void begin(
+      Rpc.BeginTransactionRequest request,
+      StreamObserver<Rpc.BeginTransactionResponse> responseObserver) {
+
+    Transaction t = transactionContext.create();
+    responseObserver.onNext(
+        Rpc.BeginTransactionResponse.newBuilder().setTransactionId(t.getTransactionId()).build());
+    responseObserver.onCompleted();
   }
 
   @Override
@@ -114,7 +135,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
   }
 
   private static void replyStatusLogged(
-      StreamObserver<ListResponse> responseObserver,
+      StreamObserver<Rpc.ListResponse> responseObserver,
       MessageOrBuilder request,
       int statusCode,
       String message) {
@@ -122,13 +143,13 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
     replyLogged(
         responseObserver,
         request,
-        ListResponse.newBuilder().setStatus(statusCode).setStatusMessage(message).build());
+        Rpc.ListResponse.newBuilder().setStatus(statusCode).setStatusMessage(message).build());
   }
 
   private static void replyLogged(
-      StreamObserver<ListResponse> responseObserver,
+      StreamObserver<Rpc.ListResponse> responseObserver,
       MessageOrBuilder request,
-      ListResponse response) {
+      Rpc.ListResponse response) {
     logStatus("listAttributes", request, response.getStatus(), response.getStatusMessage());
     responseObserver.onNext(response);
   }
@@ -165,18 +186,22 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       RandomAccessReader reader = instantiateReader(attribute);
 
       synchronized (reader) {
+        Optional<KeyValue<Object>> maybeValue =
+            reader.get(request.getKey(), request.getAttribute(), attribute);
+
+        if (!request.getTransactionId().isEmpty()) {
+          noticeGetResult(request, entity, attribute, maybeValue);
+        }
         KeyValue<Object> kv =
-            reader
-                .get(request.getKey(), request.getAttribute(), attribute)
-                .orElseThrow(
-                    () ->
-                        new Status(
-                            404,
-                            "Key "
-                                + request.getKey()
-                                + " and/or attribute "
-                                + request.getAttribute()
-                                + " not found"));
+            maybeValue.orElseThrow(
+                () ->
+                    new Status(
+                        404,
+                        "Key "
+                            + request.getKey()
+                            + " and/or attribute "
+                            + request.getAttribute()
+                            + " not found"));
 
         logStatus("get", request, 200, "OK");
         responseObserver.onNext(
@@ -189,6 +214,10 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       logStatus("get", request, s.statusCode, s.message);
       responseObserver.onNext(
           Rpc.GetResponse.newBuilder().setStatus(s.statusCode).setStatusMessage(s.message).build());
+    } catch (TransactionRejectedException ex) {
+      logStatus("get", request, 412, ex.getMessage());
+      responseObserver.onNext(
+          Rpc.GetResponse.newBuilder().setStatus(412).setStatusMessage(ex.getMessage()).build());
     } catch (Exception ex) {
       log.error("Failed to process request {}", request, ex);
       logStatus("get", request, 500, ex.getMessage());
@@ -196,6 +225,31 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
           Rpc.GetResponse.newBuilder().setStatus(500).setStatusMessage(ex.getMessage()).build());
     }
     responseObserver.onCompleted();
+  }
+
+  private void noticeGetResult(
+      GetRequest getRequest,
+      EntityDescriptor entity,
+      AttributeDescriptor<Object> attribute,
+      Optional<KeyValue<Object>> maybeValue)
+      throws TransactionRejectedException {
+
+    if (!getRequest.getTransactionId().isEmpty()) {
+      final KeyAttribute ka;
+      if (maybeValue.isPresent()) {
+        ka = KeyAttributes.ofStreamElement(maybeValue.get());
+      } else if (attribute.isWildcard()) {
+        ka =
+            KeyAttributes.ofMissingAttribute(
+                entity,
+                getRequest.getKey(),
+                attribute,
+                getRequest.getAttribute().substring(attribute.toAttributePrefix().length()));
+      } else {
+        ka = KeyAttributes.ofMissingAttribute(entity, getRequest.getKey(), attribute);
+      }
+      transactionContext.get(getRequest.getTransactionId()).update(Collections.singletonList(ka));
+    }
   }
 
   private RandomAccessReader instantiateReader(AttributeDescriptor<?> attr) throws Status {

@@ -75,14 +75,13 @@ public class TransactionIT {
   private final Wildcard<Integer> numDevices = Wildcard.of(user, user.getAttribute("numDevices.*"));
   private final Wildcard<byte[]> device = Wildcard.of(user, user.getAttribute("device.*"));
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
-  private TransactionLogObserver observer;
   private CachedView view;
   private ClientTransactionManager client;
   private ObserveHandle transformationHandle;
 
   @Before
   public void setUp() {
-    observer = new TransactionLogObserver(direct);
+    TransactionLogObserver observer = new TransactionLogObserver(direct);
     client = direct.getClientTransactionManager();
     view = Optionals.get(direct.getCachedView(amount));
     view.assign(view.getPartitions());
@@ -98,6 +97,7 @@ public class TransactionIT {
   @After
   public void tearDown() {
     transformationHandle.close();
+    client.close();
     direct.close();
   }
 
@@ -211,7 +211,7 @@ public class TransactionIT {
     verifyNumDevicesMatch(numWrites, numUsers, true);
   }
 
-  @Test(timeout = 100_000)
+  @Test /* (timeout = 100_000) */
   public void testDeletedAttributeGet() throws InterruptedException {
     // check atomic swap of data between two attributes
     // a value is read from attribute X, incremented and written to attribute Y and deleted from X
@@ -300,17 +300,16 @@ public class TransactionIT {
   }
 
   private void writeSeedValue(String attribute, String key) {
-    try (OnlineAttributeWriter writer = Optionals.get(direct.getWriter(device))) {
-      StreamElement upsert =
-          device.upsert(
-              key,
-              device.extractSuffix(attribute),
-              System.currentTimeMillis(),
-              ByteBuffer.allocate(4).putInt(1).array());
-      CountDownLatch latch = new CountDownLatch(1);
-      writer.write(upsert, (succ, exc) -> latch.countDown());
-      ExceptionUtils.unchecked(latch::await);
-    }
+    OnlineAttributeWriter writer = Optionals.get(direct.getWriter(device));
+    StreamElement upsert =
+        device.upsert(
+            key,
+            device.extractSuffix(attribute),
+            System.currentTimeMillis(),
+            ByteBuffer.allocate(4).putInt(1).array());
+    CountDownLatch latch = new CountDownLatch(1);
+    writer.write(upsert, (succ, exc) -> latch.countDown());
+    ExceptionUtils.unchecked(latch::await);
   }
 
   private void swapValueBetween(String key, String attrA, String attrB)

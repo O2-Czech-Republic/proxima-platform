@@ -62,4 +62,11 @@ public interface ClientTransactionManager extends AutoCloseable, TransactionMana
 
   @Override
   void close();
+
+  /**
+   * Release resources associated with given transaction.
+   *
+   * @param transactionId ID of the transaction
+   */
+  void release(String transactionId);
 }

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.transaction;
 
+import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.storage.StreamElement;
 import java.io.Serializable;
@@ -26,6 +27,16 @@ import lombok.ToString;
 @EqualsAndHashCode
 @ToString
 public class Response implements Serializable {
+
+  /**
+   * Create {@link Response} that is targetted to be response for given request.
+   *
+   * @param request the request to create {@link Response} for
+   * @return new empty {@link Response}
+   */
+  public static Response forRequest(Request request) {
+    return new Response(Flags.NONE, -1, Long.MIN_VALUE, request.getResponsePartitionId());
+  }
 
   /**
    * Create empty {@link Response}.
@@ -41,12 +52,12 @@ public class Response implements Serializable {
    *
    * @return response for open transaction
    */
-  public static Response open(long seqId, long stamp) {
-    return new Response(Flags.OPEN, seqId, stamp);
+  public Response open(long seqId, long stamp) {
+    return new Response(Flags.OPEN, seqId, stamp, targetPartitionId);
   }
 
-  public static Response updated() {
-    return new Response(Flags.UPDATED);
+  public Response updated() {
+    return new Response(Flags.UPDATED, -1, Long.MIN_VALUE, targetPartitionId);
   }
 
   /**
@@ -54,8 +65,8 @@ public class Response implements Serializable {
    *
    * @return response for committed transaction.
    */
-  public static Response committed() {
-    return new Response(Flags.COMMITTED);
+  public Response committed() {
+    return new Response(Flags.COMMITTED, -1, Long.MIN_VALUE, targetPartitionId);
   }
 
   /**
@@ -63,8 +74,8 @@ public class Response implements Serializable {
    *
    * @return response for aborted transaction.
    */
-  public static Response aborted() {
-    return new Response(Flags.ABORTED);
+  public Response aborted() {
+    return new Response(Flags.ABORTED, -1, Long.MIN_VALUE, targetPartitionId);
   }
 
   /**
@@ -72,8 +83,8 @@ public class Response implements Serializable {
    *
    * @return response for duplicate transaction open requests.
    */
-  public static Response duplicate() {
-    return new Response(Flags.DUPLICATE);
+  public Response duplicate() {
+    return new Response(Flags.DUPLICATE, -1, Long.MIN_VALUE, targetPartitionId);
   }
 
   public enum Flags {
@@ -98,18 +109,25 @@ public class Response implements Serializable {
   /** A timestamp that *must* be used as a timestamp of all writes after the commit. */
   @Getter private final long stamp;
 
+  /**
+   * This is a transient identifier, we don't need to serialize it, just needs to be there, when
+   * sending response, so that it gets written to the correct partition.
+   */
+  private final int targetPartitionId;
+
   public Response() {
     this(Flags.NONE);
   }
 
   private Response(Flags flags) {
-    this(flags, -1L, Long.MIN_VALUE);
+    this(flags, -1L, Long.MIN_VALUE, -1);
   }
 
-  private Response(Flags flags, long seqId, long stamp) {
+  public Response(Flags flags, long seqId, long stamp, int targetPartitionId) {
     this.flags = flags;
     this.seqId = seqId;
     this.stamp = stamp;
+    this.targetPartitionId = targetPartitionId;
   }
 
   public boolean hasSequenceId() {
@@ -117,6 +135,14 @@ public class Response implements Serializable {
   }
 
   public boolean hasStamp() {
-    return stamp > Long.MIN_VALUE;
+    return stamp > 0;
+  }
+
+  public int getPartitionIdForResponse() {
+    Preconditions.checkState(
+        targetPartitionId >= 0,
+        "targetPartitionId should have been non-negative, got %s",
+        targetPartitionId);
+    return targetPartitionId;
   }
 }

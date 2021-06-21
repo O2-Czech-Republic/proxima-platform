@@ -40,6 +40,7 @@ import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.functional.UnaryFunction;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeDescriptorBase;
+import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.ConfigRepository;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -164,8 +165,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testSinglePartitionWriteAndConsumeBySingleConsumerRunAfterWrite()
       throws InterruptedException {
 
-    Accessor accessor =
-        kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(1)));
+    AttributeFamilyDescriptor testFamily = createTestFamily(entity, storageUri, partitionsCfg(1));
+    Accessor accessor = kafka.createAccessor(direct, testFamily);
+    assertTrue(accessor.isAcceptable(testFamily));
     LocalKafkaWriter writer = accessor.newWriter();
     KafkaConsumer<Object, Object> consumer = accessor.createConsumerFactory().create();
     CountDownLatch latch = new CountDownLatch(1);

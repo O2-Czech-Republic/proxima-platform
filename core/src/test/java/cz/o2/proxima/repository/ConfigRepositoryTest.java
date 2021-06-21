@@ -50,6 +50,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.After;
@@ -586,7 +588,7 @@ public class ConfigRepositoryTest {
     assertTrue(repo.getAllFamilies(true).anyMatch(af -> af.getEntity().isSystemEntity()));
     assertTrue(repo.getEntity("_transaction").isSystemEntity());
     assertTrue(repo.findFamilyByName("gateway-transaction-commit-log").isPresent());
-    assertTrue(repo.findFamilyByName("user-transaction-commit-log-request").isPresent());
+    assertTrue(repo.findFamilyByName("all-transaction-commit-log-request").isPresent());
 
     EntityDescriptor gateway = repo.getEntity("gateway");
     assertTrue(gateway.isTransactional());
@@ -610,7 +612,7 @@ public class ConfigRepositoryTest {
     assertTrue(
         user.getAllAttributes()
             .stream()
-            .allMatch(a -> a.getTransactionMode() == TransactionMode.ENTITY));
+            .allMatch(a -> a.getTransactionMode() == TransactionMode.ALL));
     assertEquals(3, user.getAllAttributes().get(0).getTransactionalManagerFamilies().size());
 
     EntityDescriptor transaction = repo.getEntity("_transaction");
@@ -624,13 +626,25 @@ public class ConfigRepositoryTest {
     assertEquals("_transaction-commit", desc.getName());
     assertEquals(TransactionCommitTransformation.class, desc.getTransformation().getClass());
     assertFalse(desc.isSupportTransactions());
+
+    Map<String, AttributeFamilyDescriptor> nameToFamily =
+        repo.getAllFamilies(true)
+            .filter(af -> af.getAttributes().contains(request))
+            .collect(Collectors.toMap(AttributeFamilyDescriptor::getName, Function.identity()));
+    assertEquals(3, nameToFamily.size());
+    assertNotNull(nameToFamily.get("gateway-transaction-commit-log"));
+    assertEquals(3, nameToFamily.get("gateway-transaction-commit-log").getAttributes().size());
+    assertNotNull(nameToFamily.get("all-transaction-commit-log-request"));
+    assertEquals(1, nameToFamily.get("all-transaction-commit-log-request").getAttributes().size());
+    assertNotNull(nameToFamily.get("global-transaction-commit-log"));
+    assertEquals(3, nameToFamily.get("global-transaction-commit-log").getAttributes().size());
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testIncompleteTransactionManagerFamiliesConfigParsing() {
     ConfigRepository.dropCached();
     Repository.of(
-        ConfigFactory.parseString("entities.user.manager = [ user-transaction-commit-log-request ]")
+        ConfigFactory.parseString("entities.user.manager = [ all-transaction-commit-log-request ]")
             .withFallback(ConfigFactory.load("test-transactions.conf").resolve()));
   }
 
@@ -639,7 +653,7 @@ public class ConfigRepositoryTest {
     ConfigRepository.dropCached();
     Repository.of(
         ConfigFactory.parseString(
-                "entities.gateway.attributes.status.manager = [ gateway-transaction-commit-log, user-transaction-commit-log-request ]")
+                "entities.gateway.attributes.status.manager = [ gateway-transaction-commit-log, all-transaction-commit-log-request ]")
             .withFallback(ConfigFactory.load("test-transactions.conf").resolve()));
   }
 

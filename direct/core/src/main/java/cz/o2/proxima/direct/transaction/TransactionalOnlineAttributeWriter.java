@@ -19,6 +19,8 @@ import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.repository.EntityDescriptor;
+import cz.o2.proxima.repository.TransactionMode;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
@@ -27,13 +29,16 @@ import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
+import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -47,16 +52,36 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     return new TransactionalOnlineAttributeWriter(direct, delegate);
   }
 
+  public static TransactionalOnlineAttributeWriter global(DirectDataOperator direct) {
+    ClientTransactionManager manager = direct.getClientTransactionManager();
+    // write each output to the _transaction.commit, even if there is single output
+    return new TransactionalOnlineAttributeWriter(
+        direct, Optionals.get(direct.getWriter(manager.getCommitDesc()))) {
+
+      @Override
+      public Transaction begin() {
+        Transaction ret = super.begin();
+        // this should never throw TransactionRejectedException
+        ExceptionUtils.unchecked(ret::beginGlobal);
+        return ret;
+      }
+    };
+  }
+
   public class TransactionRejectedException extends Exception {
+    @Getter private final String transactionId;
+
     private TransactionRejectedException(String transactionId) {
       super("Transaction " + transactionId + " rejected. Please restart the transaction.");
+      this.transactionId = transactionId;
     }
   }
 
   public class Transaction implements AutoCloseable {
 
     @Getter private final String transactionId;
-    private final BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(1);
+    private final BlockingQueue<Response> responseQueue = new ArrayBlockingQueue<>(100);
+    private boolean isGlobalTransaction;
     private State.Flags state;
     private long sequenceId = -1L;
     private long stamp = Long.MIN_VALUE;
@@ -64,6 +89,13 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     private Transaction(String transactionId) {
       this.transactionId = transactionId;
       this.state = State.Flags.UNKNOWN;
+    }
+
+    void beginGlobal() throws TransactionRejectedException {
+      Preconditions.checkArgument(
+          !globalKeyAttributes.isEmpty(), "Cannot resolve global transactional attributes.");
+      this.isGlobalTransaction = true;
+      update(globalKeyAttributes);
     }
 
     public void update(List<KeyAttribute> addedInputs) throws TransactionRejectedException {
@@ -83,7 +115,11 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
         default:
           throw new TransactionRejectedException(transactionId);
       }
-      Response response = ExceptionUtils.uncheckedFactory(responseQueue::take);
+      Response response =
+          Optional.ofNullable(
+                  ExceptionUtils.uncheckedFactory(() -> responseQueue.poll(5, TimeUnit.SECONDS)))
+              .orElse(Response.empty());
+
       if (response.getFlags() != expectedResponse) {
         throw new TransactionRejectedException(transactionId);
       }
@@ -112,7 +148,8 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       List<StreamElement> injected =
           outputs.stream().map(this::injectSequenceIdAndStamp).collect(Collectors.toList());
       StreamElement toWrite = getSingleOrCommit(injected);
-      OnlineAttributeWriter writer = outputs.size() == 1 ? delegate : commitDelegate;
+      OnlineAttributeWriter writer =
+          outputs.size() == 1 && !isGlobalTransaction ? delegate : commitDelegate;
       List<KeyAttribute> keyAttributes =
           injected.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList());
       manager.commit(transactionId, keyAttributes);
@@ -135,7 +172,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     }
 
     private StreamElement getSingleOrCommit(List<StreamElement> outputs) {
-      if (outputs.size() == 1) {
+      if (outputs.size() == 1 && !isGlobalTransaction) {
         return outputs.get(0);
       }
       return manager
@@ -166,6 +203,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       if (state == State.Flags.OPEN) {
         rollback();
       }
+      manager.release(transactionId);
     }
 
     public void rollback() {
@@ -177,6 +215,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   private final OnlineAttributeWriter commitDelegate;
   private final ClientTransactionManager manager;
   private final ExecutorService executor;
+  private final List<KeyAttribute> globalKeyAttributes;
 
   private TransactionalOnlineAttributeWriter(
       DirectDataOperator direct, OnlineAttributeWriter delegate) {
@@ -185,6 +224,37 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     this.manager = direct.getClientTransactionManager();
     this.executor = direct.getContext().getExecutorService();
     this.commitDelegate = Optionals.get(direct.getWriter(manager.getCommitDesc()));
+    // FIXME: this should be removed and resolved automatically as empty input
+    // to be fixed in https://github.com/O2-Czech-Republic/proxima-platform/issues/216
+    this.globalKeyAttributes = getAttributesWithGlobalTransactionMode(direct);
+  }
+
+  private List<KeyAttribute> getAttributesWithGlobalTransactionMode(DirectDataOperator direct) {
+    return direct
+        .getRepository()
+        .getAllEntities()
+        .filter(EntityDescriptor::isTransactional)
+        .flatMap(
+            e ->
+                e.getAllAttributes()
+                    .stream()
+                    .filter(a -> a.getTransactionMode() == TransactionMode.ALL)
+                    .map(a -> Pair.of(e, a)))
+        .map(
+            p ->
+                p.getSecond().isWildcard()
+                    ? KeyAttributes.ofAttributeDescriptor(
+                        p.getFirst(),
+                        "dummy-" + p.getSecond().hashCode(),
+                        p.getSecond(),
+                        Long.MAX_VALUE,
+                        String.valueOf(p.getFirst().hashCode()))
+                    : KeyAttributes.ofAttributeDescriptor(
+                        p.getFirst(),
+                        "dummy-" + p.getSecond().hashCode(),
+                        p.getSecond(),
+                        Long.MAX_VALUE))
+        .collect(Collectors.toList());
   }
 
   @Override

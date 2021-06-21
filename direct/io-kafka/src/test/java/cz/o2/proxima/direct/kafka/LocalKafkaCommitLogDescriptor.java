@@ -161,6 +161,11 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
       configure(uri, cfg);
     }
 
+    @Override
+    public boolean isAcceptable(AttributeFamilyDescriptor familyDescriptor) {
+      return true;
+    }
+
     private void configure(URI uri, Map<String, Object> cfg) {
       numPartitions =
           Optional.ofNullable(cfg.get(CFG_NUM_PARTITIONS))

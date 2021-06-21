@@ -86,10 +86,6 @@ public final class ConfigRepository extends Repository {
   private static final Pattern ENTITY_NAME_PATTERN = Pattern.compile("[a-zA-Z_][a-zA-Z0-9_]*");
   private static final Pattern ATTRIBUTE_NAME_PATTERN =
       Pattern.compile("[a-zA-Z_][a-zA-Z0-9_\\-$]*(\\.\\*)?");
-  private static final String REQUEST_ATTRIBUTE = "request.*";
-  private static final String RESPONSE_ATTRIBUTE = "response.*";
-  private static final String STATE_ATTRIBUTE = "state";
-  private static final String COMMIT_ATTRIBUTE = "commit";
 
   private static Config cachedConfigConstructed;
 
@@ -2213,7 +2209,11 @@ public final class ConfigRepository extends Repository {
     // validate we have a transactional manager families for all transactional entities
     getAllEntities()
         .filter(EntityDescriptor::isTransactional)
-        .flatMap(e -> e.getAllAttributes().stream())
+        .flatMap(
+            e ->
+                e.getAllAttributes()
+                    .stream()
+                    .filter(attr -> attr.getTransactionMode() != TransactionMode.NONE))
         .forEach(
             a -> {
               Map<AttributeDescriptor<?>, Integer> transactionAttributes =

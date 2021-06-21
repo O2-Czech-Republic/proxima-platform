@@ -65,27 +65,38 @@ public class TransactionalCachedViewTest {
           @Override
           public boolean onNext(StreamElement ingest, OnNextContext context) {
             if (ingest.getAttributeDescriptor().equals(server.getRequestDesc())) {
-              Optional<Request> request = server.getRequestDesc().valueOf(ingest);
-              if (request.isPresent()) {
-                switch (request.get().getFlags()) {
+              Optional<Request> maybeRequest = server.getRequestDesc().valueOf(ingest);
+              if (maybeRequest.isPresent()) {
+                Request request = maybeRequest.get();
+                switch (request.getFlags()) {
                   case OPEN:
                     server.writeResponse(
                         ingest.getKey(),
                         "open",
-                        Response.open(seqId.getAndIncrement(), System.currentTimeMillis()),
+                        Response.forRequest(request)
+                            .open(seqId.getAndIncrement(), System.currentTimeMillis()),
                         context::commit);
                     break;
                   case COMMIT:
                     server.writeResponse(
-                        ingest.getKey(), "commit", Response.committed(), context::commit);
+                        ingest.getKey(),
+                        "commit",
+                        Response.forRequest(request).committed(),
+                        context::commit);
                     break;
                   case UPDATE:
                     server.writeResponse(
-                        ingest.getKey(), "update", Response.updated(), context::commit);
+                        ingest.getKey(),
+                        "update",
+                        Response.forRequest(request).updated(),
+                        context::commit);
                     break;
                   case ROLLBACK:
                     server.writeResponse(
-                        ingest.getKey(), "rollback", Response.aborted(), context::commit);
+                        ingest.getKey(),
+                        "rollback",
+                        Response.forRequest(request).aborted(),
+                        context::commit);
                     break;
                 }
               }

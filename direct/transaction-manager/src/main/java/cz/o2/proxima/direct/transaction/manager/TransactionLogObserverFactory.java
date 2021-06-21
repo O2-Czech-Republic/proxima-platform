@@ -30,6 +30,19 @@ public interface TransactionLogObserverFactory {
     }
   }
 
+  class Rethrowing implements TransactionLogObserverFactory {
+
+    @Override
+    public TransactionLogObserver create(DirectDataOperator direct) {
+      return new TransactionLogObserver(direct) {
+        @Override
+        void exit(int status) {
+          throw new RuntimeException("System.exit(" + status + ")");
+        }
+      };
+    }
+  }
+
   /**
    * A factory for {@link CommitLogObserver} responsible for transaction management.
    *

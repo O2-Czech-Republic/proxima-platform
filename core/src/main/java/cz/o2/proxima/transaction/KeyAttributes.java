@@ -31,17 +31,19 @@ public class KeyAttributes {
    * Create a list of {@link KeyAttribute KeyAttributes} that represent a query for wildcard
    * attribute and the returned
    *
+   * @param <E> type parameter
    * @param entity the entity descriptor
    * @param key the key of the entity
    * @param wildcardAttribute the descriptor of wildcard attribute
    * @param elements the elements returned by query
    * @return
    */
-  public static List<KeyAttribute> ofWildcardQueryElements(
-      EntityDescriptor entity,
-      String key,
-      AttributeDescriptor<?> wildcardAttribute,
-      Iterable<StreamElement> elements) {
+  public static <E extends Iterable<? extends StreamElement>>
+      List<KeyAttribute> ofWildcardQueryElements(
+          EntityDescriptor entity,
+          String key,
+          AttributeDescriptor<?> wildcardAttribute,
+          E elements) {
 
     List<KeyAttribute> ret = new ArrayList<>();
     long minSeqId = Long.MAX_VALUE;

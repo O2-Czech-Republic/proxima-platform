@@ -29,6 +29,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.server.metrics.Metrics;
+import cz.o2.proxima.server.transaction.TransactionContext;
 import cz.o2.proxima.storage.StreamElement;
 import io.grpc.Metadata;
 import io.grpc.Server;
@@ -77,6 +78,7 @@ public class IngestServer {
   @Getter final DirectDataOperator direct;
   @Getter final Config cfg;
   @Getter final boolean ignoreErrors;
+  @Getter final TransactionContext transactionContext;
 
   @Getter
   RetryPolicy retryPolicy =
@@ -101,6 +103,7 @@ public class IngestServer {
     }
     this.ignoreErrors =
         cfg.hasPath(Constants.CFG_IGNORE_ERRORS) && cfg.getBoolean(Constants.CFG_IGNORE_ERRORS);
+    this.transactionContext = new TransactionContext(direct);
     executor = createExecutor(cfg);
   }
 
@@ -234,6 +237,7 @@ public class IngestServer {
       log.info("Successfully started server 0.0.0.0:{}", server.getPort());
       Metrics.LIVENESS.increment(1.0);
       server.awaitTermination();
+      transactionContext.close();
       log.info("Server shutdown.");
     } catch (Exception ex) {
       Utils.die("Failed to start the server", ex);
@@ -249,8 +253,8 @@ public class IngestServer {
     ServerBuilder<?> builder =
         ServerBuilder.forPort(port)
             .executor(executor)
-            .addService(new IngestService(repo, direct, scheduler))
-            .addService(new RetrieveService(repo, direct));
+            .addService(new IngestService(repo, direct, transactionContext, scheduler))
+            .addService(new RetrieveService(repo, direct, transactionContext));
     if (debug) {
       builder = builder.intercept(new IngestServerInterceptor());
     }

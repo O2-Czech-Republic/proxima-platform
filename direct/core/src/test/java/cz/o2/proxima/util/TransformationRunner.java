@@ -131,7 +131,7 @@ public class TransformationRunner {
       TransformationDescriptor desc, StreamElement elem, DirectDataOperator direct) {
 
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(elem.getAttributeDescriptor()));
-    if (!desc.isSupportTransactions() && writer.isTransactional()) {
+    if (!desc.isSystemTransformation() && writer.isTransactional()) {
       return ((TransactionalOnlineAttributeWriter) writer).getDelegate();
     }
     return writer;

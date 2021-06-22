@@ -17,6 +17,7 @@ package cz.o2.proxima.repository;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import cz.o2.proxima.annotations.Evolving;
 import cz.o2.proxima.storage.PassthroughFilter;
 import cz.o2.proxima.storage.StorageFilter;
@@ -26,7 +27,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
 
@@ -43,16 +46,10 @@ public class TransformationDescriptor implements Serializable {
   static class Builder {
 
     String name;
-    EntityDescriptor entity;
     final List<AttributeDescriptor<?>> attrs = new ArrayList<>();
     Transformation transformation;
     StorageFilter filter;
-    boolean supportTransactions = true;
-
-    Builder setEntity(EntityDescriptor entity) {
-      this.entity = entity;
-      return this;
-    }
+    boolean systemTransformation = true;
 
     Builder setName(String name) {
       this.name = name;
@@ -79,8 +76,8 @@ public class TransformationDescriptor implements Serializable {
       return this;
     }
 
-    Builder disallowTransactions() {
-      this.supportTransactions = false;
+    Builder systemTransformation() {
+      this.systemTransformation = false;
       return this;
     }
 
@@ -88,39 +85,49 @@ public class TransformationDescriptor implements Serializable {
 
       Preconditions.checkArgument(!attrs.isEmpty(), "Please specify at least one attribute");
       Preconditions.checkArgument(transformation != null, "Please specify transformation function");
-      Preconditions.checkArgument(entity != null, "Please specify source entity");
 
       return new TransformationDescriptor(
-          name, entity, attrs, transformation, supportTransactions, filter);
+          name, attrs, transformation, systemTransformation, filter);
     }
   }
 
   @Getter private final String name;
 
-  @Getter private final EntityDescriptor entity;
-
   private final List<AttributeDescriptor<?>> attributes;
 
   @Getter private final Transformation transformation;
 
-  @Getter private final boolean supportTransactions;
+  @Getter private final boolean systemTransformation;
 
   @Getter private final StorageFilter filter;
 
+  @Getter private final boolean transactional;
+
   private TransformationDescriptor(
       String name,
-      EntityDescriptor entity,
       List<AttributeDescriptor<?>> attributes,
       Transformation transformation,
-      boolean supportTransactions,
+      boolean systemTransformation,
       @Nullable StorageFilter filter) {
 
     this.name = Objects.requireNonNull(name);
-    this.entity = Objects.requireNonNull(entity);
     this.attributes = Objects.requireNonNull(attributes);
     this.transformation = Objects.requireNonNull(transformation);
-    this.supportTransactions = supportTransactions;
+    this.systemTransformation = systemTransformation;
     this.filter = filter == null ? new PassthroughFilter() : filter;
+    this.transactional = requireSingleTransactionMode(attributes) != TransactionMode.NONE;
+  }
+
+  private TransactionMode requireSingleTransactionMode(List<AttributeDescriptor<?>> attributes) {
+    Map<TransactionMode, List<AttributeDescriptor<?>>> grouped =
+        attributes.stream().collect(Collectors.groupingBy(AttributeDescriptor::getTransactionMode));
+    Preconditions.checkArgument(
+        grouped.size() == 1,
+        "Require all attributes from transform to have the same transaction mode, got [ %s ]"
+            + " in [ %s ]",
+        grouped.keySet(),
+        attributes);
+    return Iterables.getOnlyElement(grouped.keySet());
   }
 
   public List<AttributeDescriptor<?>> getAttributes() {
@@ -152,9 +159,8 @@ public class TransformationDescriptor implements Serializable {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("entity", entity)
         .add("attributes", attributes)
-        .add("supportTransactions", supportTransactions)
+        .add("systemTransformation", systemTransformation)
         .toString();
   }
 }

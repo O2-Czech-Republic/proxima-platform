@@ -401,7 +401,7 @@ public class ReplicationController {
         transform.getTransformation().asElementWiseTransform();
     TransformationObserver observer =
         new TransformationObserver(
-            dataOperator, name, transformation, transform.isSupportTransactions(), filter);
+            dataOperator, name, transformation, transform.isSystemTransformation(), filter);
     reader.observe(
         consumerName,
         CommitLogObservers.withNumRetriedExceptions(

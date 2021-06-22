@@ -118,7 +118,6 @@ public class DirectDataOperatorTest {
     TransformationDescriptor transform =
         Iterables.getOnlyElement(repo.getTransformations().values());
     assertEquals(PassthroughFilter.class, transform.getFilter().getClass());
-    assertEquals(event, transform.getEntity());
     assertEquals(Arrays.asList(event.getAttribute("data")), transform.getAttributes());
     assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
   }
@@ -1762,7 +1761,6 @@ public class DirectDataOperatorTest {
     assertTrue(
         "Entity " + entity + " doesn't contain attribute " + toAttrDesc,
         entity.findAttribute(toAttrDesc, true).isPresent());
-    assertEquals(transform.getEntity(), entity);
     assertEquals(
         toAttr,
         collectSingleAttributeUpdate(

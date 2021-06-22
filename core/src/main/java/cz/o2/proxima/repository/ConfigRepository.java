@@ -1569,7 +1569,6 @@ public final class ConfigRepository extends Repository {
         TransformationDescriptor.newBuilder()
             .setName(transform)
             .addAttributes(source.getAttributes())
-            .setEntity(entity)
             .setFilter(replicated.getFilter())
             .setTransformation(
                 renameTransform(
@@ -1619,7 +1618,6 @@ public final class ConfigRepository extends Repository {
         TransformationDescriptor.newBuilder()
             .setName(transform)
             .addAttributes(write.getAttributes())
-            .setEntity(entity)
             .setFilter(targetFamily.getFilter())
             .setTransformation(
                 renameTransform(
@@ -1653,7 +1651,6 @@ public final class ConfigRepository extends Repository {
         TransformationDescriptor.newBuilder()
             .setName(transform)
             .addAttributes(write.getAttributes())
-            .setEntity(entity)
             .setFilter(replicated.getFilter())
             .setTransformation(
                 renameTransform(
@@ -2057,7 +2054,6 @@ public final class ConfigRepository extends Repository {
               TransformationDescriptor.newBuilder()
                   .setName(name)
                   .addAttributes(attrs)
-                  .setEntity(entity)
                   .setTransformation(t);
 
           Optional.ofNullable(transformation.get(FILTER))
@@ -2077,10 +2073,9 @@ public final class ConfigRepository extends Repository {
     TransformationDescriptor descriptor =
         TransformationDescriptor.newBuilder()
             .setTransformation(new TransactionCommitTransformation())
-            .setEntity(transaction)
             .addAttributes(transaction.getAttribute(COMMIT_ATTRIBUTE))
             .setName(name)
-            .disallowTransactions()
+            .systemTransformation()
             .build();
     setupTransform(descriptor.getTransformation(), Collections.emptyMap());
     Preconditions.checkState(

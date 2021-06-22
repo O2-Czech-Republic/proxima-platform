@@ -49,7 +49,7 @@ public class TransformationDescriptor implements Serializable {
     final List<AttributeDescriptor<?>> attrs = new ArrayList<>();
     Transformation transformation;
     StorageFilter filter;
-    boolean systemTransformation = true;
+    boolean writeUsingTransactions = true;
 
     Builder setName(String name) {
       this.name = name;
@@ -76,8 +76,8 @@ public class TransformationDescriptor implements Serializable {
       return this;
     }
 
-    Builder systemTransformation() {
-      this.systemTransformation = false;
+    Builder disableWriteUsingTransactions() {
+      this.writeUsingTransactions = false;
       return this;
     }
 
@@ -87,7 +87,7 @@ public class TransformationDescriptor implements Serializable {
       Preconditions.checkArgument(transformation != null, "Please specify transformation function");
 
       return new TransformationDescriptor(
-          name, attrs, transformation, systemTransformation, filter);
+          name, attrs, transformation, writeUsingTransactions, filter);
     }
   }
 
@@ -97,7 +97,7 @@ public class TransformationDescriptor implements Serializable {
 
   @Getter private final Transformation transformation;
 
-  @Getter private final boolean systemTransformation;
+  @Getter private final boolean writeUsingTransactions;
 
   @Getter private final StorageFilter filter;
 
@@ -107,13 +107,13 @@ public class TransformationDescriptor implements Serializable {
       String name,
       List<AttributeDescriptor<?>> attributes,
       Transformation transformation,
-      boolean systemTransformation,
+      boolean writeUsingTransactions,
       @Nullable StorageFilter filter) {
 
     this.name = Objects.requireNonNull(name);
     this.attributes = Objects.requireNonNull(attributes);
     this.transformation = Objects.requireNonNull(transformation);
-    this.systemTransformation = systemTransformation;
+    this.writeUsingTransactions = writeUsingTransactions;
     this.filter = filter == null ? new PassthroughFilter() : filter;
     this.transactional = requireSingleTransactionMode(attributes) != TransactionMode.NONE;
   }
@@ -160,7 +160,7 @@ public class TransformationDescriptor implements Serializable {
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("attributes", attributes)
-        .add("systemTransformation", systemTransformation)
+        .add("writeUsingTransactions", writeUsingTransactions)
         .toString();
   }
 }

@@ -16,11 +16,14 @@
 package cz.o2.proxima.direct.transaction;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
+import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.TransactionMode;
+import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
@@ -31,9 +34,14 @@ import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -68,7 +76,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     };
   }
 
-  public class TransactionRejectedException extends Exception {
+  public static class TransactionRejectedException extends Exception {
     @Getter private final String transactionId;
 
     private TransactionRejectedException(String transactionId) {
@@ -147,11 +155,12 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
 
       List<StreamElement> injected =
           outputs.stream().map(this::injectSequenceIdAndStamp).collect(Collectors.toList());
-      StreamElement toWrite = getSingleOrCommit(injected);
+      Collection<StreamElement> transformed = applyTransforms(injected);
+      StreamElement toWrite = getSingleOrCommit(transformed);
       OnlineAttributeWriter writer =
-          outputs.size() == 1 && !isGlobalTransaction ? delegate : commitDelegate;
+          transformed.size() == 1 && !isGlobalTransaction ? delegate : commitDelegate;
       List<KeyAttribute> keyAttributes =
-          injected.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList());
+          transformed.stream().map(KeyAttributes::ofStreamElement).collect(Collectors.toList());
       manager.commit(transactionId, keyAttributes);
       Response response = ExceptionUtils.uncheckedFactory(responseQueue::take);
       if (response.getFlags() != Response.Flags.COMMITTED) {
@@ -171,9 +180,41 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
       writer.write(toWrite, compositeCallback);
     }
 
-    private StreamElement getSingleOrCommit(List<StreamElement> outputs) {
+    private Collection<StreamElement> applyTransforms(List<StreamElement> outputs) {
+      Set<StreamElement> elements = new HashSet<>();
+      List<StreamElement> currentElements = outputs;
+      boolean changed;
+      do {
+        changed = false;
+        List<StreamElement> newElements = new ArrayList<>();
+        for (StreamElement el : currentElements) {
+          if (elements.add(el)) {
+            List<TransformationDescriptor> applicableTransforms =
+                attributeTransforms.get(el.getAttributeDescriptor());
+            if (applicableTransforms != null) {
+              changed = true;
+              applicableTransforms
+                  .stream()
+                  .filter(t -> t.getFilter().apply(el))
+                  .forEach(
+                      td ->
+                          td.getTransformation()
+                              .asElementWiseTransform()
+                              .apply(
+                                  el,
+                                  transformed ->
+                                      newElements.add(injectSequenceIdAndStamp(transformed))));
+            }
+          }
+        }
+        currentElements = newElements;
+      } while (changed);
+      return elements;
+    }
+
+    private StreamElement getSingleOrCommit(Collection<StreamElement> outputs) {
       if (outputs.size() == 1 && !isGlobalTransaction) {
-        return outputs.get(0);
+        return Iterables.getOnlyElement(outputs);
       }
       return manager
           .getCommitDesc()
@@ -216,6 +257,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
   private final ClientTransactionManager manager;
   private final ExecutorService executor;
   private final List<KeyAttribute> globalKeyAttributes;
+  private final Map<AttributeDescriptor<?>, List<TransformationDescriptor>> attributeTransforms;
 
   private TransactionalOnlineAttributeWriter(
       DirectDataOperator direct, OnlineAttributeWriter delegate) {
@@ -227,6 +269,17 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
     // FIXME: this should be removed and resolved automatically as empty input
     // to be fixed in https://github.com/O2-Czech-Republic/proxima-platform/issues/216
     this.globalKeyAttributes = getAttributesWithGlobalTransactionMode(direct);
+    attributeTransforms =
+        direct
+            .getRepository()
+            .getTransformations()
+            .values()
+            .stream()
+            .filter(TransformationDescriptor::isTransactional)
+            .flatMap(t -> t.getAttributes().stream().map(a -> Pair.of(a, t)))
+            .collect(
+                Collectors.groupingBy(
+                    Pair::getFirst, Collectors.mapping(Pair::getSecond, Collectors.toList())));
   }
 
   private List<KeyAttribute> getAttributesWithGlobalTransactionMode(DirectDataOperator direct) {

@@ -620,11 +620,11 @@ public class ConfigRepositoryTest {
     assertNotNull(serialized);
     assertTrue(request.getValueSerializer().deserialize(serialized).isPresent());
 
-    assertEquals(1, repo.getTransformations().size());
     TransformationDescriptor desc = repo.getTransformations().get("_transaction-commit");
+    assertNotNull(desc);
     assertEquals("_transaction-commit", desc.getName());
     assertEquals(TransactionCommitTransformation.class, desc.getTransformation().getClass());
-    assertFalse(desc.isSystemTransformation());
+    assertFalse(desc.isWriteUsingTransactions());
 
     Map<String, AttributeFamilyDescriptor> nameToFamily =
         repo.getAllFamilies(true)

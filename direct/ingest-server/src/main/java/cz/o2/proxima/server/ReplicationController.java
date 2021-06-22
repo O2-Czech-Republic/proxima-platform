@@ -335,6 +335,13 @@ public class ReplicationController {
   }
 
   private void runTransformer(String name, TransformationDescriptor transform) {
+    if (transform.isTransactional()) {
+      log.info(
+          "Skipping run of transformation {} which read from transactional attributes {}. "
+              + "Will be executed during transaction commit.",
+          name,
+          transform.getAttributes());
+    }
     DirectAttributeFamilyDescriptor family =
         transform
             .getAttributes()
@@ -401,7 +408,7 @@ public class ReplicationController {
         transform.getTransformation().asElementWiseTransform();
     TransformationObserver observer =
         new TransformationObserver(
-            dataOperator, name, transformation, transform.isSystemTransformation(), filter);
+            dataOperator, name, transformation, transform.isWriteUsingTransactions(), filter);
     reader.observe(
         consumerName,
         CommitLogObservers.withNumRetriedExceptions(

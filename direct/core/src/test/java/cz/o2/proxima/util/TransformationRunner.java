@@ -44,7 +44,10 @@ public class TransformationRunner {
    */
   public static void runTransformations(Repository repo, DirectDataOperator direct) {
     repo.getTransformations()
-        .forEach((name, desc) -> runTransformation(direct, name, desc, i -> {}));
+        .entrySet()
+        .stream()
+        .filter(e -> !e.getValue().isTransactional())
+        .forEach(e -> runTransformation(direct, e.getKey(), e.getValue(), i -> {}));
   }
 
   /**
@@ -60,6 +63,7 @@ public class TransformationRunner {
     repo.getTransformations()
         .entrySet()
         .stream()
+        .filter(e -> !e.getValue().isTransactional())
         .map(
             entry ->
                 Pair.of(
@@ -131,7 +135,7 @@ public class TransformationRunner {
       TransformationDescriptor desc, StreamElement elem, DirectDataOperator direct) {
 
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(elem.getAttributeDescriptor()));
-    if (!desc.isSystemTransformation() && writer.isTransactional()) {
+    if (!desc.isWriteUsingTransactions() && writer.isTransactional()) {
       return ((TransactionalOnlineAttributeWriter) writer).getDelegate();
     }
     return writer;

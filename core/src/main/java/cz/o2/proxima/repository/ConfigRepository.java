@@ -2075,7 +2075,7 @@ public final class ConfigRepository extends Repository {
             .setTransformation(new TransactionCommitTransformation())
             .addAttributes(transaction.getAttribute(COMMIT_ATTRIBUTE))
             .setName(name)
-            .systemTransformation()
+            .disableWriteUsingTransactions()
             .build();
     setupTransform(descriptor.getTransformation(), Collections.emptyMap());
     Preconditions.checkState(

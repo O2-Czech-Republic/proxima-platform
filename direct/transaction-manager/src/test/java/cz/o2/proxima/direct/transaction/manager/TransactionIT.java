@@ -211,7 +211,7 @@ public class TransactionIT {
     verifyNumDevicesMatch(numWrites, numUsers, true);
   }
 
-  @Test /* (timeout = 100_000) */
+  @Test(timeout = 100_000)
   public void testDeletedAttributeGet() throws InterruptedException {
     // check atomic swap of data between two attributes
     // a value is read from attribute X, incremented and written to attribute Y and deleted from X

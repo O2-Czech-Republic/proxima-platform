@@ -52,7 +52,7 @@ done
 
 if [[ $SONAR == 1 ]]; then
   if [[ ! -z ${PROJECTS} ]]; then
-    echo -pl :platform-parent,${PROJECTS}
+    echo -pl :platform-parent,${PROJECTS} -am
   else
     echo -pl :platform-parent
   fi

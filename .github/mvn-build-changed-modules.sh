@@ -26,6 +26,12 @@ function get_name {
 }
 
 PROJECTS=""
+SONAR=0
+if [[ $1 == "sonar" ]]; then
+  SONAR=1
+  shift
+fi
+
 BRANCH=$1
 PULL_REQUEST=$([[ $2 == "false" ]] && echo 0 || echo 1)
 
@@ -44,7 +50,13 @@ for pom in $(git log --name-only origin/master..HEAD | sed "s/src\/.\+/pom.xml/"
   PROJECTS=$(get_name $pom)${PROJECTS}
 done
 
-if [[ ! -z ${PROJECTS} ]]; then
+if [[ $SONAR == 1 ]]; then
+  if [[ ! -z ${PROJECTS} ]]; then
+    echo -pl :platform-parent,${PROJECTS}
+  else
+    echo -pl :platform-parent
+  fi
+elif [[ ! -z ${PROJECTS} ]]; then
   echo -pl $PROJECTS -amd
 else
   echo -N

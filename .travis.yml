@@ -26,7 +26,7 @@ script:
   - export JAVA_HOME=$HOME/openjdk11
   - chmod u+x $TRAVIS_BUILD_DIR/install-jdk.sh
   - $TRAVIS_BUILD_DIR/install-jdk.sh --feature 11 --target $JAVA_HOME
-  - if [ "${TRAVIS_PULL_REQUEST}" != "false" ] || [ "${TRAVIS_BRANCH}" == "master" ]; then mvn sonar:sonar -B -V -Pallow-snapshots,with-coverage,travis $(.github/mvn-build-changed-modules.sh ${TRAVIS_BRANCH} ${TRAVIS_PULL_REQUEST}); fi
+  - if [ "${TRAVIS_PULL_REQUEST}" != "false" ] || [ "${TRAVIS_BRANCH}" == "master" ]; then mvn sonar:sonar -B -V -Pallow-snapshots,with-coverage,travis $(.github/mvn-build-changed-modules.sh sonar ${TRAVIS_BRANCH} ${TRAVIS_PULL_REQUEST}); fi
 
 before_cache: rm -rf ~/.m2/repository/cz/o2/proxima || /bin/true
 

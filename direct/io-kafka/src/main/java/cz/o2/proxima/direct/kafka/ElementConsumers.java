@@ -32,6 +32,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -48,6 +50,9 @@ class ElementConsumers {
 
     final Map<TopicPartition, Long> committed = Collections.synchronizedMap(new HashMap<>());
     final Map<TopicPartition, Long> processing = Collections.synchronizedMap(new HashMap<>());
+    final AtomicReference<CompletableFuture<Map<PartitionWithTopic, Long>>> endOffsetsFuture =
+        new AtomicReference<>();
+
     long watermark;
 
     @Override

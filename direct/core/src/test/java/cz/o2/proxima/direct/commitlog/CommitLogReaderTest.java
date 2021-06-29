@@ -689,6 +689,20 @@ public class CommitLogReaderTest {
     assertThrows(IllegalStateException.class, commitLogReader::getOffsetExternalizer);
   }
 
+  @Test
+  public void testCommitLogReaderFetchOffsetDefaults() {
+    CommitLogReader commitLogReader = spy(CommitLogReader.class);
+    when(commitLogReader.hasExternalizableOffsets()).thenReturn(false);
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> commitLogReader.fetchOffsets(Position.NEWEST, Collections.emptyList()));
+
+    when(commitLogReader.hasExternalizableOffsets()).thenReturn(true);
+    assertThrows(
+        IllegalStateException.class,
+        () -> commitLogReader.fetchOffsets(Position.NEWEST, Collections.emptyList()));
+  }
+
   public static ThroughputLimiter withNumRecordsPerSec(int recordsPerSec) {
     final Duration pauseDuration = Duration.ofMillis(1000L / recordsPerSec);
     return new ThroughputLimiter() {

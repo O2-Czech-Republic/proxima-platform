@@ -56,13 +56,13 @@ import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.time.Watermarks;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
-import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -302,9 +302,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test(timeout = 10000)
-  public void testTwoPartitionsTwoWritesAndConsumeBySingleConsumerRunBeforeWrite()
-      throws InterruptedException {
-
+  public void testTwoPartitionsTwoWritesAndConsumeBySingleConsumerRunBeforeWrite() {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(2)));
     LocalKafkaWriter writer = accessor.newWriter();
@@ -358,7 +356,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test(timeout = 10000)
-  public void testTwoPartitionsTwoWritesAndTwoReads() throws InterruptedException {
+  public void testTwoPartitionsTwoWritesAndTwoReads() {
 
     final Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(2)));
@@ -733,11 +731,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final CountDownLatch latch = new CountDownLatch(2);
     final StreamElement update =
         StreamElement.upsert(
@@ -802,11 +796,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     long now = System.currentTimeMillis();
     final UnaryFunction<Integer, StreamElement> update =
         pos ->
@@ -866,11 +856,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 storageUri,
                 and(partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000")))));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     long now = System.currentTimeMillis();
     final StreamElement update =
         StreamElement.upsert(
@@ -934,10 +920,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 entity,
                 storageUri,
                 and(partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000")))));
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final long now = System.currentTimeMillis();
     AtomicLong watermark = new AtomicLong();
     CountDownLatch latch = new CountDownLatch(30);
@@ -989,10 +972,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 entity,
                 storageUri,
                 and(partitionsCfg(3), cfg(Pair.of(KafkaAccessor.EMPTY_POLL_TIME, "1000")))));
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final long now = System.currentTimeMillis();
     AtomicLong watermark = new AtomicLong();
     CountDownLatch latch = new CountDownLatch(30);
@@ -1100,10 +1080,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   void testPollFromNConsumersMovesWatermark(
       Accessor accessor, int numObservers, boolean expectMoved) throws InterruptedException {
 
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(numObservers);
     Set<CommitLogObserver> movedConsumers = Collections.synchronizedSet(new HashSet<>());
@@ -1174,11 +1151,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                     Pair.of(KafkaAccessor.ASSIGNMENT_TIMEOUT_MS, 1L),
                     Pair.of(LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS, 3))));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     long now = System.currentTimeMillis();
     for (int i = 0; i < 100; i++) {
       StreamElement update =
@@ -1300,18 +1273,14 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertEquals(
         "Invalid committed offests: " + accessor.committedOffsets,
         3,
-        accessor.committedOffsets.values().stream().mapToInt(e -> e.get()).sum());
+        accessor.committedOffsets.values().stream().mapToInt(AtomicInteger::get).sum());
   }
 
   private void testOnlineObserveWithRebalanceResetsOffsetCommitterWithObserver(
-      CommitLogObserver observer, Accessor accessor, int numWrites) throws InterruptedException {
+      CommitLogObserver observer, Accessor accessor, int numWrites) {
 
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final StreamElement update =
         StreamElement.upsert(
             entity,
@@ -1322,14 +1291,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             System.currentTimeMillis(),
             new byte[] {1, 2});
 
-    AtomicInteger consumed = new AtomicInteger();
-    List<OnNextContext> unconfirmed = Collections.synchronizedList(new ArrayList<>());
-
     // observe from two observers
-    final ObserveHandle[] handles = {
-      reader.observe("test", Position.NEWEST, observer),
-      reader.observe("test", Position.NEWEST, observer)
-    };
+    reader.observe("test", Position.NEWEST, observer);
+    reader.observe("test", Position.NEWEST, observer);
 
     for (int i = 0; i < numWrites; i++) {
       writer.write(update, (succ, e) -> assertTrue(succ));
@@ -1341,11 +1305,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final AtomicInteger restarts = new AtomicInteger();
     final AtomicReference<Throwable> exc = new AtomicReference<>();
     final CountDownLatch latch = new CountDownLatch(2);
@@ -1409,11 +1369,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final AtomicInteger restarts = new AtomicInteger();
     final AtomicReference<Throwable> exc = new AtomicReference<>();
     final CountDownLatch latch = new CountDownLatch(2);
@@ -1477,10 +1433,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     AtomicInteger restarts = new AtomicInteger();
     StreamElement update =
         StreamElement.upsert(
@@ -1522,11 +1475,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 } catch (InterruptedException ex) {
                   break;
                 }
-                writer.write(
-                    update,
-                    (succ, e) -> {
-                      assertTrue(succ);
-                    });
+                writer.write(update, (succ, e) -> assertTrue(succ));
               }
             });
     latch.await();
@@ -1538,11 +1487,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final AtomicInteger restarts = new AtomicInteger();
     final AtomicReference<Throwable> exc = new AtomicReference<>();
     final AtomicReference<StreamElement> input = new AtomicReference<>();
@@ -1616,11 +1561,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     AtomicInteger consumed = new AtomicInteger();
     StreamElement update =
         StreamElement.upsert(
@@ -1633,11 +1574,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             new byte[] {1, 2});
 
     for (int i = 0; i < 1000; i++) {
-      writer.write(
-          update,
-          (succ, e) -> {
-            assertTrue(succ);
-          });
+      writer.write(update, (succ, e) -> assertTrue(succ));
     }
     CountDownLatch latch = new CountDownLatch(1);
     reader.observeBulkPartitions(
@@ -1659,7 +1596,6 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
           @Override
           public void onCompleted() {
             latch.countDown();
-            ;
           }
 
           @Override
@@ -1677,11 +1613,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     AtomicInteger restarts = new AtomicInteger();
     AtomicReference<Throwable> exc = new AtomicReference<>();
     AtomicReference<StreamElement> input = new AtomicReference<>();
@@ -1754,11 +1686,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     AtomicInteger restarts = new AtomicInteger();
     AtomicReference<Throwable> exc = new AtomicReference<>();
     AtomicReference<StreamElement> input = new AtomicReference<>();
@@ -1858,11 +1786,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     final LocalKafkaWriter writer = accessor.newWriter();
-    final CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final List<KafkaStreamElement> input = new ArrayList<>();
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(3));
     final StreamElement update =
@@ -1937,11 +1861,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     final LocalKafkaWriter writer = accessor.newWriter();
-    final CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final List<KafkaStreamElement> input = new ArrayList<>();
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(3));
     final StreamElement update =
@@ -1989,7 +1909,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     }
 
     // restart from old offset
-    final ObserveHandle handle2 = reader.observeBulkOffsets(Lists.newArrayList(offsets), observer);
+    reader.observeBulkOffsets(Lists.newArrayList(offsets), observer);
     latch.get().await();
     assertEquals(2, input.size());
     assertEquals(0, input.get(0).getOffset());
@@ -2000,10 +1920,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testCurrentOffsetsReflectSeek() throws InterruptedException {
     final Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
-    final CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     final LocalKafkaWriter writer = accessor.newWriter();
     final CountDownLatch latch = new CountDownLatch(10);
     final StreamElement update =
@@ -2055,10 +1972,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     final Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
     final LocalKafkaWriter writer = accessor.newWriter();
-    final CachedView view =
-        accessor
-            .getCachedView(context())
-            .orElseThrow(() -> new IllegalStateException("Missing cached view"));
+    final CachedView view = Optionals.get(accessor.getCachedView(context()));
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(1));
     StreamElement update =
         StreamElement.upsert(
@@ -2078,8 +1992,8 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         });
     latch.get().await();
     latch.set(new CountDownLatch(1));
-    view.assign(IntStream.range(0, 3).mapToObj(i -> getPartition(i)).collect(Collectors.toList()));
-    assertArrayEquals(new byte[] {1, 2}, view.get("key", attr).get().getValue());
+    view.assign(IntStream.range(0, 3).mapToObj(this::getPartition).collect(Collectors.toList()));
+    assertArrayEquals(new byte[] {1, 2}, Optionals.get(view.get("key", attr)).getValue());
     update =
         StreamElement.upsert(
             entity,
@@ -2097,7 +2011,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         });
     latch.get().await();
     TimeUnit.SECONDS.sleep(1);
-    assertArrayEquals(new byte[] {1, 2, 3}, view.get("key", attr).get().getValue());
+    assertArrayEquals(new byte[] {1, 2, 3}, Optionals.get(view.get("key", attr)).getValue());
   }
 
   private Partition getPartition(int partition) {
@@ -2115,10 +2029,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             direct,
             createTestFamily(entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class)));
     final LocalKafkaWriter writer = accessor.newWriter();
-    final CachedView view =
-        accessor
-            .getCachedView(context())
-            .orElseThrow(() -> new IllegalStateException("Missing cached view"));
+    final CachedView view = Optionals.get(accessor.getCachedView(context()));
     final AtomicReference<CountDownLatch> latch = new AtomicReference<>(new CountDownLatch(2));
     final List<StreamElement> updates =
         Arrays.asList(
@@ -2148,7 +2059,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 }));
     latch.get().await();
     latch.set(new CountDownLatch(1));
-    view.assign(IntStream.range(1, 2).mapToObj(i -> getPartition(i)).collect(Collectors.toList()));
+    view.assign(IntStream.range(1, 2).mapToObj(this::getPartition).collect(Collectors.toList()));
     assertFalse(view.get("key2", attr).isPresent());
     assertTrue(view.get("key1", attr).isPresent());
     StreamElement update =
@@ -2168,7 +2079,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         });
     latch.get().await();
     TimeUnit.SECONDS.sleep(1);
-    view.assign(IntStream.range(1, 3).mapToObj(i -> getPartition(i)).collect(Collectors.toList()));
+    view.assign(IntStream.range(1, 3).mapToObj(this::getPartition).collect(Collectors.toList()));
     assertTrue(view.get("key2", attr).isPresent());
     assertTrue(view.get("key1", attr).isPresent());
   }
@@ -2179,10 +2090,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         kafka.createAccessor(
             direct,
             createTestFamily(entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class)));
-    CachedView view =
-        accessor
-            .getCachedView(context())
-            .orElseThrow(() -> new IllegalStateException("Missing cached view"));
+    CachedView view = Optionals.get(accessor.getCachedView(context()));
     List<StreamElement> updates =
         Arrays.asList(
             StreamElement.upsert(
@@ -2213,7 +2121,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     latch.await();
     assertTrue(view.get("key2", attr).isPresent());
     assertTrue(view.get("key1", attr).isPresent());
-    view.assign(IntStream.range(0, 3).mapToObj(i -> getPartition(i)).collect(Collectors.toList()));
+    view.assign(IntStream.range(0, 3).mapToObj(this::getPartition).collect(Collectors.toList()));
     assertTrue(view.get("key2", attr).isPresent());
     assertTrue(view.get("key1", attr).isPresent());
   }
@@ -2224,10 +2132,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         kafka.createAccessor(
             direct,
             createTestFamily(entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class)));
-    CachedView view =
-        accessor
-            .getCachedView(context())
-            .orElseThrow(() -> new IllegalStateException("Missing cached view"));
+    CachedView view = Optionals.get(accessor.getCachedView(context()));
     long now = System.currentTimeMillis();
     List<StreamElement> updates =
         Arrays.asList(
@@ -2252,7 +2157,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                 }));
     latch.await();
     assertFalse(view.get("key1", attr).isPresent());
-    view.assign(IntStream.range(0, 3).mapToObj(i -> getPartition(i)).collect(Collectors.toList()));
+    view.assign(IntStream.range(0, 3).mapToObj(this::getPartition).collect(Collectors.toList()));
     assertFalse(view.get("key1", attr).isPresent());
   }
 
@@ -2262,10 +2167,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         kafka.createAccessor(
             direct,
             createTestFamily(entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class)));
-    CachedView view =
-        accessor
-            .getCachedView(context())
-            .orElseThrow(() -> new IllegalStateException("Missing cached view"));
+    CachedView view = Optionals.get(accessor.getCachedView(context()));
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
     Stream.of(
@@ -2318,7 +2220,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     assertArrayEquals(
         new byte[] {2, 3},
         view.get("key1", "wildcard.1", attrWildcard, now + 500).get().getValue());
-    view.assign(IntStream.range(0, 3).mapToObj(i -> getPartition(i)).collect(Collectors.toList()));
+    view.assign(IntStream.range(0, 3).mapToObj(this::getPartition).collect(Collectors.toList()));
     assertTrue(view.get("key1", "wildcard.1", attrWildcard, now + 500).isPresent());
     assertFalse(view.get("key1", "wildcard.2", attrWildcard, now + 500).isPresent());
     assertFalse(view.get("key1", "wildcard.3", attrWildcard, now + 500).isPresent());
@@ -2333,10 +2235,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         kafka.createAccessor(
             direct,
             createTestFamily(entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class)));
-    CachedView view =
-        accessor
-            .getCachedView(context())
-            .orElseThrow(() -> new IllegalStateException("Missing cached view"));
+    CachedView view = Optionals.get(accessor.getCachedView(context()));
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
     Stream.of(
@@ -2386,7 +2285,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     List<KeyValue<byte[]>> res = new ArrayList<>();
     view.scanWildcard("key1", attrWildcard, res::add);
     assertEquals(2, res.size());
-    view.assign(IntStream.range(0, 3).mapToObj(i -> getPartition(i)).collect(Collectors.toList()));
+    view.assign(IntStream.range(0, 3).mapToObj(this::getPartition).collect(Collectors.toList()));
     res.clear();
     view.scanWildcard("key1", attrWildcard, res::add);
     assertEquals(2, res.size());
@@ -2398,10 +2297,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         kafka.createAccessor(
             direct,
             createTestFamily(entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class)));
-    CachedView view =
-        accessor
-            .getCachedView(context())
-            .orElseThrow(() -> new IllegalStateException("Missing cached view"));
+    CachedView view = Optionals.get(accessor.getCachedView(context()));
     long now = System.currentTimeMillis();
     CountDownLatch latch = new CountDownLatch(5);
     Stream.of(
@@ -2451,7 +2347,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     List<KeyValue<?>> res = new ArrayList<>();
     view.scanWildcardAll("key1", res::add);
     assertEquals(3, res.size());
-    view.assign(IntStream.range(0, 3).mapToObj(i -> getPartition(i)).collect(Collectors.toList()));
+    view.assign(IntStream.range(0, 3).mapToObj(this::getPartition).collect(Collectors.toList()));
     res.clear();
     view.scanWildcardAll("key1", res::add);
     assertEquals(3, res.size());
@@ -2463,10 +2359,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         kafka.createAccessor(
             direct,
             createTestFamily(entity, storageUri, partitionsCfg(3, FirstBytePartitioner.class)));
-    CachedView view =
-        accessor
-            .getCachedView(context())
-            .orElseThrow(() -> new IllegalStateException("Missing cached view"));
+    CachedView view = Optionals.get(accessor.getCachedView(context()));
     List<StreamElement> updates =
         Arrays.asList(
             StreamElement.upsert(
@@ -2497,21 +2390,17 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     latch.await();
     AtomicInteger calls = new AtomicInteger();
     view.assign(
-        IntStream.range(0, 3).mapToObj(i -> getPartition(i)).collect(Collectors.toList()),
+        IntStream.range(0, 3).mapToObj(this::getPartition).collect(Collectors.toList()),
         (e, c) -> calls.incrementAndGet());
     assertEquals(2, calls.get());
   }
 
   @Test(timeout = 10000)
   public void testCachedViewWritePreUpdateAndDeleteWildcard() throws InterruptedException {
-
     Accessor accessor =
         kafka.createAccessor(
             direct, createTestFamily(entity, storageUri, partitionsCfg(3, KeyPartitioner.class)));
-    CachedView view =
-        accessor
-            .getCachedView(context())
-            .orElseThrow(() -> new IllegalStateException("Missing cached view"));
+    CachedView view = Optionals.get(accessor.getCachedView(context()));
     long now = System.currentTimeMillis();
     List<StreamElement> updates =
         Arrays.asList(
@@ -2545,20 +2434,17 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     latch.await();
     AtomicInteger calls = new AtomicInteger();
     view.assign(
-        IntStream.range(0, 3).mapToObj(i -> getPartition(i)).collect(Collectors.toList()),
+        IntStream.range(0, 3).mapToObj(this::getPartition).collect(Collectors.toList()),
         (e, c) -> calls.incrementAndGet());
     assertEquals(3, calls.get());
   }
 
   @Test(timeout = 10000)
-  public void testRewriteAndPrefetch() throws InterruptedException, IOException {
+  public void testRewriteAndPrefetch() throws InterruptedException {
     Accessor accessor =
         kafka.createAccessor(
             direct, createTestFamily(entity, storageUri, partitionsCfg(3, KeyPartitioner.class)));
-    CachedView view =
-        accessor
-            .getCachedView(context())
-            .orElseThrow(() -> new IllegalStateException("Missing cached view"));
+    CachedView view = Optionals.get(accessor.getCachedView(context()));
     long now = System.currentTimeMillis();
     List<StreamElement> updates =
         Arrays.asList(
@@ -2590,7 +2476,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
                   latch.countDown();
                 }));
     latch.await();
-    view.assign(IntStream.range(0, 3).mapToObj(i -> getPartition(i)).collect(Collectors.toList()));
+    view.assign(IntStream.range(0, 3).mapToObj(this::getPartition).collect(Collectors.toList()));
     assertArrayEquals(new byte[] {2, 3}, view.get("key1", attr).get().getValue());
     view.write(
         StreamElement.upsert(
@@ -2601,9 +2487,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             attr.getName(),
             now,
             new byte[] {3, 4}),
-        (succ, exc) -> {
-          assertTrue(succ);
-        });
+        (succ, exc) -> assertTrue(succ));
     assertArrayEquals(new byte[] {3, 4}, view.get("key1", attr).get().getValue());
     view.close();
     assertFalse(view.get("key1", attr).isPresent());
@@ -2678,10 +2562,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     Accessor accessor = kafka.createAccessor(direct, createTestFamily(entity, storageUri, cfg));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
 
     long now = System.currentTimeMillis();
     final UnaryFunction<Integer, StreamElement> update =
@@ -2739,10 +2620,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     Accessor accessor = kafka.createAccessor(direct, createTestFamily(entity, storageUri, cfg));
     LocalKafkaWriter writer = accessor.newWriter();
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
 
     long now = System.currentTimeMillis();
     final StreamElement update =
@@ -2797,13 +2675,78 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   public void testOffsetExternalizer() {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(1)));
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(context())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
     assertTrue(reader.hasExternalizableOffsets());
     assertEquals(TopicOffsetExternalizer.class, reader.getOffsetExternalizer().getClass());
+  }
+
+  @Test(timeout = 10_000)
+  public void testFetchOffsets() throws InterruptedException {
+    Accessor accessor =
+        kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
+    LocalKafkaWriter writer = accessor.newWriter();
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
+    final CountDownLatch latch = new CountDownLatch(2);
+    final StreamElement[] updates =
+        new StreamElement[] {
+          StreamElement.upsert(
+              entity,
+              attr,
+              UUID.randomUUID().toString(),
+              "key",
+              attr.getName(),
+              System.currentTimeMillis(),
+              new byte[] {1, 2}),
+          StreamElement.upsert(
+              entity,
+              attr,
+              UUID.randomUUID().toString(),
+              "key2",
+              attr.getName(),
+              System.currentTimeMillis(),
+              new byte[] {1, 2, 3})
+        };
+
+    Arrays.stream(updates).forEach(update -> writer.write(update, (succ, exc) -> {}));
+
+    final ObserveHandle handle =
+        reader.observeBulkOffsets(
+            reader.fetchOffsets(Position.OLDEST, reader.getPartitions()).values(),
+            new CommitLogObserver() {
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                context.confirm();
+                latch.countDown();
+                return true;
+              }
+
+              @Override
+              public void onCompleted() {
+                fail("This should not be called");
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
+
+    latch.await();
+    assertEquals(
+        handle
+            .getCommittedOffsets()
+            .stream()
+            .map(TopicOffset.class::cast)
+            .sorted(Comparator.comparing(tp -> tp.getPartition().getId()))
+            .collect(Collectors.toList()),
+        reader
+            .fetchOffsets(Position.NEWEST, reader.getPartitions())
+            .values()
+            .stream()
+            .map(TopicOffset.class::cast)
+            .sorted(Comparator.comparing(tp -> tp.getPartition().getId()))
+            .collect(Collectors.toList()));
   }
 
   private long testSequentialConsumption(long maxBytesPerSec) throws InterruptedException {
@@ -2907,7 +2850,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
     @Override
     public int getPartitionId(StreamElement element) {
       if (!element.isDelete()) {
-        return (int) element.getValue()[0];
+        return element.getValue()[0];
       }
       return 0;
     }
@@ -2925,7 +2868,6 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
               .orElseThrow(() -> new IllegalStateException("Missing attribute 'strAttr'"));
     }
 
-    @Nullable
     @Override
     public StreamElement read(ConsumerRecord<String, String> record, EntityDescriptor entityDesc) {
       return StreamElement.upsert(
@@ -2983,7 +2925,7 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
 
     @Override
     public WatermarkIdlePolicy create(Map<String, Object> cfg) {
-      return (WatermarkIdlePolicy) () -> FIXED_IDLE_WATERMARK;
+      return () -> FIXED_IDLE_WATERMARK;
     }
   }
 }

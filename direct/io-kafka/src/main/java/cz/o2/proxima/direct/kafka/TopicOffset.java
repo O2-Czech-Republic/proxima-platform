@@ -58,16 +58,14 @@ class TopicOffset implements Offset {
   public boolean equals(Object obj) {
     if (obj instanceof TopicOffset) {
       TopicOffset other = (TopicOffset) obj;
-      return other.partition.equals(partition)
-          && other.offset == offset
-          && other.watermark == watermark;
+      return other.partition.equals(partition) && other.offset == offset;
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(partition, offset, watermark);
+    return Objects.hash(partition, offset);
   }
 
   static List<TopicOffset> fromMap(Map<TopicPartition, Long> offsetMap, long watermark) {

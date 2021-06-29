@@ -40,6 +40,7 @@ import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.WatermarkEstimator;
+import cz.o2.proxima.time.Watermarks;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -55,6 +56,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nonnull;
@@ -105,14 +107,14 @@ public class ListCommitLog implements CommitLogReader {
     public boolean equals(Object obj) {
       if (obj instanceof ListOffset) {
         ListOffset other = (ListOffset) obj;
-        return other.offset == this.offset && other.watermark == this.watermark;
+        return other.offset == this.offset;
       }
       return false;
     }
 
     @Override
     public int hashCode() {
-      return (int) ((offset ^ watermark) % Integer.MAX_VALUE);
+      return (int) (offset % Integer.MAX_VALUE);
     }
   }
 
@@ -222,6 +224,7 @@ public class ListCommitLog implements CommitLogReader {
   @VisibleForTesting
   static final class ListObserveHandle implements ObserveHandle {
 
+    private final String listUuid;
     @Getter private final String consumerName;
 
     @Getter private volatile boolean closed = false;
@@ -229,6 +232,7 @@ public class ListCommitLog implements CommitLogReader {
     private final Map<String, Consumer> consumers;
 
     ListObserveHandle(String listUuid, String consumerName) {
+      this.listUuid = listUuid;
       this.consumerName = Objects.requireNonNull(consumerName);
       consumers = CONSUMERS.get(listUuid);
     }
@@ -489,6 +493,29 @@ public class ListCommitLog implements CommitLogReader {
         observer::onCompleted,
         observer::onCancelled);
     return handle;
+  }
+
+  @Override
+  public Map<Partition, Offset> fetchOffsets(Position position, List<Partition> partitions) {
+    Preconditions.checkArgument(position == Position.NEWEST || position == Position.OLDEST);
+    if (position == Position.OLDEST) {
+      return partitions
+          .stream()
+          .collect(
+              Collectors.toMap(
+                  Function.identity(),
+                  p -> new ListOffset(UUID.randomUUID().toString(), 0, Watermarks.MIN_WATERMARK)));
+    }
+    return partitions
+        .stream()
+        .collect(
+            Collectors.toMap(
+                Function.identity(),
+                p ->
+                    new ListOffset(
+                        UUID.randomUUID().toString(),
+                        UUID_TO_DATA.get(uuid).size() - 1,
+                        Watermarks.MIN_WATERMARK)));
   }
 
   private List<StreamElement> data() {

@@ -29,6 +29,7 @@ import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.LogObserverUtils;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.commitlog.ObserveHandleUtils;
 import cz.o2.proxima.direct.commitlog.Offset;
 import cz.o2.proxima.direct.core.AttributeWriterBase;
 import cz.o2.proxima.direct.core.CommitCallback;
@@ -50,6 +51,7 @@ import cz.o2.proxima.storage.commitlog.Partitioners;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.time.Watermarks;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import java.io.Serializable;
 import java.net.URI;
@@ -67,6 +69,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -84,14 +88,8 @@ public class InMemStorageTest implements Serializable {
     DataAccessor accessor =
         storage.createAccessor(
             direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-    AttributeWriterBase writer =
-        accessor
-            .getWriter(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
     AtomicReference<CountDownLatch> latch = new AtomicReference<>();
     reader.observePartitions(
         reader.getPartitions(),
@@ -141,14 +139,8 @@ public class InMemStorageTest implements Serializable {
         storage.createAccessor(direct, createFamilyDescriptor(URI.create("inmem://test1")));
     DataAccessor accessor2 =
         storage.createAccessor(direct, createFamilyDescriptor(URI.create("inmem://test2")));
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing batch log reader"));
-    AttributeWriterBase writer =
-        accessor
-            .getWriter(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
     CountDownLatch latch = new CountDownLatch(1);
     StreamElement element =
         StreamElement.upsert(
@@ -201,14 +193,8 @@ public class InMemStorageTest implements Serializable {
     DataAccessor accessor =
         storage.createAccessor(
             direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
-    BatchLogReader reader =
-        accessor
-            .getBatchLogReader(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing batch log reader"));
-    AttributeWriterBase writer =
-        accessor
-            .getWriter(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    BatchLogReader reader = Optionals.get(accessor.getBatchLogReader(direct.getContext()));
+    AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
     CountDownLatch latch = new CountDownLatch(1);
     writer
         .online()
@@ -251,14 +237,8 @@ public class InMemStorageTest implements Serializable {
         storage.createAccessor(direct, createFamilyDescriptor(URI.create("inmem://test1")));
     DataAccessor accessor2 =
         storage.createAccessor(direct, createFamilyDescriptor(URI.create("inmem://test2")));
-    BatchLogReader reader =
-        accessor
-            .getBatchLogReader(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing batch log reader"));
-    AttributeWriterBase writer =
-        accessor
-            .getWriter(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    BatchLogReader reader = Optionals.get(accessor.getBatchLogReader(direct.getContext()));
+    AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
     CountDownLatch latch = new CountDownLatch(1);
     StreamElement element =
         StreamElement.upsert(
@@ -309,14 +289,8 @@ public class InMemStorageTest implements Serializable {
     DataAccessor accessor =
         storage.createAccessor(
             direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-    AttributeWriterBase writer =
-        accessor
-            .getWriter(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
     List<Byte> received = new ArrayList<>();
     ObserveHandle handle =
         reader.observePartitions(
@@ -381,14 +355,8 @@ public class InMemStorageTest implements Serializable {
     DataAccessor accessor =
         storage.createAccessor(
             direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-    AttributeWriterBase writer =
-        accessor
-            .getWriter(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing writer"));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
     List<Byte> received = new ArrayList<>();
     CommitLogObserver observer =
         new CommitLogObserver() {
@@ -457,6 +425,83 @@ public class InMemStorageTest implements Serializable {
     handle.close();
   }
 
+  @Test(timeout = 10000)
+  public void testFetchOffsetsSinglePartition() throws InterruptedException {
+    testFetchOffsets(1);
+  }
+
+  @Test(timeout = 10000)
+  public void testFetchOffsetsMultiplePartitions() throws InterruptedException {
+    testFetchOffsets(3);
+  }
+
+  private void testFetchOffsets(int numPartitions) throws InterruptedException {
+    InMemStorage storage = new InMemStorage();
+    DataAccessor accessor =
+        storage.createAccessor(
+            direct, createFamilyDescriptor(URI.create("inmem:///test"), numPartitions));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
+    long now = System.currentTimeMillis();
+    List<StreamElement> updates = new ArrayList<>();
+    for (int i = 0; i < 2 * numPartitions; i++) {
+      updates.add(
+          StreamElement.upsert(
+              entity,
+              data,
+              UUID.randomUUID().toString(),
+              "key" + (i + 1),
+              data.getName(),
+              now + i,
+              new byte[] {1, 2, 3}));
+    }
+    updates.forEach(el -> writer.online().write(el, (succ, exc) -> {}));
+    Map<Partition, Offset> startingOffsets =
+        reader.fetchOffsets(Position.OLDEST, reader.getPartitions());
+    assertEquals(numPartitions, startingOffsets.size());
+    List<StreamElement> elements = new ArrayList<>();
+    CountDownLatch latch = new CountDownLatch(1);
+    CountDownLatch startLatch = new CountDownLatch(1);
+    CommitLogObserver observer =
+        LogObserverUtils.toList(
+            elements,
+            ign -> latch.countDown(),
+            el -> {
+              ExceptionUtils.ignoringInterrupted(startLatch::await);
+              return true;
+            });
+    ObserveHandle handle = reader.observeBulkOffsets(startingOffsets.values(), true, observer);
+    assertFalse(ObserveHandleUtils.isAtHead(handle, reader));
+    startLatch.countDown();
+    latch.await();
+    assertEquals(2 * numPartitions, elements.size());
+    List<Offset> committed = handle.getCommittedOffsets();
+    Map<Partition, Offset> endOffsets2 =
+        reader.fetchOffsets(
+            Position.NEWEST,
+            committed.stream().map(Offset::getPartition).collect(Collectors.toList()));
+    assertTrue(ObserveHandleUtils.isAtHead(handle, reader));
+    assertEquals(
+        IntStream.range(0, 2 * numPartitions)
+            .mapToObj(i -> "key" + (i + 1))
+            .collect(Collectors.toList()),
+        elements.stream().map(StreamElement::getKey).collect(Collectors.toList()));
+    elements.clear();
+    Map<Partition, Offset> endOffsets =
+        reader.fetchOffsets(Position.NEWEST, reader.getPartitions());
+    assertEquals(numPartitions, endOffsets.size());
+    CountDownLatch latch2 = new CountDownLatch(1);
+    observer = LogObserverUtils.toList(elements, ign -> latch2.countDown());
+    reader.observeBulkOffsets(endOffsets.values(), true, observer);
+    latch2.await();
+    assertEquals(numPartitions, elements.size());
+    assertEquals(
+        IntStream.range(numPartitions, 2 * numPartitions)
+            .mapToObj(i -> "key" + (i + 1))
+            .collect(Collectors.toList()),
+        elements.stream().map(StreamElement::getKey).collect(Collectors.toList()));
+  }
+
   @Test
   public void testObserveWithEndOfTime() throws InterruptedException {
     URI uri = URI.create("inmem:///inmemstoragetest");
@@ -515,7 +560,6 @@ public class InMemStorageTest implements Serializable {
     final InMemStorage storage = new InMemStorage();
     final DataAccessor accessor = storage.createAccessor(direct, createFamilyDescriptor(uri));
     final CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
-
     final AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
     final CountDownLatch failingObserverErrorReceived = new CountDownLatch(1);
     final AtomicInteger failingObserverMessages = new AtomicInteger(0);
@@ -746,15 +790,8 @@ public class InMemStorageTest implements Serializable {
     DataAccessor accessor =
         storage.createAccessor(
             direct, createFamilyDescriptor(URI.create("inmem:///inmemstoragetest")));
-    CommitLogReader reader =
-        accessor
-            .getCommitLogReader(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing commit log reader"));
-    AttributeWriterBase writer =
-        accessor
-            .getWriter(direct.getContext())
-            .orElseThrow(() -> new IllegalStateException("Missing writer"));
-
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
+    AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
     List<StreamElement> result = new ArrayList<>();
     CountDownLatch latch = new CountDownLatch(1);
     CommitLogObserver observer =

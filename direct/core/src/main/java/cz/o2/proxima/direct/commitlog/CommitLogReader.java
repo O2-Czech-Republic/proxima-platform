@@ -25,6 +25,7 @@ import java.io.Serializable;
 import java.net.URI;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -332,6 +333,24 @@ public interface CommitLogReader {
    */
   default boolean restoresSequentialIds() {
     return false;
+  }
+
+  /**
+   * Fetch offsets at given position from given partitions.
+   *
+   * @param position
+   * @param partitions
+   * @return
+   * @throws UnsupportedOperationException if {@link CommitLogReader} does not have externalizable
+   *     offsets
+   */
+  default Map<Partition, Offset> fetchOffsets(Position position, List<Partition> partitions) {
+    if (!hasExternalizableOffsets()) {
+      throw new UnsupportedOperationException(
+          getClass().getName()
+              + " does not have externalizable offsets. Fetch offsets not supported.");
+    }
+    throw new IllegalStateException("Unimplemented. This is bug, please file an issue");
   }
 
   /**

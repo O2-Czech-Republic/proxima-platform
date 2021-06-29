@@ -57,7 +57,7 @@ if [[ $SONAR == 1 ]]; then
     echo -pl :platform-parent
   fi
 elif [[ ! -z ${PROJECTS} ]]; then
-  echo -pl $PROJECTS -amd
+  echo -pl $PROJECTS -amd -am
 else
   echo -N
 fi

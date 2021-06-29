@@ -164,6 +164,38 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
     }
   }
 
+  @Override
+  public Map<Partition, Offset> fetchOffsets(Position position, List<Partition> partitions) {
+    Preconditions.checkArgument(
+        position == Position.NEWEST || position == Position.OLDEST,
+        "Position %s does not have well defined offsets.",
+        position);
+    List<TopicPartition> topicPartitions =
+        partitions
+            .stream()
+            .map(PartitionWithTopic.class::cast)
+            .map(p -> new TopicPartition(p.getTopic(), p.getPartition()))
+            .collect(Collectors.toList());
+    final Map<TopicPartition, Long> res;
+    try (KafkaConsumer<?, ?> consumer = createConsumer()) {
+      if (position == Position.OLDEST) {
+        res = consumer.beginningOffsets(topicPartitions);
+      } else {
+        res = consumer.endOffsets(topicPartitions);
+      }
+    }
+    return res.entrySet()
+        .stream()
+        .collect(
+            Collectors.toMap(
+                e -> new PartitionWithTopic(e.getKey().topic(), e.getKey().partition()),
+                e ->
+                    new TopicOffset(
+                        new PartitionWithTopic(e.getKey().topic(), e.getKey().partition()),
+                        e.getValue(),
+                        Watermarks.MIN_WATERMARK)));
+  }
+
   @VisibleForTesting
   ObserveHandle observeKafka(
       @Nullable String name,
@@ -363,8 +395,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
     executor.submit(
         () -> {
-          handle.set(createObserveHandle(shutdown, seekOffsets, consumer, latch));
-          final AtomicReference<KafkaConsumer<Object, Object>> consumerRef;
+          final AtomicReference<KafkaConsumer<Object, Object>> consumerRef =
+              new AtomicReference<>();
           final AtomicReference<PartitionedWatermarkEstimator> watermarkEstimator =
               new AtomicReference<>(null);
           final Map<TopicPartition, Integer> emptyPollCount = new ConcurrentHashMap<>();
@@ -373,7 +405,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           final KafkaThroughputLimiter throughputLimiter =
               new KafkaThroughputLimiter(maxBytesPerSec);
 
-          consumerRef = new AtomicReference<>();
+          handle.set(createObserveHandle(shutdown, seekOffsets, consumer, latch));
           consumer.onStart();
           ConsumerRebalanceListener listener =
               listener(
@@ -599,7 +631,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       AtomicBoolean shutdown,
       List<TopicOffset> seekOffsets,
       ElementConsumer<?, ?> consumer,
-      CountDownLatch latch) {
+      CountDownLatch readyLatch) {
 
     return new ObserveHandle() {
 
@@ -628,7 +660,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
 
       @Override
       public void waitUntilReady() throws InterruptedException {
-        latch.await();
+        readyLatch.await();
       }
     };
   }

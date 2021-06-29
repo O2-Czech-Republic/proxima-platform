@@ -98,10 +98,12 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -144,6 +146,7 @@ public class InMemStorage implements DataAccessorFactory {
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
+          .add("partition", partition)
           .add("offset", consumedKeyAttr.size())
           .add("watermark", watermark)
           .toString();
@@ -153,15 +156,15 @@ public class InMemStorage implements DataAccessorFactory {
     public boolean equals(Object obj) {
       if (obj instanceof ConsumedOffset) {
         ConsumedOffset other = (ConsumedOffset) obj;
-        return other.consumedKeyAttr.equals(this.consumedKeyAttr)
-            && other.watermark == this.watermark;
+        return other.partition.equals(this.partition)
+            && other.consumedKeyAttr.equals(this.consumedKeyAttr);
       }
       return false;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(watermark, consumedKeyAttr);
+      return Objects.hash(partition, consumedKeyAttr);
     }
   }
 
@@ -390,14 +393,14 @@ public class InMemStorage implements DataAccessorFactory {
     @Override
     public ObserveHandle observeBulkOffsets(
         Collection<Offset> offsets, boolean stopAtCurrent, CommitLogObserver observer) {
-      @SuppressWarnings("unchecked")
-      final List<ConsumedOffset> cast = (List) offsets;
+      @SuppressWarnings({"unchecked", "rawtypes"})
+      final Collection<ConsumedOffset> cast = (Collection) offsets;
       return doObserve(Position.OLDEST, cast, stopAtCurrent, observer, null);
     }
 
     private ObserveHandle doObserve(
         Position position,
-        List<ConsumedOffset> offsets,
+        Collection<ConsumedOffset> offsets,
         boolean stopAtCurrent,
         CommitLogObserver observer,
         @Nullable String name) {
@@ -461,11 +464,7 @@ public class InMemStorage implements DataAccessorFactory {
 
         @Override
         public List<Offset> getCommittedOffsets() {
-          // no commits supported for now
-          return getCurrentOffsets()
-              .stream()
-              .map(item -> ConsumedOffset.empty(item.getPartition()))
-              .collect(Collectors.toList());
+          return getCurrentOffsets();
         }
 
         @Override
@@ -488,7 +487,7 @@ public class InMemStorage implements DataAccessorFactory {
     private Supplier<List<Offset>> flushBasedOnPosition(
         @Nullable String name,
         Position position,
-        List<ConsumedOffset> initialOffsets,
+        Collection<ConsumedOffset> initialOffsets,
         int consumerId,
         boolean stopAtCurrent,
         AtomicBoolean killSwitch,
@@ -601,13 +600,7 @@ public class InMemStorage implements DataAccessorFactory {
                   @Nullable
                   final StreamElement lastConsumed = lastConsumedPerPartition.get(partition);
                   if (lastConsumed != null) {
-                    consumedOffsets.add(
-                        String.format(
-                            "%d-%s#%s:%d",
-                            partition.getId(),
-                            lastConsumed.getKey(),
-                            lastConsumed.getAttribute(),
-                            lastConsumed.getStamp()));
+                    consumedOffsets.add(toConsumedOffset(partition, lastConsumed));
                   }
                   lastConsumedPerPartition.put(partition, element);
                   final boolean continueProcessing =
@@ -641,24 +634,11 @@ public class InMemStorage implements DataAccessorFactory {
               .forEachOrdered(
                   e -> {
                     final String keyAttr = e.getKey().substring(prefixLength);
-                    final long stamp = e.getValue().getFirst();
-                    final String[] parts = keyAttr.split("#");
-                    final String key = parts[0];
-                    final String attribute = parts[1];
-                    final AttributeDescriptor<?> desc =
-                        getEntityDescriptor().getAttribute(attribute, true);
-                    final StreamElement element =
-                        StreamElement.upsert(
-                            getEntityDescriptor(),
-                            desc,
-                            UUID.randomUUID().toString(),
-                            key,
-                            attribute,
-                            stamp,
-                            e.getValue().getSecond());
+                    final StreamElement element = getStreamElement(e, prefixLength);
                     final int partitionId =
                         Partitioners.getTruncatedPartitionId(partitioner, element, numPartitions);
-                    if (consumedOffsets.contains(partitionId + "-" + keyAttr + ":" + stamp)) {
+                    if (consumedOffsets.contains(
+                        partitionId + "-" + keyAttr + ":" + element.getStamp())) {
                       // this record has already been consumed in previous offset, so skip it
                       log.debug("Discarding element {} due to being already consumed.", keyAttr);
                       return;
@@ -710,6 +690,32 @@ public class InMemStorage implements DataAccessorFactory {
       }
     }
 
+    private StreamElement getStreamElement(Entry<String, Pair<Long, byte[]>> e, int prefixLength) {
+      String keyAttr = e.getKey().substring(prefixLength);
+      final long stamp = e.getValue().getFirst();
+      final String[] parts = keyAttr.split("#", 2);
+      Preconditions.checkArgument(parts.length == 2);
+      final String key = parts[0];
+      final String attribute = parts[1];
+      final AttributeDescriptor<?> desc = getEntityDescriptor().getAttribute(attribute, true);
+      return StreamElement.upsert(
+          getEntityDescriptor(),
+          desc,
+          UUID.randomUUID().toString(),
+          key,
+          attribute,
+          stamp,
+          e.getValue().getSecond());
+    }
+
+    private String toConsumedOffset(Partition partition, StreamElement element) {
+      return String.format(
+          "%d-%s:%d",
+          partition.getId(),
+          toKeyAttribute(element.getKey(), element.getAttribute()),
+          element.getStamp());
+    }
+
     @Override
     public boolean hasExternalizableOffsets() {
       return true;
@@ -718,6 +724,67 @@ public class InMemStorage implements DataAccessorFactory {
     @Override
     public OffsetExternalizer getOffsetExternalizer() {
       return new ConsumedOffsetExternalizer();
+    }
+
+    @Override
+    public Map<Partition, Offset> fetchOffsets(Position position, List<Partition> partitions) {
+      Preconditions.checkArgument(position == Position.OLDEST || position == Position.NEWEST);
+      if (position == Position.OLDEST) {
+        return partitions
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    Function.identity(),
+                    p -> new ConsumedOffset(p, Collections.emptySet(), Watermarks.MIN_WATERMARK)));
+      }
+      String prefix = toStoragePrefix(getUri());
+      int prefixLength = prefix.length();
+      // we filter out the element with highest timestamp, so that observeOffsets(endOffsets) will
+      // retrieve the last element
+      Map<Integer, AtomicLong> maxStamps =
+          getData()
+              .entrySet()
+              .stream()
+              .filter(e -> e.getKey().startsWith(prefix))
+              .map(e -> getStreamElement(e, prefixLength))
+              .collect(
+                  Collectors.groupingBy(
+                      e -> Partitioners.getTruncatedPartitionId(partitioner, e, numPartitions),
+                      Collectors.mapping(
+                          StreamElement::getStamp,
+                          Collectors.reducing(
+                              new AtomicLong(Long.MIN_VALUE),
+                              AtomicLong::new,
+                              (a, b) -> (a.longValue() < b.longValue()) ? b : a))));
+
+      return getData()
+          .entrySet()
+          .stream()
+          .filter(e -> e.getKey().startsWith(prefix))
+          .map(
+              e -> {
+                StreamElement element = getStreamElement(e, prefixLength);
+                Partition part =
+                    Partition.of(
+                        Partitioners.getTruncatedPartitionId(partitioner, element, numPartitions));
+                return Pair.of(part, element);
+              })
+          .filter(
+              p ->
+                  !maxStamps
+                      .get(p.getFirst().getId())
+                      .compareAndSet(p.getSecond().getStamp(), Long.MIN_VALUE))
+          .collect(
+              Collectors.groupingBy(
+                  Pair::getFirst,
+                  Collectors.mapping(
+                      p -> toConsumedOffset(p.getFirst(), p.getSecond()), Collectors.toSet())))
+          .entrySet()
+          .stream()
+          .collect(
+              Collectors.toMap(
+                  Map.Entry::getKey,
+                  e -> new ConsumedOffset(e.getKey(), e.getValue(), Watermarks.MIN_WATERMARK)));
     }
 
     @Override
@@ -1241,7 +1308,11 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   private static String toMapKey(URI uri, String key, String attribute) {
-    return toStoragePrefix(uri) + key + "#" + attribute;
+    return toStoragePrefix(uri) + toKeyAttribute(key, attribute);
+  }
+
+  private static String toKeyAttribute(String key, String attribute) {
+    return key + "#" + attribute;
   }
 
   private static CommitLogObserver.OnNextContext asOnNextContext(

@@ -15,8 +15,7 @@
  */
 package cz.o2.proxima.direct.kafka;
 
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import com.google.common.collect.Lists;
 import com.typesafe.config.Config;
@@ -26,6 +25,7 @@ import com.typesafe.config.ConfigValueFactory;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.commitlog.ObserveHandleUtils;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.kafka.KafkaStreamElement.KafkaStreamElementSerializer;
@@ -37,6 +37,7 @@ import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.storage.commitlog.KeyPartitioner;
 import cz.o2.proxima.storage.commitlog.Position;
 import cz.o2.proxima.time.Watermarks;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -53,6 +54,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -213,6 +215,42 @@ public class KafkaLogReaderIT {
     await(secondObserver.getCompleted());
     Assert.assertEquals(0, secondObserver.getNumReceivedElements());
     Assert.assertEquals(numElements + 2 * numPartitions, numCommittedElements(secondHandle));
+  }
+
+  @Test(timeout = 30_000L)
+  public void testReadFromOldestVerifyIsAtHead() throws InterruptedException {
+    final EmbeddedKafkaBroker embeddedKafka = rule.getEmbeddedKafka();
+    final int numPartitions = 3;
+    embeddedKafka.addTopics(new NewTopic("foo", numPartitions, (short) 1));
+    final CommitLogReader commitLogReader =
+        Optionals.get(operator.getCommitLogReader(fooDescriptor));
+    // Write everything up front, so we can be sure that we really seek all the way to beginning.
+    final int numElements = 100;
+    await(writeElements(numElements));
+    AtomicReference<ObserveHandle> handle = new AtomicReference<>();
+    CountDownLatch firstLatch = new CountDownLatch(1);
+    CountDownLatch lastLatch = new CountDownLatch(1);
+    CommitLogObserver observer =
+        new CommitLogObserver() {
+          int consumed = 0;
+
+          @Override
+          public boolean onNext(StreamElement ingest, OnNextContext context) {
+            context.confirm();
+            if (consumed == 0) {
+              ExceptionUtils.ignoringInterrupted(firstLatch::await);
+            }
+            if (++consumed == numElements) {
+              lastLatch.countDown();
+            }
+            return true;
+          }
+        };
+    handle.set(commitLogReader.observe("test-reader", Position.OLDEST, observer));
+    assertFalse(ObserveHandleUtils.isAtHead(handle.get(), commitLogReader));
+    firstLatch.countDown();
+    lastLatch.await();
+    assertTrue(ObserveHandleUtils.isAtHead(handle.get(), commitLogReader));
   }
 
   @Test(timeout = 30_000L)

@@ -1406,6 +1406,7 @@ class BeamStream<T> implements Stream<T> {
         Closure<O> output,
         Coder<K> keyCoder,
         Coder<S> stateCoder) {
+
       this(initialState, stateUpdate, output, keyCoder, stateCoder, Duration.ZERO);
     }
 
@@ -1427,25 +1428,26 @@ class BeamStream<T> implements Stream<T> {
     @RequiresTimeSortedInput
     @ProcessElement
     public void processElement(
-        ProcessContext context,
+        @Element KV<K, V> element,
+        @Timestamp Instant ts,
         @StateId("value") ValueState<Pair<K, S>> valueState,
-        @TimerId("earlyTimer") Timer earlyTimer) {
+        @TimerId("earlyTimer") Timer earlyTimer,
+        OutputReceiver<Pair<K, O>> outputReceiver) {
 
-      KV<K, V> element = context.element();
       K key = element.getKey();
       V value = element.getValue();
       Pair<K, S> current = valueState.read();
       if (current == null) {
         current = Pair.of(key, Objects.requireNonNull(initialState.call(key)));
+        if (!earlyEmitting.equals(Duration.ZERO)) {
+          earlyTimer.offset(earlyEmitting).setRelative();
+        }
       }
       O outputElem = output.call(current.getSecond(), value);
       S updated = stateUpdate.call(current.getSecond(), value);
       valueState.write(Pair.of(key, updated));
       if (outputElem != null) {
-        context.outputWithTimestamp(Pair.of(key, outputElem), context.timestamp());
-      }
-      if (!earlyEmitting.equals(Duration.ZERO)) {
-        earlyTimer.set(context.timestamp().plus(earlyEmitting));
+        outputReceiver.outputWithTimestamp(Pair.of(key, outputElem), ts);
       }
     }
 
@@ -1455,7 +1457,7 @@ class BeamStream<T> implements Stream<T> {
         @StateId("value") ValueState<Pair<K, S>> valueState,
         @TimerId("earlyTimer") Timer earlyTimer) {
 
-      Pair<K, S> current = valueState.read();
+      Pair<K, S> current = Objects.requireNonNull(valueState.read());
       O outputElem = output.call(current.getSecond(), null);
       if (outputElem != null) {
         context.output(Pair.of(current.getFirst(), outputElem));

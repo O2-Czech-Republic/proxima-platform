@@ -107,7 +107,7 @@ public class CommitLogReadTest {
       ListCommitLog commitLog = ListCommitLog.of(data, direct.getContext());
       CommitLogRead read =
           CommitLogRead.ofBounded("name", Long.MAX_VALUE, repo.asFactory(), commitLog);
-      testReadingFromCommitLog(commitLog, read);
+      testReadingFromCommitLog(read);
     }
   }
 
@@ -199,7 +199,7 @@ public class CommitLogReadTest {
             direct,
             createTestFamily(
                 event,
-                URI.create("kafka-test://brokers/topic-" + UUID.randomUUID().toString()),
+                URI.create("kafka-test://brokers/topic-" + UUID.randomUUID()),
                 ImmutableMap.of(
                     LocalKafkaCommitLogDescriptor.CFG_NUM_PARTITIONS,
                     numPartitions,
@@ -264,11 +264,10 @@ public class CommitLogReadTest {
 
   private void testReadingFromCommitLog(ListCommitLog commitLog) {
     CommitLogRead read = getCommitLogReadTransform(commitLog, repo);
-    testReadingFromCommitLog(commitLog, read);
+    testReadingFromCommitLog(read);
   }
 
-  private void testReadingFromCommitLog(
-      ListCommitLog commitLog, PTransform<PBegin, PCollection<StreamElement>> read) {
+  private void testReadingFromCommitLog(PTransform<PBegin, PCollection<StreamElement>> read) {
     Pipeline p = createPipeline();
     PCollection<Long> count =
         p.apply(read)
@@ -278,12 +277,7 @@ public class CommitLogReadTest {
                     .discardingFiredPanes())
             .apply(Count.globally());
     PAssert.that(count).containsInAnyOrder(1L);
-    try {
-      assertNotNull(p.run().waitUntilFinish());
-    } catch (Throwable err) {
-      err.printStackTrace(System.err);
-      throw err;
-    }
+    assertNotNull(p.run().waitUntilFinish());
   }
 
   private boolean isDirect() {

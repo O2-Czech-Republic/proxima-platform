@@ -457,6 +457,9 @@ public class BeamStreamTest extends StreamTest {
 
   @Test
   public void testPeriodicStateFlushing() {
+    if (!stream) {
+      return;
+    }
     Instant now = Instant.ofEpochMilli(1);
     TestStream<KV<String, Integer>> input =
         TestStream.create(KvCoder.of(StringUtf8Coder.of(), VarIntCoder.of()))
@@ -498,7 +501,7 @@ public class BeamStreamTest extends StreamTest {
             .withTimestamp()
             .collect();
     assertEquals(
-        Lists.newArrayList(1L, 1L, 1L, 1L, 1L, 2L, 2L, 1L, 1L),
+        Lists.newArrayList(1L, 1L, 1L, 1L, 2L, 2L, 1L, 1L),
         result
             .stream()
             .sorted(Comparator.comparing(Pair::getSecond))

@@ -792,6 +792,43 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
   }
 
   @Test(timeout = 10000)
+  public void testObserveCancelled() throws InterruptedException {
+    Accessor accessor =
+        kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));
+    CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(context()));
+    final CountDownLatch latch = new CountDownLatch(1);
+    final ObserveHandle handle =
+        reader.observe(
+            "test",
+            Position.NEWEST,
+            new CommitLogObserver() {
+
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
+                return true;
+              }
+
+              @Override
+              public void onCompleted() {
+                fail("This should not be called");
+              }
+
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+
+              @Override
+              public void onCancelled() {
+                latch.countDown();
+              }
+            });
+
+    handle.close();
+    latch.await();
+  }
+
+  @Test(timeout = 10000)
   public void testObserveMovesWatermark() throws InterruptedException {
     Accessor accessor =
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(3)));

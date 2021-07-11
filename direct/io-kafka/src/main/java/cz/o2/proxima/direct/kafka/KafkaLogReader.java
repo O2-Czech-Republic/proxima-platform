@@ -474,6 +474,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 if (!cont) {
                   log.info("Terminating consumption by request");
                   completed.set(true);
+                  shutdown.set(true);
                   break;
                 }
                 if (stopAtCurrent) {
@@ -503,7 +504,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                   completed.get(),
                   Thread.currentThread().isInterrupted());
             }
-            if (!Thread.currentThread().isInterrupted()) {
+            if (!Thread.currentThread().isInterrupted() && !shutdown.get()) {
               consumer.onCompleted();
             } else {
               consumer.onCancelled();

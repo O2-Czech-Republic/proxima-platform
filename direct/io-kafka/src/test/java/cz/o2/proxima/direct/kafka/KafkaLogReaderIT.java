@@ -113,6 +113,11 @@ public class KafkaLogReaderIT {
     }
 
     @Override
+    public void onCancelled() {
+      onCompleted();
+    }
+
+    @Override
     public boolean onError(Throwable error) {
       return false;
     }

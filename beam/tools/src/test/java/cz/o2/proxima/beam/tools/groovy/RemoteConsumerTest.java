@@ -16,10 +16,12 @@
 package cz.o2.proxima.beam.tools.groovy;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 import cz.o2.proxima.functional.Consumer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.junit.Test;
 
@@ -41,7 +43,19 @@ public class RemoteConsumerTest {
 
   @Test
   public void testBindOnSpecificPort() {
-    testConsumeOkWithPort(43764);
+    Random r = new Random();
+    for (int i = 0; i < 10; i++) {
+      int port = r.nextInt(65535 - 1024) + 1024;
+      try {
+        testConsumeOkWithPort(port);
+        return;
+      } catch (Exception ex) {
+        if (!ex.getMessage().equals("Retries exhausted trying to start server")) {
+          throw ex;
+        }
+      }
+    }
+    fail("Retries exhausted trying to run server on random port");
   }
 
   @Test(expected = RuntimeException.class)

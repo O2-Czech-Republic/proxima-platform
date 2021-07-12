@@ -19,15 +19,15 @@
 set -e
 
 IS_PR=$([[ ! -z $GITHUB_HEAD_REF ]] && echo ${GITHUB_HEAD_REF} || echo false)
-BRANCH=${GITHUB_HEAD_REF}
+BRANCH=${GITHUB_HEAD_REF##*/}
 
 echo "${BRANCH} ${IS_PR}" $(.github/mvn-build-changed-modules.sh ${BRANCH} ${IS_PR}})
 
-mvn spotless:check -B -V && mvn install -B -V -Pallow-snapshots,with-coverage,travis -Dorg.slf4j.simpleLogger.log.org.apache.maven.plugins.shade=error $(.github/mvn-build-changed-modules.sh ${BRANCH} ${IS_PR})  || (sleep 5; exit 1)
+mvn spotless:check -B -V && mvn install -B -V -Pallow-snapshots,with-coverage,ci -Dorg.slf4j.simpleLogger.log.org.apache.maven.plugins.shade=error -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false -Dmaven.wagon.httpconnectionManager.ttlSeconds=120 $(.github/mvn-build-changed-modules.sh ${BRANCH} ${IS_PR})  || (sleep 5; exit 1)
 
 if [[ $1 != "8" ]]; then
   if [ "${IS_PR}" != "false" ] || [ "${BRANCH}" == "master" ]; then
-    mvn sonar:sonar -B -V -Pallow-snapshots,with-coverage,travis $(.github/mvn-build-changed-modules.sh sonar ${BRANCH} ${IS_PR});
+    mvn sonar:sonar -B -V -Pallow-snapshots,with-coverage,ci $(.github/mvn-build-changed-modules.sh sonar ${BRANCH} ${IS_PR});
   fi
 fi
 

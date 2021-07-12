@@ -42,4 +42,6 @@ jobs:
       with:
         java-version: ${{ matrix.java-version }}
     - name: Build with Maven
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: ./.github/workflows/mvn.sh ${{ matrix.java-version }}

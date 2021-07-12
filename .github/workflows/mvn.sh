@@ -23,11 +23,11 @@ BRANCH=${GITHUB_HEAD_REF}
 
 echo "${BRANCH} ${IS_PR}" $(.github/mvn-build-changed-modules.sh ${BRANCH} ${IS_PR}})
 
-mvn spotless:check -B -V && mvn install -B -V -Pallow-snapshots,with-coverage,travis -Dorg.slf4j.simpleLogger.log.org.apache.maven.plugins.shade=error $(.github/mvn-build-changed-modules.sh ${BRANCH} ${IS_PR})  || (sleep 5; exit 1)
+mvn spotless:check -B -V && mvn install -B -V -Pallow-snapshots,with-coverage,ci -Dorg.slf4j.simpleLogger.log.org.apache.maven.plugins.shade=error $(.github/mvn-build-changed-modules.sh ${BRANCH} ${IS_PR})  || (sleep 5; exit 1)
 
 if [[ $1 != "8" ]]; then
   if [ "${IS_PR}" != "false" ] || [ "${BRANCH}" == "master" ]; then
-    mvn sonar:sonar -B -V -Pallow-snapshots,with-coverage,travis $(.github/mvn-build-changed-modules.sh sonar ${BRANCH} ${IS_PR});
+    mvn sonar:sonar -B -V -Pallow-snapshots,with-coverage,ci $(.github/mvn-build-changed-modules.sh sonar ${BRANCH} ${IS_PR});
   fi
 fi
 

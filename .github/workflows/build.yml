@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-name: Build using Maven
+name: CI
 
 on:
 - push

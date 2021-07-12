@@ -248,7 +248,7 @@
     </profile>
 
     <profile>
-      <id>travis</id>
+      <id>ci</id>
       <properties>
         <surefire.forkCount>1</surefire.forkCount>
         <surefire.cmdArgs>-DLOG_LEVEL=ERROR</surefire.cmdArgs>

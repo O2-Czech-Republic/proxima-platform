@@ -32,7 +32,6 @@
   <name>${project.groupId}:${project.artifactId}</name>
 
   <properties>
-    <grpc.version>1.32.2</grpc.version>
     <shadePattern>cz.o2.proxima.beam.io.pubsub</shadePattern>
     <apache.beam.version.raw>${apache.beam.version}</apache.beam.version.raw>
   </properties>

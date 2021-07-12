@@ -156,7 +156,7 @@
 
     <dependency>
       <groupId>${apache.beam.groupId}</groupId>
-      <artifactId>beam-runners-flink-1.11</artifactId>
+      <artifactId>beam-runners-flink-1.13</artifactId>
       <scope>test</scope>
     </dependency>
 

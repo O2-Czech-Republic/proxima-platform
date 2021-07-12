@@ -29,6 +29,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Cache maven repository
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/.m2/repository
+          !~/.m2/repository/cz/o2/proxima
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
     - name: Set up JDK ${{ matrix.java-version }}
       uses: actions/setup-java@v1
       with:

@@ -22,6 +22,11 @@ import cz.o2.proxima.storage.StreamElement;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * A transform that automatically indexes user.gateway.* to gateway.user.* and back. That way a
+ * write to either attribute will appear (as port of a possible transaction) on the other attribute
+ * as well, so that it can be searched both ways.
+ */
 public class UserGatewayIndex implements ElementWiseTransformation {
 
   EntityDescriptor user;

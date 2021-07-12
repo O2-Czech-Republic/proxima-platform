@@ -349,7 +349,7 @@ public class TransactionalOnlineAttributeWriterTest {
   }
 
   @Test(timeout = 10_000)
-  public void testWriteToTransactionWithTransform() throws InterruptedException {
+  public void testWriteInTransactionWithTransform() throws InterruptedException {
     List<AttributeDescriptor<byte[]>> attrs = Arrays.asList(userGateways, gatewayUsers);
     for (int i = 0; i < 2; i++) {
       CachedView view = Optionals.get(direct.getCachedView(attrs.get(i)));

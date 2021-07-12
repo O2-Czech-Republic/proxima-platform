@@ -49,7 +49,7 @@ public class TransformationDescriptor implements Serializable {
     final List<AttributeDescriptor<?>> attrs = new ArrayList<>();
     Transformation transformation;
     StorageFilter filter;
-    boolean writeUsingTransactions = true;
+    boolean outputTransactions = true;
 
     Builder setName(String name) {
       this.name = name;
@@ -76,8 +76,8 @@ public class TransformationDescriptor implements Serializable {
       return this;
     }
 
-    Builder disableWriteUsingTransactions() {
-      this.writeUsingTransactions = false;
+    Builder disableOutputTransactions() {
+      this.outputTransactions = false;
       return this;
     }
 
@@ -86,45 +86,70 @@ public class TransformationDescriptor implements Serializable {
       Preconditions.checkArgument(!attrs.isEmpty(), "Please specify at least one attribute");
       Preconditions.checkArgument(transformation != null, "Please specify transformation function");
 
-      return new TransformationDescriptor(
-          name, attrs, transformation, writeUsingTransactions, filter);
+      return new TransformationDescriptor(name, attrs, transformation, outputTransactions, filter);
     }
   }
 
+  /** Mode of handling transactional attributes on input. */
+  public enum InputTransactionMode {
+    /** The input attributes are *all* transactional attributes. */
+    TRANSACTIONAL,
+    /** None of the input attributes is transactional attribute. */
+    NON_TRANSACTIONAL
+  }
+
+  /** Mode of handling transactional attribute on output. */
+  public enum OutputTransactionMode {
+    /** Write all transactional attributes on output using transactions. */
+    ENABLED,
+    /** Write transactional attributes on output directly to target commit-log. */
+    DISABLED
+  }
+
+  /** Name of the transformation. */
   @Getter private final String name;
 
+  /** List of input attributes of the transformation. */
   private final List<AttributeDescriptor<?>> attributes;
 
+  /** The (stateless) mapping function. */
   @Getter private final Transformation transformation;
 
-  @Getter private final boolean writeUsingTransactions;
-
+  /** Input filter. */
   @Getter private final StorageFilter filter;
 
-  @Getter private final boolean transactional;
+  @Getter private final InputTransactionMode inputTransactionMode;
+
+  @Getter private final OutputTransactionMode outputTransactionMode;
 
   private TransformationDescriptor(
       String name,
       List<AttributeDescriptor<?>> attributes,
       Transformation transformation,
-      boolean writeUsingTransactions,
+      boolean supportOutputTransactions,
       @Nullable StorageFilter filter) {
 
     this.name = Objects.requireNonNull(name);
     this.attributes = Objects.requireNonNull(attributes);
     this.transformation = Objects.requireNonNull(transformation);
-    this.writeUsingTransactions = writeUsingTransactions;
+    this.outputTransactionMode =
+        supportOutputTransactions ? OutputTransactionMode.ENABLED : OutputTransactionMode.DISABLED;
     this.filter = filter == null ? new PassthroughFilter() : filter;
-    this.transactional = requireSingleTransactionMode(attributes) != TransactionMode.NONE;
+    this.inputTransactionMode =
+        requireSingleTransactionMode(name, attributes) != TransactionMode.NONE
+            ? InputTransactionMode.TRANSACTIONAL
+            : InputTransactionMode.NON_TRANSACTIONAL;
   }
 
-  private TransactionMode requireSingleTransactionMode(List<AttributeDescriptor<?>> attributes) {
+  private TransactionMode requireSingleTransactionMode(
+      String name, List<AttributeDescriptor<?>> attributes) {
     Map<TransactionMode, List<AttributeDescriptor<?>>> grouped =
         attributes.stream().collect(Collectors.groupingBy(AttributeDescriptor::getTransactionMode));
     Preconditions.checkArgument(
         grouped.size() == 1,
-        "Require all attributes from transform to have the same transaction mode, got [ %s ]"
-            + " in [ %s ]",
+        "Require all attributes from transform [ %s ] to have the same transaction "
+            + "mode, got [ %s ] in [ %s ]",
+        name,
         grouped.keySet(),
         attributes);
     return Iterables.getOnlyElement(grouped.keySet());
@@ -160,7 +185,8 @@ public class TransformationDescriptor implements Serializable {
   public String toString() {
     return MoreObjects.toStringHelper(this)
         .add("attributes", attributes)
-        .add("writeUsingTransactions", writeUsingTransactions)
+        .add("inputTransactionMode", inputTransactionMode)
+        .add("outputTransactionMode", outputTransactionMode)
         .toString();
   }
 }

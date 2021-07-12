@@ -26,6 +26,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.TransformationDescriptor;
+import cz.o2.proxima.repository.TransformationDescriptor.InputTransactionMode;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import java.util.stream.Collectors;
@@ -46,7 +47,7 @@ public class TransformationRunner {
     repo.getTransformations()
         .entrySet()
         .stream()
-        .filter(e -> !e.getValue().isTransactional())
+        .filter(e -> e.getValue().getInputTransactionMode() != InputTransactionMode.TRANSACTIONAL)
         .forEach(e -> runTransformation(direct, e.getKey(), e.getValue(), i -> {}));
   }
 
@@ -63,7 +64,7 @@ public class TransformationRunner {
     repo.getTransformations()
         .entrySet()
         .stream()
-        .filter(e -> !e.getValue().isTransactional())
+        .filter(e -> e.getValue().getInputTransactionMode() != InputTransactionMode.TRANSACTIONAL)
         .map(
             entry ->
                 Pair.of(
@@ -135,7 +136,8 @@ public class TransformationRunner {
       TransformationDescriptor desc, StreamElement elem, DirectDataOperator direct) {
 
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(elem.getAttributeDescriptor()));
-    if (!desc.isWriteUsingTransactions() && writer.isTransactional()) {
+    if (desc.getInputTransactionMode() != InputTransactionMode.TRANSACTIONAL
+        && writer.isTransactional()) {
       return ((TransactionalOnlineAttributeWriter) writer).getDelegate();
     }
     return writer;

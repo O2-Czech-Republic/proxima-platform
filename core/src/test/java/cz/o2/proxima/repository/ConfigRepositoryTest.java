@@ -29,6 +29,7 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.ConfigRepository.Builder;
 import cz.o2.proxima.repository.Repository.Validate;
+import cz.o2.proxima.repository.TransformationDescriptor.OutputTransactionMode;
 import cz.o2.proxima.scheme.RepositoryInitializedValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.PassthroughFilter;
@@ -624,7 +625,7 @@ public class ConfigRepositoryTest {
     assertNotNull(desc);
     assertEquals("_transaction-commit", desc.getName());
     assertEquals(TransactionCommitTransformation.class, desc.getTransformation().getClass());
-    assertFalse(desc.isWriteUsingTransactions());
+    assertEquals(OutputTransactionMode.DISABLED, desc.getOutputTransactionMode());
 
     Map<String, AttributeFamilyDescriptor> nameToFamily =
         repo.getAllFamilies(true)

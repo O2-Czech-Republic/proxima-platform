@@ -24,6 +24,7 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.TransactionMode;
 import cz.o2.proxima.repository.TransformationDescriptor;
+import cz.o2.proxima.repository.TransformationDescriptor.InputTransactionMode;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
@@ -50,8 +51,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 /** A {@link OnlineAttributeWriter} that enforces transactions for each write. */
+@Slf4j
 public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter {
 
   public static TransactionalOnlineAttributeWriter of(
@@ -174,6 +177,11 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
             if (!succ) {
               rollback();
             }
+            log.debug(
+                "Committed outputs {} (via {}) of transaction {}",
+                transformed,
+                toWrite,
+                transactionId);
             callback.commit(succ, exc);
           };
       state = State.Flags.COMMITTED;
@@ -275,7 +283,7 @@ public class TransactionalOnlineAttributeWriter implements OnlineAttributeWriter
             .getTransformations()
             .values()
             .stream()
-            .filter(TransformationDescriptor::isTransactional)
+            .filter(d -> d.getInputTransactionMode() == InputTransactionMode.TRANSACTIONAL)
             .flatMap(t -> t.getAttributes().stream().map(a -> Pair.of(a, t)))
             .collect(
                 Collectors.groupingBy(

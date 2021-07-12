@@ -19,7 +19,7 @@
 set -e
 
 IS_PR=$([[ ! -z $GITHUB_HEAD_REF ]] && echo ${GITHUB_HEAD_REF} || echo false)
-BRANCH=${GITHUB_HEAD_REF}
+BRANCH=${GITHUB_HEAD_REF##*/}
 
 echo "${BRANCH} ${IS_PR}" $(.github/mvn-build-changed-modules.sh ${BRANCH} ${IS_PR}})
 

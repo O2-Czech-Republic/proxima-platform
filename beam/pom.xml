@@ -35,7 +35,7 @@
 
   <properties>
     <scala.version>2.11</scala.version>
-    <jackson.version>2.10.2</jackson.version>
+    <jackson.version>2.12.1</jackson.version>
   </properties>
 
   <dependencyManagement>
@@ -93,7 +93,7 @@
 
       <dependency>
         <groupId>${apache.beam.groupId}</groupId>
-        <artifactId>beam-runners-flink-1.11</artifactId>
+        <artifactId>beam-runners-flink-1.13</artifactId>
         <version>${apache.beam.version}</version>
         <scope>provided</scope>
       </dependency>

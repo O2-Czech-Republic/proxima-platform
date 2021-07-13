@@ -135,7 +135,7 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
       this.consumed = consumed;
     }
 
-    boolean claim(@Nonnull Offset offset) {
+    synchronized boolean claim(@Nonnull Offset offset) {
       if (!extensible) {
         if (finished) {
           return false;
@@ -263,13 +263,15 @@ public class OffsetRestrictionTracker extends RestrictionTracker<OffsetRange, Of
 
   @Override
   public @Nullable SplitResult<OffsetRange> trySplit(double fractionOfRemainder) {
-    if (currentRestriction.isFinished()) {
-      return null;
-    } else if (currentRestriction.isSplittable()) {
-      currentRestriction.terminate();
-      return SplitResult.of(currentRestriction.asPrimary(), currentRestriction.asResidual());
+    synchronized (currentRestriction) {
+      if (currentRestriction.isFinished()) {
+        return null;
+      } else if (currentRestriction.isSplittable()) {
+        currentRestriction.terminate();
+        return SplitResult.of(currentRestriction.asPrimary(), currentRestriction.asResidual());
+      }
+      return SplitResult.of(null, currentRestriction);
     }
-    return SplitResult.of(null, currentRestriction);
   }
 
   @Override

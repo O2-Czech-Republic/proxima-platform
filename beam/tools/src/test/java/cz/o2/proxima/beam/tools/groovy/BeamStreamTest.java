@@ -451,12 +451,15 @@ public class BeamStreamTest extends StreamTest {
             .map(Closures.fromArray(this, args -> ((Pair<Integer, Integer>) args[0]).getSecond()))
             .collect();
     assertEquals(
-        Arrays.asList(0, 90, 90, 90, 99, 100, 100, 100, 110, 110),
+        Arrays.asList(0, 90, 90, 99, 100, 100, 100, 110),
         result.stream().sorted().collect(Collectors.toList()));
   }
 
   @Test
   public void testPeriodicStateFlushing() {
+    if (!stream) {
+      return;
+    }
     Instant now = Instant.ofEpochMilli(1);
     TestStream<KV<String, Integer>> input =
         TestStream.create(KvCoder.of(StringUtf8Coder.of(), VarIntCoder.of()))
@@ -498,7 +501,7 @@ public class BeamStreamTest extends StreamTest {
             .withTimestamp()
             .collect();
     assertEquals(
-        Lists.newArrayList(1L, 1L, 1L, 1L, 1L, 2L, 2L, 1L, 1L),
+        Lists.newArrayList(1L, 1L, 1L, 1L, 2L, 2L, 1L, 1L),
         result
             .stream()
             .sorted(Comparator.comparing(Pair::getSecond))

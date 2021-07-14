@@ -19,6 +19,7 @@ import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.tools.groovy.GroovyEnv;
 import cz.o2.proxima.tools.groovy.GroovyEnvTest;
+import cz.o2.proxima.util.Optionals;
 import java.util.Arrays;
 import java.util.Collection;
 import org.apache.beam.runners.direct.DirectRunner;
@@ -46,11 +47,7 @@ public class BeamGroovyEnvTest extends GroovyEnvTest {
 
   @Override
   protected void write(StreamElement element) {
-    direct
-        .getWriter(element.getAttributeDescriptor())
-        .orElseThrow(
-            () ->
-                new IllegalStateException("Missing writer for " + element.getAttributeDescriptor()))
+    Optionals.get(direct.getWriter(element.getAttributeDescriptor()))
         .write(element, (succ, exc) -> {});
   }
 }

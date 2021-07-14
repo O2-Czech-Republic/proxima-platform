@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import cz.o2.proxima.beam.tools.proto.service.Collect.Item;
 import cz.o2.proxima.beam.tools.proto.service.Collect.Response;
@@ -77,8 +78,11 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
     throw new RuntimeException("Retries exhausted trying to start server");
   }
 
-  private static boolean isBindException(Throwable ex) {
-    return ex.getMessage().equals("Failed to bind")
+  @VisibleForTesting
+  static boolean isBindException(Throwable ex) {
+    return (ex instanceof IOException
+            && ex.getMessage() != null
+            && ex.getMessage().startsWith("Failed to bind"))
         || ex.getCause() != null && isBindException(ex.getCause());
   }
 
@@ -190,7 +194,8 @@ class RemoteConsumer<T> implements AutoCloseable, Consumer<T> {
   private transient StreamObserver<Item> observer;
   private transient CompletableFuture<Void> terminateFuture;
 
-  private RemoteConsumer(String hostname, int port, Consumer<T> consumer, Coder<T> coder) {
+  @VisibleForTesting
+  RemoteConsumer(String hostname, int port, Consumer<T> consumer, Coder<T> coder) {
     this.server = new Server(port);
     this.hostname = hostname;
     this.port = port;

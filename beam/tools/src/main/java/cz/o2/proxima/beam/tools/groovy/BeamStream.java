@@ -369,7 +369,6 @@ class BeamStream<T> implements Stream<T> {
   }
 
   private void forEach(@Nullable String name, Consumer<T> consumer, boolean gatherLocally) {
-
     Pipeline pipeline = createPipeline();
     PCollection<T> pcoll = collection.materialize(pipeline);
     if (gatherLocally) {

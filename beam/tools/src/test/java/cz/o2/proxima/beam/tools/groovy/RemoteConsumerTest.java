@@ -15,10 +15,10 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import cz.o2.proxima.functional.Consumer;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -27,6 +27,8 @@ import org.junit.Test;
 
 /** Test {@link RemoteConsumer}. */
 public class RemoteConsumerTest {
+
+  private final Random random = new Random();
 
   @Test
   public void testConsumeOk() {
@@ -43,9 +45,8 @@ public class RemoteConsumerTest {
 
   @Test
   public void testBindOnSpecificPort() {
-    Random r = new Random();
     for (int i = 0; i < 10; i++) {
-      int port = r.nextInt(65535 - 1024) + 1024;
+      int port = random.nextInt(65535 - 1024) + 1024;
       try {
         testConsumeOkWithPort(port);
         return;
@@ -56,6 +57,33 @@ public class RemoteConsumerTest {
       }
     }
     fail("Retries exhausted trying to run server on random port");
+  }
+
+  @Test
+  public void testBindError() {
+    for (int i = 0; i < 10; i++) {
+      int port = random.nextInt(65535 - 1024) + 1024;
+      List<String> list = new ArrayList<>();
+      try {
+        try (RemoteConsumer<String> remoteConsumer =
+            RemoteConsumer.create(this, "localhost", port, list::add, StringUtf8Coder.of())) {
+          try {
+            RemoteConsumer<String> test =
+                new RemoteConsumer<>("localhost", port, list::add, StringUtf8Coder.of());
+            test.start();
+            fail("Should have thrown exception");
+          } catch (Exception ex) {
+            assertTrue(RemoteConsumer.isBindException(ex));
+            break;
+          }
+        }
+      } catch (Exception ex) {
+        // nop
+      }
+    }
+    assertFalse(RemoteConsumer.isBindException(new RuntimeException()));
+    assertFalse(RemoteConsumer.isBindException(new IOException()));
+    assertFalse(RemoteConsumer.isBindException(new IOException("foo")));
   }
 
   @Test(expected = RuntimeException.class)

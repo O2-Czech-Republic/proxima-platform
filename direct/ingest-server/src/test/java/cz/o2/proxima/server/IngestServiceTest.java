@@ -30,7 +30,7 @@ import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.scheme.proto.test.Scheme;
 import cz.o2.proxima.server.test.Test.ExtendedMessage;
-import cz.o2.proxima.util.Pair;
+import cz.o2.proxima.storage.StreamElement;
 import io.grpc.stub.StreamObserver;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -197,9 +197,9 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = getInMemStorage();
-    Map<String, Pair<Long, byte[]>> data = storage.getData();
+    Map<String, StreamElement> data = storage.getData();
     assertEquals(1, data.size());
-    assertArrayEquals(new byte[0], data.get("/proxima/dummy/my-dummy-entity#data").getSecond());
+    assertArrayEquals(new byte[0], data.get("/proxima/dummy/my-dummy-entity#data").getValue());
   }
 
   @Test(timeout = 10000)
@@ -225,9 +225,9 @@ public class IngestServiceTest {
     }
 
     InMemStorage storage = getInMemStorage();
-    Map<String, Pair<Long, byte[]>> data = storage.getData();
+    Map<String, StreamElement> data = storage.getData();
     assertEquals(1, data.size());
-    assertArrayEquals(new byte[0], data.get("/proxima/dummy/my-dummy-entity#data").getSecond());
+    assertArrayEquals(new byte[0], data.get("/proxima/dummy/my-dummy-entity#data").getValue());
   }
 
   @Test(timeout = 10000)
@@ -267,16 +267,16 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = getInMemStorage();
-    Map<String, Pair<Long, byte[]>> data = storage.getData();
+    Map<String, StreamElement> data = storage.getData();
     assertEquals(2, data.size());
     assertEquals(
         "muhehe",
-        Scheme.Device.parseFrom(data.get("/proxima/dummy/dummy1#wildcard.1234").getSecond())
+        Scheme.Device.parseFrom(data.get("/proxima/dummy/dummy1#wildcard.1234").getValue())
             .getPayload()
             .toStringUtf8());
     assertEquals(
         "muhehe",
-        Scheme.Device.parseFrom(data.get("/proxima/dummy/dummy2#wildcard.12345").getSecond())
+        Scheme.Device.parseFrom(data.get("/proxima/dummy/dummy2#wildcard.12345").getValue())
             .getPayload()
             .toStringUtf8());
   }
@@ -358,7 +358,7 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = getInMemStorage();
-    Map<String, Pair<Long, byte[]>> data = storage.getData();
+    Map<String, StreamElement> data = storage.getData();
     assertEquals(1, data.size());
     assertTrue(data.containsKey("/proxima/dummy/my-dummy-entity#data"));
   }
@@ -406,7 +406,7 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = getInMemStorage();
-    Map<String, Pair<Long, byte[]>> data = storage.getData();
+    Map<String, StreamElement> data = storage.getData();
     // although we have the filter applied here,
     // we cannot filter the ingest out, because it goes directly to the
     // output (without commit log in the middle)
@@ -432,7 +432,7 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = getInMemStorage();
-    Map<String, Pair<Long, byte[]>> data = storage.getData();
+    Map<String, StreamElement> data = storage.getData();
     assertEquals(1, data.size());
     assertTrue(data.containsKey("/proxima/dummy/my-dummy-entity#data"));
   }
@@ -457,7 +457,7 @@ public class IngestServiceTest {
 
     Repository repo = server.repo;
     InMemBulkStorage storage = getInMemBulkStorage();
-    Map<String, Pair<Long, byte[]>> data = storage.getData("/proxima_events/bulk");
+    Map<String, StreamElement> data = storage.getData("/proxima_events/bulk");
     assertEquals("Expected single element in: " + data, 1, data.size());
     assertTrue(data.containsKey("/proxima_events/bulk/my-dummy-entity#data"));
   }
@@ -482,12 +482,12 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = getInMemStorage();
-    Map<String, Pair<Long, byte[]>> data = storage.getData();
+    Map<String, StreamElement> data = storage.getData();
     assertEquals(2, data.size());
-    byte[] value = data.get("/test_inmem/my-dummy-entity#data").getSecond();
+    byte[] value = data.get("/test_inmem/my-dummy-entity#data").getValue();
     assertNotNull(value);
     assertEquals(payload, ExtendedMessage.parseFrom(value));
-    value = data.get("/test_inmem/random/my-dummy-entity#data").getSecond();
+    value = data.get("/test_inmem/random/my-dummy-entity#data").getValue();
     assertNotNull(value);
     assertEquals(payload, ExtendedMessage.parseFrom(value));
   }
@@ -513,8 +513,8 @@ public class IngestServiceTest {
     assertEquals(200, status.getStatus());
 
     InMemStorage storage = getInMemStorage();
-    Map<String, Pair<Long, byte[]>> data = storage.getData();
-    byte[] value = data.get("/proxima/dummy/my-dummy-entity#wildcard." + now).getSecond();
+    Map<String, StreamElement> data = storage.getData();
+    byte[] value = data.get("/proxima/dummy/my-dummy-entity#wildcard." + now).getValue();
     assertNotNull(value);
   }
 

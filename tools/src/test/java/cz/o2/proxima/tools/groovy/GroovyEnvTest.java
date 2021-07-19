@@ -357,7 +357,8 @@ public abstract class GroovyEnvTest extends GroovyTest {
   public void testGroupReduce() throws Exception {
     final Script compiled =
         compile(
-            "env.batch.wildcard.batchUpdates().groupReduce("
+            "env.batch.wildcard.batchUpdates()"
+                + ".groupReduce("
                 + "{ it.key }, { w, el -> [[w.toString(), el.size()]] }).collect()");
 
     write(
@@ -381,7 +382,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch,
-            data,
+            wildcard,
             "uuid3",
             "key1",
             wildcard.toAttributePrefix() + "3",
@@ -426,7 +427,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch,
-            data,
+            wildcard,
             "uuid3",
             "key3",
             wildcard.toAttributePrefix() + "3",
@@ -475,7 +476,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch,
-            data,
+            wildcard,
             "uuid3",
             "key3",
             wildcard.toAttributePrefix() + "3",
@@ -524,7 +525,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch,
-            data,
+            wildcard,
             "uuid3",
             "key1",
             wildcard.toAttributePrefix() + "3",
@@ -568,7 +569,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch,
-            data,
+            wildcard,
             "uuid3",
             "key1",
             wildcard.toAttributePrefix() + "3",
@@ -621,7 +622,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch,
-            data,
+            wildcard,
             "uuid3",
             "key1",
             wildcard.toAttributePrefix() + "3",
@@ -694,7 +695,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch,
-            data,
+            wildcard,
             "uuid4",
             "key1",
             wildcard.toAttributePrefix() + "14",
@@ -703,7 +704,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch,
-            data,
+            wildcard,
             "uuid5",
             "key1",
             wildcard.toAttributePrefix() + "15",
@@ -774,7 +775,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch,
-            data,
+            wildcard,
             "uuid4",
             "key1",
             wildcard.toAttributePrefix() + "14",
@@ -783,7 +784,7 @@ public abstract class GroovyEnvTest extends GroovyTest {
     write(
         StreamElement.upsert(
             batch,
-            data,
+            wildcard,
             "uuid5",
             "key1",
             wildcard.toAttributePrefix() + "15",

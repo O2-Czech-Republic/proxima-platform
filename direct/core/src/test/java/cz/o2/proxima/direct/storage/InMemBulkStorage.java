@@ -35,7 +35,6 @@ import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.Partition;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.util.Pair;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
@@ -43,7 +42,6 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Optional;
 import java.util.TreeMap;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -66,12 +64,10 @@ public class InMemBulkStorage implements DataAccessorFactory {
 
     @Override
     public void write(StreamElement data, long watermark, CommitCallback statusCallback) {
-
       // store the data, commit after each 10 elements
       log.debug("Writing {} into {}", data, getUri());
       InMemBulkStorage.data.put(
-          getUri().getPath() + "/" + data.getKey() + "#" + data.getAttribute(),
-          Pair.of(data.getStamp(), data.getValue()));
+          getUri().getPath() + "/" + data.getKey() + "#" + data.getAttribute(), data);
       lastWriteWatermark = watermark;
       toCommit = statusCallback;
       if (++writtenSinceLastCommit >= 10) {
@@ -153,7 +149,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
           .submit(
               () -> {
                 try {
-                  for (Map.Entry<String, Pair<Long, byte[]>> e : InMemBulkStorage.data.entrySet()) {
+                  for (Map.Entry<String, StreamElement> e : InMemBulkStorage.data.entrySet()) {
                     if (!processRecord(attributes, observer, terminationContext, prefix, e)) {
                       break;
                     }
@@ -172,7 +168,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
         BatchLogObserver observer,
         TerminationContext terminationContext,
         String prefix,
-        Map.Entry<String, Pair<Long, byte[]>> e) {
+        Map.Entry<String, StreamElement> e) {
 
       if (terminationContext.isCancelled()) {
         return false;
@@ -181,25 +177,14 @@ public class InMemBulkStorage implements DataAccessorFactory {
         return false;
       }
       String k = e.getKey();
-      Pair<Long, byte[]> v = e.getValue();
+      StreamElement v = e.getValue();
       String[] parts = k.substring(prefix.length()).split("#");
       String key = parts[0];
       String attribute = parts[1];
       return getEntityDescriptor()
           .findAttribute(attribute, true)
           .filter(attributes::contains)
-          .map(
-              desc ->
-                  observer.onNext(
-                      StreamElement.upsert(
-                          getEntityDescriptor(),
-                          desc,
-                          UUID.randomUUID().toString(),
-                          key,
-                          attribute,
-                          v.getFirst(),
-                          v.getSecond()),
-                      BatchLogObservers.defaultContext(Partition.of(0))))
+          .map(desc -> observer.onNext(v, BatchLogObservers.defaultContext(Partition.of(0))))
           .orElse(true);
     }
 
@@ -243,7 +228,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
     }
   }
 
-  private static final NavigableMap<String, Pair<Long, byte[]>> data =
+  private static final NavigableMap<String, StreamElement> data =
       Collections.synchronizedNavigableMap(new TreeMap<>());
 
   @Override
@@ -257,7 +242,7 @@ public class InMemBulkStorage implements DataAccessorFactory {
     return new InMemBulkAccessor(familyDescriptor.getEntity(), familyDescriptor.getStorageUri());
   }
 
-  public NavigableMap<String, Pair<Long, byte[]>> getData(String prefix) {
+  public NavigableMap<String, StreamElement> getData(String prefix) {
     return Collections.unmodifiableNavigableMap(
         data.subMap(prefix, true, prefix + Character.MAX_VALUE, false));
   }

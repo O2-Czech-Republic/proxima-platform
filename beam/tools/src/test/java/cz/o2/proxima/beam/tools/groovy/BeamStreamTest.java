@@ -255,12 +255,8 @@ public class BeamStreamTest extends StreamTest {
   public void testInterruptible() throws InterruptedException {
     Repository repo = Repository.ofTest(ConfigFactory.load("test-reference.conf"));
     BeamDataOperator op = repo.getOrCreateOperator(BeamDataOperator.class);
-    EntityDescriptor gateway =
-        repo.findEntity("gateway").orElseThrow(() -> new IllegalStateException("Missing gateway"));
-    AttributeDescriptor<?> armed =
-        gateway
-            .findAttribute("armed")
-            .orElseThrow(() -> new IllegalStateException("Missing armed"));
+    EntityDescriptor gateway = repo.getEntity("gateway");
+    AttributeDescriptor<?> armed = gateway.getAttribute("armed");
     SynchronousQueue<Boolean> interrupt = new SynchronousQueue<>();
     Stream<StreamElement> stream =
         BeamStream.stream(

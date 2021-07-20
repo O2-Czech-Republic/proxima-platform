@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.beam.sdk.io.BoundedSource;
 import org.apache.beam.sdk.io.BoundedSource.BoundedReader;
@@ -32,6 +33,7 @@ import org.joda.time.Instant;
 
 /** A {@link BoundedReader} reading from {@link BatchLogReader}. */
 @Slf4j
+@ToString
 class BeamBatchLogReader extends BoundedReader<StreamElement> {
 
   private static final Instant LOWEST_INSTANT = BoundedWindow.TIMESTAMP_MIN_VALUE;
@@ -101,6 +103,7 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
       } catch (InterruptedException ex) {
         Thread.currentThread().interrupt();
         close();
+        log.debug("Terminating reader {} due to", this, ex);
         return false;
       }
     }
@@ -108,9 +111,11 @@ class BeamBatchLogReader extends BoundedReader<StreamElement> {
       throw new IOException(observer.getError());
     }
     if (current != null) {
+      log.debug("Advanced to new element {}", current);
       return true;
     }
     finished = true;
+    log.debug("Terminating consumption of reader {}", this);
     return false;
   }
 

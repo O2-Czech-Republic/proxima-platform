@@ -76,7 +76,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -238,6 +237,17 @@ public class InMemStorage implements DataAccessorFactory {
 
     @Override
     public void write(StreamElement data, CommitCallback statusCallback) {
+      int dolarSign = data.getAttributeDescriptor().toAttributePrefix().indexOf('$');
+      String requiredPrefix =
+          dolarSign < 0
+              ? data.getAttributeDescriptor().toAttributePrefix()
+              : data.getAttributeDescriptor().toAttributePrefix().substring(dolarSign + 1);
+      Preconditions.checkArgument(
+          data.getAttribute().startsWith(requiredPrefix)
+              || data.getAttribute().startsWith(data.getAttributeDescriptor().toAttributePrefix()),
+          "Non-matching attribute and attribute descriptor, got [ %s ] and [ %s ]",
+          data.getAttribute(),
+          data.getAttributeDescriptor());
       NavigableMap<Integer, InMemIngestWriter> writeObservers = getObservers(getUri());
       final ArrayList<InMemIngestWriter> currentWriters;
       try (Locker ignore = holder().lockWrite()) {
@@ -253,10 +263,13 @@ public class InMemStorage implements DataAccessorFactory {
             .compute(
                 toMapKey(getUri(), data.getKey(), attr),
                 (key, old) -> {
-                  if (old != null && old.getFirst() > data.getStamp()) {
+                  if (old != null
+                      && (old.getSequentialId() > data.getSequentialId()
+                          || old.getStamp() > data.getStamp()
+                              && old.getSequentialId() == data.getSequentialId())) {
                     return old;
                   }
-                  return Pair.of(data.getStamp(), data.getValue());
+                  return data;
                 });
         currentWriters = Lists.newArrayList(writeObservers.values());
       }
@@ -630,11 +643,16 @@ public class InMemStorage implements DataAccessorFactory {
               .entrySet()
               .stream()
               .filter(e -> e.getKey().startsWith(prefix))
-              .sorted(Comparator.comparingLong(a -> a.getValue().getFirst()))
+              .sorted(
+                  (a, b) ->
+                      a.getValue().getSequentialId() != b.getValue().getSequentialId()
+                          ? Long.compare(
+                              a.getValue().getSequentialId(), b.getValue().getSequentialId())
+                          : Long.compare(a.getValue().getStamp(), b.getValue().getStamp()))
               .forEachOrdered(
                   e -> {
                     final String keyAttr = e.getKey().substring(prefixLength);
-                    final StreamElement element = getStreamElement(e, prefixLength);
+                    final StreamElement element = e.getValue();
                     final int partitionId =
                         Partitioners.getTruncatedPartitionId(partitioner, element, numPartitions);
                     if (consumedOffsets.contains(
@@ -690,24 +708,6 @@ public class InMemStorage implements DataAccessorFactory {
       }
     }
 
-    private StreamElement getStreamElement(Entry<String, Pair<Long, byte[]>> e, int prefixLength) {
-      String keyAttr = e.getKey().substring(prefixLength);
-      final long stamp = e.getValue().getFirst();
-      final String[] parts = keyAttr.split("#", 2);
-      Preconditions.checkArgument(parts.length == 2);
-      final String key = parts[0];
-      final String attribute = parts[1];
-      final AttributeDescriptor<?> desc = getEntityDescriptor().getAttribute(attribute, true);
-      return StreamElement.upsert(
-          getEntityDescriptor(),
-          desc,
-          UUID.randomUUID().toString(),
-          key,
-          attribute,
-          stamp,
-          e.getValue().getSecond());
-    }
-
     private String toConsumedOffset(Partition partition, StreamElement element) {
       return String.format(
           "%d-%s:%d",
@@ -746,7 +746,7 @@ public class InMemStorage implements DataAccessorFactory {
               .entrySet()
               .stream()
               .filter(e -> e.getKey().startsWith(prefix))
-              .map(e -> getStreamElement(e, prefixLength))
+              .map(Map.Entry::getValue)
               .collect(
                   Collectors.groupingBy(
                       e -> Partitioners.getTruncatedPartitionId(partitioner, e, numPartitions),
@@ -763,7 +763,7 @@ public class InMemStorage implements DataAccessorFactory {
           .filter(e -> e.getKey().startsWith(prefix))
           .map(
               e -> {
-                StreamElement element = getStreamElement(e, prefixLength);
+                StreamElement element = e.getValue();
                 Partition part =
                     Partition.of(
                         Partitioners.getTruncatedPartitionId(partitioner, element, numPartitions));
@@ -821,25 +821,37 @@ public class InMemStorage implements DataAccessorFactory {
         String key, String attribute, AttributeDescriptor<T> desc, long stamp) {
 
       try (Locker l = holder().lockRead()) {
-        Optional<Pair<Long, byte[]>> wildcard =
+        Optional<StreamElement> wildcard =
             desc.isWildcard() && !attribute.equals(desc.toAttributePrefix())
                 ? getMapKey(key, desc.toAttributePrefix())
                 : Optional.empty();
         return getMapKey(key, attribute)
-            .filter(p -> p.getSecond() != null)
-            .filter(p -> !wildcard.isPresent() || wildcard.get().getFirst() < p.getFirst())
+            .filter(p -> !p.isDelete())
+            .filter(p -> !wildcard.isPresent() || wildcard.get().getStamp() < p.getStamp())
             .map(
                 b -> {
                   try {
+                    if (b.hasSequentialId()) {
+                      return KeyValue.of(
+                          getEntityDescriptor(),
+                          desc,
+                          b.getSequentialId(),
+                          key,
+                          attribute,
+                          new RawOffset(attribute),
+                          desc.getValueSerializer().deserialize(b.getValue()).get(),
+                          b.getValue(),
+                          b.getStamp());
+                    }
                     return KeyValue.of(
                         getEntityDescriptor(),
                         desc,
                         key,
                         attribute,
                         new RawOffset(attribute),
-                        desc.getValueSerializer().deserialize(b.getSecond()).get(),
-                        b.getSecond(),
-                        b.getFirst());
+                        desc.getValueSerializer().deserialize(b.getValue()).get(),
+                        b.getValue(),
+                        b.getStamp());
                   } catch (Exception ex) {
                     throw new RuntimeException(ex);
                   }
@@ -847,7 +859,7 @@ public class InMemStorage implements DataAccessorFactory {
       }
     }
 
-    private Optional<Pair<Long, byte[]>> getMapKey(String key, String attribute) {
+    private Optional<StreamElement> getMapKey(String key, String attribute) {
       return Optional.ofNullable(getData().get(toMapKey(key, attribute)));
     }
 
@@ -889,37 +901,53 @@ public class InMemStorage implements DataAccessorFactory {
       String start = toMapKey(key, prefix);
       int count = 0;
       try (Locker l = holder().lockRead()) {
-        SortedMap<String, Pair<Long, byte[]>> dataMap = getData().tailMap(start);
-        for (Map.Entry<String, Pair<Long, byte[]>> e : dataMap.entrySet()) {
+        SortedMap<String, StreamElement> dataMap = getData().tailMap(start);
+        for (Map.Entry<String, StreamElement> e : dataMap.entrySet()) {
           log.trace("Scanning entry {} looking for prefix {}", e, start);
-          if (e.getValue().getFirst() <= stamp) {
+          if (e.getValue().getStamp() <= stamp) {
             if (e.getKey().startsWith(start)) {
               int hash = e.getKey().lastIndexOf("#");
               String attribute = e.getKey().substring(hash + 1);
-              if (attribute.equals(off) || e.getValue().getSecond() == null) {
+              if (attribute.equals(off) || e.getValue().isDelete()) {
                 continue;
               }
               Optional<AttributeDescriptor<Object>> attr;
               attr = getEntityDescriptor().findAttribute(attribute, true);
               if (attr.isPresent()) {
-                Optional<Pair<Long, byte[]>> wildcard =
+                Optional<StreamElement> wildcard =
                     attr.get().isWildcard()
                         ? getMapKey(key, attr.get().toAttributePrefix())
                         : Optional.empty();
-                if (!wildcard.isPresent() || wildcard.get().getFirst() < e.getValue().getFirst()) {
-
-                  consumer.accept(
-                      KeyValue.of(
-                          getEntityDescriptor(),
-                          attr.get(),
-                          key,
-                          attribute,
-                          new RawOffset(attribute),
-                          attr.get()
-                              .getValueSerializer()
-                              .deserialize(e.getValue().getSecond())
-                              .get(),
-                          e.getValue().getSecond()));
+                if (!wildcard.isPresent() || wildcard.get().getStamp() < e.getValue().getStamp()) {
+                  if (e.getValue().hasSequentialId()) {
+                    consumer.accept(
+                        KeyValue.of(
+                            getEntityDescriptor(),
+                            attr.get(),
+                            e.getValue().getSequentialId(),
+                            key,
+                            attribute,
+                            new RawOffset(attribute),
+                            attr.get()
+                                .getValueSerializer()
+                                .deserialize(e.getValue().getValue())
+                                .get(),
+                            e.getValue().getValue(),
+                            System.currentTimeMillis()));
+                  } else {
+                    consumer.accept(
+                        KeyValue.of(
+                            getEntityDescriptor(),
+                            attr.get(),
+                            key,
+                            attribute,
+                            new RawOffset(attribute),
+                            attr.get()
+                                .getValueSerializer()
+                                .deserialize(e.getValue().getValue())
+                                .get(),
+                            e.getValue().getValue()));
+                  }
 
                   if (++count == limit) {
                     break;
@@ -1005,8 +1033,8 @@ public class InMemStorage implements DataAccessorFactory {
               () -> {
                 try {
                   try (Locker l = holder().lockRead()) {
-                    final Map<String, Pair<Long, byte[]>> data = getData().tailMap(prefix);
-                    for (Entry<String, Pair<Long, byte[]>> e : data.entrySet()) {
+                    final Map<String, StreamElement> data = getData().tailMap(prefix);
+                    for (Entry<String, StreamElement> e : data.entrySet()) {
                       if (!observeElement(attributes, observer, terminationContext, prefix, e)) {
                         break;
                       }
@@ -1026,7 +1054,7 @@ public class InMemStorage implements DataAccessorFactory {
         BatchLogObserver observer,
         TerminationContext terminationContext,
         String prefix,
-        Map.Entry<String, Pair<Long, byte[]>> e) {
+        Map.Entry<String, StreamElement> e) {
 
       if (terminationContext.isCancelled()) {
         return false;
@@ -1035,25 +1063,14 @@ public class InMemStorage implements DataAccessorFactory {
         return false;
       }
       String k = e.getKey();
-      Pair<Long, byte[]> v = e.getValue();
+      StreamElement v = e.getValue();
       String[] parts = k.substring(prefix.length()).split("#");
       String key = parts[0];
       String attribute = parts[1];
       return getEntityDescriptor()
           .findAttribute(attribute, true)
           .filter(attributes::contains)
-          .map(
-              desc ->
-                  observer.onNext(
-                      StreamElement.upsert(
-                          getEntityDescriptor(),
-                          desc,
-                          UUID.randomUUID().toString(),
-                          key,
-                          attribute,
-                          v.getFirst(),
-                          v.getSecond()),
-                      CONTEXT))
+          .map(desc -> observer.onNext(v, CONTEXT))
           .orElse(true);
     }
 
@@ -1107,7 +1124,7 @@ public class InMemStorage implements DataAccessorFactory {
   }
 
   private static class DataHolder {
-    final NavigableMap<String, Pair<Long, byte[]>> data;
+    final NavigableMap<String, StreamElement> data;
     final Map<URI, NavigableMap<Integer, InMemIngestWriter>> observers;
     final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -1155,7 +1172,7 @@ public class InMemStorage implements DataAccessorFactory {
     return DataHolders.get(this);
   }
 
-  public NavigableMap<String, Pair<Long, byte[]>> getData() {
+  public NavigableMap<String, StreamElement> getData() {
     return holder().data;
   }
 

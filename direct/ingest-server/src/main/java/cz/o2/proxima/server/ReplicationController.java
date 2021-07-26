@@ -31,6 +31,8 @@ import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.TransformationDescriptor;
+import cz.o2.proxima.repository.TransformationDescriptor.InputTransactionMode;
+import cz.o2.proxima.repository.TransformationDescriptor.OutputTransactionMode;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
@@ -335,6 +337,13 @@ public class ReplicationController {
   }
 
   private void runTransformer(String name, TransformationDescriptor transform) {
+    if (transform.getInputTransactionMode() == InputTransactionMode.TRANSACTIONAL) {
+      log.info(
+          "Skipping run of transformation {} which read from transactional attributes {}. "
+              + "Will be executed during transaction commit.",
+          name,
+          transform.getAttributes());
+    }
     DirectAttributeFamilyDescriptor family =
         transform
             .getAttributes()
@@ -401,7 +410,11 @@ public class ReplicationController {
         transform.getTransformation().asElementWiseTransform();
     TransformationObserver observer =
         new TransformationObserver(
-            dataOperator, name, transformation, transform.isSupportTransactions(), filter);
+            dataOperator,
+            name,
+            transformation,
+            transform.getOutputTransactionMode() == OutputTransactionMode.ENABLED,
+            filter);
     reader.observe(
         consumerName,
         CommitLogObservers.withNumRetriedExceptions(

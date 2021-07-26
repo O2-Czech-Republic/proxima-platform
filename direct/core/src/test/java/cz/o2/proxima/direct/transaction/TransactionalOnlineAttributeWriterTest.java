@@ -38,9 +38,11 @@ import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.TransformationRunner;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -58,6 +60,7 @@ public class TransactionalOnlineAttributeWriterTest {
   private final AttributeDescriptor<byte[]> status = gateway.getAttribute("status");
   private final AttributeDescriptor<byte[]> device = gateway.getAttribute("device.*");
   private final AttributeDescriptor<byte[]> userGateways = user.getAttribute("gateway.*");
+  private final AttributeDescriptor<byte[]> gatewayUsers = gateway.getAttribute("user.*");
   private final Deque<Response> toReturn = new ArrayDeque<>(100);
 
   private ServerTransactionManager manager;
@@ -133,9 +136,7 @@ public class TransactionalOnlineAttributeWriterTest {
   }
 
   @Test(timeout = 10_000)
-  public void testTransactionCreateUpdateCommit()
-      throws InterruptedException, TransactionRejectedException {
-
+  public void testTransactionCreateUpdateCommit() throws TransactionRejectedException {
     CachedView view = Optionals.get(direct.getCachedView(status));
     view.assign(view.getPartitions());
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
@@ -243,9 +244,7 @@ public class TransactionalOnlineAttributeWriterTest {
   }
 
   @Test(timeout = 10_000, expected = TransactionRejectedException.class)
-  public void testTransactionCreateUpdateCommitRejected()
-      throws InterruptedException, TransactionRejectedException {
-
+  public void testTransactionCreateUpdateCommitRejected() throws TransactionRejectedException {
     CachedView view = Optionals.get(direct.getCachedView(status));
     view.assign(view.getPartitions());
     OnlineAttributeWriter writer = Optionals.get(direct.getWriter(status));
@@ -346,6 +345,56 @@ public class TransactionalOnlineAttributeWriterTest {
       assertTrue(res.get().hasSequentialId());
       assertEquals(1L, res.get().getSequentialId());
       assertEquals(stamp, res.get().getStamp());
+    }
+  }
+
+  @Test(timeout = 10_000)
+  public void testWriteInTransactionWithTransform() throws InterruptedException {
+    List<AttributeDescriptor<byte[]>> attrs = Arrays.asList(userGateways, gatewayUsers);
+    for (int i = 0; i < 2; i++) {
+      CachedView view = Optionals.get(direct.getCachedView(attrs.get(i)));
+      CachedView view2 = Optionals.get(direct.getCachedView(attrs.get((i + 1) % 2)));
+      view.assign(view.getPartitions());
+      view2.assign(view2.getPartitions());
+      OnlineAttributeWriter writer = Optionals.get(direct.getWriter(attrs.get(i)));
+      assertTrue(writer.isTransactional());
+      // we successfully open and commit the transaction
+      long stamp = 1234567890000L;
+      toReturn.add(Response.forRequest(anyRequest()).open(1L, stamp));
+      toReturn.add(Response.forRequest(anyRequest()).committed());
+      CountDownLatch latch = new CountDownLatch(1);
+      writer.write(
+          StreamElement.upsert(
+              i == 0 ? user : gateway,
+              attrs.get(i),
+              UUID.randomUUID().toString(),
+              "key",
+              attrs.get(i).toAttributePrefix() + "other",
+              System.currentTimeMillis(),
+              new byte[] {1, 2, 3}),
+          (succ, exc) -> {
+            assertTrue("Failed to write " + exc, succ);
+            assertNull(exc);
+            latch.countDown();
+          });
+      latch.await();
+      List<KeyValue<byte[]>> res = new ArrayList<>();
+      view.scanWildcard("key", attrs.get(i), res::add);
+      assertEquals(1, res.size());
+      assertEquals("key", res.get(0).getKey());
+      assertTrue(res.get(0).hasSequentialId());
+      assertEquals(1L, res.get(0).getSequentialId());
+      assertEquals(stamp, res.get(0).getStamp());
+      assertEquals(attrs.get(i).toAttributePrefix() + "other", res.get(0).getAttribute());
+
+      res.clear();
+      view2.scanWildcard("other", attrs.get((i + 1) % 2), res::add);
+      assertEquals(1, res.size());
+      assertEquals("other", res.get(0).getKey());
+      assertTrue(res.get(0).hasSequentialId());
+      assertEquals(1L, res.get(0).getSequentialId());
+      assertEquals(stamp, res.get(0).getStamp());
+      assertEquals(attrs.get((i + 1) % 2).toAttributePrefix() + "key", res.get(0).getAttribute());
     }
   }
 

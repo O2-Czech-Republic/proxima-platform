@@ -29,6 +29,7 @@ import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.ConfigRepository.Builder;
 import cz.o2.proxima.repository.Repository.Validate;
+import cz.o2.proxima.repository.TransformationDescriptor.OutputTransactionMode;
 import cz.o2.proxima.scheme.RepositoryInitializedValueSerializer;
 import cz.o2.proxima.scheme.ValueSerializer;
 import cz.o2.proxima.storage.PassthroughFilter;
@@ -94,7 +95,6 @@ public class ConfigRepositoryTest {
     TransformationDescriptor transform =
         Iterables.getOnlyElement(repo.getTransformations().values());
     assertEquals(PassthroughFilter.class, transform.getFilter().getClass());
-    assertEquals(event, transform.getEntity());
     assertEquals(Collections.singletonList(event.getAttribute("data")), transform.getAttributes());
     assertEquals(EventDataToDummy.class, transform.getTransformation().getClass());
 
@@ -621,11 +621,11 @@ public class ConfigRepositoryTest {
     assertNotNull(serialized);
     assertTrue(request.getValueSerializer().deserialize(serialized).isPresent());
 
-    assertEquals(1, repo.getTransformations().size());
     TransformationDescriptor desc = repo.getTransformations().get("_transaction-commit");
+    assertNotNull(desc);
     assertEquals("_transaction-commit", desc.getName());
     assertEquals(TransactionCommitTransformation.class, desc.getTransformation().getClass());
-    assertFalse(desc.isSupportTransactions());
+    assertEquals(OutputTransactionMode.DISABLED, desc.getOutputTransactionMode());
 
     Map<String, AttributeFamilyDescriptor> nameToFamily =
         repo.getAllFamilies(true)
@@ -706,7 +706,6 @@ public class ConfigRepositoryTest {
     assertTrue(
         "Entity " + entity + " doesn't contain attribute " + toAttrDesc,
         entity.findAttribute(toAttrDesc, true).isPresent());
-    assertEquals(transform.getEntity(), entity);
     assertEquals(
         toAttr,
         collectSingleAttributeUpdate(

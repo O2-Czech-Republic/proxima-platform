@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.transaction;
 
+import static cz.o2.proxima.direct.transaction.TransactionResourceManagerTest.runObservations;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
@@ -69,7 +70,8 @@ public class TransactionalOnlineAttributeWriterTest {
   public void setUp() {
     toReturn.clear();
     manager = direct.getServerTransactionManager();
-    manager.runObservations(
+    runObservations(
+        manager,
         "test",
         (ingest, context) -> {
           String transactionId = ingest.getKey();

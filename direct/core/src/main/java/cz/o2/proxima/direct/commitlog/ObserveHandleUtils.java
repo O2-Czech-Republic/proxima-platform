@@ -38,7 +38,8 @@ public class ObserveHandleUtils {
         reader.fetchOffsets(
             Position.NEWEST,
             committed.stream().map(Offset::getPartition).collect(Collectors.toList()));
-    return committed.stream().allMatch(o -> o.equals(endOffsets.get(o.getPartition())));
+    return endOffsets.isEmpty()
+        || committed.stream().allMatch(o -> o.equals(endOffsets.get(o.getPartition())));
   }
 
   private ObserveHandleUtils() {

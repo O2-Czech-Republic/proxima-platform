@@ -81,9 +81,9 @@ public abstract class WatermarkConfiguration implements Serializable {
             .map(cls -> Classpath.newInstance(cls, WatermarkEstimatorFactory.class))
             .orElse(getDefaultEstimatorFactory());
 
-    log.info(
-        "Configured watermark with " + "watermarkEstimatorFactory {}," + "idlePolicyFactory {}",
-        watermarkEstimatorFactory.getClass(),
-        watermarkIdlePolicyFactory.getClass());
+    log.debug(
+        "Configured watermark with watermarkEstimatorFactory {}, idlePolicyFactory {}",
+        watermarkEstimatorFactory,
+        watermarkIdlePolicyFactory);
   }
 }

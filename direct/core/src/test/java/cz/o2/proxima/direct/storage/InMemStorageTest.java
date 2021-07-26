@@ -91,31 +91,34 @@ public class InMemStorageTest implements Serializable {
     CommitLogReader reader = Optionals.get(accessor.getCommitLogReader(direct.getContext()));
     AttributeWriterBase writer = Optionals.get(accessor.getWriter(direct.getContext()));
     AtomicReference<CountDownLatch> latch = new AtomicReference<>();
-    reader.observePartitions(
-        reader.getPartitions(),
-        new CommitLogObserver() {
+    ObserveHandle handle =
+        reader.observePartitions(
+            reader.getPartitions(),
+            new CommitLogObserver() {
 
-          @Override
-          public void onRepartition(OnRepartitionContext context) {
-            assertEquals(1, context.partitions().size());
-            latch.set(new CountDownLatch(1));
-          }
+              @Override
+              public void onRepartition(OnRepartitionContext context) {
+                assertEquals(1, context.partitions().size());
+                latch.set(new CountDownLatch(1));
+              }
 
-          @Override
-          public boolean onNext(StreamElement ingest, OnNextContext context) {
+              @Override
+              public boolean onNext(StreamElement ingest, OnNextContext context) {
 
-            assertEquals(0, context.getPartition().getId());
-            assertEquals("key", ingest.getKey());
-            context.confirm();
-            latch.get().countDown();
-            return false;
-          }
+                assertEquals(0, context.getPartition().getId());
+                assertEquals("key", ingest.getKey());
+                context.confirm();
+                latch.get().countDown();
+                return false;
+              }
 
-          @Override
-          public boolean onError(Throwable error) {
-            throw new RuntimeException(error);
-          }
-        });
+              @Override
+              public boolean onError(Throwable error) {
+                throw new RuntimeException(error);
+              }
+            });
+
+    assertTrue(ObserveHandleUtils.isAtHead(handle, reader));
 
     writer
         .online()

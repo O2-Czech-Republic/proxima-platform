@@ -195,7 +195,10 @@ public class LocalCachedPartitionedView implements CachedView {
       // prefetch the data
       log.info(
           "Starting prefetching old topic data for partitions {} with preUpdate {}",
-          partitions.stream().map(Partition::getId).collect(Collectors.toList()),
+          partitions
+              .stream()
+              .map(p -> String.format("%s[%d]", getUri(), p.getId()))
+              .collect(Collectors.toList()),
           updateCallback);
       ObserveHandle h =
           reader.observeBulkPartitions(partitions, Position.OLDEST, true, prefetchObserver);
@@ -418,8 +421,13 @@ public class LocalCachedPartitionedView implements CachedView {
   }
 
   @Override
-  public Collection<Partition> getPartitions() {
-    return reader.getPartitions();
+  public CommitLogReader getUnderlyingReader() {
+    return reader;
+  }
+
+  @Override
+  public Optional<ObserveHandle> getRunningHandle() {
+    return Optional.ofNullable(handle.get());
   }
 
   @Override

@@ -27,6 +27,7 @@ import cz.o2.proxima.direct.kafka.KafkaStreamElement.KafkaStreamElementSerialize
 import cz.o2.proxima.direct.view.CachedView;
 import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.repository.ConfigConstants;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.AbstractStorage;
 import cz.o2.proxima.storage.StreamElement;
@@ -63,7 +64,7 @@ public class KafkaAccessor extends AbstractStorage implements DataAccessor {
   /** A poll interval in milliseconds. */
   public static final String POLL_INTERVAL_CFG = "poll.interval";
   /** Partitioner class for entity key-attribute pair. */
-  public static final String PARTITIONER_CLASS = "partitioner";
+  public static final String PARTITIONER_CLASS = ConfigConstants.PARTITIONER;
   /**
    * Class performing parsing from (String, byte[]) to StreamElement. This kas to implement {@link
    * ElementSerializer} interface.

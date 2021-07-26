@@ -18,22 +18,38 @@ package cz.o2.proxima.direct.transaction;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.functional.BiConsumer;
+import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.Pair;
+import java.io.Serializable;
 import javax.annotation.Nullable;
 
 public interface ServerTransactionManager extends AutoCloseable, TransactionManager {
 
-  /**
-   * Observe all transactional families with given observer.
-   *
-   * @param name name of the observer (will be appended with name of the family)
-   * @param requestObserver the observer (need not be synchronized)
-   */
-  default void runObservations(String name, CommitLogObserver requestObserver) {
-    runObservations(name, (elem, p) -> {}, requestObserver);
+  @FunctionalInterface
+  interface InitialSequenceIdPolicy extends Serializable {
+    /**
+     * Retrieve an initial seed for sequential ID.
+     *
+     * @return the new lower bound for sequential ID.
+     */
+    long apply();
+
+    class Default implements InitialSequenceIdPolicy {
+      @Override
+      public long apply() {
+        return System.currentTimeMillis() * 1000L;
+      }
+    }
+  }
+
+  interface ServerTransactionConfig {
+    /** Get cleanup interval in milliseconds. */
+    long getCleanupInterval();
+    /** Get initiial sequential ID policy. */
+    InitialSequenceIdPolicy getInitialSeqIdPolicy();
   }
 
   /**
@@ -93,4 +109,7 @@ public interface ServerTransactionManager extends AutoCloseable, TransactionMana
    * needed anymore.
    */
   void houseKeeping();
+
+  /** Retrieve a configuration read from the {@link Repository}. */
+  ServerTransactionConfig getCfg();
 }

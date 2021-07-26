@@ -365,17 +365,35 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
         case UNKNOWN:
           return Response.empty();
         case OPEN:
-          return new Response(Response.Flags.OPEN, response.getSeqId(), response.getStamp(), -1);
+          return new Response(
+              Response.Flags.OPEN,
+              response.getSeqId(),
+              response.getStamp(),
+              response.getResponsePartitionId());
         case COMMITTED:
           return new Response(
-              Response.Flags.COMMITTED, response.getSeqId(), response.getStamp(), -1);
+              Response.Flags.COMMITTED,
+              response.getSeqId(),
+              response.getStamp(),
+              response.getResponsePartitionId());
         case ABORTED:
-          return new Response(Response.Flags.ABORTED, response.getSeqId(), response.getStamp(), -1);
+          return new Response(
+              Response.Flags.ABORTED,
+              response.getSeqId(),
+              response.getStamp(),
+              response.getResponsePartitionId());
         case DUPLICATE:
           return new Response(
-              Response.Flags.DUPLICATE, response.getSeqId(), response.getStamp(), -1);
+              Response.Flags.DUPLICATE,
+              response.getSeqId(),
+              response.getStamp(),
+              response.getResponsePartitionId());
         case UPDATE:
-          return new Response(Response.Flags.UPDATED, response.getSeqId(), response.getStamp(), -1);
+          return new Response(
+              Response.Flags.UPDATED,
+              response.getSeqId(),
+              response.getStamp(),
+              response.getResponsePartitionId());
         default:
           throw new IllegalArgumentException("Unknown flag: " + response.getFlags());
       }
@@ -386,6 +404,8 @@ public class ProtoSerializerFactory implements ValueSerializerFactory {
           .setFlags(asFlags(response.getFlags()))
           .setSeqId(response.hasSequenceId() ? response.getSeqId() : 0L)
           .setStamp(response.hasStamp() ? response.getStamp() : 0L)
+          .setResponsePartitionId(
+              response.hasPartitionIdForResponse() ? response.getPartitionIdForResponse() : -1)
           .build();
     }
 

@@ -15,19 +15,14 @@
  */
 package cz.o2.proxima.repository;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import com.google.common.collect.Iterables;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.functional.Factory;
 import cz.o2.proxima.repository.ConfigRepository.Builder;
+import cz.o2.proxima.repository.ConfigRepository.WriteOnceHashMap;
 import cz.o2.proxima.repository.Repository.Validate;
 import cz.o2.proxima.repository.TransformationDescriptor.OutputTransactionMode;
 import cz.o2.proxima.scheme.RepositoryInitializedValueSerializer;
@@ -37,11 +32,13 @@ import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.TransactionCommitTransformation;
+import cz.o2.proxima.transaction.TransactionPartitioner;
 import cz.o2.proxima.transform.ElementWiseProxyTransform.ProxySetupContext;
 import cz.o2.proxima.transform.ElementWiseTransformation;
 import cz.o2.proxima.transform.EventDataToDummy;
 import cz.o2.proxima.transform.WriteProxy;
 import cz.o2.proxima.util.DummyFilter;
+import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.TestUtils;
 import java.io.IOException;
 import java.util.Collections;
@@ -50,6 +47,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -465,6 +463,7 @@ public class ConfigRepositoryTest {
     byte[] serialized = TestUtils.serializeObject(repo);
     assertEquals(TestUtils.deserializeObject(serialized), repo);
     RepositoryFactory.VersionedCaching.drop();
+    ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(10));
     Repository repo2 = Repository.of(ConfigFactory.empty());
     byte[] serialized2 = TestUtils.serializeObject(repo2);
     RepositoryFactory.VersionedCaching.drop();
@@ -589,6 +588,12 @@ public class ConfigRepositoryTest {
     assertTrue(repo.getEntity("_transaction").isSystemEntity());
     assertTrue(repo.findFamilyByName("gateway-transaction-commit-log").isPresent());
     assertTrue(repo.findFamilyByName("all-transaction-commit-log-request").isPresent());
+    assertEquals(
+        TransactionPartitioner.class.getName(),
+        repo.findFamilyByName("gateway-transaction-commit-log")
+            .get()
+            .getCfg()
+            .get(ConfigConstants.PARTITIONER));
 
     EntityDescriptor gateway = repo.getEntity("gateway");
     assertTrue(gateway.isTransactional());
@@ -669,6 +674,19 @@ public class ConfigRepositoryTest {
         repo.getEntity("gateway").getAttribute("armed").getValueSerializer();
     assertTrue(serializer instanceof RepositoryInitializedValueSerializer);
     assertEquals(repo, ((RepositoryInitializedValueSerializer) serializer).getRepo());
+  }
+
+  @Test
+  public void testWriteOnceHashMap() {
+    Map<String, String> map = new WriteOnceHashMap<>();
+    map.put("a", "b");
+    map.put("b", "c");
+    assertThrows(IllegalArgumentException.class, () -> map.put("b", "a"));
+    Map<String, String> map2 = new WriteOnceHashMap<>();
+    map2.put("b", "a");
+    assertThrows(IllegalArgumentException.class, () -> map2.putAll(map));
+    map2.putIfAbsent("b", "c");
+    assertEquals("a", map2.get("b"));
   }
 
   private void checkThrows(Factory<?> factory) {

@@ -23,8 +23,9 @@ import com.typesafe.config.ConfigRenderOptions;
 import cz.o2.proxima.util.StringCompressions;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.Getter;
 
 /** Factory for {@link cz.o2.proxima.repository.Repository}. */
@@ -112,7 +113,8 @@ public interface RepositoryFactory extends Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private static final Map<Integer, Repository> localMap = new ConcurrentHashMap<>();
+    private static final Map<Integer, Repository> localMap =
+        Collections.synchronizedMap(new HashMap<>());
 
     static void drop() {
       localMap.clear();
@@ -129,7 +131,12 @@ public interface RepositoryFactory extends Serializable {
 
     @Override
     public Repository apply() {
-      return localMap.computeIfAbsent(hashCode, k -> factory.apply());
+      synchronized (localMap) {
+        if (localMap.get(hashCode) == null) {
+          localMap.put(hashCode, factory.apply());
+        }
+      }
+      return localMap.get(hashCode);
     }
 
     @Override

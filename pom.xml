@@ -457,7 +457,7 @@
           <forkCount>${surefire.forkCount}</forkCount>
           <reuseForks>false</reuseForks>
           <threadCount>1</threadCount>
-          <parallel>all</parallel>
+          <parallel>methods</parallel>
           <perCoreThreadCount>false</perCoreThreadCount>
           <useSystemClassLoader>true</useSystemClassLoader>
           <useManifestOnlyJar>false</useManifestOnlyJar>

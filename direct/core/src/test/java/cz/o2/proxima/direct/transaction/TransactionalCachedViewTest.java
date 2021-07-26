@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.transaction;
 
+import static cz.o2.proxima.direct.transaction.TransactionResourceManagerTest.runObservations;
 import static org.junit.Assert.*;
 
 import com.typesafe.config.ConfigFactory;
@@ -59,7 +60,8 @@ public class TransactionalCachedViewTest {
   public void setUp() {
     server = direct.getServerTransactionManager();
     AtomicLong seqId = new AtomicLong(1000L);
-    server.runObservations(
+    runObservations(
+        server,
         "dummy",
         new CommitLogObserver() {
           @Override

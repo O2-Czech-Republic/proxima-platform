@@ -55,6 +55,7 @@ message ProtoResponse {
   Flags flags = 1;
   uint64 seqId = 2;
   fixed64 stamp = 3;
+  int32 responsePartitionId = 4;
 }
 
 message ProtoState {

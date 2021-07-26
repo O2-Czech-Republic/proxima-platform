@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.server;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.TextFormat;
@@ -26,6 +27,7 @@ import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.Trans
 import cz.o2.proxima.proto.service.RetrieveServiceGrpc;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.proto.service.Rpc.GetRequest;
+import cz.o2.proxima.proto.service.Rpc.ListRequest;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -35,8 +37,11 @@ import cz.o2.proxima.server.transaction.TransactionContext.Transaction;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.KeyAttributes;
 import io.grpc.stub.StreamObserver;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -92,6 +97,12 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
         throw new Status(400, "Missing some required fields");
       }
 
+      if (!request.getTransactionId().isEmpty()
+          && (!request.getOffset().isEmpty() || request.getLimit() > 0)) {
+        throw new Status(
+            400, "Unsupported: transactions do not support limited list requests, currently");
+      }
+
       EntityDescriptor entity =
           repo.findEntity(request.getEntity())
               .orElseThrow(() -> new Status(404, "Entity " + request.getEntity() + " not found"));
@@ -110,6 +121,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
 
       RandomAccessReader reader = instantiateReader(wildcard);
 
+      List<KeyValue<Object>> kvs = new ArrayList<>();
       Rpc.ListResponse.Builder response = Rpc.ListResponse.newBuilder().setStatus(200);
 
       synchronized (reader) {
@@ -118,12 +130,15 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
             wildcard,
             reader.fetchOffset(RandomAccessReader.Listing.ATTRIBUTE, request.getOffset()),
             request.getLimit() > 0 ? request.getLimit() : -1,
+            kvs::add);
+        kvs.forEach(
             kv ->
                 response.addValue(
                     Rpc.ListResponse.AttrValue.newBuilder()
                         .setAttribute(kv.getAttribute())
                         .setValue(ByteString.copyFrom(kv.getValue()))));
       }
+      noticeListResult(request, entity, wildcard, kvs);
       replyLogged(responseObserver, request, response.build());
     } catch (Status s) {
       replyStatusLogged(responseObserver, request, s.statusCode, s.message);
@@ -189,9 +204,7 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
         Optional<KeyValue<Object>> maybeValue =
             reader.get(request.getKey(), request.getAttribute(), attribute);
 
-        if (!request.getTransactionId().isEmpty()) {
-          noticeGetResult(request, entity, attribute, maybeValue);
-        }
+        noticeGetResult(request, entity, attribute, maybeValue);
         KeyValue<Object> kv =
             maybeValue.orElseThrow(
                 () ->
@@ -248,7 +261,28 @@ public class RetrieveService extends RetrieveServiceGrpc.RetrieveServiceImplBase
       } else {
         ka = KeyAttributes.ofMissingAttribute(entity, getRequest.getKey(), attribute);
       }
-      transactionContext.get(getRequest.getTransactionId()).update(Collections.singletonList(ka));
+      updateTransaction(getRequest.getTransactionId(), Collections.singletonList(ka));
+    }
+  }
+
+  @VisibleForTesting
+  void updateTransaction(String transactionId, List<KeyAttribute> keyAttributes)
+      throws TransactionRejectedException {
+
+    transactionContext.get(transactionId).update(keyAttributes);
+  }
+
+  private void noticeListResult(
+      ListRequest listRequest,
+      EntityDescriptor entity,
+      AttributeDescriptor<Object> attribute,
+      Collection<KeyValue<Object>> values)
+      throws TransactionRejectedException {
+
+    if (!listRequest.getTransactionId().isEmpty()) {
+      final List<KeyAttribute> kas =
+          KeyAttributes.ofWildcardQueryElements(entity, listRequest.getKey(), attribute, values);
+      updateTransaction(listRequest.getTransactionId(), kas);
     }
   }
 

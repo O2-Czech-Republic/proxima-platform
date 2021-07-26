@@ -33,6 +33,7 @@ import cz.o2.proxima.proto.service.Rpc.IngestBulk;
 import cz.o2.proxima.proto.service.Rpc.StatusBulk;
 import cz.o2.proxima.proto.service.Rpc.TransactionCommitRequest;
 import cz.o2.proxima.proto.service.Rpc.TransactionCommitResponse;
+import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
@@ -49,6 +50,7 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.junit.After;
 import org.junit.Before;
@@ -65,12 +67,14 @@ public class TransactionsTest {
   private final Wildcard<byte[]> userGateways = Wildcard.of(user, user.getAttribute("gateway.*"));
   private final Wildcard<byte[]> gatewayUsers =
       Wildcard.of(gateway, gateway.getAttribute("user.*"));
+  private final Regular<Integer> intField = Regular.of(gateway, gateway.getAttribute("intField"));
   private final DirectDataOperator direct = repo.getOrCreateOperator(DirectDataOperator.class);
   private ScheduledThreadPoolExecutor scheduler;
   private ObserveHandle transformationHandle;
   private TransactionContext transactionContext;
   private IngestService ingest;
   private RetrieveService retrieve;
+  private TransactionLogObserver observer;
 
   @Before
   public void setUp() {
@@ -80,9 +84,8 @@ public class TransactionsTest {
             "_transaction-commit",
             repo.getTransformations().get("_transaction-commit"),
             ign -> {});
-    direct
-        .getServerTransactionManager()
-        .runObservations("testObserver", new TransactionLogObserver(direct));
+    observer = new TransactionLogObserver(direct);
+    observer.run("testObserver");
     scheduler = new ScheduledThreadPoolExecutor(1);
     transactionContext = new TransactionContext(direct);
     ingest = new IngestService(repo, direct, transactionContext, scheduler);
@@ -92,8 +95,8 @@ public class TransactionsTest {
   @After
   public void tearDown() {
     scheduler.shutdown();
+    observer.onCancelled();
     transformationHandle.close();
-    direct.close();
   }
 
   @Test(timeout = 10000)
@@ -204,15 +207,39 @@ public class TransactionsTest {
   @Test(timeout = 10000)
   public void testTransactionRollbackOnClose() {
     ListStreamObserver<BeginTransactionResponse> beginObserver = intoList();
-    ListStreamObserver<StatusBulk> ingestObserver = intoList();
     retrieve.begin(BeginTransactionRequest.newBuilder().build(), beginObserver);
     List<BeginTransactionResponse> responses = beginObserver.getOutputs();
     assertEquals(1, responses.size());
     String transactionId = responses.get(0).getTransactionId();
     transactionContext.close();
-    assertEquals(
-        State.Flags.ABORTED,
-        direct.getServerTransactionManager().getCurrentState(transactionId).getFlags());
+    while (direct.getServerTransactionManager().getCurrentState(transactionId).getFlags()
+        != State.Flags.ABORTED) {
+      if (ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(100))) {
+        break;
+      }
+    }
+  }
+
+  @Test
+  public void testCommitInvalidIngest() {
+    BeginTransactionResponse response = begin();
+    String transactionId = response.getTransactionId();
+    long stamp = System.currentTimeMillis();
+    StatusBulk status =
+        ingestBulk(
+            transactionId,
+            StreamElement.upsert(
+                gateway,
+                intField,
+                UUID.randomUUID().toString(),
+                "gw1",
+                intField.getName(),
+                stamp,
+                new byte[] {}));
+
+    assertEquals(412, status.getStatus(0).getStatus());
+    TransactionCommitResponse commitResponse = commit(transactionId);
+    assertEquals(TransactionCommitResponse.Status.FAILED, commitResponse.getStatus());
   }
 
   private TransactionCommitResponse commit(String transactionId) {

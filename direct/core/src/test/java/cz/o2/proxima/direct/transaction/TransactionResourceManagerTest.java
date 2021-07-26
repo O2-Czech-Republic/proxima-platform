@@ -15,13 +15,12 @@
  */
 package cz.o2.proxima.direct.transaction;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 import com.google.common.collect.Iterables;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
-import cz.o2.proxima.direct.commitlog.CommitLogObserver.OnRepartitionContext;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.transaction.TransactionResourceManager.CachedTransaction;
@@ -57,7 +56,7 @@ public class TransactionResourceManagerTest {
   private final EntityDescriptor gateway = repo.getEntity("gateway");
   private final AttributeDescriptor<?> status = gateway.getAttribute("status");
   private final EntityDescriptor user = repo.getEntity("user");
-  private final AttributeDescriptor<byte[]> allGateways = user.getAttribute("gateway.*");
+  private final Wildcard<byte[]> allGateways = Wildcard.of(user, user.getAttribute("gateway.*"));
   private final EntityDescriptor transaction = repo.getEntity("_transaction");
   private final Wildcard<Request> requestDesc =
       Wildcard.of(transaction, transaction.getAttribute("request.*"));
@@ -69,14 +68,15 @@ public class TransactionResourceManagerTest {
     direct.getWriter(requestDesc);
   }
 
-  @Test
+  @Test(timeout = 10000)
   public void testTransactionRequestResponse() {
     try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
       List<Pair<String, Response>> receivedResponses = new ArrayList<>();
 
       // create a simple ping-pong communication
-      manager.runObservations(
+      runObservations(
+          manager,
           "requests",
           (ingest, context) -> {
             if (ingest.getAttributeDescriptor().equals(requestDesc)) {
@@ -116,14 +116,15 @@ public class TransactionResourceManagerTest {
     }
   }
 
-  @Test
+  @Test(timeout = 10000)
   public void testTransactionRequestCommit() throws InterruptedException {
     try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
       String transactionId = UUID.randomUUID().toString();
       BlockingQueue<Pair<String, Response>> receivedResponses = new ArrayBlockingQueue<>(1);
 
       // create a simple ping-pong communication
-      manager.runObservations(
+      runObservations(
+          manager,
           "requests",
           (ingest, context) -> {
             if (ingest.getAttributeDescriptor().equals(requestDesc)) {
@@ -187,7 +188,8 @@ public class TransactionResourceManagerTest {
       BlockingQueue<Pair<String, Response>> receivedResponses = new ArrayBlockingQueue<>(1);
 
       // create a simple ping-pong communication
-      manager.runObservations(
+      runObservations(
+          manager,
           "requests",
           (ingest, context) -> {
             if (ingest.getAttributeDescriptor().equals(requestDesc)) {
@@ -247,7 +249,8 @@ public class TransactionResourceManagerTest {
       BlockingQueue<Pair<String, Response>> receivedResponses = new ArrayBlockingQueue<>(1);
 
       // create a simple ping-pong communication
-      manager.runObservations(
+      runObservations(
+          manager,
           "requests",
           (ingest, context) -> {
             if (ingest.getAttributeDescriptor().equals(requestDesc)) {
@@ -331,8 +334,9 @@ public class TransactionResourceManagerTest {
     KeyAttribute ka = KeyAttributes.ofAttributeDescriptor(user, "u", allGateways, 1L, "gw");
     long stamp = System.currentTimeMillis();
     try (TransactionResourceManager manager = TransactionResourceManager.create(direct)) {
-      CountDownLatch repatitionLatch = new CountDownLatch(1);
-      manager.runObservations(
+      CountDownLatch repartitionLatch = new CountDownLatch(1);
+      runObservations(
+          manager,
           "name",
           new CommitLogObserver() {
             @Override
@@ -342,7 +346,7 @@ public class TransactionResourceManagerTest {
 
             @Override
             public void onRepartition(OnRepartitionContext context) {
-              repatitionLatch.countDown();
+              repartitionLatch.countDown();
             }
           });
       CachedTransaction transaction =
@@ -352,7 +356,7 @@ public class TransactionResourceManagerTest {
                   .committed(Collections.singletonList(ka)),
               (a, b) -> {});
       transaction.open(Collections.singletonList(ka));
-      repatitionLatch.await();
+      repartitionLatch.await();
       assertEquals(
           Optionals.get(direct.getFamilyByName("all-transaction-commit-log-request").getWriter()),
           transaction.getRequestWriter().getSecond());
@@ -374,5 +378,33 @@ public class TransactionResourceManagerTest {
     ServerTransactionManager manager =
         repo.getOrCreateOperator(DirectDataOperator.class).getServerTransactionManager();
     assertEquals(1000L, ((TransactionResourceManager) manager).getTransactionTimeoutMs());
+  }
+
+  @Test
+  public void testSynchronizationTesting() {
+    assertTrue(TransactionResourceManager.needsSynchronization((ingest, context) -> false));
+    assertFalse(TransactionResourceManager.needsSynchronization(new ThreadSafeCommitLogObserver()));
+    assertFalse(
+        TransactionResourceManager.getDeclaredParallelism((ingest, context) -> false).isPresent());
+    assertEquals(
+        5,
+        (int)
+            Optionals.get(
+                TransactionResourceManager.getDeclaredParallelism(
+                    new ThreadSafeCommitLogObserver())));
+  }
+
+  public static void runObservations(
+      ServerTransactionManager manager, String name, CommitLogObserver observer) {
+
+    manager.runObservations(name, (a, b) -> {}, observer);
+  }
+
+  @DeclaredThreadSafe(allowedParallelism = 5)
+  private static class ThreadSafeCommitLogObserver implements CommitLogObserver {
+    @Override
+    public boolean onNext(StreamElement ingest, OnNextContext context) {
+      return false;
+    }
   }
 }

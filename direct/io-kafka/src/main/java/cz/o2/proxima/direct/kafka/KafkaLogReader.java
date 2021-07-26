@@ -38,6 +38,7 @@ import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.time.WatermarkEstimatorFactory;
 import cz.o2.proxima.time.WatermarkIdlePolicyFactory;
 import cz.o2.proxima.time.Watermarks;
+import cz.o2.proxima.util.ExceptionUtils;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -385,9 +386,10 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       final AtomicReference<ObserveHandle> handle)
       throws InterruptedException {
 
-    final CountDownLatch latch = new CountDownLatch(1);
-    AtomicBoolean completed = new AtomicBoolean();
-    AtomicBoolean shutdown = new AtomicBoolean();
+    final CountDownLatch readyLatch = new CountDownLatch(1);
+    final CountDownLatch completedLatch = new CountDownLatch(1);
+    final AtomicBoolean completed = new AtomicBoolean();
+    final AtomicBoolean shutdown = new AtomicBoolean();
     List<TopicOffset> seekOffsets = Collections.synchronizedList(new ArrayList<>());
 
     Preconditions.checkArgument(
@@ -405,7 +407,8 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
           final KafkaThroughputLimiter throughputLimiter =
               new KafkaThroughputLimiter(maxBytesPerSec);
 
-          handle.set(createObserveHandle(shutdown, seekOffsets, consumer, latch));
+          handle.set(
+              createObserveHandle(shutdown, seekOffsets, consumer, readyLatch, completedLatch));
           consumer.onStart();
           ConsumerRebalanceListener listener =
               listener(
@@ -441,7 +444,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
                 && !shutdown.get()
                 && !Thread.currentThread().isInterrupted());
 
-            latch.countDown();
+            readyLatch.countDown();
 
             AtomicReference<Throwable> error = new AtomicReference<>();
             long pollTimeMs = 0L;
@@ -509,11 +512,14 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
             } else {
               consumer.onCancelled();
             }
+            completedLatch.countDown();
           } catch (InterruptedException ex) {
             log.info("Interrupted while polling kafka. Terminating consumption.", ex);
             Thread.currentThread().interrupt();
             consumer.onCancelled();
+            completedLatch.countDown();
           } catch (Throwable err) {
+            completedLatch.countDown();
             log.error("Error processing consumer {}", name, err);
             if (consumer.onError(err)) {
               try {
@@ -527,7 +533,7 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
             }
           }
         });
-    latch.await();
+    readyLatch.await();
   }
 
   private ConsumerRecords<Object, Object> seekToNewOffsetsIfNeeded(
@@ -632,13 +638,15 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       AtomicBoolean shutdown,
       List<TopicOffset> seekOffsets,
       ElementConsumer<?, ?> consumer,
-      CountDownLatch readyLatch) {
+      CountDownLatch readyLatch,
+      CountDownLatch completedLatch) {
 
     return new ObserveHandle() {
 
       @Override
       public void close() {
         shutdown.set(true);
+        ExceptionUtils.ignoringInterrupted(completedLatch::await);
       }
 
       @SuppressWarnings("unchecked")

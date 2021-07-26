@@ -55,6 +55,7 @@ import cz.o2.proxima.direct.view.LocalCachedPartitionedView;
 import cz.o2.proxima.functional.Consumer;
 import cz.o2.proxima.repository.AttributeDescriptor;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
+import cz.o2.proxima.repository.ConfigConstants;
 import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.repository.RepositoryFactory;
@@ -70,6 +71,7 @@ import cz.o2.proxima.time.PartitionedWatermarkEstimator;
 import cz.o2.proxima.time.WatermarkEstimator;
 import cz.o2.proxima.time.WatermarkIdlePolicy;
 import cz.o2.proxima.time.Watermarks;
+import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.Pair;
 import java.io.Serializable;
 import java.net.URI;
@@ -1203,7 +1205,10 @@ public class InMemStorage implements DataAccessorFactory {
             .map(v -> Integer.parseInt(v.toString()))
             .orElse(1);
 
-    final Partitioner partitioner = new KeyAttributePartitioner();
+    final Partitioner partitioner =
+        Optional.ofNullable(cfg.get(ConfigConstants.PARTITIONER))
+            .map(name -> Classpath.newInstance(name.toString(), Partitioner.class))
+            .orElseGet(KeyAttributePartitioner::new);
 
     final Repository opRepo = op.getRepository();
     final RepositoryFactory repositoryFactory = opRepo.asFactory();

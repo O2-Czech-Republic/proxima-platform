@@ -38,12 +38,11 @@ public class KeyAttributes {
    * @param elements the elements returned by query
    * @return
    */
-  public static <E extends Iterable<? extends StreamElement>>
-      List<KeyAttribute> ofWildcardQueryElements(
-          EntityDescriptor entity,
-          String key,
-          AttributeDescriptor<?> wildcardAttribute,
-          E elements) {
+  public static <E extends StreamElement> List<KeyAttribute> ofWildcardQueryElements(
+      EntityDescriptor entity,
+      String key,
+      AttributeDescriptor<?> wildcardAttribute,
+      Iterable<E> elements) {
 
     List<KeyAttribute> ret = new ArrayList<>();
     long minSeqId = Long.MAX_VALUE;

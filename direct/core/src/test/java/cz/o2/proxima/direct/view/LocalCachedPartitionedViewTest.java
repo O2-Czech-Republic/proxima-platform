@@ -95,6 +95,8 @@ public class LocalCachedPartitionedViewTest {
     writer.write(delete("key", armed, now + 1), (succ, exc) -> {});
     assertFalse(view.get("key", armed, now + 1).isPresent());
     assertTrue(view.get("key", armed, now).isPresent());
+
+    assertEquals(reader, view.getUnderlyingReader());
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})

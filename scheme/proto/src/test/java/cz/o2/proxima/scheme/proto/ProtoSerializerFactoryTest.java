@@ -126,16 +126,10 @@ public class ProtoSerializerFactoryTest {
   @SuppressWarnings("unchecked")
   @Test
   public void testTransactionSchemeProvider() {
-    try {
-      Repository.ofTest(
-          ConfigFactory.load("test-transactions-proto.conf")
-              .withFallback(ConfigFactory.load("test-transactions.conf"))
-              .resolve());
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
-    }
-
+    Repository.ofTest(
+        ConfigFactory.load("test-transactions-proto.conf")
+            .withFallback(ConfigFactory.load("test-transactions.conf"))
+            .resolve());
     Repository repo =
         Repository.ofTest(
             ConfigFactory.load("test-transactions-proto.conf")
@@ -212,7 +206,7 @@ public class ProtoSerializerFactoryTest {
             Pair.of(Response.forRequest(someRequest).updated(), response),
             Pair.of(Response.forRequest(someRequest).committed(), response),
             Pair.of(Response.forRequest(someRequest).aborted(), response),
-            Pair.of(Response.forRequest(someRequest).duplicate(), response),
+            Pair.of(Response.forRequest(someRequest).duplicate(100L), response),
             Pair.of(Response.empty(), response),
             Pair.of(
                 Commit.of(1L, System.currentTimeMillis(), Arrays.asList(update, delete)), commit),

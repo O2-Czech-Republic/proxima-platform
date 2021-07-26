@@ -15,7 +15,9 @@
  */
 package cz.o2.proxima.direct.kafka;
 
+import com.google.common.annotations.VisibleForTesting;
 import cz.o2.proxima.storage.Partition;
+import cz.o2.proxima.storage.commitlog.Position;
 import java.net.URI;
 import java.util.Collection;
 import java.util.Collections;
@@ -62,7 +64,8 @@ public class KafkaConsumerFactory<K, V> {
     this.valueSerde = valueSerde;
   }
 
-  public KafkaConsumer<K, V> create(String name, @Nullable ConsumerRebalanceListener listener) {
+  public KafkaConsumer<K, V> create(
+      String name, Position position, @Nullable ConsumerRebalanceListener listener) {
 
     log.debug("Creating named consumer with name {} and listener {}", name, listener);
     Properties cloned = clone(this.props);
@@ -70,6 +73,7 @@ public class KafkaConsumerFactory<K, V> {
     cloned.put(ConsumerConfig.GROUP_ID_CONFIG, name);
     cloned.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 0);
     cloned.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+    updateAutoOffsetReset(position, cloned, false);
     cloned.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keySerde.deserializer().getClass());
     cloned.put(
         ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueSerde.deserializer().getClass());
@@ -98,10 +102,10 @@ public class KafkaConsumerFactory<K, V> {
    * @return {@link KafkaConsumer} of given name
    */
   public KafkaConsumer<K, V> create(String name) {
-    return create(name, null);
+    return create(name, Position.NEWEST, null);
   }
 
-  public KafkaConsumer<K, V> create(Collection<Partition> partitions) {
+  public KafkaConsumer<K, V> create(Position position, Collection<Partition> partitions) {
     log.debug("Creating unnamed consumer for partitions {}", partitions);
     Properties cloned = clone(this.props);
     cloned.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, uri.getAuthority());
@@ -109,6 +113,7 @@ public class KafkaConsumerFactory<K, V> {
     cloned.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keySerde.deserializer().getClass());
     cloned.put(
         ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueSerde.deserializer().getClass());
+    updateAutoOffsetReset(position, cloned, true);
     KafkaConsumer<K, V> ret = new KafkaConsumer<>(cloned);
     List<TopicPartition> topicPartitions =
         partitions
@@ -149,5 +154,20 @@ public class KafkaConsumerFactory<K, V> {
     Properties ret = new Properties();
     props.forEach(ret::put);
     return ret;
+  }
+
+  @VisibleForTesting
+  static void updateAutoOffsetReset(
+      Position position, Properties props, boolean setToNoneOnCurrent) {
+
+    if (!props.containsKey(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG)) {
+      if (position == Position.OLDEST) {
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+      } else if (setToNoneOnCurrent && position == Position.CURRENT) {
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "none");
+      } else {
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+      }
+    }
   }
 }

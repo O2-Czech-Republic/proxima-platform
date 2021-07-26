@@ -69,6 +69,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -84,6 +85,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -452,7 +454,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         kafka.createAccessor(direct, createTestFamily(entity, storageUri, partitionsCfg(2)));
     final LocalKafkaWriter writer = accessor.newWriter();
     final KafkaConsumer<Object, Object> consumer =
-        accessor.createConsumerFactory().create(Collections.singletonList(getPartition(0)));
+        accessor
+            .createConsumerFactory()
+            .create(Position.NEWEST, Collections.singletonList(getPartition(0)));
     final CountDownLatch latch = new CountDownLatch(2);
 
     writer.write(
@@ -539,7 +543,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         });
     latch.await();
     KafkaConsumer<Object, Object> consumer =
-        accessor.createConsumerFactory().create(Collections.singletonList(getPartition(0)));
+        accessor
+            .createConsumerFactory()
+            .create(Position.NEWEST, Collections.singletonList(getPartition(0)));
 
     ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(100));
     assertTrue(polled.isEmpty());
@@ -581,7 +587,9 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
         });
     latch.await();
     KafkaConsumer<Object, Object> consumer =
-        accessor.createConsumerFactory().create(Collections.singletonList(getPartition(0)));
+        accessor
+            .createConsumerFactory()
+            .create(Position.NEWEST, Collections.singletonList(getPartition(0)));
     consumer.seek(new TopicPartition("topic", 0), 1);
 
     ConsumerRecords<Object, Object> polled = consumer.poll(Duration.ofMillis(100));
@@ -2784,6 +2792,25 @@ public class LocalKafkaCommitLogDescriptorTest implements Serializable {
             .map(TopicOffset.class::cast)
             .sorted(Comparator.comparing(tp -> tp.getPartition().getId()))
             .collect(Collectors.toList()));
+  }
+
+  @Test
+  public void testKafkaConsumerFactoryAutoOffsetReset() {
+    Properties props = new Properties();
+    KafkaConsumerFactory.updateAutoOffsetReset(Position.NEWEST, props, true);
+    assertEquals("latest", props.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+    props = new Properties();
+    KafkaConsumerFactory.updateAutoOffsetReset(Position.OLDEST, props, true);
+    assertEquals("earliest", props.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+    // explicitly set, cannot change
+    KafkaConsumerFactory.updateAutoOffsetReset(Position.NEWEST, props, true);
+    assertEquals("earliest", props.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+    props = new Properties();
+    KafkaConsumerFactory.updateAutoOffsetReset(Position.CURRENT, props, false);
+    assertEquals("latest", props.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
+    props = new Properties();
+    KafkaConsumerFactory.updateAutoOffsetReset(Position.CURRENT, props, true);
+    assertEquals("none", props.get(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG));
   }
 
   private long testSequentialConsumption(long maxBytesPerSec) throws InterruptedException {

@@ -198,24 +198,24 @@ public class LocalKafkaCommitLogDescriptor implements DataAccessorFactory {
 
         @Override
         public KafkaConsumer<K, V> create() {
-          return create(allPartitions());
+          return create(Position.NEWEST, allPartitions());
         }
 
         @Override
-        public KafkaConsumer<K, V> create(Collection<Partition> partitions) {
-          String name = "unnamed-consumer-" + UUID.randomUUID().toString();
+        public KafkaConsumer<K, V> create(Position position, Collection<Partition> partitions) {
+          String name = "unnamed-consumer-" + UUID.randomUUID();
           ConsumerGroup group = new ConsumerGroup(name, getTopic(), numPartitions, false);
           return mockKafkaConsumer(name, group, serializer, partitions, null);
         }
 
         @Override
         public KafkaConsumer<K, V> create(String name) {
-          return create(name, null);
+          return create(name, Position.NEWEST, null);
         }
 
         @Override
         public KafkaConsumer<K, V> create(
-            String name, @Nullable ConsumerRebalanceListener listener) {
+            String name, Position position, @Nullable ConsumerRebalanceListener listener) {
 
           synchronized (LocalKafkaCommitLogDescriptor.class) {
             ConsumerGroup group = consumerGroups.get(name);

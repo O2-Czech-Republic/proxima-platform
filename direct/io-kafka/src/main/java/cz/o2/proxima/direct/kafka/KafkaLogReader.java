@@ -701,11 +701,11 @@ public class KafkaLogReader extends AbstractStorage implements CommitLogReader {
       throw new IllegalArgumentException("Consumer group cannot be empty string");
     }
     if (name != null) {
-      consumer = factory.create(name, listener);
+      consumer = factory.create(name, position, listener);
     } else if (offsets != null) {
       List<Partition> partitions =
           offsets.stream().map(Offset::getPartition).collect(Collectors.toList());
-      consumer = factory.create(partitions);
+      consumer = factory.create(position, partitions);
     } else {
       throw new IllegalArgumentException("Need either name or offsets to observe");
     }

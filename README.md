@@ -270,7 +270,7 @@ First, let's introduce some glossary:
  ```
  Next, we can use the operator to create instances of data accessors, namely:
   * CommitLogReader
-  * BatchLogObserver
+  * BatchLogReader
   * RandomAccessReader
 
  For instance, observing commit log can be done by

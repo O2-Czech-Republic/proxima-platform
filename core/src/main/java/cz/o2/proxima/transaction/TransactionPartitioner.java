@@ -17,7 +17,7 @@ package cz.o2.proxima.transaction;
 
 import cz.o2.proxima.repository.ConfigConstants;
 import cz.o2.proxima.storage.StreamElement;
-import cz.o2.proxima.storage.commitlog.KeyAttributePartitioner;
+import cz.o2.proxima.storage.commitlog.KeyPartitioner;
 import cz.o2.proxima.storage.commitlog.Partitioner;
 import cz.o2.proxima.util.Optionals;
 
@@ -25,7 +25,7 @@ public class TransactionPartitioner implements Partitioner {
 
   private static final long serialVersionUID = 1L;
 
-  private static final KeyAttributePartitioner OTHER = new KeyAttributePartitioner();
+  private static final Partitioner OTHER = new KeyPartitioner();
 
   @Override
   public int getPartitionId(StreamElement element) {
@@ -36,6 +36,6 @@ public class TransactionPartitioner implements Partitioner {
       return ((Response) Optionals.get(element.getParsed())).getPartitionIdForResponse();
     }
 
-    return OTHER.getPartitionId(element);
+    return OTHER.getPartitionId(element) & Integer.MAX_VALUE;
   }
 }

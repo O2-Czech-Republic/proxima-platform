@@ -17,6 +17,7 @@ package cz.o2.proxima.util;
 
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
@@ -29,6 +30,7 @@ import cz.o2.proxima.repository.TransformationDescriptor;
 import cz.o2.proxima.repository.TransformationDescriptor.InputTransactionMode;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.storage.StreamElement;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
@@ -108,19 +110,34 @@ public class TransformationRunner {
             new CommitLogObserver() {
               @Override
               public boolean onNext(StreamElement ingest, OnNextContext context) {
-                desc.getTransformation()
-                    .asElementWiseTransform()
-                    .apply(
-                        ingest,
-                        transformed -> {
-                          log.debug(
-                              "Transformation {}: writing original {} transformed {}",
-                              name,
-                              ingest,
-                              transformed);
-                          onReplicated.accept(transformed);
-                          getWriter(desc, transformed, direct).write(transformed, context::commit);
-                        });
+                AtomicInteger missingConfirms = new AtomicInteger();
+                CommitCallback committer =
+                    (succ, exc) -> {
+                      if (!succ) {
+                        missingConfirms.set(-1);
+                        context.fail(exc);
+                      } else if (missingConfirms.decrementAndGet() == 0) {
+                        context.confirm();
+                      }
+                    };
+                if (missingConfirms.addAndGet(
+                        desc.getTransformation()
+                            .asElementWiseTransform()
+                            .apply(
+                                ingest,
+                                transformed -> {
+                                  log.debug(
+                                      "Transformation {}: writing original {} transformed {}",
+                                      name,
+                                      ingest,
+                                      transformed);
+                                  onReplicated.accept(transformed);
+                                  getWriter(desc, transformed, direct)
+                                      .write(transformed, committer);
+                                }))
+                    == 0) {
+                  context.confirm();
+                }
                 return true;
               }
 

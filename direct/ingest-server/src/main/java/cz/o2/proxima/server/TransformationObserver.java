@@ -66,6 +66,11 @@ public class TransformationObserver implements CommitLogObserver {
 
   @Override
   public boolean onNext(StreamElement ingest, OnNextContext context) {
+    log.debug(
+        "Transformation {}: Received ingest {} at watermark {}",
+        name,
+        ingest,
+        context.getWatermark());
     Metrics.reportConsumerWatermark(name, context.getWatermark(), ingest.getStamp());
     if (!filter.apply(ingest)) {
       log.debug("Transformation {}: skipping transformation of {} by filter", name, ingest);

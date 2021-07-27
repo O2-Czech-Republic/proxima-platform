@@ -60,6 +60,7 @@ public class ConfigConstants {
   public static final String RESPONSE_ATTRIBUTE_PREFIX = "response.";
   public static final String STATE_ATTRIBUTE = "state";
   public static final String COMMIT_ATTRIBUTE = "commit";
+  public static final String PARTITIONER = "partitioner";
 
   private ConfigConstants() {
     // nop

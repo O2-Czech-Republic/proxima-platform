@@ -18,6 +18,7 @@ package cz.o2.proxima.direct.transaction.manager;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.DirectDataOperator;
+import cz.o2.proxima.functional.Consumer;
 
 @FunctionalInterface
 @Internal
@@ -30,14 +31,21 @@ public interface TransactionLogObserverFactory {
     }
   }
 
-  class Rethrowing implements TransactionLogObserverFactory {
+  class WithOnErrorHandler implements TransactionLogObserverFactory {
+
+    private final Consumer<Throwable> errorHandler;
+
+    WithOnErrorHandler(Consumer<Throwable> errorHandler) {
+      this.errorHandler = errorHandler;
+    }
 
     @Override
     public TransactionLogObserver create(DirectDataOperator direct) {
       return new TransactionLogObserver(direct) {
         @Override
-        void exit(int status) {
-          throw new RuntimeException("System.exit(" + status + ")");
+        public boolean onError(Throwable error) {
+          errorHandler.accept(error);
+          return super.onError(error);
         }
       };
     }

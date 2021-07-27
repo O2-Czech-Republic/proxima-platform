@@ -19,12 +19,14 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import cz.o2.proxima.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogObservers;
 import cz.o2.proxima.direct.commitlog.CommitLogObservers.ForwardingObserver;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
+import cz.o2.proxima.direct.commitlog.ObserveHandleUtils;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -46,6 +48,7 @@ import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Request.Flags;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
+import cz.o2.proxima.util.Classpath;
 import cz.o2.proxima.util.ExceptionUtils;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
@@ -53,6 +56,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -66,6 +70,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -90,6 +96,20 @@ public class TransactionResourceManager
   @VisibleForTesting
   static TransactionResourceManager create(DirectDataOperator direct) {
     return new TransactionResourceManager(direct, Collections.emptyMap());
+  }
+
+  private class TransactionConfig implements ServerTransactionConfig {
+
+    @Override
+    public long getCleanupInterval() {
+      // FIXME: [PROXIMA-215]
+      return transactionTimeoutMs;
+    }
+
+    @Override
+    public InitialSequenceIdPolicy getInitialSeqIdPolicy() {
+      return initialSequenceIdPolicy;
+    }
   }
 
   private class CachedWriters implements AutoCloseable {
@@ -128,7 +148,10 @@ public class TransactionResourceManager
       if (stateView == null) {
         stateView = stateViews.get(family);
         Preconditions.checkState(
-            stateView != null, "StateView not initialized for family %s", family);
+            stateView != null,
+            "StateView not initialized for family %s. Initialized families are %s",
+            family,
+            stateViews.keySet());
       }
       return stateView;
     }
@@ -141,7 +164,6 @@ public class TransactionResourceManager
     @Getter final long created = System.currentTimeMillis();
     final Map<AttributeDescriptor<?>, DirectAttributeFamilyDescriptor> attributeToFamily =
         new HashMap<>();
-    final Thread owningThread = Thread.currentThread();
     final @Nullable BiConsumer<String, Response> responseConsumer;
     @Nullable OnlineAttributeWriter requestWriter;
     @Nullable OnlineAttributeWriter responseWriter;
@@ -163,7 +185,6 @@ public class TransactionResourceManager
     }
 
     void open(List<KeyAttribute> inputAttrs) {
-      checkThread();
       log.debug("Opening transaction {} with inputAttrs {}", transactionId, inputAttrs);
       Preconditions.checkState(responseConsumer != null);
       addTransactionResponseConsumer(
@@ -172,7 +193,6 @@ public class TransactionResourceManager
     }
 
     public void commit(List<KeyAttribute> outputAttributes) {
-      checkThread();
       log.debug(
           "Committing transaction {} with outputAttributes {}", transactionId, outputAttributes);
       sendRequest(
@@ -181,7 +201,6 @@ public class TransactionResourceManager
     }
 
     public void update(List<KeyAttribute> addedAttributes) {
-      checkThread();
       log.debug("Updating transaction {} with addedAttributes {}", transactionId, addedAttributes);
       sendRequest(
           Request.builder().flags(Request.Flags.UPDATE).inputAttributes(addedAttributes).build(),
@@ -189,7 +208,6 @@ public class TransactionResourceManager
     }
 
     public void rollback() {
-      checkThread();
       log.debug("Rolling back transaction {} (cached {})", transactionId, this);
       sendRequest(Request.builder().flags(Flags.ROLLBACK).build(), "rollback");
     }
@@ -233,7 +251,6 @@ public class TransactionResourceManager
     }
 
     Pair<List<Integer>, OnlineAttributeWriter> getRequestWriter() {
-      checkThread();
       if (requestWriter == null) {
         DirectAttributeFamilyDescriptor family = attributeToFamily.get(requestDesc);
         requestWriter = getCachedAccessors(family).getOrCreateRequestWriter();
@@ -245,7 +262,6 @@ public class TransactionResourceManager
     }
 
     OnlineAttributeWriter getResponseWriter() {
-      checkThread();
       if (responseWriter == null) {
         DirectAttributeFamilyDescriptor family = attributeToFamily.get(responseDesc);
         responseWriter = getCachedAccessors(family).getOrCreateResponseWriter();
@@ -259,15 +275,6 @@ public class TransactionResourceManager
         stateView = getCachedAccessors(family).getOrCreateStateView();
       }
       return stateView;
-    }
-
-    private void checkThread() {
-      Preconditions.checkState(
-          owningThread == Thread.currentThread(),
-          "Conflict in owning threads of transaction %s: %s and %s",
-          transactionId,
-          owningThread,
-          Thread.currentThread());
     }
 
     public State getState() {
@@ -311,10 +318,17 @@ public class TransactionResourceManager
       new ConcurrentHashMap<>();
   private final Map<String, BiConsumer<String, Response>> transactionResponseConsumers =
       new ConcurrentHashMap<>();
+  @Getter private final TransactionConfig cfg = new TransactionConfig();
+  private final Map<AttributeFamilyDescriptor, AtomicBoolean> activeForFamily =
+      new ConcurrentHashMap<>();
 
   @Getter(AccessLevel.PACKAGE)
-  private final long transactionTimeoutMs;
+  private long transactionTimeoutMs;
 
+  @Getter(AccessLevel.PACKAGE)
+  private InitialSequenceIdPolicy initialSequenceIdPolicy;
+
+  @VisibleForTesting
   public TransactionResourceManager(DirectDataOperator direct, Map<String, Object> cfg) {
     this.direct = direct;
     this.transaction = direct.getRepository().getEntity("_transaction");
@@ -323,6 +337,7 @@ public class TransactionResourceManager
     this.stateDesc = Regular.of(transaction, transaction.getAttribute("state"));
     this.commitDesc = Regular.of(transaction, transaction.getAttribute("commit"));
     this.transactionTimeoutMs = getTransactionTimeout(cfg);
+    this.initialSequenceIdPolicy = getInitialSequenceIdPolicy(cfg);
 
     log.info(
         "Created {} with transaction timeout {} ms",
@@ -330,19 +345,33 @@ public class TransactionResourceManager
         transactionTimeoutMs);
   }
 
-  private long getTransactionTimeout(Map<String, Object> cfg) {
+  @VisibleForTesting
+  public void setTransactionTimeoutMs(long timeoutMs) {
+    this.transactionTimeoutMs = timeoutMs;
+  }
+
+  private static long getTransactionTimeout(Map<String, Object> cfg) {
     return Optional.ofNullable(cfg.get("timeout"))
         .map(Object::toString)
         .map(Long::parseLong)
         .orElse(3600000L);
   }
 
+  private static InitialSequenceIdPolicy getInitialSequenceIdPolicy(Map<String, Object> cfg) {
+    return Optional.ofNullable(cfg.get("initial-sequence-id-policy"))
+        .map(Object::toString)
+        .map(c -> Classpath.newInstance(c, InitialSequenceIdPolicy.class))
+        .orElse(new InitialSequenceIdPolicy.Default());
+  }
+
   @Override
   public void close() {
     openTransactionMap.forEach((k, v) -> v.close());
     cachedAccessors.forEach((k, v) -> v.close());
+    stateViews.forEach((k, v) -> v.close());
     openTransactionMap.clear();
     cachedAccessors.clear();
+    stateViews.clear();
     transactionResponseConsumers.clear();
     serverObservedFamilies.values().forEach(ObserveHandle::close);
     serverObservedFamilies.clear();
@@ -376,8 +405,17 @@ public class TransactionResourceManager
       BiConsumer<StreamElement, Pair<Long, Object>> updateConsumer,
       CommitLogObserver requestObserver) {
 
-    CommitLogObserver synchronizedObserver =
-        CommitLogObservers.synchronizedObserver(requestObserver);
+    final CommitLogObserver effectiveObserver;
+    if (needsSynchronization(requestObserver)) {
+      effectiveObserver = CommitLogObservers.synchronizedObserver(requestObserver);
+    } else {
+      effectiveObserver =
+          new ThreadPooledObserver(
+              direct.getContext().getExecutorService(),
+              requestObserver,
+              getDeclaredParallelism(requestObserver)
+                  .orElse(Runtime.getRuntime().availableProcessors()));
+    }
 
     List<Set<String>> families =
         direct
@@ -392,6 +430,7 @@ public class TransactionResourceManager
             .collect(Collectors.toList());
 
     CountDownLatch initializedLatch = new CountDownLatch(families.size());
+
     families
         .stream()
         .map(this::toRequestStatePair)
@@ -400,18 +439,44 @@ public class TransactionResourceManager
               DirectAttributeFamilyDescriptor requestFamily = p.getFirst();
               DirectAttributeFamilyDescriptor stateFamily = p.getSecond();
               log.info(
-                  "Starting to observe family {} with URI {}",
+                  "Starting to observe family {} with URI {} and associated state family {}",
                   requestFamily,
-                  requestFamily.getDesc().getStorageUri());
+                  requestFamily.getDesc().getStorageUri(),
+                  stateFamily);
               CommitLogReader reader = Optionals.get(requestFamily.getCommitLogReader());
+
+              CachedView view = stateViews.get(stateFamily);
+              if (view == null) {
+                view = Optionals.get(stateFamily.getCachedView());
+                Duration ttl = Duration.ofMillis(transactionTimeoutMs);
+                stateViews.put(stateFamily, view);
+                view.assign(view.getPartitions(), updateConsumer, ttl);
+              }
+              initializedLatch.countDown();
+
               serverObservedFamilies.put(
                   requestFamily,
                   reader.observe(
                       name + "-" + requestFamily.getDesc().getName(),
-                      repartitionHookForView(
-                          stateFamily, updateConsumer, synchronizedObserver, initializedLatch)));
+                      repartitionHookForBeingActive(
+                          stateFamily, reader.getPartitions().size(), effectiveObserver)));
             });
     ExceptionUtils.unchecked(initializedLatch::await);
+  }
+
+  @VisibleForTesting
+  static boolean needsSynchronization(CommitLogObserver requestObserver) {
+    return requestObserver.getClass().getDeclaredAnnotation(DeclaredThreadSafe.class) == null;
+  }
+
+  @VisibleForTesting
+  static Optional<Integer> getDeclaredParallelism(CommitLogObserver requestObserver) {
+    return Arrays.stream(requestObserver.getClass().getAnnotations())
+        .filter(a -> a.annotationType().equals(DeclaredThreadSafe.class))
+        .map(DeclaredThreadSafe.class::cast)
+        .findAny()
+        .map(DeclaredThreadSafe::allowedParallelism)
+        .filter(i -> i != -1);
   }
 
   private Pair<DirectAttributeFamilyDescriptor, DirectAttributeFamilyDescriptor> toRequestStatePair(
@@ -435,17 +500,16 @@ public class TransactionResourceManager
         : Pair.of(candidates.get(1), candidates.get(0));
   }
 
-  private CommitLogObserver repartitionHookForView(
-      DirectAttributeFamilyDescriptor stateFamily,
-      BiConsumer<StreamElement, Pair<Long, Object>> updateConsumer,
-      CommitLogObserver delegate,
-      CountDownLatch initializedLatch) {
+  private CommitLogObserver repartitionHookForBeingActive(
+      DirectAttributeFamilyDescriptor stateFamily, int numPartitions, CommitLogObserver delegate) {
 
+    activeForFamily.putIfAbsent(stateFamily.getDesc(), new AtomicBoolean());
     return new ForwardingObserver(delegate) {
 
       @Override
       public boolean onNext(StreamElement ingest, OnNextContext context) {
-        if (ingest.getStamp() > System.currentTimeMillis() - transactionTimeoutMs) {
+        Preconditions.checkArgument(activeForFamily.get(stateFamily.getDesc()).get());
+        if (ingest.getStamp() > System.currentTimeMillis() - 2 * transactionTimeoutMs) {
           super.onNext(ingest, context);
         } else {
           log.warn(
@@ -459,24 +523,43 @@ public class TransactionResourceManager
 
       @Override
       public void onRepartition(OnRepartitionContext context) {
-        CachedView view =
-            stateViews.computeIfAbsent(stateFamily, f -> Optionals.get(f.getCachedView()));
-        Set<Integer> partitionIds =
-            context.partitions().stream().map(Partition::getId).collect(Collectors.toSet());
-        if (!partitionIds.isEmpty()) {
-          Duration ttl = Duration.ofMillis(transactionTimeoutMs);
-          view.assign(
-              view.getPartitions()
-                  .stream()
-                  .filter(p -> partitionIds.contains(p.getId()))
-                  .collect(Collectors.toList()),
-              updateConsumer,
-              ttl);
-          initializedLatch.countDown();
+        Preconditions.checkArgument(
+            context.partitions().isEmpty() || context.partitions().size() == numPartitions,
+            "At least all or none partitions need to be assigned to the consumer. Got %s partitions from %s",
+            context.partitions().size(),
+            numPartitions);
+        if (!context.partitions().isEmpty()) {
+          transitionToActive(stateFamily);
+        } else {
+          transitionToInactive(stateFamily);
         }
         super.onRepartition(context);
       }
     };
+  }
+
+  private void transitionToActive(DirectAttributeFamilyDescriptor desc) {
+    boolean isAtHead = false;
+    while (!Thread.currentThread().isInterrupted() && !isAtHead) {
+      CachedView view = Objects.requireNonNull(stateViews.get(desc));
+      CommitLogReader reader = view.getUnderlyingReader();
+      Optional<ObserveHandle> handle = view.getRunningHandle();
+      if (handle.isPresent()) {
+        isAtHead = ObserveHandleUtils.isAtHead(handle.get(), reader);
+      }
+      if (!isAtHead) {
+        ExceptionUtils.ignoringInterrupted(() -> TimeUnit.MILLISECONDS.sleep(100));
+      }
+    }
+    if (isAtHead) {
+      log.info("Transitioned to ACTIVE state for {}", desc);
+      activeForFamily.get(desc.getDesc()).set(true);
+    }
+  }
+
+  private void transitionToInactive(DirectAttributeFamilyDescriptor desc) {
+    log.info("Transitioning to INACTIVE state for {}", desc);
+    activeForFamily.get(desc.getDesc()).set(false);
   }
 
   private void addTransactionResponseConsumer(
@@ -597,11 +680,8 @@ public class TransactionResourceManager
 
   @Override
   public void rollback(String transactionId) {
-    CachedTransaction cachedTransaction =
-        openTransactionMap.computeIfAbsent(
-            transactionId,
-            k -> new CachedTransaction(transactionId, Collections.emptyList(), null));
-    cachedTransaction.rollback();
+    Optional.ofNullable(openTransactionMap.get(transactionId))
+        .ifPresent(CachedTransaction::rollback);
   }
 
   @Override
@@ -671,11 +751,12 @@ public class TransactionResourceManager
 
     CachedTransaction cachedTransaction = openTransactionMap.get(transactionId);
     if (cachedTransaction != null) {
-      cachedTransaction
-          .getResponseWriter()
-          .write(
-              responseDesc.upsert(transactionId, responseId, System.currentTimeMillis(), response),
-              callback);
+      final OnlineAttributeWriter writer = cachedTransaction.getResponseWriter();
+      synchronized (writer) {
+        writer.write(
+            responseDesc.upsert(transactionId, responseId, System.currentTimeMillis(), response),
+            callback);
+      }
     } else {
       log.warn(
           "Transaction {} is not open, don't have a writer to return response {}",

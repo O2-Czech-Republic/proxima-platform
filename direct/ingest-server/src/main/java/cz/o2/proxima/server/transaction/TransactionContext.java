@@ -65,7 +65,7 @@ public class TransactionContext {
   }
 
   public Transaction create() {
-    Preconditions.checkArgument(globalWriter != null, "No transactions are allowed in model!");
+    Preconditions.checkArgument(globalWriter != null, "No transactions are allowed in the model!");
 
     Transaction res = wrap(globalWriter.begin());
     openTransactions.put(res.getTransactionId(), res);

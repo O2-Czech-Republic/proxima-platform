@@ -26,7 +26,6 @@ import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.proto.service.Rpc;
 import cz.o2.proxima.repository.AttributeDescriptor;
-import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.repository.Repository;
 import cz.o2.proxima.server.metrics.Metrics;
 import cz.o2.proxima.server.transaction.TransactionContext;
@@ -123,7 +122,6 @@ public class IngestServer {
       boolean supportTransactions,
       Consumer<Rpc.Status> responseConsumer) {
 
-    EntityDescriptor entityDesc = ingest.getEntityDescriptor();
     AttributeDescriptor<?> attributeDesc = ingest.getAttributeDescriptor();
 
     OnlineAttributeWriter writer =
@@ -133,20 +131,6 @@ public class IngestServer {
       log.warn("Missing writer for request {}", ingest);
       responseConsumer.accept(
           status(uuid, 503, "No writer for attribute " + attributeDesc.getName()));
-      return false;
-    }
-
-    boolean valid =
-        ingest.isDelete() /* delete is always valid */
-            || attributeDesc.getValueSerializer().isValid(ingest.getValue());
-
-    if (!valid) {
-      log.info("Request {} is not valid", ingest);
-      responseConsumer.accept(
-          status(
-              uuid,
-              412,
-              "Invalid scheme for " + entityDesc.getName() + "." + attributeDesc.getName()));
       return false;
     }
 

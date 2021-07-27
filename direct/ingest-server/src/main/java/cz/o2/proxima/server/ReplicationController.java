@@ -105,7 +105,11 @@ public class ReplicationController {
     @Override
     public boolean onNext(StreamElement ingest, OnNextContext context) {
       final boolean allowed = allowedAttributes.contains(ingest.getAttributeDescriptor());
-      log.debug("Consumer {}: received new ingest element {}", consumerName, ingest);
+      log.debug(
+          "Consumer {}: received new ingest element {} at watermark {}",
+          consumerName,
+          ingest,
+          context.getWatermark());
       if (allowed && filter.apply(ingest)) {
         Metrics.ingestsForAttribute(ingest.getAttributeDescriptor()).increment();
         if (!ingest.isDelete()) {
@@ -149,7 +153,7 @@ public class ReplicationController {
     @Override
     public void onRepartition(OnRepartitionContext context) {
       log.info(
-          "Consumer {}: restarting bulk processing of {} from {}, rollbacking the writer",
+          "Consumer {}: restarting bulk processing of {} from {}, rolling back the writer",
           consumerName,
           writer.getUri(),
           context.partitions());
@@ -343,6 +347,7 @@ public class ReplicationController {
               + "Will be executed during transaction commit.",
           name,
           transform.getAttributes());
+      return;
     }
     DirectAttributeFamilyDescriptor family =
         transform

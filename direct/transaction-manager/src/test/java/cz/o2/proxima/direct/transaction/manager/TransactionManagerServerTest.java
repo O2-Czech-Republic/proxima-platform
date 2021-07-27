@@ -15,12 +15,12 @@
  */
 package cz.o2.proxima.direct.transaction.manager;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import cz.o2.proxima.repository.ConfigRepository;
+import cz.o2.proxima.repository.Repository;
 import org.junit.Test;
 
 /** Test suite for {@link TransactionManagerServer}. */
@@ -31,7 +31,18 @@ public class TransactionManagerServerTest {
           .withFallback(ConfigFactory.load("test-transactions.conf"))
           .resolve();
   private final ConfigRepository repo = ConfigRepository.Builder.of(conf).build();
-  private final TransactionManagerServer server = TransactionManagerServer.of(repo);
+  private final TransactionManagerServer server =
+      new TransactionManagerServer(conf, repo) {
+        @Override
+        void validateModeSupported(Repository repo) {
+          try {
+            super.validateModeSupported(repo);
+            fail("Should have thrown UnsupportedOperationException");
+          } catch (UnsupportedOperationException ex) {
+            // pass
+          }
+        }
+      };
 
   @Test(timeout = 10000)
   public void testServerRunTearDown() {

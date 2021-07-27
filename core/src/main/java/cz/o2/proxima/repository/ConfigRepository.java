@@ -36,6 +36,7 @@ import cz.o2.proxima.storage.AccessType;
 import cz.o2.proxima.storage.StorageFilter;
 import cz.o2.proxima.storage.StorageType;
 import cz.o2.proxima.transaction.TransactionCommitTransformation;
+import cz.o2.proxima.transaction.TransactionPartitioner;
 import cz.o2.proxima.transaction.TransactionSerializerSchemeProvider;
 import cz.o2.proxima.transform.DataOperatorAware;
 import cz.o2.proxima.transform.ElementWiseProxyTransform;
@@ -289,7 +290,7 @@ public final class ConfigRepository extends Repository {
   private final Map<String, AttributeFamilyDescriptor> allCreatedFamilies = new HashMap<>();
 
   /** Map of transformation name to transformation descriptor. */
-  private final Map<String, TransformationDescriptor> transformations = new HashMap<>();
+  private final Map<String, TransformationDescriptor> transformations = new WriteOnceHashMap<>();
 
   /** Set of operators created by this repository. */
   private final Set<DataOperator> operators = Collections.synchronizedSet(new HashSet<>());
@@ -831,7 +832,7 @@ public final class ConfigRepository extends Repository {
                     + key
                     + " in entity "
                     + entityName
-                    + " must be proxy or contains "
+                    + " must be proxy or contain "
                     + SCHEME
                     + " definition.");
           }
@@ -1213,7 +1214,7 @@ public final class ConfigRepository extends Repository {
             .setType(type)
             .setAccess(access)
             .setStorageUri(storageUri)
-            .setCfg(cfg)
+            .setCfg(withTransactionalPartitioner(isTransactional, cfg))
             .setSource((String) cfg.get(FROM));
     Collection<AttributeDescriptor<?>> allAttributes = new HashSet<>();
     for (String attr : attributes) {
@@ -1227,6 +1228,17 @@ public final class ConfigRepository extends Repository {
     }
     allAttributes.forEach(family::addAttribute);
     insertFamily(family.build(), overwrite);
+  }
+
+  private Map<String, Object> withTransactionalPartitioner(
+      boolean isTransactional, Map<String, Object> cfg) {
+
+    if (isTransactional) {
+      Map<String, Object> cloned = new HashMap<>(cfg);
+      cloned.put(ConfigConstants.PARTITIONER, TransactionPartitioner.class.getName());
+      return cloned;
+    }
+    return cfg;
   }
 
   private StorageType getStorageType(Map<String, Object> cfg, boolean isTransactional) {
@@ -2078,10 +2090,7 @@ public final class ConfigRepository extends Repository {
             .disableOutputTransactions()
             .build();
     setupTransform(descriptor.getTransformation(), Collections.emptyMap());
-    Preconditions.checkState(
-        this.transformations.put(name, descriptor) == null,
-        "Transformation %s already exists.",
-        name);
+    this.transformations.put(name, descriptor);
   }
 
   private void setupTransform(Transformation transformation, Map<String, Object> cfg) {
@@ -2404,5 +2413,22 @@ public final class ConfigRepository extends Repository {
 
   private Object readResolve() throws ObjectStreamException {
     return Objects.requireNonNull(factory).apply();
+  }
+
+  @VisibleForTesting
+  static class WriteOnceHashMap<K, V> extends HashMap<K, V> {
+
+    @Override
+    public V put(K key, V value) {
+      Preconditions.checkArgument(!containsKey(key), "Key %s already present", key);
+      return super.put(key, value);
+    }
+
+    @Override
+    public void putAll(Map<? extends K, ? extends V> map) {
+      Preconditions.checkArgument(
+          map.keySet().stream().noneMatch(this::containsKey), "Duplicate key in map %s", map);
+      super.putAll(map);
+    }
   }
 }

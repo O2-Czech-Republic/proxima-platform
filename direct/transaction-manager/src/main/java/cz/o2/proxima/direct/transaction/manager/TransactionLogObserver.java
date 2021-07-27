@@ -16,29 +16,34 @@
 package cz.o2.proxima.direct.transaction.manager;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Sets;
 import com.google.common.collect.SortedSetMultimap;
+import cz.o2.proxima.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.annotations.Internal;
 import cz.o2.proxima.direct.commitlog.CommitLogObserver;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.transaction.ServerTransactionManager;
+import cz.o2.proxima.functional.BiConsumer;
+import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
+import cz.o2.proxima.repository.EntityDescriptor;
 import cz.o2.proxima.storage.StreamElement;
+import cz.o2.proxima.transaction.Commit;
 import cz.o2.proxima.transaction.KeyAttribute;
 import cz.o2.proxima.transaction.Request;
 import cz.o2.proxima.transaction.Response;
 import cz.o2.proxima.transaction.State;
 import cz.o2.proxima.util.Optionals;
 import cz.o2.proxima.util.Pair;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -51,6 +56,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
+import javax.annotation.concurrent.ThreadSafe;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,6 +66,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Internal
+@ThreadSafe
+@DeclaredThreadSafe
 public class TransactionLogObserver implements CommitLogObserver {
 
   @Value
@@ -67,26 +75,41 @@ public class TransactionLogObserver implements CommitLogObserver {
 
     static KeyWithAttribute of(KeyAttribute ka) {
       if (ka.isWildcardQuery()) {
-        return new KeyWithAttribute(ka.getKey(), ka.getAttributeDescriptor().toAttributePrefix());
+        return new KeyWithAttribute(
+            ka.getAttributeDescriptor().getEntity(),
+            ka.getAttributeDescriptor().toAttributePrefix(),
+            ka.getKey());
       }
       return new KeyWithAttribute(
-          ka.getKey(),
-          ka.getAttributeDescriptor().toAttributePrefix() + ka.getAttributeSuffix().orElse(""));
+          ka.getAttributeDescriptor().getEntity(),
+          ka.getAttributeDescriptor().toAttributePrefix() + ka.getAttributeSuffix().orElse(""),
+          ka.getKey());
     }
 
     static KeyWithAttribute ofWildcard(KeyAttribute ka) {
-      return new KeyWithAttribute(ka.getKey(), ka.getAttributeDescriptor().toAttributePrefix());
+      return new KeyWithAttribute(
+          ka.getAttributeDescriptor().getEntity(),
+          ka.getAttributeDescriptor().toAttributePrefix(),
+          ka.getKey());
     }
 
-    String key;
+    private KeyWithAttribute(String entity, String attribute, String key) {
+      this.attribute = entity + "." + attribute;
+      this.key = key;
+    }
+
+    // attribute including entity in dot notation
     String attribute;
+    // primary key
+    String key;
   }
 
   @Value
   private static class SeqIdWithTombstone implements Comparable<SeqIdWithTombstone> {
 
-    public static SeqIdWithTombstone create(long committedSeqId, boolean delete) {
-      return new SeqIdWithTombstone(committedSeqId, delete, System.currentTimeMillis());
+    public static SeqIdWithTombstone create(
+        TransactionLogObserver observer, long committedSeqId, boolean delete) {
+      return new SeqIdWithTombstone(committedSeqId, delete, observer.currentTimeMillis());
     }
 
     /** sequential ID of the update */
@@ -122,20 +145,109 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   private final DirectDataOperator direct;
+  private final ServerTransactionManager unsynchronizedManager;
   private final ServerTransactionManager manager;
-  private final AtomicLong sequenceId = new AtomicLong(1000L);
-  private final ReentrantReadWriteLock lastUpdateLock = new ReentrantReadWriteLock();
+  private final AtomicLong sequenceId = new AtomicLong();
+  private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+  private final Object commitLock = new Object();
 
-  @GuardedBy("lastUpdateLock")
+  @GuardedBy("lock")
   private final SortedSetMultimap<KeyWithAttribute, SeqIdWithTombstone> lastUpdateSeqId =
       MultimapBuilder.hashKeys().treeSetValues().build();
 
-  private final Map<KeyWithAttribute, List<KeyWithAttribute>> updatesToWildcard = new HashMap<>();
+  @GuardedBy("lock")
+  private final Map<KeyWithAttribute, Map<KeyWithAttribute, SeqIdWithTombstone>> updatesToWildcard =
+      new HashMap<>();
 
   public TransactionLogObserver(DirectDataOperator direct) {
     this.direct = direct;
-    this.manager = direct.getServerTransactionManager();
+    this.unsynchronizedManager = getServerTransactionManager(direct);
+    this.manager = synchronizedManager(unsynchronizedManager);
+    sequenceId.set(unsynchronizedManager.getCfg().getInitialSeqIdPolicy().apply());
     startHouseKeeping();
+  }
+
+  private ServerTransactionManager synchronizedManager(ServerTransactionManager delegate) {
+    return new ServerTransactionManager() {
+
+      @Override
+      public void runObservations(
+          String name,
+          BiConsumer<StreamElement, Pair<Long, Object>> updateConsumer,
+          CommitLogObserver requestObserver) {
+
+        delegate.runObservations(name, updateConsumer, requestObserver);
+      }
+
+      @Override
+      public synchronized State getCurrentState(String transactionId) {
+        return delegate.getCurrentState(transactionId);
+      }
+
+      @Override
+      public synchronized void setCurrentState(
+          String transactionId, @Nullable State state, CommitCallback callback) {
+
+        delegate.setCurrentState(transactionId, state, callback);
+      }
+
+      @Override
+      public synchronized void ensureTransactionOpen(String transactionId, State state) {
+        delegate.ensureTransactionOpen(transactionId, state);
+      }
+
+      @Override
+      public synchronized void writeResponse(
+          String transactionId, String responseId, Response response, CommitCallback callback) {
+
+        delegate.writeResponse(transactionId, responseId, response, callback);
+      }
+
+      @Override
+      public void close() {
+        delegate.close();
+      }
+
+      @Override
+      public void houseKeeping() {
+        delegate.houseKeeping();
+      }
+
+      @Override
+      public ServerTransactionConfig getCfg() {
+        return delegate.getCfg();
+      }
+
+      @Override
+      public EntityDescriptor getTransaction() {
+        return delegate.getTransaction();
+      }
+
+      @Override
+      public Wildcard<Request> getRequestDesc() {
+        return delegate.getRequestDesc();
+      }
+
+      @Override
+      public Wildcard<Response> getResponseDesc() {
+        return delegate.getResponseDesc();
+      }
+
+      @Override
+      public Regular<State> getStateDesc() {
+        return delegate.getStateDesc();
+      }
+
+      @Override
+      public Regular<Commit> getCommitDesc() {
+        return delegate.getCommitDesc();
+      }
+    };
+  }
+
+  @VisibleForTesting
+  ServerTransactionManager getServerTransactionManager(DirectDataOperator direct) {
+    return direct.getServerTransactionManager();
   }
 
   private void startHouseKeeping() {
@@ -148,23 +260,37 @@ public class TransactionLogObserver implements CommitLogObserver {
                 try {
                   // FIXME: [PROXIMA-215]
                   manager.houseKeeping();
-                  long now = System.currentTimeMillis();
-                  long cleanup = now - 60000;
+                  long now = currentTimeMillis();
+                  long cleanupTimeout = manager.getCfg().getCleanupInterval();
+                  long cleanup = now - cleanupTimeout;
                   int cleaned;
-                  try (Locker l = Locker.of(lastUpdateLock.writeLock())) {
-                    List<Entry<KeyWithAttribute, SeqIdWithTombstone>> toCleanUp =
+                  try (Locker l = Locker.of(lock.writeLock())) {
+                    List<Map.Entry<KeyWithAttribute, SeqIdWithTombstone>> toCleanUp =
                         lastUpdateSeqId
                             .entries()
                             .stream()
                             .filter(e -> e.getValue().getTimestamp() < cleanup)
                             .collect(Collectors.toList());
-                    toCleanUp.forEach(e -> lastUpdateSeqId.remove(e.getKey(), e.getValue()));
                     cleaned = toCleanUp.size();
+                    toCleanUp.forEach(e -> lastUpdateSeqId.remove(e.getKey(), e.getValue()));
                   }
-                  long duration = System.currentTimeMillis() - now;
+                  // release and re-acquire lock to enable progress of any waiting threads
+                  try (Locker l = Locker.of(lock.writeLock())) {
+                    Iterator<Map<KeyWithAttribute, SeqIdWithTombstone>> it =
+                        updatesToWildcard.values().iterator();
+                    while (it.hasNext()) {
+                      Map<KeyWithAttribute, SeqIdWithTombstone> value = it.next();
+                      Iterators.removeIf(
+                          value.values().iterator(), e -> e.getTimestamp() < cleanup);
+                      if (value.isEmpty()) {
+                        it.remove();
+                      }
+                    }
+                  }
+                  long duration = currentTimeMillis() - now;
                   log.info("Finished housekeeping in {} ms, removed {} records", duration, cleaned);
-                  if (duration < 60000) {
-                    TimeUnit.MILLISECONDS.sleep(60000 - duration);
+                  if (duration < cleanupTimeout) {
+                    sleep(cleanupTimeout - duration);
                   }
                 } catch (InterruptedException ex) {
                   Thread.currentThread().interrupt();
@@ -173,6 +299,16 @@ public class TransactionLogObserver implements CommitLogObserver {
                 }
               }
             });
+  }
+
+  @VisibleForTesting
+  void sleep(long sleepMs) throws InterruptedException {
+    TimeUnit.MILLISECONDS.sleep(sleepMs);
+  }
+
+  @VisibleForTesting
+  long currentTimeMillis() {
+    return System.currentTimeMillis();
   }
 
   @Override
@@ -238,12 +374,16 @@ public class TransactionLogObserver implements CommitLogObserver {
           && (currentState.getFlags() == State.Flags.OPEN
               || currentState.getFlags() == State.Flags.COMMITTED)) {
         manager.writeResponse(
-            transactionId, requestId, Response.forRequest(request).duplicate(), context::commit);
+            transactionId,
+            requestId,
+            Response.forRequest(request).duplicate(currentState.getSequentialId()),
+            context::commit);
       } else {
         log.warn(
-            "Unexpected {} request for transaction {} when the state is {}",
+            "Unexpected {} request for transaction {} seqId {} when the state is {}",
             request.getFlags(),
             transactionId,
+            currentState.getSequentialId(),
             currentState.getFlags());
         manager.writeResponse(
             transactionId, requestId, Response.forRequest(request).aborted(), context::commit);
@@ -252,10 +392,19 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   private void abortTransaction(String transactionId, State state) {
-    log.info("Transaction {} rolled back", transactionId);
     long seqId = state.getSequentialId();
     // we need to rollback all updates to lastUpdateSeqId with the same seqId
-    try (Locker lock = Locker.of(lastUpdateLock.writeLock())) {
+    try (Locker lock = Locker.of(this.lock.writeLock())) {
+      state
+          .getCommittedAttributes()
+          .stream()
+          .map(KeyWithAttribute::ofWildcard)
+          .map(updatesToWildcard::get)
+          .filter(Objects::nonNull)
+          .forEach(
+              map ->
+                  Iterators.removeIf(
+                      map.entrySet().iterator(), e -> e.getValue().getSeqId() == seqId));
       state
           .getCommittedAttributes()
           .stream()
@@ -299,12 +448,17 @@ public class TransactionLogObserver implements CommitLogObserver {
         break;
       case COMMITTED:
         if (request.getFlags() == Request.Flags.ROLLBACK) {
-          abortTransaction(transactionId, currentState);
-          return currentState.aborted();
+          return transitionToAborted(transactionId, currentState);
         }
         break;
     }
     return null;
+  }
+
+  private State transitionToAborted(String transactionId, State state) {
+    log.info("Transaction {} seqId {} rolled back", transactionId, state.getSequentialId());
+    abortTransaction(transactionId, state);
+    return state.aborted();
   }
 
   private State transitionToUpdated(State currentState, Request request) {
@@ -312,31 +466,35 @@ public class TransactionLogObserver implements CommitLogObserver {
   }
 
   private State transitionToCommitted(String transactionId, State currentState, Request request) {
-    if (!verifyNotInConflict(currentState.getInputAttributes())) {
-      log.info("Transaction {} aborted", transactionId);
-      return currentState.aborted();
+    synchronized (commitLock) {
+      if (!verifyNotInConflict(currentState.getSequentialId(), currentState.getInputAttributes())) {
+        log.info("Transaction {} seqId {} aborted", transactionId, currentState.getSequentialId());
+        return currentState.aborted();
+      }
+      State proposedState = currentState.committed(request.getOutputAttributes());
+      transactionPostCommit(proposedState);
+      log.info("Transaction {} seqId {} committed", transactionId, currentState.getSequentialId());
+      return proposedState;
     }
-    State proposedState = currentState.committed(request.getOutputAttributes());
-    transactionPostCommit(proposedState);
-    log.info("Transaction {} committed", transactionId);
-    return proposedState;
   }
 
   private State transitionToOpen(String transactionId, Request request) {
     long seqId = sequenceId.getAndIncrement();
     State proposedState =
-        State.open(seqId, System.currentTimeMillis(), new HashSet<>(request.getInputAttributes()));
-    if (verifyNotInConflict(request.getInputAttributes())) {
-      log.info("Transaction {} is now {}", transactionId, proposedState.getFlags());
+        State.open(seqId, currentTimeMillis(), new HashSet<>(request.getInputAttributes()));
+    if (verifyNotInConflict(seqId, request.getInputAttributes())) {
+      log.info("Transaction {} seqId {} is now {}", transactionId, seqId, proposedState.getFlags());
       return proposedState;
     }
-    log.info("Transaction {} aborted", transactionId);
+    log.info("Transaction {} seqId {} aborted", seqId, transactionId);
     return proposedState.aborted();
   }
 
-  private boolean verifyNotInConflict(Collection<KeyAttribute> inputAttributes) {
+  private boolean verifyNotInConflict(
+      long transactionSeqId, Collection<KeyAttribute> inputAttributes) {
+
     final List<Pair<KeyWithAttribute, Boolean>> affectedWildcards;
-    try (Locker lock = Locker.of(lastUpdateLock.readLock())) {
+    try (Locker lock = Locker.of(this.lock.readLock())) {
       affectedWildcards =
           inputAttributes
               .stream()
@@ -344,8 +502,9 @@ public class TransactionLogObserver implements CommitLogObserver {
               .map(KeyWithAttribute::of)
               .map(updatesToWildcard::get)
               .filter(Objects::nonNull)
-              .flatMap(List::stream)
-              .map(kwa -> Pair.of(kwa, lastIsNotTombstone(lastUpdateSeqId.get(kwa))))
+              .map(Map::entrySet)
+              .flatMap(Collection::stream)
+              .map(e -> Pair.of(e.getKey(), lastIsNotTombstone(lastUpdateSeqId.get(e.getKey()))))
               .collect(Collectors.toList());
     }
 
@@ -389,7 +548,7 @@ public class TransactionLogObserver implements CommitLogObserver {
       }
     }
 
-    try (Locker lock = Locker.of(lastUpdateLock.readLock())) {
+    try (Locker lock = Locker.of(this.lock.readLock())) {
       return inputAttributes
           .stream()
           .filter(ka -> !ka.isWildcardQuery())
@@ -400,10 +559,13 @@ public class TransactionLogObserver implements CommitLogObserver {
                 if (lastUpdated == null || lastUpdated.isEmpty()) {
                   return false;
                 }
-                return lastUpdated.last().getSeqId() > ka.getSequenceId()
-                    // we can accept somewhat stale data if the state is equal => both agree that
-                    // the field was deleted
-                    && (!lastUpdated.last().isTombstone() || !ka.isDelete());
+                long lastUpdatedSeqId = lastUpdated.last().getSeqId();
+                return lastUpdatedSeqId > transactionSeqId
+                    || (lastUpdatedSeqId > ka.getSequenceId()
+                        // we can accept somewhat stale data if the state is equal => both agree
+                        // that
+                        // the field was deleted
+                        && (!lastUpdated.last().isTombstone() || !ka.isDelete()));
               });
     }
   }
@@ -420,27 +582,38 @@ public class TransactionLogObserver implements CommitLogObserver {
     if (newUpdate.getAttributeDescriptor().equals(manager.getStateDesc())) {
       if (!newUpdate.isDelete()) {
         State state = Optionals.get(manager.getStateDesc().valueOf(newUpdate));
+        sequenceId.accumulateAndGet(state.getSequentialId() + 1, Math::max);
         manager.ensureTransactionOpen(newUpdate.getKey(), state);
-      } else {
-        // FIXME: state management
+        if (state.getFlags() == State.Flags.COMMITTED) {
+          transactionPostCommit(state);
+        } else if (state.getFlags() == State.Flags.ABORTED) {
+          abortTransaction(newUpdate.getKey(), state);
+        }
       }
     }
   }
 
   private void transactionPostCommit(State state) {
     long committedSeqId = state.getSequentialId();
-    try (Locker lock = Locker.of(lastUpdateLock.writeLock())) {
+    log.debug(
+        "Storing committed outputs {} of transaction seqId {}",
+        state.getCommittedAttributes(),
+        committedSeqId);
+
+    try (Locker lock = Locker.of(this.lock.writeLock())) {
       state
           .getCommittedAttributes()
           .forEach(
               ka -> {
                 KeyWithAttribute kwa = KeyWithAttribute.of(ka);
-                lastUpdateSeqId.put(kwa, SeqIdWithTombstone.create(committedSeqId, ka.isDelete()));
+                SeqIdWithTombstone seqIdWithTombstone =
+                    SeqIdWithTombstone.create(this, committedSeqId, ka.isDelete());
+                lastUpdateSeqId.put(kwa, seqIdWithTombstone);
                 if (ka.getAttributeDescriptor().isWildcard()) {
-                  List<KeyWithAttribute> list =
+                  Map<KeyWithAttribute, SeqIdWithTombstone> updated =
                       updatesToWildcard.computeIfAbsent(
-                          KeyWithAttribute.ofWildcard(ka), k -> new ArrayList<>());
-                  list.add(kwa);
+                          KeyWithAttribute.ofWildcard(ka), k -> new HashMap<>());
+                  updated.put(kwa, seqIdWithTombstone);
                 }
               });
     }
@@ -448,5 +621,10 @@ public class TransactionLogObserver implements CommitLogObserver {
 
   public void run(String name) {
     manager.runObservations(name, this::stateUpdate, this);
+  }
+
+  @VisibleForTesting
+  ServerTransactionManager getRawManager() {
+    return unsynchronizedManager;
   }
 }

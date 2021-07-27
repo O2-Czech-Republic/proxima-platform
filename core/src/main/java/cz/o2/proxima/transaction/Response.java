@@ -83,8 +83,8 @@ public class Response implements Serializable {
    *
    * @return response for duplicate transaction open requests.
    */
-  public Response duplicate() {
-    return new Response(Flags.DUPLICATE, -1, Long.MIN_VALUE, targetPartitionId);
+  public Response duplicate(long seqId) {
+    return new Response(Flags.DUPLICATE, seqId, Long.MIN_VALUE, targetPartitionId);
   }
 
   public enum Flags {
@@ -144,5 +144,9 @@ public class Response implements Serializable {
         "targetPartitionId should have been non-negative, got %s",
         targetPartitionId);
     return targetPartitionId;
+  }
+
+  public boolean hasPartitionIdForResponse() {
+    return targetPartitionId >= 0;
   }
 }

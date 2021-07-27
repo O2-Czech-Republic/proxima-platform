@@ -64,12 +64,7 @@ public class IngestServiceTest {
     ingest =
         new IngestService(server.repo, server.direct, server.transactionContext, server.scheduler);
     final ReplicationController controller = ReplicationController.of(server.repo);
-    try {
-      controller.runReplicationThreads();
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
-      throw ex;
-    }
+    controller.runReplicationThreads();
     latch = new CountDownLatch(1);
 
     responses = new LinkedBlockingQueue<>();
@@ -435,6 +430,29 @@ public class IngestServiceTest {
     Map<String, StreamElement> data = storage.getData();
     assertEquals(1, data.size());
     assertTrue(data.containsKey("/proxima/dummy/my-dummy-entity#data"));
+  }
+
+  @Test(timeout = 10000)
+  public void testIngestInvalidValue() throws Exception {
+
+    Rpc.Ingest request =
+        Rpc.Ingest.newBuilder()
+            .setEntity("test")
+            .setAttribute("intField")
+            .setUuid(UUID.randomUUID().toString())
+            .setKey("my-dummy-entity")
+            .setValue(ByteString.EMPTY)
+            .build();
+
+    flushToIngest(request);
+
+    assertEquals(1, responses.size());
+    Rpc.Status status = responses.poll();
+    assertEquals(412, status.getStatus());
+
+    InMemStorage storage = getInMemStorage();
+    Map<String, StreamElement> data = storage.getData();
+    assertTrue(data.isEmpty());
   }
 
   @Test(timeout = 10000)

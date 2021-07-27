@@ -18,17 +18,21 @@ package cz.o2.proxima.direct.transaction.manager;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import cz.o2.proxima.annotations.DeclaredThreadSafe;
 import cz.o2.proxima.direct.commitlog.ObserveHandle;
 import cz.o2.proxima.direct.core.CommitCallback;
 import cz.o2.proxima.direct.core.DirectDataOperator;
 import cz.o2.proxima.direct.core.OnlineAttributeWriter;
 import cz.o2.proxima.direct.randomaccess.KeyValue;
 import cz.o2.proxima.direct.transaction.ClientTransactionManager;
+import cz.o2.proxima.direct.transaction.TransactionResourceManager;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.Transaction;
 import cz.o2.proxima.direct.transaction.TransactionalOnlineAttributeWriter.TransactionRejectedException;
 import cz.o2.proxima.direct.view.CachedView;
+import cz.o2.proxima.repository.ConfigConstants;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Regular;
 import cz.o2.proxima.repository.EntityAwareAttributeDescriptor.Wildcard;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -46,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -68,8 +73,8 @@ import org.junit.Test;
 public class TransactionIT {
 
   private final Random random = new Random();
-  private final Repository repo =
-      Repository.of(ConfigFactory.load("transactions-it.conf").resolve());
+  private final Config config = ConfigFactory.load("transactions-it.conf").resolve();
+  private final Repository repo = Repository.of(config);
   private final EntityDescriptor user = repo.getEntity("user");
   private final Regular<Double> amount = Regular.of(user, user.getAttribute("amount"));
   private final Wildcard<Integer> numDevices = Wildcard.of(user, user.getAttribute("numDevices.*"));
@@ -81,8 +86,12 @@ public class TransactionIT {
 
   @Before
   public void setUp() {
-    TransactionLogObserver observer = new TransactionLogObserver(direct);
-    client = direct.getClientTransactionManager();
+    TransactionLogObserver observer = new LimitedParallelismTransactionLogObserver(direct);
+    Map<String, Object> cfg =
+        config.hasPath(ConfigConstants.TRANSACTIONS)
+            ? config.getObject(ConfigConstants.TRANSACTIONS).unwrapped()
+            : Collections.emptyMap();
+    client = new TransactionResourceManager(direct, cfg);
     view = Optionals.get(direct.getCachedView(amount));
     view.assign(view.getPartitions());
     observer.run("transaction-observer");
@@ -107,7 +116,7 @@ public class TransactionIT {
     // we randomly reshuffle random amounts between users and then we verify, that the sum is zero
 
     int numThreads = 20;
-    int numSwaps = 1000;
+    int numSwaps = 500;
     int numUsers = 20;
     CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
@@ -143,7 +152,7 @@ public class TransactionIT {
 
     int numWrites = 1000;
     int numThreads = 10;
-    int numUsers = 100;
+    int numUsers = 20;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
     ExecutorService service = direct.getContext().getExecutorService();
@@ -169,6 +178,7 @@ public class TransactionIT {
     if (err.get() != null) {
       throw new RuntimeException(err.get());
     }
+    TimeUnit.SECONDS.sleep(1);
     verifyNumDevicesMatch(numWrites, numUsers);
   }
 
@@ -205,6 +215,7 @@ public class TransactionIT {
     }
 
     latch.await();
+    TimeUnit.SECONDS.sleep(1);
     if (err.get() != null) {
       throw new RuntimeException(err.get());
     }
@@ -217,7 +228,7 @@ public class TransactionIT {
     // a value is read from attribute X, incremented and written to attribute Y and deleted from X
     // if value is not present in attribute X, it is read from attribute Y, and written to X
 
-    int numWrites = 500;
+    int numWrites = 200;
     int numThreads = 10;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
@@ -246,6 +257,7 @@ public class TransactionIT {
     }
 
     latch.await();
+    TimeUnit.SECONDS.sleep(1);
     if (err.get() != null) {
       throw new RuntimeException(err.get());
     }
@@ -258,7 +270,7 @@ public class TransactionIT {
     // a value is read from attribute X, incremented and written to attribute Y and deleted from X
     // if value is not present in attribute X, it is read from attribute Y, and written to X
 
-    int numWrites = 300;
+    int numWrites = 100;
     int numThreads = 10;
 
     CountDownLatch latch = new CountDownLatch(numThreads);
@@ -271,6 +283,7 @@ public class TransactionIT {
     // seed value
     writeSeedValue(attrA, key);
     AtomicInteger failedWrites = new AtomicInteger();
+    AtomicInteger succeeded = new AtomicInteger();
     for (int i = 0; i < numThreads; i++) {
       service.submit(
           () -> {
@@ -292,6 +305,7 @@ public class TransactionIT {
     }
 
     latch.await();
+    TimeUnit.SECONDS.sleep(1);
     if (err.get() != null) {
       throw new RuntimeException(err.get());
     }
@@ -321,7 +335,7 @@ public class TransactionIT {
   private boolean swapValueBetween(String key, String attrA, String attrB, boolean canFailWrite)
       throws InterruptedException {
 
-    long abortWaitDuration = (long) (random.nextDouble() * 40 + 10);
+    long retrySleep = 1;
     do {
       String transactionId = UUID.randomUUID().toString();
       BlockingQueue<Response> responses = new ArrayBlockingQueue<>(1);
@@ -344,9 +358,8 @@ public class TransactionIT {
           fetched);
 
       Response response = responses.take();
-      if (response.getFlags() != Flags.OPEN) {
-        TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
-        abortWaitDuration = extendWaitDuration(abortWaitDuration, random);
+      if (response.getFlags() != Flags.OPEN) {;
+        TimeUnit.MILLISECONDS.sleep(Math.min(8, retrySleep *= 2));
         continue;
       }
       long sequentialId = response.getSeqId();
@@ -366,8 +379,7 @@ public class TransactionIT {
 
       response = responses.take();
       if (response.getFlags() != Flags.COMMITTED) {
-        TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
-        abortWaitDuration = extendWaitDuration(abortWaitDuration, random);
+        TimeUnit.MILLISECONDS.sleep(Math.min(8, retrySleep *= 2));
         continue;
       }
 
@@ -416,7 +428,6 @@ public class TransactionIT {
   }
 
   private void removeSingleDevice(int numUsers) throws InterruptedException {
-    long abortWaitDuration = (long) (random.nextDouble() * 40 + 10);
     do {
       TransactionalOnlineAttributeWriter writer =
           Optionals.get(direct.getWriter(device)).transactional();
@@ -445,8 +456,7 @@ public class TransactionIT {
         latch.await();
         break;
       } catch (TransactionRejectedException e) {
-        TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
-        abortWaitDuration = extendWaitDuration(abortWaitDuration, random);
+        // repeat
       }
 
     } while (true);
@@ -459,7 +469,6 @@ public class TransactionIT {
   private void writeSingleDevice(int numUsers, boolean intoAll) throws InterruptedException {
     String name = UUID.randomUUID().toString();
     String userId = "user" + random.nextInt(numUsers);
-    long abortWaitDuration = (long) (random.nextDouble() * 40 + 10);
     do {
       TransactionalOnlineAttributeWriter writer =
           Optionals.get(direct.getWriter(device)).transactional();
@@ -486,8 +495,7 @@ public class TransactionIT {
         latch.await();
         break;
       } catch (TransactionRejectedException e) {
-        TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
-        abortWaitDuration = extendWaitDuration(abortWaitDuration, random);
+        // repeat
       }
     } while (true);
   }
@@ -506,7 +514,7 @@ public class TransactionIT {
       if (inCountAll) {
         Optional<KeyValue<Integer>> numAllDevices =
             view.get(userId, numDevices.toAttributePrefix() + "all", numDevices);
-        numDeviceAttrs.set(numAllDevices.get().getParsedRequired());
+        numDeviceAttrs.set(numAllDevices.map(KeyValue::getParsedRequired).orElse(0));
       } else {
         view.scanWildcard(userId, numDevices, d -> numDeviceAttrs.incrementAndGet());
       }
@@ -537,7 +545,6 @@ public class TransactionIT {
     String userFirst = "user" + first;
     String userSecond = "user" + second;
     double swap = random.nextDouble() * 1000;
-    long abortWaitDuration = (long) (random.nextDouble() * 40 + 10);
     TransactionalOnlineAttributeWriter writer =
         Optionals.get(direct.getWriter(amount)).transactional();
     do {
@@ -565,13 +572,15 @@ public class TransactionIT {
         latch.await();
         break;
       } catch (TransactionRejectedException e) {
-        TimeUnit.MILLISECONDS.sleep(abortWaitDuration);
-        abortWaitDuration = extendWaitDuration(abortWaitDuration, random);
+        // repeat
       }
     } while (true);
   }
 
-  private long extendWaitDuration(long abortWaitDuration, Random random) {
-    return (long) (abortWaitDuration * (random.nextDouble() / 2 + 1.75));
+  @DeclaredThreadSafe(allowedParallelism = 4)
+  private static class LimitedParallelismTransactionLogObserver extends TransactionLogObserver {
+    public LimitedParallelismTransactionLogObserver(DirectDataOperator direct) {
+      super(direct);
+    }
   }
 }

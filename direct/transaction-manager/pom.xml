@@ -106,6 +106,21 @@
 
     <dependency>
       <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-io-kafka</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
+      <artifactId>proxima-direct-io-kafka</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>cz.o2.proxima</groupId>
       <artifactId>proxima-scheme-proto</artifactId>
       <version>${project.version}</version>
       <type>test-jar</type>
@@ -122,6 +137,11 @@
       <artifactId>guava</artifactId>
       <version>${guava.version}</version>
       <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
     </dependency>
 
     <dependency>

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.beam.direct.io;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.beam.core.BeamDataOperator;
 import cz.o2.proxima.beam.core.DataAccessor;
 import cz.o2.proxima.beam.core.DataAccessorFactory;
@@ -30,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
  * that can be used when no native implementation is available.
  */
 @Slf4j
+@AutoService(DataAccessorFactory.class)
 public class DirectDataAccessorFactory implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;

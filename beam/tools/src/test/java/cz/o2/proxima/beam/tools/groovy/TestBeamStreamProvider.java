@@ -15,7 +15,9 @@
  */
 package cz.o2.proxima.beam.tools.groovy;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.functional.UnaryFunction;
+import cz.o2.proxima.tools.groovy.StreamProvider;
 import cz.o2.proxima.util.ExceptionUtils;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +32,7 @@ import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
 import org.apache.flink.runtime.minicluster.MiniClusterConfiguration.Builder;
 
 @Slf4j
+@AutoService(StreamProvider.class)
 public class TestBeamStreamProvider extends BeamStreamProvider {
 
   static Class<? extends PipelineRunner<?>> runner = DirectRunner.class;

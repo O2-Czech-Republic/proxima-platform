@@ -15,6 +15,8 @@
  */
 package cz.o2.proxima.scheme;
 
+import com.google.auto.service.AutoService;
+import cz.o2.proxima.annotations.Experimental;
 import java.net.URI;
 
 /**
@@ -23,6 +25,8 @@ import java.net.URI;
  * <p>Not thet this serializer doesn't parse the JSON, it just enables handling the input String as
  * already serialized JSON type.
  */
+@Experimental
+@AutoService(ValueSerializerFactory.class)
 public class JsonSerializer implements ValueSerializerFactory {
 
   private static final long serialVersionUID = 1L;

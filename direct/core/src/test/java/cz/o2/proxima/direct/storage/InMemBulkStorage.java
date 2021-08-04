@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.storage;
 
+import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.direct.batch.BatchLogObserver;
 import cz.o2.proxima.direct.batch.BatchLogObservers;
@@ -48,6 +49,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /** Storage acting as a bulk in memory storage. */
 @Slf4j
+@AutoService(DataAccessorFactory.class)
 public class InMemBulkStorage implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;

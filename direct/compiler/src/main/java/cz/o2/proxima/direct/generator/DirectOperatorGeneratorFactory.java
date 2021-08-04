@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.generator;
 
+import com.google.auto.service.AutoService;
 import com.google.common.collect.Sets;
 import cz.o2.proxima.direct.commitlog.CommitLogReader;
 import cz.o2.proxima.direct.core.DirectAttributeFamilyDescriptor;
@@ -34,6 +35,7 @@ import java.util.HashMap;
 import java.util.Set;
 
 /** {@link OperatorGeneratorFactory} for {@link DirectDataOperator}. */
+@AutoService(OperatorGeneratorFactory.class)
 public class DirectOperatorGeneratorFactory implements OperatorGeneratorFactory {
 
   static class Generator implements OperatorGenerator {

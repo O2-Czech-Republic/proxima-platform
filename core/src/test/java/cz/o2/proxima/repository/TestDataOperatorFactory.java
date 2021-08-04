@@ -15,10 +15,12 @@
  */
 package cz.o2.proxima.repository;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.repository.TestDataOperatorFactory.TestDataOperator;
 import lombok.Getter;
 
 /** A {@link DataOperatorFactory} for testing purposes. */
+@AutoService(DataOperatorFactory.class)
 public class TestDataOperatorFactory implements DataOperatorFactory<TestDataOperator> {
 
   public static class TestDataOperator implements DataOperator {

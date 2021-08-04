@@ -20,6 +20,7 @@ import static cz.o2.proxima.direct.commitlog.ObserverUtils.asRepartitionContext;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -113,6 +114,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /** InMemStorage for testing purposes. */
 @Slf4j
+@AutoService(DataAccessorFactory.class)
 public class InMemStorage implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;

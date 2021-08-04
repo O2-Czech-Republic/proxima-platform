@@ -108,6 +108,7 @@
     <sonar.login>21787938b088389dc6edfdf1cf4008e91b81e70b</sonar.login>
     <error-prone.version>2.4.0</error-prone.version>
     <coreShade>cz.o2.proxima.internal.shaded</coreShade>
+    <autoservice.version>1.0</autoservice.version>
     <lombok.version>1.18.20</lombok.version>
     <spotless.version>2.0.1</spotless.version>
     <!-- apache beam related properties -->
@@ -292,6 +293,11 @@
                   <artifactId>lombok</artifactId>
                   <version>${lombok.version}</version>
                 </path>
+                <path>
+                  <groupId>com.google.auto.service</groupId>
+                  <artifactId>auto-service</artifactId> 
+                  <version>${autoservice.version}</version>
+                </path>
               </annotationProcessorPaths>
             </configuration>
           </plugin>
@@ -342,6 +348,11 @@
                   <groupId>org.projectlombok</groupId>
                   <artifactId>lombok</artifactId>
                   <version>${lombok.version}</version>
+                </path>
+                <path>
+                  <groupId>com.google.auto.service</groupId>
+                  <artifactId>auto-service</artifactId> 
+                  <version>${autoservice.version}</version>
                 </path>
               </annotationProcessorPaths>
             </configuration>
@@ -594,13 +605,6 @@
     <dependencies>
 
       <dependency>
-        <groupId>org.projectlombok</groupId>
-        <artifactId>lombok</artifactId>
-        <version>${lombok.version}</version>
-        <scope>provided</scope>
-      </dependency>
-
-      <dependency>
         <groupId>io.grpc</groupId>
         <artifactId>grpc-all</artifactId>
         <version>${grpc.version}</version>
@@ -647,6 +651,20 @@
         <groupId>commons-io</groupId>
         <artifactId>commons-io</artifactId>
         <version>${commons-io.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.google.auto.service</groupId>
+        <artifactId>auto-service</artifactId> 
+        <version>${autoservice.version}</version>
+        <scope>provided</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok.version}</version>
+        <scope>provided</scope>
       </dependency>
 
       <dependency>

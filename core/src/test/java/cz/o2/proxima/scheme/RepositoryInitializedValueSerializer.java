@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.repository.Repository;
 import java.net.URI;
 import java.util.Optional;
@@ -23,6 +24,7 @@ import lombok.Getter;
 public class RepositoryInitializedValueSerializer
     implements ValueSerializer<Object>, ValueSerializer.InitializedWithRepository {
 
+  @AutoService(ValueSerializerFactory.class)
   public static class Factory implements ValueSerializerFactory {
 
     @Override

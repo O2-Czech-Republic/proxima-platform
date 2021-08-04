@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.s3;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.direct.core.DataAccessor;
 import cz.o2.proxima.direct.core.DataAccessorFactory;
 import cz.o2.proxima.direct.core.DirectDataOperator;
@@ -22,6 +23,7 @@ import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import java.net.URI;
 
 /** A {@link DataAccessorFactory} for gcloud storage. */
+@AutoService(DataAccessorFactory.class)
 public class S3StorageDescriptor implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;

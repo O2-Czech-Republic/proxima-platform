@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.direct.core;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.repository.AttributeFamilyDescriptor;
 import cz.o2.proxima.repository.EntityDescriptor;
@@ -25,6 +26,7 @@ import lombok.Getter;
 
 /** Dummy storage printing data to stdout. */
 @Stable
+@AutoService(DataAccessorFactory.class)
 public class StdoutStorage implements DataAccessorFactory {
 
   private static final long serialVersionUID = 1L;

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme.proto;
 
+import com.google.auto.service.AutoService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
@@ -63,6 +64,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /** Serializer from protobuffers. */
 @Slf4j
+@AutoService(ValueSerializerFactory.class)
 public class ProtoSerializerFactory implements ValueSerializerFactory {
 
   private static final long serialVersionUID = 1L;

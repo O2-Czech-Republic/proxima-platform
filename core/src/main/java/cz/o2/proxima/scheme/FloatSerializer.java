@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import java.net.URI;
@@ -26,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 /** {@link ValueSerializerFactory} for floats. */
 @Stable
 @Slf4j
+@AutoService(ValueSerializerFactory.class)
 public class FloatSerializer implements ValueSerializerFactory {
 
   private static final long serialVersionUID = 1L;

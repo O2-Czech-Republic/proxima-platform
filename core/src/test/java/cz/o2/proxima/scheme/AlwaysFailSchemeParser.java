@@ -15,12 +15,14 @@
  */
 package cz.o2.proxima.scheme;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.scheme.SchemaDescriptors.SchemaTypeDescriptor;
 import java.net.URI;
 import java.util.Optional;
 
 /** This scheme parser always fails the parsing. */
 @SuppressWarnings("unchecked")
+@AutoService(ValueSerializerFactory.class)
 public class AlwaysFailSchemeParser implements ValueSerializerFactory {
 
   private static final long serialVersionUID = 1L;

@@ -15,6 +15,7 @@
  */
 package cz.o2.proxima.scheme;
 
+import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import cz.o2.proxima.annotations.Stable;
 import cz.o2.proxima.functional.UnaryFunction;
@@ -26,6 +27,7 @@ import java.util.Optional;
 
 /** Validator of bytes scheme. */
 @Stable
+@AutoService(ValueSerializerFactory.class)
 public class BytesSerializer implements ValueSerializerFactory {
 
   private static final long serialVersionUID = 1L;

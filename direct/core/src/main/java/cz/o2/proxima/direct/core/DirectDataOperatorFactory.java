@@ -15,11 +15,13 @@
  */
 package cz.o2.proxima.direct.core;
 
+import com.google.auto.service.AutoService;
 import cz.o2.proxima.repository.DataOperator;
 import cz.o2.proxima.repository.DataOperatorFactory;
 import cz.o2.proxima.repository.Repository;
 
 /** Factory for {@link DirectDataOperator}. */
+@AutoService(DataOperatorFactory.class)
 public class DirectDataOperatorFactory implements DataOperatorFactory<DirectDataOperator> {
 
   @Override
